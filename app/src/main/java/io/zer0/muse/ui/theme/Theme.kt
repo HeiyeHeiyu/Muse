@@ -270,15 +270,20 @@ private fun ColorScheme.toHighContrast(darkTheme: Boolean): ColorScheme =
 private fun ColorScheme.toWhiterNeutrals(darkTheme: Boolean): ColorScheme =
     if (darkTheme) {
         copy(
-            surfaceDim = liftTowardWhite(surfaceDim, 0.03f),
-            surfaceBright = liftTowardWhite(surfaceBright, 0.06f),
-            surfaceContainerLowest = liftTowardWhite(surfaceContainerLowest, 0.03f),
-            surfaceContainerLow = liftTowardWhite(surfaceContainerLow, 0.06f),
-            surfaceContainer = liftTowardWhite(surfaceContainer, 0.10f),
-            surfaceContainerHigh = liftTowardWhite(surfaceContainerHigh, 0.13f),
-            surfaceContainerHighest = liftTowardWhite(surfaceContainerHighest, 0.16f),
-            surfaceVariant = liftTowardWhite(surfaceVariant, 0.14f),
-            outlineVariant = liftTowardWhite(outlineVariant, 0.14f),
+            // v2.x 深色双平面(ColorOS 17 深色校准):底色向 OLED 纯黑压一档(与浅色"底色压深"同构);
+            // 实测参照:ColorOS 深色 = #000 底 / #1A1A1A 卡,层级靠底-卡明度差。
+            background = darkenToward(background, DOUBLE_PLANE_DARK_BG_PUSH),
+            surface = darkenToward(surface, DOUBLE_PLANE_DARK_BG_PUSH),
+            surfaceDim = darkenToward(surfaceDim, DOUBLE_PLANE_DARK_BG_PUSH),
+            // 卡面灰块适度收敛(原 lift 略高,与深底搭配时卡偏亮;回收约 30%,保留"雾面不闷"观感)。
+            surfaceBright = liftTowardWhite(surfaceBright, 0.04f),
+            surfaceContainerLowest = liftTowardWhite(surfaceContainerLowest, 0.02f),
+            surfaceContainerLow = liftTowardWhite(surfaceContainerLow, 0.04f),
+            surfaceContainer = liftTowardWhite(surfaceContainer, 0.07f),
+            surfaceContainerHigh = liftTowardWhite(surfaceContainerHigh, 0.09f),
+            surfaceContainerHighest = liftTowardWhite(surfaceContainerHighest, 0.11f),
+            surfaceVariant = liftTowardWhite(surfaceVariant, 0.10f),
+            outlineVariant = liftTowardWhite(outlineVariant, 0.10f),
         )
     } else {
         copy(
@@ -297,6 +302,14 @@ private fun ColorScheme.toWhiterNeutrals(darkTheme: Boolean): ColorScheme =
 
 /** 「双平面」浅色模式底色压深幅度：1 - 0.955 = 4.5%。（校准参数，样张迭代时调整。） */
 private const val DOUBLE_PLANE_BG_PUSH = 0.045f
+
+/**
+ * 「双平面」深色模式底色压黑幅度（ColorOS 17 深色校准，v2.x）：
+ * 向 OLED 纯黑压 75%（预设近黑底如 #101014 → #040405 级别），
+ * 让"底 vs 卡"明度差成为深色层级的主要载体。
+ * （校准参数：随深色截图/实机观感迭代时单点调整。）
+ */
+private const val DOUBLE_PLANE_DARK_BG_PUSH = 0.75f
 
 /** 把颜色向纯白拉 [amount](0..1)，只改亮度不做色相偏移。 */
 private fun liftTowardWhite(color: Color, amount: Float): Color = Color(
