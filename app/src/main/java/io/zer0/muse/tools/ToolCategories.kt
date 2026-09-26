@@ -123,6 +123,8 @@ object ToolCategories {
         "recall_experience",
         "record_experience",
         "search_memory",
+        "save_memory",
+        "delete_memory",
         // 任务卡 / 通知 / 状态
         "todo_write",
         "show_card",
@@ -168,6 +170,9 @@ object ToolCategories {
         // 插件市场(v2.0.1)——检索与安装外部插件均属扩展能力
         "plugin_market_search",
         "plugin_market_install",
+        // v2.x: 卸载/启停插件
+        "plugin_market_uninstall",
+        "plugin_market_set_enabled",
         // UI 自动化(需无障碍权限,高风险)
         "ui_get_page_info",
         "ui_click",

@@ -7,7 +7,9 @@ import io.zer0.muse.data.plugin.market.PluginMarketToolGateway
  *
  *  - [TOOL_MARKET_SEARCH] 只读检索（SAFE）：列出市场插件与安装/信任状态；
  *  - [TOOL_MARKET_INSTALL] 下载并安装（HIGH，必须走会话审批）：发行者未受信任时
- *    先返回待确认信息，用户确认后带 trust_publisher=true 重试。
+ *    先返回待确认信息，用户确认后带 trust_publisher=true 重试；
+ *  - [TOOL_MARKET_UNINSTALL] 卸载已安装插件（HIGH）：注册表、目录、归属技能与保留版本一并清理；
+ *  - [TOOL_MARKET_SET_ENABLED] 启用/停用已安装插件（HIGH）：停用保留安装，可随时恢复。
  *
  * 安全：安装复用插件管理页同一套审查链路（目录验签、发行者签名、内容摘要、
  * 安装协调器），不提供绕过用户审批或信任根的任何路径。见
@@ -59,6 +61,41 @@ class PluginMarketToolsRegistrar(
             val trustPublisher = args["trust_publisher"]?.equals("true", ignoreCase = true) == true
             marketService.install(pluginId, trustPublisher)
         }
+
+        toolRegistry.register(
+            ToolRegistry.ToolDef(
+                name = TOOL_MARKET_UNINSTALL,
+                description = "卸载一个已安装的插件（注册表、插件目录、归属技能与保留版本一并清理，不可恢复）。" +
+                    "plugin_id 可用 plugin_market_search 获取，或让用户从插件管理页确认。执行会弹审批卡。",
+                parameters = mapOf("plugin_id" to "必填,已安装插件的 id"),
+                required = setOf("plugin_id"),
+                category = "built-in",
+                riskLevel = ToolRiskLevel.HIGH,
+            ),
+        ) { args ->
+            marketService.uninstall(args["plugin_id"].orEmpty())
+        }
+
+        toolRegistry.register(
+            ToolRegistry.ToolDef(
+                name = TOOL_MARKET_SET_ENABLED,
+                description = "启用或停用已安装的插件。停用（enabled=false）只冻结插件及其技能，安装保留、可随时恢复；" +
+                    "彻底不想要了再用 plugin_market_uninstall。执行会弹审批卡。",
+                parameters = mapOf(
+                    "plugin_id" to "必填,已安装插件的 id",
+                    "enabled" to "必填,true=启用,false=停用",
+                ),
+                required = setOf("plugin_id", "enabled"),
+                category = "built-in",
+                parameterTypes = mapOf("enabled" to "boolean"),
+                riskLevel = ToolRiskLevel.HIGH,
+            ),
+        ) { args ->
+            val pluginId = args["plugin_id"].orEmpty()
+            if (pluginId.isBlank()) return@register "操作失败：缺少 plugin_id。"
+            val enabled = args["enabled"]?.equals("true", ignoreCase = true) == true
+            marketService.setEnabled(pluginId, enabled)
+        }
     }
 
     companion object {
@@ -67,5 +104,11 @@ class PluginMarketToolsRegistrar(
 
         /** 安装插件（HIGH，走审批）。 */
         const val TOOL_MARKET_INSTALL = "plugin_market_install"
+
+        /** 卸载已安装插件（HIGH，走审批）。 */
+        const val TOOL_MARKET_UNINSTALL = "plugin_market_uninstall"
+
+        /** 启用/停用已安装插件（HIGH，走审批）。 */
+        const val TOOL_MARKET_SET_ENABLED = "plugin_market_set_enabled"
     }
 }

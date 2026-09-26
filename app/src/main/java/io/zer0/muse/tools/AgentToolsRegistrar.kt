@@ -17,6 +17,7 @@ import kotlinx.coroutines.CoroutineScope
  *  - pin_memory / unpin_memory（Phase 1C）
  *  - recall_experience / record_experience（Phase 3B）
  *  - search_memory（Phase 1 v6）
+ *  - save_memory / delete_memory（v2.x: 记忆库自管 — 显式写入/删除）
  *  - todo_write（Phase 4A）
  *  - show_card（Phase 4B）
  *  - notify（Phase 4C）
@@ -69,6 +70,16 @@ class AgentToolsRegistrar(
         toolRegistry.registerWithContext(SearchMemoryTool.toolDef()) { args, executionContext ->
             val scopedStore = factDbProvider?.getFactStore(executionContext.assistantId ?: "default") ?: factStore
             SearchMemoryTool.execute(args, scopedStore, executionContext)
+        }
+
+        // v2.x: 记忆库显式写入/删除 — 助手自管记忆能力(作用域/空间走执行上下文,不可伪造)
+        toolRegistry.registerWithContext(SaveMemoryTool.toolDef()) { args, executionContext ->
+            val scopedStore = factDbProvider?.getFactStore(executionContext.assistantId ?: "default") ?: factStore
+            SaveMemoryTool.execute(args, scopedStore, executionContext)
+        }
+        toolRegistry.registerWithContext(DeleteMemoryTool.toolDef()) { args, executionContext ->
+            val scopedStore = factDbProvider?.getFactStore(executionContext.assistantId ?: "default") ?: factStore
+            DeleteMemoryTool.execute(args, scopedStore, executionContext)
         }
 
         // 普通聊天里的“许愿”：把当前助手绑定到主动消息调度器。

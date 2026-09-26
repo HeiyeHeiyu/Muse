@@ -17,7 +17,8 @@ object SearchMemoryTool {
         description = "Search the long-term memory store for facts about the user. " +
             "Use this tool when the user asks something that might depend on their preferences, " +
             "history, identity, goals, or previously discussed topics. " +
-            "For casual chat or general knowledge, this tool is not needed.",
+            "For casual chat or general knowledge, this tool is not needed. " +
+            "Each result includes its fact id, which can be passed to delete_memory.",
         parameters = mapOf(
             "query" to "Required. Keywords to search for in memory facts.",
             "tags" to "Optional. Comma-separated tag names to filter by (OR logic).",
@@ -89,6 +90,7 @@ object SearchMemoryTool {
             appendLine()
             facts.forEachIndexed { index, fact ->
                 appendLine("${index + 1}. ${fact.fact}")
+                appendLine("   ID: ${fact.id}")
                 if (fact.tags.isNotEmpty()) {
                     appendLine("   Tags: ${fact.tags.joinToString(", ")}")
                 }

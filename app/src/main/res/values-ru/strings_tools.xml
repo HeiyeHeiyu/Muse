@@ -114,6 +114,8 @@
     <string name="tool_summary_ping_host">Проверил доступность хоста</string>
     <string name="tool_summary_plugin_market_install">Установил плагин</string>
     <string name="tool_summary_plugin_market_search">Искал в магазине плагинов</string>
+    <string name="tool_summary_plugin_market_uninstall">Удалил плагин</string>
+    <string name="tool_summary_plugin_market_set_enabled">Включил или отключил плагин</string>
     <string name="tool_summary_proactive_message_wish">Сохранил проактивное сообщение</string>
     <string name="tool_summary_quick_note_add">Создал быструю заметку</string>
     <string name="tool_summary_quick_note_delete">Удалил быструю заметку</string>
@@ -188,6 +190,8 @@
     <string name="tool_label_ping_host">Ping</string>
     <string name="tool_label_plugin_market_install">Установить плагин</string>
     <string name="tool_label_plugin_market_search">Магазин плагинов</string>
+    <string name="tool_label_plugin_market_uninstall">Удалить плагин</string>
+    <string name="tool_label_plugin_market_set_enabled">Включить/отключить плагин</string>
     <string name="tool_label_quick_note_add">Новая заметка</string>
     <string name="tool_label_quick_note_list">Быстрые заметки</string>
     <string name="tool_label_read_file">Читать файл</string>

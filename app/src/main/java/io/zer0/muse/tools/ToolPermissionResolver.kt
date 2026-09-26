@@ -314,6 +314,9 @@ object ToolPermissionResolver {
         "install_skill" to ToolRiskLevel.HIGH,
         // v2.0.1: 安装市场插件 = 引入外部可执行代码,与 install_skill 同级
         "plugin_market_install" to ToolRiskLevel.HIGH,
+        // v2.x: 插件生命周期变更(卸载/启停) — 与安装同口径,归 HIGH
+        "plugin_market_uninstall" to ToolRiskLevel.HIGH,
+        "plugin_market_set_enabled" to ToolRiskLevel.HIGH,
         // v1.x: update_skill 与 install_skill 同级 — 二者都能改写助手后续要执行的 skill 定义;
         // 内容仍经 SkillImporter 白名单/注入黑名单校验,且只允许修改用户自建 skill
         "update_skill" to ToolRiskLevel.HIGH,
@@ -338,6 +341,8 @@ object ToolPermissionResolver {
         // 长期记忆 / 跨助手 / 通讯 归 HIGH
         "pin_memory" to ToolRiskLevel.HIGH,
         "unpin_memory" to ToolRiskLevel.HIGH,
+        "save_memory" to ToolRiskLevel.HIGH,
+        "delete_memory" to ToolRiskLevel.HIGH,
         "subagent_task" to ToolRiskLevel.HIGH,
         "make_phone_call" to ToolRiskLevel.HIGH,
         "toggle_wifi" to ToolRiskLevel.HIGH,
@@ -369,6 +374,8 @@ object ToolPermissionResolver {
         "add_calendar_event",
         "pin_memory",
         "unpin_memory",
+        "save_memory",
+        "delete_memory",
         "subagent_task",
         // v1.0.52 P2-1: 同步阻塞式独立子 agent,与 subagent_task 同列 HIGH
         "subagent_run",
@@ -473,5 +480,8 @@ object ToolPermissionResolver {
         "mcp_mgmt_configure",
         // v2.0.1: 安装外部插件会引入可执行代码,完全放权模式也必须保留审批
         "plugin_market_install",
+        // v2.x: 卸载/启停同属插件生命周期变更,保留审批
+        "plugin_market_uninstall",
+        "plugin_market_set_enabled",
     )
 }

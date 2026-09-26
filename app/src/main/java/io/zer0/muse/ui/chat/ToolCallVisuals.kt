@@ -176,6 +176,8 @@ internal object ToolCallVisuals {
         "skill_run" to MuseIcons.puzzle,
         "plugin_market_search" to MuseIcons.search,
         "plugin_market_install" to MuseIcons.puzzle,
+        "plugin_market_uninstall" to MuseIcons.trash,
+        "plugin_market_set_enabled" to MuseIcons.power,
         "mcp_tool" to MuseIcons.plug,
         // 通知 / 主动消息 / 卡片
         "notify" to MuseIcons.bell,
@@ -377,6 +379,8 @@ internal object ToolCallVisuals {
         "cover_generation" to R.string.tool_summary_cover_generation,
         "plugin_market_search" to R.string.tool_summary_plugin_market_search,
         "plugin_market_install" to R.string.tool_summary_plugin_market_install,
+        "plugin_market_uninstall" to R.string.tool_summary_plugin_market_uninstall,
+        "plugin_market_set_enabled" to R.string.tool_summary_plugin_market_set_enabled,
     )
 
     private fun prefixVerb(toolName: String): String? = when {
@@ -445,6 +449,8 @@ internal object ToolCallVisuals {
             "download" -> argString(args, "url")
             "take_photo" -> ""
             "pin_memory", "unpin_memory" -> argString(args, "query") ?: result.take(30)
+            "save_memory" -> argString(args, "content") ?: result.take(30)
+            "delete_memory" -> argString(args, "match") ?: argString(args, "id") ?: result.take(30)
             else -> genericTarget(args)
         }
         return raw?.let { clean(it) }.orEmpty()
@@ -581,6 +587,8 @@ internal object ToolCallVisuals {
         "show_card" to R.string.tool_label_show_card,
         "plugin_market_search" to R.string.tool_label_plugin_market_search,
         "plugin_market_install" to R.string.tool_label_plugin_market_install,
+        "plugin_market_uninstall" to R.string.tool_label_plugin_market_uninstall,
+        "plugin_market_set_enabled" to R.string.tool_label_plugin_market_set_enabled,
     )
 
     private fun prettify(name: String): String =

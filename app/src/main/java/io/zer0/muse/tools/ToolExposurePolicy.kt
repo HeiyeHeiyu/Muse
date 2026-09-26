@@ -132,8 +132,11 @@ object ToolExposurePolicy {
             toolNames = setOf("clipboard_read", "clipboard_write", "get_foreground_app"),
         ),
         ToolFamily(
-            keywords = setOf("记忆", "记住", "回忆", "经验", "memory"),
-            toolNames = setOf("pin_memory", "unpin_memory", "recall_experience", "record_experience", "search_memory"),
+            keywords = setOf("记忆", "记住", "回忆", "经验", "memory", "忘掉", "忘记", "删掉", "forget"),
+            toolNames = setOf(
+                "pin_memory", "unpin_memory", "recall_experience", "record_experience",
+                "search_memory", "save_memory", "delete_memory",
+            ),
         ),
         ToolFamily(
             keywords = setOf("笔记", "速记", "知识库", "资源", "note", "resource"),

@@ -20,4 +20,10 @@ interface PluginMarketToolGateway {
      *   发行者的插件时为 false，工具会返回待确认信息而不落盘）
      */
     suspend fun install(entryId: String, trustPublisher: Boolean): String
+
+    /** 卸载已安装插件（注册表、目录、归属技能与保留版本一并清理）。返回给模型阅读的结果。 */
+    suspend fun uninstall(pluginId: String): String
+
+    /** 启用/停用已安装插件（停用保留安装，可随时恢复）。返回给模型阅读的结果。 */
+    suspend fun setEnabled(pluginId: String, enabled: Boolean): String
 }

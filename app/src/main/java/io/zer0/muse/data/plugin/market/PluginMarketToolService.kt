@@ -49,6 +49,41 @@ internal class PluginMarketToolService(
         return runInstall(id, trustPublisher)
     }
 
+    /** 卸载已安装插件；返回给模型阅读的执行结果。 */
+    override suspend fun uninstall(pluginId: String): String {
+        val id = pluginId.trim()
+        if (id.isBlank()) return "卸载失败：缺少 plugin_id。"
+        val installed = pluginManager.list().firstOrNull { it.id == id }
+            ?: return "未找到已安装的插件「$id」。可以先用 plugin_market_search 查看市场里的插件 id。"
+        return try {
+            pluginManager.uninstall(id)
+            "已卸载插件「${installed.name}」($id)，其技能与本地副本一并清理。"
+        } catch (e: Exception) {
+            "卸载失败：${e.message ?: "未知错误"}"
+        }
+    }
+
+    /** 启用/停用已安装插件；返回给模型阅读的执行结果。 */
+    override suspend fun setEnabled(pluginId: String, enabled: Boolean): String {
+        val id = pluginId.trim()
+        if (id.isBlank()) return "操作失败：缺少 plugin_id。"
+        val installed = pluginManager.list().firstOrNull { it.id == id }
+            ?: return "未找到已安装的插件「$id」。"
+        if (enabled && !installed.installationConfirmed) {
+            return "该插件尚未完成安装确认，已拒绝启用。请先在插件管理页完成安装确认。"
+        }
+        return try {
+            pluginManager.setEnabled(id, enabled)
+            if (enabled) {
+                "已启用插件「${installed.name}」($id)。"
+            } else {
+                "已停用插件「${installed.name}」($id)，安装保留，可随时重新启用。"
+            }
+        } catch (e: Exception) {
+            "操作失败：${e.message ?: "未知错误"}"
+        }
+    }
+
     // ── 检索 ─────────────────────────────────────────────────────────────
 
     private fun renderSearchResult(catalog: SignedPluginCatalog, query: String): String {

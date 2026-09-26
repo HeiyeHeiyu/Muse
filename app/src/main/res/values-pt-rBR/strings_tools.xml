@@ -114,6 +114,8 @@
     <string name="tool_summary_ping_host">Executou ping em um host</string>
     <string name="tool_summary_plugin_market_install">Instalou um plugin</string>
     <string name="tool_summary_plugin_market_search">Pesquisou no mercado de plugins</string>
+    <string name="tool_summary_plugin_market_uninstall">Desinstalou um plugin</string>
+    <string name="tool_summary_plugin_market_set_enabled">Alternou o estado de um plugin</string>
     <string name="tool_summary_proactive_message_wish">Salvou uma mensagem proativa</string>
     <string name="tool_summary_quick_note_add">Criou uma nota rápida</string>
     <string name="tool_summary_quick_note_delete">Excluiu uma nota rápida</string>
@@ -188,6 +190,8 @@
     <string name="tool_label_ping_host">Ping</string>
     <string name="tool_label_plugin_market_install">Instalar plugin</string>
     <string name="tool_label_plugin_market_search">Mercado de plugins</string>
+    <string name="tool_label_plugin_market_uninstall">Desinstalar plugin</string>
+    <string name="tool_label_plugin_market_set_enabled">Ativar/desativar plugin</string>
     <string name="tool_label_quick_note_add">Nova nota rápida</string>
     <string name="tool_label_quick_note_list">Notas rápidas</string>
     <string name="tool_label_read_file">Ler arquivo</string>
