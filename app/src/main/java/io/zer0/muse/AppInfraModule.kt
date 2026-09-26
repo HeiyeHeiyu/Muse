@@ -91,6 +91,10 @@ val appInfraModule = module {
             reflectionRunner = get(),
             // v1.0.92: LLM 记忆整合 — 每日规则去重后,把语义重复的相似簇交给大模型合并
             factConsolidator = get(),
+            // D3-P1: 管线运行日志(观测层) — 落盘 filesDir/memory/pipeline_log.jsonl
+            pipelineLog = io.zer0.memory.observe.PipelineLog.create(
+                java.io.File(androidContext().filesDir, "memory"),
+            ),
         )
     }
     // v1.0.92: LLM 记忆整合器(手动"整理记忆"与每日自动整合共用同一实现)

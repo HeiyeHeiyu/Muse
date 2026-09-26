@@ -92,6 +92,11 @@ class  MemoryTicker(
      *    内的 fact 分数计算 / 衰减
      */
     private val runtimeContext: MemoryRuntimeContext = MemoryRuntimeContext(),
+    /**
+     * D3-P1: 管线运行日志(观测层)。null 时只做健康上报(测试/无 filesDir 环境不传)。
+     * 由 app 侧装配注入,落盘位置 `filesDir/memory/pipeline_log.jsonl`。
+     */
+    private val pipelineLog: io.zer0.memory.observe.PipelineLog? = null,
 ) {
 
     /** 当前生效的 [MemoryConfig](每次访问都重新读取闭包,保证拿到用户最新设置)。 */
@@ -229,7 +234,43 @@ class  MemoryTicker(
      */
     private val _errorSigs = ConcurrentHashMap<String, String>()
 
+    // ── D3-P1: 管线观测(每步耗时/触发/失败分类 → pipeline_log) ──────────────
+    /** 单步运行起点(stepKey → 起点时间/触发来源)。 */
+    private val _stepRunMeta = ConcurrentHashMap<String, StepRunMeta>()
+
+    /** 步骤运行元数据(D3-P1)。 */
+    private data class StepRunMeta(val startMs: Long, val trigger: String, val scope: String?)
+
+    /** D3-P1: 统一步骤运行器(累计计数 + 管线日志);健康上报仍走既有 markSuccess/markFailure。 */
+    private val stepRunner = io.zer0.memory.observe.MemoryStepRunner(
+        onStepSuccess = null,
+        onStepFailure = null,
+        pipelineLog = pipelineLog,
+    )
+
+    /**
+     * D3-P1: 标记步骤开始(供 markSuccess/markFailure 计算耗时与触发来源)。
+     * 未标记的步骤在记录时会得 0 耗时 + "unknown" 来源,不影响正确性。
+     */
+    private fun markStepStart(stepKey: String, trigger: String, scope: String? = null) {
+        _stepRunMeta[stepKey] = StepRunMeta(System.currentTimeMillis(), trigger, scope)
+    }
+
+    /** D3-P1: 步骤结果上报观测层(计数 + pipeline_log);无论成败都消费本次 start 元数据。 */
+    private fun recordStepOutcome(stepKey: String, error: Throwable?) {
+        val meta = _stepRunMeta.remove(stepKey)
+        val duration = meta?.let { System.currentTimeMillis() - it.startMs } ?: 0L
+        val trigger = meta?.trigger ?: "unknown"
+        val scope = meta?.scope
+        if (error == null) {
+            stepRunner.recordSuccess(stepKey, duration, trigger, scope = scope)
+        } else {
+            stepRunner.recordFailure(stepKey, error, duration, trigger, scope = scope)
+        }
+    }
+
     private fun markSuccess(stepKey: String) {
+        recordStepOutcome(stepKey, null)
         synchronized(_healthLock) {
             val h = _health[stepKey] ?: return
             _health[stepKey] = h.copy(
@@ -243,6 +284,7 @@ class  MemoryTicker(
     }
 
     private fun markFailure(stepKey: String, err: Throwable) {
+        recordStepOutcome(stepKey, err)
         synchronized(_healthLock) {
             val h = _health[stepKey] ?: return
             _health[stepKey] = h.copy(
@@ -390,6 +432,7 @@ class  MemoryTicker(
             _summaryInProgress.add(sessionId)
         }
         try {
+            markStepStart("rollingSummary", trigger)
             // v1.0.50: 全局并发限制 — 即使快速切多个会话,同时只有 3 个 rollingSummary 在跑
             val result = _rollingSummaryConcurrency.withPermit {
                 summaryManager.rollingSummary(
@@ -443,6 +486,7 @@ class  MemoryTicker(
         timeZone: String,
     ) {
         try {
+            markStepStart("compileToday", "turn")
             val target = currentCompileTarget()
             // v1.0.51: serialize compileToday 调用,避免 notifyTurn/notifySessionEnd 并发写 TODAY section 竞态
             _compileTodayLock.withLock {
@@ -494,6 +538,7 @@ class  MemoryTicker(
                 // 新一天的空白草稿,昨天的草稿就再也读不到了。
                 if ("compileDaily" !in completed) {
                     try {
+                        markStepStart("compileDaily", "daily")
                         val yesterday = runCatching {
                             LocalDate.parse(context.logicalDate).minusDays(1).toString()
                         }.getOrNull()
@@ -531,6 +576,7 @@ class  MemoryTicker(
                 // Step 1: compileToday(日期切换后刷新 today.md)
                 if ("compileToday" !in completed) {
                     try {
+                        markStepStart("compileToday", "daily")
                         // A-19: 只编译主助手摘要
                         compiler.compileToday(summaryManager, model, locale, timeZone, target = target)
                         completed = completed + ("compileToday" to Instant.now().toString())
@@ -561,6 +607,7 @@ class  MemoryTicker(
             // 依赖 compileDaily 已经把昨天落盘,否则窗口判断会漏看最新一天。
             if ("rollDailyWindow" !in completed && "compileDaily" in completed) {
                 try {
+                    markStepStart("rollDailyWindow", "daily")
                     compiler.rollDailyWindow(model, locale, context.logicalDate, target)
                     completed = completed + ("rollDailyWindow" to Instant.now().toString())
                     writeDailyState(context, completed, null)
@@ -582,6 +629,7 @@ class  MemoryTicker(
             if ("compileFacts" !in completed) {
                 _compileFactsLock.withLock {
                     try {
+                        markStepStart("compileFacts", "daily")
                         // A-19: 只编译主助手摘要
                         compiler.compileFacts(summaryManager, model, locale, runtimeContext.getConfig(), target = target)
                         // v12 (T2-1): 编译产物与 facts 表对账 — 用户在记忆页编辑/合并事实后,
@@ -613,6 +661,7 @@ class  MemoryTicker(
             // Step 5: deepMemory(独立,更新 FactStore)
             if ("deepMemory" !in completed) {
                 try {
+                    markStepStart("deepMemory", "daily")
                     val result = deepProcessor.processDirtySessions(summaryManager, model, locale, runtimeContext.getConfig())
                     completed = completed + ("deepMemory" to Instant.now().toString())
                     if (result.processed > 0) {
@@ -932,6 +981,7 @@ class  MemoryTicker(
         // v1.78 (H2): 包装 suspend 调用必须用 resultOf,避免吞 CancellationException
         val target = currentCompileTarget()
         _compileFactsLock.withLock {
+            markStepStart("compileFacts", "force")
             resultOf {
                 compiler.compileFacts(summaryManager, model, locale, runtimeContext.getConfig(), target = target)
             }.onSuccess {
@@ -947,6 +997,7 @@ class  MemoryTicker(
             }
         }
         // 2. 强制重跑 deepMemory(处理 dirty sessions,提取深层事实)
+        markStepStart("deepMemory", "force")
         resultOf {
             val result = deepProcessor.processDirtySessions(summaryManager, model, locale, runtimeContext.getConfig())
             if (result.processed > 0) {
