@@ -111,6 +111,7 @@ fun RagSettingsPage(
         }
 
         // ── 会话附件检索(从实验性转正;默认开) ──
+        item { SectionLabel(stringResource(R.string.settings_rag_attachment_section)) }
         item {
             SettingsGroup {
                 SettingsSwitchRow(

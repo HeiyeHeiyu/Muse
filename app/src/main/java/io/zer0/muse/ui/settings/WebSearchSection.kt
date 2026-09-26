@@ -118,11 +118,7 @@ internal fun WebSearchSection(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                MuseChip(
-                    selected = webSearchConfig.mode == WebSearchMode.OFF || !webSearchConfig.enabled,
-                    onClick = { scope.launch { settings.saveWebSearchConfig(webSearchConfig.copy(mode = WebSearchMode.OFF, enabled = false)) } },
-                    label = stringResource(R.string.settings_web_search_mode_off),
-                )
+                // v2.x: 原「关闭」chip 已删 — 与上方总开关控同一状态,开关是唯一关闭入口。
                 MuseChip(
                     selected = webSearchConfig.mode == WebSearchMode.AUTO && webSearchConfig.enabled,
                     onClick = { scope.launch { settings.saveWebSearchConfig(webSearchConfig.copy(mode = WebSearchMode.AUTO, enabled = true)) } },
@@ -300,7 +296,9 @@ internal fun WebSearchSection(
                 modifier = Modifier.padding(top = 2.dp),
             )
             WebSearchConfig.PROVIDERS_NEEDING_API_KEY
-                .filter { it != "Custom API" }
+                // v2.x: 去重 — 自定义 API 不参与 Auto 回退链,其 Key 与接口地址在下方「当前引擎」组统一配置;
+                // 此处排除两种写法,同一 Key 不再出现两个输入入口。
+                .filter { it != "Custom API" && it != "自定义 API" }
                 .forEach { provider ->
                     var keyDraft by remember(provider, webSearchConfig.apiKeys[provider]) {
                         mutableStateOf(webSearchConfig.apiKeys[provider].orEmpty())
@@ -326,22 +324,38 @@ internal fun WebSearchSection(
     }
 
     val needsApiConfig = webSearchConfig.providerName in WebSearchConfig.PROVIDERS_NEEDING_API_KEY
+    // v2.x: 去重 — 需 Key 的引擎中,只有「自定义 API」(不在 Auto 回退链)在本组就近配置 Key;
+    // 其余引擎的 Key 统一在上方「多引擎 API Key」列表编辑,本组仅保留接口地址与测试。
+    val isCustomApi = webSearchConfig.providerName.equals("Custom API", ignoreCase = true) ||
+        webSearchConfig.providerName == "自定义 API"
     if (needsApiConfig) {
         SettingsGroup(modifier = Modifier.padding(top = 8.dp)) {
             Column(Modifier.padding(MusePaddings.cardInner)) {
-                SettingField(
-                    label = stringResource(R.string.settings_web_search_api_key_label),
-                    value = apiKeyText,
-                    onValueChange = { apiKeyText = it },
-                )
-                SavePill(stringResource(R.string.settings_web_search_save_api_key)) {
+                if (isCustomApi) {
+                    SettingField(
+                        label = stringResource(R.string.settings_web_search_api_key_label),
+                        value = apiKeyText,
+                        onValueChange = { apiKeyText = it },
+                    )
+                }
+                SavePill(stringResource(if (isCustomApi) R.string.settings_web_search_save_api_key else R.string.settings_web_search_save_endpoint)) {
                     scope.launch {
                         val provider = webSearchConfig.providerName
                         val key = apiKeyText.trim()
-                        val keys = webSearchConfig.apiKeys.toMutableMap().apply {
-                            if (key.isNotEmpty()) put(provider, key) else remove(provider)
+                        val keys = if (isCustomApi) {
+                            webSearchConfig.apiKeys.toMutableMap().apply {
+                                if (key.isNotEmpty()) put(provider, key) else remove(provider)
+                            }
+                        } else {
+                            webSearchConfig.apiKeys
                         }
-                        settings.saveWebSearchConfig(webSearchConfig.copy(apiKey = key, apiKeys = keys, endpoint = endpointText.trim()))
+                        settings.saveWebSearchConfig(
+                            webSearchConfig.copy(
+                                apiKey = if (isCustomApi) key else webSearchConfig.apiKey,
+                                apiKeys = keys,
+                                endpoint = endpointText.trim(),
+                            ),
+                        )
                         MuseToast.show(savedText)
                     }
                 }

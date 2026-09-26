@@ -147,7 +147,6 @@
     <string name="settings_assistant_prompt_injection_subtitle">Автоматическое внедрение подсказок, специфичных для режима, при переключении режимов (творчество/кодирование/ролевая игра и т. д.)</string>
     <string name="settings_assistant_skills">Менеджер по навыкам</string>
     <string name="settings_assistant_skills_subtitle">Просмотр/включение/отключение инструментов, которые LLM может вызывать (файловый ввод-вывод, HTTP и т. д.)</string>
-    <string name="settings_assistant_long_memory">Долговременная память</string>
     <string name="settings_assistant_memory_enable">Включить систему памяти</string>
     <string name="settings_assistant_memory_enable_subtitle">Если этот параметр отключен, разговоры больше не задействуют долговременную память, и фоновое обобщение прекращается.</string>
 
@@ -286,7 +285,7 @@
     <string name="settings_tutorial_ch7_s3_title">Как сэкономить использование токена?</string>
     <string name="settings_tutorial_ch7_s3_content">Токены оплачиваются по количеству символов — сохранение токенов экономит деньги:\n1.</string>
     <string name="settings_tutorial_ch7_s4_title">Как очистить все данные</string>
-    <string name="settings_tutorial_ch7_s4_content">Настройки → Безопасность &amp; Общий доступ может иметь соответствующие параметры.</string>
+    <string name="settings_tutorial_ch7_s4_content">Настройки → Управление данными может иметь соответствующие параметры.</string>
     <string name="settings_tutorial_ch7_s5_title">Ошибки API 401/400?</string>
     <string name="settings_tutorial_ch7_s5_content">• 401 Unauthorized: обычно проблема с ключом API.</string>
     <string name="settings_tutorial_ch7_s6_title">Как защитить конфиденциальность (редактирование личных данных)?</string>
@@ -326,7 +325,6 @@
     <string name="settings_crash_reported_count">Сообщено %1$d записей о сбоях</string>
     <string name="settings_web_search_mode">Режим поиска</string>
     <string name="settings_web_search_mode_desc">Сначала поиск модели, затем настроенные API поиска, затем Bing и Baidu HTTP.</string>
-    <string name="settings_web_search_mode_off">Выкл.</string>
     <string name="settings_web_search_mode_auto">Автоматически: поиск модели в приоритете</string>
     <string name="settings_web_search_mode_local">Локальный поиск</string>
     <string name="settings_web_search_mode_native">Нативный поиск модели</string>

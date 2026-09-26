@@ -225,7 +225,7 @@
     <string name="settings_screen_chat">Чат</string>
     <string name="settings_screen_chat_desc">Отображение сообщений / Взаимодействие / Дополнительно</string>
     <string name="settings_screen_media_cd">Медиа, голос/TTS/аудиовыход, нажмите для входа</string>
-    <string name="settings_screen_media">Медиа</string>
+    <string name="settings_screen_media">Озвучивание</string>
     <string name="settings_screen_media_desc">Голос / TTS / Аудиовыход</string>
     <string name="settings_screen_memory_data_group_cd">Группа «Память и данные»</string>
     <string name="settings_screen_memory_data">Память и данные</string>
@@ -260,8 +260,6 @@
     <string name="settings_screen_agent_desc">Выбор ассистента / Совместная работа / Проактивные сообщения</string>
     <string name="settings_screen_advanced_group_cd">Группа «Дополнительно»</string>
     <string name="settings_screen_advanced">Дополнительно</string>
-    <string name="settings_screen_security_cd">Безопасность и обмен, PIN-блокировка/шаблон обмена/поисковая система, нажмите для входа</string>
-    <string name="settings_screen_security">Безопасность и обмен</string>
     <string name="settings_screen_security_desc">Шаблон обмена / Настройки экспорта</string>
     <string name="settings_screen_proxy_cd">%1$s, %2$s, нажмите для входа</string>
     <string name="settings_screen_experiments_cd">Экспериментальное, переключатели нестабильных функций, нажмите для входа</string>

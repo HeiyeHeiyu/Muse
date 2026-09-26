@@ -32,6 +32,7 @@ import io.zer0.muse.data.routing.UtilityModelBinding
 import io.zer0.muse.data.routing.UtilityTier
 import io.zer0.muse.ui.ModelSwitchSheet
 import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.settings.ChevronRight
 import io.zer0.muse.ui.common.settings.SectionLabel
@@ -104,6 +105,10 @@ fun TaskRoutingSettingsPage(
                 ?: providers.flatMap { it.models }.firstOrNull { it.id == visionModelId }?.name
         }
     }
+    // v2.x: 自定义压缩提示词(自记忆页归位)
+    val customCompressPrompt by settings.customCompressPromptFlow.collectAsStateWithLifecycle(initialValue = null)
+    var showCompressPromptDialog by remember { mutableStateOf(false) }
+    var compressPromptDraft by remember(customCompressPrompt) { mutableStateOf(customCompressPrompt.orEmpty()) }
     val utilitySmallInheritText = stringResource(R.string.settings_agent_tool_model_not_set_inherit)
     val utilityLargeInheritText = stringResource(R.string.settings_agent_utility_large_not_set_inherit)
 
@@ -111,10 +116,11 @@ fun TaskRoutingSettingsPage(
         title = stringResource(R.string.settings_task_routing_aux_section),
         onBack = onBack,
     ) {
-        item { SectionLabel(stringResource(R.string.settings_task_routing_aux_models_label)) }
+        // v2.x: 分组拆分 — 「主对话模型」与「辅助模型」各自独立 label(消除混层歧义)
+        item { SectionLabel(stringResource(R.string.settings_task_routing_main_models_label)) }
         item {
             SettingsGroup(modifier = Modifier.padding(top = 4.dp)) {
-                // v2.x: 主对话模型(全局默认) — 主聊天/Agent 共用的主模型
+                // 主对话模型(全局默认) — 主聊天/Agent 共用的主模型
                 SettingsItemRow(
                     icon = MuseIcons.chat,
                     title = stringResource(R.string.settings_agent_current_model),
@@ -123,7 +129,11 @@ fun TaskRoutingSettingsPage(
                 ) {
                     ChevronRight()
                 }
-                SettingsGroupDivider()
+            }
+        }
+        item { SectionLabel(stringResource(R.string.settings_task_routing_aux_models_label)) }
+        item {
+            SettingsGroup(modifier = Modifier.padding(top = 4.dp)) {
                 // 小工具模型
                 SettingsItemRow(
                     icon = MuseIcons.wrench,
@@ -156,6 +166,17 @@ fun TaskRoutingSettingsPage(
                     )
                 }
                 SettingsGroupDivider()
+                // v2.x: 自定义压缩提示词(自记忆页归位;上下文压缩归大工具职责)
+                SettingsItemRow(
+                    icon = MuseIcons.edit,
+                    title = stringResource(R.string.settings_memory_custom_compress_prompt),
+                    subtitle = customCompressPrompt?.takeIf { it.isNotBlank() } ?: stringResource(R.string.settings_memory_custom_compress_prompt_default),
+                    onClick = {
+                        compressPromptDraft = customCompressPrompt.orEmpty()
+                        showCompressPromptDialog = true
+                    },
+                ) { ChevronRight() }
+                SettingsGroupDivider()
                 // 视觉辅助模型(跳独立页配置)
                 SettingsItemRow(
                     icon = MuseIcons.eye,
@@ -183,6 +204,29 @@ fun TaskRoutingSettingsPage(
                 showMainModelPicker = false
             },
             onDismiss = { showMainModelPicker = false },
+        )
+    }
+
+    // v2.x: 自定义压缩提示词弹窗(自记忆页归位)
+    if (showCompressPromptDialog) {
+        MuseDialog(
+            onDismissRequest = { showCompressPromptDialog = false },
+            title = stringResource(R.string.settings_memory_custom_compress_prompt),
+            content = {
+                MuseTextField(
+                    value = compressPromptDraft,
+                    onValueChange = { compressPromptDraft = it },
+                    label = { Text(stringResource(R.string.settings_memory_custom_compress_prompt_hint)) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmText = stringResource(R.string.action_save),
+            onConfirm = {
+                scope.launch { settings.saveCustomCompressPrompt(compressPromptDraft.trim().takeIf { it.isNotBlank() }) }
+                showCompressPromptDialog = false
+            },
+            dismissText = stringResource(R.string.action_cancel),
+            onDismiss = { showCompressPromptDialog = false },
         )
     }
 

@@ -225,7 +225,7 @@
     <string name="settings_screen_chat">Bater papo</string>
     <string name="settings_screen_chat_desc">Exibição de mensagens / Interação / Avançado</string>
     <string name="settings_screen_media_cd">Mídia, voz/TTS/saída de áudio, toque para entrar</string>
-    <string name="settings_screen_media">Mídia</string>
+    <string name="settings_screen_media">Reprodução de voz</string>
     <string name="settings_screen_media_desc">Voz/TTS/Saída de Áudio</string>
     <string name="settings_screen_memory_data_group_cd">Memória &amp; Grupo da base de conhecimento</string>
     <string name="settings_screen_memory_data">Memória &amp; Dados</string>
@@ -260,8 +260,6 @@
     <string name="settings_screen_agent_desc">Seleção de Assistente / Colaboração / Mensagens Proativas</string>
     <string name="settings_screen_advanced_group_cd">Grupo avançado</string>
     <string name="settings_screen_advanced">Avançado</string>
-    <string name="settings_screen_security_cd">Segurança &amp; Compartilhamento, bloqueio de PIN/modelo de compartilhamento/mecanismo de pesquisa, toque para entrar</string>
-    <string name="settings_screen_security">Segurança &amp; Compartilhamento</string>
     <string name="settings_screen_security_desc">Modelo de compartilhamento / Configurações de exportação</string>
     <string name="settings_screen_proxy_cd">%1$s, %2$s, toque para entrar</string>
     <string name="settings_screen_experiments_cd">Recurso experimental e instável alterna, toque para entrar</string>

@@ -482,9 +482,6 @@ fun SettingsAssistantResourcesPage(
     onOpenPromptInjections: () -> Unit = {},
     onOpenSkills: () -> Unit = {},
 ) {
-    val settings: SettingsRepository = koinInject()
-    val memoryEnabled by settings.memoryEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
-    val scope = rememberCoroutineScope()
     SettingsSubPageScaffold(title = stringResource(R.string.settings_assistant_resources_title), onBack = onBack) {
         item {
             AssistantEntriesSection(
@@ -495,10 +492,6 @@ fun SettingsAssistantResourcesPage(
                 onOpenQuickMessages = onOpenQuickMessages,
                 onOpenPromptInjections = onOpenPromptInjections,
                 onOpenSkills = onOpenSkills,
-                memoryEnabled = memoryEnabled,
-                onMemoryEnabledChange = { enabled ->
-                    scope.launch { settings.saveMemoryEnabled(enabled) }
-                },
             )
         }
     }

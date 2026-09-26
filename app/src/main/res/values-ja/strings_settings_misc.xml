@@ -147,7 +147,6 @@
     <string name="settings_assistant_prompt_injection_subtitle">モードを切り替えるときにモード固有のプロンプトを自動挿入します (クリエイティブ/コーディング/ロールプレイなど)。</string>
     <string name="settings_assistant_skills">スキルマネージャー</string>
     <string name="settings_assistant_skills_subtitle">LLM が呼び出すことができるツール (ファイル I/O、HTTP など) を表示/有効化/無効化します。</string>
-    <string name="settings_assistant_long_memory">長期記憶</string>
     <string name="settings_assistant_memory_enable">メモリシステムを有効にする</string>
     <string name="settings_assistant_memory_enable_subtitle">オフにすると、会話によって長期記憶が注入されなくなり、バックグラウンドでの要約が停止します。</string>
 
@@ -286,7 +285,7 @@
     <string name="settings_tutorial_ch7_s3_title">トークンの使用量を節約するにはどうすればよいですか?</string>
     <string name="settings_tutorial_ch7_s3_content">トークンは文字数に応じて請求されます。トークンを節約すると、\n1 の費用が節約されます。</string>
     <string name="settings_tutorial_ch7_s4_title">すべてのデータを消去する方法</string>
-    <string name="settings_tutorial_ch7_s4_content">[設定] → [セキュリティ] &amp; [共有] には関連するオプションがある場合があります。</string>
+    <string name="settings_tutorial_ch7_s4_content">[設定] → [データ管理] には関連するオプションがある場合があります。</string>
     <string name="settings_tutorial_ch7_s5_title">API エラー 401/400?</string>
     <string name="settings_tutorial_ch7_s5_content">• 401 Unauthorized: 通常は API キーの問題です。</string>
     <string name="settings_tutorial_ch7_s6_title">プライバシー (PII 編集) を保護するにはどうすればよいですか?</string>
@@ -326,7 +325,6 @@
     <string name="settings_crash_reported_count">報告された%1$dクラッシュ記録</string>
     <string name="settings_web_search_mode">検索モード</string>
     <string name="settings_web_search_mode_desc">モデル内蔵検索、設定済み検索 API、Bing と Baidu HTTP の順に使用します。</string>
-    <string name="settings_web_search_mode_off">オフ</string>
     <string name="settings_web_search_mode_auto">自動: モデル検索を優先</string>
     <string name="settings_web_search_mode_local">ローカル検索</string>
     <string name="settings_web_search_mode_native">モデルネイティブ</string>

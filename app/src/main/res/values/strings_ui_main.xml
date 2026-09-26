@@ -267,7 +267,7 @@
     <string name="settings_screen_chat">聊天</string>
     <string name="settings_screen_chat_desc">消息显示 / 交互行为 / 高级</string>
     <string name="settings_screen_media_cd">媒体，语音/TTS/音频输出，点击进入</string>
-    <string name="settings_screen_media">媒体</string>
+    <string name="settings_screen_media">语音播报</string>
     <string name="settings_screen_media_desc">语音 / TTS / 音频输出</string>
     <string name="settings_screen_memory_data_group_cd">记忆与知识库分组</string>
     <string name="settings_screen_memory_data">记忆与数据</string>
@@ -303,8 +303,6 @@
     <string name="settings_screen_agent_desc">助手选择 / 协作 / 主动消息</string>
     <string name="settings_screen_advanced_group_cd">高级分组</string>
     <string name="settings_screen_advanced">高级</string>
-    <string name="settings_screen_security_cd">安全与分享，PIN锁/分享模板/搜索引擎，点击进入</string>
-    <string name="settings_screen_security">安全与分享</string>
     <!-- v1.x: 分享设置页(原"安全与分享",应用锁/搜索引擎已移除) -->
     <string name="settings_screen_share">分享</string>
     <string name="settings_share_page_title">分享</string>

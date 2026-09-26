@@ -147,7 +147,6 @@
     <string name="settings_assistant_prompt_injection_subtitle">Auto-inject mode-specific prompts when switching modes (creative/coding/roleplay, etc.)</string>
     <string name="settings_assistant_skills">Skill Manager</string>
     <string name="settings_assistant_skills_subtitle">View/enable/disable tools the LLM can call (file I/O, HTTP, etc.)</string>
-    <string name="settings_assistant_long_memory">Long-Term Memory</string>
     <string name="settings_assistant_memory_enable">Enable Memory System</string>
     <string name="settings_assistant_memory_enable_subtitle">When off, conversations no longer inject long-term memory and background summarization stops</string>
 
@@ -284,9 +283,9 @@
     <string name="settings_tutorial_ch7_s2_title">Slow responses?</string>
     <string name="settings_tutorial_ch7_s2_content">1. Switch to a faster model (smaller models are usually faster, e.g. gpt-4o-mini, deepseek-chat)\n2. Check your network connection — streaming stalls on weak connections\n3. Turn off \"Deep Thinking\" mode (thinking takes time)\n4. If using OpenAI etc. in China, you need a stable proxy\n5. Avoid peak hours — provider servers slow down when busy\n6. Reduce the context length per conversation (long history slows replies)</string>
     <string name="settings_tutorial_ch7_s3_title">How to save token usage?</string>
-    <string name="settings_tutorial_ch7_s3_content">Tokens are billed by character count — saving tokens saves money:\n1. Configure \"Tool Model Routing\" in Settings to use cheap small models for tool calls; the main model handles only dialogue\n2. Turn off unnecessary web search (search consumes lots of tokens)\n3. Choose domestic models (DeepSeek/Zhipu, etc.) — much cheaper than OpenAI\n4. Turn off deep thinking when not needed (thinking is also billed)\n5. Start new conversations periodically to avoid history piling up (long context is resent each turn)\n6. Enable long-memory compression (auto-summarizes very long conversations, reducing tokens)\n7. Use small models for simple questions; switch to big models for complex ones</string>
+    <string name="settings_tutorial_ch7_s3_content">Tokens are billed by character count — saving tokens saves money:\n1. Configure \"Utility Models\" in Settings to use a cheap small model for tool calls; the main model handles only dialogue\n2. Turn off unnecessary web search (search consumes lots of tokens)\n3. Choose domestic models (DeepSeek/Zhipu, etc.) — much cheaper than OpenAI\n4. Turn off deep thinking when not needed (thinking is also billed)\n5. Start new conversations periodically to avoid history piling up (long context is resent each turn)\n6. Enable long-memory compression (auto-summarizes very long conversations, reducing tokens)\n7. Use small models for simple questions; switch to big models for complex ones</string>
     <string name="settings_tutorial_ch7_s4_title">How to clear all data</string>
-    <string name="settings_tutorial_ch7_s4_content">Settings → Security &amp; Sharing may have relevant options. Or clear Muse\'s data in your phone\'s \"App Management\" system settings. Note: this deletes all conversations and configs and cannot be undone — please back up first (see Chapter 6).\n\nIf you just want a fresh start without losing configs, delete only conversations and keep provider and assistant settings.</string>
+    <string name="settings_tutorial_ch7_s4_content">Settings → Data Management may have relevant options. Or clear Muse\'s data in your phone\'s \"App Management\" system settings. Note: this deletes all conversations and configs and cannot be undone — please back up first (see Chapter 6).\n\nIf you just want a fresh start without losing configs, delete only conversations and keep provider and assistant settings.</string>
     <string name="settings_tutorial_ch7_s5_title">API errors 401/400?</string>
     <string name="settings_tutorial_ch7_s5_content">• 401 Unauthorized: usually an API Key issue. Check the Key is correct, has no extra spaces, isn\'t expired or disabled. Try generating a new Key in the provider\'s dashboard.\n• 400 Bad Request: common causes — wrong model name, request too long, incompatible params. Check the model name matches the official list; try a new short conversation to test.\n• 429 Too Many Requests: too frequent or over quota — wait a bit, or switch Key/provider.\n• 5xx server errors: provider-side issue — retry later, or check the provider\'s status page.\n\nWhen an error occurs, the app usually shows the specific message — match it against the above to troubleshoot.</string>
     <string name="settings_tutorial_ch7_s6_title">How to protect privacy (PII redaction)?</string>
@@ -326,7 +325,6 @@
     <string name="settings_crash_reported_count">Reported %1$d crash records</string>
     <string name="settings_web_search_mode">Search Mode</string>
     <string name="settings_web_search_mode_desc">Prefer model-native search, then configured search APIs, then Bing and Baidu HTTP.</string>
-    <string name="settings_web_search_mode_off">Off</string>
     <string name="settings_web_search_mode_auto">Automatic: prefer model search</string>
     <string name="settings_web_search_mode_local">Local Search</string>
     <string name="settings_web_search_mode_native">Model Native</string>

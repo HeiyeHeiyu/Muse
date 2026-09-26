@@ -12,7 +12,6 @@ import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.settings.SettingsItemRow
-import io.zer0.muse.ui.common.settings.SettingsSwitchRow
 
 /**
  * 阶段 7: 入口卡片 section — iOS 风格分组列表。
@@ -20,7 +19,9 @@ import io.zer0.muse.ui.common.settings.SettingsSwitchRow
  * 用 [SettingsGroup] 包裹多个 [SettingsItemRow],行间细分割线,无 elevation。
  * 替代旧的"每行独立 Card + spacedBy"堆叠模式。
  *
- * 包含:Assistant 管理 / 收藏夹 / 世界书 / 快捷消息 / 模式注入 + 长期记忆开关。
+ * 包含:Assistant 管理 / 收藏夹 / 世界书 / 快捷消息 / 模式注入。
+ *
+ * v2.x: 长期记忆开关已移至记忆设置页。
  */
 @Composable
 internal fun AssistantEntriesSection(
@@ -31,8 +32,6 @@ internal fun AssistantEntriesSection(
     onOpenQuickMessages: () -> Unit,
     onOpenPromptInjections: () -> Unit,
     onOpenSkills: () -> Unit,
-    memoryEnabled: Boolean,
-    onMemoryEnabledChange: (Boolean) -> Unit,
 ) {
     // ── Phase 8.2: 助手管理 + 收藏夹 + 世界书 + 快捷消息 + 模式注入 ──
     SectionLabel(stringResource(R.string.settings_assistant_section))
@@ -102,19 +101,5 @@ internal fun AssistantEntriesSection(
         ) {
             ChevronRight()
         }
-    }
-
-    // ── 长期记忆开关 ──
-    SectionLabel(stringResource(R.string.settings_assistant_long_memory))
-    SettingsGroup(
-        modifier = Modifier.padding(top = 8.dp),
-    ) {
-        SettingsSwitchRow(
-            icon = MuseIcons.atom,
-            title = stringResource(R.string.settings_assistant_memory_enable),
-            subtitle = stringResource(R.string.settings_assistant_memory_enable_subtitle),
-            checked = memoryEnabled,
-            onCheckedChange = onMemoryEnabledChange,
-        )
     }
 }

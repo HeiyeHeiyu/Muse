@@ -35,6 +35,8 @@
     <string name="keep_alive_dialog_dismiss">知道了</string>
     <string name="keep_alive_dialog_open">去设置</string>
     <string name="settings_agent_proactive_title">主动消息</string>
+    <!-- v2.x: Agent 页标题(替代硬编码 "Agent") -->
+    <string name="settings_agent_page_title">Agent</string>
     <string name="settings_agent_proactive_subtitle">Agent 像真人一样主动给你发消息</string>
     <string name="settings_agent_group_pace">发送节奏</string>
     <string name="settings_agent_group_daily">每日推送</string>
@@ -47,7 +49,6 @@
     <string name="settings_agent_boot_warning">部分品牌手机需在系统设置中额外授予"自启动"权限,否则系统会拦截开机广播</string>
     <string name="settings_agent_send_interval">发送间隔</string>
     <string name="settings_agent_random_offset">随机偏移</string>
-    <string name="settings_agent_send_agent">发送 Agent</string>
     <string name="settings_agent_default_assistant_fallback">默认助手</string>
     <string name="settings_agent_select_assistant_title">选择 Agent 助手</string>
     <string name="settings_agent_no_assistants_hint">暂无助手,请先在「助手」页面创建。</string>
@@ -158,7 +159,8 @@
     <!-- v2.x: 辅助模型区块(小工具/大工具/视觉) -->
     <string name="settings_task_routing_aux_section">辅助模型</string>
     <string name="settings_task_routing_vision_unset">未设置(点击配置)</string>
-    <string name="settings_task_routing_aux_models_label">模型档位</string>
+    <string name="settings_task_routing_aux_models_label">辅助模型</string>
+    <string name="settings_task_routing_main_models_label">主对话模型</string>
     <string name="settings_task_routing_utility_small_desc">生成标题、轻量分类等简单任务</string>
     <string name="settings_task_routing_utility_large_desc">压缩、记忆提取、任务拆解等需要理解力的场景</string>
     <string name="settings_task_routing_enable">自动切换模型</string>
@@ -258,7 +260,7 @@
     <string name="settings_memory_policy_never">从不</string>
     <string name="settings_memory_policy_when_unfocused">离开时</string>
     <string name="settings_memory_policy_always">总是</string>
-    <string name="settings_memory_page_title">记忆与通知</string>
+    <string name="settings_memory_page_title">记忆</string>
     <string name="settings_memory_system_section">记忆系统</string>
     <string name="settings_memory_token_budget">Token 预算</string>
     <string name="settings_memory_token_budget_subtitle">memory.md 目标长度,影响注入上下文量</string>
@@ -386,6 +388,7 @@
     <string name="rag_saved_success">已保存</string>
     <string name="rag_save_failed">保存失败</string>
     <string name="settings_rag_injection_section">检索注入</string>
+    <string name="settings_rag_attachment_section">附件检索</string>
     <string name="settings_rag_auto_inject">自动注入知识库</string>
     <string name="settings_rag_auto_inject_subtitle">对话时自动检索相关知识并注入上下文</string>
     <string name="settings_rag_embedding_source_section">Embedding 来源</string>
@@ -484,7 +487,6 @@
     <string name="assistant_detail_ext_knowledge_base">知识库</string>
 
     <!-- 安全与分享 -->
-    <string name="settings_security_page_title">分享</string>
     <string name="settings_security_app_lock_section">应用锁</string>
     <string name="settings_security_pin_enabled">已启用 PIN</string>
     <string name="settings_security_pin_disabled">未启用 PIN</string>
@@ -559,7 +561,7 @@
     <string name="settings_video_gen_selected">已选择</string>
 
     <!-- 媒体 -->
-    <string name="settings_media_page_title">媒体</string>
+    <string name="settings_media_page_title">语音播报</string>
     <string name="settings_media_recording_section">语音录制</string>
     <string name="settings_media_sample_rate">采样率</string>
     <string name="settings_media_sample_rate_subtitle">越高音质越好,文件也越大</string>

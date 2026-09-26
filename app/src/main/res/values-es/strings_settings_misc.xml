@@ -147,7 +147,6 @@
     <string name="settings_assistant_prompt_injection_subtitle">Avisos específicos del modo de inyección automática al cambiar de modo (creativo/codificación/juego de roles, etc.)</string>
     <string name="settings_assistant_skills">Gerente de Habilidades</string>
     <string name="settings_assistant_skills_subtitle">Ver/habilitar/deshabilitar herramientas que el LLM puede llamar (E/S de archivos, HTTP, etc.)</string>
-    <string name="settings_assistant_long_memory">Memoria a largo plazo</string>
     <string name="settings_assistant_memory_enable">Habilitar sistema de memoria</string>
     <string name="settings_assistant_memory_enable_subtitle">Cuando están desactivadas, las conversaciones ya no inyectan memoria a largo plazo y se detiene el resumen en segundo plano.</string>
 
@@ -286,7 +285,7 @@
     <string name="settings_tutorial_ch7_s3_title">¿Cómo ahorrar el uso de tokens?</string>
     <string name="settings_tutorial_ch7_s3_content">Los tokens se facturan por recuento de caracteres; guardar tokens ahorra dinero:\n1.</string>
     <string name="settings_tutorial_ch7_s4_title">Cómo borrar todos los datos</string>
-    <string name="settings_tutorial_ch7_s4_content">Configuración → Seguridad &amp; Compartir puede tener opciones relevantes.</string>
+    <string name="settings_tutorial_ch7_s4_content">Configuración → Gestión de datos puede tener opciones relevantes.</string>
     <string name="settings_tutorial_ch7_s5_title">¿Errores de API 401/400?</string>
     <string name="settings_tutorial_ch7_s5_content">• 401 no autorizado: generalmente un problema de clave API.</string>
     <string name="settings_tutorial_ch7_s6_title">¿Cómo proteger la privacidad (redacción de PII)?</string>
@@ -326,7 +325,6 @@
     <string name="settings_crash_reported_count">Registros de fallos %1$d informados</string>
     <string name="settings_web_search_mode">Modo de búsqueda</string>
     <string name="settings_web_search_mode_desc">Prioriza la búsqueda del modelo, luego las API configuradas y después Bing y Baidu HTTP.</string>
-    <string name="settings_web_search_mode_off">Desactivado</string>
     <string name="settings_web_search_mode_auto">Automático: priorizar búsqueda del modelo</string>
     <string name="settings_web_search_mode_local">Búsqueda local</string>
     <string name="settings_web_search_mode_native">Nativa del modelo</string>

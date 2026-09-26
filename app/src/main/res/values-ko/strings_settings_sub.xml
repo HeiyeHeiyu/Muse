@@ -26,6 +26,8 @@
     <string name="settings_agent_manage_collab_team">협업 팀 관리</string>
     <string name="settings_agent_proactive_section">사전 메시지</string>
     <string name="settings_agent_proactive_title">사전 메시지</string>
+    <!-- v2.x: Agent page title -->
+    <string name="settings_agent_page_title">에이전트</string>
     <string name="settings_agent_proactive_subtitle">상담원이 실제 사람을 좋아한다는 메시지를 적극적으로 보냅니다.</string>
     <string name="settings_agent_group_pace">전송 리듬</string>
     <string name="settings_agent_group_daily">일일 전송</string>
@@ -38,7 +40,6 @@
     <string name="settings_agent_boot_warning">일부 브랜드에는 시스템 설정에서 추가 \"자동 시작\" 권한이 필요합니다.</string>
     <string name="settings_agent_send_interval">전송 간격</string>
     <string name="settings_agent_random_offset">무작위 오프셋</string>
-    <string name="settings_agent_send_agent">보내는 대리인</string>
     <string name="settings_agent_default_assistant_fallback">기본 어시스턴트</string>
     <string name="settings_agent_select_assistant_title">상담원 도우미 선택</string>
     <string name="settings_agent_no_assistants_hint">아직 어시스턴트가 없습니다.</string>
@@ -124,7 +125,8 @@
     <!-- v2.x: utility models section -->
     <string name="settings_task_routing_aux_section">유틸리티 모델</string>
     <string name="settings_task_routing_vision_unset">설정되지 않음(탭하여 설정)</string>
-    <string name="settings_task_routing_aux_models_label">모델 티어</string>
+    <string name="settings_task_routing_aux_models_label">유틸리티 모델</string>
+    <string name="settings_task_routing_main_models_label">메인 채팅 모델</string>
     <string name="settings_task_routing_utility_small_desc">제목 생성, 경량 분류 등 간단한 작업</string>
     <string name="settings_task_routing_utility_large_desc">압축, 기억 추출, 작업 분해 등 이해력이 필요한 장면</string>
     <string name="settings_task_routing_enable">모델 자동 전환</string>
@@ -220,7 +222,7 @@
     <string name="settings_memory_policy_never">절대</string>
     <string name="settings_memory_policy_when_unfocused">초점이 맞지 않을 때</string>
     <string name="settings_memory_policy_always">언제나</string>
-    <string name="settings_memory_page_title">기억 및 알림</string>
+    <string name="settings_memory_page_title">기억</string>
     <string name="settings_memory_system_section">기억 시스템</string>
     <string name="settings_memory_token_budget">토큰예산</string>
     <string name="settings_memory_token_budget_subtitle">memory.md의 대상 길이는 주입된 컨텍스트의 양에 영향을 미칩니다.</string>
@@ -338,6 +340,7 @@
     <string name="rag_saved_success">저장됨</string>
     <string name="rag_save_failed">저장 실패</string>
     <string name="settings_rag_injection_section">검색 주입</string>
+    <string name="settings_rag_attachment_section">첨부 검색</string>
     <string name="settings_rag_auto_inject">기술 자료 자동 삽입</string>
     <string name="settings_rag_auto_inject_subtitle">관련 지식을 자동으로 검색하여 채팅 중에 컨텍스트에 삽입합니다.</string>
     <string name="settings_rag_embedding_source_section">소스 삽입</string>
@@ -434,7 +437,6 @@
     <string name="assistant_detail_ext_knowledge_base">기술 자료</string>
 
     <!-- Security & Sharing -->
-    <string name="settings_security_page_title">공유</string>
     <string name="settings_security_app_lock_section">앱 잠금</string>
     <string name="settings_security_pin_enabled">PIN 활성화됨</string>
     <string name="settings_security_pin_disabled">PIN이 비활성화되었습니다.</string>
@@ -504,7 +506,7 @@
     <string name="settings_video_gen_selected">선택된</string>
 
     <!-- Media -->
-    <string name="settings_media_page_title">메디아</string>
+    <string name="settings_media_page_title">음성 재생</string>
     <string name="settings_media_recording_section">음성 녹음</string>
     <string name="settings_media_sample_rate">샘플링 속도</string>
     <string name="settings_media_sample_rate_subtitle">높을수록 품질이 좋아지지만 파일 크기가 커집니다.</string>

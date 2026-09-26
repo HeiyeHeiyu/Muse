@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,8 +24,6 @@ import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.settings.SectionLabel
-import io.zer0.muse.ui.common.settings.ChevronRight
-import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.settings.SettingsSliderRow
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
@@ -45,9 +42,9 @@ import org.koin.compose.koinInject
  *  - 命中加成(常提起的记忆不易消失)
  *  - 编译阈值(低于此分的记忆不进入 memory.md)
  *  - 遗忘倍率(1.0 正常 / 2.0 忘得快一倍)
- *  - 保持唤醒(默认关)
  *
  * v1.0.51: 经验库开关移至聊天设置页;通知策略移至聊天设置页。
+ * v2.x: 保持唤醒/开机自启移至 Agent 页「后台与可靠性」组。
  */
 @Composable
 fun MemorySettingsPage(
@@ -56,11 +53,9 @@ fun MemorySettingsPage(
 ) {
     val settings: SettingsRepository = koinInject()
     val memoryConfig by settings.memoryConfigFlow.collectAsStateWithLifecycle(initialValue = MemoryConfig())
-    val keepAwake by settings.keepAwakeFlow.collectAsStateWithLifecycle(initialValue = false)
-    val autoLaunch by settings.autoLaunchFlow.collectAsStateWithLifecycle(initialValue = false)
-    val customCompressPrompt by settings.customCompressPromptFlow.collectAsStateWithLifecycle(initialValue = null)
-    var showCompressPromptDialog by remember { mutableStateOf(false) }
-    var compressPromptDraft by remember(customCompressPrompt) { mutableStateOf(customCompressPrompt.orEmpty()) }
+    // v2.x: 长期记忆总开关自助手资源页归位(记忆功能总控)
+    val memoryEnabled by settings.memoryEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
+    // v2.x: 保持唤醒/开机自启已挪至 Agent 页「后台与可靠性」组;自定义压缩提示词已挪至辅助模型页。
     val scope = rememberCoroutineScope()
 
     // v1.78 (#19): 滑块防抖 — 拖动时只更新 localConfig,停止 400ms 后才持久化到 DataStore
@@ -96,6 +91,15 @@ fun MemorySettingsPage(
         item { SectionLabel(stringResource(R.string.settings_memory_system_section)) }
         item {
             SettingsGroup {
+                // v2.x: 长期记忆总开关自助手资源页归位
+                SettingsSwitchRow(
+                    icon = MuseIcons.atom,
+                    title = stringResource(R.string.settings_assistant_memory_enable),
+                    subtitle = stringResource(R.string.settings_assistant_memory_enable_subtitle),
+                    checked = memoryEnabled,
+                    onCheckedChange = { v -> scope.launch { settings.saveMemoryEnabled(v) } },
+                )
+                SettingsGroupDivider()
                 SettingsSliderRow(
                     icon = MuseIcons.server,
                     iconContentDescription = stringResource(R.string.settings_memory_token_budget),
@@ -167,37 +171,6 @@ fun MemorySettingsPage(
                     },
                 )
                 SettingsGroupDivider()
-                // v1.0.51: 保持唤醒移到记忆系统 section(对应记忆后台运行)
-                SettingsSwitchRow(
-                    icon = MuseIcons.bolt,
-                    title = stringResource(R.string.settings_memory_keep_awake),
-                    subtitle = stringResource(R.string.settings_memory_keep_awake_subtitle),
-                    checked = keepAwake,
-                    onCheckedChange = { v ->
-                        scope.launch { settings.saveKeepAwake(v) }
-                    },
-                )
-                SettingsGroupDivider()
-                SettingsSwitchRow(
-                    icon = MuseIcons.power,
-                    title = stringResource(R.string.settings_memory_auto_launch),
-                    subtitle = stringResource(R.string.settings_memory_auto_launch_subtitle),
-                    checked = autoLaunch,
-                    onCheckedChange = { v ->
-                        scope.launch { settings.saveAutoLaunch(v) }
-                    },
-                )
-                SettingsGroupDivider()
-                SettingsItemRow(
-                    icon = MuseIcons.edit,
-                    title = stringResource(R.string.settings_memory_custom_compress_prompt),
-                    subtitle = customCompressPrompt?.takeIf { it.isNotBlank() } ?: stringResource(R.string.settings_memory_custom_compress_prompt_default),
-                    onClick = {
-                        compressPromptDraft = customCompressPrompt.orEmpty()
-                        showCompressPromptDialog = true
-                    },
-                ) { ChevronRight() }
-                SettingsGroupDivider()
                 // v1.78 (#21): 恢复默认按钮
                 SettingsActionRow(
                     title = stringResource(R.string.settings_memory_restore_default),
@@ -206,28 +179,6 @@ fun MemorySettingsPage(
                 )
             }
         }
-    }
-
-    if (showCompressPromptDialog) {
-        MuseDialog(
-            onDismissRequest = { showCompressPromptDialog = false },
-            title = stringResource(R.string.settings_memory_custom_compress_prompt),
-            content = {
-                MuseTextField(
-                    value = compressPromptDraft,
-                    onValueChange = { compressPromptDraft = it },
-                    label = { Text(stringResource(R.string.settings_memory_custom_compress_prompt_hint)) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            },
-            confirmText = stringResource(R.string.action_save),
-            onConfirm = {
-                scope.launch { settings.saveCustomCompressPrompt(compressPromptDraft.trim().takeIf { it.isNotBlank() }) }
-                showCompressPromptDialog = false
-            },
-            dismissText = stringResource(R.string.action_cancel),
-            onDismiss = { showCompressPromptDialog = false },
-        )
     }
 }
 

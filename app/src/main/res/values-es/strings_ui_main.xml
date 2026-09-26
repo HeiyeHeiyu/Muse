@@ -225,7 +225,7 @@
     <string name="settings_screen_chat">Charlar</string>
     <string name="settings_screen_chat_desc">Visualización de mensajes / Interacción / Avanzado</string>
     <string name="settings_screen_media_cd">Medios, voz/TTS/salida de audio, toque para ingresar</string>
-    <string name="settings_screen_media">Medios de comunicación</string>
+    <string name="settings_screen_media">Reproducción de voz</string>
     <string name="settings_screen_media_desc">Voz / TTS / Salida de audio</string>
     <string name="settings_screen_memory_data_group_cd">Memoria &amp; Grupo de base de conocimientos</string>
     <string name="settings_screen_memory_data">Memoria &amp; Datos</string>
@@ -260,8 +260,6 @@
     <string name="settings_screen_agent_desc">Selección de asistente / Colaboración / Mensajes proactivos</string>
     <string name="settings_screen_advanced_group_cd">grupo avanzado</string>
     <string name="settings_screen_advanced">Avanzado</string>
-    <string name="settings_screen_security_cd">Seguridad &amp; Compartir, bloqueo de PIN/compartir plantilla/motor de búsqueda, toque para ingresar</string>
-    <string name="settings_screen_security">Seguridad &amp; Compartir</string>
     <string name="settings_screen_security_desc">Plantilla de compartir / Ajustes de exportación</string>
     <string name="settings_screen_proxy_cd">%1$s, %2$s, toque para ingresar</string>
     <string name="settings_screen_experiments_cd">Alternancia de funciones experimentales e inestables, toque para ingresar</string>

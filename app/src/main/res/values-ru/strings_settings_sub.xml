@@ -26,6 +26,8 @@
     <string name="settings_agent_manage_collab_team">Управляйте командами совместной работы</string>
     <string name="settings_agent_proactive_section">Проактивные сообщения</string>
     <string name="settings_agent_proactive_title">Проактивные сообщения</string>
+    <!-- v2.x: Agent page title -->
+    <string name="settings_agent_page_title">Агент</string>
     <string name="settings_agent_proactive_subtitle">Агент заранее сообщает, что вам нравится реальный человек</string>
     <string name="settings_agent_group_pace">Ритм отправки</string>
     <string name="settings_agent_group_daily">Ежедневные отправки</string>
@@ -38,7 +40,6 @@
     <string name="settings_agent_boot_warning">Некоторые бренды требуют дополнительного разрешения «автозапуска» в настройках системы;</string>
     <string name="settings_agent_send_interval">Интервал отправки</string>
     <string name="settings_agent_random_offset">Случайное смещение</string>
-    <string name="settings_agent_send_agent">Отправляющий агент</string>
     <string name="settings_agent_default_assistant_fallback">Помощник по умолчанию</string>
     <string name="settings_agent_select_assistant_title">Выберите помощника агента</string>
     <string name="settings_agent_no_assistants_hint">Помощников пока нет.</string>
@@ -124,7 +125,8 @@
     <!-- v2.x: utility models section -->
     <string name="settings_task_routing_aux_section">Вспомогательные модели</string>
     <string name="settings_task_routing_vision_unset">Не установлено (нажмите для настройки)</string>
-    <string name="settings_task_routing_aux_models_label">Уровни моделей</string>
+    <string name="settings_task_routing_aux_models_label">Вспомогательные модели</string>
+    <string name="settings_task_routing_main_models_label">Основная модель чата</string>
     <string name="settings_task_routing_utility_small_desc">Простые задачи: заголовки, лёгкая классификация</string>
     <string name="settings_task_routing_utility_large_desc">Сжатие, извлечение памяти, декомпозиция задач</string>
     <string name="settings_task_routing_enable">Автоматически переключать модели</string>
@@ -220,7 +222,7 @@
     <string name="settings_memory_policy_never">Никогда</string>
     <string name="settings_memory_policy_when_unfocused">Когда не сфокусирован</string>
     <string name="settings_memory_policy_always">Всегда</string>
-    <string name="settings_memory_page_title">Память и уведомления</string>
+    <string name="settings_memory_page_title">Память</string>
     <string name="settings_memory_system_section">Система памяти</string>
     <string name="settings_memory_token_budget">Бюджет токена</string>
     <string name="settings_memory_token_budget_subtitle">Целевая длина Memory.md влияет на количество введенного контекста.</string>
@@ -338,6 +340,7 @@
     <string name="rag_saved_success">Сохранено</string>
     <string name="rag_save_failed">Не удалось сохранить</string>
     <string name="settings_rag_injection_section">Восстановительная инъекция</string>
+    <string name="settings_rag_attachment_section">Поиск по вложениям</string>
     <string name="settings_rag_auto_inject">База знаний с автоматическим внедрением</string>
     <string name="settings_rag_auto_inject_subtitle">Автоматически извлекайте соответствующие знания и добавляйте их в контекст во время чата.</string>
     <string name="settings_rag_embedding_source_section">Встраивание исходного кода</string>
@@ -434,7 +437,6 @@
     <string name="assistant_detail_ext_knowledge_base">База знаний</string>
 
     <!-- Security & Sharing -->
-    <string name="settings_security_page_title">Общий доступ</string>
     <string name="settings_security_app_lock_section">Блокировка приложения</string>
     <string name="settings_security_pin_enabled">PIN-код включен</string>
     <string name="settings_security_pin_disabled">ПИН-код отключен</string>
@@ -504,7 +506,7 @@
     <string name="settings_video_gen_selected">Выбрано</string>
 
     <!-- Media -->
-    <string name="settings_media_page_title">СМИ</string>
+    <string name="settings_media_page_title">Озвучивание</string>
     <string name="settings_media_recording_section">Запись голоса</string>
     <string name="settings_media_sample_rate">Частота дискретизации</string>
     <string name="settings_media_sample_rate_subtitle">Выше означает лучшее качество, но файлы большего размера.</string>

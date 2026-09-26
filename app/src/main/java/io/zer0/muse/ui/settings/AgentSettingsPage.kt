@@ -86,6 +86,9 @@ fun AgentSettingsPage(
     val dailyMomentCount by settings.dailyMomentCountFlow.collectAsStateWithLifecycle(initialValue = 2)
     // v1.xxx: 后台调度总控开关
     val scheduleWorkEnabled by settings.scheduleWorkEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
+    // v2.x: 保活开关自记忆页归位(系统级后台行为)
+    val keepAwake by settings.keepAwakeFlow.collectAsStateWithLifecycle(initialValue = false)
+    val autoLaunch by settings.autoLaunchFlow.collectAsStateWithLifecycle(initialValue = false)
     val nightPatrolEnabled by settings.nightPatrolEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
     val multiAgentConfig by settings.multiAgentConfigFlow.collectAsStateWithLifecycle(
         initialValue = io.zer0.muse.data.MultiAgentConfig()
@@ -189,7 +192,7 @@ fun AgentSettingsPage(
     }
 
     SettingsSubPageScaffold(
-        title = if (proactiveOnly) stringResource(R.string.settings_agent_proactive_title) else "Agent",
+        title = if (proactiveOnly) stringResource(R.string.settings_agent_proactive_title) else stringResource(R.string.settings_agent_page_title),
         onBack = onBack,
     ) {
         if (!proactiveOnly) {
@@ -324,10 +327,11 @@ fun AgentSettingsPage(
                         ChevronRight()
                     }
                     SettingsGroupDivider()
+                    // v2.x: 原「发送 Agent」行已删除 — 与「Agent 默认助手」同值同弹窗,合并为单一入口
                     val senderAgent = assistants?.find { it.id == proactiveConfig.agentId }
                     SettingsItemRow(
                         icon = MuseIcons.user,
-                        title = stringResource(R.string.settings_agent_send_agent),
+                        title = stringResource(R.string.settings_agent_default_assistant_title),
                         subtitle = senderAgent?.name ?: stringResource(R.string.settings_agent_default_assistant_fallback),
                         onClick = { showAssistantPicker = true },
                     ) {
@@ -370,6 +374,27 @@ fun AgentSettingsPage(
                     checked = scheduleWorkEnabled,
                     onCheckedChange = { v ->
                         scope.launch { settings.saveScheduleWorkEnabled(v) }
+                    },
+                )
+                SettingsGroupDivider()
+                // v2.x: 保活开关自记忆页归位(系统级后台行为)
+                SettingsSwitchRow(
+                    icon = MuseIcons.bolt,
+                    title = stringResource(R.string.settings_memory_keep_awake),
+                    subtitle = stringResource(R.string.settings_memory_keep_awake_subtitle),
+                    checked = keepAwake,
+                    onCheckedChange = { v ->
+                        scope.launch { settings.saveKeepAwake(v) }
+                    },
+                )
+                SettingsGroupDivider()
+                SettingsSwitchRow(
+                    icon = MuseIcons.power,
+                    title = stringResource(R.string.settings_memory_auto_launch),
+                    subtitle = stringResource(R.string.settings_memory_auto_launch_subtitle),
+                    checked = autoLaunch,
+                    onCheckedChange = { v ->
+                        scope.launch { settings.saveAutoLaunch(v) }
                     },
                 )
                 SettingsGroupDivider()

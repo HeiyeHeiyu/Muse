@@ -225,7 +225,7 @@
     <string name="settings_screen_chat">チャット</string>
     <string name="settings_screen_chat_desc">メッセージ表示 / インタラクション / 高度な機能</string>
     <string name="settings_screen_media_cd">メディア、音声/TTS/オーディオ出力、タップして入力します</string>
-    <string name="settings_screen_media">メディア</string>
+    <string name="settings_screen_media">音声読み上げ</string>
     <string name="settings_screen_media_desc">音声 / TTS / オーディオ出力</string>
     <string name="settings_screen_memory_data_group_cd">メモリ &amp; ナレッジベース グループ</string>
     <string name="settings_screen_memory_data">メモリ&amp; データ</string>
@@ -260,8 +260,6 @@
     <string name="settings_screen_agent_desc">アシスタントの選択 / コラボレーション / 積極的なメッセージ</string>
     <string name="settings_screen_advanced_group_cd">上級グループ</string>
     <string name="settings_screen_advanced">高度な</string>
-    <string name="settings_screen_security_cd">セキュリティ&amp; 共有、PINロック/共有テンプレート/検索エンジン、タップして入力します</string>
-    <string name="settings_screen_security">セキュリティ&amp; 共有</string>
     <string name="settings_screen_security_desc">共有テンプレート / エクスポート設定</string>
     <string name="settings_screen_proxy_cd">%1$s、%2$s、タップして入力します</string>
     <string name="settings_screen_experiments_cd">実験的で不安定な機能の切り替え、タップして入ります</string>

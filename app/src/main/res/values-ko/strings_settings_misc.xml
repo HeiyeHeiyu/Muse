@@ -147,7 +147,6 @@
     <string name="settings_assistant_prompt_injection_subtitle">모드 전환 시 자동 주입 모드별 프롬프트(크리에이티브/코딩/역할극 등)</string>
     <string name="settings_assistant_skills">스킬 매니저</string>
     <string name="settings_assistant_skills_subtitle">LLM이 호출할 수 있는 도구(파일 I/O, HTTP 등) 보기/활성화/비활성화</string>
-    <string name="settings_assistant_long_memory">장기 기억</string>
     <string name="settings_assistant_memory_enable">메모리 시스템 활성화</string>
     <string name="settings_assistant_memory_enable_subtitle">꺼져 있으면 대화가 더 이상 장기 기억을 주입하지 않으며 배경 요약이 중지됩니다.</string>
 
@@ -286,7 +285,7 @@
     <string name="settings_tutorial_ch7_s3_title">토큰 사용량을 저장하는 방법은 무엇입니까?</string>
     <string name="settings_tutorial_ch7_s3_content">토큰은 문자 수에 따라 청구됩니다. 토큰을 저장하면 비용이 절약됩니다:\n1.</string>
     <string name="settings_tutorial_ch7_s4_title">모든 데이터를 지우는 방법</string>
-    <string name="settings_tutorial_ch7_s4_content">설정 → 보안 &amp; 공유에는 관련 옵션이 있을 수 있습니다.</string>
+    <string name="settings_tutorial_ch7_s4_content">설정 → 데이터 관리에는 관련 옵션이 있을 수 있습니다.</string>
     <string name="settings_tutorial_ch7_s5_title">API 오류 401/400?</string>
     <string name="settings_tutorial_ch7_s5_content">• 401 Unauthorized: 일반적으로 API 키 문제입니다.</string>
     <string name="settings_tutorial_ch7_s6_title">개인 정보 보호(PII 수정) 방법은 무엇입니까?</string>
@@ -326,7 +325,6 @@
     <string name="settings_crash_reported_count">%1$d 충돌 기록이 보고되었습니다.</string>
     <string name="settings_web_search_mode">검색 모드</string>
     <string name="settings_web_search_mode_desc">모델 검색, 구성된 검색 API, Bing 및 Baidu HTTP 순으로 사용합니다.</string>
-    <string name="settings_web_search_mode_off">끄기</string>
     <string name="settings_web_search_mode_auto">자동: 모델 검색 우선</string>
     <string name="settings_web_search_mode_local">로컬 검색</string>
     <string name="settings_web_search_mode_native">모델 네이티브</string>

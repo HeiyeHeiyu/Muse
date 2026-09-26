@@ -232,7 +232,7 @@
     <string name="settings_screen_chat">Chat</string>
     <string name="settings_screen_chat_desc">Message Display / Interaction / Advanced</string>
     <string name="settings_screen_media_cd">Media, voice/TTS/audio output, tap to enter</string>
-    <string name="settings_screen_media">Media</string>
+    <string name="settings_screen_media">Voice Playback</string>
     <string name="settings_screen_media_desc">Voice / TTS / Audio Output</string>
     <string name="settings_screen_memory_data_group_cd">Memory &amp; Knowledge Base group</string>
     <string name="settings_screen_memory_data">Memory &amp; Data</string>
@@ -267,8 +267,6 @@
     <string name="settings_screen_agent_desc">Assistant Selection / Collaboration / Proactive Messages</string>
     <string name="settings_screen_advanced_group_cd">Advanced group</string>
     <string name="settings_screen_advanced">Advanced</string>
-    <string name="settings_screen_security_cd">Security &amp; Sharing, PIN lock/share template/search engine, tap to enter</string>
-    <string name="settings_screen_security">Security &amp; Sharing</string>
     <string name="settings_screen_security_desc">Share Template / Export Settings</string>
     <string name="settings_screen_proxy_cd">%1$s, %2$s, tap to enter</string>
     <string name="settings_screen_experiments_cd">Experimental, unstable feature toggles, tap to enter</string>

@@ -26,6 +26,8 @@
     <string name="settings_agent_manage_collab_team">Gestionar equipos de colaboración</string>
     <string name="settings_agent_proactive_section">Mensajes proactivos</string>
     <string name="settings_agent_proactive_title">Mensajes proactivos</string>
+    <!-- v2.x: Agent page title -->
+    <string name="settings_agent_page_title">Agente</string>
     <string name="settings_agent_proactive_subtitle">El agente te envía un mensaje proactivo que te gusta una persona real</string>
     <string name="settings_agent_group_pace">Ritmo de envío</string>
     <string name="settings_agent_group_daily">Envíos diarios</string>
@@ -38,7 +40,6 @@
     <string name="settings_agent_boot_warning">Algunas marcas requieren un permiso adicional de \"inicio automático\" en la configuración del sistema;</string>
     <string name="settings_agent_send_interval">Enviar intervalo</string>
     <string name="settings_agent_random_offset">Desplazamiento aleatorio</string>
-    <string name="settings_agent_send_agent">Agente de envío</string>
     <string name="settings_agent_default_assistant_fallback">Asistente predeterminado</string>
     <string name="settings_agent_select_assistant_title">Seleccionar asistente de agente</string>
     <string name="settings_agent_no_assistants_hint">Aún no hay asistentes.</string>
@@ -124,7 +125,8 @@
     <!-- v2.x: utility models section -->
     <string name="settings_task_routing_aux_section">Modelos auxiliares</string>
     <string name="settings_task_routing_vision_unset">No configurado (toca para configurar)</string>
-    <string name="settings_task_routing_aux_models_label">Niveles de modelo</string>
+    <string name="settings_task_routing_aux_models_label">Modelos auxiliares</string>
+    <string name="settings_task_routing_main_models_label">Modelo de chat principal</string>
     <string name="settings_task_routing_utility_small_desc">Tareas simples como títulos y clasificación ligera</string>
     <string name="settings_task_routing_utility_large_desc">Compresión, extracción de memoria, desglose de tareas</string>
     <string name="settings_task_routing_enable">Cambiar modelos automáticamente</string>
@@ -220,7 +222,7 @@
     <string name="settings_memory_policy_never">Nunca</string>
     <string name="settings_memory_policy_when_unfocused">cuando está desenfocado</string>
     <string name="settings_memory_policy_always">Siempre</string>
-    <string name="settings_memory_page_title">Memoria &amp; Notificaciones</string>
+    <string name="settings_memory_page_title">Memoria</string>
     <string name="settings_memory_system_section">Sistema de memoria</string>
     <string name="settings_memory_token_budget">Presupuesto simbólico</string>
     <string name="settings_memory_token_budget_subtitle">La longitud objetivo de memoria.md afecta la cantidad de contexto inyectado.</string>
@@ -338,6 +340,7 @@
     <string name="rag_saved_success">Guardado</string>
     <string name="rag_save_failed">Error al guardar</string>
     <string name="settings_rag_injection_section">Inyección de recuperación</string>
+    <string name="settings_rag_attachment_section">Búsqueda en adjuntos</string>
     <string name="settings_rag_auto_inject">Base de conocimientos sobre inyección automática</string>
     <string name="settings_rag_auto_inject_subtitle">Recupera automáticamente conocimientos relevantes e inyéctalos en el contexto durante el chat.</string>
     <string name="settings_rag_embedding_source_section">Fuente de incrustación</string>
@@ -434,7 +437,6 @@
     <string name="assistant_detail_ext_knowledge_base">Base de conocimientos</string>
 
     <!-- Security & Sharing -->
-    <string name="settings_security_page_title">Compartir</string>
     <string name="settings_security_app_lock_section">Bloqueo de aplicaciones</string>
     <string name="settings_security_pin_enabled">PIN habilitado</string>
     <string name="settings_security_pin_disabled">PIN deshabilitado</string>
@@ -504,7 +506,7 @@
     <string name="settings_video_gen_selected">Seleccionado</string>
 
     <!-- Media -->
-    <string name="settings_media_page_title">Medios de comunicación</string>
+    <string name="settings_media_page_title">Reproducción de voz</string>
     <string name="settings_media_recording_section">Grabación de voz</string>
     <string name="settings_media_sample_rate">Frecuencia de muestreo</string>
     <string name="settings_media_sample_rate_subtitle">Más alto significa mejor calidad pero archivos más grandes</string>
