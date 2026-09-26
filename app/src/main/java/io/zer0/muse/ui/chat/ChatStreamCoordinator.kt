@@ -851,7 +851,9 @@ class ChatStreamCoordinator(
             val configuredMcpServerIds = assistant?.let { parseIdList(it.mcpServerIdsJson).toSet() }.orEmpty()
             val configuredSkillIds = assistant?.let { parseIdList(it.skillIdsJson).toSet() }.orEmpty()
             val registeredToolDefs = toolRegistry.listToolsAsToolDefinitions().filter { definition ->
-                val selectedByTool = configuredToolIds.isEmpty() || definition.name in configuredToolIds
+                val selectedByTool = configuredToolIds.isEmpty() || definition.name in configuredToolIds ||
+                    // v2.x 阶段3:find_tools 是分层收窄的补全通道,对任何助手白名单都保持可用
+                    definition.name == io.zer0.muse.tools.FindToolsTool.TOOL_NAME
                 val isMcpTool = definition.name.startsWith("mcp_") &&
                     definition.name.contains("__")
                 val selectedByMcp = !isMcpTool || configuredMcpServerIds.isEmpty() ||

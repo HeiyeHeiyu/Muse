@@ -178,6 +178,7 @@ internal object ToolCallVisuals {
         "plugin_market_install" to MuseIcons.puzzle,
         "plugin_market_uninstall" to MuseIcons.trash,
         "plugin_market_set_enabled" to MuseIcons.power,
+        "find_tools" to MuseIcons.search,
         "mcp_tool" to MuseIcons.plug,
         // 通知 / 主动消息 / 卡片
         "notify" to MuseIcons.bell,
@@ -381,6 +382,7 @@ internal object ToolCallVisuals {
         "plugin_market_install" to R.string.tool_summary_plugin_market_install,
         "plugin_market_uninstall" to R.string.tool_summary_plugin_market_uninstall,
         "plugin_market_set_enabled" to R.string.tool_summary_plugin_market_set_enabled,
+        "find_tools" to R.string.tool_summary_find_tools,
     )
 
     private fun prefixVerb(toolName: String): String? = when {
@@ -589,6 +591,7 @@ internal object ToolCallVisuals {
         "plugin_market_install" to R.string.tool_label_plugin_market_install,
         "plugin_market_uninstall" to R.string.tool_label_plugin_market_uninstall,
         "plugin_market_set_enabled" to R.string.tool_label_plugin_market_set_enabled,
+        "find_tools" to R.string.tool_label_find_tools,
     )
 
     private fun prettify(name: String): String =

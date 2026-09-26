@@ -141,6 +141,12 @@ class ToolExposurePolicyTest {
             authorizedToolNames = setOf("plugin_market_install"),
         )
         assertTrue("会话授权应保留工具", "plugin_market_install" in authorized.map { it.name })
+        val loaded = ToolExposurePolicy.filterToolsForRequest(
+            "继续",
+            manyTools,
+            loadedToolNames = setOf("workspace_write"),
+        )
+        assertTrue("find_tools 装载的工具应持续可见", "workspace_write" in loaded.map { it.name })
     }
 
     @Test

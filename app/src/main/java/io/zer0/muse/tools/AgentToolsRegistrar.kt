@@ -24,6 +24,7 @@ import kotlinx.coroutines.CoroutineScope
  *  - current_status（Phase 4D）
  *  - subagent_task（Phase 5A / v1.202: launch+reply+close 三件套）
  *  - subagent_run（v1.0.52 P2-1: 同步阻塞式独立子 agent,完整工具循环 + XML 协议）
+ *  - find_tools（v2.x: 工具库按需检索 — 分层收窄的补全通道,命中即装载后续轮次可见）
  */
 // 该注册器聚合多个工具域依赖，拆分需同步调整工具注册生命周期，暂保留局部豁免。
 @Suppress("LongParameterList")
@@ -80,6 +81,11 @@ class AgentToolsRegistrar(
         toolRegistry.registerWithContext(DeleteMemoryTool.toolDef()) { args, executionContext ->
             val scopedStore = factDbProvider?.getFactStore(executionContext.assistantId ?: "default") ?: factStore
             DeleteMemoryTool.execute(args, scopedStore, executionContext)
+        }
+
+        // v2.x 阶段3:工具库按需检索(命中即装载,后续轮次可见;装载 ≠ 放行)
+        toolRegistry.registerWithContext(FindToolsTool.toolDef()) { args, executionContext ->
+            FindToolsTool.execute(args, toolRegistry, executionContext)
         }
 
         // 普通聊天里的“许愿”：把当前助手绑定到主动消息调度器。

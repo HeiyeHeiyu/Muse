@@ -79,19 +79,21 @@ object ToolExposurePolicy {
      *
      * @param stickyToolNames 本会话历史中已调用过的工具名(用过的工具后续轮次持续可见)
      * @param authorizedToolNames 本会话内用户点过"本会话允许"的工具名集合
+     * @param loadedToolNames find_tools 动态装载的工具名(命中后持续可见)
      */
     fun filterToolsForRequest(
         userText: String,
         tools: List<ToolDefinition>,
         stickyToolNames: Set<String> = emptySet(),
         authorizedToolNames: Set<String> = emptySet(),
+        loadedToolNames: Set<String> = emptySet(),
     ): List<ToolDefinition> {
         if (tools.size <= SIMPLE_TOOL_SUBSET_THRESHOLD) return tools
         val normalized = userText.trim().lowercase()
         if (normalized.isBlank()) return tools
         val matched = TOOL_FAMILIES.filter { family -> family.keywords.any { normalized.contains(it) } }
         val familyAllowed = matched.flatMapTo(mutableSetOf()) { it.toolNames }
-        val dynamicAllowed = familyAllowed + stickyToolNames + authorizedToolNames
+        val dynamicAllowed = familyAllowed + stickyToolNames + authorizedToolNames + loadedToolNames
         // 宽松兜底:明确动作请求且非简单短句 → OPTIONAL 长尾全放,避免多步任务中途缺工具
         val optionalRelaxed = !isSimpleToolRequest(userText) && isDirectToolRequest(userText, tools)
         return tools.filter { tool ->

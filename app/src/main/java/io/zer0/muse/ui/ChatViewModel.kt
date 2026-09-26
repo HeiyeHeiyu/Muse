@@ -61,6 +61,7 @@ import io.zer0.muse.tools.ToolConfigStore
 import io.zer0.muse.tools.ToolPermissionResolver
 import io.zer0.muse.tools.SessionPermissionMode
 import io.zer0.muse.tools.SessionPermissionStore
+import io.zer0.muse.tools.SessionToolLoadRegistry
 import io.zer0.muse.tools.ToolLoopHost
 import io.zer0.muse.tools.StreamRoundParams
 import io.zer0.muse.tools.StreamRoundResult
@@ -4077,6 +4078,8 @@ class ChatViewModel(
             scope = assistant?.id?.takeIf { it.isNotBlank() && it != "default" } ?: "main",
             spaceId = settings.currentSpaceIdFlow.firstOrNull().orEmpty().ifBlank { "default" },
             assistantId = assistant?.id,
+            // v2.x 阶段3:宿主会话 id — find_tools 装载等按会话生效
+            sessionId = state.sessionId,
         )
 
         // v1.42: 流式过程中 UI/通知/token 更新采用字符+时间双阈值节流,降低重组频率。
@@ -4284,11 +4287,18 @@ class ChatViewModel(
                 ): Flow<ChatStreamEvent> {
                     // v2.0 简单请求关键词收窄 → v2.x 阶段1 升级为默认分层:
                     //   CORE/STANDARD 恒发;OPTIONAL/GLOBAL 按族命中 + 会话粘性(用过的工具)
-                    //   + 会话授权("本会话允许")放行;GLOBAL 未命中/未授权不发。
+                    //   + 会话授权("本会话允许") + find_tools 动态装载放行;GLOBAL 未命中/未授权不发。
                     val stickyToolNames = collectStickyToolNames(params.history)
                     val authorizedToolNames = sessionPermissionStore.allowedToolsThisSession(state.sessionId)
+                    val loadedToolNames = SessionToolLoadRegistry.loadedFor(state.sessionId)
                     val requestTools = ToolExposurePolicy
-                        .filterToolsForRequest(latestUserText, tools, stickyToolNames, authorizedToolNames)
+                        .filterToolsForRequest(
+                            latestUserText,
+                            tools,
+                            stickyToolNames,
+                            authorizedToolNames,
+                            loadedToolNames,
+                        )
                         .takeUnless { disableTools || nativeSearchForRound }
                         ?: emptyList()
                     val resumeText = params.builder.toString()

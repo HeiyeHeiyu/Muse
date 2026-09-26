@@ -21,6 +21,8 @@ object ToolCategories {
         "get_current_time",
         "calculator",
         "get_device_info",
+        // v2.x 阶段3:工具库按需检索 — 分层收窄的补全通道,必须恒发
+        "find_tools",
     )
 
     /** 常开稳定工具。 */

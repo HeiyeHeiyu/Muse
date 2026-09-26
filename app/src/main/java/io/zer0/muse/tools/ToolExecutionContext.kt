@@ -9,4 +9,6 @@ data class ToolExecutionContext(
     val scope: String,
     val spaceId: String,
     val assistantId: String? = null,
+    /** v2.x: 宿主会话 id(find_tools 动态装载等按会话生效的逻辑使用);旧调用点缺省 null。 */
+    val sessionId: String? = null,
 )

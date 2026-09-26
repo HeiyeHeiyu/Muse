@@ -604,6 +604,8 @@ class ToolRegistry(
             "read_file", "create_download", "parse_link", "parse_pdf",
             // 记忆检索 / 子 agent / 主动消息愿望(同上)
             "search_memory", "subagent_run", "subagent_close", "proactive_message_wish",
+            // v2.x: 工具库按需检索(分层收窄的补全通道)
+            "find_tools",
             // v2.x: 插件市场自管(检索/安装/卸载/启停 — 已注册工具,补进白名单让默认助手可达)
             "plugin_market_search", "plugin_market_install",
             "plugin_market_uninstall", "plugin_market_set_enabled",

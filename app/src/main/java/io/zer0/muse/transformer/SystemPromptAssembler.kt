@@ -1045,7 +1045,9 @@ class SystemPromptAssembler(
         // 这里必须与 ChatStreamCoordinator 的 function schema 使用同一套过滤规则,
         // 否则静态工具索引会介绍本轮实际不可调用的工具,模型容易反复发起无效调用。
         val localTools = allLocalTools.filter { tool ->
-            val selectedByTool = configuredToolIds.isEmpty() || tool.name in configuredToolIds
+            val selectedByTool = configuredToolIds.isEmpty() || tool.name in configuredToolIds ||
+                // v2.x 阶段3:与 ChatStreamCoordinator 的 function schema 过滤保持一致
+                tool.name == io.zer0.muse.tools.FindToolsTool.TOOL_NAME
             val isMcpTool = tool.name.startsWith("mcp_") && tool.name.contains("__")
             val selectedByMcp = !isMcpTool || configuredMcpServerIds.isEmpty() ||
                 configuredMcpServerIds.any { serverId -> tool.name.startsWith("mcp_${serverId}__") }
@@ -1127,6 +1129,8 @@ class SystemPromptAssembler(
         sb.appendLine("工具能力索引(内部约束):")
         sb.appendLine("- 本轮实际可调用的工具以请求中的 tools schema 为唯一准则,不要调用未出现在 schema 中的名称。")
         sb.appendLine("- 能直接回答就不要调用工具;需要工具时优先一次调用完成,拿到结果后直接收尾。")
+        // v2.x 阶段3:分层收窄后,通过 find_tools 按需装载缺失能力
+        sb.appendLine("- 需要的工具不在本轮 schema 里时,调用 find_tools 用关键词检索工具库;命中的工具从下一轮起可调用。")
         if (localTools.any { it.name.startsWith("mcp_") || it.category == "mcp" }) {
             sb.appendLine("- 已注册的 MCP 工具是真实可执行的外部能力,不是仅供介绍的知识。用户请求涉及对应服务时,直接调用本轮 schema 中最匹配的 MCP 工具,不要声称只能给出操作步骤或要求用户代为执行。")
             sb.appendLine("- MCP 工具返回结果后,以结果为准继续对话;如果调用失败,如实说明失败原因,不要把工具名或内部协议细节伪装成成功。")

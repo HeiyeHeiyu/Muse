@@ -294,6 +294,10 @@ class ToolRegistrySmokeTest {
             "settings_get", "settings_put", "am_start", "list_packages", "logcat_tail", "input_inject",
             // 记忆检索 / 子 agent / 主动消息愿望
             "search_memory", "subagent_run", "subagent_close", "proactive_message_wish",
+            // v2.x: 记忆写入/删除 + 工具库检索 + 插件市场(依赖 DB/注册表/网络)
+            "save_memory", "delete_memory", "find_tools",
+            "plugin_market_search", "plugin_market_install",
+            "plugin_market_uninstall", "plugin_market_set_enabled",
         )
     }
 }
