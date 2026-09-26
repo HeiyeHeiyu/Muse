@@ -33,6 +33,11 @@
     <string name="groupchat_length_standard">Standard</string>
     <string name="groupchat_length_detailed">Detailed</string>
     <string name="groupchat_round_upcoming">Up next:</string>
+    <string name="groupchat_template_title">Quick templates</string>
+    <string name="groupchat_template_review">Review</string>
+    <string name="groupchat_template_debate">Debate</string>
+    <string name="groupchat_template_brainstorm">Brainstorm</string>
+    <string name="groupchat_template_retro">Retrospective</string>
     <string name="groupchat_input_placeholder">Enter message…@Mention members</string>
     <string name="groupchat_send">Send</string>
     <string name="groupchat_pick_content">Choose content to send</string>

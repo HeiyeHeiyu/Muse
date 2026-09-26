@@ -234,10 +234,18 @@ fun GroupChatListScreen(
             assistants = state.assistants.filter { it.allowGroupChat && it.enabled },
             teams = state.teams,
             onDismiss = { showCreateDialog = false },
-            onConfirm = { name, memberIds, teamId ->
+            onConfirm = { name, memberIds, teamId, initMode, initLength ->
                 showCreateDialog = false
                 scope.launch {
-                    viewModel.createChat(name, memberIds, teamId)
+                    val newChatId = viewModel.createChat(name, memberIds, teamId)
+                    // v2.x: 模板预置 — 创建后应用讨论模式与发言长度
+                    if (initMode != null || initLength != null) {
+                        viewModel.updateChat(
+                            chatId = newChatId,
+                            discussionMode = initMode,
+                            replyLengthMode = initLength,
+                        )
+                    }
                 }
             },
         )

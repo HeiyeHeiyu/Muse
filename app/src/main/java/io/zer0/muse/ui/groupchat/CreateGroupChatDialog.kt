@@ -47,13 +47,23 @@ fun CreateGroupChatDialog(
     assistants: List<AssistantEntity>,
     teams: List<AgentTeam>,
     onDismiss: () -> Unit,
-    onConfirm: (name: String, memberIds: List<String>, teamId: String?) -> Unit,
+    onConfirm: (name: String, memberIds: List<String>, teamId: String?, initialMode: String?, initialLength: String?) -> Unit,
 ) {
     var name by rememberSaveable { mutableStateOf("") }
     var selectedMemberIds by rememberSaveable { mutableStateOf(setOf<String>()) }
     var selectedTeamId by rememberSaveable { mutableStateOf<String?>(null) }
     // v1.77: 输入校验 — 首次提交后才展示错误
     var showErrors by rememberSaveable { mutableStateOf(false) }
+    // v2.x: 快速模板 — 点选自动填名称并预置讨论参数(创建后应用)
+    var selectedTemplateKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var templateMode by rememberSaveable { mutableStateOf<String?>(null) }
+    var templateLength by rememberSaveable { mutableStateOf<String?>(null) }
+    val templatePresets = listOf(
+        TemplatePreset("review", R.string.groupchat_template_review, "方案评审", "host", "standard"),
+        TemplatePreset("debate", R.string.groupchat_template_debate, "正反辩论", "debate", "standard"),
+        TemplatePreset("brainstorm", R.string.groupchat_template_brainstorm, "头脑风暴", "auto", "brief"),
+        TemplatePreset("retro", R.string.groupchat_template_retro, "项目复盘", "round_robin", "detailed"),
+    )
 
     val maxNameLength = 30
     val nameError = showErrors && name.isBlank()
@@ -80,6 +90,34 @@ fun CreateGroupChatDialog(
                 },
                 modifier = Modifier.fillMaxWidth(),
             )
+            Spacer(Modifier.height(16.dp))
+
+            // v2.x: 快速模板行(点选自动填名称与讨论参数)
+            Text(
+                text = stringResource(R.string.groupchat_template_title),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(horizontal = 2.dp),
+            ) {
+                items(templatePresets, key = { it.key }) { preset ->
+                    MuseChip(
+                        selected = selectedTemplateKey == preset.key,
+                        onClick = {
+                            selectedTemplateKey = preset.key
+                            name = preset.suggestedName
+                            templateMode = preset.mode
+                            templateLength = preset.length
+                        },
+                        label = stringResource(preset.labelRes),
+                    )
+                }
+            }
             Spacer(Modifier.height(16.dp))
 
             // 成员选择
@@ -179,7 +217,7 @@ fun CreateGroupChatDialog(
         onConfirm = {
             val trimmedName = name.trim()
             if (trimmedName.isNotBlank() && selectedMemberIds.isNotEmpty()) {
-                onConfirm(trimmedName, selectedMemberIds.toList(), selectedTeamId)
+                onConfirm(trimmedName, selectedMemberIds.toList(), selectedTeamId, templateMode, templateLength)
             } else {
                 showErrors = true
             }
@@ -188,3 +226,12 @@ fun CreateGroupChatDialog(
         onDismiss = onDismiss,
     )
 }
+
+/** v2.x: 新建群聊快速模板预置(名称 + 讨论模式 + 发言长度)。 */
+data class TemplatePreset(
+    val key: String,
+    val labelRes: Int,
+    val suggestedName: String,
+    val mode: String,
+    val length: String,
+)
