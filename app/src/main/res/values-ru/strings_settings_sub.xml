@@ -319,9 +319,9 @@
     <string name="settings_asr_provider_openai_whisper">Шепот</string>
     <string name="settings_asr_provider_openai_realtime">В реальном времени</string>
     <string name="settings_asr_provider_agnes">Агнес</string>
-    <string name="settings_asr_base_url">Базовый URL-адрес (пользовательское реле, по умолчанию пусто)</string>
-    <string name="settings_asr_saved_base_url">Базовый URL сохранен.</string>
-    <string name="settings_asr_save_base_url">Сохранить базовый URL-адрес</string>
+    <string name="settings_asr_base_url">Конечная точка (пользовательское реле, по умолчанию пусто)</string>
+    <string name="settings_asr_saved_base_url">Конечная точка сохранена.</string>
+    <string name="settings_asr_save_base_url">Сохранить конечную точку</string>
     <!-- New: hot words -->
     <string name="settings_asr_hotwords">Горячие слова (разделенные запятыми, улучшают распознавание собственных существительных)</string>
     <string name="settings_asr_saved_hotwords">Горячие слова сохранены</string>

@@ -66,23 +66,23 @@ class AutomationSettingsPageTest {
     }
 
     @Test
-    fun `root card exposes fallback entry for magisk or app settings`() {
+    fun `permission wizard entry invokes onOpenPermissionWizard`() {
+        var wizardCount = 0
         composeTestRule.setContent {
             MaterialTheme {
-                AutomationSettingsPage(manager = managerMock(), onBack = {})
+                AutomationSettingsPage(
+                    manager = managerMock(),
+                    onBack = {},
+                    onOpenPermissionWizard = { wizardCount++ },
+                )
             }
         }
 
-        // Root 层未开启时,主行为是请求授权,同时保留外部兜底入口
-        val fallback = context.getString(R.string.automation_root_fallback_action)
+        // v2.x: 三通道权限卡已收敛到向导页 — 本页保留一行入口,且点击真的打开向导
         composeTestRule
-            .onNodeWithTag(SETTINGS_SCROLL_CONTAINER_TAG)
-            .performScrollToNode(hasText(fallback))
-        composeTestRule
-            .onNodeWithText(context.getString(R.string.automation_root_action_request))
-            .assertExists()
-        composeTestRule
-            .onNodeWithText(fallback)
-            .assertExists()
+            .onNodeWithText(context.getString(R.string.permission_wizard_title))
+            .performClick()
+
+        assertEquals(1, wizardCount)
     }
 }

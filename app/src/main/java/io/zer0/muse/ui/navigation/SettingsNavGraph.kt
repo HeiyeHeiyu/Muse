@@ -65,6 +65,8 @@ fun NavGraphBuilder.settingsNavGraph(
             onOpenAppearanceSettings = { navController.navigate(SettingsAppearanceRoute) },
             onOpenChatSettings = { navController.navigate(SettingsChatRoute) },
             onOpenMemorySettings = { navController.navigate(SettingsMemoryRoute) },
+            // v2.x: 记忆开关搜索项直达参数配置页(开启/关闭记忆系统在该页)
+            onOpenMemoryConfig = { navController.navigate(SettingsMemoryConfigRoute) },
             onOpenMediaSettings = { navController.navigate(SettingsMediaRoute) },
             onOpenExperimentsSettings = { navController.navigate(SettingsExperimentsRoute) },
             onOpenSecuritySettings = { navController.navigate(SettingsSecurityRoute) },
@@ -84,6 +86,7 @@ fun NavGraphBuilder.settingsNavGraph(
             onOpenTranslate = { navController.navigate(TranslateRoute) },
             onOpenDataManagement = { navController.navigate(DataManagementRoute) },
             onOpenDebugLog = { navController.navigate(DebugRoute) },
+            onOpenCrashReport = { navController.navigate(SettingsCrashReportRoute) },
             onOpenAuditLog = { navController.navigate(AuditLogRoute) },
             onOpenComponentGallery = { navController.navigate(ComponentGalleryRoute) },
             onOpenWorkspace = { navController.navigate(WorkspaceRoute) },
@@ -237,6 +240,17 @@ fun NavGraphBuilder.settingsNavGraph(
         SettingsAboutPage(
             onBack = { navController.popBackStack() },
             onOpenLicenses = { navController.navigate(LicensesRoute) },
+            // v2.x: 崩溃上报设置页入口(此前页面存在但无任何入口)
+            onOpenCrashReport = { navController.navigate(SettingsCrashReportRoute) },
+        )
+    }
+    // v2.x: 崩溃上报设置页 — 从「关于 → 反馈」进入,搜索索引同名可达
+    composable<SettingsCrashReportRoute>(
+        enterTransition = { MuseTransitions.horizontalPushEnter() },
+        popExitTransition = { MuseTransitions.horizontalPushPopExit() },
+    ) {
+        io.zer0.muse.ui.settings.CrashReportSettingsPage(
+            onBack = { navController.popBackStack() },
         )
     }
     // v0.31: 设置二级页 — 聊天行为
@@ -487,6 +501,8 @@ fun NavGraphBuilder.settingsNavGraph(
             onBack = { navController.popBackStack() },
             // v1.xxx: F-24 一键跳到定时任务页编排自动化动作(同 NavHost,直接 navigate 跨图可达)
             onOpenScheduledTasks = { navController.navigate(ScheduledTasksRoute) },
+            // v2.x: 权限配置向导 — 三通道权限配置已收敛到向导页
+            onOpenPermissionWizard = { navController.navigate(SettingsPermissionWizardRoute) },
         )
     }
 }

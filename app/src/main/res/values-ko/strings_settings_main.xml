@@ -30,18 +30,18 @@
     <string name="settings_provider_imported_from_json">JSON에서 가져온 서비스 계정 사용자 인증 정보</string>
     <string name="settings_provider_import_failed">가져오기 실패: %1$s</string>
     <string name="settings_provider_fill_api_key_first">먼저 API Key를 입력해주세요</string>
-    <string name="settings_provider_no_models_returned">업스트림에서 반환된 모델이 없습니다. 기본 URL을 확인하세요.</string>
+    <string name="settings_provider_no_models_returned">업스트림에서 반환된 모델이 없습니다. 엔드포인트를 확인하세요.</string>
     <string name="settings_provider_unknown_error">알 수 없는 오류</string>
     <string name="settings_provider_404_error">이 공급자는 /models 엔드포인트를 지원하지 않습니다. 모델을 수동으로 추가하세요.</string>
     <string name="settings_provider_auth_error">API 키가 유효하지 않거나 권한이 부족합니다.</string>
-    <string name="settings_provider_unable_to_resolve">서버에 연결할 수 없습니다. 기본 URL을 확인하세요.</string>
+    <string name="settings_provider_unable_to_resolve">서버에 연결할 수 없습니다. 엔드포인트를 확인하세요.</string>
     <string name="settings_provider_connection_timeout">연결 시간이 초과되었습니다.</string>
     <string name="settings_provider_fetch_failed">가져오기 실패: %1$s</string>
     <string name="settings_provider_connection_success">연결 성공: 서버가 정상적으로 응답했습니다.</string>
     <string name="settings_provider_auth_failed">연결되었으나 인증실패: API Key를 확인해주세요.</string>
     <string name="settings_provider_online_no_models">서버가 온라인이지만 /models 엔드포인트를 지원하지 않습니다(모델을 수동으로 추가해 보세요).</string>
     <string name="settings_provider_http_error">서버가 HTTP %1$d를 반환했습니다: %2$s</string>
-    <string name="settings_provider_unable_to_resolve_url">서버 주소를 확인할 수 없습니다. 기본 URL을 확인하세요.</string>
+    <string name="settings_provider_unable_to_resolve_url">서버 주소를 확인할 수 없습니다. 엔드포인트를 확인하세요.</string>
     <string name="settings_provider_connection_timeout_network">연결 시간이 초과되었습니다. 네트워크 또는 API 주소를 확인하세요.</string>
     <string name="settings_provider_connection_failed">연결 실패: %1$s</string>
     <string name="settings_provider_configure_balance_first">먼저 잔액 쿼리 엔드포인트 경로를 구성하세요.</string>
@@ -86,7 +86,7 @@
     <string name="settings_provider_model_id">모델 ID</string>
     <string name="settings_provider_type">유형</string>
     <string name="settings_provider_display_name">표시 이름</string>
-    <string name="settings_provider_base_url">기본 URL(기본값은 비워 두세요)</string>
+    <string name="settings_provider_base_url">엔드포인트(기본값은 비워 두세요)</string>
     <string name="settings_provider_api_key">API 키</string>
     <string name="settings_provider_manual_add_hint">이 공급자는 자동 모델 가져오기를 지원하지 않을 수 있습니다.</string>
     <string name="settings_provider_vertex_ai">Vertex AI(엔터프라이즈)</string>
@@ -372,6 +372,7 @@
     <string name="settings_chat_reflection_expand">기본적으로 반사가 확장됨</string>
     <string name="settings_chat_reflection_expand_subtitle">꺼져 있으면 기본적으로 축소됨</string>
     <string name="settings_chat_interaction">상호 작용</string>
+    <string name="settings_chat_context_section">컨텍스트 관리</string>
     <string name="settings_chat_streaming">스트리밍 응답</string>
     <string name="settings_chat_streaming_subtitle">꺼지면 한꺼번에 출력(대기 시간이 길어짐)</string>
     <string name="settings_chat_auto_scroll">하단으로 자동 스크롤</string>
@@ -401,7 +402,7 @@
     <string name="settings_provider_auto_detect">자동 감지</string>
 
     <!-- ==================== v1.0.20: Tool Call Approval ==================== -->
-    <string name="settings_chat_tool_approval_section">도구 호출 승인</string>
+    <string name="settings_chat_tool_approval_section">도구 승인</string>
     <string name="settings_chat_tool_approval_title">도구 승인</string>
     <string name="settings_chat_tool_approval_subtitle">도구를 호출하기 전에 AI가 사용자의 확인을 필요로 하는지 여부를 제어하세요.</string>
     <string name="settings_chat_tool_approval_trusted">완전히 신뢰하다</string>

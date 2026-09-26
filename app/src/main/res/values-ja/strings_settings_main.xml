@@ -30,18 +30,18 @@
     <string name="settings_provider_imported_from_json">JSON からインポートされたサービス アカウントの資格情報</string>
     <string name="settings_provider_import_failed">インポートに失敗しました: %1$s</string>
     <string name="settings_provider_fill_api_key_first">最初に API キーを入力してください</string>
-    <string name="settings_provider_no_models_returned">アップストリームはモデルを返しませんでした。ベース URL を確認してください。</string>
+    <string name="settings_provider_no_models_returned">アップストリームはモデルを返しませんでした。エンドポイントを確認してください。</string>
     <string name="settings_provider_unknown_error">不明なエラー</string>
     <string name="settings_provider_404_error">このプロバイダーは /models エンドポイントをサポートしていません。モデルを手動で追加してください</string>
     <string name="settings_provider_auth_error">API キーが無効であるか、権限が不十分です</string>
-    <string name="settings_provider_unable_to_resolve">サーバーに接続できません。ベース URL を確認してください。</string>
+    <string name="settings_provider_unable_to_resolve">サーバーに接続できません。エンドポイントを確認してください。</string>
     <string name="settings_provider_connection_timeout">接続がタイムアウトしました</string>
     <string name="settings_provider_fetch_failed">フェッチに失敗しました: %1$s</string>
     <string name="settings_provider_connection_success">接続成功: サーバーは正常に応答しました</string>
     <string name="settings_provider_auth_failed">接続されましたが認証に失敗しました: API キーを確認してください</string>
     <string name="settings_provider_online_no_models">サーバーはオンラインですが、/models エンドポイントをサポートしていません (モデルを手動で追加してみてください)</string>
     <string name="settings_provider_http_error">サーバーが HTTP %1$d を返しました: %2$s</string>
-    <string name="settings_provider_unable_to_resolve_url">サーバーアドレスを解決できません。ベース URL を確認してください。</string>
+    <string name="settings_provider_unable_to_resolve_url">サーバーアドレスを解決できません。エンドポイントを確認してください。</string>
     <string name="settings_provider_connection_timeout_network">接続がタイムアウトしました。ネットワークまたは API アドレスを確認してください</string>
     <string name="settings_provider_connection_failed">接続に失敗しました: %1$s</string>
     <string name="settings_provider_configure_balance_first">最初にバランス クエリ エンドポイント パスを構成してください</string>
@@ -86,7 +86,7 @@
     <string name="settings_provider_model_id">モデルID</string>
     <string name="settings_provider_type">タイプ</string>
     <string name="settings_provider_display_name">表示名</string>
-    <string name="settings_provider_base_url">ベース URL (デフォルトでは空のまま)</string>
+    <string name="settings_provider_base_url">エンドポイント (デフォルトでは空のまま)</string>
     <string name="settings_provider_api_key">APIキー</string>
     <string name="settings_provider_manual_add_hint">このプロバイダーは自動モデル取得をサポートしていない可能性があります。</string>
     <string name="settings_provider_vertex_ai">Vertex AI (エンタープライズ)</string>
@@ -223,7 +223,7 @@
     <string name="settings_backup_config_title">クラウドストレージの構成</string>
     <string name="settings_backup_error_hint">エラー</string>
     <string name="settings_backup_type_none">未構成</string>
-    <string name="settings_backup_endpoint">終点</string>
+    <string name="settings_backup_endpoint">エンドポイント</string>
     <string name="settings_backup_region">地域</string>
     <string name="settings_backup_bucket">バケツ</string>
     <string name="settings_backup_access_key">アクセスキー</string>
@@ -372,6 +372,7 @@
     <string name="settings_chat_reflection_expand">デフォルトで展開された反射</string>
     <string name="settings_chat_reflection_expand_subtitle">オフの場合はデフォルトで折りたたまれます</string>
     <string name="settings_chat_interaction">交流</string>
+    <string name="settings_chat_context_section">コンテキスト管理</string>
     <string name="settings_chat_streaming">ストリーミング応答</string>
     <string name="settings_chat_streaming_subtitle">OFF時一括出力（待ち時間が長くなる）</string>
     <string name="settings_chat_auto_scroll">最下位まで自動スクロール</string>
@@ -401,7 +402,7 @@
     <string name="settings_provider_auto_detect">自動検出</string>
 
     <!-- ==================== v1.0.20: Tool Call Approval ==================== -->
-    <string name="settings_chat_tool_approval_section">ツール呼び出しの承認</string>
+    <string name="settings_chat_tool_approval_section">ツール承認</string>
     <string name="settings_chat_tool_approval_title">ツールの承認</string>
     <string name="settings_chat_tool_approval_subtitle">AI がツールを呼び出す前にユーザーの確認を必要とするかどうかを制御する</string>
     <string name="settings_chat_tool_approval_trusted">完全に信頼する</string>

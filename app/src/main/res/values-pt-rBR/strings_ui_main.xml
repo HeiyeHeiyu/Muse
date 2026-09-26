@@ -276,6 +276,8 @@
     <string name="quota_searches">Pesquisa na Web</string>
     <!-- v1.0.4: Notification listener -->
     <string name="settings_screen_notification_listener">Ouvinte de notificação</string>
+    <string name="connection_center_title">Central de conexões</string>
+    <string name="connection_center_desc">Canais, MCP, plugins e aprovação de ferramentas</string>
     <string name="channel_page_title">Canais de mensagens</string>
     <string name="message_action_annotate">Anotar</string>
     <string name="message_annotate_title">Notas da mensagem</string>
@@ -596,7 +598,7 @@
     <string name="settings_screen_mcp">Servidores MCP</string>
     <string name="settings_screen_mcp_desc">Servidores de ferramentas do Model Context Protocol</string>
     <string name="settings_screen_assistant_resources">Recursos do assistente</string>
-    <string name="settings_screen_assistant_resources_desc">Favoritos / Lorebook / Mensagens rápidas / Injeção de prompt / Habilidades / Alternância de memória</string>
+    <string name="settings_screen_assistant_resources_desc">Favoritos / Lorebook / Mensagens rápidas / Injeção de prompt / Habilidades</string>
     <string name="settings_assistant_resources_title">Recursos do assistente</string>
     <string name="video_gen_title">Geração de Vídeo</string>
     <string name="video_gen_prompt">Descreva o vídeo que você deseja gerar</string>

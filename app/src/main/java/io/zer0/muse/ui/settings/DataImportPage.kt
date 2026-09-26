@@ -33,7 +33,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.R
-import io.zer0.muse.backup.BackupService
 import io.zer0.muse.data.`import`.ImportResult
 import io.zer0.muse.data.`import`.ThirdPartyImporter
 import io.zer0.muse.data.SettingsRepository
@@ -52,10 +51,11 @@ import org.koin.compose.koinInject
 /**
  * v1.61-A: 数据迁移与导入页。
  *
- * 同时支持 Muse 原生 JSON/NDJSON/ZIP 全量恢复,以及第三方 ZIP/JSON 导入 Provider 配置、助手、会话和消息。
+ * 从第三方应用导入 Provider 配置、助手、会话和消息(RikkaHub / Kelivo / ChatGPT / CherryStudio / Chatbox)。
+ * v2.x: Muse 原生备份的还原统一在「数据与备份」页的「导入备份」,本页不再重复提供入口。
  * 页面结构:
  *  1. 顶部说明卡片
- *  2. 选择来源(既有实现 / 既有实现 / CherryStudio / Chatbox),每个卡片含导出步骤折叠说明
+ *  2. 选择来源(RikkaHub / Kelivo / ChatGPT / CherryStudio / Chatbox),每个卡片含导出步骤折叠说明
  *  3. 选择备份文件按钮
  *  4. 导入中进度
  *  5. 导入结果(数量统计 + 错误列表)
@@ -73,14 +73,12 @@ fun SettingsDataImportPage(
     val assistantRepo: AssistantRepository = koinInject()
     val sessionRepo: SessionRepository = koinInject()
     val configImporter: ConfigImporter = koinInject()
-    val backupService: BackupService = koinInject()
     val scope = rememberCoroutineScope()
 
     var isImporting by remember { mutableStateOf(false) }
     var importResult by remember { mutableStateOf<ImportResult?>(null) }
     // P3-1: CherryStudio / Chatbox JSON 导入结果(与 ThirdPartyImporter.ImportResult 结构不同,独立状态)
     var jsonImportResult by remember { mutableStateOf<ConfigImporter.Result?>(null) }
-    var nativeBackupResult by remember { mutableStateOf<ImportResult?>(null) }
 
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -102,37 +100,6 @@ fun SettingsDataImportPage(
                 importResult = outcome ?: ImportResult(
                     errors = listOf(context.getString(R.string.import_error_parse_failed)),
                 )
-                isImporting = false
-            }
-        }
-    }
-
-    // Muse 原生备份 picker:支持 JSON / NDJSON / ZIP,与设置页使用同一 BackupService 入口。
-    val nativeBackupPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        if (uri != null) {
-            scope.launch {
-                isImporting = true
-                nativeBackupResult = null
-                val outcome = resultOf { backupService.import(context, uri) }
-                outcome.onSuccess { (sessions, messages) ->
-                    nativeBackupResult = ImportResult(
-                        conversationsImported = sessions,
-                        messagesImported = messages,
-                    )
-                }.onError { message, throwable ->
-                    nativeBackupResult = ImportResult(
-                        errors = listOf(
-                            context.getString(
-                                R.string.settings_backup_import_failed,
-                                throwable?.message ?: message.ifBlank {
-                                    context.getString(R.string.error_generic_unknown)
-                                },
-                            ),
-                        ),
-                    )
-                }
                 isImporting = false
             }
         }
@@ -181,31 +148,6 @@ fun SettingsDataImportPage(
                     )
                 }
             }
-        }
-
-        // ── Muse 原生备份 ──
-        item {
-            ImportSourceCard(
-                title = stringResource(R.string.settings_import_muse_backup_title),
-                description = stringResource(R.string.settings_import_muse_backup_desc),
-                steps = listOf(
-                    stringResource(R.string.settings_import_muse_backup_step1),
-                    stringResource(R.string.settings_import_muse_backup_step2),
-                    stringResource(R.string.settings_import_muse_backup_step3),
-                    stringResource(R.string.settings_import_step_remember),
-                ),
-                onSelect = {
-                    nativeBackupPicker.launch(
-                        arrayOf(
-                            "application/json",
-                            "application/zip",
-                            "application/octet-stream",
-                            "text/plain",
-                            "*/*",
-                        ),
-                    )
-                },
-            )
         }
 
         // ── 第一步:了解如何导出备份 ──
@@ -320,12 +262,6 @@ fun SettingsDataImportPage(
 
         // ── 导入结果 ──
         importResult?.let { result ->
-            item {
-                ImportResultCard(result)
-            }
-        }
-
-        nativeBackupResult?.let { result ->
             item {
                 ImportResultCard(result)
             }

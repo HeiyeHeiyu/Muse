@@ -342,7 +342,7 @@
     <string name="settings_web_search_api_services_desc">Usuários avançados podem configurar Tavily, Brave, Serper, Bocha e outros serviços.</string>
     <string name="settings_web_search_diagnosis">Diagnóstico da pesquisa mais recente</string>
     <string name="settings_web_search_no_diagnosis">Ainda não há registros de pesquisa</string>
-    <string name="settings_web_search_endpoint_optional">Endpoint (opcional)</string>
+    <string name="settings_web_search_endpoint_optional">Ponto final (opcional)</string>
     <string name="settings_web_search_provider_not_configured">Não configurado</string>
     <string name="settings_experiments_parallel_tools">Ferramentas somente leitura em paralelo</string>
     <string name="settings_experiments_parallel_tools_subtitle">Quando todas as ferramentas de uma rodada forem somente leitura, execute-as em paralelo para ser mais rápido e eficiente (ativado por padrão; pode ser desativado para voltar ao serial)</string>

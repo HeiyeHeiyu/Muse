@@ -39,7 +39,7 @@
 
     <!-- ===== v1.0.20: ToolsSettingsPage.kt (Tool Approval Management) ===== -->
     <!-- Title and search -->
-    <string name="tools_settings_title">Gerenciamento de aprovação de ferramentas</string>
+    <string name="tools_settings_title">Aprovação de ferramentas</string>
     <string name="tools_settings_search_hint">Nome ou descrição da ferramenta de pesquisa</string>
 
     <!-- Stats (N tools · always-allow X · ask Y · always-deny Z) -->

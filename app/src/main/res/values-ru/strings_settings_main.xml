@@ -30,18 +30,18 @@
     <string name="settings_provider_imported_from_json">Учетные данные сервисной учетной записи, импортированные из JSON.</string>
     <string name="settings_provider_import_failed">Не удалось импортировать: %1$s</string>
     <string name="settings_provider_fill_api_key_first">Пожалуйста, сначала заполните ключ API</string>
-    <string name="settings_provider_no_models_returned">Вышестоящая компания не вернула ни одной модели. Проверьте базовый URL-адрес.</string>
+    <string name="settings_provider_no_models_returned">Вышестоящая компания не вернула ни одной модели. Проверьте конечную точку.</string>
     <string name="settings_provider_unknown_error">Неизвестная ошибка</string>
     <string name="settings_provider_404_error">Этот поставщик не поддерживает конечную точку /models, добавьте модели вручную.</string>
     <string name="settings_provider_auth_error">Ключ API недействителен или имеет недостаточно прав.</string>
-    <string name="settings_provider_unable_to_resolve">Невозможно подключиться к серверу, проверьте базовый URL-адрес.</string>
+    <string name="settings_provider_unable_to_resolve">Невозможно подключиться к серверу, проверьте конечную точку.</string>
     <string name="settings_provider_connection_timeout">Время подключения истекло</string>
     <string name="settings_provider_fetch_failed">Не удалось получить: %1$s</string>
     <string name="settings_provider_connection_success">Соединение успешно: сервер ответил нормально</string>
     <string name="settings_provider_auth_failed">Подключено, но аутентификация не удалась: проверьте ключ API.</string>
     <string name="settings_provider_online_no_models">Сервер подключен к сети, но не поддерживает конечную точку /models (попробуйте добавить модели вручную).</string>
     <string name="settings_provider_http_error">Сервер вернул HTTP %1$d: %2$s</string>
-    <string name="settings_provider_unable_to_resolve_url">Невозможно определить адрес сервера. Проверьте базовый URL-адрес.</string>
+    <string name="settings_provider_unable_to_resolve_url">Невозможно определить адрес сервера. Проверьте конечную точку.</string>
     <string name="settings_provider_connection_timeout_network">Время ожидания соединения истекло. Проверьте свою сеть или адрес API.</string>
     <string name="settings_provider_connection_failed">Соединение не удалось: %1$s</string>
     <string name="settings_provider_configure_balance_first">Сначала настройте путь к конечной точке запроса баланса.</string>
@@ -86,7 +86,7 @@
     <string name="settings_provider_model_id">Идентификатор модели</string>
     <string name="settings_provider_type">Тип</string>
     <string name="settings_provider_display_name">Отображаемое имя</string>
-    <string name="settings_provider_base_url">Базовый URL (по умолчанию оставьте пустым)</string>
+    <string name="settings_provider_base_url">Конечная точка (по умолчанию оставьте пустым)</string>
     <string name="settings_provider_api_key">API-ключ</string>
     <string name="settings_provider_manual_add_hint">Этот поставщик может не поддерживать автоматическую выборку модели.</string>
     <string name="settings_provider_vertex_ai">Vertex AI (Предприятие)</string>
@@ -372,6 +372,7 @@
     <string name="settings_chat_reflection_expand">Отражение, расширенное по умолчанию</string>
     <string name="settings_chat_reflection_expand_subtitle">Свернуто по умолчанию, когда выключено</string>
     <string name="settings_chat_interaction">Взаимодействие</string>
+    <string name="settings_chat_context_section">Управление контекстом</string>
     <string name="settings_chat_streaming">Потоковая передача ответа</string>
     <string name="settings_chat_streaming_subtitle">Вывод всех сразу, когда выключен (долгое ожидание)</string>
     <string name="settings_chat_auto_scroll">Автоматическая прокрутка вниз</string>
@@ -401,7 +402,7 @@
     <string name="settings_provider_auto_detect">Автообнаружение</string>
 
     <!-- ==================== v1.0.20: Tool Call Approval ==================== -->
-    <string name="settings_chat_tool_approval_section">Утверждение вызова инструмента</string>
+    <string name="settings_chat_tool_approval_section">Одобрение инструментов</string>
     <string name="settings_chat_tool_approval_title">Одобрение инструмента</string>
     <string name="settings_chat_tool_approval_subtitle">Контролируйте, нужно ли ИИ ваше подтверждение перед вызовом инструментов</string>
     <string name="settings_chat_tool_approval_trusted">Полностью доверять</string>

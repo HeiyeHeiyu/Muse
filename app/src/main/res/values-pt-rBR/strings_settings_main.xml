@@ -30,18 +30,18 @@
     <string name="settings_provider_imported_from_json">Credenciais da conta de serviço importadas do JSON</string>
     <string name="settings_provider_import_failed">Falha na importação: %1$s</string>
     <string name="settings_provider_fill_api_key_first">Por favor, preencha a chave API primeiro</string>
-    <string name="settings_provider_no_models_returned">O upstream não retornou nenhum modelo, verifique o URL base</string>
+    <string name="settings_provider_no_models_returned">O upstream não retornou nenhum modelo, verifique o ponto final</string>
     <string name="settings_provider_unknown_error">Erro desconhecido</string>
     <string name="settings_provider_404_error">Este provedor não oferece suporte ao endpoint /models. Adicione modelos manualmente</string>
     <string name="settings_provider_auth_error">A chave de API é inválida ou tem permissões insuficientes</string>
-    <string name="settings_provider_unable_to_resolve">Não é possível conectar-se ao servidor. Verifique o URL base</string>
+    <string name="settings_provider_unable_to_resolve">Não é possível conectar-se ao servidor. Verifique o ponto final</string>
     <string name="settings_provider_connection_timeout">A conexão expirou</string>
     <string name="settings_provider_fetch_failed">Falha na busca: %1$s</string>
     <string name="settings_provider_connection_success">Conexão bem-sucedida: o servidor respondeu normalmente</string>
     <string name="settings_provider_auth_failed">Conectado, mas a autenticação falhou: verifique a chave API</string>
     <string name="settings_provider_online_no_models">O servidor está online, mas não suporta o endpoint /models (tente adicionar modelos manualmente)</string>
     <string name="settings_provider_http_error">O servidor retornou HTTP %1$d: %2$s</string>
-    <string name="settings_provider_unable_to_resolve_url">Não é possível resolver o endereço do servidor. Verifique o URL base</string>
+    <string name="settings_provider_unable_to_resolve_url">Não é possível resolver o endereço do servidor. Verifique o ponto final</string>
     <string name="settings_provider_connection_timeout_network">A conexão expirou. Verifique sua rede ou endereço API</string>
     <string name="settings_provider_connection_failed">Falha na conexão: %1$s</string>
     <string name="settings_provider_configure_balance_first">Configure primeiro o caminho do endpoint da consulta de saldo</string>
@@ -86,7 +86,7 @@
     <string name="settings_provider_model_id">ID do modelo</string>
     <string name="settings_provider_type">Tipo</string>
     <string name="settings_provider_display_name">Nome de exibição</string>
-    <string name="settings_provider_base_url">URL base (deixe em branco por padrão)</string>
+    <string name="settings_provider_base_url">Ponto final (deixe em branco por padrão)</string>
     <string name="settings_provider_api_key">Chave de API</string>
     <string name="settings_provider_manual_add_hint">Este provedor pode não oferecer suporte à busca automática de modelo.</string>
     <string name="settings_provider_vertex_ai">Vertex AI (empresa)</string>
@@ -372,6 +372,7 @@
     <string name="settings_chat_reflection_expand">Reflexão expandida por padrão</string>
     <string name="settings_chat_reflection_expand_subtitle">Recolhido por padrão quando desativado</string>
     <string name="settings_chat_interaction">Interação</string>
+    <string name="settings_chat_context_section">Gerenciamento de contexto</string>
     <string name="settings_chat_streaming">Resposta de streaming</string>
     <string name="settings_chat_streaming_subtitle">Saída tudo de uma vez quando desligado (espera mais longa)</string>
     <string name="settings_chat_auto_scroll">Rolar automaticamente para baixo</string>
@@ -401,7 +402,7 @@
     <string name="settings_provider_auto_detect">Detecção automática</string>
 
     <!-- ==================== v1.0.20: Tool Call Approval ==================== -->
-    <string name="settings_chat_tool_approval_section">Aprovação de Chamada de Ferramenta</string>
+    <string name="settings_chat_tool_approval_section">Aprovação de ferramentas</string>
     <string name="settings_chat_tool_approval_title">Aprovação de ferramenta</string>
     <string name="settings_chat_tool_approval_subtitle">Controle se a IA precisa da sua confirmação antes de chamar as ferramentas</string>
     <string name="settings_chat_tool_approval_trusted">Confie Totalmente</string>
@@ -502,6 +503,6 @@
     <string name="settings_provider_clear_keys">Limpar tudo</string>
     <string name="settings_provider_keys_count">%1$d chaves configuradas</string>
     <string name="settings_provider_remove_key">Excluir esta chave</string>
-    <string name="settings_provider_test_connection_endpoint">Testar conexão (endpoint)</string>
+    <string name="settings_provider_test_connection_endpoint">Testar conexão (ponto final)</string>
     <string name="settings_provider_test_connection_endpoint_sub">Apenas verifica a interface e a autenticação</string>
 </resources>

@@ -32,7 +32,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import io.zer0.common.Logger
+import io.zer0.muse.automation.AutomationInitializer
+import io.zer0.muse.automation.executors.RootRequestFailure
 import io.zer0.muse.R
+import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.icons.MuseIcons
@@ -67,6 +70,8 @@ fun PermissionWizardScreen(
     val shizukuInstaller: ShizukuInstaller = koinInject()
     val shizukuAuthorizer: ShizukuAuthorizer = koinInject()
     val rootAuthorizer: RootAuthorizer = koinInject()
+    // v2.x: Root 授权请求(自「UI 自动化」页迁移 — 该页权限卡已收敛到本向导)
+    val automationManager = remember { AutomationInitializer.manager }
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -78,6 +83,7 @@ fun PermissionWizardScreen(
     var shizukuAvailable by remember { mutableStateOf(false) }
     var shizukuAuthorized by remember { mutableStateOf(false) }
     var rootAvailable by remember { mutableStateOf(false) }
+    var rootRequesting by remember { mutableStateOf(false) }
     var suiAvailable by remember { mutableStateOf(false) }
 
     // 刷新状态
@@ -189,14 +195,35 @@ fun PermissionWizardScreen(
                 onRefresh = { refreshAsync() },
             )
 
-            // 通道 3: Root
+            // 通道 3: Root — 未授权时主行为是发起 su 授权请求(Magisk/KernelSU 弹窗)
             ChannelCard(
                 title = stringResource(R.string.root_section_title),
                 enabled = rootAvailable,
                 enabledText = stringResource(R.string.root_status_available),
                 disabledText = stringResource(R.string.root_status_unavailable),
-                actionText = "",
-                onAction = {},
+                actionText = if (!rootAvailable) stringResource(R.string.automation_root_action_request) else "",
+                onAction = {
+                    if (!rootRequesting) {
+                        scope.launch {
+                            rootRequesting = true
+                            val result = automationManager.requestRoot()
+                            rootRequesting = false
+                            if (result.granted) {
+                                MuseToast.show(context.getString(R.string.automation_root_granted))
+                            } else {
+                                val failure = result.failure ?: RootRequestFailure.ERROR
+                                val msgRes = when (failure) {
+                                    RootRequestFailure.NO_SU_BINARY -> R.string.automation_root_no_su
+                                    RootRequestFailure.TIMEOUT -> R.string.automation_root_timeout
+                                    RootRequestFailure.DENIED -> R.string.automation_root_denied
+                                    RootRequestFailure.ERROR -> R.string.automation_root_failed
+                                }
+                                MuseToast.show(context.getString(msgRes))
+                            }
+                            refresh()
+                        }
+                    }
+                },
                 onRefresh = { refreshAsync() },
             )
 

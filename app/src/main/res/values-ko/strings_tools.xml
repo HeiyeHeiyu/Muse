@@ -39,7 +39,7 @@
 
     <!-- ===== v1.0.20: ToolsSettingsPage.kt (Tool Approval Management) ===== -->
     <!-- Title and search -->
-    <string name="tools_settings_title">공구 승인 관리</string>
+    <string name="tools_settings_title">도구 승인</string>
     <string name="tools_settings_search_hint">검색 도구 이름 또는 설명</string>
 
     <!-- Stats (N tools · always-allow X · ask Y · always-deny Z) -->

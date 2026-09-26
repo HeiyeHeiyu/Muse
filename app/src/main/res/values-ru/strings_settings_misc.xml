@@ -342,7 +342,7 @@
     <string name="settings_web_search_api_services_desc">Опытные пользователи могут настроить Tavily, Brave, Serper, Bocha и другие сервисы.</string>
     <string name="settings_web_search_diagnosis">Последняя диагностика поиска</string>
     <string name="settings_web_search_no_diagnosis">Записей поиска пока нет</string>
-    <string name="settings_web_search_endpoint_optional">Endpoint (необязательно)</string>
+    <string name="settings_web_search_endpoint_optional">Конечная точка (необязательно)</string>
     <string name="settings_web_search_provider_not_configured">Не настроено</string>
     <string name="settings_experiments_parallel_tools">Параллельность инструментов только для чтения</string>
     <string name="settings_experiments_parallel_tools_subtitle">Когда все инструменты раунда доступны только для чтения, они выполняются параллельно — быстрее и эффективнее (включено по умолчанию; можно отключить, чтобы вернуться к последовательному выполнению)</string>

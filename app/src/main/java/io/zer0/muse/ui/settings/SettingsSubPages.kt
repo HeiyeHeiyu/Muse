@@ -610,6 +610,8 @@ fun SettingsAppearancePage(
 fun SettingsAboutPage(
     onBack: () -> Unit,
     onOpenLicenses: () -> Unit = {},
+    // v2.x: 崩溃上报设置页入口(可选·默认关闭的隐私友好上报配置)
+    onOpenCrashReport: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val settings: SettingsRepository = koinInject()
@@ -699,6 +701,14 @@ fun SettingsAboutPage(
                     title = stringResource(R.string.settings_about_join_qq_group),
                     subtitle = stringResource(R.string.settings_about_join_qq_group_subtitle),
                     onClick = { openQQGroup(context) },
+                ) {
+                    ChevronRight()
+                }
+                SettingsGroupDivider()
+                SettingsItemRow(
+                    title = stringResource(R.string.settings_crash_page_title),
+                    subtitle = stringResource(R.string.settings_crash_enable_subtitle),
+                    onClick = onOpenCrashReport,
                 ) {
                     ChevronRight()
                 }

@@ -114,6 +114,7 @@ fun SettingsScreen(
     onOpenAppearanceSettings: () -> Unit = {},
     onOpenChatSettings: () -> Unit = {},
     onOpenMemorySettings: () -> Unit = {},
+    onOpenMemoryConfig: () -> Unit = {},
     onOpenMediaSettings: () -> Unit = {},
     onOpenExperimentsSettings: () -> Unit = {},
     onOpenSecuritySettings: () -> Unit = {},
@@ -128,6 +129,7 @@ fun SettingsScreen(
     onOpenVisionSettings: () -> Unit = {},
     onOpenDataManagement: () -> Unit = {},
     onOpenDebugLog: () -> Unit = {},
+    onOpenCrashReport: () -> Unit = {},
     onOpenComponentGallery: () -> Unit = {},
     onOpenAuditLog: () -> Unit = {},
     onOpenWorkspace: () -> Unit = {},
@@ -179,6 +181,7 @@ fun SettingsScreen(
     val musePluginsTitle = stringResource(R.string.muse_plugins_external)
     val pluginManageTitle = stringResource(R.string.muse_plugins_manage)
     val memoryTitle = stringResource(R.string.settings_screen_memory_notification)
+    val memoryConfigPageTitle = stringResource(R.string.settings_memory_page_title)
     val memoryDesc = stringResource(R.string.settings_screen_memory_notification_desc)
     val ragTitle = stringResource(R.string.settings_screen_rag)
     val ragDesc = stringResource(R.string.settings_screen_rag_desc)
@@ -205,6 +208,7 @@ fun SettingsScreen(
     val checkUpdateTitle = stringResource(R.string.settings_screen_check_update)
     val checkUpdateDesc = stringResource(R.string.settings_screen_check_update_desc)
     val debugLogTitle = stringResource(R.string.settings_screen_debug_log)
+    val entryCrashReportTitle = stringResource(R.string.settings_crash_page_title)
     val componentGalleryTitle = stringResource(R.string.settings_component_gallery)
     val componentGalleryDesc = stringResource(R.string.settings_component_gallery_desc)
     val componentGalleryKeywords = stringResource(R.string.settings_component_gallery_keywords)
@@ -376,6 +380,7 @@ fun SettingsScreen(
                 SettingsEntry(aboutTitle, listOf("关于", "版本", "about", "信息", "guanyu", "banben", "xinxi", "gy", "bb", "xx"), MuseRoutes.SETTINGS_ABOUT, groupAbout, MuseIcons.info, onOpenAboutSettings),
                 SettingsEntry(checkUpdateTitle, listOf("检查更新", "更新", "update", "版本", "升级", "jianchagengxin", "gengxin", "shengji", "jcgc", "gx", "sj"), "", groupAbout, MuseIcons.refresh) { checkUpdateAction() },
                 SettingsEntry(debugLogTitle, listOf("调试", "日志", "debug", "log", "Logger", "tiaoshi", "rizhi", "ts", "rz"), MuseRoutes.DEBUG, groupAbout, MuseIcons.bug, onOpenDebugLog),
+                SettingsEntry(entryCrashReportTitle, listOf("崩溃", "崩溃上报", "crash", "报告", "诊断", "bengkui", "baogao", "zhenduan", "bk", "bg", "zd"), MuseRoutes.SETTINGS_CRASH_REPORT, groupAbout, MuseIcons.bug, onOpenCrashReport),
                 SettingsEntry(componentGalleryTitle, componentGalleryKeywords, MuseRoutes.COMPONENT_GALLERY, groupAbout, MuseIcons.colorSwatch, onOpenComponentGallery),
                 SettingsEntry(experimentsTitle, listOf("实验性", "实验", "experimental", "beta", "试验", "shiyanxing", "shiyan", "shiyan", "syx", "sy"), MuseRoutes.SETTINGS_EXPERIMENTS, groupAbout, MuseIcons.flask, onOpenExperimentsSettings),
                 SettingsEntry(statsTitle, listOf("统计", "使用统计", "stats", "热力图", "数据", "tongji", "shiyongtongji", "relitu", "shuju", "tj", "sytj", "rlt", "sj"), MuseRoutes.STATS, groupAbout, MuseIcons.chartBar, onOpenStats),
@@ -395,7 +400,7 @@ fun SettingsScreen(
                 SettingsEntry(entryTtsSpeedTitle, listOf("TTS", "语速", "音高", "yusu", "yingao", "ys", "yg"), MuseRoutes.SETTINGS_MEDIA, mediaTitle, MuseIcons.microphone, onOpenMediaSettings),
                 SettingsEntry(entryTtsVoiceTitle, listOf("声音", "语音", "voice", "shengyin", "yuyin", "sy", "yy"), MuseRoutes.SETTINGS_MEDIA, mediaTitle, MuseIcons.microphone, onOpenMediaSettings),
 
-                SettingsEntry(entryMemoryToggleTitle, listOf("记忆", "开关", "jiyi", "kaiguan", "jy", "kg"), MuseRoutes.SETTINGS_MEMORY, memoryTitle, MuseIcons.atom, onOpenMemorySettings),
+                SettingsEntry(entryMemoryToggleTitle, listOf("记忆", "开关", "启用记忆系统", "jiyi", "kaiguan", "qiyong", "jy", "kg", "qyjy"), MuseRoutes.SETTINGS_MEMORY_CONFIG, memoryConfigPageTitle, MuseIcons.atom, onOpenMemoryConfig),
 
                 SettingsEntry(entryProxySwitchTitle, listOf("代理", "开关", "Proxy", "daili", "kaiguan", "dl", "kg"), MuseRoutes.SETTINGS_PROXY, proxyTitle, MuseIcons.proxy, onOpenProxySettings),
 

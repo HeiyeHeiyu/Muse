@@ -91,6 +91,8 @@ data object SettingsVisionRoute
 @Serializable
 data object SettingsDataImportRoute
 @Serializable
+data object SettingsCrashReportRoute
+@Serializable
 data object SettingsTutorialRoute
 @Serializable
 data object SettingsSecurityRoute

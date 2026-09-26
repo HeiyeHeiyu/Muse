@@ -121,9 +121,9 @@ fun VisionSettingsPage(
             item {
                 SectionLabel(stringResource(R.string.settings_vision_model_section))
             }
-            // v1.0.1 (P1): "显示全部模型"开关 — 中转站高级模式
             item {
                 SettingsGroup {
+                    // v2.x: "显示全部模型"并入模型列表组首行 — 它是列表的筛选控制,不再单独成组
                     SettingsSwitchRow(
                         icon = MuseIcons.eye,
                         title = stringResource(R.string.settings_vision_show_all_models),
@@ -131,10 +131,7 @@ fun VisionSettingsPage(
                         checked = showAllModels,
                         onCheckedChange = { v -> showAllModels = v },
                     )
-                }
-            }
-            item {
-                SettingsGroup {
+                    SettingsGroupDivider()
                     if (visionModels.isEmpty()) {
                         // 无可用的视觉模型提示
                         Row(

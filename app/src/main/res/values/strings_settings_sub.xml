@@ -367,9 +367,9 @@
     <string name="settings_asr_provider_openai_whisper">Whisper</string>
     <string name="settings_asr_provider_openai_realtime">Realtime</string>
     <string name="settings_asr_provider_agnes">Agnes</string>
-    <string name="settings_asr_base_url">Base URL(自定义中转站,留空用默认)</string>
-    <string name="settings_asr_saved_base_url">已保存 Base URL</string>
-    <string name="settings_asr_save_base_url">保存 Base URL</string>
+    <string name="settings_asr_base_url">接口地址(自定义中转站,留空用默认)</string>
+    <string name="settings_asr_saved_base_url">已保存接口地址</string>
+    <string name="settings_asr_save_base_url">保存接口地址</string>
     <!-- 新增:热词 -->
     <string name="settings_asr_hotwords">热词(逗号分隔,提升专有名词识别率)</string>
     <string name="settings_asr_saved_hotwords">已保存热词</string>
@@ -438,10 +438,10 @@
     <string name="settings_rag_parser_local">本地解析</string>
     <string name="settings_rag_parser_local_subtitle">本地解析,支持 txt/pdf/docx/pptx/xlsx/epub</string>
     <string name="settings_rag_parser_cloud">云端解析</string>
-    <string name="settings_rag_parser_cloud_subtitle">云端 API,适合复杂版式/扫描件(需配置 endpoint)</string>
+    <string name="settings_rag_parser_cloud_subtitle">云端 API,适合复杂版式/扫描件(需配置接口地址)</string>
     <string name="settings_rag_parser_mineru">MinerU</string>
-    <string name="settings_rag_parser_mineru_subtitle">MinerU API,擅长学术 PDF/公式/表格(需配置 endpoint)</string>
-    <string name="settings_rag_cloud_parser_endpoint">云端解析 endpoint</string>
+    <string name="settings_rag_parser_mineru_subtitle">MinerU API,擅长学术 PDF/公式/表格(需配置接口地址)</string>
+    <string name="settings_rag_cloud_parser_endpoint">云端解析接口地址</string>
     <string name="settings_rag_mineru_endpoint">MinerU endpoint</string>
     <string name="settings_rag_mineru_token">MinerU Token（可选）</string>
     <string name="settings_rag_notes_section">说明</string>
@@ -604,12 +604,12 @@
     <string name="settings_media_tts_voice_placeholder">留空使用默认音色</string>
     <string name="settings_media_tts_model">模型</string>
     <string name="settings_media_tts_model_placeholder">留空使用默认模型</string>
-    <string name="settings_media_tts_endpoint">自定义 Endpoint</string>
-    <string name="settings_media_tts_endpoint_placeholder">留空使用官方 endpoint</string>
+    <string name="settings_media_tts_endpoint">自定义接口地址</string>
+    <string name="settings_media_tts_endpoint_placeholder">留空使用官方接口地址</string>
     <string name="settings_media_tts_save_api_key">保存 API Key</string>
     <string name="settings_media_tts_save_voice">保存音色</string>
     <string name="settings_media_tts_save_model">保存模型</string>
-    <string name="settings_media_tts_save_endpoint">保存 Endpoint</string>
+    <string name="settings_media_tts_save_endpoint">保存接口地址</string>
     <string name="settings_media_tts_show">显示</string>
     <string name="settings_media_tts_hide">隐藏</string>
     <string name="settings_media_tts_saved">已保存</string>

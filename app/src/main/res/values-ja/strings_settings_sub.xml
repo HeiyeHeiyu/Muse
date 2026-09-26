@@ -319,9 +319,9 @@
     <string name="settings_asr_provider_openai_whisper">ささやき</string>
     <string name="settings_asr_provider_openai_realtime">リアルタイム</string>
     <string name="settings_asr_provider_agnes">アグネス</string>
-    <string name="settings_asr_base_url">ベース URL (カスタムリレー、デフォルトでは空白)</string>
-    <string name="settings_asr_saved_base_url">ベース URL が保存されました</string>
-    <string name="settings_asr_save_base_url">ベース URL を保存</string>
+    <string name="settings_asr_base_url">エンドポイント (カスタムリレー、デフォルトでは空白)</string>
+    <string name="settings_asr_saved_base_url">エンドポイントが保存されました</string>
+    <string name="settings_asr_save_base_url">エンドポイントを保存</string>
     <!-- New: hot words -->
     <string name="settings_asr_hotwords">ホットワード (カンマ区切り、固有名詞の認識を向上)</string>
     <string name="settings_asr_saved_hotwords">ホットワードが保存されました</string>

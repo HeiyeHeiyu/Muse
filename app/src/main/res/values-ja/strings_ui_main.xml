@@ -276,6 +276,8 @@
     <string name="quota_searches">ウェブ検索</string>
     <!-- v1.0.4: Notification listener -->
     <string name="settings_screen_notification_listener">通知リスナー</string>
+    <string name="connection_center_title">接続センター</string>
+    <string name="connection_center_desc">チャンネル、MCP、プラグインとツール承認</string>
     <string name="channel_page_title">メッセージチャネル</string>
     <string name="message_action_annotate">注釈</string>
     <string name="message_annotate_title">メッセージ注釈</string>
@@ -596,7 +598,7 @@
     <string name="settings_screen_mcp">MCPサーバー</string>
     <string name="settings_screen_mcp_desc">モデル コンテキスト プロトコル ツール サーバー</string>
     <string name="settings_screen_assistant_resources">アシスタントのリソース</string>
-    <string name="settings_screen_assistant_resources_desc">お気に入り / ロアブック / クイックメッセージ / プロンプトインジェクション / スキル / メモリトグル</string>
+    <string name="settings_screen_assistant_resources_desc">お気に入り / ロアブック / クイックメッセージ / プロンプトインジェクション / スキル</string>
     <string name="settings_assistant_resources_title">アシスタントのリソース</string>
     <string name="video_gen_title">ビデオ生成</string>
     <string name="video_gen_prompt">生成したいビデオについて説明します</string>

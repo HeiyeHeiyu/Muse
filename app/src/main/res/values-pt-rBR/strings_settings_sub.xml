@@ -319,9 +319,9 @@
     <string name="settings_asr_provider_openai_whisper">Sussurrar</string>
     <string name="settings_asr_provider_openai_realtime">Em tempo real</string>
     <string name="settings_asr_provider_agnes">Inês</string>
-    <string name="settings_asr_base_url">URL base (retransmissão personalizada, em branco por padrão)</string>
-    <string name="settings_asr_saved_base_url">URL base salvo</string>
-    <string name="settings_asr_save_base_url">Salvar URL base</string>
+    <string name="settings_asr_base_url">Ponto final (retransmissão personalizada, em branco por padrão)</string>
+    <string name="settings_asr_saved_base_url">Ponto final salvo</string>
+    <string name="settings_asr_save_base_url">Salvar ponto final</string>
     <!-- New: hot words -->
     <string name="settings_asr_hotwords">Palavras quentes (separadas por vírgula, aumentam o reconhecimento de nomes próprios)</string>
     <string name="settings_asr_saved_hotwords">Palavras quentes salvas</string>
@@ -390,9 +390,9 @@
     <string name="settings_rag_parser_local">Analisador local</string>
     <string name="settings_rag_parser_local_subtitle">Análise local, suporta txt/pdf/docx/pptx/xlsx/epub</string>
     <string name="settings_rag_parser_cloud">Analisador de nuvem</string>
-    <string name="settings_rag_parser_cloud_subtitle">API Cloud, para layouts/documentos digitalizados complexos (requer endpoint)</string>
+    <string name="settings_rag_parser_cloud_subtitle">API Cloud, para layouts/documentos digitalizados complexos (requer ponto final)</string>
     <string name="settings_rag_parser_mineru">MinerU</string>
-    <string name="settings_rag_parser_mineru_subtitle">API MinerU, excelente em PDF/fórmulas/tabelas acadêmicas (requer endpoint)</string>
+    <string name="settings_rag_parser_mineru_subtitle">API MinerU, excelente em PDF/fórmulas/tabelas acadêmicas (requer ponto final)</string>
     <string name="settings_rag_cloud_parser_endpoint">Endpoint do analisador de nuvem</string>
     <string name="settings_rag_mineru_endpoint">Ponto de extremidade MinerU</string>
     <string name="settings_rag_mineru_token">Token do MinerU (opcional)</string>
@@ -550,7 +550,7 @@
     <string name="settings_media_tts_model">Modelo</string>
     <string name="settings_media_tts_model_placeholder">Deixe em branco para padrão</string>
     <string name="settings_media_tts_endpoint">Ponto final personalizado</string>
-    <string name="settings_media_tts_endpoint_placeholder">Deixe em branco para endpoint oficial</string>
+    <string name="settings_media_tts_endpoint_placeholder">Deixe em branco para o ponto final oficial</string>
     <string name="settings_media_tts_save_api_key">Salvar chave de API</string>
     <string name="settings_media_tts_save_voice">Salvar voz</string>
     <string name="settings_media_tts_save_model">Salvar modelo</string>

@@ -39,7 +39,7 @@
 
     <!-- ===== v1.0.20: ToolsSettingsPage.kt(工具批准管理页)===== -->
     <!-- 标题与搜索 -->
-    <string name="tools_settings_title">工具批准管理</string>
+    <string name="tools_settings_title">工具批准</string>
     <string name="tools_settings_search_hint">搜索工具名称或描述</string>
 
     <!-- 统计信息(共 N 个工具 · 始终允许 X · 询问 Y · 始终拒绝 Z) -->

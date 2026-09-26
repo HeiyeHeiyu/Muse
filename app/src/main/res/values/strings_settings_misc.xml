@@ -22,8 +22,8 @@
     <string name="settings_web_search_multi_key_subtitle">为每个搜索引擎单独配置 Key;Auto 模式会按顺序回退</string>
     <string name="settings_saved">已保存</string>
     <string name="settings_web_search_save_api_key">保存 API Key</string>
-    <string name="settings_web_search_endpoint_label">搜索 API endpoint</string>
-    <string name="settings_web_search_save_endpoint">保存 endpoint</string>
+    <string name="settings_web_search_endpoint_label">搜索 API 接口地址</string>
+    <string name="settings_web_search_save_endpoint">保存接口地址</string>
     <string name="settings_web_search_auto_hint">Auto 模式会自动尝试多个搜索引擎:优先使用已配置 API Key 的商用引擎,随后依次 fallback 到 Bing、Jina、SearXNG,并自动过滤低质量结果。</string>
     <string name="settings_web_search_test_query_label">测试搜索词</string>
     <string name="settings_web_search_test_query_placeholder">输入关键词进行搜索测试…</string>
@@ -348,7 +348,7 @@
     <string name="settings_web_search_api_services_desc">高级用户可配置 Tavily、Brave、Serper、博查等服务；普通用户无需配置</string>
     <string name="settings_web_search_diagnosis">最近一次搜索诊断</string>
     <string name="settings_web_search_no_diagnosis">还没有搜索记录</string>
-    <string name="settings_web_search_endpoint_optional">Endpoint（可选）</string>
+    <string name="settings_web_search_endpoint_optional">接口地址（可选）</string>
     <string name="settings_web_search_provider_not_configured">未配置</string>
 </resources>
 

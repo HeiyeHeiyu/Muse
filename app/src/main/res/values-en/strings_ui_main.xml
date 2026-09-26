@@ -285,7 +285,7 @@
     <string name="settings_screen_notification_listener">Notification Listener</string>
     <string name="channel_page_title">Message channels</string>
     <string name="connection_center_title">Connections</string>
-    <string name="connection_center_desc">Channels, MCP, plugins &amp; tool permissions</string>
+    <string name="connection_center_desc">Channels, MCP, plugins &amp; tool approval</string>
     <string name="connection_channels_title">Message channels</string>
     <string name="connection_channels_subtitle">%1$d channels configured</string>
     <string name="connection_mcp_title">MCP servers</string>
@@ -702,7 +702,7 @@
     <string name="settings_screen_mcp">MCP Servers</string>
     <string name="settings_screen_mcp_desc">Model Context Protocol tool servers</string>
     <string name="settings_screen_assistant_resources">Assistant Resources</string>
-    <string name="settings_screen_assistant_resources_desc">Favorites / Lorebook / Quick Messages / Prompt Injection / Skills / Memory toggle</string>
+    <string name="settings_screen_assistant_resources_desc">Favorites / Lorebook / Quick Messages / Prompt Injection / Skills</string>
     <string name="settings_assistant_resources_title">Assistant Resources</string>
     <string name="video_gen_title">Video Generation</string>
     <string name="video_gen_prompt">Describe the video you want to generate</string>

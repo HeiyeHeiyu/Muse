@@ -276,6 +276,8 @@
     <string name="quota_searches">Веб-поиск</string>
     <!-- v1.0.4: Notification listener -->
     <string name="settings_screen_notification_listener">Прослушиватель уведомлений</string>
+    <string name="connection_center_title">Центр подключений</string>
+    <string name="connection_center_desc">Каналы, MCP, плагины и одобрение инструментов</string>
     <string name="channel_page_title">Каналы сообщений</string>
     <string name="message_action_annotate">Заметка</string>
     <string name="message_annotate_title">Заметки к сообщению</string>
@@ -596,7 +598,7 @@
     <string name="settings_screen_mcp">MCP-серверы</string>
     <string name="settings_screen_mcp_desc">Серверы инструментов протокола контекста модели</string>
     <string name="settings_screen_assistant_resources">Помощники Ресурсы</string>
-    <string name="settings_screen_assistant_resources_desc">Избранное / История / Быстрые сообщения / Быстрое введение / Навыки / Переключение памяти</string>
+    <string name="settings_screen_assistant_resources_desc">Избранное / История / Быстрые сообщения / Быстрое введение / Навыки</string>
     <string name="settings_assistant_resources_title">Помощники Ресурсы</string>
     <string name="video_gen_title">Генерация видео</string>
     <string name="video_gen_prompt">Опишите видео, которое хотите сгенерировать</string>

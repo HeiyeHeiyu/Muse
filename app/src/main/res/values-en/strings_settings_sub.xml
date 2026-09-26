@@ -328,9 +328,9 @@
     <string name="settings_asr_provider_openai_whisper">Whisper</string>
     <string name="settings_asr_provider_openai_realtime">Realtime</string>
     <string name="settings_asr_provider_agnes">Agnes</string>
-    <string name="settings_asr_base_url">Base URL (custom relay, blank for default)</string>
-    <string name="settings_asr_saved_base_url">Base URL saved</string>
-    <string name="settings_asr_save_base_url">Save Base URL</string>
+    <string name="settings_asr_base_url">Endpoint (custom relay, blank for default)</string>
+    <string name="settings_asr_saved_base_url">Endpoint saved</string>
+    <string name="settings_asr_save_base_url">Save Endpoint</string>
     <!-- New: hot words -->
     <string name="settings_asr_hotwords">Hot words (comma-separated, boosts proper noun recognition)</string>
     <string name="settings_asr_saved_hotwords">Hot words saved</string>

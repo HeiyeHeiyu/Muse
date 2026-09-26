@@ -319,9 +319,9 @@
     <string name="settings_asr_provider_openai_whisper">속삭임</string>
     <string name="settings_asr_provider_openai_realtime">실시간</string>
     <string name="settings_asr_provider_agnes">아그네스</string>
-    <string name="settings_asr_base_url">기본 URL(사용자 정의 릴레이, 기본값은 비어 있음)</string>
-    <string name="settings_asr_saved_base_url">기본 URL이 저장되었습니다.</string>
-    <string name="settings_asr_save_base_url">기본 URL 저장</string>
+    <string name="settings_asr_base_url">엔드포인트(사용자 정의 릴레이, 기본값은 비어 있음)</string>
+    <string name="settings_asr_saved_base_url">엔드포인트가 저장되었습니다.</string>
+    <string name="settings_asr_save_base_url">엔드포인트 저장</string>
     <!-- New: hot words -->
     <string name="settings_asr_hotwords">핫 단어(쉼표로 구분, 고유 명사 인식 향상)</string>
     <string name="settings_asr_saved_hotwords">인기 단어가 저장되었습니다.</string>

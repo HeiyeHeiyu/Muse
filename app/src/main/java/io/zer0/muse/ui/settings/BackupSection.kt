@@ -45,6 +45,7 @@ import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.settings.SettingsItemRow
 import io.zer0.muse.ui.common.settings.SettingsSwitchRow
+import io.zer0.muse.ui.common.settings.ChevronRight
 import io.zer0.muse.ui.common.settings.StatusDot
 import io.zer0.muse.ui.theme.MuseDateFormats
 import kotlinx.coroutines.launch
@@ -76,10 +77,8 @@ internal fun BackupSection(
     val cloudConfig by settings.cloudBackupConfigFlow.collectAsStateWithLifecycle(
         initialValue = CloudBackupConfig()
     )
-    // P3-4: 云备份配置与自动同步间隔编辑收敛到独立「云备份」页(CloudBackupPage),
-    // 设置首页不再内嵌字段表单 — 此前两套表单写同一 CloudBackupConfig,字段可互相覆盖。
-    // 首页保留状态展示与上传/恢复/开关,点击配置入口时提示去专门页。
-    // P3-4: 配置入口直接进入独立云备份页,不要只显示 Toast
+    // P3-4: 云备份配置与自动同步间隔编辑收敛到独立「云备份」页(CloudBackupPage)。
+    // v2.x: 首页整组收敛为单行入口(状态展示 + 导航),开关与快捷操作统一在云备份页。
     val showGoToPageHint: () -> Unit = onOpenCloudBackup
 
     // 进度反馈状态
@@ -89,10 +88,6 @@ internal fun BackupSection(
     // F-27: 自动备份恢复
     var autoRestoreTarget by remember { mutableStateOf<io.zer0.muse.data.stats.AutoBackupLogEntity?>(null) }
     var autoRestoring by remember { mutableStateOf(false) }
-    // v1.48: h16 云端上传/恢复加进度反馈 + 防重复点击
-    var cloudUploading by remember { mutableStateOf(false) }
-    var cloudRestoring by remember { mutableStateOf(false) }
-    var cloudBackupDialogVisible by remember { mutableStateOf(false) }
 
     // 云端备份状态
     var hasCloudBackup by remember { mutableStateOf(false) }
@@ -227,157 +222,41 @@ internal fun BackupSection(
         )
     }
 
-    // ── 云备份(P1 新增)──
+    // ── 云备份(P1 新增;v2.x: 收敛为单行入口 — 配置、开关与操作统一在独立云备份页)──
     SectionLabel(stringResource(R.string.settings_backup_cloud_title))
     SettingsGroup(
         modifier = Modifier.padding(top = 8.dp),
     ) {
-        val typeLabel = when (cloudConfig.type) {
-            "s3" -> stringResource(R.string.settings_backup_type_s3)
-            "webdav" -> "WebDAV"
-            else -> stringResource(R.string.settings_backup_type_unconfigured)
-        }
-        // 云端备份状态(StatusDot + 文字)
+        // 云端备份状态(StatusDot + 文字);点击进入独立云备份页
         val statusColor = when {
             !cloudConfig.isConfigured -> MaterialTheme.colorScheme.outlineVariant
             checkingCloudBackup -> MaterialTheme.colorScheme.tertiary
-            cloudCheckError -> MaterialTheme.colorScheme.error // v1.48: h17 检查失败用错误色
+            cloudCheckError -> MaterialTheme.colorScheme.error
             hasCloudBackup -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.outlineVariant
         }
         val statusText = when {
             !cloudConfig.isConfigured -> stringResource(R.string.settings_backup_status_unconfigured)
             checkingCloudBackup -> stringResource(R.string.settings_backup_status_checking)
-            cloudCheckError -> stringResource(R.string.settings_backup_status_check_failed) // v1.48: h17 区分错误态
+            cloudCheckError -> stringResource(R.string.settings_backup_status_check_failed)
             hasCloudBackup -> stringResource(R.string.settings_backup_status_has_backup)
             else -> stringResource(R.string.settings_backup_status_no_backup)
         }
         SettingsItemRow(
             icon = MuseIcons.cloud,
-            title = stringResource(R.string.settings_backup_cloud_status),
+            title = stringResource(R.string.settings_backup_cloud_title),
             subtitle = statusText,
+            onClick = showGoToPageHint,
             trailing = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // A11Y-05: 状态不只靠颜色传达 — 补语义描述
                     Box(
                         modifier = Modifier.semantics { contentDescription = statusText },
                     ) {
                         StatusDot(color = statusColor, pulse = checkingCloudBackup)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
+                    ChevronRight()
                 }
-            },
-        )
-        SettingsGroupDivider()
-        SettingsItemRow(
-            icon = MuseIcons.cloud,
-            title = stringResource(R.string.settings_backup_cloud_type),
-            subtitle = typeLabel,
-            // P3-4: 配置入口收敛到独立云备份页
-            onClick = showGoToPageHint,
-        )
-        SettingsGroupDivider()
-        // 自动同步开关
-        SettingsSwitchRow(
-            icon = MuseIcons.cloudUpload,
-            title = stringResource(R.string.settings_backup_auto_sync),
-            subtitle = stringResource(R.string.settings_backup_auto_sync_subtitle),
-            checked = cloudConfig.autoSync,
-            onCheckedChange = { enabled ->
-                scope.launch {
-                    settings.saveCloudBackupConfig(cloudConfig.copy(autoSync = enabled))
-                }
-            },
-        )
-        // v1.98: 自动同步间隔设置(仅 autoSync=true 时显示;P3-4: 编辑收敛到云备份页,此处只读展示)
-            if (cloudConfig.autoSync) {
-                SettingsGroupDivider()
-                SettingsItemRow(
-                    icon = MuseIcons.calendarTime,
-                    title = stringResource(R.string.settings_backup_auto_sync_interval),
-                    subtitle = stringResource(R.string.settings_backup_interval_days, cloudConfig.autoSyncIntervalHours / 24),
-                    onClick = showGoToPageHint,
-                )
-            }
-        SettingsGroupDivider()
-        // 立即上传
-        SettingsItemRow(
-            icon = MuseIcons.cloudUpload,
-            title = stringResource(R.string.settings_backup_upload_now),
-            subtitle = if (cloudConfig.isConfigured) stringResource(R.string.settings_backup_upload_subtitle_configured) else stringResource(R.string.settings_backup_upload_subtitle_unconfigured),
-            onClick = {
-                if (!cloudConfig.isConfigured) {
-                    MuseToast.show(context.getString(R.string.settings_backup_configure_first))
-                    return@SettingsItemRow
-                }
-                // v1.48: h16 操作中防重复点击
-                if (cloudUploading || cloudRestoring) return@SettingsItemRow
-                cloudUploading = true
-                cloudBackupDialogVisible = true
-                scope.launch {
-                    val outcome = backupService.exportToCloud()
-                    val ok = outcome == io.zer0.muse.backup.BackupService.CloudBackupOutcome.SUCCESS
-                    // 上传成功后刷新云端备份状态
-                    if (ok) {
-                        checkingCloudBackup = true
-                        resultOf { backupService.hasCloudBackup() }
-                            .onSuccess { hasCloudBackup = it }
-                            .onError { _, _ -> cloudCheckError = true }
-                        checkingCloudBackup = false
-                    }
-                    cloudUploading = false
-                    cloudBackupDialogVisible = false
-                    // B-9: 备份密码失效(Keystore 丢失)时明确提示,而非笼统"上传失败"
-                    val message = when (outcome) {
-                        io.zer0.muse.backup.BackupService.CloudBackupOutcome.SUCCESS ->
-                            context.getString(R.string.settings_backup_uploaded)
-                        io.zer0.muse.backup.BackupService.CloudBackupOutcome.PASSWORD_UNAVAILABLE ->
-                            context.getString(R.string.settings_backup_password_unavailable)
-                        else -> context.getString(R.string.settings_backup_upload_failed)
-                    }
-                    MuseToast.show(message)
-                }
-            },
-        )
-        SettingsGroupDivider()
-        // 从云端恢复
-        SettingsItemRow(
-            icon = MuseIcons.cloudDownload,
-            title = stringResource(R.string.settings_backup_restore_from_cloud),
-            subtitle = if (cloudConfig.isConfigured) stringResource(R.string.settings_backup_restore_subtitle_configured) else stringResource(R.string.settings_backup_upload_subtitle_unconfigured),
-            onClick = {
-                if (!cloudConfig.isConfigured) {
-                    MuseToast.show(context.getString(R.string.settings_backup_configure_first))
-                    return@SettingsItemRow
-                }
-                // v1.48: h16 操作中防重复点击
-                if (cloudUploading || cloudRestoring) return@SettingsItemRow
-                cloudRestoring = true
-                cloudBackupDialogVisible = true
-                scope.launch {
-                    val result = backupService.importFromCloud()
-                    cloudRestoring = false
-                    cloudBackupDialogVisible = false
-                    if (result == null) {
-                        MuseToast.show(context.getString(R.string.settings_backup_restore_failed))
-                    } else {
-                        val (s, m) = result
-                        MuseToast.show(context.getString(R.string.settings_backup_restored, s, m))
-                    }
-                }
-            },
-        )
-        SettingsGroupDivider()
-        // 上次同步时间(只读)
-        // v1.71: 用 remember 缓存 SimpleDateFormat
-        val syncFmt = remember { SimpleDateFormat(MuseDateFormats.DATE_TIME_FULL, Locale.getDefault()) }
-        SettingsItemRow(
-            icon = MuseIcons.cloud,
-            title = stringResource(R.string.settings_backup_last_sync),
-            subtitle = if (cloudConfig.lastSyncAt > 0) {
-                syncFmt.format(Date(cloudConfig.lastSyncAt))
-            } else {
-                stringResource(R.string.settings_backup_never_synced)
             },
         )
     }
@@ -534,29 +413,7 @@ internal fun BackupSection(
         )
     }
 
-    // v1.48: h16 云端上传/恢复进行中:进度对话框(不可点击外部关闭)
-    if (cloudBackupDialogVisible) {
-        MuseDialog(
-            // 返回只关闭进度展示，云端任务继续运行。
-            onDismissRequest = { cloudBackupDialogVisible = false },
-            title = if (cloudUploading) stringResource(R.string.settings_backup_uploading) else stringResource(R.string.settings_backup_restoring),
-            content = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    MuseSpinner()
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(if (cloudUploading) stringResource(R.string.settings_backup_uploading_cloud) else stringResource(R.string.settings_backup_restoring_cloud))
-                }
-            },
-            onConfirm = null,
-            dismissText = null,
-        )
-    }
-
-    // 云备份配置编辑已收敛到独立「云备份」页(CloudBackupPage),此处不再内嵌字段表单
+    // 云备份配置编辑已收敛到独立「云备份」页(CloudBackupPage),此处不再内嵌字段表单与快捷操作
 }
 
 /**

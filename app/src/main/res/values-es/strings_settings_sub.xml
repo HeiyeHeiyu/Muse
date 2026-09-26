@@ -319,9 +319,9 @@
     <string name="settings_asr_provider_openai_whisper">Susurro</string>
     <string name="settings_asr_provider_openai_realtime">En tiempo real</string>
     <string name="settings_asr_provider_agnes">Inés</string>
-    <string name="settings_asr_base_url">URL base (retransmisión personalizada, en blanco por defecto)</string>
-    <string name="settings_asr_saved_base_url">URL base guardada</string>
-    <string name="settings_asr_save_base_url">Guardar URL base</string>
+    <string name="settings_asr_base_url">Punto final (retransmisión personalizada, en blanco por defecto)</string>
+    <string name="settings_asr_saved_base_url">Punto final guardado</string>
+    <string name="settings_asr_save_base_url">Guardar punto final</string>
     <!-- New: hot words -->
     <string name="settings_asr_hotwords">Palabras candentes (separadas por comas, aumentan el reconocimiento de los nombres propios)</string>
     <string name="settings_asr_saved_hotwords">Palabras calientes guardadas</string>

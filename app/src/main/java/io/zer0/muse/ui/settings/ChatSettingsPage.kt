@@ -902,9 +902,9 @@ fun ChatSettingsPage(
             }
         }
 
-        // ── v1.0.51: 记忆与通知(从记忆设置页移入,与聊天行为更相关)──
-        item { SectionLabel(stringResource(R.string.settings_memory_advanced_section)) }
-        // P1-4: 楼层式上下文限制(在记忆与通知之前,与上下文管理更相关)
+        // ── v2.x: 拆分子分组 — 原「高级」重复标签改为三个语义分组(上下文/记忆/通知)──
+        item { SectionLabel(stringResource(R.string.settings_chat_context_section)) }
+        // P1-4: 楼层式上下文限制(与上下文管理同组)
         item {
             SettingsGroup {
                 SettingsSwitchRow(
@@ -944,6 +944,8 @@ fun ChatSettingsPage(
                 }
             }
         }
+        // ── 记忆 ──
+        item { SectionLabel(stringResource(R.string.settings_memory_page_title)) }
         item {
             SettingsGroup {
                 // 经验库开关(默认关)
@@ -956,7 +958,12 @@ fun ChatSettingsPage(
                         scope.launch { settings.saveExperienceEnabled(v) }
                     },
                 )
-                SettingsGroupDivider()
+            }
+        }
+        // ── 通知 ──
+        item { SectionLabel(stringResource(R.string.settings_memory_notification_section)) }
+        item {
+            SettingsGroup {
                 // 回复通知策略(never / when_unfocused / always)
                 NotificationPolicyRow(
                     current = notificationPolicy,

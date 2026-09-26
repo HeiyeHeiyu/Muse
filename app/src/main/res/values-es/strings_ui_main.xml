@@ -276,6 +276,8 @@
     <string name="quota_searches">Búsqueda web</string>
     <!-- v1.0.4: Notification listener -->
     <string name="settings_screen_notification_listener">Oyente de notificaciones</string>
+    <string name="connection_center_title">Centro de conexiones</string>
+    <string name="connection_center_desc">Canales, MCP, plugins y aprobación de herramientas</string>
     <string name="channel_page_title">Canales de mensajes</string>
     <string name="message_action_annotate">Anotar</string>
     <string name="message_annotate_title">Notas del mensaje</string>
@@ -596,7 +598,7 @@
     <string name="settings_screen_mcp">Servidores MCP</string>
     <string name="settings_screen_mcp_desc">Servidores de herramientas de protocolo de contexto modelo</string>
     <string name="settings_screen_assistant_resources">Recursos del asistente</string>
-    <string name="settings_screen_assistant_resources_desc">Favoritos / Libro de historia / Mensajes rápidos / Inyección rápida / Habilidades / Alternar memoria</string>
+    <string name="settings_screen_assistant_resources_desc">Favoritos / Libro de historia / Mensajes rápidos / Inyección rápida / Habilidades</string>
     <string name="settings_assistant_resources_title">Recursos del asistente</string>
     <string name="video_gen_title">Generación de vídeo</string>
     <string name="video_gen_prompt">Describe el vídeo que deseas generar.</string>
