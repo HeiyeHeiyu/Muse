@@ -58,12 +58,16 @@ import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
 import io.zer0.muse.ui.common.surface.MuseListItem
 import io.zer0.muse.ui.memory.MemoryGraphView
 import io.zer0.muse.ui.memory.MemoryGraphViewModel
-import io.zer0.muse.ui.memory.MemoryTimelineView
+import io.zer0.muse.ui.memory.MemoryTimelineFilterRow
+import io.zer0.muse.ui.memory.MonthHeader
 import io.zer0.muse.ui.memory.PinnedMemorySection
+import io.zer0.muse.ui.memory.TimelineEventCard
 import io.zer0.muse.ui.memory.TimelineItem
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
+import java.time.Instant
+import java.time.ZoneId
 import kotlinx.coroutines.delay
 import org.koin.androidx.compose.koinViewModel
 
@@ -110,6 +114,8 @@ fun MemoryScreen(
     var showFilter by remember { mutableStateOf(false) }
     // P1-3: 记忆流视图模式(false=列表, true=时间轴)
     var streamTimelineMode by remember { mutableStateOf(false) }
+    // P1-3: 时间轴内部筛选(全部/事实/摘要/里程碑)
+    var timelineFilter by remember { mutableStateOf("all") }
     // F-10: 重要程度选择对话框的目标条目
     var importanceItem by remember { mutableStateOf<MemoryItem?>(null) }
     // U-3: 删除前需二次确认的目标条目(未选中时为 null,不弹窗)
@@ -194,6 +200,8 @@ fun MemoryScreen(
                         0 -> memoryStreamItems(
                             state = state,
                             timelineMode = streamTimelineMode,
+                            timelineFilter = timelineFilter,
+                            onTimelineFilter = { timelineFilter = it },
                             onToggleTimeline = { streamTimelineMode = !streamTimelineMode },
                             onOpenFacts = { tab = 1 },
                             onHistory = {
@@ -483,6 +491,8 @@ private fun MemoryOverviewCard(
 private fun LazyListScope.memoryStreamItems(
     state: MemoryUiState,
     timelineMode: Boolean,
+    timelineFilter: String,
+    onTimelineFilter: (String) -> Unit,
     onToggleTimeline: () -> Unit,
     onOpenFacts: () -> Unit,
     onHistory: (MemoryItem) -> Unit,
@@ -540,25 +550,45 @@ private fun LazyListScope.memoryStreamItems(
         }
         return
     }
-    // P1-3: 时间轴模式 — 按月分组的时间线视图(MemoryTimelineView 接线)
+    // P1-3: 时间轴模式 — 按月分组的时间线视图。
+    // v2.1.x 修复「点时间轴即崩溃」: 内容拍平进外层 LazyColumn(不再嵌套内层 LazyColumn,
+    // 避免 "infinity maximum height constraints" 崩溃); 筛选项随之由外层状态承载。
     if (timelineMode) {
-        item(key = "memory_stream_timeline") {
-            MemoryTimelineView(
-                items = items.map { item ->
-                    TimelineItem(
-                        id = item.id,
-                        content = item.content,
-                        source = item.source,
-                        importance = item.importance,
-                        createdAt = item.createdAt ?: item.time,
-                        tags = item.tags,
+        item(key = "memory_stream_timeline_toggle") {
+            TimelineModeToggleRow(timelineMode = true, onToggle = onToggleTimeline)
+        }
+        item(key = "memory_stream_timeline_filters") {
+            MemoryTimelineFilterRow(selected = timelineFilter, onSelect = onTimelineFilter)
+        }
+        val grouped = items.groupBy { item ->
+            try {
+                val instant = Instant.parse(item.createdAt ?: item.time.orEmpty())
+                val dt = instant.atZone(ZoneId.systemDefault())
+                "${dt.year}-${dt.monthValue.toString().padStart(2, '0')}"
+            } catch (_: Exception) {
+                "Unknown"
+            }
+        }.toSortedMap(compareByDescending { it })
+        grouped.forEach { (month, monthItems) ->
+            val filtered = if (timelineFilter == "all") monthItems
+            else monthItems.filter { it.source == timelineFilter }
+            if (filtered.isNotEmpty()) {
+                item(key = "timeline_month_$month") {
+                    MonthHeader(month = month)
+                }
+                items(filtered, key = { "timeline_${it.id}" }) { item ->
+                    TimelineEventCard(
+                        item = TimelineItem(
+                            id = item.id,
+                            content = item.content,
+                            source = item.source,
+                            importance = item.importance,
+                            createdAt = item.createdAt ?: item.time,
+                            tags = item.tags,
+                        ),
                     )
-                },
-                headerContent = {
-                    TimelineModeToggleRow(timelineMode = true, onToggle = onToggleTimeline)
-                },
-                modifier = Modifier.fillMaxWidth(),
-            )
+                }
+            }
         }
         return
     }

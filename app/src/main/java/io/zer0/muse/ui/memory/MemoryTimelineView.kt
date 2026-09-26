@@ -11,123 +11,70 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
 import io.zer0.muse.R
+import io.zer0.muse.ui.common.form.MuseChip
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.theme.AmberWarmth
 import io.zer0.muse.ui.theme.CoralWhisper
 import io.zer0.muse.ui.theme.LavenderDream
-import io.zer0.muse.ui.theme.SageCalm
 import io.zer0.muse.ui.theme.MuseShapes
+import io.zer0.muse.ui.theme.SageCalm
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
- * Phase 2 2A: 记忆时间轴视图 — 按月分组 + 时间轴节点 + 事件卡片。
+ * Phase 2 2A: 记忆时间轴视图组件 — 筛选行、月份标题与事件卡片。
  *
- * @param items 记忆条目列表 (MemoryItem from ViewModel)
- * @param modifier 修饰符
+ * v2.1.x 修复「点时间轴即崩溃」: 原 MemoryTimelineView 自带 LazyColumn,
+ * 在 MemoryScreen 外层 LazyColumn 的 item 中渲染构成嵌套滚动, 内层 LazyColumn
+ * 测得无限高约束, 抛 "Vertically scrollable component was measured with an
+ * infinity maximum height constraints"。
+ * 现将时间轴内容拍平到外层 LazyListScope(见 MemoryScreen.memoryStreamItems),
+ * 本文件只保留无滚动的子组件。
  */
-@Composable
-fun MemoryTimelineView(
-    items: List<TimelineItem>,
-    modifier: Modifier = Modifier,
-    // v1.0.4: 顶部 header(列表/时间轴切换 + 作用域筛选)随列表一起滚动
-    headerContent: @Composable () -> Unit = {},
-) {
-    // 按月份分组
-    val grouped = remember(items) {
-        items.groupBy { item ->
-            try {
-                val instant = Instant.parse(item.createdAt)
-                val dt = instant.atZone(ZoneId.systemDefault())
-                "${dt.year}-${dt.monthValue.toString().padStart(2, '0')}"
-            } catch (_: Exception) {
-                "Unknown"
-            }
-        }.toSortedMap(compareByDescending { it })
-    }
 
-    var selectedFilter by remember { mutableStateOf("all") }
-    // 前端修复 (i18n-3.x): 时间轴筛选文案走资源
+/** 时间轴内部筛选行(全部 / 事实 / 摘要 / 里程碑)。 */
+@Composable
+internal fun MemoryTimelineFilterRow(
+    selected: String,
+    onSelect: (String) -> Unit,
+) {
     val filters = listOf(
         "all" to stringResource(R.string.memory_timeline_filter_all),
         "fact" to stringResource(R.string.memory_timeline_filter_fact),
         "summary" to stringResource(R.string.memory_timeline_filter_summary),
         "milestone" to stringResource(R.string.memory_timeline_filter_milestone),
     )
-
-    // v1.0.3 修复崩溃: 去掉外层 Column,直接用 LazyColumn(modifier)。
-    // 原结构 Column(fillMaxSize) { LazyColumn(fillMaxWidth) } 会让 LazyColumn 拿到
-    // maxHeight = infinity(Column 允许子组件无限堆叠),触发
-    // "Vertically scrollable component was measured with an infinity maximum height constraints" 崩溃。
-    // LazyColumn 直接用传入的 modifier(从 MemoryScreen 传入 Modifier.fillMaxSize()),
-    // 会拿到 Column 父级分配的有限剩余高度,符合 Compose 嵌套滚动约束。
-    LazyColumn(
-        modifier = modifier,
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            horizontal = 16.dp,
-            vertical = 8.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // v1.0.4: 顶部 header(外层列表/时间轴切换 + 作用域筛选)
-        // 与下方"时间轴内部筛选 + 时间轴列表"一起向上滚动
-        item { headerContent() }
-        // 时间轴内部 FilterChip row(全部 / 事实 / 摘要 / 里程碑)
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                filters.forEach { (key, label) ->
-                    MuseChip(
-                        selected = selectedFilter == key,
-                        onClick = { selectedFilter = key },
-                        label = label,
-                    )
-                }
-            }
-        }
-        grouped.forEach { (month, monthItems) ->
-            val filtered = if (selectedFilter == "all") monthItems
-            else monthItems.filter { it.source == selectedFilter }
-
-            if (filtered.isNotEmpty()) {
-                // 月份标题
-                item(key = "month_$month") {
-                    MonthHeader(month = month)
-                }
-                // 时间轴条目
-                items(filtered, key = { it.id }) { item ->
-                    TimelineEventCard(item = item)
-                }
-            }
+        filters.forEach { (key, label) ->
+            MuseChip(
+                selected = selected == key,
+                onClick = { onSelect(key) },
+                label = label,
+            )
         }
     }
 }
 
 @Composable
-private fun MonthHeader(month: String) {
+internal fun MonthHeader(month: String) {
     Text(
         text = month,
         style = MaterialTheme.typography.titleSmall,
@@ -137,7 +84,7 @@ private fun MonthHeader(month: String) {
 }
 
 @Composable
-private fun TimelineEventCard(item: TimelineItem) {
+internal fun TimelineEventCard(item: TimelineItem) {
     val nodeColor = when (item.importance) {
         2 -> CoralWhisper
         1 -> LavenderDream
