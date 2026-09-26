@@ -78,13 +78,17 @@ class SubagentRunner(
 ) {
     private val routeGuard = ToolRouteExecutionGuard(toolRegistry)
 
-    /** v2.0: 解析子代理模型(设置缺失/为空时返回 null,沿用主对话模型)。 */
-    private suspend fun resolveSubagentModel(): io.zer0.ai.core.Model? {
-        val repo = settings ?: return null
-        val modelId = runCatching { repo.subagentModelIdFlow.first() }.getOrNull()
-            ?.takeIf { it.isNotBlank() } ?: return null
-        val providers = runCatching { repo.providersFlow.first() }.getOrNull().orEmpty()
-        return providers.flatMap { it.models }.firstOrNull { it.id == modelId }
+    /**
+     * v2.x: 解析子代理模型 — 辅助模型路由「大工具」档(留空级联小工具,再留空返回 null 沿用主对话模型)。
+     * 绑定带 provider,修复此前跨 Provider 按 id 匹配命中无关渠道的缺陷。
+     */
+    private suspend fun resolveSubagentModel(): Pair<io.zer0.ai.core.ProviderConfig?, io.zer0.ai.core.Model?> {
+        val repo = settings ?: return null to null
+        val routed = runCatching {
+            io.zer0.muse.data.routing.UtilityModelRouter(repo)
+                .resolve(io.zer0.muse.data.routing.UtilityTier.LARGE)
+        }.getOrNull() ?: return null to null
+        return routed.first to routed.second
     }
 
     companion object {
@@ -331,7 +335,8 @@ class SubagentRunner(
         // F-20: 用户请求中止标记
         var cancelled = false
         // v2.0: 子代理模型(设置为空时跟随主对话模型)
-        val subagentModel = resolveSubagentModel()
+        // v2.x: 改走辅助模型路由「大工具」档,同时携带 ProviderConfig 精确命中绑定渠道
+        val (subagentProvider, subagentModel) = resolveSubagentModel()
 
         // v1.0.53 Phase 3: 总结轮次(预算/配额耗尽时强制让 LLM 产出总结文本,保证有输出)。
         // 不带 tools,强制纯文本输出;同时累加 token 消耗(总结轮也计费)。
@@ -340,6 +345,7 @@ class SubagentRunner(
             val summaryCompletion = chatService.completeText(
                 messages = history.toList(),
                 model = subagentModel,
+                providerConfig = subagentProvider,
                 temperature = params.temperature,
                 maxTokens = MAX_TOKENS_PER_ROUND,
                 tools = null,
@@ -380,6 +386,7 @@ class SubagentRunner(
                     val completion = chatService.completeText(
                         messages = history.toList(),
                         model = subagentModel,
+                        providerConfig = subagentProvider,
                         temperature = params.temperature,
                         maxTokens = MAX_TOKENS_PER_ROUND,
                         tools = allowedTools,

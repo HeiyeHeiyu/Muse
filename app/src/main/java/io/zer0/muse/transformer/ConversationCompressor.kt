@@ -10,6 +10,8 @@ import io.zer0.ai.core.UIMessage
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.data.SettingsRepository
+import io.zer0.muse.data.routing.UtilityModelRouter
+import io.zer0.muse.data.routing.UtilityTier
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
@@ -39,6 +41,9 @@ class ConversationCompressor(
     private val chatService: ChatService,
     private val settingsRepository: SettingsRepository,
 ) {
+    /** v2.x: 辅助模型路由 — 压缩归「大工具」档(留空级联小工具,再留空回退主对话模型)。 */
+    private val utilityRouter = UtilityModelRouter(settingsRepository)
+
     companion object {
         private const val TAG = "ConversationCompressor"
         /** 每块最多消息条数(超过则切分为多块并行)。 */
@@ -200,17 +205,12 @@ class ConversationCompressor(
     /**
      * 解析压缩用的模型与 ProviderConfig。
      *
-     * 优先级:
-     *  1. [SettingsRepository.compressModelIdFlow] 配置的压缩模型 id(跨 Provider 查找)
-     *  2. 当前激活 Provider 的 selectedModel(回退,与 [ContextCompressTransformer] 原行为一致)
-     *
-     * 找不到压缩模型时回退到激活 Provider 的首个模型(与 [ChatService.completeText] 默认行为一致)。
+     * v2.x: 改走辅助模型路由「大工具」档 — 用户在设置中绑定后,压缩任务使用带 provider
+     * 的精确绑定(修复 v1.0.62 跨 Provider 按 id 匹配命中无关渠道的缺陷);留空时级联
+     * 小工具模型,再留空返回 null 让 ChatService 使用激活 Provider 的当前模型。
      */
     private suspend fun resolveCompressModel(): Pair<ProviderConfig?, Model?> {
-        // v1.0.62: 压缩模型跟随对话默认模型，不再使用独立 compressModelId。
-        // 此前独立配置存在跨 Provider 按 id 匹配的缺陷：同 id 模型在多个渠道存在时
-        // 会命中无关渠道的小模型，导致压缩质量忽高忽低。返回 null 让 ChatService
-        // 内部使用激活 Provider 的当前选中模型。
-        return null to null
+        val routed = utilityRouter.resolve(UtilityTier.LARGE) ?: return null to null
+        return routed.first to routed.second
     }
 }

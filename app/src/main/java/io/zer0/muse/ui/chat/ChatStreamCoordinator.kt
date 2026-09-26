@@ -1007,17 +1007,30 @@ class ChatStreamCoordinator(
 
             // v1.60-A: 工具模型路由 — 工具调用轮次优先使用用户配置的轻量 toolModel
             // v1.0.53: per-assistant 优先 — 助手自己配了 toolModelId 时用它,否则回退全局 toolModelId
+            // v2.x: 新增辅助模型绑定(带 provider)优先 — 用户在「小工具模型」绑定后精确命中该渠道,
+            //       旧全局 toolModelId 降为兜底(迁移完成后一般已清空)。
+            val utilityBinding = runCatching { settings.utilityModelBindingFlow.firstOrNull() }.getOrNull()
             val assistantToolModelId = accessor.snapshot.currentAssistant?.toolModelId?.takeIf { it.isNotBlank() }
-            val toolModelId = assistantToolModelId ?: accessor.snapshot.toolModelId
+            val utilityBoundModelId = utilityBinding?.modelId?.takeIf { it.isNotBlank() }
+            val toolModelId = assistantToolModelId ?: utilityBoundModelId ?: accessor.snapshot.toolModelId
+            // v2.x: 绑定命中的 provider id(助手级/旧键路径为 null,走原有"主模型 provider 优先"策略)
+            val boundProviderId = utilityBinding?.providerId
+                ?.takeIf { assistantToolModelId == null && utilityBoundModelId == toolModelId }
             // v1.0.53: 解析时主模型 provider 优先 — 同一模型 id 可能存在于多个 provider,
             //   直接 flatMap.firstOrNull 会匹配到无关 provider(如 kimi-k2.6 匹配到 opencode 的),
             //   导致 Agent 模式跨 provider 跳变。先找主模型所在 provider,找不到再全局兜底。
             val toolModel: Model? = toolModelId?.let { tid ->
-                val inMainProvider = resolvedModel?.let { rm ->
-                    allProviders.firstOrNull { it.id == rm.providerId }
-                        ?.models?.firstOrNull { it.id == tid }
+                // v2.x: 绑定路径 — 按绑定的 provider 精确命中
+                val fromBinding = boundProviderId?.let { pid ->
+                    allProviders.firstOrNull { it.id == pid }?.models?.firstOrNull { it.id == tid }
                 }
-                inMainProvider ?: allProviders.flatMap { it.models }.firstOrNull { it.id == tid }
+                fromBinding ?: run {
+                    val inMainProvider = resolvedModel?.let { rm ->
+                        allProviders.firstOrNull { it.id == rm.providerId }
+                            ?.models?.firstOrNull { it.id == tid }
+                    }
+                    inMainProvider ?: allProviders.flatMap { it.models }.firstOrNull { it.id == tid }
+                }
             }
             val toolProviderConfig = toolModel?.let { m ->
                 allProviders.firstOrNull { it.id == m.providerId }
@@ -1027,6 +1040,8 @@ class ChatStreamCoordinator(
             //   (主对话走 tokenrhythm、工具轮却跳 opencode 的割裂观感)。
             val toolModelUsable = toolModel != null && (
                 assistantToolModelId != null ||
+                    // v2.x: 新绑定显式带 provider,允许工具轮跨 provider(用户已精确指定渠道)
+                    boundProviderId != null ||
                     resolvedModel == null ||
                     toolModel.providerId == resolvedModel.providerId
                 )

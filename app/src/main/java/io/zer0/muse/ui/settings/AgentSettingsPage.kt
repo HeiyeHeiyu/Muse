@@ -94,10 +94,10 @@ fun AgentSettingsPage(
     val providers by settings.providersFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val activeProviderId by settings.activeProviderIdFlow.collectAsStateWithLifecycle(initialValue = null)
     val selectedModelId by settings.selectedModelIdFlow.collectAsStateWithLifecycle(initialValue = null)
-    // v1.60-A: 工具模型(工具调用轮次使用,null 表示沿用主对话模型)
-    val toolModelId by settings.toolModelIdFlow.collectAsStateWithLifecycle(initialValue = null)
-    // v2.0: 子代理模型(后台子 agent 使用,null 表示沿用主对话模型)
-    val subagentModelId by settings.subagentModelIdFlow.collectAsStateWithLifecycle(initialValue = null)
+    // v2.x: 小工具模型绑定(标题/分类/路由/封面等短任务;null 表示沿用主对话模型)
+    val utilityBinding by settings.utilityModelBindingFlow.collectAsStateWithLifecycle(initialValue = null)
+    // v2.x: 大工具模型绑定(压缩/记忆/摘要/子代理;null 表示复用小工具模型)
+    val utilityLargeBinding by settings.utilityLargeModelBindingFlow.collectAsStateWithLifecycle(initialValue = null)
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
     // v1.0.72: 主动消息测试发送(避免重复触发)
@@ -154,6 +154,8 @@ fun AgentSettingsPage(
     val modelNotConfiguredText = stringResource(R.string.settings_agent_model_not_configured)
     val toolModelNotSetText = stringResource(R.string.settings_agent_tool_model_not_set)
     val toolModelNotSetInheritText = stringResource(R.string.settings_agent_tool_model_not_set_inherit)
+    // v2.x: 大工具未绑定时的提示——复用小工具模型
+    val utilityLargeInheritText = stringResource(R.string.settings_agent_utility_large_not_set_inherit)
     val currentModelName = remember(providers, activeProviderId, selectedModelId, modelNotConfiguredText) {
         val provider = providers.firstOrNull { it.id == activeProviderId }
             ?: providers.firstOrNull()
@@ -163,16 +165,27 @@ fun AgentSettingsPage(
     }
     // L-ADP4 同类: 缓存 flatMap 结果避免每次重组都重算
     val allModels = remember(providers) { providers.flatMap { it.models } }
-    val toolModelName = remember(toolModelId, allModels, toolModelNotSetText, toolModelNotSetInheritText) {
-        toolModelId?.let { tid ->
-            allModels.firstOrNull { it.id == tid }?.name ?: toolModelNotSetText
-        } ?: toolModelNotSetInheritText
+    // v2.x: 小工具模型显示名(绑定带 provider 时优先精确命中,同名模型不串台)
+    val utilityModelName = remember(utilityBinding, allModels, toolModelNotSetText, toolModelNotSetInheritText) {
+        val binding = utilityBinding
+        if (binding == null) {
+            toolModelNotSetInheritText
+        } else {
+            allModels.firstOrNull { it.id == binding.modelId && it.providerId == binding.providerId }?.name
+                ?: allModels.firstOrNull { it.id == binding.modelId }?.name
+                ?: toolModelNotSetText
+        }
     }
-    // v2.0: 子代理模型显示名(同工具模型规则)
-    val subagentModelName = remember(subagentModelId, allModels, toolModelNotSetText, toolModelNotSetInheritText) {
-        subagentModelId?.let { tid ->
-            allModels.firstOrNull { it.id == tid }?.name ?: toolModelNotSetText
-        } ?: toolModelNotSetInheritText
+    // v2.x: 大工具模型显示名(未绑定时提示复用小工具模型)
+    val utilityLargeModelName = remember(utilityLargeBinding, allModels, toolModelNotSetText, utilityLargeInheritText) {
+        val binding = utilityLargeBinding
+        if (binding == null) {
+            utilityLargeInheritText
+        } else {
+            allModels.firstOrNull { it.id == binding.modelId && it.providerId == binding.providerId }?.name
+                ?: allModels.firstOrNull { it.id == binding.modelId }?.name
+                ?: toolModelNotSetText
+        }
     }
 
     SettingsSubPageScaffold(
@@ -220,7 +233,7 @@ fun AgentSettingsPage(
                 SettingsItemRow(
                     icon = MuseIcons.wrench,
                     title = stringResource(R.string.settings_agent_tool_model_title),
-                    subtitle = toolModelName,
+                    subtitle = utilityModelName,
                     onClick = { showToolModelPicker = true },
                 ) {
                     ChevronRight()
@@ -230,7 +243,7 @@ fun AgentSettingsPage(
                 SettingsItemRow(
                     icon = MuseIcons.bolt,
                     title = stringResource(R.string.settings_agent_subagent_model_title),
-                    subtitle = subagentModelName,
+                    subtitle = utilityLargeModelName,
                     onClick = { showSubagentModelPicker = true },
                 ) {
                     ChevronRight()
@@ -1016,9 +1029,9 @@ fun AgentSettingsPage(
         ModelPickerDialog(
             title = stringResource(R.string.settings_agent_select_tool_model),
             clearLabel = stringResource(R.string.settings_agent_clear_tool_model),
-            currentId = toolModelId,
+            currentBinding = utilityBinding,
             providers = providers,
-            onSelect = { id -> scope.launch { settings.saveToolModel(id) } },
+            onSelect = { binding -> scope.launch { settings.saveUtilityModelBinding(binding) } },
             onDismiss = { showToolModelPicker = false },
         )
     }
@@ -1026,27 +1039,28 @@ fun AgentSettingsPage(
         ModelPickerDialog(
             title = stringResource(R.string.settings_agent_select_subagent_model),
             clearLabel = stringResource(R.string.settings_agent_clear_subagent_model),
-            currentId = subagentModelId,
+            currentBinding = utilityLargeBinding,
             providers = providers,
-            onSelect = { id -> scope.launch { settings.saveSubagentModel(id) } },
+            onSelect = { binding -> scope.launch { settings.saveUtilityLargeModelBinding(binding) } },
             onDismiss = { showSubagentModelPicker = false },
         )
     }
 }
 
 /**
- * v2.0: 模型选择弹窗 — 工具模型 / 子代理模型共用。
+ * v2.0: 模型选择弹窗 — 小工具/大工具模型共用。
  *
- * 跨 Provider 列出全部模型;选中即回调保存其 id(不切换激活 Provider);
- * 首行"清除"表示沿用主对话模型(currentId = null)。
+ * 跨 Provider 列出全部模型;选中即回调保存带 provider 的绑定(不切换激活 Provider);
+ * 首行"清除"表示未绑定(小工具沿用主对话模型 / 大工具复用小工具模型)。
+ * v2.x: 由 model id 改为 [UtilityModelBinding],修复"同名模型跨 Provider 串台"的历史缺陷。
  */
 @Composable
 private fun ModelPickerDialog(
     title: String,
     clearLabel: String,
-    currentId: String?,
+    currentBinding: io.zer0.muse.data.routing.UtilityModelBinding?,
     providers: List<io.zer0.ai.core.ProviderConfig>,
-    onSelect: (String?) -> Unit,
+    onSelect: (io.zer0.muse.data.routing.UtilityModelBinding?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     MuseDialog(
@@ -1054,7 +1068,7 @@ private fun ModelPickerDialog(
         title = title,
         content = {
             Column(modifier = Modifier.fillMaxWidth()) {
-                val isCleared = currentId == null
+                val isCleared = currentBinding == null
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1073,7 +1087,7 @@ private fun ModelPickerDialog(
                         Icon(MuseIcons.check, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                     }
                 }
-                // 跨 Provider 列出所有模型,选中即保存其 id(不切换激活 Provider)
+                // 跨 Provider 列出所有模型,选中即保存 (providerId, modelId) 绑定(不切换激活 Provider)
                 providers.forEach { provider ->
                     if (provider.models.isNotEmpty()) {
                         Text(
@@ -1083,11 +1097,20 @@ private fun ModelPickerDialog(
                             modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
                         )
                         provider.models.forEach { model ->
-                            val isSelected = model.id == currentId
+                            val isSelected = model.id == currentBinding?.modelId &&
+                                provider.id == currentBinding?.providerId
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { onSelect(model.id); onDismiss() }
+                                    .clickable {
+                                        onSelect(
+                                            io.zer0.muse.data.routing.UtilityModelBinding(
+                                                providerId = provider.id,
+                                                modelId = model.id,
+                                            ),
+                                        )
+                                        onDismiss()
+                                    }
                                     .padding(horizontal = 16.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {

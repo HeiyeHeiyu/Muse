@@ -324,6 +324,7 @@ val appModule = module {
         io.zer0.muse.tools.DefaultVisionOcrClient(
             chatService = get(),
             configStore = get(),
+            settings = get(),
         )
     }
     single {

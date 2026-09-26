@@ -23,6 +23,7 @@ val appPromptModule = module {
             imageService = getOrNull(),
             coverLibraryRepository = get(),
             okHttpClient = get(named("chat")),
+            settingsRepository = get(),
         )
     }
 

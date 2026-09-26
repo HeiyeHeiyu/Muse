@@ -8,16 +8,18 @@
     <string name="settings_agent_model_not_configured">Não configurado</string>
     <string name="settings_agent_tool_model_not_set">Não definido</string>
     <string name="settings_agent_tool_model_not_set_inherit">Não definido (usar modelo principal)</string>
+    <!-- v2.x: auxiliary model tiers -->
+    <string name="settings_agent_utility_large_not_set_inherit">Não definido (reutilizar o pequeno)</string>
     <string name="settings_agent_section_assistant">Assistente de agente</string>
     <string name="settings_agent_default_assistant_title">Assistente de agente padrão</string>
     <string name="settings_agent_loading">Carregando...</string>
     <string name="settings_agent_use_first_assistant">Usar o primeiro assistente</string>
     <string name="settings_agent_section_model">Modelo</string>
     <string name="settings_agent_current_model">Modelo Atual</string>
-    <string name="settings_agent_tool_model_title">Modelo de ferramenta</string>
-    <string name="settings_agent_subagent_model_title">Modelo de subagente</string>
-    <string name="settings_agent_select_subagent_model">Selecionar modelo de subagente</string>
-    <string name="settings_agent_clear_subagent_model">Limpar (usar modelo principal)</string>
+    <string name="settings_agent_tool_model_title">Modelo utilitário pequeno</string>
+    <string name="settings_agent_subagent_model_title">Modelo utilitário grande</string>
+    <string name="settings_agent_select_subagent_model">Selecionar modelo utilitário grande</string>
+    <string name="settings_agent_clear_subagent_model">Limpar (reutilizar o pequeno)</string>
     <string name="settings_agent_multi_agent_section">Colaboração multiagente</string>
     <string name="settings_agent_collab_team">Equipes de colaboração</string>
     <string name="settings_agent_multi_agent_enabled">Habilitado · %1$d equipes</string>
@@ -47,7 +49,7 @@
     <string name="settings_agent_offset_off_label">Desligado</string>
     <string name="settings_agent_select_model">Selecione o modelo do agente</string>
     <string name="settings_agent_no_models_hint">Nenhum modelo disponível.</string>
-    <string name="settings_agent_select_tool_model">Selecione o modelo da ferramenta</string>
+    <string name="settings_agent_select_tool_model">Selecione o modelo utilitário pequeno</string>
     <string name="settings_agent_clear_tool_model">Limpar (usar modelo principal)</string>
     <string name="settings_agent_unnamed_assistant">Assistente Sem Nome</string>
     <string name="settings_agent_interval_minutes">A cada %1$d min</string>

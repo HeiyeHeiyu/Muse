@@ -8,16 +8,18 @@
     <string name="settings_agent_model_not_configured">Not configured</string>
     <string name="settings_agent_tool_model_not_set">Not set</string>
     <string name="settings_agent_tool_model_not_set_inherit">Not set (use main model)</string>
+    <!-- v2.x: auxiliary model tiers — Large falls back to Small when unbound -->
+    <string name="settings_agent_utility_large_not_set_inherit">Not set (reuse Small Utility Model)</string>
     <string name="settings_agent_section_assistant">Agent Assistant</string>
     <string name="settings_agent_default_assistant_title">Default Agent Assistant</string>
     <string name="settings_agent_loading">Loading...</string>
     <string name="settings_agent_use_first_assistant">Use first assistant</string>
     <string name="settings_agent_section_model">Model</string>
     <string name="settings_agent_current_model">Current Model</string>
-    <string name="settings_agent_tool_model_title">Tool Model</string>
-    <string name="settings_agent_subagent_model_title">Subagent Model</string>
-    <string name="settings_agent_select_subagent_model">Select subagent model</string>
-    <string name="settings_agent_clear_subagent_model">Clear (use main model)</string>
+    <string name="settings_agent_tool_model_title">Small Utility Model</string>
+    <string name="settings_agent_subagent_model_title">Large Utility Model</string>
+    <string name="settings_agent_select_subagent_model">Select large utility model</string>
+    <string name="settings_agent_clear_subagent_model">Clear (reuse Small Utility Model)</string>
     <string name="settings_agent_multi_agent_section">Multi-Agent Collaboration</string>
     <string name="settings_agent_collab_team">Collaboration Teams</string>
     <string name="settings_agent_multi_agent_enabled">Enabled · %1$d teams</string>
@@ -47,7 +49,7 @@
     <string name="settings_agent_offset_off_label">Off</string>
     <string name="settings_agent_select_model">Select Agent Model</string>
     <string name="settings_agent_no_models_hint">No models available. Please configure a provider in \"Models &amp; Services\" first.</string>
-    <string name="settings_agent_select_tool_model">Select Tool Model</string>
+    <string name="settings_agent_select_tool_model">Select small utility model</string>
     <string name="settings_agent_clear_tool_model">Clear (use main model)</string>
     <string name="settings_agent_unnamed_assistant">Unnamed Assistant</string>
     <string name="settings_agent_interval_minutes">Every %1$d min</string>

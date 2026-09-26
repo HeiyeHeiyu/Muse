@@ -253,9 +253,22 @@ interface VisionOcrClient {
 class DefaultVisionOcrClient(
     private val chatService: ChatService,
     private val configStore: ProviderConfigStore,
+    /** v2.x: 辅助模型路由(视觉档;null 时保持原行为,按激活 Provider 视觉模型调用)。 */
+    private val settings: io.zer0.muse.data.SettingsRepository? = null,
 ) : VisionOcrClient {
 
+    /** v2.x: 解析视觉档绑定(带 provider 精确命中;未绑定/失效返回 null 回退原逻辑)。 */
+    private suspend fun resolveVisionRoute(): Pair<io.zer0.ai.core.ProviderConfig, io.zer0.ai.core.Model>? {
+        val repo = settings ?: return null
+        return runCatching {
+            io.zer0.muse.data.routing.UtilityModelRouter(repo)
+                .resolve(io.zer0.muse.data.routing.UtilityTier.VISION)
+        }.getOrNull()
+    }
+
     override suspend fun isAvailable(): Boolean {
+        // v2.x: 视觉档绑定可用直接放行(使 OCR 走用户选择的视觉模型)
+        if (resolveVisionRoute() != null) return true
         val config = configStore.get() ?: return false
         // 任意一个模型支持 vision 即可
         return config.models.any { it.supportsVisionInput() }
@@ -270,9 +283,13 @@ class DefaultVisionOcrClient(
             imageBase64List = listOf(imageBase64),
         )
 
+        // v2.x: 优先用视觉档绑定(带 provider 精确命中);未绑定时保持原行为(激活 Provider 默认模型)
+        val routed = resolveVisionRoute()
         val completion = runCatching {
             chatService.completeText(
                 messages = listOf(message),
+                model = routed?.second,
+                providerConfig = routed?.first,
                 mode = ChatRequestMode.UTILITY,
             )
         }.getOrElse {

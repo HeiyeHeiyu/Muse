@@ -38,6 +38,8 @@ class CoverGenerator(
     private val imageService: ImageService?,
     private val coverLibraryRepository: CoverLibraryRepository,
     private val okHttpClient: OkHttpClient,
+    /** v2.x: 辅助模型路由(封面 prompt 生成归「小工具」档;null 时保持默认行为,便于测试构造)。 */
+    private val settingsRepository: io.zer0.muse.data.SettingsRepository? = null,
 ) {
 
     companion object {
@@ -78,11 +80,20 @@ class CoverGenerator(
                 fallback = "Generate a minimal modern banner cover image for a document titled: $title",
             )
 
+            // v2.x: 封面 prompt 生成优先走辅助模型路由「小工具」档(留空回退主对话模型)
+            val routed = settingsRepository?.let { repo ->
+                runCatching {
+                    io.zer0.muse.data.routing.UtilityModelRouter(repo)
+                        .resolve(io.zer0.muse.data.routing.UtilityTier.SMALL)
+                }.getOrNull()
+            }
             val promptCompletion = chatService.completeText(
                 messages = listOf(
                     UIMessage(role = MessageRole.SYSTEM, content = directive),
                     UIMessage(role = MessageRole.USER, content = "请生成封面图的英文绘图 prompt。"),
                 ),
+                model = routed?.second,
+                providerConfig = routed?.first,
                 temperature = 0.7f,
                 maxTokens = MAX_PROMPT_TOKENS,
                 tools = null,

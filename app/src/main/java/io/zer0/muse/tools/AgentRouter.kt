@@ -219,13 +219,19 @@ $roster
 """.trimIndent()
 
         return try {
+            // v2.x: 轻量分类优先走辅助模型路由「小工具」档(留空回退主对话模型)
+            val routed = runCatching {
+                io.zer0.muse.data.routing.UtilityModelRouter(settingsRepository)
+                    .resolve(io.zer0.muse.data.routing.UtilityTier.SMALL)
+            }.getOrNull()
             val completion = withTimeoutOrNull(4_000L) {
                 chatService.completeText(
                     messages = listOf(
                         UIMessage(role = MessageRole.SYSTEM, content = "只做轻量分类,只输出候选 ID 或 NONE,不要思考长文。"),
                         UIMessage(role = MessageRole.USER, content = prompt),
                     ),
-                    model = null,  // 用默认模型
+                    model = routed?.second,
+                    providerConfig = routed?.first,
                     temperature = 0f,
                     maxTokens = 16,
                     reasoningLevel = io.zer0.ai.core.ReasoningLevel.OFF,

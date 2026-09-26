@@ -8,16 +8,18 @@
     <string name="settings_agent_model_not_configured">Не настроено</string>
     <string name="settings_agent_tool_model_not_set">Не установлено</string>
     <string name="settings_agent_tool_model_not_set_inherit">Не установлено (используйте основную модель)</string>
+    <!-- v2.x: auxiliary model tiers -->
+    <string name="settings_agent_utility_large_not_set_inherit">Не установлено (использовать малую)</string>
     <string name="settings_agent_section_assistant">Помощник агента</string>
     <string name="settings_agent_default_assistant_title">Помощник агента по умолчанию</string>
     <string name="settings_agent_loading">Загрузка...</string>
     <string name="settings_agent_use_first_assistant">Используйте первого помощника</string>
     <string name="settings_agent_section_model">Модель</string>
     <string name="settings_agent_current_model">Текущая модель</string>
-    <string name="settings_agent_tool_model_title">Модель инструмента</string>
-    <string name="settings_agent_subagent_model_title">Модель субагента</string>
-    <string name="settings_agent_select_subagent_model">Выбрать модель субагента</string>
-    <string name="settings_agent_clear_subagent_model">Очистить (использовать основную модель)</string>
+    <string name="settings_agent_tool_model_title">Малая вспомогательная модель</string>
+    <string name="settings_agent_subagent_model_title">Большая вспомогательная модель</string>
+    <string name="settings_agent_select_subagent_model">Выберите большую вспомогательную модель</string>
+    <string name="settings_agent_clear_subagent_model">Очистить (использовать малую)</string>
     <string name="settings_agent_multi_agent_section">Мультиагентное сотрудничество</string>
     <string name="settings_agent_collab_team">Команды сотрудничества</string>
     <string name="settings_agent_multi_agent_enabled">Включено · Команды %1$d</string>
@@ -47,7 +49,7 @@
     <string name="settings_agent_offset_off_label">Выключенный</string>
     <string name="settings_agent_select_model">Выберите модель агента</string>
     <string name="settings_agent_no_models_hint">Нет доступных моделей.</string>
-    <string name="settings_agent_select_tool_model">Выберите модель инструмента</string>
+    <string name="settings_agent_select_tool_model">Выберите малую вспомогательную модель</string>
     <string name="settings_agent_clear_tool_model">Очистить (использовать основную модель)</string>
     <string name="settings_agent_unnamed_assistant">Безымянный помощник</string>
     <string name="settings_agent_interval_minutes">Каждые %1$d мин.</string>

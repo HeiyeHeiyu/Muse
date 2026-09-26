@@ -297,7 +297,16 @@ class ChannelAutoReply(
         val toCompress = conversation.turns.take(drainCount)
         val remaining = conversation.turns.drop(drainCount)
         val assistant = resolveAssistant(config)
-        val (model, providerConfig) = resolveModelAndProvider(assistant)
+        // v2.x: 摘要压缩优先走辅助模型路由「小工具」档(留空回退助手的模型解析)
+        val routed = runCatching {
+            io.zer0.muse.data.routing.UtilityModelRouter(settings)
+                .resolve(io.zer0.muse.data.routing.UtilityTier.SMALL)
+        }.getOrNull()
+        val (model, providerConfig) = if (routed != null) {
+            routed.second to routed.first
+        } else {
+            resolveModelAndProvider(assistant)
+        }
         val prompt = buildString {
             if (conversation.summary.isNotBlank()) {
                 appendLine("已有摘要：${conversation.summary}")

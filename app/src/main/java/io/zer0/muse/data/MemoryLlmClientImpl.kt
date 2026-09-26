@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 import io.zer0.muse.R
+import io.zer0.muse.data.routing.UtilityModelRouter
+import io.zer0.muse.data.routing.UtilityTier
 
 /**
  * [MemoryLlmClient] 的 app 端实现。
@@ -48,6 +50,8 @@ class MemoryLlmClientImpl(
     private val settings: SettingsRepository,
     private val context: Context,
 ) : MemoryLlmClient {
+    /** v2.x: 辅助模型路由 — 记忆提取/编译归「大工具」档(留空级联小工具/主模型)。 */
+    private val utilityRouter = UtilityModelRouter(settings)
 
     override suspend fun callText(
         systemPrompt: String,
@@ -57,10 +61,18 @@ class MemoryLlmClientImpl(
         maxTokens: Int,
         timeoutMs: Long,
     ): String {
-        val resolvedModel = model ?: settings.getSelectedModel()
+        // v2.x: 调用方未显式指定模型时,优先走辅助模型路由「大工具」档(留空级联小工具/主模型)。
+        // 绑定带 provider,跨 Provider 精确命中用户配置的记忆模型。
+        val routed = if (model == null) {
+            runCatching { utilityRouter.resolve(UtilityTier.LARGE) }.getOrNull()
+        } else {
+            null
+        }
+        val resolvedModel = model ?: routed?.second ?: settings.getSelectedModel()
         if (resolvedModel == null) {
             throw IllegalStateException(context.getString(R.string.memory_llm_no_model_configured))
         }
+        val resolvedProviderConfig = if (model == null) routed?.first else null
         val effectiveSystemPrompt = MemoryPromptContract.append(systemPrompt)
         val effectiveUserContent = buildString {
             appendLine("<memory_input>")
@@ -83,6 +95,7 @@ class MemoryLlmClientImpl(
                     val completion = chatService.completeText(
                         messages = messages,
                         model = resolvedModel,
+                        providerConfig = resolvedProviderConfig,
                         temperature = temperature,
                         maxTokens = effectiveMaxTokens,
                     )
@@ -119,6 +132,7 @@ class MemoryLlmClientImpl(
                         chatService.streamChat(
                             messages = messages,
                             model = resolvedModel,
+                            providerConfig = resolvedProviderConfig,
                             temperature = temperature,
                             maxTokens = effectiveMaxTokens,
                             mode = io.zer0.ai.core.ChatRequestMode.UTILITY,

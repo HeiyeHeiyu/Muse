@@ -8,16 +8,18 @@
     <string name="settings_agent_model_not_configured">구성되지 않음</string>
     <string name="settings_agent_tool_model_not_set">설정되지 않음</string>
     <string name="settings_agent_tool_model_not_set_inherit">설정되지 않음(메인 모델 사용)</string>
+    <!-- v2.x: auxiliary model tiers -->
+    <string name="settings_agent_utility_large_not_set_inherit">설정되지 않음(소형 모델 재사용)</string>
     <string name="settings_agent_section_assistant">에이전트 어시스턴트</string>
     <string name="settings_agent_default_assistant_title">기본 상담원 보조</string>
     <string name="settings_agent_loading">로드 중...</string>
     <string name="settings_agent_use_first_assistant">첫 번째 어시스턴트 사용</string>
     <string name="settings_agent_section_model">모델</string>
     <string name="settings_agent_current_model">현재 모델</string>
-    <string name="settings_agent_tool_model_title">도구 모델</string>
-    <string name="settings_agent_subagent_model_title">서브에이전트 모델</string>
-    <string name="settings_agent_select_subagent_model">서브에이전트 모델 선택</string>
-    <string name="settings_agent_clear_subagent_model">지우기(기본 모델 사용)</string>
+    <string name="settings_agent_tool_model_title">소형 유틸리티 모델</string>
+    <string name="settings_agent_subagent_model_title">대형 유틸리티 모델</string>
+    <string name="settings_agent_select_subagent_model">대형 유틸리티 모델 선택</string>
+    <string name="settings_agent_clear_subagent_model">지우기(소형 모델 재사용)</string>
     <string name="settings_agent_multi_agent_section">다중 에이전트 협업</string>
     <string name="settings_agent_collab_team">협업 팀</string>
     <string name="settings_agent_multi_agent_enabled">활성화됨 · %1$d 팀</string>
@@ -47,7 +49,7 @@
     <string name="settings_agent_offset_off_label">끄다</string>
     <string name="settings_agent_select_model">에이전트 모델 선택</string>
     <string name="settings_agent_no_models_hint">사용 가능한 모델이 없습니다.</string>
-    <string name="settings_agent_select_tool_model">도구 모델 선택</string>
+    <string name="settings_agent_select_tool_model">소형 유틸리티 모델 선택</string>
     <string name="settings_agent_clear_tool_model">클리어(메인 모델 사용)</string>
     <string name="settings_agent_unnamed_assistant">이름 없는 어시스턴트</string>
     <string name="settings_agent_interval_minutes">%1$d분마다</string>

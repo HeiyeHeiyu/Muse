@@ -8,16 +8,18 @@
     <string name="settings_agent_model_not_configured">未設定</string>
     <string name="settings_agent_tool_model_not_set">未設定</string>
     <string name="settings_agent_tool_model_not_set_inherit">未設定 (メインモデルを使用)</string>
+    <!-- v2.x: auxiliary model tiers -->
+    <string name="settings_agent_utility_large_not_set_inherit">未設定(小型モデルを再利用)</string>
     <string name="settings_agent_section_assistant">エージェントアシスタント</string>
     <string name="settings_agent_default_assistant_title">デフォルトのエージェントアシスタント</string>
     <string name="settings_agent_loading">読み込み中...</string>
     <string name="settings_agent_use_first_assistant">最初のアシスタントを使用する</string>
     <string name="settings_agent_section_model">モデル</string>
     <string name="settings_agent_current_model">現行モデル</string>
-    <string name="settings_agent_tool_model_title">ツールモデル</string>
-    <string name="settings_agent_subagent_model_title">サブエージェントモデル</string>
-    <string name="settings_agent_select_subagent_model">サブエージェントモデルを選択</string>
-    <string name="settings_agent_clear_subagent_model">クリア(メインモデルを使用)</string>
+    <string name="settings_agent_tool_model_title">小型ユーティリティモデル</string>
+    <string name="settings_agent_subagent_model_title">大型ユーティリティモデル</string>
+    <string name="settings_agent_select_subagent_model">大型ユーティリティモデルを選択</string>
+    <string name="settings_agent_clear_subagent_model">クリア(小型モデルを再利用)</string>
     <string name="settings_agent_multi_agent_section">マルチエージェントのコラボレーション</string>
     <string name="settings_agent_collab_team">コラボレーションチーム</string>
     <string name="settings_agent_multi_agent_enabled">有効 · %1$d チーム</string>
@@ -47,7 +49,7 @@
     <string name="settings_agent_offset_off_label">オフ</string>
     <string name="settings_agent_select_model">エージェントモデルの選択</string>
     <string name="settings_agent_no_models_hint">利用可能なモデルはありません。</string>
-    <string name="settings_agent_select_tool_model">ツールモデルの選択</string>
+    <string name="settings_agent_select_tool_model">小型ユーティリティモデルを選択</string>
     <string name="settings_agent_clear_tool_model">クリア（メインモデルを使用）</string>
     <string name="settings_agent_unnamed_assistant">名前のないアシスタント</string>
     <string name="settings_agent_interval_minutes">%1$d 分ごと</string>

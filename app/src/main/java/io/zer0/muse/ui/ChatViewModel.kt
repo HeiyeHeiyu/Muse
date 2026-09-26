@@ -2713,8 +2713,15 @@ class ChatViewModel(
             }
             resultOf {
                 val completion = retryOnNetworkError {
+                    // v2.x: 标题生成优先走辅助模型路由「小工具」档(留空回退主对话模型)
+                    val routed = runCatching {
+                        io.zer0.muse.data.routing.UtilityModelRouter(settings)
+                            .resolve(io.zer0.muse.data.routing.UtilityTier.SMALL)
+                    }.getOrNull()
                     chatService.completeText(
                         messages = listOf(UIMessage(role = MessageRole.USER, content = prompt)),
+                        model = routed?.second,
+                        providerConfig = routed?.first,
                     )
                 }
                 // v1.0.74 fix: 先剥离 <think> 推理标签再清洗。
