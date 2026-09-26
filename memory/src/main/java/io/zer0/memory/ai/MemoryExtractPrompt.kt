@@ -107,6 +107,7 @@ $existingSection
    - 工作流程偏好、工具偏好、工程规则、执行细节
    - 助手的内心活动、临时调试信息
    - 一次性任务细节(如"修改了 xxx 文件第 y 行")
+   - 下方示例中的演示内容(示例仅演示 JSON 格式,严禁照抄;所有条目必须来自本次对话)
 
 8. 如果对话无值得记忆的内容,返回空结构(所有数组为空,mainProblem 为 null)。
 
@@ -175,6 +176,7 @@ $existingSection
    - Workflow preferences, tool preferences, engineering rules, execution details
    - Assistant's inner thoughts, temporary debugging info
    - One-off task details (e.g. "modified line Y of file X")
+   - Demo content from the examples below (examples illustrate JSON format only; never copy them; every entry must come from this conversation)
 
 8. If nothing in the conversation is worth remembering, return an empty structure (all arrays empty, mainProblem null).
 

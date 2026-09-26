@@ -6,6 +6,7 @@ import io.zer0.common.resultOf
 import io.zer0.memory.fact.FactStore
 import io.zer0.memory.llm.MemoryLlmClient
 import io.zer0.memory.prompt.FactExtractionPrompt
+import io.zer0.memory.prompt.PromptExampleGuard
 import io.zer0.memory.summary.SessionSummaryManager
 import io.zer0.memory.ticker.MemoryConfig
 import io.zer0.memory.time.TimeContext
@@ -199,7 +200,12 @@ class DeepMemoryProcessor(
                 if (facts == null) {
                     throw RuntimeException("fact extraction 解析失败(rawLen=${rawResult.length})")
                 }
-                if (facts.isEmpty()) {
+                // v2.x: 示例泄漏防护 — 照抄提示词示例且摘要未提及的事实直接丢弃(示例被当记忆入库的用户反馈)
+                val guardInputText = "$effectiveSnapshot\n$effectiveSummary"
+                val guardedFacts = facts.filterNot {
+                    PromptExampleGuard.isUngroundedExample(it.fact, guardInputText)
+                }
+                if (guardedFacts.isEmpty()) {
                     // LLM 合法判定无事实 → markProcessed,下次不再处理
                     Logger.d("DeepMemoryProcessor", "fact extraction returned empty (rawLen=${rawResult.length}, session=${summary.sessionId.take(8)}…)")
                     failureCounts.remove(summary.sessionId)
@@ -212,9 +218,9 @@ class DeepMemoryProcessor(
                 val scope = if (summary.assistantId.isBlank() || summary.assistantId == "default") "main" else summary.assistantId
                 // A-11: LLM 抽取输出按墓碑过滤 — 命中墓碑的事实直接丢弃,不再写回 facts 表
                 val filteredFacts = if (tombstones.isEmpty()) {
-                    facts
+                    guardedFacts
                 } else {
-                    facts.filter { f -> tombstones.none { t -> FactStore.matchesTombstone(f.fact, t) } }
+                    guardedFacts.filter { f -> tombstones.none { t -> FactStore.matchesTombstone(f.fact, t) } }
                 }
                 if (filteredFacts.isEmpty()) {
                     // 抽取结果全部命中墓碑:视为无可写事实,标记已处理避免每轮重抽

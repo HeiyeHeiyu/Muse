@@ -8,6 +8,7 @@ import io.zer0.memory.fact.FactDbProvider
 import io.zer0.memory.fact.FactStore
 import io.zer0.memory.llm.MemoryLlmClient
 import io.zer0.memory.pii.PiiGuard
+import io.zer0.memory.prompt.PromptExampleGuard
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -258,7 +259,10 @@ class MemoryAutoSaveScheduler(
         }
 
         // S-05: 还原占位符后解析(落库时 FactStore.add 再做硬脱敏)
-        parseAnalysisResult(PiiGuard.unmask(raw, maskedInput.map))
+        val parsed = parseAnalysisResult(PiiGuard.unmask(raw, maskedInput.map))
+            ?: return@withContext null
+        // v2.x: 示例泄漏防护 — 照抄提示词示例且对话未提及的条目直接剔除,不落库
+        PromptExampleGuard.sanitize(parsed, userContent)
     }
 
     /**

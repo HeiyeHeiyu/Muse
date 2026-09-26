@@ -98,7 +98,9 @@ object FactExtractionPrompt {
 
 ## 输出格式
 
-只输出 JSON 数组，不要 markdown 代码块：
+示例仅演示字段格式,严禁照抄示例内容;所有事实必须来自输入摘要。
+
+只输出 JSON 数组,不要 markdown 代码块:
 [
   {"fact": "用户最近在筹备搬家", "tags": ["搬家", "近况"], "time": null, "importance": 0, "category": "event", "confidence": 0.9, "source": "inferred", "entity_key": null},
   {"fact": "下周三要提交论文初稿", "tags": ["学业", "计划"], "time": "2026-08-12T09:00", "importance": 1, "category": "goal", "confidence": 1.0, "source": "user_explicit", "entity_key": null},
@@ -182,6 +184,8 @@ You are a memory fact splitter. $diffInstruction
 16. Content the user explicitly emphasizes, states seriously, repeats often, or expresses as boundaries/taboos ("don't...", "I don't like being...", "never...") should have importance at least 1; such content is usually worth keeping in the original tone.
 
 ## Output Format
+
+Examples below illustrate field format only; never copy their content; every fact must come from the input summary.
 
 Output a strict JSON array only, without markdown code fences:
 [
