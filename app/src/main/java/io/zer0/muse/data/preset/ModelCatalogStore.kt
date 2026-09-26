@@ -5,9 +5,13 @@ import io.zer0.common.AppJson
 import io.zer0.ai.core.Model
 import io.zer0.ai.core.VisionCapabilities
 import io.zer0.common.Logger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
  * P1 模型目录（本地可维护）。
@@ -17,18 +21,26 @@ import java.io.File
  * 三层数据：
  * 1. 内置默认：由 [builtinEntries] 提供（随版本发布，代码内默认）。
  * 2. 用户覆盖：`filesDir/model_catalog/user_models.json`，用户手动修正过的字段。
- * 3. 远端目录：预留接口，当前未接入（避免依赖不稳定网络）。
+ * 3. 远端目录：`filesDir/model_catalog/remote_models.json`，由 [refreshRemote] 从 [remoteUrl] 拉取。
+ *    **默认关闭**：[remoteUrl] 为空串时不发任何网络请求，也不会应用远端层。
  *
  * 合并规则（用户优先）：
- * - 同一 providerId + modelId：用户覆盖字段优先，未覆盖字段回退内置。
- * - 用户新增模型：保留。
- * - 用户删除模型：删除标记生效（builtInRemoved）。
+ * - 合并优先级：用户 > 远端 > 内置（字段级，高层只覆盖自己声明过的非空字段）。
+ * - 同一 providerId + modelId：用户覆盖字段优先，未覆盖字段回退远端，再回退内置。
+ * - 用户/远端新增模型：保留；builtInRemoved=true 表示该层隐藏模型。
  *
- * 用户手动更改优先级由“字段级合并”保证，后续远端目录刷新也只会补字段，
- * 不会覆盖 [ModelCatalogEntry.userEdited] 标记的字段。
+ * 任意一层缺失/失败都不影响上一层：远端拉取失败时保留已有缓存与内置目录，
+ * 只记日志（静默回退）。
  */
 class ModelCatalogStore(
     private val context: Context,
+    /**
+     * 远端模型目录 URL（JSON，格式见 [RemoteCatalog]）。
+     *
+     * 空串 = 未启用（默认值）：[refreshRemote] 立即返回且不发任何网络请求，
+     * [entries] 也不会应用远端层。启用场景需由调用方显式传入 URL。
+     */
+    private val remoteUrl: String = "",
 ) {
 
     @Serializable
@@ -57,14 +69,37 @@ class ModelCatalogStore(
         val updatedAt: Long = 0L,
     )
 
+    /**
+     * 远端目录文档格式：`{ "schemaVersion":1, "publishedAt":"...", "items":[ModelCatalogEntry...] }`。
+     * 与内置/用户覆盖共用 [ModelCatalogEntry]，字段级合并。
+     */
+    @Serializable
+    data class RemoteCatalog(
+        val schemaVersion: Int = 1,
+        val publishedAt: String = "",
+        val items: List<ModelCatalogEntry> = emptyList(),
+    )
+
     private val catalogDir: File
         get() = File(context.filesDir, "model_catalog")
 
     private val userOverridesFile: File
         get() = File(catalogDir, "user_models.json")
 
+    /** 远端目录本地缓存(拉取成功后落盘)。 */
+    private val remoteCatalogFile: File
+        get() = File(catalogDir, "remote_models.json")
+
     @Volatile
     private var userCache: UserOverrides? = null
+
+    /** 远端目录内存缓存(null 表示未加载或不存在)。 */
+    @Volatile
+    private var remoteCache: RemoteCatalog? = null
+
+    /** 远端目录是否已尝试读取磁盘(避免反复 IO / 反复记录解析失败日志)。 */
+    @Volatile
+    private var remoteLoaded: Boolean = false
 
     /**
      * 内置默认模型目录（随版本发布）。
@@ -118,13 +153,103 @@ class ModelCatalogStore(
      * @param providerId 为空返回全部；非空只返回该供应商。
      */
     fun entries(providerId: String? = null): List<ModelCatalogEntry> {
-        val merged = merge(builtinEntries(), loadUserOverrides())
+        val merged = merge(builtinEntries(), loadRemoteEntries(), loadUserOverrides())
         return merged.filter { providerId == null || it.providerId.equals(providerId, ignoreCase = true) }
     }
 
-    /** 按 providerId + modelId 精确查询（含用户覆盖）。 */
+    /** 按 providerId + modelId 精确查询（含远端与用户覆盖）。 */
     fun find(providerId: String, modelId: String): ModelCatalogEntry? =
         entries(providerId).firstOrNull { it.modelId.equals(modelId, ignoreCase = true) }
+
+    /** 远端目录是否启用（未配置 URL 时为 false，不会发起任何网络请求）。 */
+    fun isRemoteEnabled(): Boolean = remoteUrl.isNotBlank()
+
+    /** 当前生效的远端目录（缓存优先）；未启用/缺失/解析失败返回 null。 */
+    fun remoteCatalog(): RemoteCatalog? {
+        if (remoteUrl.isBlank()) return null
+        remoteCache?.let { return it }
+        if (remoteLoaded) return null
+        remoteLoaded = true
+        if (!remoteCatalogFile.exists()) return null
+        val loaded = runCatching {
+            AppJson.decodeFromString(RemoteCatalog.serializer(), remoteCatalogFile.readText())
+        }.onFailure { Logger.w(TAG, "远端模型目录解析失败,按空处理", it) }.getOrNull()
+        remoteCache = loaded
+        return loaded
+    }
+
+    private fun loadRemoteEntries(): List<ModelCatalogEntry> = remoteCatalog()?.items.orEmpty()
+
+    /**
+     * 从 [remoteUrl] 拉取远端目录并落盘缓存。
+     *
+     * - 未配置 URL（[isRemoteEnabled]=false）时立即返回，**不发任何网络请求**（默认关闭）；
+     * - 网络/解析失败：保留现有缓存与内置目录，仅记日志（静默回退）；
+     * - [publishedAt] 与当前一致且非 [forceFresh] 时不重复写盘。
+     */
+    suspend fun refreshRemote(forceFresh: Boolean = false): RemoteRefreshResult = withContext(Dispatchers.IO) {
+        val url = remoteUrl.trim()
+        if (url.isEmpty()) {
+            return@withContext RemoteRefreshResult(enabled = false, ok = false, updated = false, message = "远端目录未启用")
+        }
+        val text = try {
+            httpGet(url)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Logger.w(TAG, "远端目录拉取失败: ${e.message}")
+            null
+        }
+        if (text.isNullOrBlank()) {
+            return@withContext RemoteRefreshResult(enabled = true, ok = false, updated = false, message = "网络请求失败")
+        }
+        val parsed = runCatching {
+            AppJson.decodeFromString(RemoteCatalog.serializer(), text)
+        }.onFailure { Logger.w(TAG, "远端目录格式不合法: ${it.message}") }.getOrNull()
+        if (parsed == null || parsed.items.isEmpty()) {
+            return@withContext RemoteRefreshResult(enabled = true, ok = false, updated = false, message = "远端目录为空或格式不合法")
+        }
+        val currentPublished = remoteCatalog()?.publishedAt.orEmpty()
+        if (!forceFresh && currentPublished.isNotBlank() && currentPublished == parsed.publishedAt) {
+            return@withContext RemoteRefreshResult(enabled = true, ok = true, updated = false, message = "已是最新(${parsed.publishedAt})")
+        }
+        runCatching {
+            catalogDir.mkdirs()
+            remoteCatalogFile.writeText(text)
+            remoteCache = parsed
+            remoteLoaded = true
+            Logger.i(TAG, "远端模型目录已更新: ${parsed.publishedAt}, ${parsed.items.size} 条")
+        }.onFailure { e ->
+            Logger.w(TAG, "远端模型目录写入失败: ${e.message}")
+            return@withContext RemoteRefreshResult(enabled = true, ok = false, updated = false, message = "写入缓存失败")
+        }
+        RemoteRefreshResult(enabled = true, ok = true, updated = true, message = "已更新到 ${parsed.publishedAt}")
+    }
+
+    /** 远端目录状态摘要（设置页/诊断用）。 */
+    fun remoteStatus(): RemoteStatus {
+        val catalog = remoteCatalog()
+        return RemoteStatus(
+            enabled = isRemoteEnabled(),
+            url = remoteUrl,
+            publishedAt = catalog?.publishedAt.orEmpty(),
+            itemCount = catalog?.items?.size ?: 0,
+        )
+    }
+
+    private fun httpGet(url: String): String? {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        return try {
+            conn.connectTimeout = REMOTE_TIMEOUT_MS
+            conn.readTimeout = REMOTE_TIMEOUT_MS
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("Accept", "application/json")
+            if (conn.responseCode !in 200..299) return null
+            conn.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            conn.disconnect()
+        }
+    }
 
     /**
      * 将目录条目投影到运行时模型列表。
@@ -282,24 +407,38 @@ class ModelCatalogStore(
         supportsReasoning = reasoning,
     )
 
+    /**
+     * 三层合并（优先级：用户 > 远端 > 内置）。
+     *
+     * 同 key 字段级合并：高层只覆盖自己声明过的非空字段；
+     * `builtInRemoved=true` 表示该层隐藏此模型（用户删除优先于其他层）。
+     */
     private fun merge(
         builtin: List<ModelCatalogEntry>,
+        remote: List<ModelCatalogEntry>,
         user: List<ModelCatalogEntry>,
     ): List<ModelCatalogEntry> {
-        if (user.isEmpty()) return builtin
-        val userByKey = user.associateBy { keyOf(it.providerId, it.modelId) }
         val result = LinkedHashMap<String, ModelCatalogEntry>()
-        builtin.forEach { b ->
-            val u = userByKey[keyOf(b.providerId, b.modelId)]
-            if (u?.builtInRemoved == true) return@forEach
-            result[keyOf(b.providerId, b.modelId)] = if (u == null) b else b.mergeUser(u)
-        }
-        user.forEach { u ->
-            if (!u.builtInRemoved) {
-                result.putIfAbsent(keyOf(u.providerId, u.modelId), u)
-            }
-        }
+        builtin.forEach { b -> result[keyOf(b.providerId, b.modelId)] = b }
+        applyLayer(result, remote)
+        applyLayer(result, user)
         return result.values.toList()
+    }
+
+    /** 把一层覆盖（远端/用户）原地应用到已合并表。 */
+    private fun applyLayer(
+        target: LinkedHashMap<String, ModelCatalogEntry>,
+        layer: List<ModelCatalogEntry>,
+    ) {
+        layer.forEach { entry ->
+            val key = keyOf(entry.providerId, entry.modelId)
+            if (entry.builtInRemoved) {
+                target.remove(key)
+                return@forEach
+            }
+            val base = target[key]
+            target[key] = if (base == null) entry else base.mergeFields(entry)
+        }
     }
 
     @Suppress("CyclomaticComplexMethod")
@@ -344,22 +483,22 @@ class ModelCatalogStore(
     )
 
     @Suppress("CyclomaticComplexMethod")
-    private fun ModelCatalogEntry.mergeUser(user: ModelCatalogEntry): ModelCatalogEntry =
+    private fun ModelCatalogEntry.mergeFields(overlay: ModelCatalogEntry): ModelCatalogEntry =
         copy(
-            displayName = user.displayName ?: displayName,
-            contextWindow = user.contextWindow ?: contextWindow,
-            maxOutputTokens = user.maxOutputTokens ?: maxOutputTokens,
-            supportsVision = user.supportsVision ?: supportsVision,
-            supportsStreaming = user.supportsStreaming ?: supportsStreaming,
-            supportsVideo = user.supportsVideo ?: supportsVideo,
-            supportsTools = user.supportsTools ?: supportsTools,
-            supportsReasoning = user.supportsReasoning ?: supportsReasoning,
-            inputModalities = user.inputModalities ?: inputModalities,
-            outputModalities = user.outputModalities ?: outputModalities,
-            visionCapabilities = user.visionCapabilities ?: visionCapabilities,
-            updatedAt = user.updatedAt.let { if (it > 0) it else updatedAt },
-            userEdited = user.userEdited || userEdited,
-            builtInRemoved = user.builtInRemoved || builtInRemoved,
+            displayName = overlay.displayName ?: displayName,
+            contextWindow = overlay.contextWindow ?: contextWindow,
+            maxOutputTokens = overlay.maxOutputTokens ?: maxOutputTokens,
+            supportsVision = overlay.supportsVision ?: supportsVision,
+            supportsStreaming = overlay.supportsStreaming ?: supportsStreaming,
+            supportsVideo = overlay.supportsVideo ?: supportsVideo,
+            supportsTools = overlay.supportsTools ?: supportsTools,
+            supportsReasoning = overlay.supportsReasoning ?: supportsReasoning,
+            inputModalities = overlay.inputModalities ?: inputModalities,
+            outputModalities = overlay.outputModalities ?: outputModalities,
+            visionCapabilities = overlay.visionCapabilities ?: visionCapabilities,
+            updatedAt = overlay.updatedAt.let { if (it > 0) it else updatedAt },
+            userEdited = overlay.userEdited || userEdited,
+            builtInRemoved = overlay.builtInRemoved || builtInRemoved,
         )
 
     private fun loadUserOverrides(): List<ModelCatalogEntry> {
@@ -395,5 +534,25 @@ class ModelCatalogStore(
 
     companion object {
         private const val TAG = "ModelCatalogStore"
+
+        /** 远端目录拉取超时（连接/读取，毫秒）。 */
+        private const val REMOTE_TIMEOUT_MS = 10_000
     }
 }
+
+/** 远端目录拉取结果。 */
+data class RemoteRefreshResult(
+    /** 远端层是否启用（未配置 URL 时为 false，未发任何请求）。 */
+    val enabled: Boolean,
+    val ok: Boolean,
+    val updated: Boolean,
+    val message: String,
+)
+
+/** 远端目录状态摘要。 */
+data class RemoteStatus(
+    val enabled: Boolean,
+    val url: String,
+    val publishedAt: String,
+    val itemCount: Int,
+)

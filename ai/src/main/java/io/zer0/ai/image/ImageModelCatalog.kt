@@ -129,6 +129,22 @@ object ImageModelCatalog {
             // Agnes 输出 PNG
             outputMime = "image/png",
         ),
+        ImageModel(
+            // v1.0.18 后续 (B14-2): Gemini 2.5 Flash Image(Nano Banana),
+            // 走 GeminiImageProvider(原生 generateContent + responseModalities 图片输出)。
+            // 支持参考图(作为 inlineData part 输入);同步返回;response_format 参数不适用。
+            id = "gemini-2.5-flash-image",
+            displayName = "Gemini 2.5 Flash Image",
+            provider = "Google",
+            supportedSizes = listOf("1024x1024"),
+            supportedQualities = emptyList(),
+            supportedStyles = emptyList(),
+            supportsReferenceImage = true,
+            maxN = 1,
+            supportsB64Json = true,
+            supportsResponseFormatParam = false,
+            outputMime = "image/png",
+        ),
     )
 
     /** 所有预设模型。 */

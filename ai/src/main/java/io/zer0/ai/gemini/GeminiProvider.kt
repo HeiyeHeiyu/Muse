@@ -582,7 +582,8 @@ class GeminiProvider(
      * (去掉 "models/" 前缀)和 displayName,按 supportedGenerationMethods 过滤
      * (仅保留支持 generateContent 的模型)。contextWindow 用 [ModelContextWindowRegistry] 兜底。
      *
-     * 注:仅支持 generativelanguage API;Vertex AI 端点模型列表接口不同,此处不处理。
+     * 注:generativelanguage 与 Vertex 分支均已实现 — Vertex 模型列表端点不同(publishers/google/models),
+     * 由内部 [listVertexModels] 处理(Express 用 ?key=,服务号用 Bearer),失败静默回退空列表。
      *
      * v1.80 (M-GEM5): 支持分页,循环请求直到 nextPageToken 为 null,加安全页数上限防止异常响应无限循环。
      *
@@ -593,8 +594,12 @@ class GeminiProvider(
      */
     override suspend fun listModels(config: ProviderConfig): List<Model> = withContext(Dispatchers.IO) {
         val specific = config.resolvedSpecific()
-        // M-GEM10: Vertex AI 不支持 listModels(端点协议不同)
-        if (specific is ProviderSpecificConfig.Gemini && specific.useVertexAI) return@withContext emptyList()
+        // B8: Vertex AI 模型列表走独立端点(publishers/google/models),与 generativelanguage 不兼容。
+        //   成功时返回上游模型;任何一步失败(网络/鉴权/端点不支持)静默返回空列表,
+        //   调用方回退内置模型目录(不阻断设置页/首屏)。
+        if (specific is ProviderSpecificConfig.Gemini && specific.useVertexAI) {
+            return@withContext listVertexModels(config, specific)
+        }
         val base = config.resolvedBaseUrl().trimEnd('/')
         // H-GEM1: 日志不打印含 ?key= 的完整 URL,只打 base + "/models"
         Logger.i(TAG, "listModels: GET $base/models")
@@ -658,6 +663,78 @@ class GeminiProvider(
         // v1.132: 按 id 字母序排序,便于用户查找
         models.sortedBy { it.id.lowercase() }
     }
+
+    /**
+     * B8: Vertex AI 模型列表。
+     *
+     * 端点与鉴权按模式区分:
+     *  - 服务账号: GET https://{location}-aiplatform.googleapis.com/v1/projects/{p}/locations/{l}/publishers/google/models (Bearer)
+     *  - Express Mode:  GET https://aiplatform.googleapis.com/v1/publishers/google/models?key=<API Key>
+     *
+     * Vertex 返回的模型条目字段与 generativelanguage 略有差异(可能无 supportedGenerationMethods),
+     * 因此不做能力过滤,直接取 name 末段作为模型 id。任何失败静默回退空列表。
+     */
+    private suspend fun listVertexModels(
+        config: ProviderConfig,
+        specific: ProviderSpecificConfig.Gemini,
+    ): List<Model> =
+        try {
+            val listClient = httpClient.newBuilder()
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .callTimeout(45, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+            val urlBuilder: okhttp3.HttpUrl.Builder
+            var bearer: String? = null
+            if (specific.useServiceAccount) {
+                bearer = resolveToken() ?: return emptyList()
+                val projectId = specific.projectId.takeIf { it.isNotBlank() } ?: return emptyList()
+                val location = specific.location.ifBlank { "us-central1" }
+                urlBuilder = (
+                    "https://$location-aiplatform.googleapis.com/v1/projects/$projectId" +
+                        "/locations/$location/publishers/google/models"
+                    ).toHttpUrl().newBuilder()
+            } else {
+                val key = effectiveApiKey()
+                if (key.isBlank()) return emptyList()
+                urlBuilder = "$VERTEX_EXPRESS_HOST/publishers/google/models".toHttpUrl().newBuilder()
+                    .addQueryParameter("key", key)
+            }
+            urlBuilder.addQueryParameter("pageSize", "100")
+            val httpRequest = Request.Builder()
+                .url(urlBuilder.build())
+                .apply { bearer?.let { header("Authorization", "Bearer $it") } }
+                .header("Accept", "application/json")
+                .get()
+                .build()
+            Logger.i(TAG, "listModels(vertex): GET .../publishers/google/models")
+            listClient.newCall(httpRequest).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    Logger.w(TAG, "listModels(vertex) 失败: HTTP ${resp.code}(静默回退空列表)")
+                    return emptyList()
+                }
+                val raw = resp.body.string()
+                if (raw.isBlank()) return emptyList()
+                val parsed = AppJson.decodeFromString<GeminiModelsResponse>(raw)
+                parsed.models
+                    .mapNotNull { m ->
+                        val id = m.name.substringAfterLast('/').ifBlank { return@mapNotNull null }
+                        Model(
+                            id = id,
+                            name = m.displayName ?: id,
+                            providerId = config.id,
+                            contextWindow = ModelContextWindowRegistry.lookup(id),
+                        )
+                    }
+                    .distinctBy { it.id }
+                    .sortedBy { it.id.lowercase() }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Logger.w(TAG, "listModels(vertex) 异常,静默回退空列表: ${e.message}")
+            emptyList()
+        }
 
     /**
      * 把 SYSTEM 消息抽出为 systemInstruction,其余转 Gemini contents(assistant → model)。
@@ -756,9 +833,9 @@ class GeminiProvider(
      *   (Vertex AI 用 Bearer token 鉴权,不加 ?key=)
      *
      * M-GEM8: action 从 specific.streamPath/generatePath 取值(去前导 `:`),不硬编码。
-     * M-GEM9: Vertex AI + !useServiceAccount 直接 error,不走 ?key= 兜底。
+     * B14-3: Vertex 分支按 useServiceAccount 区分 —— 服务号走 OAuth Bearer,Express Mode 走 ?key=API Key。
      */
-    private fun buildUrl(model: String, stream: Boolean): String {
+    internal fun buildUrl(model: String, stream: Boolean): String {
         val specific = config.resolvedSpecific()
         val geminiSpecific = specific as? ProviderSpecificConfig.Gemini
         // M-GEM8: 从 specific 取端点路径(去前导 `:`),空则用默认
@@ -771,19 +848,34 @@ class GeminiProvider(
         }
 
         // Phase 9.4 (M10): Vertex AI 端点分支
+        // B14-3: 支持两种认证模式,按 useServiceAccount 区分 —
+        //   1. 服务账号(useServiceAccount=true): 区域端点 + Bearer(OAuth),需 projectId;
+        //   2. Express Mode(useVertexAI=true 且 useServiceAccount=false): 全局端点 + ?key=<API Key>,
+        //      无需 GCP 项目/OAuth/服务账号(见 Google "Vertex AI in express mode" 文档)。
+        //      这是 BYOK 场景下最低成本的 Vertex 接入方式。
         if (geminiSpecific != null && geminiSpecific.useVertexAI) {
-            // M-GEM9: Vertex AI 需启用服务账号认证,不走 ?key= 兜底
-            if (!geminiSpecific.useServiceAccount) {
-                error(ErrorCode.VERTEX_AI_CONFIG_INVALID.toMessage("need_service_account"))
+            val actionPath = "$model:$action"
+            if (geminiSpecific.useServiceAccount) {
+                val location = geminiSpecific.location.ifBlank { "us-central1" }
+                val projectId = geminiSpecific.projectId.ifBlank {
+                    error(ErrorCode.VERTEX_AI_CONFIG_INVALID.toMessage("missing_project_id"))
+                }
+                val base = "https://$location-aiplatform.googleapis.com/v1"
+                val urlBuilder = ("$base/projects/$projectId/locations/$location/publishers/google/models/$actionPath")
+                    .toHttpUrl()
+                    .newBuilder()
+                if (stream) urlBuilder.addQueryParameter("alt", "sse")
+                return urlBuilder.build().toString()
             }
-            val location = geminiSpecific.location.ifBlank { "us-central1" }
-            val projectId = geminiSpecific.projectId.ifBlank {
-                error(ErrorCode.VERTEX_AI_CONFIG_INVALID.toMessage("missing_project_id"))
+            // Express Mode: 全局端点 + API Key(与 generativelanguage 请求体一致,仅 URL/鉴权不同)
+            val key = effectiveApiKey()
+            if (key.isBlank()) {
+                error(ErrorCode.VERTEX_AI_CONFIG_INVALID.toMessage("missing_api_key"))
             }
-            val base = "https://$location-aiplatform.googleapis.com/v1"
-            val urlBuilder = ("$base/projects/$projectId/locations/$location/publishers/google/models/$model:$action")
+            val urlBuilder = ("$VERTEX_EXPRESS_HOST/publishers/google/models/$actionPath")
                 .toHttpUrl()
                 .newBuilder()
+                .addQueryParameter("key", key)
             if (stream) urlBuilder.addQueryParameter("alt", "sse")
             return urlBuilder.build().toString()
         }
@@ -930,7 +1022,7 @@ class GeminiProvider(
      * - 非 Vertex AI 服务账号模式:返回 null(走 ?key= 鉴权)
      * - 认证器构造失败 / 取 token 异常:抛 RuntimeException(由调用方处理)
      */
-    private suspend fun resolveToken(): String? {
+    internal suspend fun resolveToken(): String? {
         val specific = config.resolvedSpecific()
         val needToken = specific is ProviderSpecificConfig.Gemini &&
             specific.useVertexAI && specific.useServiceAccount
@@ -1072,6 +1164,13 @@ class GeminiProvider(
 
     private companion object {
         const val TAG = "GeminiProvider"
+
+        /**
+         * B14-3: Vertex AI Express Mode 全局端点(API Key 鉴权,无需 GCP 项目/OAuth)。
+         * 路径拼 /publishers/google/models/{model}:{action},key 走 query param。
+         * 见 Google "Vertex AI in express mode" 文档。
+         */
+        const val VERTEX_EXPRESS_HOST = "https://aiplatform.googleapis.com/v1"
         val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
         /** M-GEM2: 流式断连最大重试次数。 */
         const val MAX_RETRIES = 3

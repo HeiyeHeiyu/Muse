@@ -136,11 +136,13 @@ sealed class ProviderSpecificConfig {
     /**
      * Google Gemini Provider 特定配置。
      *
-     * Phase 8.10 (M10) 预留: [useServiceAccount] 等字段用于 Vertex AI,
-     * 当前 Phase 8.1 暂未实现 Vertex AI,字段先占位。
+     * Vertex AI 已实现两种认证模式(Phase 9.4 服务账号 / B14-3 Express Mode):
+     *  - [useServiceAccount]=true: 区域端点 + 服务账号 JWT→OAuth Bearer(需 [projectId]);
+     *  - [useVertexAI]=true 且 [useServiceAccount]=false: Express Mode 全局端点 + API Key,
+     *    无需 GCP 项目/OAuth(BYOK 场景下的低成本路径)。
      *
      * @param useVertexAI 是否走 Vertex AI 端点(默认 false,走 generativelanguage API)
-     * @param useServiceAccount 是否用服务账号认证(默认 false,用 API Key)
+     * @param useServiceAccount 是否用服务账号认证(默认 false,用 API Key / Express Mode)
      * @param serviceAccountEmail 服务账号邮箱(Vertex AI 用)
      * @param privateKey 服务账号私钥(Vertex AI 用,PEM 格式)
      * @param location Vertex AI 区域(如 us-central1)

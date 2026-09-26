@@ -132,6 +132,7 @@ class ImageService(
         // 4. provider 自身默认值
         return when (provider.providerId) {
             AgnesImageProvider.PROVIDER_ID -> AgnesImageProvider.DEFAULT_MODEL_ID
+            GeminiImageProvider.PROVIDER_ID -> GeminiImageProvider.DEFAULT_MODEL_ID
             else -> ImageModelCatalog.DEFAULT_MODEL_ID
         }
     }

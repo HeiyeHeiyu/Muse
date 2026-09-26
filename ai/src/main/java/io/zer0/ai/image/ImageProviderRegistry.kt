@@ -15,12 +15,12 @@ import io.zer0.common.Logger
  * 选择优先级:
  *  1. specId / id 精确匹配(如 specId="agnes" → AgnesImageProvider);
  *  2. baseUrl host 包含供应商关键字(如含 "agnes" → AgnesImageProvider);
- *  3. type 匹配(OPENAI / OPENAI_RESPONSES → OpenAIImageProvider);
+ *  3. type 匹配(GEMINI → GeminiImageProvider;OPENAI / OPENAI_RESPONSES → OpenAIImageProvider);
  *  4. 兜底 OpenAIImageProvider(对未知中转站友好,走 OpenAI 兼容协议)。
  *
- * Anthropic / Gemini 等暂未实现独立 ImageProvider,会兜底到 OpenAIImageProvider
- * 并由其返回的 HTTP 错误自然提示用户。Gemini 绘图走 streamChat 多模态路径,
- * 由 ImageGenCoordinator 直接处理,不经过本注册中心。
+ * Gemini 已有独立 [GeminiImageProvider](B14-2,走原生 generateContent 图片输出);
+ * Anthropic 无原生图片生成 API(仅图片理解),故仍会兜底到 [OpenAIImageProvider],
+ * 由其返回的 HTTP 错误自然提示用户。
  */
 class ImageProviderRegistry {
 
@@ -62,7 +62,10 @@ class ImageProviderRegistry {
             }
         }
 
-        // 3. type 匹配:OPENAI / OPENAI_RESPONSES → OpenAIImageProvider
+        // 3. type 匹配:GEMINI → GeminiImageProvider;OPENAI / OPENAI_RESPONSES → OpenAIImageProvider
+        if (config.type == ProviderType.GEMINI) {
+            providers[GeminiImageProvider.PROVIDER_ID]?.let { return it }
+        }
         if (config.type == ProviderType.OPENAI || config.type == ProviderType.OPENAI_RESPONSES) {
             providers[OpenAIImageProvider.PROVIDER_ID]?.let { return it }
         }

@@ -1,6 +1,7 @@
 package io.zer0.ai
 
 import io.zer0.ai.image.AgnesImageProvider
+import io.zer0.ai.image.GeminiImageProvider
 import io.zer0.ai.image.ImageProviderRegistry
 import io.zer0.ai.image.ImageService
 import io.zer0.ai.image.OpenAIImageProvider
@@ -42,10 +43,18 @@ val aiModule: Module = module {
             referenceImageUrlValidator = getOrNull<RefImageUrlValidator>(),
         )
     }
+    // B14-2: Gemini 独立图片 Provider(原生 generateContent 图片输出)
+    single {
+        GeminiImageProvider(
+            client = get(named("chat")),
+            referenceImageUrlValidator = getOrNull<RefImageUrlValidator>(),
+        )
+    }
     single {
         ImageProviderRegistry().apply {
             register(get<AgnesImageProvider>())
             register(get<OpenAIImageProvider>())
+            register(get<GeminiImageProvider>())
         }
     }
     single { ImageService(get(), get()) } // configStore + registry

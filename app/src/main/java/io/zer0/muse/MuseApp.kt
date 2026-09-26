@@ -87,6 +87,8 @@ class MuseApp : Application(), ImageLoaderFactory {
     private val feishuReceiver: io.zer0.muse.channel.FeishuReceiver by inject()
     private val proactiveMessageRunner: io.zer0.muse.schedule.ProactiveMessageRunner by inject()
     private val modelCatalogRepository: io.zer0.muse.data.catalog.ModelCatalogRepository by inject()
+    /** B14-4: 本地模型目录（内置 + 用户 + 远端三层）—— 远端层默认关闭，仅当装配处传入 URL 时才拉取。 */
+    private val modelCatalogStore: io.zer0.muse.data.preset.ModelCatalogStore by inject()
     // v1.98: 云备份自动定时上传调度器
     private val cloudBackupScheduler: io.zer0.muse.schedule.CloudBackupScheduler by inject()
     private val ttsManager: TtsManager by inject()
@@ -465,6 +467,14 @@ class MuseApp : Application(), ImageLoaderFactory {
             resultOf { modelCatalogRepository.refresh() }
                 .onSuccess { io.zer0.ai.registry.ModelRegistry.installCatalog(modelCatalogRepository.current()) }
                 .onError { msg, t -> Logger.w("MuseApp", "模型目录刷新失败", t) }
+            // B14-4: 本地模型目录（ModelCatalogStore）远端层。
+            // 默认关闭：remoteUrl 为空时 refreshRemote 立即返回、不发任何请求；
+            // 失败静默回退到已有缓存/内置目录（仅记日志）。
+            resultOf { modelCatalogStore.refreshRemote() }
+                .onSuccess { r ->
+                    if (r.updated) Logger.i("MuseApp", "本地模型目录远端层: ${r.message}")
+                }
+                .onError { msg, t -> Logger.w("MuseApp", "本地模型目录远端层刷新失败", t) }
         }
         // v1.0.72: AI 朋友圈调度器(按用户频率设置定时生成动态)
         resultOf {
