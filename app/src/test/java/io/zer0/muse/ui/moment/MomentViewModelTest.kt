@@ -33,6 +33,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.koin.core.context.GlobalContext
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.dsl.module
@@ -113,6 +114,9 @@ class MomentViewModelTest {
         sessionRepository = mockk(relaxed = true)
 
         // MomentViewModel 通过 Koin GlobalContext 惰性解析 settings / scheduler,这里注册 mock。
+        // 防御:GlobalContext 是跨测试残留的静态状态 — 同 worker 中前序 Robolectric 测试
+        // 可能已触发 MuseApp.onCreate 的生产 startKoin,直接再 start 会抛 AlreadyStarted。
+        if (GlobalContext.getOrNull() != null) stopKoin()
         startKoin {
             modules(
                 module {
