@@ -37,6 +37,9 @@ import java.time.temporal.ChronoUnit
  * 每块都有指纹缓存: 输入没变就跳过 LLM 调用。
  * 空 sessions 不写指纹(避免 rolling 失败期被指纹锁死)。
  */
+/** D3-P2: 候选吸收的单行长度上限(超长行视为段落,不入表)。 */
+private const val MAX_ABSORB_LINE_CHARS = 200
+
 class MemoryCompiler(
     private val sectionDao: CompiledSectionDao,
     private val llmClient: MemoryLlmClient,
@@ -743,64 +746,116 @@ class MemoryCompiler(
         // S-04: LLM 输出再过滤一遍(防 LLM 复述已删事实)
         val filteredResult = filterTombstonedLines(normalized, tombstones)
         updateStoredContent(Section.FACTS.key, filteredResult, null, Instant.now().toString())
+        // D3-P2: 候选吸收 + 确定性投影 — LLM 产物先作为候选补录进表(防摘要孤儿丢失),
+        // 随后 FACTS 段由 facts 表投影覆盖(编辑/删除即刻一致)。
+        factStore?.let { store ->
+            val scope = target?.normalizedScope ?: currentScope()
+            val spaceId = target?.normalizedSpaceId ?: currentSpaceId()
+            resultOf { absorbFactLines(filteredResult, scope, spaceId, tombstones) }
+            resultOf { store.getByScopeAndSpace(scope, spaceId) }
+                .onSuccess { resultOf { reconcileFactsSectionWithStore(it, target) } }
+                .onError { msg, t -> Logger.w("MemoryCompiler", "compileFacts 投影失败(保留 LLM 产物): ${t?.message ?: msg}") }
+        }
         Result.COMPILED
     }
 
     /**
-     * v12 (T2-1): facts 编译产物与 facts 表对账 — 用户编辑/合并事实后,产物自动对齐。
+     * D3-P2: FACTS 段与 facts 表收敛 — 对账升级为「确定性投影」。
      *
-     * 背景: FACTS section 由会话摘要经 LLM 编译,与 facts 表无稳定对应关系。
-     * 用户在记忆页编辑事实(update)后,产物里仍是旧表述,下次 compileFacts
-     * 时 LLM 可能保留旧版,导致注入内容与用户意图不一致。
+     * 流程:
+     *  1) 吸收: 当前段中不在事实表的行(编译产物孤儿)补录进表(防投影后丢失);
+     *  2) 投影: 用最新表数据渲染 FACTS 段(每行一条,与既有 LLM 产物格式对齐)。
      *
-     * 做法: 逐行扫描产物,按归一化相似度匹配 facts 表条目;命中且文本不同时
-     * 用 facts 表现值替换该行。删除场景已由墓碑覆盖,此处只处理"编辑/合并"对齐。
+     * 至此"编辑/删除/新增"均在下一轮投影即刻一致;v12 的逐行对账语义退役,
+     * 墓碑过滤仍作为吸收/投影的输入过滤保留(S-04)。
      *
-     * @return 实际替换的行数
+     * @return 1 = 段内容有更新;0 = 无变化(含空表/无内容)
      */
     suspend fun reconcileFactsSectionWithStore(
         facts: List<io.zer0.memory.fact.FactStore.Fact>,
         target: MemoryCompileTarget? = null,
     ): Int = withContext(Dispatchers.IO) {
-        val current = target?.let { readSection(Section.FACTS, it) } ?: readSection(Section.FACTS)
-        if (current.isBlank() || facts.isEmpty()) return@withContext 0
-        val storeLines = facts
-            .map { it.fact.trim() }
-            .filter { it.isNotEmpty() }
-        if (storeLines.isEmpty()) return@withContext 0
+        val tombstones = loadTombstones()
+        val scope = target?.normalizedScope ?: currentScope()
+        val spaceId = target?.normalizedSpaceId ?: currentSpaceId()
+        val store = factStore
 
-        var replaced = 0
-        val newLines = current.lines().map { line ->
-            val trimmed = line.trim()
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-                line
-            } else {
-                // 产物行与 facts 表条目按去主语+归一化比较,命中且不同则替换
-                val match = storeLines.firstOrNull { storeLine ->
-                    normalizedEq(trimmed, storeLine)
-                }
-                if (match != null && match != trimmed) {
-                    replaced++
-                    line.replace(trimmed, match)
-                } else {
-                    line
-                }
+        // 1) 吸收段孤儿(factStore 可用时;墓碑命中行跳过,防"删除复活")
+        if (store != null) {
+            val currentForAbsorb = target?.let { readSection(Section.FACTS, it) } ?: readSection(Section.FACTS)
+            if (currentForAbsorb.isNotBlank()) {
+                absorbFactLines(currentForAbsorb, scope, spaceId, tombstones)
             }
-        }.joinToString("\n")
-
-        if (replaced > 0 && newLines != current) {
-            // 用 @Insert(REPLACE) 而非 updateContent(UPSERT 语法在部分测试 SQLite 版本报错);
-            // REPLACE 对无外键的 compiled_sections 语义一致(冲突时删除重建)。
-            upsertStored(
-                key = Section.FACTS.key,
-                content = newLines,
-                fingerprint = null,
-                now = Instant.now().toString(),
-                target = target,
-            )
-            Logger.i("MemoryCompiler", "facts 产物与事实表对账: 替换 $replaced 行(用户编辑已同步)")
         }
-        replaced
+
+        // 2) 投影(factStore 可用时重查最新表;否则退回传入快照,兼容无 store 场景)
+        val source = if (store != null) {
+            resultOf { store.getByScopeAndSpace(scope, spaceId) }.getOrNull() ?: facts
+        } else {
+            facts
+        }
+        if (source.isEmpty()) return@withContext 0
+        val projected = FactsSectionProjector.project(
+            source.filter { filterTombstonedLines(it.fact, tombstones).isNotBlank() },
+        )
+        if (projected.isBlank()) return@withContext 0
+
+        val current = target?.let { readSection(Section.FACTS, it) } ?: readSection(Section.FACTS)
+        if (projected.trim() == current.trim()) return@withContext 0
+        // 用 @Insert(REPLACE) 而非 updateContent(UPSERT 语法在部分测试 SQLite 版本报错);
+        // REPLACE 对无外键的 compiled_sections 语义一致(冲突时删除重建)。
+        upsertStored(
+            key = Section.FACTS.key,
+            content = projected,
+            fingerprint = null,
+            now = Instant.now().toString(),
+            target = target,
+        )
+        Logger.i("MemoryCompiler", "FACTS 段确定性投影: ${projected.lines().size} 条 / ${projected.length} 字符")
+        1
+    }
+
+    /**
+     * D3-P2: 把文本行中不在事实表的条目补录进表(防"仅在编译产物、未入表"的事实
+     * 在投影后丢失 — 摘要孤儿的兼容补丁)。
+     *
+     * 过滤: 空行 / # 标题行 / 墓碑命中行(防删除复活) / 超长行(> [MAX_ABSORB_LINE_CHARS]
+     * 视为段落弃用);去 "- " 前缀;与表内条目归一化等价的行跳过(防重复)。
+     * 吸收条目的 source = "compiled",继承 scope/space。
+     *
+     * @return 实际吸收条数
+     */
+    private suspend fun absorbFactLines(
+        text: String,
+        scope: String,
+        spaceId: String,
+        tombstones: List<String>,
+    ): Int {
+        val store = factStore ?: return 0
+        val existing = resultOf { store.getByScopeAndSpace(scope, spaceId) }
+            .getOrNull()?.map { normalizeLine(it.fact) }?.toSet() ?: return 0
+        var absorbed = 0
+        val seen = mutableSetOf<String>()
+        for (raw in text.lines()) {
+            val trimmed = raw.trim().removePrefix("-").trim()
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
+            if (trimmed.length > MAX_ABSORB_LINE_CHARS) continue
+            if (filterTombstonedLines(trimmed, tombstones).isBlank()) continue
+            val norm = normalizeLine(trimmed)
+            if (norm.isBlank() || norm in existing || !seen.add(norm)) continue
+            resultOf {
+                store.add(
+                    io.zer0.memory.fact.FactStore.Fact(fact = trimmed, source = "compiled"),
+                    scope = scope,
+                    spaceId = spaceId,
+                )
+            }.onSuccess { absorbed++ }
+                .onError { msg, t -> Logger.w("MemoryCompiler", "候选吸收失败: ${t?.message ?: msg}") }
+        }
+        if (absorbed > 0) {
+            Logger.i("MemoryCompiler", "FACTS 候选吸收: $absorbed 条编译产物事实补录入表")
+        }
+        return absorbed
     }
 
     /** v12: 归一化相等比较(去主语 + 大小写 + 全半角 + 空白,用于产物行与 facts 表条目匹配)。 */

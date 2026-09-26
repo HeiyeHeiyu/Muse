@@ -61,7 +61,7 @@ class ReconcileFactsSectionTest {
             sectionDao = sectionDao,
             llmClient = NoopLlm(),
             fileWriter = null,
-            factStore = null,
+            factStore = factStore,
         )
         scopedCompiler = MemoryCompiler(
             sectionDao = sectionDao,
@@ -109,7 +109,7 @@ class ReconcileFactsSectionTest {
     }
 
     @Test
-    fun `edited fact replaces matching line in section`() = runTest {
+    fun `edited fact projects table value and absorbs orphan lines`() = runTest {
         // 预置编译产物(模拟 LLM 编译结果)
         sectionDao.upsert(
             CompiledSectionEntity(
@@ -122,13 +122,14 @@ class ReconcileFactsSectionTest {
         // facts 表里该事实已被用户编辑为措辞变体(去主语+全半角差异,归一化后等价)
         factStore.add(FactStore.Fact(fact = "喜欢喝美式咖啡", entityKey = "用户"))
 
-        val replaced = compiler.reconcileFactsSectionWithStore(factStore.getByScopeAndSpace("main", "default"))
+        val changed = compiler.reconcileFactsSectionWithStore(factStore.getByScopeAndSpace("main", "default"))
 
-        assertEquals("应替换 1 行", 1, replaced)
+        assertEquals("应有更新", 1, changed)
         val content = compiler.readSection(MemoryCompiler.Section.FACTS)
-        assertTrue("产物应含新表述", content.contains("喜欢喝美式咖啡"))
-        assertTrue("产物应不再含旧主语表述", !content.contains("用户喜欢喝美式咖啡"))
-        assertTrue("其他行应保留", content.contains("用户最近在筹备搬家"))
+        assertTrue("产物应含表值新表述", content.contains("喜欢喝美式咖啡"))
+        assertTrue("旧主语行应被投影替换", !content.contains("用户喜欢喝美式咖啡"))
+        // D3-P2: 孤儿行("筹备搬家")先被吸收进表,再随投影保留(防丢失)
+        assertTrue("孤儿行应被吸收保留", content.contains("用户最近在筹备搬家"))
     }
 
     @Test
@@ -144,12 +145,15 @@ class ReconcileFactsSectionTest {
         // facts 表现值为全角变体
         factStore.add(FactStore.Fact(fact = "用户喜欢zhangsan"))
 
-        val replaced = compiler.reconcileFactsSectionWithStore(factStore.getByScopeAndSpace("main", "default"))
-        assertEquals("全半角变体应匹配替换", 1, replaced)
+        val changed = compiler.reconcileFactsSectionWithStore(factStore.getByScopeAndSpace("main", "default"))
+        assertEquals("全半角变体应触发投影更新", 1, changed)
+        val content = compiler.readSection(MemoryCompiler.Section.FACTS)
+        assertTrue("产物应为表值(半角)", content.contains("用户喜欢zhangsan"))
+        assertTrue("全角变体应被替换", !content.contains("ｚｈａｎｇｓａｎ"))
     }
 
     @Test
-    fun `no matching fact leaves section unchanged`() = runTest {
+    fun `unmatched orphan line is absorbed then projected with table facts`() = runTest {
         sectionDao.upsert(
             CompiledSectionEntity(
                 sectionKey = MemoryCompiler.Section.FACTS.key,
@@ -160,9 +164,11 @@ class ReconcileFactsSectionTest {
         )
         factStore.add(FactStore.Fact(fact = "用户喜欢喝茶"))
 
-        val replaced = compiler.reconcileFactsSectionWithStore(factStore.getByScopeAndSpace("main", "default"))
+        val changed = compiler.reconcileFactsSectionWithStore(factStore.getByScopeAndSpace("main", "default"))
 
-        assertEquals("无匹配不替换", 0, replaced)
-        assertEquals("内容不变", "用户喜欢摄影", compiler.readSection(MemoryCompiler.Section.FACTS))
+        assertEquals("吸收+投影应触发更新", 1, changed)
+        val content = compiler.readSection(MemoryCompiler.Section.FACTS)
+        assertTrue("表内事实应在", content.contains("用户喜欢喝茶"))
+        assertTrue("孤儿行应被吸收保留(不再丢失)", content.contains("用户喜欢摄影"))
     }
 }
