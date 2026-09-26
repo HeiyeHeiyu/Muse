@@ -309,6 +309,8 @@
     <string name="knowledge_reindexing">Переиндексация</string>
     <string name="knowledge_cancel">Отмена</string>
     <string name="knowledge_reading_file">Чтение файла…</string>
+    <string name="knowledge_import_file_too_large">Файл превышает %1$d МБ, импорт невозможен</string>
+    <string name="knowledge_import_truncated">Файл большой; прочитаны только первые 500 тыс. символов</string>
     <string name="knowledge_parsing_doc">Разбор документа…</string>
     <string name="knowledge_ocr">Запускаем распознавание текста…</string>
     <string name="knowledge_chunking">Разбиение на части и построение векторного индекса…</string>

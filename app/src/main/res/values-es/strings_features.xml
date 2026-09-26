@@ -309,6 +309,8 @@
     <string name="knowledge_reindexing">Reindexación</string>
     <string name="knowledge_cancel">Cancelar</string>
     <string name="knowledge_reading_file">Leyendo archivo…</string>
+    <string name="knowledge_import_file_too_large">El archivo supera %1$dMB y no se puede importar</string>
+    <string name="knowledge_import_truncated">Archivo grande; solo se leyeron los primeros 500 mil caracteres</string>
     <string name="knowledge_parsing_doc">Analizando documento…</string>
     <string name="knowledge_ocr">Ejecutando OCR...</string>
     <string name="knowledge_chunking">Fragmentación y construcción de índice de vectores…</string>

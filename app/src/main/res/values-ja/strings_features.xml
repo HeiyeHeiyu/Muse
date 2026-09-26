@@ -309,6 +309,8 @@
     <string name="knowledge_reindexing">インデックスの再作成</string>
     <string name="knowledge_cancel">キャンセル</string>
     <string name="knowledge_reading_file">ファイルを読み取り中…</string>
+    <string name="knowledge_import_file_too_large">ファイルが %1$dMB を超えているためインポートできません</string>
+    <string name="knowledge_import_truncated">ファイルが大きいため、先頭50万文字のみを読み込みました</string>
     <string name="knowledge_parsing_doc">文書を解析中…</string>
     <string name="knowledge_ocr">OCR を実行中…</string>
     <string name="knowledge_chunking">チャンク化とベクター インデックスの構築…</string>
