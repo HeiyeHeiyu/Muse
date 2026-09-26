@@ -7,9 +7,15 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-/** R-AI-04: 深度推理/超长上下文模型放宽首事件超时,普通模型保持默认。 */
-internal fun Model.firstEventTimeoutMs(defaultMs: Long = 15_000L): Long =
-    if (supportsReasoning() || (contextWindow ?: 0) > 200_000) 60_000L else defaultMs
+/**
+ * R-AI-04: 深度推理/超长上下文模型放宽首事件超时,普通模型保持默认。
+ *
+ * v2.x: 默认 15s→45s、推理/超长上下文档 60s→90s。15s 对慢队列/冷启动模型过短 —
+ * 首 token 稍慢就被误判为死流、取消流式并重发非流式请求:用户被迫等待双倍时间,
+ * 且回复以“整段一次性弹出”的方式出现(用户反馈)。
+ */
+internal fun Model.firstEventTimeoutMs(defaultMs: Long = 45_000L): Long =
+    if (supportsReasoning() || (contextWindow ?: 0) > 200_000) 90_000L else defaultMs
 
 /**
  * B3-01: 首事件看门狗。

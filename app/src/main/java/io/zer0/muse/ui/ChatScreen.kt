@@ -21,6 +21,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -145,6 +146,9 @@ internal val TranslationLanguages = listOf(
 
 /** Phase 8.10: 音量键滚动单次位移(px),M21。 */
 private const val VOLUME_SCROLL_DISTANCE_PX = 200f
+
+/** v2.x: 贴底滚动步长 — 自动跟随/回到底部时按步进循环滚到列表末端(末端自动截断,永不反向)。 */
+private const val SNAP_SCROLL_STEP_PX = 8_000f
 
 /** v1.79 (M-S12): 消息分组时间间隔(5 分钟),超过此间隔显示头像和时间戳。 */
 private const val MESSAGE_GROUP_INTERVAL_MS = 5 * 60 * 1000L
@@ -722,19 +726,19 @@ fun ChatScreen(
                 // 旧的 120dp 偏移在长消息/流式追加时会让新文字落到屏幕外,
                 // 观感像"跟随的是上一条消息"。
                 val targetGlobalIndex = messageStartIndex + targetIndex
-                val bottomOffset = run {
-                    val info = listState.layoutInfo
-                    val viewportSize = info.viewportEndOffset - info.viewportStartOffset
-                    val item = info.visibleItemsInfo.lastOrNull { it.index == targetGlobalIndex }
-                    if (item == null || viewportSize <= 0) 0 else viewportSize - item.size
-                }
                 if (isUserSendMessage && (atBottom || !userScrolledUp)) {
-                    // 用户刚发消息且在底部(或未主动上翻):瞬时滚到最新一条底部,并解锁跟随
+                    // 用户刚发消息且在底部(或未主动上翻):瞬时贴到列表绝对底部,并解锁跟随
                     userScrolledUp = false
                     // v1.0.92: 消费紧随的程序滚动结束事件,防误锁
                     programmaticScrollCooldownUntil = System.currentTimeMillis() + 250L
-                    // v1.0.74 fix (前端审计 1.1): 加消息区起始偏移
-                    listState.scrollToItem(targetGlobalIndex, bottomOffset)
+                    // v2.x: 直接向列表末端滚到不能再滚 — 原“消息底部偏移”公式在高于视口的
+                    // 长消息上方向相反,消息顶部被钉住、新内容滚出屏幕(用户反馈:跟随的是
+                    // “最后一条消息”而不是最新内容)。
+                    var snapGuard = 0
+                    while (listState.canScrollForward && snapGuard < 100) {
+                        listState.scrollBy(SNAP_SCROLL_STEP_PX)
+                        snapGuard++
+                    }
                 } else if (!userScrolledUp) {
                     // v2.0.1: 跟随条件简化为"用户未主动上翻" — 旧条件 (atBottom || isStreaming)
                     // 在工具执行阶段会停跟：内容增长使 isAtBottom=false、等待工具时 isStreaming=false，
@@ -745,7 +749,16 @@ fun ChatScreen(
                     if (!listState.isScrollInProgress) {
                         isProgrammaticScroll.value = true
                         try {
-                            listState.animateScrollToItem(targetGlobalIndex, scrollOffset = bottomOffset)
+                            // v2.x: 只向“距列表末端还差多少”做正向动画滚动 — 精确、永不回滚到
+                            // 消息顶部;末条不在视口内时跳过(下一采样周期继续)。
+                            val info = listState.layoutInfo
+                            val lastVisible = info.visibleItemsInfo.lastOrNull()
+                            if (lastVisible != null && lastVisible.index == targetGlobalIndex) {
+                                val missing = (lastVisible.offset + lastVisible.size) - info.viewportEndOffset
+                                if (missing > 0) {
+                                    listState.animateScrollBy(missing.toFloat())
+                                }
+                            }
                         } finally {
                             isProgrammaticScroll.value = false
                             // v1.0.92: 消费紧随其后的"滚动结束"事件,防误锁(见监听器注释)
@@ -2054,18 +2067,13 @@ fun ChatScreen(
                                 val msgs = visibleMessages
                                 if (msgs.isEmpty()) return@launch
                                 try {
-                                    // v1.0.74 fix (前端审计 1.1): 加消息区起始偏移
-                                    // v2.0: 底部对齐滚动,与自动跟随同一口径
-                                    val lastGlobalIndex = messageStartIndex + msgs.size - 1
-                                    val info = listState.layoutInfo
-                                    val viewportSize = info.viewportEndOffset - info.viewportStartOffset
-                                    val lastItem = info.visibleItemsInfo.lastOrNull { it.index == lastGlobalIndex }
-                                    val bottomOffset = if (lastItem == null || viewportSize <= 0) {
-                                        0
-                                    } else {
-                                        viewportSize - lastItem.size
+                                    // v2.x: 与自动跟随统一口径 — 向列表末端滚到不能再滚,
+                                    // 不再依赖“消息底部偏移”(长消息上方向相反)。
+                                    var snapGuard = 0
+                                    while (listState.canScrollForward && snapGuard < 100) {
+                                        listState.scrollBy(SNAP_SCROLL_STEP_PX)
+                                        snapGuard++
                                     }
-                                    listState.animateScrollToItem(lastGlobalIndex, scrollOffset = bottomOffset)
                                 } finally {
                                     isProgrammaticScroll.value = false
                                     // v1.0.92: 消费紧随的程序滚动结束事件,防误锁

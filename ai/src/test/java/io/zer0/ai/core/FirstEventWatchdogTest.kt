@@ -90,8 +90,8 @@ class FirstEventWatchdogTest {
         val largeContext = Model(id = "l1", name = "l1", providerId = "p", contextWindow = 300_000)
         val normal = Model(id = "n1", name = "n1", providerId = "p")
 
-        assertEquals(60_000L, reasoning.firstEventTimeoutMs())
-        assertEquals(60_000L, largeContext.firstEventTimeoutMs())
-        assertEquals(15_000L, normal.firstEventTimeoutMs())
+        assertEquals(90_000L, reasoning.firstEventTimeoutMs())
+        assertEquals(90_000L, largeContext.firstEventTimeoutMs())
+        assertEquals(45_000L, normal.firstEventTimeoutMs())
     }
 }

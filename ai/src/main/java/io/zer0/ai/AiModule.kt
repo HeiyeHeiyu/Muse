@@ -164,10 +164,11 @@ class ChatService(
             mode,
             topP,
         )
-        // B3-01: SSE 建立后 15s 无首事件,自动降级为非流式重试一次
+        // B3-01: SSE 建立后长时间无首事件(默认 45s,推理/超长上下文档 90s),自动降级为非流式重试一次
+        // v2.x: 15s→45s — 慢模型首 token 常在 15s 之后,过早降级导致“整段弹出”+ 双倍等待
         // 审计修复 (7.8): 用户已停止时不再 fallback(省一次计费请求)
         return provider.streamChat(request).withFirstEventWatchdog(
-            timeoutMs = model?.firstEventTimeoutMs() ?: 15_000L,
+            timeoutMs = model?.firstEventTimeoutMs() ?: 45_000L,
             fallback = { provider.completeText(request) },
             abortCheck = { request.abortSignal.aborted },
         )
