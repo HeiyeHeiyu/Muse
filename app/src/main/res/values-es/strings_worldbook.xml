@@ -54,6 +54,8 @@
     <string name="worldbook_field_scan_depth">Profundidad de escaneo (últimos N mensajes de USUARIO)</string>
     <string name="worldbook_field_case_sensitive">Distingue mayúsculas y minúsculas</string>
     <string name="worldbook_field_case_sensitive_desc">Haga coincidir las palabras clave con distinción entre mayúsculas y minúsculas</string>
+    <string name="worldbook_field_whole_word">Palabra completa</string>
+    <string name="worldbook_field_whole_word_desc">La palabra clave debe coincidir como palabra completa (solo modo subcadena; los terminos CJK vuelven al modo automatico)</string>
     <string name="worldbook_field_is_regex">Coincidencia de expresiones regulares</string>
     <string name="worldbook_field_is_regex_desc">Trate las palabras clave como expresiones regulares (avanzado)</string>
     <string name="worldbook_field_always_active">Siempre activo</string>

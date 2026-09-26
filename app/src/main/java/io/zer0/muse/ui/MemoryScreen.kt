@@ -3,6 +3,10 @@
 package io.zer0.muse.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -63,7 +67,9 @@ import io.zer0.muse.ui.memory.MonthHeader
 import io.zer0.muse.ui.memory.PinnedMemorySection
 import io.zer0.muse.ui.memory.TimelineEventCard
 import io.zer0.muse.ui.memory.TimelineItem
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import java.time.Instant
@@ -321,7 +327,18 @@ fun MemoryScreen(
                         modifier = Modifier.size(18.dp),
                     )
                 }
-                AnimatedVisibility(visible = advancedFilterExpanded) {
+                AnimatedVisibility(
+                    visible = advancedFilterExpanded,
+                    // v2.x: 补令牌 spec(原为默认 spec)
+                    enter = fadeIn(animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS)) +
+                        expandVertically(
+                            animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+                        ),
+                    exit = fadeOut(animationSpec = MuseMotion.tween(MuseAnimation.FAST_MS)) +
+                        shrinkVertically(
+                            animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS),
+                        ),
+                ) {
                     Column {
                         Text(
                             text = stringResource(R.string.memory_center_filter_scope),

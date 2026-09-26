@@ -54,6 +54,8 @@
     <string name="worldbook_field_scan_depth">スキャン深度 (最後の N USER メッセージ)</string>
     <string name="worldbook_field_case_sensitive">大文字と小文字を区別</string>
     <string name="worldbook_field_case_sensitive_desc">大文字と小文字を区別してキーワードを一致させる</string>
+    <string name="worldbook_field_whole_word">完全一致</string>
+    <string name="worldbook_field_whole_word_desc">キーワードが単語として完全一致したときのみ発動(部分一致モードのみ;中国語などは自動で部分一致)</string>
     <string name="worldbook_field_is_regex">正規表現の一致</string>
     <string name="worldbook_field_is_regex_desc">キーワードを正規表現として扱う (上級)</string>
     <string name="worldbook_field_always_active">常にアクティブ</string>

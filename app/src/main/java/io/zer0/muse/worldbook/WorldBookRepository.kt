@@ -63,7 +63,7 @@ class WorldBookRepository(
                 if (keywords.isEmpty()) return@filter false
                 keywords.any { kw ->
                     if (kw.isBlank()) false
-                    else matchKeyword(text, kw, entry.caseSensitive, entry.isRegex)
+                    else matchKeyword(text, kw, entry.caseSensitive, entry.isRegex, entry.wholeWord)
                 }
             }
             .sortedWith(compareByDescending<WorldBookEntryEntity> { it.priority }.thenBy { it.name })
@@ -105,7 +105,13 @@ class WorldBookRepository(
      * 正则编译失败时记日志并返回 false(避免单条坏正则阻塞整个扫描)。
      * 正则编译结果按 "源串|ignoreCase" 缓存。
      */
-    private fun matchKeyword(text: String, keyword: String, caseSensitive: Boolean, isRegex: Boolean): Boolean {
+    private fun matchKeyword(
+        text: String,
+        keyword: String,
+        caseSensitive: Boolean,
+        isRegex: Boolean,
+        wholeWord: Boolean,
+    ): Boolean {
         return if (isRegex) {
             val cacheKey = "$keyword|$caseSensitive"
             val pattern = regexCache.computeIfAbsent(cacheKey) {
@@ -114,6 +120,20 @@ class WorldBookRepository(
                     Regex(keyword, opts)
                 }.getOrElse { e ->
                     Logger.w(TAG, "正则编译失败: ${e.message}, keyword=$keyword")
+                    null
+                }
+            } ?: return false
+            pattern.containsMatchIn(text)
+        } else if (wholeWord && keyword.none { it.code > 0x2E80 }) {
+            // v2.x: 全词匹配(英文/数字场景,关键词前后为 \b 边界);
+            // 含 CJK 的关键词无单词边界概念,自动退化为下方子串匹配。
+            val cacheKey = "ww|$keyword|$caseSensitive"
+            val pattern = regexCache.computeIfAbsent(cacheKey) {
+                runCatching {
+                    val opts = if (caseSensitive) emptySet() else setOf(kotlin.text.RegexOption.IGNORE_CASE)
+                    Regex("\\b" + Regex.escape(keyword) + "\\b", opts)
+                }.getOrElse { e ->
+                    Logger.w(TAG, "全词正则编译失败: ${e.message}, keyword=$keyword")
                     null
                 }
             } ?: return false

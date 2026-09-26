@@ -31,6 +31,11 @@ data class WorldBookEntryEntity(
     @ColumnInfo(defaultValue = "50") val priority: Int = 50,
     @ColumnInfo(defaultValue = "1") val enabled: Boolean = true,
     @ColumnInfo(defaultValue = "0") val caseSensitive: Boolean = false,
+    /**
+     * v2.x: 全词匹配(仅子串模式生效;isRegex=true 时由用户自行写 \b)。
+     * 英文/数字关键词前后需为单词边界以减少误触发;含 CJK 的关键词自动退化为子串匹配。
+     */
+    @ColumnInfo(defaultValue = "0") val wholeWord: Boolean = false,
     /** 关键词是否按正则表达式匹配(isRegex=true 时 keywordsJson 每项视为正则源串)。 */
     @ColumnInfo(defaultValue = "0") val isRegex: Boolean = false,
     /** 常驻激活:无需关键词命中即注入到系统提示。 */

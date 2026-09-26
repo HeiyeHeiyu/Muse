@@ -54,6 +54,8 @@
     <string name="worldbook_field_scan_depth">스캔 깊이(마지막 N USER 메시지)</string>
     <string name="worldbook_field_case_sensitive">대소문자 구분</string>
     <string name="worldbook_field_case_sensitive_desc">대소문자를 구분하여 키워드 일치</string>
+    <string name="worldbook_field_whole_word">단어 단위 일치</string>
+    <string name="worldbook_field_whole_word_desc">키워드가 단어 단위로 일치해야 발동(부분 일치 모드 전용; CJK 키워드는 자동으로 부분 일치)</string>
     <string name="worldbook_field_is_regex">정규식 일치</string>
     <string name="worldbook_field_is_regex_desc">키워드를 정규식으로 처리(고급)</string>
     <string name="worldbook_field_always_active">항상 활성</string>

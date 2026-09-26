@@ -353,17 +353,41 @@ private fun DependencyRow(
 }
 
 /**
- * 底部说明: 法务/隐私链接占位(未来可加 Google Play 数据安全表格链接等)。
+ * 底部说明: 法务/隐私入口(v2.x 起为真实链接,此前为占位说明)。
  */
 @Composable
 private fun FooterNote() {
-    Text(
-        text = "如对协议有疑问,可在 Muse GitHub 仓库的 LEGAL 目录查阅完整声明。" +
-            "本页面数据每构建一次更新一次(generatedAt 标记时间)。",
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
+    val context = LocalContext.current
+    Column(
         modifier = Modifier.padding(horizontal = 4.dp, vertical = 16.dp),
-    )
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "如对协议有疑问,可查阅下方链接的完整声明。" +
+                "本页面数据每构建一次更新一次(generatedAt 标记时间)。",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            listOf(
+                "项目主页" to "https://github.com/Zer0Qing/Muse",
+                "官网 museai.ltd" to "https://museai.ltd",
+            ).forEach { (label, url) ->
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable {
+                        resultOf {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(intent)
+                        }.onError { _, _ -> MuseToast.show("未找到可打开链接的应用") }
+                    },
+                )
+            }
+        }
+    }
 }
 
 /**

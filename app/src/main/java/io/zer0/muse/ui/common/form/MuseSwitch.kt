@@ -1,5 +1,6 @@
 package io.zer0.muse.ui.common.form
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.getValue
 import io.zer0.muse.ui.theme.MuseAnimation
@@ -72,19 +73,22 @@ fun MuseSwitch(
         label = "iosSwitchThumb",
     )
 
-    // v1.0.74 fix (前端审计 7): 修正注释 — 轨道颜色是瞬时切换(仅 thumbX 有动画),
-    // 原注释声称"开启时轨道颜色动画"与实现不符。
-    val trackColor = if (checked) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        // v2.0: 原 surfaceVariant@80% 在浅色主题下与背景只差 1 个色阶(实测 #FCFCFC vs #FBFBFC),
-        // 关闭态轨道几乎不可见;改为向 onSurface 混入 12%,亮/暗主题下都有清晰轨道。
-        androidx.compose.ui.graphics.lerp(
-            MaterialTheme.colorScheme.surfaceVariant,
-            MaterialTheme.colorScheme.onSurface,
-            0.12f,
-        )
-    }
+    // v2.x: 轨道颜色过渡 — 原为瞬时切换(v1.0.74 审计有记),现与拇指滑动同步走令牌。
+    val trackColor by animateColorAsState(
+        targetValue = if (checked) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            // v2.0: 原 surfaceVariant@80% 在浅色主题下与背景只差 1 个色阶(实测 #FCFCFC vs #FBFBFC),
+            // 关闭态轨道几乎不可见;改为向 onSurface 混入 12%,亮/暗主题下都有清晰轨道。
+            androidx.compose.ui.graphics.lerp(
+                MaterialTheme.colorScheme.surfaceVariant,
+                MaterialTheme.colorScheme.onSurface,
+                0.12f,
+            )
+        },
+        animationSpec = MuseMotion.tween(MuseAnimation.TACTILE_MS),
+        label = "iosSwitchTrack",
+    )
     val thumbColor = if (checked) {
         MaterialTheme.colorScheme.onPrimary
     } else {

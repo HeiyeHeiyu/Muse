@@ -13,7 +13,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -60,7 +59,7 @@ fun MuseChip(
 ) {
     // UI-FIX A: 选中=实心黑底白字；未选中=不透明中性底。
     // 旧实现未选中用 surfaceVariant@50% 半透明，压在内容上像一层遮罩，已取消。
-    // v2.x: 交互动效 — 按压缩放 + 选中态颜色弹性过渡 + 可见涟漪
+    // v2.x: 交互动效 — 按压缩放 + 选中态颜色弹性过渡(自绘反馈,无涟漪)
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val pressScale by animateFloatAsState(
@@ -96,7 +95,7 @@ fun MuseChip(
             }
             .clickable(
                 interactionSource = interactionSource,
-                indication = ripple(),
+                indication = null,
                 enabled = enabled,
                 onClick = onClick,
             ),

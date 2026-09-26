@@ -1,9 +1,13 @@
 package io.zer0.muse.ui.common.surface
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,14 +20,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseHaptics
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 
 /**
@@ -77,11 +85,23 @@ fun MuseListItem(
 ) {
     val haptic = LocalHapticFeedback.current
     val interactionSource = remember { MutableInteractionSource() }
+    // v2.x: 行按压视觉反馈 — 轻微背景提亮(与既有触觉同步;原仅触觉无视觉)
+    val pressed by interactionSource.collectIsPressedAsState()
+    val rowBgColor by animateColorAsState(
+        targetValue = if (pressed && onClick != null) {
+            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+        } else {
+            Color.Transparent
+        },
+        animationSpec = MuseMotion.tween(MuseAnimation.FAST_MS),
+        label = "listItemPress",
+    )
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = minHeight)
+            .background(rowBgColor)
             .padding(MusePaddings.cardInner)
             .then(
                 when {

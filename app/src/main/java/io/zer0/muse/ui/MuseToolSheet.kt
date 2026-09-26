@@ -15,6 +15,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -45,7 +46,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -403,15 +403,21 @@ private fun QuickAttachTab(
     dense: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    // v2.x: 交互动效重做 — 修复 ripple 被背景盖住(顺序问题) + 按压缩放 + 颜色弹性过渡
+    // v2.x: 交互动效重做 — 按压缩放 + 颜色弹性过渡(自绘反馈,无 ripple)
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+    // v2.x: reduced-motion 降级 — 系统"关闭动画"时用 snap 直切,不做弹簧
+    val reducedMotion = MuseMotion.isReducedMotion()
     val pressScale by animateFloatAsState(
         targetValue = if (pressed) 0.93f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium,
-        ),
+        animationSpec = if (reducedMotion) {
+            snap()
+        } else {
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium,
+            )
+        },
         label = "quickTabPress",
     )
     val containerColor by animateColorAsState(
@@ -450,20 +456,20 @@ private fun QuickAttachTab(
                 else -> 72.dp
             })
             .clip(if (compact) MuseShapes.pill else MuseShapes.large)
-            // v2.x: 背景在 clickable 之前 — 涟漪画在背景之上,点点都有反馈
+            // v2.x: 背景在 clickable 之前;按压反馈走缩放+颜色(自绘,与全局去 ripple 决策一致)
             .background(containerColor)
             .then(
                 if (onLongClick != null) {
                     Modifier.combinedClickable(
                         interactionSource = interactionSource,
-                        indication = ripple(),
+                        indication = null,
                         onClick = onClick,
                         onLongClick = onLongClick,
                     )
                 } else {
                     Modifier.clickable(
                         interactionSource = interactionSource,
-                        indication = ripple(),
+                        indication = null,
                         onClick = onClick,
                     )
                 },

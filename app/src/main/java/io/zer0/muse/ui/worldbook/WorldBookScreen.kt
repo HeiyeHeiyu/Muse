@@ -320,6 +320,8 @@ private fun WorldBookEditPage(
     var content by rememberSaveable { mutableStateOf(initial.content) }
     var priority by rememberSaveable { mutableStateOf(initial.priority.toString()) }
     var caseSensitive by rememberSaveable { mutableStateOf(initial.caseSensitive) }
+    // v2.x: 全词匹配开关
+    var wholeWord by rememberSaveable { mutableStateOf(initial.wholeWord) }
     var isRegex by rememberSaveable { mutableStateOf(initial.isRegex) }
     var alwaysActive by rememberSaveable { mutableStateOf(initial.alwaysActive) }
     var scanDepth by rememberSaveable { mutableStateOf(initial.scanDepth.toString()) }
@@ -338,12 +340,13 @@ private fun WorldBookEditPage(
 
     var showDiscardConfirm by rememberSaveable { mutableStateOf(false) }
     val hasUnsavedChanges = remember(
-        name, keywordsText, content, priority, caseSensitive, isRegex, alwaysActive,
+        name, keywordsText, content, priority, caseSensitive, wholeWord, isRegex, alwaysActive,
         scanDepth, injectTarget, injectPosition, insertionDepth, enabled,
     ) {
         name != initial.name || keywordsText != initialKeywordsText || content != initial.content ||
             priority != initial.priority.toString() ||
             caseSensitive != initial.caseSensitive ||
+            wholeWord != initial.wholeWord ||
             isRegex != initial.isRegex ||
             alwaysActive != initial.alwaysActive ||
             scanDepth != initial.scanDepth.toString() ||
@@ -389,6 +392,7 @@ private fun WorldBookEditPage(
                             content = content,
                             priority = priority.trim().toIntOrNull() ?: 50,
                             caseSensitive = caseSensitive,
+                            wholeWord = wholeWord,
                             isRegex = isRegex,
                             alwaysActive = alwaysActive,
                             scanDepth = scanDepth.trim().toIntOrNull()?.coerceAtLeast(1) ?: 3,
@@ -497,6 +501,14 @@ private fun WorldBookEditPage(
                 subtitle = stringResource(R.string.worldbook_field_case_sensitive_desc),
                 checked = caseSensitive,
                 onCheckedChange = { caseSensitive = it },
+                contentPadding = PaddingValues(0.dp),
+            )
+            // v2.x: 全词匹配开关(仅子串模式生效;英文边界,CJK 自动退化)
+            SettingsSwitchRow(
+                title = stringResource(R.string.worldbook_field_whole_word),
+                subtitle = stringResource(R.string.worldbook_field_whole_word_desc),
+                checked = wholeWord,
+                onCheckedChange = { wholeWord = it },
                 contentPadding = PaddingValues(0.dp),
             )
             SettingsSwitchRow(

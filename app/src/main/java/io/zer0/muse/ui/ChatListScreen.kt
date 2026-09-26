@@ -1306,7 +1306,7 @@ private fun LazyListScope.foldersSectionItems(
         TaskSectionTitle { Text(stringResource(R.string.chat_list_section_folders)) }
     }
     folders.forEach { folder ->
-        item(key = "folder_${folder.id}") {
+        item(key = "folder_${folder.id}", contentType = "folder") {
             Box(museAnimateItem()) {
                 SectionGroupRow(index = 0, total = 1) {
                     FolderItem(
@@ -1320,7 +1320,11 @@ private fun LazyListScope.foldersSectionItems(
         }
         if (folder.expanded) {
             val folderSessions = sessions.filter { it.folderId == folder.id }
-            itemsIndexed(folderSessions, key = { _, session -> "folder_${folder.id}_session_${session.id}" }) { _, session ->
+            itemsIndexed(
+                folderSessions,
+                key = { _, session -> "folder_${folder.id}_session_${session.id}" },
+                contentType = { _, _ -> "session" },
+            ) { _, session ->
                 TaskItem(
                     session = session,
                     folders = folders,

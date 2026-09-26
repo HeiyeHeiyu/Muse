@@ -31,7 +31,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.ripple
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -1510,7 +1509,7 @@ private fun QuickBarAction(
     active: Boolean,
     onClick: () -> Unit,
 ) {
-    // v2.x: 交互动效 — 按压缩放 + 激活态颜色过渡 + 可见涟漪
+    // v2.x: 交互动效 — 按压缩放 + 激活态颜色过渡(自绘反馈,无涟漪)
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val pressScale by animateFloatAsState(
@@ -1540,7 +1539,7 @@ private fun QuickBarAction(
             .background(bgColor)
             .clickable(
                 interactionSource = interactionSource,
-                indication = ripple(),
+                indication = null,
                 onClick = onClick,
             ),
         contentAlignment = Alignment.Center,

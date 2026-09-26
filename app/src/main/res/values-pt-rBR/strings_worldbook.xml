@@ -54,6 +54,8 @@
     <string name="worldbook_field_scan_depth">Profundidade da verificação (últimas N mensagens do USUÁRIO)</string>
     <string name="worldbook_field_case_sensitive">Maiúsculas e minúsculas</string>
     <string name="worldbook_field_case_sensitive_desc">Combine palavras-chave com distinção entre maiúsculas e minúsculas</string>
+    <string name="worldbook_field_whole_word">Palavra inteira</string>
+    <string name="worldbook_field_whole_word_desc">A palavra-chave deve corresponder como palavra inteira (somente modo subcadeia; termos CJK voltam ao modo automatico)</string>
     <string name="worldbook_field_is_regex">Correspondência Regex</string>
     <string name="worldbook_field_is_regex_desc">Trate palavras-chave como expressões regulares (avançado)</string>
     <string name="worldbook_field_always_active">Sempre ativo</string>

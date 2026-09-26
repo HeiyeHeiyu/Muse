@@ -42,6 +42,12 @@ object MuseIconSizes {
     val iconSmall = 18.dp
     /** 微图标(标签内图标)。 */
     val iconTiny = 14.dp
+    /**
+     * v2.x: 自绘图标线宽 — muse-icons 生成器的权威值(1.7f)。
+     * MuseIcons.kt 为生成文件;调整线宽需同步修改生成器(muse-icons 仓库脚本),
+     * 此常量供文档化与本文件外的引用,不要在其他手写代码里散落硬编码。
+     */
+    const val strokeWidth = 1.7f
     /** B7-07: 16dp 图标/进度圈。 */
     val iconSmallTiny = 16.dp
     /** B7-07: 28dp 视频缩略图标。 */

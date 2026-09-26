@@ -25,8 +25,8 @@ import io.zer0.muse.data.lorebook.LorebookRepository
  *
  * 设计权衡:
  *  - 候选条目由 ChatViewModel 预查询,Transformer 不直接访问 DB(保持纯函数性)
- *  - 关键词匹配使用 contains,大小写由 [LorebookEntity.caseSensitive] 控制(L-LB7/L-LB8)
- *    (向后兼容,尚无 wholeWord 模式;TODO:增加 wholeWord 选项以减少误触发)
+ *  - 关键词匹配使用 contains,大小写由 [LorebookEntity.caseSensitive] 控制(L-LB7/L-LB8);
+ *    wholeWord 全词模式已支持(v1.0.47;英文边界 \b,CJK 关键词退化为子串匹配)
  *  - 注入整个 LorebookRepository 而非仅 matchAgainst 函数(L-LB9):
  *    改为函数类型注入会影响调用方签名,风险高,故保留现状
  *  - M-LB3: 通过 context.extra("lorebook_injected_ids"): MutableSet<String> 跨调用去重,

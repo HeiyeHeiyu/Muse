@@ -2581,8 +2581,13 @@ fun ChatScreen(
         // P1-1: 实时语音对话全屏模式 — 从顶部菜单「语音对话」进入(语音对话状态机接线到聊天页)
         AnimatedVisibility(
             visible = showVoiceConversation,
-            enter = androidx.compose.animation.fadeIn(),
-            exit = androidx.compose.animation.fadeOut(),
+            // v2.x: 裸 fade 换令牌(时长随系统动画缩放)
+            enter = androidx.compose.animation.fadeIn(
+                animationSpec = MuseMotion.tween(MuseAnimation.SLOW_MS),
+            ),
+            exit = androidx.compose.animation.fadeOut(
+                animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+            ),
         ) {
             VoiceConversationMode(
                 onClose = { showVoiceConversation = false },

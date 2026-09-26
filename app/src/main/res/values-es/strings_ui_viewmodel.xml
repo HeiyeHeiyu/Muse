@@ -81,6 +81,8 @@
     <string name="lorebook_insertion_before_last">Antes del último mensaje</string>
     <string name="lorebook_field_case_sensitive">Distingue mayúsculas y minúsculas</string>
     <string name="lorebook_field_case_sensitive_desc">Cuando está activado, la concordancia de palabras clave distingue entre mayúsculas y minúsculas.</string>
+    <string name="lorebook_field_whole_word">Palabra completa</string>
+    <string name="lorebook_field_whole_word_desc">La palabra clave debe coincidir como palabra completa (para ingles; los terminos CJK vuelven al modo automatico)</string>
     <string name="lorebook_field_enabled">Activado</string>
     <string name="lorebook_field_enabled_desc">Cuando esté desactivada, esta entrada ya no activará la inyección.</string>
 

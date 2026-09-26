@@ -2,6 +2,11 @@
 
 package io.zer0.muse.ui.common
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Offset
@@ -14,6 +19,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
+import io.zer0.muse.ui.theme.MuseAnimation
+import io.zer0.muse.ui.theme.MuseMotion
 import kotlin.math.roundToInt
 
 // E4 (前端专项 H8): 通用锚点弹层(Popover) — 以锚点组件在窗口中的边界
@@ -41,7 +48,20 @@ internal fun MusePopover(
         onDismissRequest = onDismiss,
         popupPositionProvider = positionProvider,
     ) {
-        content()
+        // v2.x: 入场动画 — fade + 轻微缩放(一处修复所有 Popover 调用方);
+        // 退场不做(弹层被直接移除,退出动画无人看见,不值得为此挂起 dismiss)。
+        val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
+        AnimatedVisibility(
+            visibleState = visibleState,
+            enter = fadeIn(animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS)) +
+                scaleIn(
+                    initialScale = 0.94f,
+                    animationSpec = MuseMotion.tween(MuseAnimation.TACTILE_MS),
+                ),
+            exit = ExitTransition.None,
+        ) {
+            content()
+        }
     }
 }
 

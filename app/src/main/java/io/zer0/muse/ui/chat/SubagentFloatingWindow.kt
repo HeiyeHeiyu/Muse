@@ -51,7 +51,9 @@ import io.zer0.muse.R
 import io.zer0.muse.data.subagent.SubagentThreadStore
 import io.zer0.muse.tools.DeferredResultStore
 import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import kotlinx.coroutines.delay
@@ -128,8 +130,15 @@ internal fun SubagentFloatingWindow(
         // ── 贴边小胶囊(展开面板时隐藏,避免半遮挡) ──
         AnimatedVisibility(
             visible = visible && !expanded,
-            enter = fadeIn() + slideInHorizontally { it / 2 },
-            exit = fadeOut() + slideOutHorizontally { it / 2 },
+            // v2.x: 补令牌 spec(原为裸 fade/slide)
+            enter = fadeIn(animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS)) +
+                slideInHorizontally(
+                    animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+                ) { it / 2 },
+            exit = fadeOut(animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS)) +
+                slideOutHorizontally(
+                    animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+                ) { it / 2 },
             modifier = Modifier.align(Alignment.CenterEnd),
         ) {
             val travel = (containerHeight - with(LocalDensity.current) { 44.dp.toPx() }).coerceAtLeast(1f)
@@ -177,8 +186,14 @@ internal fun SubagentFloatingWindow(
         // ── 展开的任务面板 ──
         AnimatedVisibility(
             visible = expanded && (visible || recentlyDone.isNotEmpty()),
-            enter = fadeIn() + slideInHorizontally { it / 3 },
-            exit = fadeOut() + slideOutHorizontally { it / 3 },
+            enter = fadeIn(animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS)) +
+                slideInHorizontally(
+                    animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+                ) { it / 3 },
+            exit = fadeOut(animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS)) +
+                slideOutHorizontally(
+                    animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+                ) { it / 3 },
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .padding(end = 14.dp),

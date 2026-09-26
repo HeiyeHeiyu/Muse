@@ -54,6 +54,8 @@
     <string name="worldbook_field_scan_depth">Глубина сканирования (последние N сообщений ПОЛЬЗОВАТЕЛЯ)</string>
     <string name="worldbook_field_case_sensitive">С учетом регистра</string>
     <string name="worldbook_field_case_sensitive_desc">Сопоставление ключевых слов с учетом регистра</string>
+    <string name="worldbook_field_whole_word">Слово целиком</string>
+    <string name="worldbook_field_whole_word_desc">Ключевое слово должно совпадать целиком (только режим подстроки; ключи CJK автоматически переходят к подстроке)</string>
     <string name="worldbook_field_is_regex">Соответствие регулярному выражению</string>
     <string name="worldbook_field_is_regex_desc">Рассматривать ключевые слова как регулярные выражения (дополнительно)</string>
     <string name="worldbook_field_always_active">Всегда активен</string>

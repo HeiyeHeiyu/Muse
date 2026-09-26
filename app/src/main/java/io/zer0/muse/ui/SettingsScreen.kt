@@ -1,7 +1,6 @@
 package io.zer0.muse.ui
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -71,7 +70,9 @@ import io.zer0.muse.ui.common.surface.museModalScrimColor
 import io.zer0.muse.ui.common.surface.museSafeTopInsetPadding
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.common.surface.CardGroup
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.semiLarge
@@ -444,7 +445,7 @@ fun SettingsScreen(
     // 吸顶过渡进度（0 = 实色常态，1 = 玻璃吸顶）；内部占位与外层玻璃共用，保证交叉淡化同步。
     val searchStuckProgress by animateFloatAsState(
         targetValue = if (isSearchBarStuck) 1f else 0f,
-        animationSpec = tween(durationMillis = 180),
+        animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS),
         label = "searchStuckProgress",
     )
     val surfaceHazeState = remember { HazeState() }

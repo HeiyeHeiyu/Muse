@@ -55,6 +55,8 @@
     <string name="worldbook_field_scan_depth">Scan Depth (last N USER messages)</string>
     <string name="worldbook_field_case_sensitive">Case Sensitive</string>
     <string name="worldbook_field_case_sensitive_desc">Match keywords with case sensitivity</string>
+    <string name="worldbook_field_whole_word">Whole Word</string>
+    <string name="worldbook_field_whole_word_desc">Keyword must match as a whole word (substring mode only; CJK keywords fall back automatically)</string>
     <string name="worldbook_field_is_regex">Regex Match</string>
     <string name="worldbook_field_is_regex_desc">Treat keywords as regular expressions (advanced)</string>
     <string name="worldbook_field_always_active">Always Active</string>

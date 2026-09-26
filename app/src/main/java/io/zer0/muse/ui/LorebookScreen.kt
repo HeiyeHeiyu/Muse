@@ -299,6 +299,8 @@ private fun LorebookEditPage(
     var content by rememberSaveable { mutableStateOf(initial.content) }
     var priority by rememberSaveable { mutableStateOf(initial.priority.toString()) }
     var caseSensitive by rememberSaveable { mutableStateOf(initial.caseSensitive) }
+    // v2.x: 全词匹配开关
+    var wholeWord by rememberSaveable { mutableStateOf(initial.wholeWord) }
     var insertionPosition by rememberSaveable { mutableStateOf(initial.insertionPosition) }
     var enabled by rememberSaveable { mutableStateOf(initial.enabled) }
 
@@ -315,10 +317,11 @@ private fun LorebookEditPage(
     // v1.48: 返回键拦截,避免误退丢失编辑
     var showDiscardConfirm by rememberSaveable { mutableStateOf(false) }
     // M-LORE2: keywordsText 加入 remember keys 并参与比较,否则修改关键词后返回不提示未保存
-    val hasUnsavedChanges = remember(name, keywordsText, content, priority, caseSensitive, insertionPosition, enabled) {
+    val hasUnsavedChanges = remember(name, keywordsText, content, priority, caseSensitive, wholeWord, insertionPosition, enabled) {
         name != initial.name || keywordsText != initialKeywordsText || content != initial.content ||
             priority != initial.priority.toString() ||
             caseSensitive != initial.caseSensitive ||
+            wholeWord != initial.wholeWord ||
             insertionPosition != initial.insertionPosition ||
             enabled != initial.enabled
     }
@@ -361,6 +364,7 @@ private fun LorebookEditPage(
                             content = content,
                             priority = priority.trim().toIntOrNull() ?: 0,
                             caseSensitive = caseSensitive,
+                            wholeWord = wholeWord,
                             insertionPosition = insertionPosition,
                             enabled = enabled,
                             // L-PID8: updatedAt 由 ChatViewModel.saveLorebook 统一设置,避免双重设置
@@ -436,6 +440,14 @@ private fun LorebookEditPage(
                 subtitle = stringResource(R.string.lorebook_field_case_sensitive_desc),
                 checked = caseSensitive,
                 onCheckedChange = { caseSensitive = it },
+                contentPadding = PaddingValues(0.dp),
+            )
+            // v2.x: 全词匹配开关(英文边界;CJK 关键词自动退化)
+            SettingsSwitchRow(
+                title = stringResource(R.string.lorebook_field_whole_word),
+                subtitle = stringResource(R.string.lorebook_field_whole_word_desc),
+                checked = wholeWord,
+                onCheckedChange = { wholeWord = it },
                 contentPadding = PaddingValues(0.dp),
             )
             SettingsSwitchRow(

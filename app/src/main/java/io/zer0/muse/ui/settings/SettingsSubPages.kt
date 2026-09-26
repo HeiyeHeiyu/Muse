@@ -12,7 +12,6 @@ import android.content.Intent
 import android.net.Uri
 import io.zer0.muse.ui.common.feedback.MuseToast
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -63,6 +62,8 @@ import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.settings.SettingsItemRow
 import io.zer0.muse.ui.common.settings.SettingsSwitchRow
+import io.zer0.muse.ui.theme.MuseAnimation
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -100,7 +101,7 @@ fun SettingsSubPageScaffold(
     }
     val backStuckProgress by animateFloatAsState(
         targetValue = if (isHeaderStuck) 1f else 0f,
-        animationSpec = tween(durationMillis = 180),
+        animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS),
         label = "settingsSubBackStuck",
     )
 

@@ -81,6 +81,8 @@
     <string name="lorebook_insertion_before_last">Перед последним сообщением</string>
     <string name="lorebook_field_case_sensitive">С учетом регистра</string>
     <string name="lorebook_field_case_sensitive_desc">Если включено, сопоставление ключевых слов чувствительно к регистру.</string>
+    <string name="lorebook_field_whole_word">Слово целиком</string>
+    <string name="lorebook_field_whole_word_desc">Ключевое слово должно совпадать целиком (для английского; ключи CJK автоматически переходят к подстроке)</string>
     <string name="lorebook_field_enabled">Включено</string>
     <string name="lorebook_field_enabled_desc">Если эта запись отключена, эта запись больше не будет запускать инъекцию.</string>
 

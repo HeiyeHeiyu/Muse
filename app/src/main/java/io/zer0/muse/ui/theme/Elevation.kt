@@ -14,6 +14,8 @@ import androidx.compose.ui.unit.dp
  *  - [medium]: 2 — 输入岛 / 浮动条 shadowElevation
  *  - [high]:   4 — 选中项 / 强调卡片
  *  - [modal]:  8 — 对话框 / BottomSheet
+ *  - [floating]: 12 — v2.x: 浮层 / 大面板(补回大档位)
+ *  - [overlay]:  24 — v2.x: 全屏模态 / 悬浮大元素(补回大档位)
  *
  * 历史两套同名不同值(MuseShadow.low=2/high=12/modal=24)已合并删除,统一走本刻度。
  */
@@ -25,4 +27,10 @@ object MuseElevation {
     val medium: Dp = 2.dp
     val high: Dp = 4.dp
     val modal: Dp = 8.dp
+
+    /** v2.x: 浮层 / 大面板 — 12dp(补回大档位,供菜单/面板类容器使用)。 */
+    val floating: Dp = 12.dp
+
+    /** v2.x: 全屏模态 / 悬浮大元素 — 24dp(补回大档位,供全屏覆盖层使用)。 */
+    val overlay: Dp = 24.dp
 }

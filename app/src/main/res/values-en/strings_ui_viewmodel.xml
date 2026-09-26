@@ -81,6 +81,8 @@
     <string name="lorebook_insertion_before_last">Before the last message</string>
     <string name="lorebook_field_case_sensitive">Case-sensitive</string>
     <string name="lorebook_field_case_sensitive_desc">When on, keyword matching is case-sensitive</string>
+    <string name="lorebook_field_whole_word">Whole Word</string>
+    <string name="lorebook_field_whole_word_desc">Keyword must match as a whole word (for English; CJK keywords fall back automatically)</string>
     <string name="lorebook_field_enabled">Enabled</string>
     <string name="lorebook_field_enabled_desc">When off, this entry will no longer trigger injection</string>
 

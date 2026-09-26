@@ -58,6 +58,8 @@
     <string name="worldbook_field_scan_depth">扫描深度(最近 N 层 USER 消息)</string>
     <string name="worldbook_field_case_sensitive">区分大小写</string>
     <string name="worldbook_field_case_sensitive_desc">关键词匹配时区分字母大小写</string>
+    <string name="worldbook_field_whole_word">全词匹配</string>
+    <string name="worldbook_field_whole_word_desc">关键词需完整成词才触发(仅子串模式;中文关键词自动退化)</string>
     <string name="worldbook_field_is_regex">正则匹配</string>
     <string name="worldbook_field_is_regex_desc">关键词作为正则表达式匹配(高级)</string>
     <string name="worldbook_field_always_active">常驻激活</string>

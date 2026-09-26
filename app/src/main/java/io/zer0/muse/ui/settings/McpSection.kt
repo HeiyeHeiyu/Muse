@@ -66,9 +66,15 @@ import io.zer0.muse.ui.common.state.MuseErrorStateBox
 import io.zer0.muse.ui.common.form.MuseSwitch
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.ui.text.font.FontWeight
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.MusePaddings
+import io.zer0.muse.ui.theme.MuseMotion
 import org.koin.compose.koinInject
 
 /**
@@ -125,7 +131,18 @@ internal fun McpSection() {
                     modifier = Modifier.size(18.dp),
                 )
             }
-            AnimatedVisibility(visible = riskNoteExpanded) {
+            AnimatedVisibility(
+                visible = riskNoteExpanded,
+                // v2.x: 补令牌 spec(原为默认 spec)
+                enter = fadeIn(animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS)) +
+                    expandVertically(
+                        animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+                    ),
+                exit = fadeOut(animationSpec = MuseMotion.tween(MuseAnimation.FAST_MS)) +
+                    shrinkVertically(
+                        animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS),
+                    ),
+            ) {
                 Text(
                     text = stringResource(R.string.settings_mcp_risk_note_body),
                     style = MaterialTheme.typography.bodySmall,

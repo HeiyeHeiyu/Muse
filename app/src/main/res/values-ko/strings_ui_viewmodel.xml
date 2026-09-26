@@ -81,6 +81,8 @@
     <string name="lorebook_insertion_before_last">마지막 메시지 앞</string>
     <string name="lorebook_field_case_sensitive">대소문자 구분</string>
     <string name="lorebook_field_case_sensitive_desc">켜져 있으면 키워드 일치에서 대소문자를 구분합니다.</string>
+    <string name="lorebook_field_whole_word">단어 단위 일치</string>
+    <string name="lorebook_field_whole_word_desc">키워드가 단어 단위로 일치해야 발동(영어용; CJK 키워드는 자동으로 부분 일치)</string>
     <string name="lorebook_field_enabled">활성화됨</string>
     <string name="lorebook_field_enabled_desc">끄면 이 항목이 더 이상 주입을 트리거하지 않습니다.</string>
 

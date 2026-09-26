@@ -3,6 +3,8 @@ package io.zer0.muse.ui.theme
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.SpringSpec
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 
@@ -87,6 +89,21 @@ object MuseAnimation {
      * 加速曲线 (easeInCubic): 慢入快出,用于元素离场 / 退出动画。
      */
     val EaseInCubic: Easing = CubicBezierEasing(0.32f, 0.0f, 0.67f, 0.0f)
+
+    /**
+     * v2.x: Material 3 Expressive 强调曲线 — 大位移/强调过渡场景
+     * (motion-scheme 的 emphasized 规格,供面板/大容器转场引用)。
+     */
+    val Emphasized: Easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
+
+    /**
+     * v2.x: 弹性弹簧规格沉淀 — 按压缩放/卡片回弹场景的物理参数
+     * (原散落各处手写 spring(MediumBouncy, StiffnessMedium);新代码从这里取)。
+     */
+    fun bouncySpring(): SpringSpec<Float> = SpringSpec(
+        dampingRatio = Spring.DampingRatioMediumBouncy,
+        stiffness = Spring.StiffnessMedium,
+    )
 }
 
 /**

@@ -81,6 +81,8 @@
     <string name="lorebook_insertion_before_last">Antes da última mensagem</string>
     <string name="lorebook_field_case_sensitive">Maiúsculas e minúsculas</string>
     <string name="lorebook_field_case_sensitive_desc">Quando ativado, a correspondência de palavras-chave diferencia maiúsculas de minúsculas</string>
+    <string name="lorebook_field_whole_word">Palavra inteira</string>
+    <string name="lorebook_field_whole_word_desc">A palavra-chave deve corresponder como palavra inteira (para ingles; termos CJK voltam ao modo automatico)</string>
     <string name="lorebook_field_enabled">Habilitado</string>
     <string name="lorebook_field_enabled_desc">Quando desativada, esta entrada não acionará mais a injeção</string>
 

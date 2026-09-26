@@ -81,6 +81,8 @@
     <string name="lorebook_insertion_before_last">最後のメッセージの前</string>
     <string name="lorebook_field_case_sensitive">大文字と小文字を区別</string>
     <string name="lorebook_field_case_sensitive_desc">オンの場合、キーワード一致では大文字と小文字が区別されます。</string>
+    <string name="lorebook_field_whole_word">完全一致</string>
+    <string name="lorebook_field_whole_word_desc">キーワードが単語として完全一致したときのみ発動(英語向け;中国語などは自動で部分一致)</string>
     <string name="lorebook_field_enabled">有効</string>
     <string name="lorebook_field_enabled_desc">オフにすると、このエントリはインジェクションをトリガーしなくなります</string>
 
