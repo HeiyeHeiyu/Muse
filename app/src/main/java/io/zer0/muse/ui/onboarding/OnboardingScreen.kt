@@ -14,8 +14,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -58,6 +57,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -408,37 +408,62 @@ private val WELCOME_GREETINGS = listOf(
     "Привет, рады знакомству.",
 )
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StepWelcome() {
-    val features = listOf(
-        FeatureItem(MuseIcons.chat, stringResource(R.string.onboarding_feature_chat_title), stringResource(R.string.onboarding_feature_chat_desc)),
-        FeatureItem(MuseIcons.brain, stringResource(R.string.onboarding_feature_memory_title), stringResource(R.string.onboarding_feature_memory_desc)),
-        FeatureItem(MuseIcons.wrench, stringResource(R.string.onboarding_feature_tools_title), stringResource(R.string.onboarding_feature_tools_desc)),
-        FeatureItem(MuseIcons.bookOpen, stringResource(R.string.onboarding_feature_knowledge_title), stringResource(R.string.onboarding_feature_knowledge_desc)),
-    )
-
-    // v2.x: 多语言问候轮播 — 每 2.6s 换一条,像开机欢迎屏一样安静地“换语言”
+    // v2.x: 首屏重构 — 大 logo 单放(无底框),名字在下,问候语从 logo 处"展开"入场。
+    // 不再有副标题与特性磁贴:首屏只留 logo / 名字 / 一句问候。
+    var entered by remember { mutableStateOf(false) }
+    var nameVisible by remember { mutableStateOf(false) }
+    var greetingVisible by remember { mutableStateOf(false) }
     var greetingIndex by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) {
+        // 入场时序:logo → 名字 → 问候"展开";之后进入多语言轮播(2.6s/条)
+        entered = true
+        delay(260)
+        nameVisible = true
+        delay(390)
+        greetingVisible = true
         while (true) {
             delay(2600)
             greetingIndex = (greetingIndex + 1) % WELCOME_GREETINGS.size
         }
     }
-    // 首次入场:logo 与问候语轻微浮现(无弹跳,只做透明度 + 微缩放)
-    var entered by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { entered = true }
+
     val logoAlpha by animateFloatAsState(
         targetValue = if (entered) 1f else 0f,
-        animationSpec = MuseMotion.tween(600),
+        animationSpec = MuseMotion.tween(700),
         label = "welcomeLogoAlpha",
     )
     val logoScale by animateFloatAsState(
-        targetValue = if (entered) 1f else 0.94f,
-        animationSpec = MuseMotion.tween(700),
+        targetValue = if (entered) 1f else 0.86f,
+        animationSpec = MuseMotion.tween(900),
         label = "welcomeLogoScale",
     )
+    val nameAlpha by animateFloatAsState(
+        targetValue = if (nameVisible) 1f else 0f,
+        animationSpec = MuseMotion.tween(520),
+        label = "welcomeNameAlpha",
+    )
+    val nameOffset by animateDpAsState(
+        targetValue = if (nameVisible) 0.dp else 10.dp,
+        animationSpec = MuseMotion.tween(560),
+        label = "welcomeNameOffset",
+    )
+    val greetingAlpha by animateFloatAsState(
+        targetValue = if (greetingVisible) 1f else 0f,
+        animationSpec = MuseMotion.tween(560),
+        label = "welcomeGreetingAlpha",
+    )
+    val greetingScale by animateFloatAsState(
+        targetValue = if (greetingVisible) 1f else 0.5f,
+        animationSpec = MuseMotion.tween(680, easing = MuseAnimation.EaseOutCubic),
+        label = "welcomeGreetingScale",
+    )
+
+    // 轮播过渡 spec 需在组合上下文里构建(MuseMotion 依赖动静设置),不能在 transitionSpec lambda 内取
+    val greetingFadeInSpec = MuseMotion.tween<Float>(520, easing = MuseAnimation.EaseOutCubic)
+    val greetingSlideSpec = MuseMotion.tween<IntOffset>(520, easing = MuseAnimation.EaseOutCubic)
+    val greetingExitSpec = MuseMotion.tween<Float>(360)
 
     Column(
         modifier = Modifier
@@ -448,27 +473,19 @@ private fun StepWelcome() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        // 品牌图标:使用项目图标(带入场浮现)
-        Surface(
-            shape = MuseShapes.large,
-            color = MaterialTheme.colorScheme.surfaceContainer,
+        // 大 logo — 单放,不加底框
+        Image(
+            painter = painterResource(R.drawable.ic_muse_logo),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
             modifier = Modifier
-                .size(96.dp)
+                .size(176.dp)
                 .graphicsLayer {
                     alpha = logoAlpha
                     scaleX = logoScale
                     scaleY = logoScale
                 },
-        ) {
-            Image(
-                painter = painterResource(R.drawable.ic_muse_logo),
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp),
-            )
-        }
+        )
         Spacer(modifier = Modifier.height(MusePaddings.sectionGap))
         Text(
             text = stringResource(R.string.app_name),
@@ -476,19 +493,24 @@ private fun StepWelcome() {
                 fontWeight = FontWeight.SemiBold,
             ),
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier
+                .graphicsLayer { alpha = nameAlpha }
+                .offset(y = nameOffset),
         )
         Spacer(modifier = Modifier.height(MusePaddings.contentGap))
-        // 多语言问候轮播 — 交叉淡入 + 轻微上浮,高度锁定避免跳动
+        // 问候语:从 logo 方向"展开"出场(顶端为缩放原点),之后多语言轮播交叉淡入
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 64.dp),
+                .heightIn(min = 64.dp)
+                .graphicsLayer {
+                    alpha = greetingAlpha
+                    scaleX = greetingScale
+                    scaleY = greetingScale
+                    transformOrigin = TransformOrigin(0.5f, 0f)
+                },
             contentAlignment = Alignment.Center,
         ) {
-            // 过渡 spec 需在组合上下文里构建(MuseMotion 依赖动静设置),不能在 transitionSpec lambda 内取
-            val greetingFadeInSpec = MuseMotion.tween<Float>(520, easing = MuseAnimation.EaseOutCubic)
-            val greetingSlideSpec = MuseMotion.tween<IntOffset>(520, easing = MuseAnimation.EaseOutCubic)
-            val greetingExitSpec = MuseMotion.tween<Float>(360)
             AnimatedContent(
                 targetState = greetingIndex,
                 transitionSpec = {
@@ -507,24 +529,6 @@ private fun StepWelcome() {
                 )
             }
         }
-        Spacer(modifier = Modifier.height(MusePaddings.tightGap))
-        Text(
-            text = stringResource(R.string.onboarding_welcome_subtitle),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(modifier = Modifier.height(MusePaddings.sectionGap * 2))
-        // 特性标签:带图标的胶囊,比纯文字更有层次
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(MusePaddings.contentGap, Alignment.CenterHorizontally),
-            verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
-        ) {
-            features.forEach { item ->
-                FeatureChip(item = item)
-            }
-        }
     }
 }
 
@@ -533,40 +537,6 @@ private data class FeatureItem(
     val title: String,
     val description: String,
 )
-
-@Composable
-private fun FeatureChip(
-    item: FeatureItem,
-) {
-    Surface(
-        shape = MuseShapes.pill,
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        border = androidx.compose.foundation.BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-        ),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(
-                imageVector = item.icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
-            )
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Medium,
-                ),
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-    }
-}
 
 // ── 步骤 1：语言 ────────────────────────────────────────────────
 @Composable
