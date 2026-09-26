@@ -12,9 +12,11 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -66,12 +68,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import coil.compose.AsyncImage
 import java.io.File
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.theme.MuseMonoFontFamily
 import io.zer0.muse.common.markdown.FrontmatterParser
 import io.zer0.muse.ui.theme.MuseShapes
+import io.zer0.muse.ui.theme.MuseElevation
+import io.zer0.muse.ui.theme.MuseMarkdownRhythm
+import io.zer0.muse.ui.theme.MusePaddings
+import io.zer0.muse.ui.theme.pill
 import io.zer0.common.resultOf
 
 // L-MD15 修复: 行号 gutter 宽度计算常量(原先 10dp/16dp 硬编码在 CodeBlockView 内)
@@ -270,7 +277,24 @@ fun MarkdownText(
         // 原因: MarkdownText 用于单条消息气泡内,单条消息的块数通常很少(几段文字 + 少量代码块),
         // 用普通 Column 的开销可接受。若改用 LazyColumn,会破坏气泡内嵌布局(高度自适应),
         // 且 LazyColumn 不能嵌套在非固定高度的父容器中(消息流本身已是 LazyColumn)。
-        blocks.forEachIndexed { idx, block ->
+        // v2.x 长文排版校准: 空行块不再各自渲染 Spacer,而是收敛成"它前面是否有段落空行"
+        // 的一个布尔,由 [markdownBlockGap] 统一决定相邻块之间的垂直节奏(段落/区块/标题各档)。
+        val renderedBlocks = remember(blocks) {
+            val visible = ArrayList<Pair<MarkdownBlock, Boolean>>(blocks.size)
+            var blankSeen = false
+            blocks.forEach { block ->
+                if (block is MarkdownBlock.Blank) {
+                    blankSeen = true
+                } else {
+                    visible.add(block to blankSeen)
+                    blankSeen = false
+                }
+            }
+            visible
+        }
+        renderedBlocks.forEachIndexed { idx, (block, blankBetween) ->
+            val gap = markdownBlockGap(renderedBlocks.getOrNull(idx - 1)?.first, block, blankBetween)
+            if (gap > 0.dp) Spacer(Modifier.height(gap))
             when (block) {
                 is MarkdownBlock.Paragraph -> {
                     // Phase 8.5 修复: parseInline 用 remember 缓存,避免每次重组重新解析行内格式。
@@ -298,30 +322,34 @@ fun MarkdownText(
                 }
 
                 is MarkdownBlock.Heading -> {
-                    if (idx > 0) Spacer(Modifier.height(8.dp))
+                    // v2.x: 层级拉出清晰的 24 / 20 / 17 阶梯(此前 h1 与 h2 同为 20sp,层级塌陷);
+                    // 上下留白交给 [markdownBlockGap](上大下小,标题贴近所引导的正文)。
                     val headingStyle = when (block.level) {
-                        1 -> MaterialTheme.typography.headlineSmall
-                        2 -> MaterialTheme.typography.titleLarge
+                        1 -> MaterialTheme.typography.headlineLarge
+                        2 -> MaterialTheme.typography.headlineSmall
                         else -> MaterialTheme.typography.titleMedium
                     }
                     val annotated = remember(block.text, color, linkColor, codeBgColor, citationUrls, citationColor) {
                         parseInline(block.text, color, linkColor, codeBgColor, citationUrls, citationColor)
                     }
+                    // v2.x: 显式取主题正文墨色(此前未传 color,依赖 LocalContentColor 兜底)
+                    val headingColor = MaterialTheme.colorScheme.onSurface
                     if (disableLinks) {
                         Text(
                             text = annotated,
                             style = headingStyle,
+                            color = headingColor,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     } else {
                         LinkableText(
                             annotatedText = annotated,
                             style = headingStyle,
+                            color = headingColor,
                             modifier = Modifier.fillMaxWidth(),
                             onLongPressOutside = onLongPressOutside,
                         )
                     }
-                    if (idx < blocks.lastIndex) Spacer(Modifier.height(4.dp))
                 }
 
                 is MarkdownBlock.CodeBlock -> {
@@ -386,18 +414,58 @@ fun MarkdownText(
                 }
 
                 MarkdownBlock.Divider -> {
-                    if (idx > 0) Spacer(Modifier.height(8.dp))
+                    // v2.x: 线色与线宽对齐 MuseDivider(设置页同款发丝线),上下节奏由块间距函数给。
                     HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.13f),
+                        thickness = MusePaddings.dividerThickness,
                     )
-                    if (idx < blocks.lastIndex) Spacer(Modifier.height(8.dp))
                 }
 
-                MarkdownBlock.Blank -> Spacer(Modifier.height(8.dp))
+                // 空行块已在 renderedBlocks 阶段合并(只贡献"前一块与当前块之间是否有空行"),
+                // 这里保留分支仅为满足 sealed when 的穷尽性,不会真正渲染。
+                MarkdownBlock.Blank -> Unit
             }
         }
     }
+}
+
+/**
+ * v2.x 长文排版: 是否为"结构块" —— 与正文拉开对比的独立区块
+ * (代码 / 表格 / 引用 / 公式 / 分隔线)。
+ */
+private fun isStructuralBlock(block: MarkdownBlock): Boolean = when (block) {
+    is MarkdownBlock.CodeBlock,
+    is MarkdownBlock.Table,
+    is MarkdownBlock.Quote,
+    is MarkdownBlock.Formula,
+    MarkdownBlock.Divider -> true
+    else -> false
+}
+
+/**
+ * v2.x 长文排版: 相邻可见块之间的垂直节奏(Dp)。
+ *
+ * 纯函数,便于单测覆盖。规则优先级(上→下):
+ *  1. 首块不留白;
+ *  2. 当前块是标题 → [MuseMarkdownRhythm.headingSpaceAbove];
+ *  3. 前一块是标题 → [MuseMarkdownRhythm.headingSpaceBelow](上大下小,标题贴近正文);
+ *  4. 相邻列表项 → [MuseMarkdownRhythm.listItemGap](即便原文条间夹空行也保持紧凑);
+ *  5. 任一侧是结构块 → [MuseMarkdownRhythm.blockGap];
+ *  6. 原文有空行 → [MuseMarkdownRhythm.paragraphGap];
+ *  7. 同段落的软换行 → 0。
+ */
+internal fun markdownBlockGap(
+    prev: MarkdownBlock?,
+    current: MarkdownBlock,
+    blankBetween: Boolean,
+): Dp = when {
+    prev == null -> 0.dp
+    current is MarkdownBlock.Heading -> MuseMarkdownRhythm.headingSpaceAbove
+    prev is MarkdownBlock.Heading -> MuseMarkdownRhythm.headingSpaceBelow
+    prev is MarkdownBlock.ListItem && current is MarkdownBlock.ListItem -> MuseMarkdownRhythm.listItemGap
+    isStructuralBlock(prev) || isStructuralBlock(current) -> MuseMarkdownRhythm.blockGap
+    blankBetween -> MuseMarkdownRhythm.paragraphGap
+    else -> 0.dp
 }
 
 /**
@@ -412,7 +480,8 @@ private fun StreamingCodePreview(
 ) {
     Surface(
         color = codeBgColor,
-        shape = MuseShapes.small,  // v1.115: 令牌化,原裸 RoundedCornerShape(8.dp)
+        // v2.x: 代码块圆角对齐设计稿"代码块=12dp"档(原 8dp 与行内代码同级,块感不足)
+        shape = MuseShapes.medium,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text(
@@ -420,7 +489,7 @@ private fun StreamingCodePreview(
             style = style.copy(fontFamily = MuseMonoFontFamily),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(MuseMarkdownRhythm.blockInner)
                 .fillMaxWidth(),
         )
     }
@@ -586,14 +655,15 @@ private fun CodeBlockView(block: MarkdownBlock.CodeBlock) {
     val displayedLines = if (expanded) codeLines else codeLines.take(previewLineCount)
     val hiddenCount = lineCount - previewLineCount
 
-    Spacer(Modifier.height(6.dp))
+    // v2.x: 代码块上下留白交给 markdownBlockGap,块内不再自带 Spacer;
+    // 圆角升到 MuseShapes.medium(12dp,设计稿"代码块"档),内边距走阅读节奏令牌。
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = MuseShapes.small,
-        tonalElevation = 1.dp,
+        shape = MuseShapes.medium,
+        tonalElevation = MuseElevation.low,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(MuseMarkdownRhythm.blockInner)) {
             // 顶部行: language 标签 + 复制按钮 + 行数
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -631,7 +701,7 @@ private fun CodeBlockView(block: MarkdownBlock.CodeBlock) {
                     iconSize = 16.dp,
                 )
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(MusePaddings.labelVerticalGap))
             // 代码内容: 行号 + 代码
             // Phase 10.5: 行号右对齐 + 固定宽度(按总行数位数计算),1/10/100 对齐美观
             // L-MD15 修复: gutter 宽度用文件级常量计算(原先 10/16 硬编码)
@@ -738,7 +808,6 @@ private fun CodeBlockView(block: MarkdownBlock.CodeBlock) {
             }
         }
     }
-    Spacer(Modifier.height(6.dp))
 }
 
 /** 列表项视图: 缩进 + 符号(• 或 1.)。 */
@@ -788,17 +857,28 @@ private fun QuoteView(
     val annotated = remember(block.text, baseColor, linkColor, codeBgColor, citationUrls, citationColor) {
         parseInline(block.text, baseColor, linkColor, codeBgColor, citationUrls, citationColor)
     }
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-        Surface(
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.width(3.dp).height(20.dp),
-        ) {}
-        Spacer(Modifier.width(8.dp))
+    // v2.x 长文排版:
+    //  - 语义色改为中性 outline —— primary 是"挣来的"交互色,引用只是旁证,不该抢品牌绿;
+    //  - 色条高度改为跟随整段文字(原固定 20dp,多行引用只有首行有竖条);
+    //  - 上下留白交给 markdownBlockGap,内部仅保留色条与文字的紧凑间距。
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .fillMaxHeight()
+                .background(MaterialTheme.colorScheme.outline, MuseShapes.pill),
+        )
+        Spacer(Modifier.width(MusePaddings.contentGap))
         LinkableText(
             annotatedText = annotated,
             style = baseStyle.copy(fontStyle = FontStyle.Italic),
             color = quoteTextColor,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.weight(1f),
         )
     }
 }
@@ -1004,10 +1084,18 @@ private fun AnnotatedString.Builder.appendCitationOnly(
 private fun TableView(table: MarkdownBlock.Table) {
     val headerColor = MaterialTheme.colorScheme.onSurface
     val cellColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val borderColor = MaterialTheme.colorScheme.outlineVariant
+    // v2.x: 行线对齐 MuseDivider 线色(onSurface@13%),与设置页发丝线同一套语言
+    val rowLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.13f)
     val headerBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    // v2.x 长文排版: 表格作为独立内容块 —— 圆角容器 + 与代码块同源的浅面,
+    // 让它在双平面底上"自成一块",与正文拉开对比;表格上下留白走 markdownBlockGap。
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MuseShapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+    ) {
         // 表头行
         Row(modifier = Modifier.fillMaxWidth()) {
             table.headers.forEach { header ->
@@ -1019,14 +1107,14 @@ private fun TableView(table: MarkdownBlock.Table) {
                     modifier = Modifier
                         .weight(1f)
                         .background(headerBg)
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                        .padding(MuseMarkdownRhythm.tableCellHeader),
                     textAlign = TextAlign.Start,
                 )
             }
         }
-        HorizontalDivider(color = borderColor, thickness = 1.dp)
+        HorizontalDivider(color = rowLineColor, thickness = MusePaddings.dividerThickness)
         // 数据行
-        table.rows.forEach { row ->
+        table.rows.forEachIndexed { rowIndex, row ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 row.forEach { cell ->
                     Text(
@@ -1035,12 +1123,15 @@ private fun TableView(table: MarkdownBlock.Table) {
                         color = cellColor,
                         modifier = Modifier
                             .weight(1f)
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                            .padding(MuseMarkdownRhythm.tableCellBody),
                         textAlign = TextAlign.Start,
                     )
                 }
             }
-            HorizontalDivider(color = borderColor.copy(alpha = 0.5f), thickness = 0.5.dp)
+            // 末行下不再补一条悬空的分隔线
+            if (rowIndex < table.rows.lastIndex) {
+                HorizontalDivider(color = rowLineColor.copy(alpha = 0.5f), thickness = MusePaddings.dividerThickness)
+            }
         }
     }
 }

@@ -283,7 +283,9 @@ internal fun MuseToolSheet(
             }
         }
 
-        Spacer(Modifier.height(MusePaddings.contentGap))
+        // v2.x: 面板内分区间距对齐设置页新标准(cardGap 20)—— 媒体区 / 工具开关 / 附件
+        // 三个分区之间拉开同级的"组间距",组内仍用 contentGap 保持紧凑。
+        Spacer(Modifier.height(MusePaddings.cardGap))
 
         // ── 第二行:联网搜索 + 深度思考 ──
         val findEntry: (String) -> ToolEntry? = { keyword ->
@@ -320,7 +322,7 @@ internal fun MuseToolSheet(
             }
         }
 
-        Spacer(Modifier.height(MusePaddings.contentGap))
+        Spacer(Modifier.height(MusePaddings.cardGap))
 
         // ── 第三行:相册、附件、引用知识库及其余杂项，保持小胶囊并横向滚动 ──
         val miscEntries = buildList {
