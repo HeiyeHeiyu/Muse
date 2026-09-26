@@ -2872,6 +2872,10 @@ class GroupChatScheduler(
             appendLine("【发言积极性】默认应该回复:当有人发言(包括简单问候/晚安/寒暄)时,你应当回应," +
                 "哪怕只是一句简短回应;channel_pass 只用于你真的无话可说或话题与你完全无关时," +
                 "不要因为觉得没必要而沉默——群聊的意义就是互动,回应是义务。")
+            // v2.x: 避免重复引导 — 让成员先读本轮已有发言, 减少同质化复读
+            appendLine("【避免重复】发言前先浏览本轮前面成员说过的内容:" +
+                "如果观点与已有发言高度重合,优先补充新角度/新证据/不同意见,或调用 channel_pass 跳过;" +
+                "与其复读他人,宁可简短也不要重复。")
         }
         messages.add(UIMessage(role = MessageRole.SYSTEM, content = systemContent))
 
