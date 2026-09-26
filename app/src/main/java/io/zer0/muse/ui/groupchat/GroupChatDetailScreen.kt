@@ -164,6 +164,8 @@ fun GroupChatDetailScreen(
     }
     var showMembersDialog by rememberSaveable { mutableStateOf(false) }
     var showToolSheet by rememberSaveable { mutableStateOf(false) }
+    // v2.x: 会议操作面板(表决/总结/@/成员/上下文/编辑) — 从加号菜单提升的一级入口
+    var showMeetingSheet by remember { mutableStateOf(false) }
     // v1.97: 群聊编辑对话框
     var showEditDialog by rememberSaveable { mutableStateOf(false) }
     // v1.0.72: 三点菜单功能
@@ -598,6 +600,10 @@ fun GroupChatDetailScreen(
                         MuseHaptics.light(haptic)
                         showToolSheet = true
                     },
+                    onOpenMeetingSheet = {
+                        MuseHaptics.light(haptic)
+                        showMeetingSheet = true
+                    },
                     enabled = !state.isAgentResponding,
                     canSend = state.inputText.isNotBlank() || state.pendingImages.isNotEmpty() || state.pendingFileAttachments.isNotEmpty(),
                     members = members,
@@ -804,6 +810,19 @@ fun GroupChatDetailScreen(
                 viewModel.updateInput("$current$prefix@")
             },
             onPickPromptTemplate = { showPromptTemplateSheet = true },
+            // v1.0.72: 媒体区参数
+            hasGalleryPermission = hasGalleryPermission,
+            galleryPermission = galleryPermission,
+            onRequestGalleryPermission = { galleryPermissionLauncher.launch(galleryPermission) },
+            onPickGalleryImage = { uri -> loadUriToPending(uri) },
+            onCaptureImage = { startCameraCapture() },
+            onDismiss = { showToolSheet = false },
+        )
+    }
+
+    // v2.x: 会议操作面板 — 表决/总结/@/成员/上下文/编辑(从加号菜单提升的快捷入口)
+    if (showMeetingSheet) {
+        GroupChatMeetingSheet(
             onOpenMembers = { showMembersDialog = true },
             onLaunchVote = { showVoteDialog = true },
             onLaunchSummary = { showSummaryDialog = true },
@@ -814,13 +833,7 @@ fun GroupChatDetailScreen(
                 viewModel.updateInput("$current$prefix@")
             },
             onEditGroup = { showEditDialog = true },
-            // v1.0.72: 媒体区参数
-            hasGalleryPermission = hasGalleryPermission,
-            galleryPermission = galleryPermission,
-            onRequestGalleryPermission = { galleryPermissionLauncher.launch(galleryPermission) },
-            onPickGalleryImage = { uri -> loadUriToPending(uri) },
-            onCaptureImage = { startCameraCapture() },
-            onDismiss = { showToolSheet = false },
+            onDismiss = { showMeetingSheet = false },
         )
     }
 

@@ -637,6 +637,7 @@ internal fun GroupChatInputBar(
     onTextChange: (String) -> Unit,
     onSend: () -> Unit,
     onOpenToolSheet: () -> Unit,
+    onOpenMeetingSheet: () -> Unit = {},
     enabled: Boolean,
     canSend: Boolean,
     members: List<AssistantEntity> = emptyList(),
@@ -727,6 +728,16 @@ internal fun GroupChatInputBar(
                         icon = MuseIcons.plus,
                         onClick = onOpenToolSheet,
                         contentDescription = stringResource(R.string.groupchat_tools),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        enabled = enabled,
+                        size = MuseIconSizes.touchTarget,
+                        iconSize = MuseIconSizes.icon,
+                    )
+                    // v2.x: 会议操作入口 — 表决/总结/@/成员/上下文/编辑从加号菜单提升为一级入口
+                    MuseTactileButton(
+                        icon = MuseIcons.clipboard,
+                        onClick = onOpenMeetingSheet,
+                        contentDescription = stringResource(R.string.groupchat_meeting),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         enabled = enabled,
                         size = MuseIconSizes.touchTarget,
@@ -902,7 +913,7 @@ internal fun AgentActivityChip(activity: AgentActivity) {
 /**
  * 群聊加号菜单 — v1.0.72: 媒体区(相机实时预览 + 相册缩略图) + 横滚 tab。
  *
- * 功能:相机拍照 / 相册最近图片 / 图片 / 附件 / 知识库 / Prompt模板 / 成员 / 表决 / 总结 / 上下文 / @提及 / 编辑群聊
+ * 功能:相机拍照 / 相册最近图片 / 图片 / 附件 / 知识库 / Prompt模板
  */
 @Composable
 internal fun GroupChatToolSheet(
@@ -910,12 +921,6 @@ internal fun GroupChatToolSheet(
     onPickDocument: () -> Unit,
     onInsertKnowledge: () -> Unit,
     onPickPromptTemplate: () -> Unit,
-    onOpenMembers: () -> Unit,
-    onLaunchVote: () -> Unit,
-    onLaunchSummary: () -> Unit,
-    onOpenContext: () -> Unit,
-    onMentionMember: () -> Unit,
-    onEditGroup: () -> Unit,
     // v1.0.72: 媒体区(相机 + 相册)
     hasGalleryPermission: Boolean = false,
     galleryPermission: String = android.Manifest.permission.READ_MEDIA_IMAGES,
@@ -1025,20 +1030,59 @@ internal fun GroupChatToolSheet(
             GroupToolTab(MuseIcons.template, stringResource(R.string.chat_prompt_templates_title)) {
                 onPickPromptTemplate(); onDismiss()
             }
-            GroupToolTab(MuseIcons.users, stringResource(R.string.groupchat_tool_members)) {
-                onOpenMembers(); onDismiss()
-            }
+        }
+    }
+}
+
+/**
+ * v2.x: 群聊会议操作面板 — 从加号菜单中提升的一级入口。
+ *
+ * 承载讨论控制类高频操作:发起表决 / 总结讨论 / @提及成员 / 成员列表 / 群聊上下文 / 编辑群聊。
+ * 原实现深埋于加号菜单的第十屏横向滚动位置,用户反馈"按钮藏得太深",故拆出独立面板。
+ */
+@Composable
+internal fun GroupChatMeetingSheet(
+    onOpenMembers: () -> Unit,
+    onLaunchVote: () -> Unit,
+    onLaunchSummary: () -> Unit,
+    onOpenContext: () -> Unit,
+    onMentionMember: () -> Unit,
+    onEditGroup: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    MuseBottomSheet(
+        onDismissRequest = onDismiss,
+        horizontalPadding = MusePaddings.screen,
+    ) {
+        Text(
+            text = stringResource(R.string.groupchat_meeting),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.outline,
+        )
+        Spacer(Modifier.height(12.dp))
+        // 横滚 tab(圆形图标 + 下方文字,与加号菜单统一) — 高频在前:表决/总结/@/成员/上下文/编辑
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = MusePaddings.tightGap)
+                .padding(bottom = 32.dp),
+            horizontalArrangement = Arrangement.spacedBy(MusePaddings.screen),
+        ) {
             GroupToolTab(MuseIcons.check, stringResource(R.string.groupchat_tool_vote)) {
                 onLaunchVote(); onDismiss()
             }
             GroupToolTab(MuseIcons.fileText, stringResource(R.string.groupchat_tool_summary)) {
                 onLaunchSummary(); onDismiss()
             }
-            GroupToolTab(MuseIcons.folder, stringResource(R.string.groupchat_tool_context)) {
-                onOpenContext(); onDismiss()
-            }
             GroupToolTab(MuseIcons.at, stringResource(R.string.groupchat_tool_mention)) {
                 onMentionMember(); onDismiss()
+            }
+            GroupToolTab(MuseIcons.users, stringResource(R.string.groupchat_tool_members)) {
+                onOpenMembers(); onDismiss()
+            }
+            GroupToolTab(MuseIcons.folder, stringResource(R.string.groupchat_tool_context)) {
+                onOpenContext(); onDismiss()
             }
             GroupToolTab(MuseIcons.edit, stringResource(R.string.groupchat_edit_cd)) {
                 onEditGroup(); onDismiss()
