@@ -128,6 +128,8 @@ fun NavGraphBuilder.settingsNavGraph(
     ) {
         TaskRoutingSettingsPage(
             onBack = { navController.popBackStack() },
+            // v2.x: 辅助模型区块的视觉入口 → 视觉辅助独立页
+            onOpenVision = { navController.navigate(SettingsVisionRoute) },
         )
     }
     composable<SettingsWebSearchRoute>(

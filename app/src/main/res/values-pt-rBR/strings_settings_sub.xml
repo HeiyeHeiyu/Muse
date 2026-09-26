@@ -120,7 +120,13 @@
 
     <!-- Settings Sub-pages / About -->
     <string name="settings_sub_model_services">Modelos &amp; Serviços</string>
-    <string name="settings_task_routing_title">Roteamento de tarefas</string>
+    <string name="settings_task_routing_title">Modelos auxiliares</string>
+    <!-- v2.x: utility models section -->
+    <string name="settings_task_routing_aux_section">Modelos auxiliares</string>
+    <string name="settings_task_routing_vision_unset">Não definido (toque para configurar)</string>
+    <string name="settings_task_routing_aux_models_label">Níveis de modelo</string>
+    <string name="settings_task_routing_utility_small_desc">Tarefas simples como títulos e classificação leve</string>
+    <string name="settings_task_routing_utility_large_desc">Compressão, extração de memória, divisão de tarefas</string>
     <string name="settings_task_routing_enable">Alternar modelos automaticamente</string>
     <string name="settings_task_routing_enable_subtitle">Alterna automaticamente para o modelo vinculado de acordo com o tipo de tarefa</string>
     <string name="settings_task_routing_general">Geral</string>

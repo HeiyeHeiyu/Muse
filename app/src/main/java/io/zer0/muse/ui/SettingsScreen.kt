@@ -340,7 +340,7 @@ fun SettingsScreen(
                 // AI 模型与能力(从原「助手与 Agent」拆分)
                 SettingsEntry(providerTitle, listOf("供应商", "模型", "provider", "API", "密钥", "gongyingshang", "moxing", "miyao", "gys", "mx", "my", "绘图", "Agnes", "DALL-E", "绘图供应商"), MuseRoutes.SETTINGS_MODEL, groupModels, MuseIcons.provider, onOpenModelSettings),
                 SettingsEntry(entryApiKeyTitle, listOf("API Key", "密钥", "key", "token", "凭证", "apiKey", "miyao", "pingzheng"), MuseRoutes.SETTINGS_MODEL, groupModels, MuseIcons.lock, onOpenModelSettings),
-    SettingsEntry(taskRoutingTitle, listOf("任务路由", "路由", "自动切换", "模型", "renwuluyou", "luyou", "zidongqiehuan", "moxing", "rwly", "ly", "zdqh", "mx"), MuseRoutes.SETTINGS_TASK_ROUTING, groupModels, MuseIcons.taskRouting) { onNavigate(SettingsTaskRoutingRoute) },
+    SettingsEntry(taskRoutingTitle, listOf("辅助模型", "任务路由", "路由", "小工具", "大工具", "视觉", "模型", "fuzhumoxing", "renwuluyou", "luyou", "xiaogongju", "dagongju", "shijue", "moxing", "fzmx", "rwly", "ly", "xgj", "dgj", "sj", "mx"), MuseRoutes.SETTINGS_TASK_ROUTING, groupModels, MuseIcons.taskRouting) { onNavigate(SettingsTaskRoutingRoute) },
                 SettingsEntry(visionTitle, listOf("视觉辅助", "视觉", "vision", "看图", "图像理解", "shijuefuzhu", "shijue", "kantu", "tuxianglijie", "sjfz", "sj", "kt", "txlj"), MuseRoutes.SETTINGS_VISION, groupModels, MuseIcons.eye, onOpenVisionSettings),
                 SettingsEntry(entryOcrTitle, listOf("OCR", "ocr", "文字识别", "图片文字", "识别", "wenzi", "shibie", "tupianwenzi", "wzsb", "tpwz", "sb"), MuseRoutes.SETTINGS_VISION, groupModels, MuseIcons.eye, onOpenVisionSettings),
                 SettingsEntry(

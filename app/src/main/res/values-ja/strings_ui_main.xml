@@ -251,7 +251,7 @@
     <string name="settings_screen_provider_cd">プロバイダー、AI サービスプロバイダーの管理、タップして入力します</string>
     <string name="settings_screen_provider">プロバイダー</string>
     <string name="settings_screen_model_catalog_desc">モデルのコンテキスト、能力、最大出力を確認・修正</string>
-    <string name="settings_screen_task_routing_desc">タスク種別に応じてモデルを自動切替</string>
+    <string name="settings_screen_task_routing_desc">バックグラウンドタスク用の階層モデル(小/大/視覚)</string>
     <string name="settings_screen_provider_desc">モデルプロバイダー、API キー、Web 検索を管理する</string>
     <string name="settings_screen_assistant_cd">アシスタント、アシスタント/ワールドブックの管理、タップして入力します</string>
     <string name="settings_screen_assistant">アシスタント</string>

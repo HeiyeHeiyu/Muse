@@ -258,7 +258,7 @@
     <string name="settings_screen_provider_cd">Providers, manage AI service providers, tap to enter</string>
     <string name="settings_screen_provider">Providers</string>
     <string name="settings_screen_model_catalog_desc">Review and correct model context, capabilities, and max output</string>
-    <string name="settings_screen_task_routing_desc">Auto-switch models by task type</string>
+    <string name="settings_screen_task_routing_desc">Tiered models for background tasks (small/large/vision)</string>
     <string name="settings_screen_provider_desc">Manage model providers, API keys and web search</string>
     <string name="settings_screen_assistant_cd">Assistants, manage assistants/world books, tap to enter</string>
     <string name="settings_screen_assistant">Assistants</string>

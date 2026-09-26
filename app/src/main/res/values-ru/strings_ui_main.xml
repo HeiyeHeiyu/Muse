@@ -251,7 +251,7 @@
     <string name="settings_screen_provider_cd">Провайдеры, управление AI-провайдерами, нажмите для входа</string>
     <string name="settings_screen_provider">Провайдеры</string>
     <string name="settings_screen_model_catalog_desc">Просмотр и исправление контекста, возможностей и максимального вывода моделей</string>
-    <string name="settings_screen_task_routing_desc">Автоматическое переключение модели по типу задачи</string>
+    <string name="settings_screen_task_routing_desc">Уровневые модели для фоновых задач</string>
     <string name="settings_screen_provider_desc">Управление AI-провайдерами</string>
     <string name="settings_screen_assistant_cd">Ассистенты, управление ассистентами/мировыми книгами, нажмите для входа</string>
     <string name="settings_screen_assistant">Ассистенты</string>

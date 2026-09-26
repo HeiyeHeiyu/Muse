@@ -251,7 +251,7 @@
     <string name="settings_screen_provider_cd">프로바이더, AI 서비스 프로바이더 관리, 탭하여 진입</string>
     <string name="settings_screen_provider">프로바이더</string>
     <string name="settings_screen_model_catalog_desc">모델 컨텍스트, 기능, 최대 출력 확인 및 수정</string>
-    <string name="settings_screen_task_routing_desc">작업 유형에 따라 모델 자동 전환</string>
+    <string name="settings_screen_task_routing_desc">백그라운드 작업용 계층형 모델(소/대/비전)</string>
     <string name="settings_screen_provider_desc">AI 서비스 프로바이더 관리</string>
     <string name="settings_screen_assistant_cd">어시스턴트, 어시스턴트/월드 북 관리, 탭하여 진입</string>
     <string name="settings_screen_assistant">어시스턴트</string>

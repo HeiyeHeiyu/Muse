@@ -251,7 +251,7 @@
     <string name="settings_screen_provider_cd">Proveedores, administre proveedores de servicios de IA, toque para ingresar</string>
     <string name="settings_screen_provider">Proveedores</string>
     <string name="settings_screen_model_catalog_desc">Revisa y corrige contexto, capacidades y salida maxima de los modelos</string>
-    <string name="settings_screen_task_routing_desc">Cambia automaticamente el modelo segun el tipo de tarea</string>
+    <string name="settings_screen_task_routing_desc">Modelos por niveles para tareas en segundo plano</string>
     <string name="settings_screen_provider_desc">Administrar proveedores de modelos, claves API y búsqueda web</string>
     <string name="settings_screen_assistant_cd">Asistentes, administrar asistentes/libros mundiales, toque para ingresar</string>
     <string name="settings_screen_assistant">Asistentes</string>

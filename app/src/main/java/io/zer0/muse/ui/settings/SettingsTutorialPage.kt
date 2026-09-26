@@ -2,13 +2,10 @@ package io.zer0.muse.ui.settings
 
 import androidx.compose.foundation.layout.defaultMinSize
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.theme.MuseAnimation
-import io.zer0.muse.ui.theme.MuseMotion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,9 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -63,7 +59,7 @@ import kotlinx.coroutines.launch
  * v1.61-B: 使用教程页 — 面向新手的图文引导。
  *
  * 把用户当成完全不懂技术的小白,用通俗语言讲解 Muse 的各项功能。
- * 分为七个章节,每章用圆角卡片(MuseShapes.large)包裹,风格对标 iOS 设置。
+ * 分为八个章节,每章用圆角卡片(MuseShapes.large)包裹,风格对标 iOS 设置。
  * 禁止 emoji,禁止 Android 原生方块风格。
  *
  * v1.0.16: 右侧增加章节快速跳转竖条,点击对应章节序号可快速滚动定位。
@@ -73,6 +69,15 @@ import kotlinx.coroutines.launch
  *  - 章节卡片支持折叠/展开,默认第一章展开,其余折叠;展开图标使用 MuseIcons.chevronDown/Right。
  *  - 跳转条改为显示章节首字(开/配/日/高/个/数/常),选中态用 onSurface 黑白风格。
  *  - 用 rememberSaveable 保存最后查看的章节索引,进入页面自动滚动到上次查看位置。
+ *
+ * v2.x 重构(用户反馈"右侧滑动条一块一块跳、不跟随内容"):
+ *  - 原实现 LazyColumn 每章一个 item(展开后一章极长),指示器按"可见章节"整块高亮,
+ *    且点击只滚到章节顶部 → 体感一块一块、点击不精确。
+ *  - 现改为"章节头 + 每个小节"均为独立 LazyColumn item(扁平列表):
+ *    · 指示器高亮 = 当前可见 item 对应的小节,滚动连续跟随;
+ *    · 点击指示点 = 精确滚动到该小节(折叠章节则先展开再定位);
+ *    · 指示器自身随滚动自动迁移,始终把当前点保持在可视区。
+ *  - 视觉同步简化:章节头独立卡片;小节逐节紧凑卡片,分隔清晰。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -249,19 +254,86 @@ fun SettingsTutorialPage(
         emptyList()
     }
 
-    // 进入页面时自动滚动到上次查看的章节(LazyColumn 第 0 项为搜索框,故章节索引需 +1)。
+    // v2.x: 扁平 item 列表(章节头 + 展开章节的小节),供 LazyColumn 平铺渲染。
+    val flatItems = remember(chapters, expandedChapters) {
+        buildList {
+            chapters.forEachIndexed { ci, ch ->
+                add(TutorialFlatItem.ChapterHeader(ci))
+                if (ci in expandedChapters) {
+                    ch.sections.indices.forEach { si -> add(TutorialFlatItem.Section(ci, si)) }
+                }
+            }
+        }
+    }
+
+    /** 定位到指定小节的 flat index(找不到返回 null)。 */
+    fun flatIndexOfSection(ci: Int, si: Int): Int? =
+        flatItems.indexOfFirst { it is TutorialFlatItem.Section && it.chapterIndex == ci && it.sectionIndex == si }
+            .takeIf { it >= 0 }
+
+    // v2.x: 待滚动目标(折叠章节的指示点先展开,等 flatItems 重建后再精确定位)。
+    var pendingScroll by remember { mutableStateOf<TutorialFlatItem.Section?>(null) }
+
+    /** 展开并滚动到指定小节。 */
+    fun revealAndScrollTo(ci: Int, si: Int) {
+        if (ci !in expandedChapters) {
+            expandedChapters = expandedChapters + ci
+            pendingScroll = TutorialFlatItem.Section(ci, si)
+        } else {
+            val target = flatIndexOfSection(ci, si) ?: return
+            scope.launch { listState.animateScrollToItem(target) }
+        }
+    }
+
+    // 折叠章节展开后定位待滚动目标
+    LaunchedEffect(flatItems, pendingScroll) {
+        val target = pendingScroll ?: return@LaunchedEffect
+        val index = flatIndexOfSection(target.chapterIndex, target.sectionIndex)
+        if (index != null) {
+            listState.animateScrollToItem(index)
+            pendingScroll = null
+        }
+    }
+
+    // v2.x: 当前可见小节(用于指示器高亮,连续跟随滚动)。
+    // 规则:从首个可见 flat item 起找最近的 Section;若落在已展开章节头,取该章第一节。
+    val visibleSection by remember {
+        derivedStateOf {
+            val flat = flatItems
+            if (flat.isEmpty()) return@derivedStateOf null
+            val start = listState.firstVisibleItemIndex.coerceIn(0, flat.size - 1)
+            for (i in start until flat.size) {
+                val item = flat[i]
+                if (item is TutorialFlatItem.Section) return@derivedStateOf item
+                if (item is TutorialFlatItem.ChapterHeader && item.chapterIndex in expandedChapters) {
+                    return@derivedStateOf TutorialFlatItem.Section(item.chapterIndex, 0)
+                }
+            }
+            null
+        }
+    }
+
+    // 进入页面时自动滚动到上次查看的章节(v2.x: 定位到该章节头所在的 flat index)。
     LaunchedEffect(Unit) {
         if (!isSearching && lastViewedChapter in 1 until chapterCount) {
-            listState.scrollToItem(lastViewedChapter + 1)
+            val headerIndex = flatItems.indexOfFirst {
+                it is TutorialFlatItem.ChapterHeader && it.chapterIndex == lastViewedChapter
+            }
+            if (headerIndex >= 0) listState.scrollToItem(headerIndex)
         }
     }
 
     // 监听当前可见章节,持久化保存索引(搜索时不更新,避免污染)。
-    LaunchedEffect(listState, isSearching) {
+    LaunchedEffect(listState, isSearching, flatItems) {
         if (!isSearching) {
             snapshotFlow { listState.firstVisibleItemIndex }
                 .collect { itemIndex ->
-                    val chapterIndex = (itemIndex - 1).coerceIn(0, chapterCount - 1)
+                    val item = flatItems.getOrNull(itemIndex.coerceIn(0, (flatItems.size - 1).coerceAtLeast(0)))
+                    val chapterIndex = when (item) {
+                        is TutorialFlatItem.ChapterHeader -> item.chapterIndex
+                        is TutorialFlatItem.Section -> item.chapterIndex
+                        else -> lastViewedChapter
+                    }.coerceIn(0, chapterCount - 1)
                     if (chapterIndex != lastViewedChapter) {
                         lastViewedChapter = chapterIndex
                     }
@@ -296,7 +368,7 @@ fun SettingsTutorialPage(
                     top = innerPadding.calculateTopPadding(),
                     bottom = innerPadding.calculateBottomPadding() + MusePaddings.screen,
                 ),
-                verticalArrangement = Arrangement.spacedBy(MusePaddings.sectionGap),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 // 顶部搜索框 — 始终作为第 0 项
                 item {
@@ -354,40 +426,44 @@ fun SettingsTutorialPage(
                         }
                     }
                 } else {
-                    // 完整章节视图
-                    itemsIndexed(chapters) { index, chapter ->
-                        val isExpanded = index in expandedChapters
-                        TutorialChapter(
-                            icon = chapter.icon,
-                            titleRes = chapter.titleRes,
-                            sections = chapter.sections,
-                            isExpanded = isExpanded,
-                            onToggleExpand = {
-                                expandedChapters = if (index in expandedChapters) {
-                                    expandedChapters - index
-                                } else {
-                                    expandedChapters + index
-                                }
-                            },
-                        )
+                    // 完整章节视图 — v2.x: 平铺到小节(章节头 + 逐节独立 item),
+                    // 指示器才能随滚动连续跟随、点击精确到节。
+                    items(flatItems, key = { it.key }) { item ->
+                        when (item) {
+                            is TutorialFlatItem.ChapterHeader -> {
+                                val chapter = chapters[item.chapterIndex]
+                                TutorialChapterHeader(
+                                    icon = chapter.icon,
+                                    titleRes = chapter.titleRes,
+                                    isExpanded = item.chapterIndex in expandedChapters,
+                                    onToggleExpand = {
+                                        expandedChapters = if (item.chapterIndex in expandedChapters) {
+                                            expandedChapters - item.chapterIndex
+                                        } else {
+                                            expandedChapters + item.chapterIndex
+                                        }
+                                    },
+                                )
+                            }
+                            is TutorialFlatItem.Section -> {
+                                val section = chapters[item.chapterIndex].sections[item.sectionIndex]
+                                TutorialSectionCard(
+                                    titleRes = section.titleRes,
+                                    contentRes = section.contentRes,
+                                )
+                            }
+                        }
                     }
                 }
             }
 
-            // v1.0.18: 右侧小节级跳转竖条(每个小节一个点,可滚动,搜索时隐藏)
+            // v1.0.18 / v2.x: 右侧小节级跳转竖条(每个小节一个点,可滚动,搜索时隐藏)
             if (!isSearching) {
                 SectionQuickJumpRail(
                     sectionItems = sectionJumpItems,
-                    listState = listState,
-                    onItemClick = { chapterIndex, _ ->
-                        scope.launch {
-                            // 确保目标章节展开(不折叠其他已展开的章节)
-                            if (chapterIndex !in expandedChapters) {
-                                expandedChapters = expandedChapters + chapterIndex
-                            }
-                            // +1 偏移:LazyColumn 第 0 项为搜索框
-                            listState.animateScrollToItem(chapterIndex + 1)
-                        }
+                    currentSection = visibleSection,
+                    onItemClick = { chapterIndex, sectionIndex ->
+                        revealAndScrollTo(chapterIndex, sectionIndex)
                     },
                     modifier = Modifier
                         .fillMaxHeight()
@@ -399,40 +475,50 @@ fun SettingsTutorialPage(
 }
 
 /**
- * v1.0.18: 右侧小节级跳转竖条 — 每个小节一个点,可垂直滚动。
+ * v1.0.18 / v2.x: 右侧小节级跳转竖条 — 每个小节一个点,可垂直滚动。
  *
- * 替代原章节首字跳转条(7 个大圆点),改为细粒度的小节跳转:
- *  - 每个小节一个点(5dp 圆点),点数 = 全部小节数(约 40+)
- *  - 用 LazyColumn 渲染,超出屏幕高度时可垂直滑动
- *  - 当前可见章节的所有小节点高亮(onSurface 色 + 7dp),其余为 surfaceVariant
- *  - 点击点:展开所在章节 + 滚动到该章节
- *
- * 设计说明:iOS 通讯录字母索引条 / Play Books 章节进度条。
+ * v2.x 重构:
+ *  - 高亮不再按"可见章节"整块跳,改为 [currentSection] 驱动 — 内容滚动时
+ *    指示点连续跟随变化;
+ *  - 指示器自身随当前点自动迁移(把当前点保持在可视区内),不再"静止一块";
+ *  - 点击点:展开所在章节(若折叠) + 精确滚动到该小节。
  */
 @Composable
 private fun SectionQuickJumpRail(
     sectionItems: List<SectionJumpItem>,
-    listState: LazyListState,
+    currentSection: TutorialFlatItem.Section?,
     onItemClick: (chapterIndex: Int, sectionIndex: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // 推算当前可见章节(LazyColumn 第 0 项为搜索框,章节 item 从 1 开始)
-    val maxChapterIndex = sectionItems.maxOfOrNull { it.chapterIndex } ?: 0
-    val visibleChapterIndex = (listState.firstVisibleItemIndex - 1)
-        .coerceIn(0, maxChapterIndex)
+    val railState = rememberLazyListState()
+    // v2.x: 当前点索引(供高亮与自动迁移)
+    val currentDotIndex = if (currentSection == null) {
+        -1
+    } else {
+        sectionItems.indexOfFirst {
+            it.chapterIndex == currentSection.chapterIndex && it.sectionIndex == currentSection.sectionIndex
+        }
+    }
+    // v2.x: 指示器自动迁移 — 当前点变化时把它带到可视区内(留 2 点余量)
+    LaunchedEffect(currentDotIndex) {
+        if (currentDotIndex >= 0) {
+            railState.animateScrollToItem((currentDotIndex - 2).coerceAtLeast(0))
+        }
+    }
 
     Surface(
         modifier = modifier,
         color = androidx.compose.ui.graphics.Color.Transparent,
     ) {
         LazyColumn(
+            state = railState,
             modifier = Modifier.fillMaxHeight(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
         ) {
             items(sectionItems.size) { index ->
                 val item = sectionItems[index]
-                val isCurrent = item.chapterIndex == visibleChapterIndex
+                val isCurrent = currentDotIndex == index
                 SectionJumpDot(
                     isCurrent = isCurrent,
                     onClick = { onItemClick(item.chapterIndex, item.sectionIndex) },
@@ -476,19 +562,12 @@ private fun SectionJumpDot(
 }
 
 /**
- * 教程章节卡片 — 图标 + 标题 + 多个小节。
- * 使用 MuseShapes.large 圆角(18dp),对标 iOS 设置分组卡片风格。
- *
- * v1.0.17:
- *  - 支持 isExpanded 折叠/展开。
- *  - 折叠时只显示章节标题行(含展开图标),展开时显示完整小节列表。
- *  - 使用 animateContentSize() 添加展开/折叠动画。
+ * v2.x: 教程章节头卡片 — 图标 + 标题 + 展开状态。独立 LazyColumn item。
  */
 @Composable
-private fun TutorialChapter(
+private fun TutorialChapterHeader(
     icon: ImageVector,
     titleRes: Int,
-    sections: List<TutorialSection>,
     isExpanded: Boolean,
     onToggleExpand: () -> Unit,
 ) {
@@ -498,54 +577,59 @@ private fun TutorialChapter(
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .padding(16.dp)
-                .animateContentSize(animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS)),
+                .fillMaxWidth()
+                .clickable(onClick = onToggleExpand)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
         ) {
-            // 标题行(可点击切换展开/折叠)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onToggleExpand),
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(8.dp))
-                Icon(
-                    imageVector = if (isExpanded) MuseIcons.chevronDown else MuseIcons.chevronRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-            if (isExpanded) {
-                Spacer(Modifier.height(12.dp))
-                sections.forEach { section ->
-                    Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                        Text(
-                            text = stringResource(section.titleRes),
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = stringResource(section.contentRes),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                imageVector = if (isExpanded) MuseIcons.chevronDown else MuseIcons.chevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+/**
+ * v2.x: 教程小节卡片 — 标题(主色) + 正文。独立 LazyColumn item。
+ */
+@Composable
+private fun TutorialSectionCard(
+    titleRes: Int,
+    contentRes: Int,
+) {
+    Surface(
+        shape = MuseShapes.large,
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text(
+                text = stringResource(titleRes),
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(contentRes),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -588,6 +672,19 @@ private fun SearchResultCard(section: SearchableSection) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** v2.x: 教程页扁平列表项(章节头 / 小节)。 */
+private sealed interface TutorialFlatItem {
+    val key: String
+
+    data class ChapterHeader(val chapterIndex: Int) : TutorialFlatItem {
+        override val key: String get() = "tutorial_ch_$chapterIndex"
+    }
+
+    data class Section(val chapterIndex: Int, val sectionIndex: Int) : TutorialFlatItem {
+        override val key: String get() = "tutorial_sec_${chapterIndex}_$sectionIndex"
     }
 }
 

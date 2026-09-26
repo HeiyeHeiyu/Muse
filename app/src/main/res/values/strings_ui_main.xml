@@ -294,7 +294,7 @@
     <string name="settings_screen_provider_cd">供应商，管理AI服务提供商，点击进入</string>
     <string name="settings_screen_provider">供应商</string>
     <string name="settings_screen_model_catalog_desc">查看并修正模型上下文、能力与最大输出</string>
-    <string name="settings_screen_task_routing_desc">按任务类型自动切换模型</string>
+    <string name="settings_screen_task_routing_desc">为后台任务分档配置模型(小工具/大工具/视觉)</string>
     <string name="settings_screen_provider_desc">管理模型供应商、API Key 与联网搜索等</string>
     <string name="settings_screen_assistant_cd">助手，助手管理世界书，点击进入</string>
     <string name="settings_screen_assistant">助手</string>

@@ -148,11 +148,16 @@ class DailySummaryService(
                 "${fact.fact}$timePart"
             }
 
-        val summary = if (chatService != null) {
+        // v2.x: 素材门槛 — 有效用户消息不足且无可用 fact 时,不硬写总结。
+        // 素材贫瘠时 LLM 会编出"算了,不纠结了"这类无信息量碎句(用户反馈),改走轻量问候模板。
+        val effectiveUserCount = todayMessages.count { it.content.isNotBlank() }
+        val summary = if (chatService != null &&
+            (effectiveUserCount >= MIN_MESSAGES_FOR_SUMMARY || todayFacts.isNotEmpty())
+        ) {
             generateSummary(chatService, todayMessages, todayFacts)
         } else {
-            Logger.w(TAG, "ChatService 未就绪,使用本地每日总结")
-            buildLocalSummary(todayMessages, todayFacts)
+            Logger.i(TAG, "每日总结素材不足(有效消息=$effectiveUserCount, facts=${todayFacts.size}),使用轻量问候")
+            lightGreeting()
         }
         if (summary.isNullOrBlank()) {
             Logger.w(TAG, "每日总结生成结果为空,跳过")
@@ -198,6 +203,7 @@ class DailySummaryService(
 规则:口语、像朋友复盘;只挑 1 个最重要的重点;不编造未发生的事;输出 18-24 字;
 只输出一行正文,不要标题、前缀、引号、MOOD、反思或换行;
 不要提及聊天次数、消息条数等统计信息,不要用“记下”“记录”之类的词,直接说事情本身。
+素材不足以提炼重点时,只写一句自然的晚间问候,不要强行总结、不要复述素材原句。
             """.trimIndent()
         } else {
             """
@@ -248,6 +254,18 @@ class DailySummaryService(
         } ?: buildLocalSummary(todayMessages, facts)
     }
 
+    /** 素材不足时的轻量问候(不硬写总结,按时段给一句自然问候)。 */
+    private fun lightGreeting(): String {
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        return when (hour) {
+            in 5..10 -> "早上好，新的一天开始了。"
+            in 11..13 -> "中午好，记得吃点东西。"
+            in 14..17 -> "下午好，忙里偷个闲吧。"
+            in 18..22 -> "晚上好，今天辛苦了。"
+            else -> "夜深了，早点休息。"
+        }
+    }
+
     private fun buildLocalSummary(todayMessages: List<UIMessage>, facts: List<String>): String {
         // v1.0.92: 问候区定位为"助手快速提醒空间" —
         // 旧文案("今天聊了N次,记下:XX")既做统计又出戏(用户反馈),已移除;
@@ -268,6 +286,9 @@ class DailySummaryService(
         private const val TAG = "DailySummaryService"
         private const val GEN_TIMEOUT_MS = 60_000L
         private const val SUMMARY_MAX_CHARS = GreetingHelper.DAILY_SUMMARY_HINT_MAX_LENGTH
+
+        /** v2.x: 硬写总结所需的最少有效用户消息数(低于此值且无 fact 时走轻量问候)。 */
+        private const val MIN_MESSAGES_FOR_SUMMARY = 3
         private val SUMMARY_TITLES = listOf(
             "今日小结",
             "今天过得怎么样",

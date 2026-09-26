@@ -18,190 +18,197 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.zer0.ai.core.ProviderConfig
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
-import io.zer0.muse.data.SettingsRepository.TaskRoutingConfig
-import io.zer0.muse.data.SettingsRepository.TaskType
+import io.zer0.muse.data.routing.UtilityModelBinding
+import io.zer0.muse.data.routing.UtilityTier
 import io.zer0.muse.ui.ModelSwitchSheet
-import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.settings.ChevronRight
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.settings.SettingsItemRow
-import io.zer0.muse.ui.common.settings.SettingsSwitchRow
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.huge
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 /**
- * B0-04 / v2.0 重设计: 任务模型路由设置页。
+ * v2.x: 辅助模型设置页(原"任务路由"页重构)。
  *
- * 开启后发送消息时会根据输入内容自动检测任务类型,并切换到对应的绑定模型。
- * 改版要点:
- *  - 每个任务类型一行:图标 + 类型名 + 触发场景说明,右侧胶囊直接显示当前绑定模型
- *    ("主模型"表示未绑定、沿当前模型);
- *  - 底部提供"重置全部绑定",避免逐个进面板清除;
- *  - 绑定交互仍走 [ModelSwitchSheet],支持选 Provider + 模型。
+ * 三档模型统一收敛后台辅助任务的模型选择:
+ *  - 小工具模型: 标题生成、轻量分类、对话工具轮、封面 prompt、渠道摘要等短任务;
+ *  - 大工具模型: 上下文压缩、记忆提取、活动摘要、任务拆解(子代理)等需要理解力的场景;
+ *  - 视觉辅助模型: 图片理解 / PDF OCR,点击进入独立页配置(模型选择 + 探针测试)。
+ *
+ * 级联规则: 大工具留空 → 复用小工具;小工具留空 → 回退主对话模型。
+ * 绑定均带 Provider,精确命中所选渠道(修复跨渠道同 id 串台的历史缺陷)。
+ *
+ * 说明: 原"按对话内容自动分流主模型"的任务分流功能已按用户要求整体移除
+ * (安卓端场景过重、使用门槛高);TaskRoutingConfig 存储结构保留以兼容历史数据。
  */
 @Composable
 fun TaskRoutingSettingsPage(
     onBack: () -> Unit,
+    /** v2.x: 打开视觉辅助独立页(辅助模型区块的视觉入口)。 */
+    onOpenVision: () -> Unit = {},
 ) {
     val settings: SettingsRepository = koinInject()
-    val config by settings.taskRoutingConfigFlow.collectAsStateWithLifecycle(
-        initialValue = TaskRoutingConfig(),
-    )
     val providers by settings.providersFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val activeProviderId by settings.activeProviderIdFlow.collectAsStateWithLifecycle(initialValue = null)
+    // v2.x: 辅助模型(小工具/大工具)绑定状态 + 视觉模型展示
+    val utilityBinding by settings.utilityModelBindingFlow.collectAsStateWithLifecycle(initialValue = null)
+    val utilityLargeBinding by settings.utilityLargeModelBindingFlow.collectAsStateWithLifecycle(initialValue = null)
+    val visionModelId by settings.visionModelIdFlow.collectAsStateWithLifecycle(initialValue = null)
+    val visionProviderId by settings.visionProviderIdFlow.collectAsStateWithLifecycle(initialValue = null)
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    var editingType by remember { mutableStateOf<TaskType?>(null) }
     var editingProviderId by remember { mutableStateOf<String?>(null) }
-    val defaultModelText = stringResource(R.string.settings_task_routing_primary_model)
-
-    fun update(block: (TaskRoutingConfig) -> TaskRoutingConfig) {
-        scope.launch { settings.saveTaskRoutingConfig(block(config)) }
+    // v2.x: 辅助模型编辑态(null=无;否则正在编辑的档位)
+    var editingUtilityTier by remember { mutableStateOf<UtilityTier?>(null) }
+    // v2.x: 辅助模型显示名(绑定带 provider 时优先精确命中)
+    val utilitySmallLabel = remember(utilityBinding, providers) {
+        utilityBinding?.let { b ->
+            providers.firstOrNull { it.id == b.providerId }?.models?.firstOrNull { it.id == b.modelId }?.name
+                ?: providers.flatMap { it.models }.firstOrNull { it.id == b.modelId }?.name
+        }
     }
+    val utilityLargeLabel = remember(utilityLargeBinding, providers) {
+        utilityLargeBinding?.let { b ->
+            providers.firstOrNull { it.id == b.providerId }?.models?.firstOrNull { it.id == b.modelId }?.name
+                ?: providers.flatMap { it.models }.firstOrNull { it.id == b.modelId }?.name
+        }
+    }
+    val visionLabel = remember(visionModelId, visionProviderId, providers) {
+        if (visionModelId.isNullOrBlank()) {
+            null
+        } else {
+            providers.firstOrNull { it.id == visionProviderId }?.models?.firstOrNull { it.id == visionModelId }?.name
+                ?: providers.flatMap { it.models }.firstOrNull { it.id == visionModelId }?.name
+        }
+    }
+    val utilitySmallInheritText = stringResource(R.string.settings_agent_tool_model_not_set_inherit)
+    val utilityLargeInheritText = stringResource(R.string.settings_agent_utility_large_not_set_inherit)
 
     SettingsSubPageScaffold(
-        title = stringResource(R.string.settings_task_routing_title),
+        title = stringResource(R.string.settings_task_routing_aux_section),
         onBack = onBack,
     ) {
-        item { SectionLabel(stringResource(R.string.settings_task_routing_general)) }
+        item { SectionLabel(stringResource(R.string.settings_task_routing_aux_models_label)) }
         item {
             SettingsGroup(modifier = Modifier.padding(top = 4.dp)) {
-                SettingsSwitchRow(
-                    icon = MuseIcons.taskRouting,
-                    title = stringResource(R.string.settings_task_routing_enable),
-                    subtitle = stringResource(R.string.settings_task_routing_enable_subtitle),
-                    checked = config.enabled,
-                    onCheckedChange = { enabled ->
-                        update { it.copy(enabled = enabled) }
+                // 小工具模型
+                SettingsItemRow(
+                    icon = MuseIcons.wrench,
+                    title = stringResource(R.string.settings_agent_tool_model_title),
+                    subtitle = stringResource(R.string.settings_task_routing_utility_small_desc),
+                    onClick = {
+                        editingProviderId = utilityBinding?.providerId ?: activeProviderId
+                        editingUtilityTier = UtilityTier.SMALL
                     },
-                )
-            }
-        }
-
-        item { SectionLabel(stringResource(R.string.settings_task_routing_models)) }
-        item {
-            SettingsGroup(modifier = Modifier.padding(top = 4.dp)) {
-                TaskType.values().forEachIndexed { index, type ->
-                    if (index > 0) SettingsGroupDivider()
-                    val modelId = config.modelIdFor(type)
-                    val bound = !modelId.isNullOrBlank()
-                    SettingsItemRow(
-                        icon = taskTypeIcon(type),
-                        title = stringResource(taskTypeTitleRes(type)),
-                        subtitle = stringResource(taskTypeDescRes(type)),
-                        onClick = {
-                            editingType = type
-                            editingProviderId = config.providerIdFor(type)
-                                ?: providers.firstOrNull { provider ->
-                                    provider.models.any { it.id == config.modelIdFor(type) }
-                                }?.id
-                                ?: activeProviderId
-                        },
-                    ) {
-                        ModelPill(
-                            text = if (bound) {
-                                taskTypeModelLabel(
-                                    type = type,
-                                    config = config,
-                                    providers = providers,
-                                    defaultText = defaultModelText,
-                                )
-                            } else {
-                                defaultModelText
-                            },
-                            bound = bound,
-                        )
-                    }
+                ) {
+                    ModelPill(
+                        text = utilitySmallLabel ?: utilitySmallInheritText,
+                        bound = utilityBinding != null,
+                    )
+                }
+                SettingsGroupDivider()
+                // 大工具模型
+                SettingsItemRow(
+                    icon = MuseIcons.bolt,
+                    title = stringResource(R.string.settings_agent_subagent_model_title),
+                    subtitle = stringResource(R.string.settings_task_routing_utility_large_desc),
+                    onClick = {
+                        editingProviderId = utilityLargeBinding?.providerId ?: activeProviderId
+                        editingUtilityTier = UtilityTier.LARGE
+                    },
+                ) {
+                    ModelPill(
+                        text = utilityLargeLabel ?: utilityLargeInheritText,
+                        bound = utilityLargeBinding != null,
+                    )
+                }
+                SettingsGroupDivider()
+                // 视觉辅助模型(跳独立页配置)
+                SettingsItemRow(
+                    icon = MuseIcons.eye,
+                    title = stringResource(R.string.settings_vision_title),
+                    subtitle = visionLabel ?: stringResource(R.string.settings_task_routing_vision_unset),
+                    onClick = onOpenVision,
+                ) {
+                    ChevronRight()
                 }
             }
         }
-
-        item {
-            SettingsGroup(modifier = Modifier.padding(top = 4.dp)) {
-                SettingsItemRow(
-                    icon = MuseIcons.refresh,
-                    title = stringResource(R.string.settings_task_routing_reset),
-                    subtitle = null,
-                    onClick = {
-                        update { current ->
-                            current.copy(
-                                chatModelId = null,
-                                reasoningModelId = null,
-                                codeModelId = null,
-                                creativeModelId = null,
-                                analysisModelId = null,
-                                chatProviderId = null,
-                                reasoningProviderId = null,
-                                codeProviderId = null,
-                                creativeProviderId = null,
-                                analysisProviderId = null,
-                            )
-                        }
-                        MuseToast.show(context.getString(R.string.settings_task_routing_reset_done))
-                    },
-                )
-            }
-        }
     }
 
-    editingType?.let { type ->
+    // v2.x: 辅助模型编辑弹窗(小工具/大工具共用,ModelSwitchSheet 带 Provider 选择)
+    editingUtilityTier?.let { tier ->
+        val currentBinding = when (tier) {
+            UtilityTier.SMALL -> utilityBinding
+            UtilityTier.LARGE -> utilityLargeBinding
+            else -> null
+        }
         ModelSwitchSheet(
             providers = providers,
             activeProviderId = editingProviderId ?: activeProviderId,
-            selectedModelId = config.modelIdFor(type),
+            selectedModelId = currentBinding?.modelId,
             onPickProvider = { providerId -> editingProviderId = providerId },
             onPickModel = { modelId ->
-                update {
-                    it.withRoute(
-                        type = type,
-                        modelId = modelId,
-                        providerId = editingProviderId.takeIf { modelId != null },
-                    )
+                val providerId = editingProviderId ?: activeProviderId
+                val binding = if (modelId != null && providerId != null) {
+                    UtilityModelBinding(providerId = providerId, modelId = modelId)
+                } else {
+                    null
                 }
-                editingType = null
+                scope.launch { saveUtilityBinding(settings, tier, binding) }
+                editingUtilityTier = null
                 editingProviderId = null
             },
-            // 任务路由需要“显式绑定 Provider 首个模型”和“未绑定”可区分;
+            // 辅助模型需要"显式绑定"与"未绑定(级联)"可区分;
             // 普通聊天的 ModelSwitchSheet 仍保留原来的清除绑定语义。
             onPickDefaultModel = {
                 val providerId = editingProviderId ?: activeProviderId
                 val defaultModelId = providers.firstOrNull { it.id == providerId }
                     ?.models?.firstOrNull()?.id
-                update {
-                    it.withRoute(
-                        type = type,
-                        modelId = defaultModelId,
-                        providerId = providerId.takeIf { defaultModelId != null },
-                    )
+                val binding = if (providerId != null && defaultModelId != null) {
+                    UtilityModelBinding(providerId = providerId, modelId = defaultModelId)
+                } else {
+                    null
                 }
-                editingType = null
+                scope.launch { saveUtilityBinding(settings, tier, binding) }
+                editingUtilityTier = null
                 editingProviderId = null
             },
             onRefreshModels = { /* 模型列表由 Provider 设置页维护 */ },
             isFetchingModels = false,
             fetchModelsError = null,
             onDismiss = {
-                editingType = null
+                editingUtilityTier = null
                 editingProviderId = null
             },
         )
     }
 }
 
-/** 任务类型的绑定状态胶囊:已绑定显示模型名(主色浅底),未绑定显示“主模型”(灰底)。 */
+/** v2.x: 按档位保存辅助模型绑定(null=清除绑定,走级联)。 */
+private suspend fun saveUtilityBinding(
+    settings: SettingsRepository,
+    tier: UtilityTier,
+    binding: UtilityModelBinding?,
+) {
+    when (tier) {
+        UtilityTier.SMALL -> settings.saveUtilityModelBinding(binding)
+        UtilityTier.LARGE -> settings.saveUtilityLargeModelBinding(binding)
+        else -> Unit
+    }
+}
+
+/** 辅助模型的绑定状态胶囊:已绑定显示模型名(主色浅底),未绑定显示"沿用/复用"提示(灰底)。 */
 @Composable
 private fun ModelPill(text: String, bound: Boolean) {
     Surface(
@@ -226,7 +233,6 @@ private fun ModelPill(text: String, bound: Boolean) {
             )
             Spacer(Modifier.width(3.dp))
             Icon(
-                // v2.0: 补尾随箭头 — 原纯文字标签可点性弱,用户不知道行尾可换模型
                 imageVector = MuseIcons.arrowRight,
                 contentDescription = null,
                 tint = if (bound) {
@@ -237,77 +243,5 @@ private fun ModelPill(text: String, bound: Boolean) {
                 modifier = Modifier.size(14.dp),
             )
         }
-    }
-}
-
-private fun taskTypeTitleRes(type: TaskType): Int = when (type) {
-    TaskType.CHAT -> R.string.settings_task_routing_chat
-    TaskType.REASONING -> R.string.settings_task_routing_reasoning
-    TaskType.CODE -> R.string.settings_task_routing_code
-    TaskType.CREATIVE -> R.string.settings_task_routing_creative
-    TaskType.ANALYSIS -> R.string.settings_task_routing_analysis
-}
-
-private fun taskTypeDescRes(type: TaskType): Int = when (type) {
-    TaskType.CHAT -> R.string.settings_task_routing_desc_chat
-    TaskType.REASONING -> R.string.settings_task_routing_desc_reasoning
-    TaskType.CODE -> R.string.settings_task_routing_desc_code
-    TaskType.CREATIVE -> R.string.settings_task_routing_desc_creative
-    TaskType.ANALYSIS -> R.string.settings_task_routing_desc_analysis
-}
-
-private fun taskTypeIcon(type: TaskType): ImageVector = when (type) {
-    TaskType.CHAT -> MuseIcons.chat
-    TaskType.REASONING -> MuseIcons.bulb
-    TaskType.CODE -> MuseIcons.code
-    TaskType.CREATIVE -> MuseIcons.stars
-    TaskType.ANALYSIS -> MuseIcons.chartBar
-}
-
-private fun TaskRoutingConfig.modelIdFor(type: TaskType): String? = when (type) {
-    TaskType.CHAT -> chatModelId
-    TaskType.REASONING -> reasoningModelId
-    TaskType.CODE -> codeModelId
-    TaskType.CREATIVE -> creativeModelId
-    TaskType.ANALYSIS -> analysisModelId
-}
-
-private fun TaskRoutingConfig.providerIdFor(type: TaskType): String? = when (type) {
-    TaskType.CHAT -> chatProviderId
-    TaskType.REASONING -> reasoningProviderId
-    TaskType.CODE -> codeProviderId
-    TaskType.CREATIVE -> creativeProviderId
-    TaskType.ANALYSIS -> analysisProviderId
-}
-
-private fun TaskRoutingConfig.withRoute(
-    type: TaskType,
-    modelId: String?,
-    providerId: String?,
-): TaskRoutingConfig = when (type) {
-    TaskType.CHAT -> copy(chatModelId = modelId, chatProviderId = providerId)
-    TaskType.REASONING -> copy(reasoningModelId = modelId, reasoningProviderId = providerId)
-    TaskType.CODE -> copy(codeModelId = modelId, codeProviderId = providerId)
-    TaskType.CREATIVE -> copy(creativeModelId = modelId, creativeProviderId = providerId)
-    TaskType.ANALYSIS -> copy(analysisModelId = modelId, analysisProviderId = providerId)
-}
-
-private fun taskTypeModelLabel(
-    type: TaskType,
-    config: TaskRoutingConfig,
-    providers: List<ProviderConfig>,
-    defaultText: String,
-): String {
-    val modelId = config.modelIdFor(type)
-    if (modelId.isNullOrBlank()) return defaultText
-    val providerId = config.providerIdFor(type)
-    val provider = providers.firstOrNull { it.id == providerId }
-    val model = provider?.models?.firstOrNull { it.id == modelId }
-        ?: providers.flatMap { it.models }.firstOrNull { it.id == modelId }
-    val modelName = model?.name?.ifBlank { model.id } ?: modelId
-    return if (provider != null) {
-        "${provider.displayName.ifBlank { provider.id }} / $modelName"
-    } else {
-        modelName
     }
 }
