@@ -9,7 +9,8 @@ package io.zer0.memory.prompt
 object FactExtractionPrompt {
 
     // D6 第 2 期: 强化原子性约束(单一实体+单一谓词、连接词多断言拆分、正反例) → v3
-    const val TEMPLATE_VERSION = "fact-extraction.v3"
+    // D3: 触发准则补充(纠正处理 / 强调与边界 — 参考 HANA 记忆系统"什么值得记"的克制原则) → v4
+    const val TEMPLATE_VERSION = "fact-extraction.v4"
     const val CACHE_GROUP = "memory.extract_facts"
 
     fun buildSystemPrompt(
@@ -87,6 +88,13 @@ object FactExtractionPrompt {
 14. entity_key 是实体归一化键：当事实的主语是具体的人名/称呼（如“张三”“张先生”“我妈”）时，
     把该实体最规范的名字作为 entity_key（如 entity_key="张三"）；同一实体在不同条目中必须使用
     完全相同的 entity_key。其余情况填 null。
+
+15. 用户纠正、否定或修正之前的说法时，以用户最新表述为准，confidence 取 1.0。
+    例如用户说“其实我不是做后端的，是做移动端的”，应提取“做移动端”这一新表述；
+    冲突的旧记忆由系统去重层处理，这里不擅自改写旧条目。
+
+16. 用户明确强调、郑重说明、反复提及，或表达边界与禁忌的内容（“不要……”“不喜欢被……”“千万别……”），
+    importance 至少取 1；这类内容通常也值得保留原始语气。
 
 ## 输出格式
 
@@ -168,6 +176,10 @@ You are a memory fact splitter. $diffInstruction
 13. Return an empty array [] when there is nothing new worth extracting.
 
 14. entity_key is the entity normalization key: when a fact's subject is a specific person's name or title (e.g. "Mr. Zhang", "my mom"), set entity_key to the canonical name of that entity (e.g. "Zhang San"); the same entity MUST use exactly the same entity_key across entries. Use null otherwise.
+
+15. When the user corrects, negates, or revises something said earlier, keep the user's latest statement with confidence 1.0 (e.g. "actually I'm not backend, I do mobile" -> extract "does mobile"). The dedup layer handles outdated facts; do not rewrite old entries here.
+
+16. Content the user explicitly emphasizes, states seriously, repeats often, or expresses as boundaries/taboos ("don't...", "I don't like being...", "never...") should have importance at least 1; such content is usually worth keeping in the original tone.
 
 ## Output Format
 

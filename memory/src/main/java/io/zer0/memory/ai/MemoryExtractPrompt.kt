@@ -17,7 +17,8 @@ package io.zer0.memory.ai
  */
 object MemoryExtractPrompt {
 
-    const val TEMPLATE_VERSION = "memory-extract.v2"
+    // D3: 强调与边界准则补充(参考 HANA 记忆系统"什么值得记"原则) → v3
+    const val TEMPLATE_VERSION = "memory-extract.v3"
     const val CACHE_GROUP = "memory.extract_analysis"
 
     /**
@@ -73,7 +74,8 @@ $existingSection
    - title: 简短标题(≤20字,用于展示和匹配)
    - content: 事实正文(保留原始表述,不加主语)
    - credibility: 0.0~1.0,用户明确陈述取 1.0,推断取 0.5~0.8
-   - importance: 0.0~1.0,<0.4 普通,0.4~0.7 重要,>0.7 关键(医疗/财务/安全)
+   - importance: 0.0~1.0,<0.4 普通,0.4~0.7 重要,>0.7 关键(医疗/财务/安全);
+      用户明确强调、郑重说明或表达边界/禁忌("不要…""不喜欢被…")的内容至少 0.4
    - folderPath: 分类(preference/identity/event/relationship/goal/medical/other)
    - tags: 2~5 个有辨识度的关键词
    - entityKey: 实体归一化键。当事实主语是具体人名/称呼(如"张先生")时,
@@ -140,7 +142,8 @@ $existingSection
    - title: Short title (≤20 chars, for display and matching)
    - content: Fact body (preserve original wording, do not add subject)
    - credibility: 0.0~1.0, 1.0 for explicit user statements, 0.5~0.8 for inference
-   - importance: 0.0~1.0, <0.4 normal, 0.4~0.7 important, >0.7 critical (medical/financial/safety)
+   - importance: 0.0~1.0, <0.4 normal, 0.4~0.7 important, >0.7 critical (medical/financial/safety);
+      content the user explicitly emphasizes, states seriously, or expresses as boundaries/taboos ("don't...", "I don't like being...") should be at least 0.4
    - folderPath: Category (preference/identity/event/relationship/goal/medical/other)
    - tags: 2-5 distinctive keywords
    - entityKey: Entity normalization key. When the fact's subject is a specific person's name/title
