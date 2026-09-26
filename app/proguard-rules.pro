@@ -188,3 +188,32 @@
     *** Companion;
     *** INSTANCE;
 }
+
+# v2.2.0: Netty(ktor-server-netty, HTTPS 方案 A)引入的可选依赖缺失抑制 —
+# 这些类(tcnative OpenSSL 加速/log4j/jetty-npn)在 Android 运行时不会被加载(走 JDK SSL+NIO), 仅 R8 静态检查报警。
+-dontwarn io.netty.internal.tcnative.AsyncSSLPrivateKeyMethod
+-dontwarn io.netty.internal.tcnative.AsyncTask
+-dontwarn io.netty.internal.tcnative.Buffer
+-dontwarn io.netty.internal.tcnative.CertificateCallback
+-dontwarn io.netty.internal.tcnative.CertificateCompressionAlgo
+-dontwarn io.netty.internal.tcnative.CertificateVerifier
+-dontwarn io.netty.internal.tcnative.Library
+-dontwarn io.netty.internal.tcnative.SSL
+-dontwarn io.netty.internal.tcnative.SSLContext
+-dontwarn io.netty.internal.tcnative.SSLPrivateKeyMethod
+-dontwarn io.netty.internal.tcnative.SSLSessionCache
+-dontwarn io.netty.internal.tcnative.SessionTicketKey
+-dontwarn io.netty.internal.tcnative.SniHostNameMatcher
+-dontwarn org.apache.log4j.Level
+-dontwarn org.apache.log4j.Logger
+-dontwarn org.apache.log4j.Priority
+-dontwarn org.apache.logging.log4j.Level
+-dontwarn org.apache.logging.log4j.LogManager
+-dontwarn org.apache.logging.log4j.Logger
+-dontwarn org.apache.logging.log4j.message.MessageFactory
+-dontwarn org.apache.logging.log4j.spi.ExtendedLogger
+-dontwarn org.apache.logging.log4j.spi.ExtendedLoggerWrapper
+-dontwarn org.eclipse.jetty.npn.NextProtoNego$ClientProvider
+-dontwarn org.eclipse.jetty.npn.NextProtoNego$Provider
+-dontwarn org.eclipse.jetty.npn.NextProtoNego$ServerProvider
+-dontwarn org.eclipse.jetty.npn.NextProtoNego
