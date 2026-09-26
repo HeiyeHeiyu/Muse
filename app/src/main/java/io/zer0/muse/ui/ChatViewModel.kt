@@ -4217,18 +4217,18 @@ class ChatViewModel(
                         // v2.x: 续接轮预算修复 — 原 1024 上限在两类场景必被截断:
                         //   ① 工具结果回填后模型需输出长内容(写文件/长回复);
                         //   ② 推理模型单是思考就消耗 2-4K token, 1024 下正文几乎无空间。
-                        // 提高到 8192(仍低于常规上限, 保留"续接轮更收敛"的设计精神),
-                        // 并对推理模型按现有机制追加思考余量。
-                        val base = (configuredMaxTokens ?: 8_192).coerceAtMost(8_192)
+                        // 二轮上调至 16384: 长工具结果回填后的收尾输出(如读完文件写分析)需要充足空间。
+                        val base = (configuredMaxTokens ?: 16_384).coerceAtMost(16_384)
                         io.zer0.memory.budget.LlmBudget.withReasoningHeadroom(base, roundModel)
                     }
                     tools.isNotEmpty() && ToolExposurePolicy.isDirectToolRequest(latestUserText, tools) ->
                         if (roundModel?.supportsReasoning() == true) {
-                            // v2.x: 工具轮要生成完整工具参数(可能很长, 如写文件), 原 1536 会切参数
-                            configuredMaxTokens?.coerceAtMost(4_096) ?: 4_096
+                            // v2.x: 工具轮要生成完整工具参数(可能很长, 如写文件), 原 1536 会切参数;
+                            // 二轮上调 16384 — 推理模型思考+长参数, 空间要充足
+                            configuredMaxTokens?.coerceAtMost(16_384) ?: 16_384
                         } else {
-                            // v2.x: 原 512 同样会切长参数, 提高到 2048
-                            configuredMaxTokens?.coerceAtMost(2_048) ?: 2_048
+                            // v2.x: 原 512 同样会切长参数, 上调 8192
+                            configuredMaxTokens?.coerceAtMost(8_192) ?: 8_192
                         }
                     else -> configuredMaxTokens?.let {
                             io.zer0.memory.budget.LlmBudget.withReasoningHeadroom(it, roundModel)
