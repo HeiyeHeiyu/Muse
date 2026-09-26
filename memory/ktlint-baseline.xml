@@ -283,29 +283,29 @@
     </file>
     <file name="src/main/java/io/zer0/memory/budget/LlmBudget.kt">
         <error line="26" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="52" column="27" source="standard:multiline-expression-wrapping" />
-        <error line="79" column="29" source="standard:parameter-list-spacing" />
-        <error line="79" column="30" source="standard:no-multi-spaces" />
-        <error line="79" column="32" source="standard:discouraged-comment-location" />
-        <error line="80" column="27" source="standard:no-multi-spaces" />
-        <error line="80" column="32" source="standard:discouraged-comment-location" />
-        <error line="125" column="66" source="standard:function-signature" />
-        <error line="156" column="37" source="standard:function-signature" />
-        <error line="156" column="62" source="standard:function-signature" />
-        <error line="156" column="73" source="standard:function-signature" />
-        <error line="171" column="65" source="standard:trailing-comma-on-call-site" />
-        <error line="194" column="69" source="standard:trailing-comma-on-call-site" />
-        <error line="201" column="92" source="standard:trailing-comma-on-call-site" />
-        <error line="216" column="36" source="standard:function-signature" />
-        <error line="216" column="51" source="standard:function-signature" />
-        <error line="216" column="74" source="standard:function-signature" />
-        <error line="244" column="31" source="standard:function-signature" />
-        <error line="244" column="45" source="standard:function-signature" />
-        <error line="244" column="61" source="standard:function-signature" />
-        <error line="264" column="44" source="standard:function-signature" />
-        <error line="264" column="58" source="standard:function-signature" />
-        <error line="264" column="74" source="standard:function-signature" />
-        <error line="274" column="31" source="standard:multiline-expression-wrapping" />
+        <error line="55" column="27" source="standard:multiline-expression-wrapping" />
+        <error line="83" column="29" source="standard:parameter-list-spacing" />
+        <error line="83" column="30" source="standard:no-multi-spaces" />
+        <error line="83" column="32" source="standard:discouraged-comment-location" />
+        <error line="84" column="27" source="standard:no-multi-spaces" />
+        <error line="84" column="32" source="standard:discouraged-comment-location" />
+        <error line="129" column="66" source="standard:function-signature" />
+        <error line="160" column="37" source="standard:function-signature" />
+        <error line="160" column="62" source="standard:function-signature" />
+        <error line="160" column="73" source="standard:function-signature" />
+        <error line="175" column="65" source="standard:trailing-comma-on-call-site" />
+        <error line="198" column="69" source="standard:trailing-comma-on-call-site" />
+        <error line="205" column="92" source="standard:trailing-comma-on-call-site" />
+        <error line="220" column="36" source="standard:function-signature" />
+        <error line="220" column="51" source="standard:function-signature" />
+        <error line="220" column="74" source="standard:function-signature" />
+        <error line="248" column="31" source="standard:function-signature" />
+        <error line="248" column="45" source="standard:function-signature" />
+        <error line="248" column="61" source="standard:function-signature" />
+        <error line="268" column="44" source="standard:function-signature" />
+        <error line="268" column="58" source="standard:function-signature" />
+        <error line="268" column="74" source="standard:function-signature" />
+        <error line="278" column="31" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="src/main/java/io/zer0/memory/compile/FactsSectionProjector.kt">
         <error line="18" column="1" source="standard:no-empty-first-line-in-class-body" />
