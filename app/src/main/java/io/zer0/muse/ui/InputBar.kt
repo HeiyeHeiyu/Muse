@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.ripple
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -1507,21 +1508,45 @@ private fun QuickBarAction(
     active: Boolean,
     onClick: () -> Unit,
 ) {
+    // v2.x: 交互动效 — 按压缩放 + 激活态颜色过渡 + 可见涟漪
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.92f else 1f,
+        animationSpec = MuseMotion.tween(MuseAnimation.FAST_MS),
+        label = "quickBarPress",
+    )
+    val bgColor by animateColorAsState(
+        targetValue = if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+        else MaterialTheme.colorScheme.surfaceVariant,
+        animationSpec = MuseMotion.tween(MuseAnimation.TACTILE_MS),
+        label = "quickBarBg",
+    )
+    val fgColor by animateColorAsState(
+        targetValue = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = MuseMotion.tween(MuseAnimation.TACTILE_MS),
+        label = "quickBarFg",
+    )
     Box(
         modifier = Modifier
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
             .size(40.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(
-                if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                else MaterialTheme.colorScheme.surfaceVariant,
-            )
-            .clickable(onClick = onClick),
+            .background(bgColor)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(),
+                onClick = onClick,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = fgColor,
             modifier = Modifier.size(MuseIconSizes.iconMedium),
         )
     }

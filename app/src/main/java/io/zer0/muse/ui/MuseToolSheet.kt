@@ -74,8 +74,10 @@ import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseBottomSheet
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseHaptics
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
@@ -418,7 +420,7 @@ private fun QuickAttachTab(
         } else {
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
         },
-        animationSpec = tween(durationMillis = 200),
+        animationSpec = MuseMotion.tween(MuseAnimation.TACTILE_MS),
         label = "quickTabContainer",
     )
     val circleColor by animateColorAsState(
@@ -427,13 +429,13 @@ private fun QuickAttachTab(
         } else {
             MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
         },
-        animationSpec = tween(durationMillis = 200),
+        animationSpec = MuseMotion.tween(MuseAnimation.TACTILE_MS),
         label = "quickTabCircle",
     )
     val contentColor by animateColorAsState(
         targetValue = if (isActive) MaterialTheme.colorScheme.primary
         else MaterialTheme.colorScheme.onSurface,
-        animationSpec = tween(durationMillis = 200),
+        animationSpec = MuseMotion.tween(MuseAnimation.TACTILE_MS),
         label = "quickTabContent",
     )
     Row(
