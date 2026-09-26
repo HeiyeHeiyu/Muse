@@ -324,7 +324,7 @@ fun MiniDiaryScreen(
     }
 }
 
-/** 月视图日历表(周日开头,与微信一致)。 */
+/** 月视图日历表(周日开头)。 */
 @Composable
 private fun DiaryMonthCalendar(
     year: Int,

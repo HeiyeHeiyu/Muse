@@ -20,7 +20,7 @@ import io.zer0.muse.ui.theme.MusePaddings
  *
  * 替代全项目 44 处散落的裸 [CircularProgressIndicator],统一参数:
  *  - size: [MuseIconSizes.iconLarge](32dp),平衡视觉存在感与不突兀
- *  - strokeWidth: 2.dp,纤细质感(对标 iOS UIActivityIndicator 细线风格)
+ *  - strokeWidth: 2.dp,纤细质感(细线风格)
  *  - 可选 message 文案,居中显示在指示器下方
  *
  * 用法:

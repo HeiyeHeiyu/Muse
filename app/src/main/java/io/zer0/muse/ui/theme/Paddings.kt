@@ -9,7 +9,7 @@ import androidx.compose.ui.unit.dp
  * 根治"padding 8/12/14/16/24 混用"的不一致问题。
  * 全项目统一引用 [MusePaddings] 令牌。
  *
- * 令牌层级(iOS 风格留白节奏):
+ * 令牌层级(留白节奏):
  *  - [screen]:         16.dp — 屏幕水平边距(Scaffold padding)
  *  - [cardInner]:      horizontal=16, vertical=12 — 卡片内边距
  *  - [cardInnerLoose]: horizontal=16, vertical=14 — 略松的卡片内边距
@@ -38,7 +38,7 @@ object MusePaddings {
     val cardInnerLoose = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
     /** section 之间间距。 */
     val sectionGap = 16.dp
-    /** v2.0.1: 卡片组之间的间距（设置类页面，对齐 ColorOS 17 实测 20dp）。 */
+    /** v2.0.1: 卡片组之间的间距（设置类页面，实测 20dp）。 */
     val cardGap = 20.dp
     /** 列表项之间间距(LazyColumn spacedBy)。v2.0.1: 12 → 16（"松一点"结构方向）。 */
     val itemGap = 16.dp
@@ -88,7 +88,7 @@ object MusePaddings {
     val listRowVertical = 14.dp
     /** 图标内边距(图标与相邻文字间距)。 */
     val iconPadding = 8.dp
-    /** M-CS5: 消息间距(聊天列表 LazyColumn spacedBy,iOS 风格呼吸感)。 */
+    /** M-CS5: 消息间距(聊天列表 LazyColumn spacedBy,呼吸感)。 */
     val messageGap = 20.dp
     /** v1.0.17: 屏幕宽 + contentGap 垂直(气泡/卡片)。 */
     val cardInnerSpaced = PaddingValues(horizontal = 16.dp, vertical = 8.dp)

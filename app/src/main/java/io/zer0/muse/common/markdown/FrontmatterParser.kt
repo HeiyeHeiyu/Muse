@@ -1,7 +1,7 @@
 package io.zer0.muse.common.markdown
 
 /**
- * v1.0.53: Markdown frontmatter 解析器(对标 Beautify 封面工作流前置能力)。
+ * v1.0.53: Markdown frontmatter 解析器(封面工作流前置能力)。
  *
  * 支持 `---` 包裹的简单键值对(不引入 YAML 库,手写解析):
  * ```

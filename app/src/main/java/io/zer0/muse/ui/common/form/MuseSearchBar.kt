@@ -24,7 +24,7 @@ import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.theme.pill
 
 /**
- * v2.0.1: 设置页搜索栏（ColorOS 17 结构借鉴）。
+ * v2.0.1: 设置页搜索栏。
  *
  * - 胶囊形、左侧放大镜、无语音输入；点击进入搜索态（由调用方处理）；
  * - [glass] 模式：只在胶囊形状内部做背景模糊（backdrop blur，轻模糊、可透视下方内容），
@@ -32,7 +32,7 @@ import io.zer0.muse.ui.theme.pill
  *   API 31+ 为真实高斯模糊，低版本自动降级为半透明 scrim（Haze 内建行为）；
  * - 非玻璃模式：实色浅面胶囊（surface 白），用于随内容滚动的常态。
  *
- * 注：模糊范围仅限胶囊本体——胶囊之外不做任何遮罩（ColorOS 同款语义）。
+ * 注：模糊范围仅限胶囊本体——胶囊之外不做任何遮罩。
  */
 @Composable
 fun MuseSearchBar(

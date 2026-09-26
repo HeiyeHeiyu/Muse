@@ -56,9 +56,9 @@ import io.zer0.muse.data.moment.images
 import io.zer0.muse.ui.common.form.MuseTextField
 
 /**
- * v1.0.74: 朋友圈动态卡片 — 微信朋友圈布局。
+ * v1.0.74: 朋友圈动态卡片 — 朋友圈布局。
  *
- * 微信结构: 头像左上 → 右侧竖排(名字 → 正文 → 图片 → 时间) → 底部右侧"赞/评论"文字按钮。
+ * 结构: 头像左上 → 右侧竖排(名字 → 正文 → 图片 → 时间) → 底部右侧"赞/评论"文字按钮。
  * 评论: 点击"评论"才展开评论区 + 输入框(不再每卡片常驻)。
  * 保留: 9 宫格多图 / 长文本折叠 / 长按删除 / 头像进主页。
  */
@@ -311,7 +311,7 @@ fun MomentCard(
                         modifier = Modifier.size(MuseIconSizes.iconSmallTiny),
                     )
                 }
-                // 微信风格操作条:「赞 | 评论」并排
+                // 操作条:「赞 | 评论」并排
                 if (showActionsMenu) {
                     Surface(
                         shape = RoundedCornerShape(MusePaddings.contentGap),
@@ -476,7 +476,7 @@ fun MomentCard(
 
 /**
  * 朋友圈图片网格。
- * - 1 张: 自适应宽度,保持宽高比(微信风格)
+ * - 1 张: 自适应宽度,保持宽高比
  * - 2 张: 2 列居中
  * - 4 张: 2x2
  * - 其他: 3x3(最多 9 张)

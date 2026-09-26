@@ -78,11 +78,11 @@ import io.zer0.muse.ui.theme.MuseMotion
 import org.koin.compose.koinInject
 
 /**
- * 阶段 7: MCP server 管理 section — iOS 风格分组列表。
+ * 阶段 7: MCP server 管理 section — 分组列表。
  *
  * 每个 server 渲染为 [SettingsGroup] 内的一行,显示名称/URL/状态,
  * 右侧 trailing 放重连 + 删除按钮,行间细分割线。
- * 添加按钮放在分组外(对标 iOS 列表底部的"添加"操作)。
+ * 添加按钮放在分组外(对齐系统列表底部的"添加"操作)。
  */
 @Composable
 internal fun McpSection() {
@@ -357,7 +357,7 @@ private fun McpServerRow(
             onClick = { menuExpanded = true },
             contentDescription = stringResource(R.string.settings_mcp_more),
         )
-        // v1.134 P0-7: DropdownMenu → MuseDialog 操作列表(iOS 风格)
+        // v1.134 P0-7: DropdownMenu → MuseDialog 操作列表
         if (menuExpanded) {
             MuseDialog(
                 onDismissRequest = { menuExpanded = false },

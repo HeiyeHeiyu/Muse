@@ -70,7 +70,7 @@ import org.koin.compose.koinInject
  * Phase 8.8: Skill(技能/工具)管理页。
  *
  * 列出全部 Skill,支持启用/禁用切换与查看详情(参数 Schema / id / 是否内置)。
- * 视觉沿用 muse warm-paper 风格(iOS 风格 SettingsGroup + SectionLabel)。
+ * 视觉沿用 muse warm-paper 风格(SettingsGroup + SectionLabel)。
  *
  * 内置 Skill 由 [MuseApp] 启动时 seed(见 [SkillExecutor.BUILT_IN_SKILLS]),
  * 此页只读展示其元信息,不可删除/编辑(自定义 Skill 后续可扩展)。

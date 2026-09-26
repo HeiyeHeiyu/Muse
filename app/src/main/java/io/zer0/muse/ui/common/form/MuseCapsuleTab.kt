@@ -39,7 +39,7 @@ import io.zer0.muse.ui.theme.semiLarge
 import kotlin.math.abs
 
 /**
- * iOS 风格胶囊 Tab 选择器。
+ * 胶囊形 Tab 选择器。
  *
  * 设计稿中首页(任务/Agent/群聊)、搜索页(Sessions/Messages/Settings)、
  * 助手详情(Basic/Prompt/Extensions/Memory/Advanced)均使用此组件。

@@ -704,7 +704,7 @@ fun GroupChatDetailScreen(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
-                    // v1.0.72: 不 pad top — 消息列表延伸到顶部悬浮岛后面(Telegram 效果)
+                    // v1.0.72: 不 pad top — 消息列表延伸到顶部悬浮岛后面(悬浮效果)
                     .padding(bottom = innerPadding.calculateBottomPadding()),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(
                     start = MusePaddings.screen,

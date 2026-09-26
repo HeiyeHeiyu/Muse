@@ -75,7 +75,7 @@ val Shapes.huge: RoundedCornerShape get() = HugeShape
 private val MegaShape = RoundedCornerShape(MuseCornerRadius.MEGA.dp)
 val Shapes.mega: RoundedCornerShape get() = MegaShape
 
-/** v2.0.1: 大卡片——设置分组 / 面板卡（ColorOS 17 结构借鉴的大圆角档）。 */
+/** v2.0.1: 大卡片——设置分组 / 面板卡（大圆角档）。 */
 private val LargeCardShape = RoundedCornerShape(MuseCornerRadius.LARGE_CARD.dp)
 val Shapes.largeCard: RoundedCornerShape get() = LargeCardShape
 

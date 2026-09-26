@@ -39,7 +39,7 @@ import io.zer0.muse.ui.theme.pill
 /**
  * 统一错误状态组件,带重试按钮。
  *
- * v1.0.20 MANUS 风格升级(复活僵尸组件):
+ * v1.0.20 视觉升级(复活僵尸组件):
  *  - 从 Row 错误条改为 Column 居中状态页,与 [MuseEmptyState] 视觉对称
  *  - 圆形 error 色背景容器(error 8% 底 + error 60% 图标)
  *  - 暖调质感替代冷红 errorContainer,降低视觉攻击性
@@ -82,7 +82,7 @@ fun MuseErrorStateBox(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
         ) {
-            // v1.0.20: MANUS 风格 — 圆形错误色背景容器
+            // v1.0.20: 圆形错误色背景容器
             Box(
                 modifier = Modifier
                     .size(MuseIconSizes.iconEmpty + MusePaddings.screen * 2)

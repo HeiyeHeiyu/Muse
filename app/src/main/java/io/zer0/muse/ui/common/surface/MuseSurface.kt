@@ -32,13 +32,13 @@ import io.zer0.muse.ui.theme.MuseShapes
  *
  * 特性:
  *  - 由 Material3 [Surface] 统一处理 clip / color / shadow,获得柔和自然的阴影
- *  - 可选的 iOS 风格按压反馈(颜色渐变 + 触觉,无涟漪)
+ *  - 可选的按压反馈(颜色渐变 + 触觉,无涟漪)
  *  - 可选的按压缩放(默认关闭)
  *  - 浅色模式向白方向偏移、深色模式向黑方向偏移的按压色,适配暖纸主题
  *
  * 与原 [io.zer0.muse.ui.common.surface.MuseCardPress] 的差异:
  *  - 基于 Surface 而非手动 Surface + scale + clickable,更稳更轻
- *  - 命名去 `Ios` 前缀,统一 `Muse` 命名空间
+ *  - 命名统一 `Muse` 命名空间
  *  - 不强制 `indication = null`,由调用方决定(pressed 时颜色渐变已足够反馈)
  *
  * 用法:

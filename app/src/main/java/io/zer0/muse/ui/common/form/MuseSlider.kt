@@ -36,10 +36,10 @@ import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseMotion
 
 /**
- * v1.40: iOS 风格滑块 — 替代 Material 默认 [androidx.compose.material3.Slider]。
+ * v1.40: 滑块 — 替代 Material 默认 [androidx.compose.material3.Slider]。
  *
  * 视觉差异(对比 Material Slider):
- *  - 轨道更细(4dp vs Material 16dp),更符合 iOS Settings 风格
+ *  - 轨道更细(4dp vs Material 16dp),更符合系统设置风格
  *  - 拇指更小(20dp vs Material 24dp)+ 白色描边
  *  - 已填充部分用 primary,未填充用 surfaceVariant
  *  - 拖动时拇指带平滑缩放动画

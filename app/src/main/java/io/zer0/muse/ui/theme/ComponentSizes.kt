@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.dp
  * 新增档位必须写明「用在哪」;能落进通用令牌的(间距、圆角、图标尺寸)一律落通用令牌。
  */
 object MuseDialogSizes {
-    /** 弹窗内容区内边距(22dp:比卡片 16dp 多一档呼吸感,iOS Alert 视觉)。 */
+    /** 弹窗内容区内边距(22dp:比卡片 16dp 多一档呼吸感,弹窗视觉)。 */
     val contentPadding = 22.dp
     /** 弹窗最大宽度(大屏居中;窄屏由系统宽度兜底)。 */
     val maxWidth = 340.dp
@@ -21,9 +21,9 @@ object MuseDialogSizes {
 }
 
 object MuseSwitchSizes {
-    /** 开关轨道宽度(iOS 开关规格)。 */
+    /** 开关轨道宽度(开关标准规格)。 */
     val trackWidth = 51.dp
-    /** 开关轨道高度(iOS 开关规格)。 */
+    /** 开关轨道高度(开关标准规格)。 */
     val trackHeight = 31.dp
     /** 开关拇指直径(轨道高度 − 2×inset)。 */
     val thumbSize = 27.dp

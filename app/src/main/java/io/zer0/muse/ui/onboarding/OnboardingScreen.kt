@@ -112,7 +112,7 @@ private fun ProviderModelFetcher.Outcome.Failure.toDisplayMessage(context: andro
  * [SettingsRepository] / [AssistantRepository] / [PresetProviders]，
  * 每步完成后即时保存到 SettingsRepository。
  *
- * 设计令牌：使用 [MuseShapes]（iOS 风格圆角）与 [MusePaddings]（间距令牌），
+ * 设计令牌：使用 [MuseShapes]（圆角）与 [MusePaddings]（间距令牌），
  * 全程 Material Icons（无 emoji），Material 3 组件。
  */
 @Composable
@@ -1312,7 +1312,7 @@ private fun TutorialCard(item: FeatureItem) {
     }
 }
 
-// ── iOS 风格胶囊按钮 ──────────────────────────────────────────
+// ── 胶囊按钮 ──────────────────────────────────────────
 
 @Composable
 private fun PrimaryPillButton(

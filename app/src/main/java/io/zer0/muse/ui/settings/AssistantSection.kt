@@ -14,7 +14,7 @@ import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.settings.SettingsItemRow
 
 /**
- * 阶段 7: 入口卡片 section — iOS 风格分组列表。
+ * 阶段 7: 入口卡片 section — 分组列表。
  *
  * 用 [SettingsGroup] 包裹多个 [SettingsItemRow],行间细分割线,无 elevation。
  * 替代旧的"每行独立 Card + spacedBy"堆叠模式。

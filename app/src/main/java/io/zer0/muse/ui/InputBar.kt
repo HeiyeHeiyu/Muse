@@ -360,7 +360,7 @@ internal fun InputBar(
                                 .fillMaxSize()
                                 .clip(MuseShapes.medium),
                         )
-                        // v1.135: 移除按钮改为 iOS 风格小圆点,视觉 20dp。
+                        // v1.135: 移除按钮改为小圆点,视觉 20dp。
                         // 触摸目标扩大到 48dp(透明可点区域),满足无障碍 48dp 红线,
                         // 与同文件视频移除按钮一致。
                         val removeInteractionSource = remember { MutableInteractionSource() }
@@ -1496,7 +1496,7 @@ private fun RowScope.MessageInputField(
     }
 }
 
-/** v1.0.72: Telegram 风格输入岛底部悬浮间距(dp)。 */
+/** v1.0.72: 输入岛底部悬浮间距(dp)。 */
 private val InputIslandBottomGap = 10.dp
 
 /**

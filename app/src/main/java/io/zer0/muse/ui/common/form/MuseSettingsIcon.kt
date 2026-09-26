@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import io.zer0.muse.ui.theme.MuseIconSizes
 
 /**
- * iOS 风格设置图标 — 黑白线条风格。
+ * 设置图标 — 黑白线条风格。
  *
  * 直接渲染 24dp 线条图标，颜色跟随 onSurface（自动适配亮/暗色模式）。
  *

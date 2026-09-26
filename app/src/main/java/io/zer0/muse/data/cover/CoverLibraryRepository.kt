@@ -38,7 +38,7 @@ data class CoverItem(
 )
 
 /**
- * v1.0.53: 封面图库仓库(对标 Beautify 封面工作流的封面库)。
+ * v1.0.53: 封面图库仓库(封面工作流的封面库)。
  *
  * 存储结构:
  *  - 图片文件: `filesDir/covers/<fileName>`(统一 JPEG,最长边 ≤ [MAX_DIMENSION])

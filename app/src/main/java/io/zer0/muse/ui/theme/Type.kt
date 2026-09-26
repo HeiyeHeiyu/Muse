@@ -19,7 +19,7 @@ import java.io.File
  *  - 代码块用 FontFamily.Monospace(系统等宽字体)
  *  - 删除原 Inter / Noto Serif SC / JetBrains Mono Google Fonts 依赖
  *
- * 字号体系(对齐 iOS 标准层级):
+ * 字号体系(对齐标准层级):
  *   - 大标题  displayLarge  34 Bold   "对话" / "记忆" / "设置" 页顶
  *   - 标题    headlineSmall 20 SemiBold 会话标题 / 设置分组标题
  *   - 正文    bodyLarge     16 Regular 消息内容 / 设置项文字

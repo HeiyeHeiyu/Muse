@@ -124,7 +124,7 @@ class MuseNotificationManager(private val context: Context) {
                 description = context.getString(R.string.notif_channel_web_server_desc)
                 setShowBadge(false)
             },
-            // 主动消息:IMPORTANCE_HIGH,有声音,因为这是"助手主动联系用户",要像微信来消息一样吸引注意
+            // 主动消息:IMPORTANCE_HIGH,有声音,因为这是"助手主动联系用户",要像收到即时消息一样吸引注意
             NotificationChannel(
                 CHANNEL_PROACTIVE_MESSAGE,
                 context.getString(R.string.notif_channel_proactive_message_name),
@@ -243,7 +243,7 @@ class MuseNotificationManager(private val context: Context) {
      * v0.44: 通知栏大图标改用助手头像(图片/Emoji/首字母),不再统一用 app 图标。
      * 头像加载失败或无头像时回退到默认小图标。
      *
-     * 用 IMPORTANCE_HIGH 渠道,有声音 + 横幅,吸引像微信来消息一样的注意。
+     * 用 IMPORTANCE_HIGH 渠道,有声音 + 横幅,吸引像收到即时消息一样的注意。
      * 标题用"$assistantName 来消息了",正文是消息预览(截断 100 字),
      * BigTextStyle 展开完整内容;点击跳转 MainActivity 回到聊天页。
      *
@@ -256,7 +256,7 @@ class MuseNotificationManager(private val context: Context) {
         target: MuseNotificationTarget = MuseNotificationTarget.Chat,
     ) {
         // v1.0.80: 主动消息是"助手主动联系用户",即使前台也应走系统通知 —
-        // 用户可能没盯着会话(在看别的页面/别的 app),微信式通知不能被前台判断拦截。
+        // 用户可能没盯着会话(在看别的页面/别的 app),即时消息式通知不能被前台判断拦截。
         // 原 B-15 前台拦截导致:设置页"测试主动消息"时 App 必然前台,通知永远不发,
         // 用户无法验证(反馈:主动消息有了但通知栏没有)。主动消息有每日上限+评分引擎,不会高频打扰。
         val assistantName = assistant.name.ifBlank { "muse" }

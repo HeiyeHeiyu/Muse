@@ -182,7 +182,7 @@ fun SafeModeScreen() {
 /**
  * 顶部警告图标 + "上次启动崩溃" 标题。
  *
- * 圆形 errorContainer 背景 + Warning outline 图标,对标 iOS 警告样式。
+ * 圆形 errorContainer 背景 + Warning outline 图标,对齐系统警告样式。
  */
 @Composable
 private fun WarningHeader() {
@@ -278,7 +278,7 @@ private fun CrashInfoCard(
 /**
  * 操作按钮组(垂直排列,每个按钮使用 MuseCardPress 触觉风格)。
  *
- * 每个按钮:图标 + 标题文字,左对齐,无涟漪按压反馈,对标 iOS 列表项。
+ * 每个按钮:图标 + 标题文字,左对齐,无涟漪按压反馈,对齐系统列表项。
  */
 // 6 个回调参数为操作按钮组固有结构(每个按钮一个动作),拆分反损可读性
 @Suppress("LongParameterList")

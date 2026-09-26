@@ -10,7 +10,7 @@ import androidx.compose.ui.unit.dp
 /**
  * 分组内分隔线 — 用在 [SettingsGroup] 的两个 item 之间。
  *
- * 留 16dp 左缩进(对标 iOS 分组分隔线不到边缘的视觉)。
+ * 留 16dp 左缩进(对齐系统分组分隔线不到边缘的视觉)。
  */
 @Composable
 fun SettingsGroupDivider() {

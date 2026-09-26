@@ -34,7 +34,7 @@ import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.semiLarge
 
 /**
- * iOS 风格选择胶囊组件 — 替代 Material3 FilterChip / AssistChip。
+ * 选择胶囊组件 — 替代 Material3 FilterChip / AssistChip。
  *
  * 视觉特征:
  *  - 选中态:primary 色背景 + onPrimary 文本 + SemiBold 字重

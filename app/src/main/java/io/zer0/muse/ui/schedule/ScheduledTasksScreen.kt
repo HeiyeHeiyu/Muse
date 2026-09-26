@@ -228,7 +228,7 @@ fun ScheduledTasksScreen(
             )
         },
         floatingActionButton = {
-            // L-SC5: 使用 MuseFloatingButton,与应用 iOS 风格一致
+            // L-SC5: 使用 MuseFloatingButton,与应用风格一致
             MuseFloatingButton(
                 icon = MuseIcons.plus,
                 onClick = { showCreate = true },

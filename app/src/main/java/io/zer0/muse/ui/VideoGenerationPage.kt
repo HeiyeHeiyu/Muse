@@ -84,7 +84,7 @@ private val VideoTaskStatusSaver = Saver<VideoTaskStatus?, String>(
 )
 
 /**
- * P2-8: 视频生成页 — iOS 风格全屏工具页。
+ * P2-8: 视频生成页 — 全屏工具页。
  *
  * 布局:
  *  - MuseTopBar:返回 + 标题「视频生成」
@@ -389,7 +389,7 @@ fun VideoGenerationPage(
                         )
                     }
                 } else {
-                    // 供应商列表(iOS 风格 SegmentedOptions,单选)
+                    // 供应商列表(SegmentedOptions,单选)
                     // 用 Surface+clickable 列表呈现,选中高亮 primary
                     Surface(
                         shape = MuseShapes.semiLarge,
@@ -589,7 +589,7 @@ private fun FormSection(
 }
 
 /**
- * 分段选择器(用 Surface + clickable 实现 iOS 胶囊风格,与 MuseCapsuleTab 同视觉;
+ * 分段选择器(用 Surface + clickable 实现胶囊风格,与 MuseCapsuleTab 同视觉;
  * 比 MuseCapsuleTab 多一个 `enabled` 禁用态,故保留本页私有实现)。
  */
 @Composable

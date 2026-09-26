@@ -33,12 +33,12 @@ import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.huge
 
 /**
- * iOS 风格浮动按钮 — 替代 Material3 [androidx.compose.material3.FloatingActionButton]。
+ * 浮动按钮 — 替代 Material3 [androidx.compose.material3.FloatingActionButton]。
  *
  * 视觉差异:
  *  - 无 ripple 涟漪(用 pressed scale + 颜色渐变替代)
  *  - 圆形 [MuseShapes.huge] 容器,primary 色背景
- *  - 按下时 0.92 缩放(弹簧曲线),模拟 iOS 按压反馈
+ *  - 按下时 0.92 缩放(弹簧曲线),模拟按压反馈
  *  - 56dp 默认尺寸符合 Material FAB 规范
  *
  * 用法:
@@ -75,7 +75,7 @@ fun MuseFloatingButton(
     val isPressed by interactionSource.collectIsPressedAsState()
     val reducedMotion = MuseMotion.isReducedMotion()
 
-    // 按下时 0.92 缩放(弹簧曲线),模拟 iOS 按压反馈
+    // 按下时 0.92 缩放(弹簧曲线),模拟按压反馈
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.92f else 1f,
         animationSpec = if (reducedMotion) {

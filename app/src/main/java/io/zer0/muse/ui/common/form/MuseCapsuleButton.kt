@@ -40,7 +40,7 @@ import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.huge
 
 /**
- * iOS 风格胶囊按钮 — 替代 Material3 [Button]/[OutlinedButton]/[TextButton]。
+ * 胶囊形按钮 — 替代 Material3 [Button]/[OutlinedButton]/[TextButton]。
  *
  * 视觉:全宽或 hug 内容、48dp 最小高度、24dp 圆角([MuseShapes.huge])、
  * 按压时轻微缩放(0.97x)并无涟漪。主按钮用品牌色/黑色背景 + 白字，

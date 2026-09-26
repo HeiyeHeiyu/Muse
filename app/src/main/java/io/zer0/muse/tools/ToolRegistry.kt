@@ -570,7 +570,7 @@ class ToolRegistry(
             "generate_image", "generate_video", "generate_qr_code",
             // v1.95: 表情包库工具(SkillExecutor 实现,此处登记便于统一识别)
             "list_stickers", "send_sticker",
-            // HanaAgent port: additional tools
+            // 补充内置工具
             "pin_memory", "unpin_memory", "save_memory", "delete_memory",
             "recall_experience", "record_experience",
             "todo_write", "show_card", "notify", "current_status",

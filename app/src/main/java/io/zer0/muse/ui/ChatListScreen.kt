@@ -117,7 +117,7 @@ import io.zer0.muse.schedule.GreetingHintGenerator
 private const val GREETING_NOTIFY_ID = 1010
 
 /**
- * 任务中心页 —— 按设计稿重构为 iOS / MANUS 风格任务首页。
+ * 任务中心页 —— 按设计稿重构为任务首页。
  *
  * 视觉结构:
  *  - 顶部大标题问候语 + 记忆数量副标题

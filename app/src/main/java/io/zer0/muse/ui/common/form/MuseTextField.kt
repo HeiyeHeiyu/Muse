@@ -32,16 +32,16 @@ import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.semiLarge
 
 /**
- * iOS 风格填充式输入框 — 替代 Material3 默认 [OutlinedTextField]。
+ * 填充式输入框 — 替代 Material3 默认 [OutlinedTextField]。
  *
  * 视觉差异:
  *  - 透明边框(无 outlined 框线),用 surfaceVariant 填充背景区分输入区域
  *  - 聚焦时背景色加深(surfaceContainerHigh),无边框动画
- *  - 圆角 16dp([MuseShapes.semiLarge]),与 iOS 设置页输入框一致
+ *  - 圆角 16dp([MuseShapes.semiLarge]),与设置页输入框一致
  *  - label 在聚焦时变为 onSurfaceVariant(灰色),不用品牌色
  *
- * 设计说明:GPT / MANUS / iOS 设置页的填充式输入框风格。
- * 与 [MuseDropdown]、[MuseChip] 等 Ios* 套件配套使用。
+ * 设计说明:设置页的填充式输入框风格。
+ * 与 [MuseDropdown]、[MuseChip] 等组件配套使用。
  *
  * 用法:
  * ```

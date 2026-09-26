@@ -27,7 +27,7 @@ import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseSwitchSizes
 
 /**
- * v1.51: iOS 风格开关 — 替代 Material3 默认 [androidx.compose.material3.Switch]。
+ * v1.51: 开关 — 替代 Material3 默认 [androidx.compose.material3.Switch]。
  *
  * 视觉差异(对比 Material Switch):
  *  - 胶囊轨道(51×31dp vs Material 52×32dp 但更柔和)
@@ -101,7 +101,7 @@ fun MuseSwitch(
     //        自动注册 Role.Switch + toggleableState + onClick 无障碍动作,
     //        TalkBack 可正确朗读开关状态并执行点击切换。
     // v1.120: 显式传 indication = null 禁用默认点击反馈(ripple/高亮矩形),
-    //         iOS 开关本身有拇指滑动动画作为视觉反馈,叠加 ripple 会产生黑色方框遮罩。
+    //         开关本身有拇指滑动动画作为视觉反馈,叠加 ripple 会产生黑色方框遮罩。
     val interactionSource = remember { MutableInteractionSource() }
     Box(
         modifier = modifier

@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * v1.0.74: 主动巡检日志 — 记录每次巡检做了什么/没做什么。
- * AI 下次巡检时能看到,避免重复做同一件事(OpenHanako patrol-log 思路)。
+ * AI 下次巡检时能看到,避免重复做同一件事。
  */
 @Serializable
 @Entity(tableName = "patrol_logs")

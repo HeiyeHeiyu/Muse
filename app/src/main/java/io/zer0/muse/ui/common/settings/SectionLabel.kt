@@ -5,7 +5,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 
 /**
- * Section 分组标题(iOS 风格设置页分组标题)。
+ * Section 分组标题(设置页分组标题)。
  *
  * 用法:`SectionLabel("基础")`
  *

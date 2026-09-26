@@ -9,14 +9,14 @@ import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 
 /**
- * Muse 设计令牌 — 动画系统 (对齐 既有实现 iOS 触觉设计语言)。
+ * Muse 设计令牌 — 动画系统 (对齐 既有实现 触觉设计语言)。
  *
  * 提供全局统一的动画时长、缓动曲线、阴影规格与触觉反馈语义方法,
  * 与已有的 [MusePaddings] / [MuseCornerRadius] / [MuseElevation] / [MuseIconSizes] 互补,
  * 共同构成完整的设计令牌体系。
  *
  * 设计说明:
- *  - 既有实现 (Flutter): iOS 触觉交互,200ms easeOutCubic 颜色渐变按压
+ *  - 既有实现 (Flutter): 触觉交互,200ms easeOutCubic 颜色渐变按压
  *  - Material 3 Expressive: 弹性动效 expressive motion scheme
  *  - Apple HIG: 触觉反馈分级 (light / medium / heavy)
  */
@@ -32,7 +32,7 @@ object MuseAnimation {
     /** 标准过渡 (240ms): 卡片展开 / 面板切换。 */
     const val NORMAL_MS = 240
 
-    /** iOS 触觉标准 (200ms): 按压颜色渐变 (既有实现 核心节奏)。 */
+    /** 按压反馈标准 (200ms): 按压颜色渐变 (既有实现 核心节奏)。 */
     const val TACTILE_MS = 200
 
     /** 慢速过渡 (320ms): 页面转场 / BottomSheet 弹出。 */
@@ -68,8 +68,8 @@ object MuseAnimation {
 
     // ── 缓动曲线令牌 ──────────────────────────────────────────────────
     /**
-     * iOS 标准缓动 (easeOutCubic): 既有实现 主力曲线,
-     * 快入慢出,模拟 iOS 触觉交互的自然减速感。
+     * 标准缓动 (easeOutCubic): 既有实现 主力曲线,
+     * 快入慢出,模拟触觉交互的自然减速感。
      */
     val EaseOutCubic: Easing = CubicBezierEasing(0.33f, 1.0f, 0.68f, 1.0f)
 

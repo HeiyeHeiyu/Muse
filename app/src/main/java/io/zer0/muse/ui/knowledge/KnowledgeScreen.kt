@@ -518,7 +518,7 @@ fun KnowledgeScreen(
                 onBack = onBack,
                 largeTitle = true,
                 actions = {
-                    // v1.66: 排序切换入口(iOS 风格动作弹窗)
+                    // v1.66: 排序切换入口(动作弹窗)
                     MuseTactileButton(
                         icon = MuseIcons.sort,
                         onClick = { showSortMenu = true },
@@ -554,7 +554,7 @@ fun KnowledgeScreen(
                 .padding(innerPadding)
                 .padding(horizontal = MusePaddings.screen),
         ) {
-            // iOS 风格搜索栏(surfaceVariant 背景 + 无框输入 + 圆角 + 搜索/清空图标)
+            // 凹槽式搜索栏(surfaceVariant 背景 + 无框输入 + 圆角 + 搜索/清空图标)
             Surface(
                 shape = MuseShapes.semiLarge,
                 color = MaterialTheme.colorScheme.surfaceVariant,

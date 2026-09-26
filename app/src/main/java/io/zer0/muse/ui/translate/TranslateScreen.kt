@@ -482,7 +482,7 @@ private fun LanguageSelectorButton(
 }
 
 /**
- * 语言选择弹窗 — 复用 MuseDialog 保持 iOS 风格。
+ * 语言选择弹窗 — 复用 MuseDialog 保持整体风格。
  */
 @Composable
 private fun LanguagePickerDialog(

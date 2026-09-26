@@ -875,7 +875,7 @@ internal fun GroupChatInputBar(
         }
     }
     // v1.0.28: 输入框重写,对齐任务页面样式(MuseTextField + 圆形按钮在同一行,去掉外层 Surface 色块)
-    // v1.0.72: Telegram 风格大岛 — 加号菜单 + 输入框 + 发送全部包裹在圆角大栏里(与单聊输入栏一致)
+    // v1.0.72: 输入大岛 — 加号菜单 + 输入框 + 发送全部包裹在圆角大栏里(与单聊输入栏一致)
     // v1.0.72: 做回岛样式(实色背景 + 圆角 + 阴影)
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -1337,7 +1337,7 @@ private fun GroupToolTab(
     }
 }
 
-/** v1.112: 群聊工具菜单行(iOS 风格左图标 + 标题/副标题 + 右箭头)。 */
+/** v1.112: 群聊工具菜单行(左图标 + 标题/副标题 + 右箭头)。 */
 @Composable
 internal fun GroupChatToolRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -1420,7 +1420,7 @@ internal fun PendingImagesRow(
                         .fillMaxSize()
                         .clip(MuseShapes.semiLarge),
                 )
-                // v1.0.52: 按 InputBar 的 iOS 风格小圆点设计,避免 48dp 大圆覆盖整张照片。
+                // v1.0.52: 按 InputBar 的小圆点设计,避免 48dp 大圆覆盖整张照片。
                 // 视觉尺寸 20dp,实际触摸目标 32dp(可点击区域略大于视觉,保证易点)。
                 // offset 偏移到图片右上角外侧,不遮挡图片内容。
                 Box(

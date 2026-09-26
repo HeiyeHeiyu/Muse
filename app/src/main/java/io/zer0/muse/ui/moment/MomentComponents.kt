@@ -130,7 +130,7 @@ fun MomentsFeedHeader(
             // v1.0.74 fix: 背景图覆盖到状态栏后面(edge-to-edge 沉浸),不再 statusBarsPadding 下沉;
             // 内部按钮各自用 statusBarsPadding 避让,背景图全屏铺满顶部。
             .height(300.dp)
-            // 微信朋友圈封面是整块沉浸式图片,不再额外套圆角卡片。
+            // 朋友圈封面是整块沉浸式图片,不再额外套圆角卡片。
             .clip(RoundedCornerShape(0.dp))
             .clickable(onClick = onPickCover)
             .background(
@@ -211,7 +211,7 @@ fun MomentsFeedHeader(
                     }
                 }
             }
-            // 发布:短按图文,长按纯文字,入口采用微信朋友圈的相机图标。
+            // 发布:短按图文,长按纯文字,入口采用朋友圈的相机图标。
             Box(
                 modifier = Modifier
                     .size(48.dp)

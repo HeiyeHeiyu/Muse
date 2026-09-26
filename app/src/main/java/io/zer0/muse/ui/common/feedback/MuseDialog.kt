@@ -67,7 +67,7 @@ internal const val MUSE_DIALOG_SCRIM_TAG = "muse-dialog-scrim"
  *  - 按下不透明度变化(替代 ripple 默认效果,更精致)
  *
  * 与原生 AlertDialog 的视觉差异:
- *  - 按钮是胶囊形彩色块(iOS 风格),而非扁平文字
+ *  - 按钮是胶囊形彩色块,而非扁平文字
  *  - 标题/内容居中对齐,而非左对齐
  *  - 无分隔线,间距和色块承担分区职责
  *  - 主按钮高对比度(品牌绿/红),操作意图一目了然

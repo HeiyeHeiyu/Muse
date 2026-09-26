@@ -201,7 +201,7 @@ fun HomeScreen(
                     onClick = onOpenSettings,
                 )
 
-                // 中间:胶囊 Tab 切换器(iOS 风格 MuseCapsuleTab 组件)
+                // 中间:胶囊 Tab 切换器(MuseCapsuleTab 组件)
                 val tabLabels = HomeTabs.map { (labelResId, _) ->
                     stringResource(labelResId)
                 }
@@ -616,7 +616,7 @@ private fun parseReleaseInfo(json: String?): UpdateChecker.ReleaseInfo? {
  * v1.0.16: 首页右下角悬浮胶囊 — 定时任务 / 快速记录 / 快速翻译 / 加号(新建任务)。
  *
  * 设计参考用户提供的右下角按钮布局:
- *  - 长椭圆胶囊,与 iOS ChatGPT / MANUS 风格一致
+ *  - 长椭圆胶囊,与主流输入形态一致
  *  - 4 个图标按钮等分排列,中间用细竖线分隔
  *  - 背景使用 surfaceContainer,漂浮在内容之上
  */

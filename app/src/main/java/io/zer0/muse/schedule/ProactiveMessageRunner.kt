@@ -597,7 +597,7 @@ class ProactiveMessageRunner(
         writePatrolLog("sent_message", "主动消息:${decision.scenario} — ${proactiveContent.take(80)}")
         // 问题6.2: 成功发送后递增当日计数并持久化,MAX_DAILY_MESSAGES 校验下次生效
         incrementDailyCount()
-        // 弹通知(像微信来消息一样,通知栏用助手头像)
+        // 弹通知(像收到即时消息一样,通知栏用助手头像)
         notificationManager.notifyProactiveMessage(
             assistant,
             proactiveContent,

@@ -49,7 +49,7 @@ import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
 
 /**
- * 阶段 5: 模型切换底部面板 — iOS 风格。
+ * 阶段 5: 模型切换底部面板。
  *
  * 设计:
  *  - 上半:Provider 横向 chip 行(单选,切换激活 Provider)
@@ -452,7 +452,7 @@ internal fun ModelSwitchSheet(
 }
 
 /**
- * 分组头部 — iOS 风格可点击卡片,显示组名 + 模型数量 + 展开/折叠箭头。
+ * 分组头部 — 可点击卡片,显示组名 + 模型数量 + 展开/折叠箭头。
  *
  * 用 [MuseCardPress] 替代裸 clickable,获得 200ms easeOutCubic 颜色渐变按压效果
  * 和触觉反馈,与项目 既有实现 风格一致。

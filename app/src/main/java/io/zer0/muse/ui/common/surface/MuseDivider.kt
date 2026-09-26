@@ -17,12 +17,12 @@ import androidx.compose.ui.unit.dp
  * 消除各页面裸用 [HorizontalDivider] 时 thickness/color/startIndent 取值不统一的问题。
  *
  * 规格:
- *  - thickness: 0.5dp（对齐 iOS Settings / ColorOS：1px 发丝线）
+ *  - thickness: 0.5dp（对齐系统设置：1px 发丝线）
  *  - color: onSurface @ 13% alpha（v2.0.1：改为随文字墨色派生——白卡上约 #E1E1E1，
- *    对齐 ColorOS 17 实测线色 #E0E0E0；深色模式自动变深灰，跨主题自适应。
+ *    对齐实测线色 #E0E0E0；深色模式自动变深灰，跨主题自适应。
  *    历史值 outlineVariant@70% 经"偏白归一化"后被拉得太淡，浅色下几乎不可见。）
  *  - 默认 startIndent: 56dp(= 16dp 卡片内边距 + 24dp leading icon + 16dp icon-to-text gap)
- *    对齐 iOS Settings 的"从 leading 内容右侧开始分隔"风格
+ *    对齐系统设置的"从 leading 内容右侧开始分隔"风格
  */
 @Composable
 fun MuseDivider(

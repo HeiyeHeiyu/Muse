@@ -97,9 +97,9 @@ internal data class ToolEntry(
 )
 
 /**
- * v1.0.72: 输入栏加号工具面板(Telegram 风格重写)。
+ * v1.0.72: 输入栏加号工具面板(浮层式重写)。
  *
- * Telegram 式布局(从下往上):
+ * 布局(从下往上):
  *  - 顶部媒体区:第一格 = 相机实时取景预览(点击进入系统相机拍照),
  *    后面跟随相册最近图片(横向缩略图)。
  *  - 功能 tab 行:相册 / 文件 / 文章(知识库) / 技能 / 委托 / 绘图(横向图标+文字)。
@@ -392,7 +392,7 @@ private data class QuickAttachEntry(
     val onLongClick: (() -> Unit)? = null,
 )
 
-/** v1.0.72: Telegram 风格功能 tab(圆形图标 + 下方独立文字,不截断)。 */
+/** v1.0.72: 功能 tab(圆形图标 + 下方独立文字,不截断)。 */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun QuickAttachTab(
@@ -759,7 +759,7 @@ private fun ToolListRow(
     }
 }
 
-/** v1.0.72: Telegram 媒体区高度(相机/照片入口统一尺寸)。 */
+/** v1.0.72: 媒体区高度(相机/照片入口统一尺寸)。 */
 private val TelegramMediaHeight = 128.dp
 
 private const val MAX_GALLERY_SELECTION = 4

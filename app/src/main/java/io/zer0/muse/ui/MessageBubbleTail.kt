@@ -163,7 +163,7 @@ internal fun GeneratedImageCard(
 }
 
 /**
- * iOS 风格 ActionSheet 行项 — 全宽 Row(图标 + 文字),点击触发回调。
+ * 底部动作面板行项 — 全宽 Row(图标 + 文字),点击触发回调。
  */
 @Composable
 internal fun ActionMenuItem(
@@ -207,7 +207,7 @@ internal fun ActionMenuItem(
 }
 
 /**
- * 任务 2A: iOS 风格 shimmer 骨架屏 + 脉冲点加载动画。
+ * 任务 2A: shimmer 骨架屏 + 脉冲点加载动画。
  * 三个圆点依次缩放/淡入淡出,下方显示状态文字。
  */
 @Composable
@@ -518,7 +518,7 @@ internal fun StreamingCursor(
 
 /**
  * AI 流式/思考状态指示器 — 绿色脉动圆点 + "正在思考…"文案。
- * 使用 MuseShapes.pill 绿色小点 + alpha 呼吸动画,符合 iOS/MANUS 风格。
+ * 使用 MuseShapes.pill 绿色小点 + alpha 呼吸动画,符合整体视觉风格。
  */
 @Composable
 internal fun ThinkingIndicator() {

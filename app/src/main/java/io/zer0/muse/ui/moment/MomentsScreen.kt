@@ -462,7 +462,7 @@ fun MomentsScreen(
     }
 }
 
-/** 发布选择菜单的一行（微信那种整行居中文字）。 */
+/** 发布选择菜单的一行（整行居中文字）。 */
 @Composable
 private fun PublishChoiceRow(text: String, onClick: () -> Unit) {
     Box(

@@ -468,7 +468,7 @@ internal fun ConfigTab(
                     // - 测试中: 按钮内 CircularProgressIndicator
                     // - 成功: 绿色 ✓ 胶囊 + "连接正常 · N 个模型"
                     // - 失败: 红色 ✗ 胶囊 + 分级错误信息(API Key 无效 / URL 不支持 / 连接超时 / 无法连接服务器)
-                    // - 用 MuseShapes.pill 胶囊形,与 iOS 风格一致
+                    // - 用 MuseShapes.pill 胶囊形
                     // - 关闭按钮用 MuseTactileButton 而非 Material3 IconButton
                     Row(
                         modifier = Modifier
@@ -477,7 +477,7 @@ internal fun ConfigTab(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
                     ) {
-                        // 测试连接按钮(iOS 风格胶囊,非 Material3 IconButton)
+                        // 测试连接按钮(胶囊形,非 Material3 IconButton)
                         val testBtnBg = if (canTestConnection)
                             MaterialTheme.colorScheme.primaryContainer
                         else

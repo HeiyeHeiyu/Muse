@@ -15,7 +15,7 @@ import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.theme.MusePaddings
 
 /**
- * 删除确认对话框(iOS 风格删除确认)— 全站**唯一**的删除确认组件(MEM-04)。
+ * 删除确认对话框(删除确认)— 全站**唯一**的删除确认组件(MEM-04)。
  *
  * 统一句式(三行制):
  *  1. 标题:动作(如"删除 Lorebook")

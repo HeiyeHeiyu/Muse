@@ -61,7 +61,7 @@ fun NavGraphBuilder.chatNavGraph(
             onOpenQuickNotes = { navController.navigate(QuickNotesRoute) },
             onOpenQuickTranslate = { navController.navigate(TranslateRoute) },
             onOpenKnowledgeBase = { navController.navigate(KnowledgeRoute) },
-            // v0.27: 点击任务项 / 新建任务 → push 到独立聊天详情页(右滑入场,对标 iOS push)
+            // v0.27: 点击任务项 / 新建任务 → push 到独立聊天详情页(右滑入场,滑动式 push 过渡)
             onOpenChat = { navController.navigate(ChatDetailRoute) },
             // v0.45: 右上角搜索 → 独立全局搜索页
             onOpenSearch = { navController.navigate(SearchRoute) },
@@ -151,14 +151,14 @@ fun NavGraphBuilder.chatNavGraph(
         if (!showMoments) {
             io.zer0.muse.ui.moment.MiniPhoneScreen(
                 momentsCount = momentState.moments.size,
-                // v1.0.90: 微信 Tab 点会话/通讯录 → 直接进主 App 对话页（复用 ChatScreen）
+                // v1.0.90: 小手机 Tab 点会话/通讯录 → 直接进主 App 对话页（复用 ChatScreen）
                 onOpenChat = { assistantId: String, _, _ ->
                     pendingChatAssistantId = assistantId
                 },
                 // v1.138: 小手机私信空间会话列表
                 miniPhoneSessions = momentState.miniPhoneSessions,
                 onNewSession = { newSessionTrigger++ },
-                // v1.0.90: 微信形态的壳需要动态与消息原始数据（消息列表 / 通讯录）
+                // v1.0.90: 即时通讯形态的壳需要动态与消息原始数据（消息列表 / 通讯录）
                 moments = momentState.moments,
                 momentMessages = momentState.messages,
                 assistants = momentState.assistants,
@@ -311,7 +311,7 @@ fun NavGraphBuilder.chatNavGraph(
         )
     }
 
-    // v0.27: 聊天详情页 — 从首页 push 进入,右滑入场 + 左滑返回(对标 iOS push)
+    // v0.27: 聊天详情页 — 从首页 push 进入,右滑入场 + 左滑返回(滑动式 push 过渡)
     // P1-4 平板适配:Expanded 模式下双列布局(左 ChatListScreen 40% + 右 ChatScreen 60%),
     //               Compact/Medium 保持单列 push/pop
     composable<ChatDetailRoute>(

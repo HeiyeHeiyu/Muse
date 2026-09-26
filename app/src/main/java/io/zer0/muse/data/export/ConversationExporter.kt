@@ -34,7 +34,7 @@ enum class ExportFormat {
  *  - 纯函数式 + 只接收 messages + chatTitle,不依赖 ViewModel / 数据库
  *    (调用方负责加载完整消息列表,见 ChatViewModel 中的包装方法)
  *  - Markdown 导出复用现有 [ChatExportCoordinator] 的格式约定(角色加粗 + 空行分隔)
- *  - HTML 生成单文件,内联 CSS(iOS 聊天气泡风格,适配深浅色),图片用 base64 内联,
+ *  - HTML 生成单文件,内联 CSS(聊天气泡风格,适配深浅色),图片用 base64 内联,
  *    代码块用纯 <pre><code>(C-28: 移除 highlight.js CDN,详见 exportToHtml)
  *  - PDF 用 [PdfDocument] + [Canvas.drawText],A4 分页,页眉(标题 + 日期)+ 页脚(页码)
  *
@@ -120,7 +120,7 @@ object ConversationExporter {
      * 导出为单文件 HTML(内联 CSS + base64 图片,无任何外链)。
      *
      * 样式特征:
-     *  - iOS 聊天气泡风格(用户右对齐蓝色气泡,助手左对齐灰色气泡)
+     *  - 聊天气泡风格(用户右对齐蓝色气泡,助手左对齐灰色气泡)
      *  - 通过 @media (prefers-color-scheme) 适配深浅色
      *  - 代码块用 <pre><code> 包裹纯等宽字体
      *  - 图片:本地 base64 以 data URI 内联;远程 URL 降级为文本链接(见下)
@@ -499,7 +499,7 @@ object ConversationExporter {
     private fun sanitizeFileName(name: String): String =
         name.replace(Regex("""[\\/:*?"<>|\n\r\t]"""), "_").take(40).ifBlank { "muse" }
 
-    /** HTML 内联 CSS(iOS 聊天气泡风格 + 深浅色适配)。 */
+    /** HTML 内联 CSS(聊天气泡风格 + 深浅色适配)。 */
     private val CSS = """
         :root {
             color-scheme: light dark;

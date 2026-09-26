@@ -60,7 +60,7 @@ import io.zer0.muse.ui.theme.MuseMotion
 /**
  * v0.29 P0-1: 空聊天引导 — 轻量居中提示 + 建议 prompt 胶囊。
  *
- * 设计(iOS 风格空状态):
+ * 设计(空状态):
  *  - 不覆盖全屏(Box + CenterAlignment,只占居中区域,不拦截 InputBar)
  *  - 居中品牌图标 + 一句引导语
  *  - 底部"不参考记忆"开关胶囊

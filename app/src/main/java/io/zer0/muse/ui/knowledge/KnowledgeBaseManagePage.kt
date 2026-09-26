@@ -72,7 +72,7 @@ import org.koin.compose.koinInject
  * v1.133: 知识库管理页 — 创建/重命名/删除 KB,查看文档数,一键重索引。
  *
  * 设计:
- *  - MuseTopBar + LazyColumn(iOS Large Title 风格)
+ *  - MuseTopBar + LazyColumn(大标题栏)
  *  - KB 卡片显示名称/描述/文档数,右侧编辑/删除/重索引按钮
  *  - 默认 KB(id="default")不可删除,只可编辑名称/描述
  *  - "重新索引全部文档"按钮调 [RagService.reindexAllInKbs],进度对话框实时显示

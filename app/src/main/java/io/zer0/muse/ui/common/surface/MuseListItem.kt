@@ -43,7 +43,7 @@ import io.zer0.muse.ui.theme.MusePaddings
  *  - 各页面 padding / icon 尺寸 / 字号不统一
  *  - Material3 ListItem 在不同 alpha 下颜色行为不稳定
  *
- * 规格(iOS Settings 风格):
+ * 规格(系统设置风格):
  *  - 最小高度 60dp(对齐 Material3 ListItem 默认,确保触摸目标)
  *  - 水平 padding 16dp,垂直 padding 12dp
  *  - leading content 右侧间距 16dp,trailing content 左侧间距 12dp

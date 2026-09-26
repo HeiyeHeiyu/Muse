@@ -56,7 +56,7 @@ import io.zer0.muse.ui.theme.pill
  * 顶部提供「全部添加新增」「全部移除已删除」批量按钮(用 Surface + clickable,
  * 非 Material3 Button);底部「应用所选变更」一次性提交勾选结果。
  *
- * 视觉风格:warm-paper + iOS 风格,统一使用 [MuseShapes] / [MusePaddings] /
+ * 视觉风格:warm-paper,统一使用 [MuseShapes] / [MusePaddings] /
  * [MuseIconSizes] 等设计令牌;不使用 Material3 默认 Button / AlertDialog。
  *
  * 模型比较按 [Model.id] 字段(忽略大小写)。
@@ -103,7 +103,7 @@ fun ModelDiffSheet(
     val addSelected = remember { mutableStateMapOf<String, Boolean>() }
     val removeSelected = remember { mutableStateMapOf<String, Boolean>() }
 
-    // 初始勾选:默认所有新增项与所有已删除项均预选(按 iOS 风格"默认接受全部变更")
+    // 初始勾选:默认所有新增项与所有已删除项均预选("默认接受全部变更")
     // 用 LaunchedEffect 一次性初始化,避免每次重组覆盖用户的取消操作
     LaunchedEffect(newModels, removedModels) {
         if (addSelected.isEmpty()) newModels.forEach { addSelected[it.id] = true }
@@ -371,7 +371,7 @@ private fun DiffEmptyHint(text: String) {
 /**
  * 单条模型差异行。
  *
- * 视觉:warm-paper + iOS 风格 — 左侧勾选圆圈(选中态填充主色 + 对勾),
+ * 视觉:warm-paper — 左侧勾选圆圈(选中态填充主色 + 对勾),
  * 中间模型 ID + 名称(副标题仅当与 id 不同时显示),右侧可选徽标(已删除项显示「已删除(保留)」)。
  *
  * @param selected 当前是否勾选(用于"待添加"或"待移除"标记)
@@ -396,7 +396,7 @@ private fun DiffModelRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
     ) {
-        // 左侧勾选圈(iOS 风格 22dp 对勾圆圈)
+        // 左侧勾选圈(22dp 对勾圆圈)
         Box(
             modifier = Modifier
                 .size(22.dp)

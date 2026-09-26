@@ -66,7 +66,7 @@ import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 
 /**
- * P2-9: 语音克隆页 — iOS 风格全屏工具页。
+ * P2-9: 语音克隆页 — 全屏工具页。
  *
  * 布局:
  *  - MuseTopBar:返回 + 标题「语音克隆」

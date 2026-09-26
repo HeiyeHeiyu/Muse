@@ -128,7 +128,7 @@ fun SearchScreen(
     MusePageScaffold(
         topBarHandlesInsets = false,
         topBar = {
-            // iOS 风格搜索栏:Surface 凹槽 + 搜索图标 + BasicTextField + 取消文字
+            // 凹槽式搜索栏:Surface 凹槽 + 搜索图标 + BasicTextField + 取消文字
             Surface(
                 color = MaterialTheme.colorScheme.background,
                 modifier = Modifier

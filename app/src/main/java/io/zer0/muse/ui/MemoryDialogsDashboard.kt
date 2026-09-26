@@ -200,7 +200,7 @@ internal fun ImportanceOptionRow(
 }
 
 /**
- * iOS/MANUS 概览统计卡片 — 3 列大数字 + 细竖线分隔。
+ * 概览统计卡片 — 3 列大数字 + 细竖线分隔。
  */
 @Composable
 internal fun OverviewStatCard(state: MemoryUiState) {

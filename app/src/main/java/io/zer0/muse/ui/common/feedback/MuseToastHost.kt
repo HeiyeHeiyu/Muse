@@ -34,7 +34,7 @@ import io.zer0.muse.ui.theme.huge
  * 当 MuseToast.show() 被调用时,顶部滑入一个半透明胶囊提示,
  * 超时后自动滑出消失。
  *
- * iOS 风格:
+ * 视觉:
  *  - 深色半透明背景(暗色主题下更明显)
  *  - 白色文字
  *  - 胶囊圆角(24dp)

@@ -36,10 +36,10 @@ import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 
 /**
- * v1.51: iOS 风格下拉选择器 — 替代 Material3 [androidx.compose.material3.ExposedDropdownMenuBox]。
+ * v1.51: 下拉选择器 — 替代 Material3 [androidx.compose.material3.ExposedDropdownMenuBox]。
  *
  * 视觉差异:
- *  - 点击 OutlinedTextField 弹出 MuseDialog(iOS 风格圆角列表)而非 Material 方块菜单
+ *  - 点击 OutlinedTextField 弹出 MuseDialog(圆角列表)而非 Material 方块菜单
  *  - 选项列表用 Surface + MuseShapes.large 圆角
  *  - 选中项用 primary 色高亮
  *
@@ -65,7 +65,7 @@ fun MuseDropdown(
     onValueChange: (String) -> Unit,
     label: String,
     // L-DD3: options 用 Pair<value, displayText> 承载,缺乏命名,可读性差。
-    // 未来重构建议改为 data class IosDropdownOption(val value: String, val displayText: String),
+    // 未来重构建议改为 data class DropdownOption(val value: String, val displayText: String),
     // 当前保持 Pair 以兼容现有调用方(PromptInjectionRepository.PRESET_MODES 等)。
     options: List<Pair<String, String>>,
     modifier: Modifier = Modifier,

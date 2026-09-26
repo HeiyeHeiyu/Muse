@@ -69,7 +69,7 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
 
 /**
- * 助手列表页 —— iOS / MANUS 风格重写。
+ * 助手列表页 —— 全量重写。
  *
  * 设计要点:
  *  - 大标题 MuseTopBar,右侧导入角色卡入口

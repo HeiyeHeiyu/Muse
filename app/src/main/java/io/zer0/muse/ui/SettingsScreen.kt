@@ -91,7 +91,7 @@ import io.zer0.muse.ui.navigation.SettingsPermissionWizardRoute
 import io.zer0.muse.ui.navigation.ScheduledTasksRoute
 
 /**
- * v2.4 设置页 — iOS / MANUS 风格全量重写。
+ * v2.4 设置页 — 全量重写。
  *
  * 保持 v1.132 的搜索索引与分组结构不变,仅重写视觉层:
  *  - 暖白背景(background),白色卡片浮于其上
@@ -470,7 +470,7 @@ fun SettingsScreen(
                     start = innerPadding.calculateStartPadding(layoutDirection),
                     end = innerPadding.calculateEndPadding(layoutDirection),
                 ),
-                // v2.0.1: 卡片组间距 20dp（ColorOS 17 对齐；原 16dp）
+                // v2.0.1: 卡片组间距 20dp（原 16dp）
                 verticalArrangement = Arrangement.spacedBy(MusePaddings.cardGap),
             ) {
                 item(key = "settings_large_header") {

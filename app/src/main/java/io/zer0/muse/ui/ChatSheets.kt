@@ -579,7 +579,7 @@ internal fun ChatSheetHost(
                 onDismiss = { sheetState.showDelegateSheet = null },
             )
         }
-        // 功能4: 导出格式选择(Markdown / HTML / PDF 三选一,iOS 风格分段选择器)
+        // 功能4: 导出格式选择(Markdown / HTML / PDF 三选一,分段选择器)
         if (sheetState.showExportSheet) {
             io.zer0.muse.ui.chat.ExportFormatPickerDialog(
                 onDismiss = { sheetState.showExportSheet = false },

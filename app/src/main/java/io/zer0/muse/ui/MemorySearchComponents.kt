@@ -70,7 +70,7 @@ import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
 
 /**
- * iOS 风格搜索栏 — Surface + BasicTextField,surfaceVariant 背景,圆角。
+ * 凹槽式搜索栏 — Surface + BasicTextField,surfaceVariant 背景,圆角。
  */
 @Composable
 internal fun MemorySearchBar(
@@ -451,7 +451,7 @@ internal fun categoryDisplayName(category: String): String {
 }
 
 /**
- * 分类分组标题 — iOS 风格居中/左对齐小字。
+ * 分类分组标题 — 居中/左对齐小字。
  */
 @Composable
 internal fun CategorySectionHeader(

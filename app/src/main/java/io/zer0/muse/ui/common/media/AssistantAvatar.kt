@@ -52,7 +52,7 @@ fun AssistantAvatar(
             }
             // M-AA1: 用 SubcomposeAsyncImage 替代 AsyncImage,通过 error slot 处理加载失败。
             // 旧实现加载失败时显示空白 surfaceVariant 背景;现在 fallback 到首字母,
-            // 保证头像始终有可辨识内容(对标 iOS 联系人头像加载失败回退首字母)。
+            // 保证头像始终有可辨识内容(联系人头像加载失败回退首字母)。
             SubcomposeAsyncImage(
                 model = model,
                 contentDescription = assistant.name,

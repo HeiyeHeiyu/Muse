@@ -10,14 +10,14 @@ import androidx.compose.ui.unit.dp
 import io.zer0.muse.ui.theme.MuseCornerRadius
 
 /**
- * iOS 风格分组容器 — 一组共用圆角容器,行间用细分割线分隔。
+ * 分组容器 — 一组共用圆角容器,行间用细分割线分隔。
  *
  * v0.34: 自包含实现 — 渲染为 Surface 卡片(surfaceVariant 0.5f 背景 + 20dp 圆角),
  * 与 [io.zer0.muse.ui.common.surface.CardGroup] 视觉一致。保留此兼容封装供现有二级页
  * (BackupSection / ThemeSection / AboutSection 等)继续使用;一级设置页与新页面
  * 直接用 CardGroup + DSL item。
  *
- * 对标 iOS SwiftUI `Form` / `List(in:)` 的分组视觉。
+ * 对齐系统设置列表的分组视觉。
  *
  * 用法:
  * ```

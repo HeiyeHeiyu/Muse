@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
 /**
- * v1.0.52 P2-2: 记忆空间实体(多 Space 隔离,类似 Notion 工作区)。
+ * v1.0.52 P2-2: 记忆空间实体(多 Space 隔离)。
  *
  * 每个 Space 是一个独立的记忆库,用户可在不同场景(工作/生活/学习)切换,
  * 互不干扰。facts 表通过 space_id 字段关联到 [MemorySpaceEntity]。

@@ -54,7 +54,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * 阶段 7 + P1 修复: 备份与统计 section — iOS 风格分组列表。
+ * 阶段 7 + P1 修复: 备份与统计 section — 分组列表。
  *
  * 三个 [SettingsGroup]:
  *  - 使用统计:会话总数 + 消息总数

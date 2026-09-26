@@ -60,7 +60,7 @@ import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 /**
- * v1.0.53: 封面库管理页(对标 Beautify 封面工作流)。
+ * v1.0.53: 封面库管理页(封面工作流)。
  *
  * 功能:
  *  - 网格展示全部封面(3 列)

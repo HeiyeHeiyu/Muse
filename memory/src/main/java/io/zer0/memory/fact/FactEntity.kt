@@ -14,7 +14,7 @@ import kotlinx.serialization.Serializable
  * v8 schema: 新增 scope 字段(记忆作用域,默认 "main" 表示主助手作用域,
  *   子助手/团队成员使用各自的 assistantId),用于隔离不同 Agent 的记忆。
  * v9 schema: 新增 space_id 字段(记忆空间,默认 "default" 表示默认空间),
- *   用于多 Space 隔离(类似 Notion 工作区),与 scope 正交。
+ *   用于多 Space 隔离,与 scope 正交。
  * v12 schema: 新增 entity_key 字段(实体归一化键)。同一实体的不同写法
  *   (如"张三"/"张先生"/"张三老师")共享同一 entity_key,用于精确去重与
  *   跨写法合并,解决"同一用户名 3 条重复记忆"问题。历史数据为 null,
@@ -129,7 +129,7 @@ data class FactEntity(
     val scope: String = "main",
 
     /**
-     * v9: 记忆空间 id,用于多 Space 隔离(类似 Notion 工作区)。
+     * v9: 记忆空间 id,用于多 Space 隔离。
      *  - "default":默认空间(兼容旧数据)
      *  - 自定义 id:用户创建的工作/生活/学习等空间
      * 与 [scope] 正交:scope 按 Agent 隔离,spaceId 按场景隔离。

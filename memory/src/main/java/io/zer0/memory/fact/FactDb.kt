@@ -24,7 +24,7 @@ import java.time.format.DateTimeFormatter
  * v8 schema: 新增 scope 字段(记忆作用域,默认 "main" 表示主助手作用域),
  *   用于隔离不同 Agent 的记忆,避免子助手误用主助手事实或团队成员记忆混淆。
  * v9 schema: 新增 space_id 字段(记忆空间,默认 "default"),用于多 Space 隔离
- *   (类似 Notion 工作区,工作/生活/学习场景互不干扰);同时新增 memory_spaces 表
+ *   (工作/生活/学习场景互不干扰);同时新增 memory_spaces 表
  *   存储 Space 元数据。space_id 与 scope 正交:scope 按 Agent 隔离,space_id 按场景隔离。
  * v10 schema: 新增 memory_links 表(记忆知识图谱边),存储事实间关系
  *   (causes/explains/part_of/related_to/contradicts),用于 AI 驱动记忆管理

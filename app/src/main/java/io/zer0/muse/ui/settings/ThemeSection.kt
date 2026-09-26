@@ -86,7 +86,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 /**
- * 阶段 7: 外观 section — iOS 风格分组列表。
+ * 阶段 7: 外观 section — 分组列表。
  *
  * 设计:
  *  - 用 [SettingsGroup] 包裹多行 item,行间细分割线

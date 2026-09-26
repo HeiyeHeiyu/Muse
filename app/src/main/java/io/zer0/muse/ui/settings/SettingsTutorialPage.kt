@@ -59,7 +59,7 @@ import kotlinx.coroutines.launch
  * v1.61-B: 使用教程页 — 面向新手的图文引导。
  *
  * 把用户当成完全不懂技术的小白,用通俗语言讲解 Muse 的各项功能。
- * 分为八个章节,每章用圆角卡片(MuseShapes.large)包裹,风格对标 iOS 设置。
+ * 分为八个章节,每章用圆角卡片(MuseShapes.large)包裹,风格对齐系统设置。
  * 禁止 emoji,禁止 Android 原生方块风格。
  *
  * v1.0.16: 右侧增加章节快速跳转竖条,点击对应章节序号可快速滚动定位。

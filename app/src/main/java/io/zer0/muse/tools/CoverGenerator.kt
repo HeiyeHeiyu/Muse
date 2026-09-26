@@ -20,7 +20,7 @@ import okhttp3.Request
 import java.io.File
 
 /**
- * v1.0.53: AI 封面生成服务(对标 Beautify 封面工作流的生图链路)。
+ * v1.0.53: AI 封面生成服务(封面工作流的生图链路)。
  *
  * 流程:
  *  1. 用 cover_generation 模板 + 文档标题/摘要渲染 LLM prompt 生成指令

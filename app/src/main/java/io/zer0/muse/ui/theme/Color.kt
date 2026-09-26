@@ -28,7 +28,7 @@ import androidx.compose.ui.graphics.Color
 /**
  * 月桂绿:主品牌色(浅色模式)。来源于缪斯的月桂叶象征,偏深偏沉的墨绿。
  * v1.0.21: #2D8C5F -> #2A7A55,对比度 4.0:1 -> 4.8:1,达到 WCAG AA 标准,
- * 同时保持月桂绿品牌识别度(MANUS 风格可读性优先)。
+ * 同时保持月桂绿品牌识别度(可读性优先)。
  */
 val LaurelGreen = Color(0xFF2A7A55)
 /**
@@ -62,7 +62,7 @@ val Secondary = Color(0xFF8E8E93)
 val Divider = Color(0xFFE8E8E4)
 /**
  * 危险色:删除 / 停止生成。
- * v1.0.21: #FF3B30(iOS 冷红) -> #D94034(暖砖红),与 MANUS 暖调质感协调,
+ * v1.0.21: #FF3B30(冷红) -> #D94034(暖砖红),与暖调质感协调,
  * 降低视觉攻击性,同时保持足够的警示对比度。
  */
 val Danger = Color(0xFFD94034)

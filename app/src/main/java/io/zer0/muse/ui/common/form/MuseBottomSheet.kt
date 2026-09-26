@@ -120,7 +120,7 @@ fun MuseBottomSheet(
 }
 
 /**
- * iOS 风格底部 Sheet 把手 — 36x4dp 灰色圆角条。
+ * 底部 Sheet 把手 — 36x4dp 灰色圆角条。
  *
  * 设计稿 Sheet 顶部统一有此把手,居中显示。
  */

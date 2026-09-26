@@ -24,7 +24,7 @@ import io.zer0.muse.ui.theme.largeCard
  * 一个 [CardGroup] 内的多个 [item] 共享同一个圆角卡片容器:
  *  - 第一项顶部圆角 20dp,最后一项底部圆角 20dp,中间项直角拼接
  *  - 可选的分组标题(primary 色 + titleSmall 字体)
- *  - item 之间用 [MuseDivider] 分隔(56dp 缩进,对齐 iOS Settings)
+ *  - item 之间用 [MuseDivider] 分隔(56dp 缩进,对齐系统设置)
  *
  * v1.0.26 重构:
  *  - 容器改用 [MuseSurface] 基元,统一 clip/color/shadow 处理
@@ -138,7 +138,7 @@ fun CardGroup(
 
     Column(modifier = modifier) {
         // 标题在卡片外部,不被卡片 clip 影响
-        // v1.0.27 修复:对齐 iOS 设置分组标题 — 灰色小字、紧凑间距
+        // v1.0.27 修复:对齐系统设置分组标题 — 灰色小字、紧凑间距
         if (title != null) {
             CompositionLocalProvider(
                 LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
@@ -147,7 +147,7 @@ fun CardGroup(
                     Box(
                         modifier = Modifier
                             // 标题左边缘与卡片内列表项文字左边缘对齐(56dp = 16dp 卡片内边距 + 24dp 图标 + 16dp 图标到文字间隙),
-                            // 上下间距收紧到 6dp,更贴近 iOS 设置的分组标题节奏。
+                            // 上下间距收紧到 6dp,更贴近系统设置的分组标题节奏。
                             .padding(start = 56.dp, top = MusePaddings.labelVerticalGap, bottom = MusePaddings.labelVerticalGap)
                             .fillMaxWidth(),
                     ) {
@@ -160,7 +160,7 @@ fun CardGroup(
         // 卡片容器:用 MuseSurface 基元统一 clip/color/shadow
         // v1.0.27 修复:背景改为 surface(纯白/暖白),取消阴影 — 根治"灰块拼接"错觉
         // v2.0.1 双平面:层级由"底色(压深) vs 卡面(白)"的明度差承载——
-        // 去掉描边、阴影降为 micro,不再用"线"和"影"分层(参考 ColorOS 17 结构)。
+        // 去掉描边、阴影降为 micro,不再用"线"和"影"分层。
         MuseSurface(
             modifier = Modifier.fillMaxWidth(),
             shape = MuseShapes.largeCard,

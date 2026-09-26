@@ -67,16 +67,16 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * 小手机（1:1 微信形态）。
+ * 小手机（1:1 即时通讯形态）。
  *
- * 结构完全按微信来：
- *  第一页「微信」  = 会话列表（与助手的往来：头像 / 名字 / 最后一条 / 时间 / 未读点）
+ * 结构按经典即时通讯来：
+ *  第一页 = 会话列表（与助手的往来：头像 / 名字 / 最后一条 / 时间 / 未读点）
  *  第二页「通讯录」= 助手联系人（分字母段 + 右侧字母索引）
  *  第三页「发现」  = 朋友圈（封面预览 + 未读红点）+ 相册
  *  第四页「我」    = 个人资料卡 + 全部杂项（相册 / 日记本 / 天气 / 速记 / 换壁纸 / 设置）
  *
- * 排版照搬微信：浅灰底 + 白底分组、16dp 行内边距、发丝分割线（左侧缩进到头像之后）、
- * 顶部居中标题栏、底部四 Tab 常驻。配色走主题令牌，不写死微信绿。
+ * 排版走经典即时通讯风：浅灰底 + 白底分组、16dp 行内边距、发丝分割线（左侧缩进到头像之后）、
+ * 顶部居中标题栏、底部四 Tab 常驻。配色走主题令牌，不写死品牌色。
  */
 @Composable
 fun MiniPhoneScreen(
@@ -233,7 +233,7 @@ fun MiniPhoneScreen(
                     )
                 }
 
-                // ── 标题栏（微信：浅灰底 + 居中黑字 + 右侧操作）──
+                // ── 标题栏（浅灰底 + 居中黑字 + 右侧操作）──
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -463,7 +463,7 @@ private fun ContactsTab(
                     }
                 }
             }
-            // 右侧字母索引（微信通讯录的标志性元素）
+            // 右侧字母索引（通讯录的标志性元素）
             Column(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
@@ -506,7 +506,7 @@ private fun DiscoverTab(
     Column(modifier = Modifier.fillMaxSize()) {
         Spacer(Modifier.height(10.dp))
         WeChatGroup {
-            // 朋友圈：左侧放自己的头像（微信就是这样）
+            // 朋友圈：左侧放自己的头像
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -633,7 +633,7 @@ private fun MeTab(
     }
 }
 
-// ── 微信排版基础件 ───────────────────────────────────────────────────────────
+// ── 排版基础件 ───────────────────────────────────────────────────────────
 
 /** 底部 Tab 项。 */
 @Composable
@@ -680,7 +680,7 @@ private fun androidx.compose.foundation.layout.RowScope.MiniPhoneTab(
     }
 }
 
-/** 白底分组卡（微信的列表容器）。 */
+/** 白底分组卡（列表容器）。 */
 @Composable
 private fun WeChatGroup(content: @Composable () -> Unit) {
     Surface(
@@ -691,7 +691,7 @@ private fun WeChatGroup(content: @Composable () -> Unit) {
     }
 }
 
-/** 发丝分割线，左侧缩进（微信的排版习惯）。 */
+/** 发丝分割线，左侧缩进（排版习惯）。 */
 @Composable
 private fun WeChatDivider(startIndent: Int = 70) {
     Box(
@@ -758,7 +758,7 @@ private fun AvatarBubble(
     }
 }
 
-/** 会话/联系人行：头像 + 主副标题 + 右侧时间（微信会话行）。 */
+/** 会话/联系人行：头像 + 主副标题 + 右侧时间（会话行）。 */
 @Composable
 private fun WeChatRow(
     avatarUrl: String?,
@@ -858,7 +858,7 @@ private fun WeChatListRow(
     }
 }
 
-/** 搜索条（微信顶部灰条）。 */
+/** 搜索条（顶部灰条）。 */
 @Composable
 private fun WeChatSearchBar(query: String, onQueryChange: (String) -> Unit) {
     Surface(
@@ -946,7 +946,7 @@ private fun formatRowTime(createdAt: Long): String {
 }
 
 /**
- * 小手机微信聊天页的目标状态（仅用于导航层暂存）。
+ * 小手机聊天页的目标状态（仅用于导航层暂存）。
  */
 internal data class MiniPhoneChatTarget(
     val assistantId: String,

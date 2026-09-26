@@ -24,7 +24,7 @@ import io.zer0.muse.ui.common.form.MuseCapsuleTab
  * 导出格式选择对话框(Markdown / HTML / PDF 三选一)。
  *
  * 设计要点:
- *  - iOS 风格分段选择器([MuseCapsuleTab])做格式切换
+ *  - 分段选择器([MuseCapsuleTab])做格式切换
  *  - 选中后点击底部"导出"按钮触发回调 [onFormatSelected]
  *  - 每种格式下方显示简短说明,帮助用户理解差异
  *
@@ -65,7 +65,7 @@ fun ExportFormatPickerDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                // iOS 风格分段选择器
+                // 分段选择器
                 MuseCapsuleTab(
                     tabs = labels,
                     selectedIndex = selectedIndex,

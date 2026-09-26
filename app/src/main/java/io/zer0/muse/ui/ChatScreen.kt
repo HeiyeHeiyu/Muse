@@ -1827,7 +1827,7 @@ fun ChatScreen(
                             onSetReaction = { reaction -> viewModel.setReaction(msg.id, reaction) },
                             onTranslate = onTranslate,
                             onToggleFavorite = onToggleFavorite,
-                            // 阶段 J: 复制消息内容到剪贴板(iOS 风格长按 → 复制)
+                            // 阶段 J: 复制消息内容到剪贴板(长按 → 复制)
                             // M-S8: clipboard 写切到 IO 线程,避免主线程 IPC
                             onCopyMessage = { text ->
                                 ioScope.launch {

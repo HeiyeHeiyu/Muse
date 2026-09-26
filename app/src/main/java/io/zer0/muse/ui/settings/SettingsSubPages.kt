@@ -78,7 +78,7 @@ import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.common.resultOf
 
 /**
- * v0.34: 通用二级设置页容器 — iOS 风格 Large Title 顶部栏。
+ * v0.34: 通用二级设置页容器 — 大标题栏。
  *
  * 三段式导航(左返回 + 中大标题 + 右空)。用 LazyColumn(支持 LazyListScope 扩展如
  * providerListSection)。

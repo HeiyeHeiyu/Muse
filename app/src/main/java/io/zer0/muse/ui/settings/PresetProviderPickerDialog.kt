@@ -86,7 +86,7 @@ fun PresetProviderPickerDialog(
 /**
  * 预置供应商选择全屏页面 — 实际实现。
  *
- * iOS 风格顶部栏 + 搜索栏 + LazyColumn。
+ * 顶部栏 + 搜索栏 + LazyColumn。
  */
 @Composable
 private fun PresetProviderPickerPage(

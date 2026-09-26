@@ -841,7 +841,7 @@ internal fun ProviderEditPage(
                         )
                     }
                     // v2.4: 测试连接按钮已移至 ConfigTab(紧邻 baseUrl/apiKey 输入框,
-                    // 结果胶囊就近展示,符合 iOS 设置页"操作就近反馈"风格)
+                    // 结果胶囊就近展示,符合系统设置页"操作就近反馈"风格)
                     // v1.134 P0-2: 保存按钮用 Surface+clickable 胶囊(避免 Material3 默认 Button)
                     Surface(
                         shape = MuseShapes.pill,

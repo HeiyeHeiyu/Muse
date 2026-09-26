@@ -350,12 +350,12 @@ internal fun EmptyModelsState(
 }
 
 /**
- * 拉取上游模型成功后弹出的 iOS 风格底部 Sheet。
+ * 拉取上游模型成功后弹出的底部 Sheet。
  *
  * 改进点:
  *  - 不再手动输入上下文(K),统一用 [ModelContextWindowRegistry] 自动推断
- *  - 复选框改为 iOS 式行点击 + 右侧对勾
- *  - 搜索栏、分组标题、底部按钮均使用暖色/iOS 风格
+ *  - 复选框改为行点击 + 右侧对勾
+ *  - 搜索栏、分组标题、底部按钮均使用暖色风格
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -394,7 +394,7 @@ internal fun FetchedModelsPickerSheet(
 
                 Spacer(Modifier.size(MusePaddings.itemGap))
 
-                // iOS 风格搜索栏
+                // 凹槽式搜索栏
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -515,7 +515,7 @@ internal fun FetchedModelsPickerSheet(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
                         ) {
-                            // 左侧选中态:iOS 风格对勾圆圈
+                            // 左侧选中态:对勾圆圈
                             Box(
                                 modifier = Modifier
                                     .size(22.dp)

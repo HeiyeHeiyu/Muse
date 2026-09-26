@@ -22,7 +22,7 @@ import io.zer0.muse.ui.common.surface.museTopBarInsets
 import io.zer0.muse.ui.theme.MusePaddings
 
 /**
- * iOS 风格通用顶部栏 — 替代 Material TopAppBar / LargeTopAppBar。
+ * 通用顶部栏 — 替代 Material TopAppBar / LargeTopAppBar。
  *
  * 结构:statusBarsPadding → 返回按钮行 → Large Title(可选)。
  * 适用于所有子页面(设置子页/助手/知识库/记忆/翻译等)。
@@ -83,7 +83,7 @@ fun MuseTopBar(
             }
             actions()
         }
-        // Large Title 独占一行(v1.0.19: 字号改用 displayLarge 令牌,符合 iOS Large Title 34sp 标准)
+        // Large Title 独占一行(v1.0.19: 字号改用 displayLarge 令牌,符合大标题栏 34sp 标准)
         if (largeTitle) {
             Text(
                 text = title,

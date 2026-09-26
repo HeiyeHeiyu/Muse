@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * iOS 风格优雅提示组件 — 替代原生 Toast。
+ * 优雅提示组件 — 替代原生 Toast。
  *
  * 全局单例,任何地方调用 [show] 即可触发,
  * 由 [MuseToastHost] Composable 观察并渲染。

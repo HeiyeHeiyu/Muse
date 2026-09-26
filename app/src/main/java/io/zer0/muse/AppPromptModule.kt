@@ -13,7 +13,7 @@ val appPromptModule = module {
     // Phase 12: PromptTemplateLoader �?�?assets/prompt_templates/ 加载提示词模�?
     single { io.zer0.muse.transformer.PromptTemplateLoader(androidContext()) }
 
-    // v1.0.53: 封面库 + AI 封面生成(Beautify 封面工作流)
+    // v1.0.53: 封面库 + AI 封面生成(封面工作流)
     single { io.zer0.muse.data.cover.CoverLibraryRepository(androidContext()) }
     single {
         io.zer0.muse.tools.CoverGenerator(

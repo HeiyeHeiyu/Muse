@@ -120,7 +120,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * 消息单元 — iOS 风格。
+ * 消息单元。
  *
  * - USER: iMessage 灰泡,右对齐,非对称圆角(右下 6dp,其他 20dp),最大宽 280dp
  * - ASSISTANT: 无气泡,全宽文本,左对齐,直接铺在底色上
@@ -128,7 +128,7 @@ import kotlinx.coroutines.launch
  * - 图片渲染: Phase 5-G,若 imageUrls 非空,用 Coil AsyncImage 展示
  * - 流式光标(阶段 4):末尾 AI 流式消息文本后追加闪烁竖线光标
  * - 长按菜单(阶段 4):整条消息长按弹出操作菜单(编辑/重新生成/翻译/朗读/收藏)
- * - 末尾 AI 快捷按钮(阶段 4):流式结束后显示"重新生成"图标按钮(iOS 风格)
+ * - 末尾 AI 快捷按钮(阶段 4):流式结束后显示"重新生成"图标按钮
  */
 
 // v1.x: 产物占位符标记(模型可能直接输出 [artifact:uuid] 引用,但无成对标签内容);
@@ -286,7 +286,7 @@ internal fun MessageBubble(
     // 长按菜单需要使用手指实际按下的位置,而不是整条气泡的固定边界。
     var actionMenuPressPointLocal by remember { mutableStateOf<Offset?>(null) }
     var actionMenuPointInWindow by remember { mutableStateOf<Offset?>(null) }
-    // v1.0.72: Manus 风格长按菜单 — false=精简面板(引用/分享/复制/选择文本/更多),
+    // v1.0.72: 长按菜单 — false=精简面板(引用/分享/复制/选择文本/更多),
     // true=展开完整菜单(委托/分支/翻译/收藏/编辑/删除等)
     // 语言子菜单属于完整菜单层；否则快捷翻译会先落到精简点按菜单。
     val showExtendedMenu = actionSurface == MessageActionSurface.Extended ||
@@ -524,7 +524,7 @@ internal fun MessageBubble(
         }
         }
 
-        // Phase 8.3: 推理过程折叠卡片(对标 ChatGPT reasoning 折叠区)
+        // Phase 8.3: 推理过程折叠卡片(推理折叠区)
         // v0.31: 受 chatPrefs.showReasoning 开关控制,默认展开状态由 chatPrefs.reasoningExpandedByDefault 决定
         // v1.45: 改为外部受控,切页/后台后保持折叠状态
         // v1.118: 折叠时标题显示思考内容摘要(而非静态"思考过程"四字),让用户快速了解思考了什么
@@ -988,7 +988,7 @@ internal fun MessageBubble(
                 val assistantShape = resolvedSkin?.style?.radiusDp?.dp?.let { RoundedCornerShape(it) }
                     ?: MuseBubbleStyles.assistantBubbleShape()
                 // v2.x: 长文校准 — 结构型/超长回复"不进卡":外壳容器取消(底色/描边/圆角/70% 宽度上限全去),
-                // 内容直接落在呼吸边上全宽排版(ColorOS 17 借鉴的"长内容阅读节奏")。皮肤模式下以皮肤为准。
+                // 内容直接落在呼吸边上全宽排版(长内容阅读节奏)。皮肤模式下以皮肤为准。
                 val isLongFormBubble = !isPureToolBubble && resolvedSkin == null &&
                     isLongFormContent(msg.content)
                 Column(
@@ -1600,12 +1600,12 @@ internal fun MessageBubble(
         }
 
         // 阶段 4: 长按菜单
-        // v1.0.72: Telegram 风格 — Popup 定位在消息附近(哪里按哪里弹出,非底部滑入),
+        // v1.0.72: 浮层式 Popup — 定位在消息附近(哪里按哪里弹出,非底部滑入),
         // 卡片含 引用/复制/选择文本/分享/编辑(仅用户消息)/更多;
         // "更多"展开完整菜单(委托/分支/翻译/收藏/删除等,原逻辑保留)。
         if (showActionMenu) {
             if (!showExtendedMenu) {
-                // ── Telegram 风格 Popup 卡片(锚定消息气泡) ──
+                // ── 消息操作 Popup 卡片(锚定消息气泡) ──
                 // v1.0.74 fix: 此前无 parent 锚点,菜单永远弹在窗口右上角(离手指很远)。
                 // 改为按气泡窗口位置定位:菜单右缘贴气泡右缘,上缘在气泡上方 8dp。
                 // E4 (H8): 定位逻辑收敛到通用 MusePopover(宽度 220dp、间距 8dp);
@@ -2140,7 +2140,7 @@ internal fun MessageBubble(
  * v1.0.72 迭代:
  *  - 整体紧凑:缩小图标底块 / 行高 / 圆角 / 间距。
  *  - scale+fade 进场动画。
- *  - D4 (CHAT-05): 配色跟随主题(colorScheme 语义色),不再写死 iOS 黑白。
+ *  - D4 (CHAT-05): 配色跟随主题(colorScheme 语义色),不再写死黑白。
  * 内容:引用 / 复制 / 选择文本 / 分享 / 转发 / 编辑(仅用户消息) / 更多。
  */
 @Composable
@@ -2155,7 +2155,7 @@ private fun TelegramActionCard(
     // F-2: 跨会话转发
     onForward: () -> Unit = {},
 ) {
-    // D4 (CHAT-05): 长按菜单跟随主题 — 去写死 iOS 黑白配色,改用 colorScheme 语义色,
+    // D4 (CHAT-05): 长按菜单跟随主题 — 去写死黑白配色,改用 colorScheme 语义色,
     // 自定义主题/深色下不再出戏。
     val bg = MaterialTheme.colorScheme.surfaceContainerHigh
     val textColor = MaterialTheme.colorScheme.onSurface

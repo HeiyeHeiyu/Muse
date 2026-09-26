@@ -32,13 +32,13 @@ import io.zer0.muse.ui.theme.MuseHaptics
 import io.zer0.muse.ui.theme.MuseMotion
 
 /**
- * iOS 风格卡片按压效果 — 既有实现 触觉交互核心组件。
+ * 卡片按压效果 — 既有实现 触觉交互核心组件。
  *
  * 按下时:
  *  - 背景颜色渐变 (200ms easeOutCubic): 浅色提亮 55%,深色模式轻微提亮 18%
  *  - 可选缩放 (0.98): 轻微缩小营造"陷入"感
  *    v1.0.23: 缩放曲线从 tween 改为 spring(MediumBouncy + StiffnessMediumLow),
- *    按下与回弹自带轻微过冲,呈现 MANUS 风格弹性反馈
+ *    按下与回弹自带轻微过冲,呈现弹性反馈
  *  - 可选触觉反馈: 轻击
  *
  * 无涟漪效果 (indication = null), 替代标准 `clickable {}` 的 Surface。
@@ -103,9 +103,9 @@ fun MuseCardPress(
         label = "card_press_color",
     )
 
-    // v1.0.23: 按压缩放改为 spring 弹簧曲线,增强 MANUS 风格弹性反馈。
+    // v1.0.23: 按压缩放改为 spring 弹簧曲线,增强弹性反馈。
     // 原 tween 线性曲线过渡生硬,spring 中等阻尼 + 中低刚度让卡片按下与回弹
-    // 自带轻微过冲,模拟指尖按压软质的物理感,与 MANUS 暖调质感呼应。
+    // 自带轻微过冲,模拟指尖按压软质的物理感,与暖调质感呼应。
     // 颜色渐变保留 MuseMotion.tween(触觉色彩变化不需要弹性,线性更稳)。
     val animatedScale by animateFloatAsState(
         targetValue = if (isPressed && enableScale) 0.98f else 1f,

@@ -264,14 +264,14 @@ private fun ColorScheme.toHighContrast(darkTheme: Boolean): ColorScheme =
  *  - 高对比模式不走这里(见 [toHighContrast])，两者的目标相反。
  *
  * v2.0.1 「双平面」：浅色模式额外把 page 底色（background/surfaceDim）朝黑端压一档，
- * 让"浅底色 + 更亮卡面(surface)"的明度差成为层级的主要载体（ColorOS 17 结构借鉴）；
+ * 让"浅底色 + 更亮卡面(surface)"的明度差成为层级的主要载体；
  * 卡面不再靠描边/阴影分层。深色模式暂不变（待深色参考校准）。
  */
 private fun ColorScheme.toWhiterNeutrals(darkTheme: Boolean): ColorScheme =
     if (darkTheme) {
         copy(
-            // v2.x 深色双平面(ColorOS 17 深色校准):底色向 OLED 纯黑压一档(与浅色"底色压深"同构);
-            // 实测参照:ColorOS 深色 = #000 底 / #1A1A1A 卡,层级靠底-卡明度差。
+            // v2.x 深色双平面(深色模式校准):底色向 OLED 纯黑压一档(与浅色"底色压深"同构);
+            // 实测参照:深色 = #000 底 / #1A1A1A 卡,层级靠底-卡明度差。
             background = darkenToward(background, DOUBLE_PLANE_DARK_BG_PUSH),
             surface = darkenToward(surface, DOUBLE_PLANE_DARK_BG_PUSH),
             surfaceDim = darkenToward(surfaceDim, DOUBLE_PLANE_DARK_BG_PUSH),
@@ -304,7 +304,7 @@ private fun ColorScheme.toWhiterNeutrals(darkTheme: Boolean): ColorScheme =
 private const val DOUBLE_PLANE_BG_PUSH = 0.045f
 
 /**
- * 「双平面」深色模式底色压黑幅度（ColorOS 17 深色校准，v2.x）：
+ * 「双平面」深色模式底色压黑幅度（深色模式校准，v2.x）：
  * 向 OLED 纯黑压 75%（预设近黑底如 #101014 → #040405 级别），
  * 让"底 vs 卡"明度差成为深色层级的主要载体。
  * （校准参数：随深色截图/实机观感迭代时单点调整。）

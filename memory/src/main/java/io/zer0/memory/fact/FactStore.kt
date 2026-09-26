@@ -115,7 +115,7 @@ class FactStore(
         val scope: String = "main",
         /**
          * v9: 记忆空间 id,默认 "default" 表示默认空间。
-         * 用于多 Space 隔离(类似 Notion 工作区,工作/生活/学习场景互不干扰)。
+         * 用于多 Space 隔离(工作/生活/学习场景互不干扰)。
          * 与 [scope] 正交:scope 按 Agent 隔离,spaceId 按场景隔离。
          * [add] / [addBatch] 的 spaceId 参数会覆盖此字段。
          */

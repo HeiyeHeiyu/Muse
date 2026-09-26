@@ -41,7 +41,7 @@ import io.zer0.muse.ui.theme.MuseShapes
 /**
  * 带开关的设置项行 — 左侧图标 + 标题 + 副标题,右侧 Switch。
  *
- * 对标 iOS SwiftUI `Toggle` in Form 的视觉。
+ * 对齐系统设置开关的视觉。
  * CMP-09: 全项目开关行唯一实现(原通用 `SwitchRow` 已删除并全部迁到此处);
  * 图标可空、副标题可空,两者的形态差异只由参数表达,不再有第二套组件。
  *

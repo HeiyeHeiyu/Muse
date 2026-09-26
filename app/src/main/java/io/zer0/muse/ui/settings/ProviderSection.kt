@@ -66,7 +66,7 @@ sealed class ProviderTestStatus {
 }
 
 /**
- * Provider 列表 section — iOS 风格分组列表。
+ * Provider 列表 section — 分组列表。
  *
  * 用 [SettingsGroup] 包裹所有 Provider,每个 Provider 一行。
  * 行内左侧品牌图标、中间名称与类型、右侧启用/禁用状态标签 + 右箭头。

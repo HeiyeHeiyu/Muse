@@ -37,7 +37,7 @@ import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 
 /**
- * Phase 3 3B: 语音消息录制条 — WeChat 风格长按录音 + 波形动画。
+ * Phase 3 3B: 语音消息录制条 — 长按录音 + 波形动画。
  *
  * @param isRecording 是否正在录音
  * @param durationSeconds 已录音时长(秒)

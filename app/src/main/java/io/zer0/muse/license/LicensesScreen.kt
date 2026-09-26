@@ -50,7 +50,7 @@ import org.koin.compose.koinInject
 /**
  * Phase 13: 开源许可页。
  *
- * 设计(iOS 风格设置页"Open Source Licenses"):
+ * 设计(设置页"Open Source Licenses"):
  *  - TopAppBar 标题"开源许可"+ 返回箭头
  *  - 顶部统计卡: "Muse 使用 N 个开源依赖,均为 Apache 2.0 / MIT 协议"
  *  - 按协议分组的卡片:

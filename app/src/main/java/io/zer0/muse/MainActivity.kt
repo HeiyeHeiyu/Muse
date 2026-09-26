@@ -100,7 +100,7 @@ import io.zer0.muse.ui.navigation.KnowledgeBaseManageRoute
  *  - 处理分享/Deep Link Intent(把外部文本/图片投递到 ChatViewModel)
  *  - 监听主题/字号变更,应用到 MuseTheme
  *
- * 页面过渡动画:首页 Tab 之间用 fade,详情页用右滑入/左滑出(对标 iOS push)。
+ * 页面过渡动画:首页 Tab 之间用 fade,详情页用右滑入/左滑出(滑动式 push 过渡)。
  */
 
 class MainActivity : ComponentActivity() {
@@ -346,7 +346,7 @@ class MainActivity : ComponentActivity() {
  *  - 首页改为 [HomeScreen](startDestination = HOME)
  *  - HomeScreen 顶部胶囊 Tab: 会话 / Agent
  *  - 左上角头像 → 设置中心
- *  - 设置/助手/记忆等通过路由跳转(slide-in 动画,对标 iOS push)
+ *  - 设置/助手/记忆等通过路由跳转(slide-in 动画,滑动式 push 过渡)
  *
  * 路由列表:
  *  - HOME (首页): 顶部 Tab 导航(会话列表 + Agent 聊天)

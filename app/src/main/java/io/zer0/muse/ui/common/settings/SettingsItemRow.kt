@@ -36,7 +36,7 @@ import io.zer0.muse.ui.theme.MuseShapes
 /**
  * 通用设置项行 — 左侧图标 + 标题 + 副标题,右侧 trailing 内容。
  *
- * 对标 iOS SwiftUI `NavigationLink` / `Button` in Form 的视觉。
+ * 对齐系统设置列表项的视觉。
  *
  * @param icon 左侧图标(null 则不显示)
  * @param title 主标题
@@ -59,7 +59,7 @@ fun SettingsItemRow(
 ) {
     val rowInteractionSource = remember { MutableInteractionSource() }
     val isRowPressed by rowInteractionSource.collectIsPressedAsState()
-    // iOS 按压: 白/黑偏移 55%, 220ms easeOutCubic
+    // 按压: 白/黑偏移 55%, 220ms easeOutCubic
     val colorScheme = MaterialTheme.colorScheme
     val isLight = colorScheme.surface.luminance() > 0.5f
     val pressColor = if (isLight) Color.Black.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.08f)

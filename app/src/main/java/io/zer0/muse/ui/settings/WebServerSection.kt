@@ -48,7 +48,7 @@ import io.zer0.muse.ui.theme.MuseShapes
 import kotlinx.coroutines.launch
 
 /**
- * P1-2 修复: 嵌入式 Web 服务器配置 section — iOS 风格分组列表。
+ * P1-2 修复: 嵌入式 Web 服务器配置 section — 分组列表。
  *
  * 阶段 C 升级: 动态获取局域网 IP + 一键复制访问地址。
  *
