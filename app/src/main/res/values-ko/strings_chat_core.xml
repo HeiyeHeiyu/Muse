@@ -394,7 +394,10 @@
     <string name="chat_list_section_recent">최근의</string>
     <string name="chat_list_section_pinned">고정됨</string>
     <string name="chat_list_section_folders">폴더</string>
-    <string name="chat_list_section_knowledge">지식</string>
+    <string name="chat_list_section_knowledge">자료</string>
+    <!-- v2.x: recall bar + partners row -->
+    <string name="chat_list_recall_format">지난번 %1$s와(과) 「%2$s」</string>
+    <string name="chat_list_add_partner">파트너 추가</string>
     <string name="chat_list_new_folder">새 폴더</string>
 
     <!-- Task home -->

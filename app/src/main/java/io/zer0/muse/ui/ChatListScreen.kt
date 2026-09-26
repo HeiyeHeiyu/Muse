@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -29,9 +30,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -68,6 +71,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import io.zer0.muse.R
 import io.zer0.muse.transformer.InternalMarkupSanitizer
@@ -202,8 +206,7 @@ fun ChatListScreen(
     var showCreateFolderDialog by remember { mutableStateOf(false) }
     var newFolderName by remember { mutableStateOf("") }
 
-    // 首页数据:记忆数量与知识库文档数量
-    var memoryCount by remember { mutableStateOf(0) }
+    // 首页数据:知识库文档数量
     var docCount by remember { mutableStateOf(0) }
     // 问候语匹配用的近期记忆(主作用域,取最近 100 条;避免子助手角色扮演记忆混入提醒)
     var greetingFacts by remember { mutableStateOf<List<FactEntity>>(emptyList()) }
@@ -229,7 +232,6 @@ fun ChatListScreen(
     LaunchedEffect(Unit) {
         // 审计修复 (8.8): 去掉内层 scope.launch — 原实现内层协程属于 rememberCoroutineScope,
         // 不随 LaunchedEffect 取消(离开组合/翻页后仍在跑),且双重启动无意义。
-        runCatching { memoryCount = factDao.count() }
         runCatching { docCount = knowledgeDocDao.countUserVisible() }
         // 必须先拿到局部 facts 再生成,不能在同一协程里读取刚刚 set 的 Compose 状态。
         val facts = runCatching { factDao.getAll("main").take(100) }.getOrElse {
@@ -371,12 +373,10 @@ fun ChatListScreen(
                     // 问候标题
                     item(key = "greeting") {
                         GreetingHeader(
-                            memoryCount = memoryCount,
                             facts = greetingFacts,
                             personalizedHint = greetingHint,
                             dailySummaryText = dailySummary?.text,
                             dailySummaryDate = dailySummary?.date,
-                            assistantName = currentAssistant?.name
                         )
                     }
 
@@ -490,20 +490,17 @@ fun ChatListScreen(
     } // I3: 列表区错误边界收尾
 }
 
-/** 顶部问候标题 + 记忆数量副标题。 */
+/** 顶部问候标题 + 日期行 + 个性化提醒。 */
 @Composable
 private fun GreetingHeader(
-    memoryCount: Int,
     facts: List<FactEntity>,
     /** v1.x: LLM 生成的个性化后缀(非空时优先展示,未生成则回退规则版)。 */
     personalizedHint: String? = null,
     /** v1.x: 最近一天内的每日总结,优先于事件记忆提示展示。 */
     dailySummaryText: String? = null,
     dailySummaryDate: String? = null,
-    assistantName: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    val name = assistantName ?: stringResource(R.string.assistant_repo_default_name)
     // I18N-01: 问候语经资源解析(测试路径仍可直接调 GreetingHelper 中文回退)。
     val resources = LocalContext.current.resources
     Column(
@@ -520,6 +517,13 @@ private fun GreetingHeader(
                 fontWeight = FontWeight.Bold,
             ),
             color = MaterialTheme.colorScheme.onSurface,
+        )
+        // v2.x: 日期行(替代"熟悉度"记忆计数行)——"9月27日 星期六"
+        Text(
+            text = GreetingHelper.getDateLine(res = resources),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp),
         )
         // 每日总结和近期提醒各占一行,首页问候区最多展示两行,避免长文本撑开布局。
         val reminderHint = GreetingHelper.compactGreetingText(
@@ -553,11 +557,149 @@ private fun GreetingHeader(
                 modifier = Modifier.padding(top = 2.dp),
             )
         }
-        Spacer(Modifier.height(4.dp))
+    }
+}
+
+/**
+ * v2.x: 我的伙伴横排 — 常用助手(启用状态)头像快捷入口。
+ *
+ * 点击助手头像 → 直进与该助手的最近会话(无会话时回落到打开助手管理)。
+ * 末尾"+"为加伙伴入口。
+ */
+@Composable
+private fun PartnerRow(
+    assistants: List<AssistantEntity>,
+    sessions: List<SessionEntity>,
+    onSelectSession: (String) -> Unit,
+    onOpenAssistants: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val latestByAssistant = remember(sessions) {
+        sessions.groupBy { it.assistantId }
+            .mapValues { (_, list) -> list.maxByOrNull { it.updatedAt } }
+    }
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = MusePaddings.screen),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        assistants.forEach { assistant ->
+            val latest = latestByAssistant[assistant.id]
+            Column(
+                modifier = Modifier
+                    .clip(MuseShapes.medium)
+                    .clickable {
+                        val target = latest
+                        if (target != null) onSelectSession(target.id) else onOpenAssistants()
+                    }
+                    .padding(2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val emoji = assistant.avatarEmoji.takeIf { it.isNotBlank() }
+                    if (emoji != null) {
+                        Text(text = emoji, fontSize = 20.sp)
+                    } else {
+                        Text(
+                            text = assistant.name.take(1),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = assistant.name,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 52.dp),
+                )
+            }
+        }
+        // 末尾"+" — 加伙伴(打开助手管理)
+        Column(
+            modifier = Modifier
+                .clip(MuseShapes.medium)
+                .clickable { onOpenAssistants() }
+                .padding(2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = MuseIcons.plus,
+                    contentDescription = stringResource(R.string.chat_list_add_partner),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = " ",
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+    }
+}
+
+/**
+ * v2.x: 回顾条(候选A) — "💬 上次和 X 聊到「…」",整条可点直进最近会话。
+ */
+@Composable
+private fun RecallBar(
+    session: SessionEntity,
+    assistantName: String?,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val name = assistantName ?: stringResource(R.string.assistant_repo_default_name)
+    val preview = remember(session.lastMessagePreview) {
+        InternalMarkupSanitizer.stripForDisplay(session.lastMessagePreview)
+            .replace(Regex("""\[artifact:[0-9a-fA-F-]{36}\]"""), "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }
+    if (preview.isBlank()) return
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = MusePaddings.screen)
+            .clip(MuseShapes.medium)
+            .background(MaterialTheme.colorScheme.surface)
+            .clickable { onSelect(session.id) }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = "💬", fontSize = 13.sp)
+        Spacer(Modifier.width(8.dp))
         Text(
-            text = GreetingHelper.getMemoryCountText(memoryCount, name, resources),
+            text = stringResource(R.string.chat_list_recall_format, name, preview.take(18)),
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(
+            imageVector = MuseIcons.arrowRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.size(16.dp),
         )
     }
 }

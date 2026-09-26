@@ -394,7 +394,10 @@
     <string name="chat_list_section_recent">Недавний</string>
     <string name="chat_list_section_pinned">Закреплено</string>
     <string name="chat_list_section_folders">Папки</string>
-    <string name="chat_list_section_knowledge">Знание</string>
+    <string name="chat_list_section_knowledge">Материалы</string>
+    <!-- v2.x: recall bar + partners row -->
+    <string name="chat_list_recall_format">Последний чат с %1$s: «%2$s»</string>
+    <string name="chat_list_add_partner">Добавить партнёра</string>
     <string name="chat_list_new_folder">Новая папка</string>
 
     <!-- Task home -->

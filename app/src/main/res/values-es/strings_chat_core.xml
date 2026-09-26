@@ -394,7 +394,10 @@
     <string name="chat_list_section_recent">Reciente</string>
     <string name="chat_list_section_pinned">Fijado</string>
     <string name="chat_list_section_folders">Carpetas</string>
-    <string name="chat_list_section_knowledge">Conocimiento</string>
+    <string name="chat_list_section_knowledge">Recursos</string>
+    <!-- v2.x: recall bar + partners row -->
+    <string name="chat_list_recall_format">Última charla con %1$s: "%2$s"</string>
+    <string name="chat_list_add_partner">Añadir compañero</string>
     <string name="chat_list_new_folder">Nueva carpeta</string>
 
     <!-- Task home -->

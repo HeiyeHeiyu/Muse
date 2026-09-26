@@ -271,6 +271,25 @@ object GreetingHelper {
     }
 
     /**
+     * v2.x: 首页日期行(替代原"熟悉度"记忆计数行) — 例:9月27日 星期六。
+     *
+     * 按应用语言本地化;中/日文用「M月d日 EEEE」,韩文用「M월 d일 EEEE」,其余「MMM d, EEEE」。
+     * 格式化异常时回退 ISO 日期。
+     */
+    fun getDateLine(date: LocalDate = LocalDate.now(), res: Resources? = null): String {
+        val locale = runCatching { res?.configuration?.locales?.get(0) }.getOrNull()
+            ?: java.util.Locale.getDefault()
+        val pattern = when (locale.language) {
+            "zh", "ja" -> "M月d日 EEEE"
+            "ko" -> "M월 d일 EEEE"
+            else -> "MMM d, EEEE"
+        }
+        return runCatching {
+            date.format(java.time.format.DateTimeFormatter.ofPattern(pattern, locale))
+        }.getOrElse { date.toString() }
+    }
+
+    /**
      * 组装完整问候语。
      *
      * 个性化优先：记忆里有近期事项（考试/航班/会议等）时，只用记忆提示；
