@@ -48,6 +48,9 @@ import kotlinx.serialization.json.contentOrNull
  * @param tools 工具定义(同 Chat Completions 结构,但可含 image_generation 等扩展类型)
  * @param reasoning 推理配置(effort + summary)
  * @param store 是否持久化(Codex 协议强制 false)
+ * @param include 附加输出项。B5-03 传 ["reasoning.encrypted_content"],服务端才会在
+ *   reasoning item 上返回 encrypted_content(多轮思考链回放的唯一载体);
+ *   不传时 encrypted_content 恒为 null,回放无从触发。
  */
 @Serializable
 internal data class ResponsesRequest(
@@ -61,6 +64,7 @@ internal data class ResponsesRequest(
     val tool_choice: String? = null,
     val reasoning: ResponsesReasoningConfig? = null,
     val store: Boolean? = null,
+    val include: List<String>? = null,
 )
 
 /**

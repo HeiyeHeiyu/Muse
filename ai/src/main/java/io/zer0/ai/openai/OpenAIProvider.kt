@@ -2341,18 +2341,18 @@ class OpenAIProvider(
      *  - reasoningLevel != OFF/AUTO 时,构造 reasoning: {effort} 字段
      *  - Codex 协议(responsesPath=/codex/responses)强制 store=false
      *
-     * v1.0.7 TODO(reasoning-items-replay):REASONING_ITEMS carrier 的 reasoning item 回放
-     *  尚未实现。OpenAI Responses API 要求 reasoning item 必须携带 encrypted_content
-     *  才能完整回放(服务端用加密负载验证思考链完整性),仅有 summary 文本不够。
-     *  实现路径:
-     *   1. streamChatResponses 解析 response.completed 事件时,从 output[type=reasoning]
-     *      提取 encrypted_content + id,存入 UIMessage.thinkingSignature
-     *   2. 此处遍历 normalizedMessages,若 ASSISTANT 消息的 thinkingSignature 非空,
-     *      在对应 message item 之前插入 type="reasoning" 的 input item
-     *      (带 id + encrypted_content,无 summary)
-     *  当前不实现:避免构造不完整的 reasoning item 触发服务端 400。
-     *  影响:OpenAI Responses API 多轮对话中,模型无法"看见"上一轮的完整思考链,
-     *  但不会 fail-closed(不像 Kimi/DeepSeek 那样强制要求 reasoning_content)。
+     * B5-03: REASONING_ITEMS 回放(encrypted_content 载体)。
+     *  OpenAI Responses API 要求 reasoning item 携带 encrypted_content 才能跨轮完整回放
+     *  思考链(服务端用加密负载校验思考链完整性),仅有 summary 文本不够。完整数据流:
+     *   1. 解析侧:streamChatResponses(response.completed)/ completeTextResponses 从
+     *      output[type=reasoning] 取 encrypted_content + id,经 ReasoningDelta 落库到
+     *      UIMessage.thinkingEncryptedContent / thinkingSignature。
+     *      注意:服务端仅在请求带 `include=["reasoning.encrypted_content"]` 时才返回该字段,
+     *      故下方 payload 恒带此 include;否则 encrypted_content 为 null,本条回放不会触发。
+     *   2. 请求侧:此处遍历 normalizedMessages,ASSISTANT 消息 thinkingEncryptedContent
+     *      非空时,在该 message item 之前插入 type="reasoning" 的 input item
+     *      (id + encrypted_content + 空 summary——summary 在 input 规范中为必填数组)。
+     *  字段为空时(旧数据/非 reasoning 端点/未开启 thinking)完全保持现状,不插入该 item。
      */
     private fun buildResponsesRequestBody(request: ChatRequest, stream: Boolean = true): String {
         val effectiveModel = effectiveModelId(request.model.id)
@@ -2383,6 +2383,9 @@ class OpenAIProvider(
                         type = "reasoning",
                         id = msg.thinkingSignature,
                         encrypted_content = msg.thinkingEncryptedContent,
+                        // input 规范的 reasoning item 要求 summary 为必填数组;
+                        // 原始结构化摘要未单独持久化,按官方回放示例回填空数组。
+                        summary = buildJsonArray { },
                     ))
                 }
                 inputItems.add(msg.toResponsesInputItem(request.model))
@@ -2454,6 +2457,8 @@ class OpenAIProvider(
             tool_choice = request.toolChoice?.takeIf { !functionTools.isNullOrEmpty() },
             reasoning = reasoning,
             store = store,
+            // B5-03: 请求 encrypted_content,否则 reasoning item 无回放载体
+            include = listOf("reasoning.encrypted_content"),
         )
         return AppJson.encodeToString(payload)
     }
