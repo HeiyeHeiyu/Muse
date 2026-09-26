@@ -268,15 +268,15 @@ class AutomationTools(
         registry.register(
             ToolRegistry.ToolDef(
                 name = "screen_wait",
-                description = "Wait before the next action: mode=idle waits until the screen stops changing; " +
-                    "mode=text waits until a text appears (or disappears with appear=false); " +
-                    "mode=window waits until the foreground app/activity changes. " +
-                    "Use it after launching an app or navigating, so clicks do not happen too early.",
+                description = "Wait before the next action: idle = until the screen stops changing; " +
+                    "text = until a text appears (or disappears with appear=false); " +
+                    "window = until the foreground app/activity changes. " +
+                    "Use after launching an app or navigating so clicks do not fire too early.",
                 parameters = mapOf(
-                    "mode" to "Optional: idle | text | window (default idle)",
-                    "text" to "Required when mode=text: substring to look for",
-                    "appear" to "Optional for mode=text: true=wait for appearance (default), false=disappearance",
-                    "timeout_ms" to "Optional max wait in milliseconds, default 15000, capped at 60000",
+                    "mode" to "Optional. idle | text | window (default idle)",
+                    "text" to "Required when mode=text. Substring to look for",
+                    "appear" to "Optional. true=wait for appearance (default), false=disappearance",
+                    "timeout_ms" to "Optional. Max wait ms, default 15000, cap 60000",
                 ),
                 required = emptySet(),
                 riskLevel = ToolRiskLevel.NORMAL,

@@ -17,12 +17,12 @@ object DeleteMemoryTool {
     fun toolDef() = ToolRegistry.ToolDef(
         name = "delete_memory",
         description = "Delete a fact from the user's long-term memory. Use when the user says something " +
-            "is wrong, outdated, or no longer true, or asks you to forget it. Target by exact id " +
-            "(from search_memory results), or by a keyword match — the single best-matching fact in " +
-            "the current memory space is deleted. To update a fact, delete the old one and save the " +
+            "is wrong, outdated, or no longer true, or asks you to forget it. Target by exact id (from " +
+            "search_memory results), or by a keyword match — the single best-matching fact in the " +
+            "current memory space is deleted. To update a fact, delete the old one and save the " +
             "corrected version with save_memory.",
         parameters = mapOf(
-            "id" to "Optional. Exact fact id, e.g. from search_memory results (\"ID: 123\").",
+            "id" to "Optional. Exact fact id from search_memory results.",
             "match" to "Optional. Keywords to locate the fact when the id is unknown.",
         ),
         required = emptySet(),

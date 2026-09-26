@@ -67,20 +67,17 @@ object SubagentTool {
     fun toolDef() = ToolRegistry.ToolDef(
         name = "subagent_task",
         description = "Launch / continue / close a non-blocking sub-agent task. " +
-            "Actions: launch (start new task, returns taskId+threadId), " +
-            "reply (continue same sub-agent by threadId), " +
-            "close (release thread), " +
-            "status (check progress), cancel (abort task), list (all tasks).",
+            "Actions: launch (new task → taskId+threadId), reply (continue by threadId), " +
+            "close (release thread), status (progress), cancel (abort task), list (all tasks).",
         parameters = mapOf(
             "action" to "Required. One of: launch / reply / close / status / cancel / list.",
             "agent_id" to "Required for launch. The assistant id to run the task.",
             "task" to "Required for launch/reply. Task description / prompt.",
-            "task_id" to "Required for status/cancel. The task id returned by launch/reply.",
-            "thread_id" to "Required for reply/close. The thread id returned by launch.",
-            // A-10: 强调 parent_session_id 必填 —— 缺省时异步结果无法归属到发起会话,
-            // 会因空串无法被 consumeCompleted 按 session id 匹配而静默丢失(滞留 30 分钟后被清理)。
-            "parent_session_id" to "REQUIRED for launch/reply. Parent session id for context isolation and result回灌. " +
-                "If omitted, the async result cannot be attributed to this session and will be silently lost.",
+            "task_id" to "Required for status/cancel. Task id returned by launch.",
+            "thread_id" to "Required for reply/close. Thread id returned by launch.",
+            // A-10: parent_session_id 必填 —— 缺省时异步结果无法归属到发起会话而静默丢失。
+            "parent_session_id" to "REQUIRED for launch/reply. Parent session id for context isolation and " +
+                "result delivery. If omitted, the async result is silently lost.",
             "access" to "Optional. Permission tier: read / write (default read, inherits parent session).",
             "label" to "Optional. Display label for the task.",
         ),

@@ -14,17 +14,15 @@ object SearchMemoryTool {
 
     fun toolDef() = ToolRegistry.ToolDef(
         name = "search_memory",
-        description = "Search the long-term memory store for facts about the user. " +
-            "Use this tool when the user asks something that might depend on their preferences, " +
-            "history, identity, goals, or previously discussed topics. " +
-            "For casual chat or general knowledge, this tool is not needed. " +
+        description = "Search the user's long-term memory for facts about them. Use when the answer " +
+            "might depend on their preferences, history, identity, goals, or earlier conversations. " +
             "Each result includes its fact id, which can be passed to delete_memory.",
         parameters = mapOf(
             "query" to "Required. Keywords to search for in memory facts.",
-            "tags" to "Optional. Comma-separated tag names to filter by (OR logic).",
-            "from" to "Optional. ISO 8601 date lower bound (inclusive) for the fact's time field.",
-            "to" to "Optional. ISO 8601 date upper bound (inclusive) for the fact's time field.",
-            "limit" to "Optional. Maximum number of results, default 10.",
+            "tags" to "Optional. Comma-separated tag names (OR logic).",
+            "from" to "Optional. ISO 8601 lower bound on the fact's time, inclusive.",
+            "to" to "Optional. ISO 8601 upper bound on the fact's time, inclusive.",
+            "limit" to "Optional. Max results, default 10.",
         ),
         required = setOf("query"),
         category = "built-in",

@@ -20,17 +20,14 @@ object ShowCardTool {
     fun toolDef() = ToolRegistry.ToolDef(
         name = "show_card",
         description = "Show visual content (SVG graphics, diagrams, charts, or interactive HTML) " +
-            "that renders inline in the conversation as an interactive card. " +
-            "Use for flowcharts, architecture diagrams, dashboards, data tables, calculators, " +
-            "timelines, or any visual content that benefits from spatial layout. " +
-            "The code is rendered inside a sandboxed WebView. " +
-            "Do NOT include DOCTYPE, <html>, <head>, or <body> tags - just content fragments.",
+            "rendered inline as an interactive card in a sandboxed WebView. " +
+            "Use for flowcharts, dashboards, data tables, timelines, or any spatial layout. " +
+            "Do NOT include DOCTYPE, <html>, <head> or <body> tags — content fragments only.",
         parameters = mapOf(
-            "title" to "Required. Short snake_case identifier for this visual (e.g. 'q4_revenue_chart').",
-            "code" to "Required. HTML or SVG fragment to render. Use CSS variables for theming.",
-            "data" to "Optional. JSON text with structured data bound to this card. " +
-                "The card script can read it via window.muse.getData(cardId); " +
-                "later updates go through update_card_data.",
+            "title" to "Required. Short snake_case identifier (e.g. 'q4_revenue_chart').",
+            "code" to "Required. HTML or SVG fragment. Use CSS variables for theming.",
+            "data" to "Optional. JSON bound to this card; the card script reads it via " +
+                "window.muse.getData(cardId). Later updates go through update_card_data.",
         ),
         required = setOf("title", "code"),
         category = "built-in",

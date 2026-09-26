@@ -14,14 +14,13 @@ object RecordExperienceTool {
 
     fun toolDef() = ToolRegistry.ToolDef(
         name = "record_experience",
-        description = "Record a lesson learned to the experience library. Use when: " +
-            "the user points out a mistake, the user shows frustration or repeatedly emphasizes something, " +
-            "you discover an effective method after trying multiple approaches, " +
-            "or the user explicitly says 'from now on do/don't do this'. " +
-            "Each entry should be concise and direct, one sentence.",
+        description = "Record a lesson learned to the experience library. Use when the user points out " +
+            "a mistake, shows frustration or repeatedly emphasizes something, you find an effective " +
+            "method after trying multiple approaches, or the user says 'from now on do/don't do this'. " +
+            "One concise sentence per entry.",
         parameters = mapOf(
-            "category" to "Required. Category for the experience, 2-4 words, e.g. 'tool usage', 'search tips', 'response style'.",
-            "content" to "Required. The specific experience content, concise and direct, one sentence.",
+            "category" to "Required. Category, 2-4 words, e.g. 'tool usage', 'search tips', 'response style'.",
+            "content" to "Required. The experience content, concise and direct, one sentence.",
         ),
         required = setOf("category", "content"),
         category = "built-in",

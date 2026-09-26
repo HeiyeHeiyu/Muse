@@ -27,10 +27,10 @@ class CoreToolsRegistrar(
         toolRegistry.register(
             ToolRegistry.ToolDef(
                 name = "get_current_time",
-                description = "获取当前时间。可指定时区(如 Asia/Shanghai、UTC、America/New_York),自动标注 DST 夏令时状态。",
+                description = "获取当前时间。可指定时区(如 Asia/Shanghai、UTC),自动标注夏令时状态。",
                 parameters = mapOf(
-                    "timezone" to "可选,IANA 时区标识(如 Asia/Shanghai/UTC/America/New_York),默认 Asia/Shanghai。传 UTC 可得协调世界时",
-                    "format" to "可选,自定义时间格式(Java SimpleDateFormat 语法),默认 yyyy-MM-dd HH:mm:ss z。如 'yyyy/MM/dd'、'HH:mm'。",
+                    "timezone" to "可选,IANA 时区(如 Asia/Shanghai、UTC),默认 Asia/Shanghai",
+                    "format" to "可选,自定义格式(SimpleDateFormat 语法),默认 yyyy-MM-dd HH:mm:ss z",
                 ),
                 required = emptySet(),
                 category = "built-in",

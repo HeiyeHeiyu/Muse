@@ -32,24 +32,19 @@ object SubagentRunSkill {
 
     fun toolDef() = ToolRegistry.ToolDef(
         name = "subagent_run",
-        description = "Delegate a sub-task to a passive sub-agent with independent context. " +
-            "The sub-agent runs a complete tool loop (up to max_tool_calls) and returns a structured XML result. " +
-            "v1.0.53: Now supports thread_id for continuation — pass the thread_id returned by a previous " +
-            "subagent_run call to continue the same sub-agent session with restored context. " +
-            "Use this when: (1) the task needs multiple tool calls, (2) you want to keep your own context clean, " +
-            "(3) the task is a self-contained research/lookup/analysis sub-task. " +
-            "For long-running async tasks use subagent_task instead. " +
-            "Returns XML: <subagent_start/> + <subagent_progress/>*(0..N) + <subagent_result>.",
+        description = "Delegate a self-contained sub-task to a sub-agent with independent context. " +
+            "The sub-agent runs a full tool loop (up to max_tool_calls) and returns a structured XML result. " +
+            "Use for research, lookup or analysis sub-tasks that need several tool calls. " +
+            "Pass back the returned thread_id to continue the same sub-agent session. " +
+            "For long-running async tasks use subagent_task instead.",
         parameters = mapOf(
-            "task" to "Required. The sub-task description to delegate to the sub-agent.",
+            "task" to "Required. The sub-task description to delegate.",
             "context_text" to "Optional. Constraints / acceptance criteria for the sub-task.",
             "target_paths" to "Optional. Comma-separated file paths the sub-agent should inspect first.",
             "max_tool_calls" to "Optional. Max tool calls budget (default 8, hard cap 20).",
-            "thread_id" to "Optional. Thread id returned by a previous subagent_run call; pass it to continue " +
-                "the same sub-agent session with restored context (v1.0.53+).",
+            "thread_id" to "Optional. Thread id from a previous subagent_run call; continues that sub-agent session.",
             "close_thread" to "Optional. 'true' to close the thread after this run (one-shot delegation).",
-            "token_budget" to "Optional. Token budget cap (prompt+completion combined). When exhausted, the " +
-                "sub-agent stops tool calls and summarizes with whatever context it has (v1.0.53+).",
+            "token_budget" to "Optional. Token budget; when exhausted the sub-agent summarizes early.",
         ),
         required = setOf("task"),
         category = "built-in",

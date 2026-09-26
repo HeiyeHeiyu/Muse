@@ -28,13 +28,13 @@ class MediaGenToolsRegistrar(
                 name = "generate_image",
                 description = "根据用户描述生成图片。仅在用户明确要求画图、设计、头像、海报等场景调用。会消耗绘图 API 额度。",
                 parameters = mapOf(
-                    "prompt" to "必填,详细的图片描述。写清主体/风格/构图,英文效果更佳,如 'a cute cat sitting on a sofa, watercolor style';中文亦可",
-                    "model" to "可选,绘图模型 ID,如 dall-e-3 / gpt-image-1 / agnes-image-2.1-flash;未指定时使用供应商默认",
-                    "size" to "可选,图片尺寸,如 1024x1024 / 1792x1024 / 1024x1792;Agnes 也支持比例如 1:1 / 16:9 / 3:2",
-                    "quality" to "可选,图片质量,如 standard / hd",
-                    "style" to "可选,图片风格,如 vivid / natural",
+                    "prompt" to "必填。写清主体/风格/构图,英文效果更佳,如 'a cute cat on a sofa, watercolor style'",
+                    "model" to "可选,绘图模型 ID(如 dall-e-3 / gpt-image-1);默认用供应商默认模型",
+                    "size" to "可选,尺寸,如 1024x1024 / 1792x1024 / 1024x1792;Agnes 支持比例 1:1 / 16:9 / 3:2",
+                    "quality" to "可选,如 standard / hd",
+                    "style" to "可选,如 vivid / natural",
                     "n" to "可选,生成数量,默认 1",
-                    "reference_image" to "可选,参考图 URL 或 base64(用于图生图/图片编辑);非空时调用图生图端点。注意:LLM 无法访问用户本地相册,本地参考图由用户在工具审批卡片中从相册选择后注入,LLM 调用时无需也无法填入本参数",
+                    "reference_image" to "可选,参考图 URL 或 base64(图生图/编辑)。本地参考图由用户在审批卡片中选择后注入,LLM 无需填写",
                 ),
                 required = setOf("prompt"),
                 riskLevel = ToolRiskLevel.HIGH,
@@ -46,7 +46,7 @@ class MediaGenToolsRegistrar(
             ToolRegistry.ToolDef(
                 name = "generate_video",
                 // v1.0.75 fix (工具审查 02): 补 prompt 示例与返回说明
-                description = "根据用户描述生成短视频。仅在用户明确要求视频、动画等场景调用。会自动选择已配置且支持视频输出的供应商/模型。返回生成视频的 URL。prompt 写清画面主体/动作/时长,如 'a cat jumping off a sofa, slow motion'。",
+                description = "根据用户描述生成短视频。仅在用户明确要求视频/动画时调用。自动选择支持视频输出的供应商/模型,返回视频 URL。",
                 parameters = mapOf(
                     "prompt" to "必填,视频内容描述,英文或中文均可",
                     "model" to "可选,视频模型 ID;未指定时自动选择第一个支持视频输出的模型",

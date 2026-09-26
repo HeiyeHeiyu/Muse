@@ -16,13 +16,13 @@ object SaveMemoryTool {
         name = "save_memory",
         description = "Save a fact to the user's long-term memory. Use when the user explicitly asks " +
             "you to remember something (\"记住…\"), or states an important durable fact (preferences, " +
-            "identity, goals, health, key dates). Do NOT save small talk, one-off task details, or " +
-            "anything uncertain. One concise sentence per call.",
+            "identity, goals, health, key dates). One concise sentence per call; skip small talk and " +
+            "one-off task details.",
         parameters = mapOf(
-            "content" to "Required. The fact to remember — concise, one sentence, in the user's language.",
+            "content" to "Required. The fact to remember — concise, one sentence, user's language.",
             "tags" to "Optional. Comma-separated keywords for later retrieval.",
             "importance" to "Optional. 0=normal, 1=important, 2=critical (health/safety). Default 0.",
-            "category" to "Optional. One of: preference/identity/event/relationship/goal/medical/other.",
+            "category" to "Optional. preference/identity/event/relationship/goal/medical/other.",
         ),
         required = setOf("content"),
         category = "built-in",
