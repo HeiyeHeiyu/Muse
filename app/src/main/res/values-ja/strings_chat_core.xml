@@ -601,8 +601,6 @@
     <string name="chat_forward_dialog_title">転送先…</string>
     <string name="chat_forward_done">「%1$s」に転送しました</string>
     <string name="chat_forward_no_session">転送できる会話がありません</string>
-    <string name="chat_gestures_hint">ヒント：メッセージを左にスワイプすると素早く引用できます。長押しすると他の操作ができます</string>
-    <string name="chat_gestures_hint_dismiss">了解しました</string>
     <string name="chat_model_not_configured_hint">モデルサービスがまだ設定されていません。先に API Key を設定してください</string>
     <string name="chat_pending_send_busy">返信を生成中です。現在の生成を停止してからキュー内のメッセージを送信してください</string>
     <string name="chat_quickbar_hint_off">クイックツールバーを閉じました</string>

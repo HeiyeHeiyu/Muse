@@ -601,8 +601,6 @@
     <string name="chat_forward_dialog_title">Encaminhar para…</string>
     <string name="chat_forward_done">Encaminhada para \"%1$s\"</string>
     <string name="chat_forward_no_session">Não há conversas disponíveis para encaminhar</string>
-    <string name="chat_gestures_hint">Dica: deslize uma mensagem para a esquerda para citá-la rapidamente; pressione e segure uma mensagem para mais ações</string>
-    <string name="chat_gestures_hint_dismiss">Entendi</string>
     <string name="chat_model_not_configured_hint">O serviço de modelos ainda não foi configurado. Configure uma API Key primeiro.</string>
     <string name="chat_pending_send_busy">Uma resposta está sendo gerada. Pare a geração atual antes de enviar mensagens na fila.</string>
     <string name="chat_quickbar_hint_off">A barra de ferramentas rápida foi recolhida</string>

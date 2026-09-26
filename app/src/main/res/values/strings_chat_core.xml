@@ -632,8 +632,6 @@
     <!-- U-1: 未配置模型服务常驻提示条(点击跳转模型设置) -->
     <string name="chat_model_not_configured_hint">尚未配置模型服务，请先设置 API Key</string>
     <!-- U-6: 手势操作一次性提示 -->
-    <string name="chat_gestures_hint">提示：左滑消息可快速引用；长按消息有更多操作</string>
-    <string name="chat_gestures_hint_dismiss">知道了</string>
     <!-- U-17: 语音服务尚未就绪(区别于权限缺失) -->
     <string name="chat_voice_not_ready">语音尚未就绪，请稍后再试</string>
     <string name="moment_mood_prefix">心情：%1$s</string>

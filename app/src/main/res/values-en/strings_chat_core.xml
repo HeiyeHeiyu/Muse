@@ -622,8 +622,6 @@
     <string name="settings_bubble_radius_title">Message rounding</string>
     <string name="chat_forward_done">Forwarded to \"%1$s\"</string>
     <string name="chat_forward_no_session">No sessions available to forward to</string>
-    <string name="chat_gestures_hint">Tip: swipe left on a message to quickly quote it; long-press a message for more actions</string>
-    <string name="chat_gestures_hint_dismiss">Got it</string>
     <string name="chat_model_not_configured_hint">The model service is not configured yet. Set an API Key first.</string>
     <string name="chat_pending_send_busy">A reply is being generated. Stop the current generation before sending queued messages.</string>
     <string name="chat_tool_calls_chip">Tools %1$d/%2$d</string>

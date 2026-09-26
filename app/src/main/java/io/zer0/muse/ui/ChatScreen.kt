@@ -58,10 +58,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -337,23 +334,6 @@ fun ChatScreen(
     val proactiveConfig by settings.proactiveMessageConfigFlow.collectAsStateWithLifecycle(
         initialValue = io.zer0.muse.data.ProactiveMessageConfig(),
     )
-    // U-6: 手势操作一次性提示 — 首次显示可关闭浅提示条,用户点"知道了"后持久化标记
-    // chatGesturesHintShown(true),此后不再出现(在关闭时标记,而非显示即标记,
-    // 避免 Prefs 实时翻转驱动重组把刚显示的提示条瞬间隐藏)。
-    var gesturesHintVisible by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(state.chatPreferences.chatGesturesHintShown) {
-        // Prefs 已标记(曾经关闭过)→ 永不显示;未标记 → 本次进入聊天页展示
-        gesturesHintVisible = !state.chatPreferences.chatGesturesHintShown
-    }
-    // 关闭提示条并持久化标记,保证"一次性"提示后续不再打扰
-    val dismissGesturesHint: () -> Unit = {
-        gesturesHintVisible = false
-        ioScope.launch {
-            settings.saveChatPreferences(
-                state.chatPreferences.copy(chatGesturesHintShown = true),
-            )
-        }
-    }
     // 会话级浏览器注册表：UI 只观察已实际创建的 session manager，避免新会话
     // 在 Compose 期间产生副作用并在标题栏显示“未启动”入口。
     val browserRegistry: io.zer0.muse.tools.BrowserManagerRegistry = koinInject()
@@ -1706,14 +1686,6 @@ fun ChatScreen(
                             }
                         }
                     }
-                    // U-6: 手势操作一次性提示条(随消息流滚动,不遮挡顶部横幅锚点)
-                    if (gesturesHintVisible) {
-                        item(key = "gestures_hint") {
-                            Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
-                                GesturesHintBar(onDismiss = dismissGesturesHint)
-                            }
-                        }
-                    }
                     itemsIndexed(
                         // v1.0.4 (P3-4): 性能模式下渲染 visibleMessages(最近 N 条);
                         // 非性能模式下 visibleMessages == messages,行为不变。
@@ -1814,53 +1786,7 @@ fun ChatScreen(
                         if (showDateSeparator) {
                             DateSeparator(timestamp = msg.createdAt)
                         }
-                        // B7-06: 消息左右滑快捷操作。
-                        // v1.0.72: 取消"右滑编辑"(用户决策,没什么用),仅保留"左滑引用"。
-                        // v1.0.80: 降低左滑引用灵敏度 — 原默认 positionalThreshold=56dp,
-                        //   轻滑十几 dp 就触发引用,非常容易误触。改为总宽度的 35%,
-                        //   用户必须明显向左拖出一段距离才触发,减少看消息/滚动手势的误触。
-                        val messageSwipeState = rememberSwipeToDismissBoxState(
-                            positionalThreshold = { distance -> distance * 0.35f },
-                            confirmValueChange = { value ->
-                                when (value) {
-                                    SwipeToDismissBoxValue.EndToStart -> {
-                                        onQuote()
-                                        false
-                                    }
-                                    else -> false
-                                }
-                            },
-                        )
-                        SwipeToDismissBox(
-                            state = messageSwipeState,
-                            // v1.0.72: 右滑编辑已取消,仅保留左滑引用
-                            enableDismissFromStartToEnd = false,
-                            enableDismissFromEndToStart = !state.selectionMode,
-                            backgroundContent = {
-                                val direction = messageSwipeState.dismissDirection
-                                val icon = when (direction) {
-                                    SwipeToDismissBoxValue.EndToStart -> MuseIcons.chat
-                                    else -> null
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize(),
-                                    contentAlignment = when (direction) {
-                                        SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
-                                        else -> Alignment.Center
-                                    },
-                                ) {
-                                    if (icon != null) {
-                                        Icon(
-                                            imageVector = icon,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(horizontal = MusePaddings.screen),
-                                        )
-                                    }
-                                }
-                            },
-                        ) {
+                        // v2.x: 左滑引用已移除(用户反馈误触率高) — 引用改由长按菜单进入。
                         MessageBubble(
                             msg = msg,
                             // v1.0.20 (Task 3): isStreaming 读派生值,避免每条消息因 input 按键重组
@@ -2041,7 +1967,6 @@ fun ChatScreen(
                                 null
                             },
                         )
-                        }
                         }
                     }
                     // 任务 2B: 等待首 token 阶段用 shimmer 骨架屏占位(替代旧 LoadingDots "思考中"文字)
@@ -2538,7 +2463,7 @@ fun ChatScreen(
                 onDismiss = { forwardText = null },
             )
             // A6: 消息地图 — CHAT-07: 移到 Scaffold 内容层内(最后绘制、置顶),
-            // 热区止于输入栏上方,不再压住输入岛右缘/发送键,也不与左滑引用抢手势。
+            // 热区止于输入栏上方,不再压住输入岛右缘/发送键。
             if (messages.size >= MESSAGE_MAP_MIN_MESSAGES && visibleMessages.isNotEmpty()) {
                 MessageMapBar(
                     messages = visibleMessages,
@@ -2593,39 +2518,6 @@ fun ChatScreen(
         }
     } // 背景 Box(v1.0.74 自定义聊天背景)
 } // ChatScreen
-
-/**
- * U-6: 手势操作一次性浅提示条 — 提示用户"左滑引用 / 长按更多"。
- * @param onDismiss 点击"知道了"关闭回调
- */
-@Composable
-private fun GesturesHintBar(onDismiss: () -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-        shape = MuseShapes.medium,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = MusePaddings.contentGap),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = MusePaddings.contentGap, vertical = MusePaddings.tightGap),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(R.string.chat_gestures_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
-            MuseCapsuleButton(
-                text = stringResource(R.string.chat_gestures_hint_dismiss),
-                onClick = onDismiss,
-                variant = IosCapsuleButtonVariant.Text,
-                fillWidth = false,
-            )
-        }
-    }
-}
 
 /**
  * F-4: 置顶消息横幅 — 显示 /pin 置顶的最后一条用户消息正文,右上角取消置顶。

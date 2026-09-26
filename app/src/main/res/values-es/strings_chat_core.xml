@@ -601,8 +601,6 @@
     <string name="chat_forward_dialog_title">Reenviar a…</string>
     <string name="chat_forward_done">Reenviado a \"%1$s\"</string>
     <string name="chat_forward_no_session">No hay sesiones disponibles para reenviar</string>
-    <string name="chat_gestures_hint">Consejo: desliza un mensaje a la izquierda para citarlo rápido; mantén pulsado un mensaje para más acciones</string>
-    <string name="chat_gestures_hint_dismiss">Entendido</string>
     <string name="chat_model_not_configured_hint">El servicio de modelos aún no está configurado. Configura una API Key primero.</string>
     <string name="chat_pending_send_busy">Se está generando una respuesta. Detén la generación actual antes de enviar mensajes en cola.</string>
     <string name="chat_quickbar_hint_off">La barra de herramientas rápida está contraída</string>

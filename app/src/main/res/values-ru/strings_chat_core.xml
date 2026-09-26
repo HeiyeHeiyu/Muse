@@ -601,8 +601,6 @@
     <string name="chat_forward_dialog_title">Переслать в…</string>
     <string name="chat_forward_done">Переслано в \"%1$s\"</string>
     <string name="chat_forward_no_session">Нет диалогов для пересылки</string>
-    <string name="chat_gestures_hint">Подсказка: проведите по сообщению влево, чтобы быстро процитировать; долгое нажатие даёт больше действий</string>
-    <string name="chat_gestures_hint_dismiss">Понятно</string>
     <string name="chat_model_not_configured_hint">Служба моделей ещё не настроена. Сначала укажите API Key.</string>
     <string name="chat_pending_send_busy">Создаётся ответ. Остановите текущую генерацию, прежде чем отправлять сообщения из очереди.</string>
     <string name="chat_quickbar_hint_off">Панель быстрых инструментов свёрнута</string>
