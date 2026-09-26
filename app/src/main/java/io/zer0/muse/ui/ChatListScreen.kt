@@ -362,6 +362,10 @@ fun ChatListScreen(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                 )
             } else {
+                // v2.x: 回顾条数据 — 最近有消息的会话(点击直进)
+                val latestRecallSession = remember(sessions) {
+                    sessions.maxByOrNull { it.updatedAt }?.takeIf { it.lastMessagePreview.isNotBlank() }
+                }
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     // 前端修复 (性能-1): 移除全局 spacedBy,section 间距改为各区域
@@ -378,6 +382,31 @@ fun ChatListScreen(
                             dailySummaryText = dailySummary?.text,
                             dailySummaryDate = dailySummary?.date,
                         )
+                    }
+
+                    // v2.x: 伙伴横排 — 常用助手头像快捷入口(点击直进最近会话)
+                    if (assistants.any { it.enabled }) {
+                        item(key = "partners_row") {
+                            PartnerRow(
+                                assistants = assistants.filter { it.enabled }.sortedBy { it.sortIndex },
+                                sessions = sessions,
+                                onSelectSession = onSelect,
+                                onOpenAssistants = onOpenAssistants,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
+                    }
+
+                    // v2.x: 回顾条(候选A) — "上次和 X 聊到「…」",整条可点直进最近会话
+                    if (latestRecallSession != null) {
+                        item(key = "recall_bar") {
+                            RecallBar(
+                                session = latestRecallSession,
+                                assistantName = assistants.firstOrNull { it.id == latestRecallSession.assistantId }?.name,
+                                onSelect = onSelect,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
                     }
 
                     // 全局输入条
