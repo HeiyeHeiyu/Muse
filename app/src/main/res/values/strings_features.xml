@@ -41,7 +41,7 @@
     <string name="groupchat_template_retro">项目复盘</string>
     <string name="groupchat_collapsed_round">本轮还有 %1$d 条发言，点击展开</string>
     <string name="groupchat_observers">观察者（不参与轮流发言）</string>
-    <string name="chat_committee">发起委员会</string>
+    <string name="chat_committee">发起讨论</string>
     <string name="chat_committee_hint">从对话中召唤几位助手开一场临时讨论，结论会自动回到这里。</string>
     <string name="chat_committee_topic">讨论议题</string>
     <string name="chat_committee_members">参与成员（至少 2 位）</string>

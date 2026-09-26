@@ -18,6 +18,7 @@ import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.asr.AsrConfig
+import io.zer0.muse.data.routing.UtilityModelBinding
 import io.zer0.muse.backup.CloudBackupConfig
 import io.zer0.muse.data.audit.AuditLogger
 import io.zer0.muse.data.preset.ModelCatalogStore
@@ -94,6 +95,8 @@ class SettingsRepository(
     private val migrationDone = AtomicBoolean(false)
     /** v1.0.51: 防止 memory backfill 迁移在并发首调时重复执行(读标志位 + 跑 backfill + 写标志位之间存在竞态)。 */
     private val memoryBackfillMigrationDone = AtomicBoolean(false)
+    /** v2.x: 防止辅助模型旧键绑定迁移重复执行。 */
+    private val utilityBindingMigrationDone = AtomicBoolean(false)
 
     /**
      * v1.0.7: 内置供应商规格声明(对齐 既有实现 BUILTIN_PLUGINS)。
@@ -293,6 +296,17 @@ class SettingsRepository(
      * 子 agent 多为多步工具检索类任务,配便宜小模型可显著降本。
      */
     val subagentModelIdFlow: Flow<String?> = store.data.map { prefs -> prefs[KEY_SUBAGENT_MODEL_ID] }
+    /**
+     * v2.x: 小工具模型绑定(辅助任务档位路由,带 provider;优先于旧 [toolModelIdFlow])。
+     * 用于标题生成、轻量分类、意图路由、封面 prompt、渠道摘要等短任务。
+     */
+    val utilityModelBindingFlow: Flow<UtilityModelBinding?> = store.data.map { prefs ->
+        decodePrefsOrNull(prefs[KEY_UTILITY_MODEL_BINDING], UtilityModelBinding.serializer(), "UtilityModelBinding")
+    }
+    /** v2.x: 大工具模型绑定(压缩/记忆提取/活动摘要/任务拆解/子代理;留空级联复用 [utilityModelBindingFlow])。 */
+    val utilityLargeModelBindingFlow: Flow<UtilityModelBinding?> = store.data.map { prefs ->
+        decodePrefsOrNull(prefs[KEY_UTILITY_LARGE_MODEL_BINDING], UtilityModelBinding.serializer(), "UtilityLargeModelBinding")
+    }
     /**
      * 压缩模型 id(用于 ConversationCompressor 的分块并行摘要压缩)。
      * null 表示沿用当前主对话模型([selectedModelIdFlow] / 激活 Provider 首个模型)。
@@ -1186,6 +1200,8 @@ class SettingsRepository(
         // ANR 检测开关:订阅 Flow 落缓存,供 AnrWatcher 同步读取(支持运行时切换)。
         cacheScope.launch { anrDetectionFlow.collect { anrDetectionCache = it } }
         cacheScope.launch { migrateLegacyProviderIfNeeded() }
+        // v2.x: 旧「工具模型/子代理模型」单 id 键迁移为带 provider 的辅助模型绑定(幂等,只跑一次)
+        cacheScope.launch { migrateLegacyUtilityBindingsIfNeeded() }
         // v1.0.18: 自动注入 SiliconFlow 免费供应商(免登录可用),确保用户进入 App 即能看到免费模型。
         // 幂等:通过 providers 列表中是否已存在 [SiliconFlowFreeModels.PROVIDER_ID] 判断,
         //   不会重复添加;用户主动删除后下次启动会重新注入(符合"免费兜底"语义)。
@@ -1585,6 +1601,16 @@ class SettingsRepository(
                 compressModelId = prefs[KEY_COMPRESS_MODEL_ID],
                 visionModelId = prefs[KEY_VISION_MODEL_ID],
                 visionProviderId = prefs[KEY_VISION_PROVIDER_ID],
+                utilityModelBinding = decodePrefsOrNull(
+                    prefs[KEY_UTILITY_MODEL_BINDING],
+                    UtilityModelBinding.serializer(),
+                    "UtilityModelBinding(deleteProvider)",
+                ),
+                utilityLargeModelBinding = decodePrefsOrNull(
+                    prefs[KEY_UTILITY_LARGE_MODEL_BINDING],
+                    UtilityModelBinding.serializer(),
+                    "UtilityLargeModelBinding(deleteProvider)",
+                ),
                 sessionModelOverrides = decodePrefsOrNull(
                     prefs[KEY_SESSION_MODEL_OVERRIDES],
                     sessionModelOverrideSerializer,
@@ -1619,6 +1645,17 @@ class SettingsRepository(
             writeNullablePreference(prefs, KEY_COMPRESS_MODEL_ID, result.compressModelId)
             writeNullablePreference(prefs, KEY_VISION_MODEL_ID, result.visionModelId)
             writeNullablePreference(prefs, KEY_VISION_PROVIDER_ID, result.visionProviderId)
+            // v2.x: 辅助模型绑定(被删 Provider 的绑定置空)
+            if (result.utilityModelBinding != null) {
+                prefs[KEY_UTILITY_MODEL_BINDING] = AppJson.encodeToString(UtilityModelBinding.serializer(), result.utilityModelBinding)
+            } else {
+                prefs.remove(KEY_UTILITY_MODEL_BINDING)
+            }
+            if (result.utilityLargeModelBinding != null) {
+                prefs[KEY_UTILITY_LARGE_MODEL_BINDING] = AppJson.encodeToString(UtilityModelBinding.serializer(), result.utilityLargeModelBinding)
+            } else {
+                prefs.remove(KEY_UTILITY_LARGE_MODEL_BINDING)
+            }
             writeMapPreference(prefs, KEY_SESSION_MODEL_OVERRIDES, result.sessionModelOverrides)
             writeMapPreference(prefs, KEY_SESSION_PROVIDER_OVERRIDES, result.sessionProviderOverrides)
             prefs[KEY_IMAGE_GEN_CONFIG] = AppJson.encodeToString(
@@ -1688,6 +1725,20 @@ class SettingsRepository(
     suspend fun saveToolModel(modelId: String?) { store.edit { if (modelId != null) it[KEY_TOOL_MODEL_ID] = modelId else it.remove(KEY_TOOL_MODEL_ID) } }
     /** v2.0: 保存子代理模型 id(null 表示清除,沿用主对话模型)。 */
     suspend fun saveSubagentModel(modelId: String?) { store.edit { if (modelId != null) it[KEY_SUBAGENT_MODEL_ID] = modelId else it.remove(KEY_SUBAGENT_MODEL_ID) } }
+    /** v2.x: 保存小工具模型绑定(null 表示清除,沿用主对话模型)。 */
+    suspend fun saveUtilityModelBinding(binding: UtilityModelBinding?) {
+        store.edit { prefs ->
+            if (binding != null) prefs[KEY_UTILITY_MODEL_BINDING] = AppJson.encodeToString(UtilityModelBinding.serializer(), binding)
+            else prefs.remove(KEY_UTILITY_MODEL_BINDING)
+        }
+    }
+    /** v2.x: 保存大工具模型绑定(null 表示清除,级联复用小工具模型)。 */
+    suspend fun saveUtilityLargeModelBinding(binding: UtilityModelBinding?) {
+        store.edit { prefs ->
+            if (binding != null) prefs[KEY_UTILITY_LARGE_MODEL_BINDING] = AppJson.encodeToString(UtilityModelBinding.serializer(), binding)
+            else prefs.remove(KEY_UTILITY_LARGE_MODEL_BINDING)
+        }
+    }
     /**
      * 保存压缩模型 id(null 表示清除,沿用主对话模型)。
      * 供 ConversationCompressor 使用,建议设置为便宜模型(如 SiliconFlow 免费模型)。
@@ -1828,6 +1879,43 @@ class SettingsRepository(
                 store.edit { it.remove(KEY_PROVIDER_LEGACY) }
             }
         }
+    }
+
+    /**
+     * v2.x: 辅助模型绑定迁移 — 旧单 id 键(工具模型/子代理模型) → 带 provider 的绑定。
+     *
+     * 背景:v1.60-A 工具模型与 v2.0 子代理模型只存 model id,跨 Provider 按 id 匹配
+     * 可能命中无关渠道的同名小模型(v1.0.62 压缩模型弃用的根因)。新绑定存
+     * {providerId, modelId},迁移时从现有 providers 反查归属。
+     *
+     * 幂等:AtomicBoolean 只跑一次;新键已存在时不覆盖;旧键保留不删(支持回滚)。
+     * 反查不到归属(Provider 已删)时跳过该条,不阻断启动。
+     */
+    private suspend fun migrateLegacyUtilityBindingsIfNeeded() {
+        if (!utilityBindingMigrationDone.compareAndSet(false, true)) return
+        val prefs = store.data.first()
+        val legacyTool = prefs[KEY_TOOL_MODEL_ID]
+        val legacySubagent = prefs[KEY_SUBAGENT_MODEL_ID]
+        val needSmall = prefs[KEY_UTILITY_MODEL_BINDING] == null && !legacyTool.isNullOrBlank()
+        val needLarge = prefs[KEY_UTILITY_LARGE_MODEL_BINDING] == null && !legacySubagent.isNullOrBlank()
+        if (!needSmall && !needLarge) return
+        val providers = providersFlow.first()
+        fun bind(modelId: String?): UtilityModelBinding? {
+            if (modelId.isNullOrBlank()) return null
+            val owner = providers.firstOrNull { p -> p.models.any { it.id == modelId } } ?: return null
+            return UtilityModelBinding(providerId = owner.id, modelId = modelId)
+        }
+        val small = if (needSmall) bind(legacyTool) else null
+        val large = if (needLarge) bind(legacySubagent) else null
+        if (small == null && large == null) return
+        store.edit { e ->
+            if (small != null) e[KEY_UTILITY_MODEL_BINDING] = AppJson.encodeToString(UtilityModelBinding.serializer(), small)
+            if (large != null) e[KEY_UTILITY_LARGE_MODEL_BINDING] = AppJson.encodeToString(UtilityModelBinding.serializer(), large)
+        }
+        Logger.i(
+            "SettingsRepository",
+            "legacy utility bindings migrated: small=${small?.providerId}/${small?.modelId}, large=${large?.providerId}/${large?.modelId}",
+        )
     }
 
     private suspend fun activeProviderFromPrefs(prefs: Preferences): ProviderConfig? {
@@ -1974,6 +2062,10 @@ class SettingsRepository(
         private val KEY_TOOL_MODEL_ID = stringPreferencesKey("tool_model_id")
         /** v2.0: 子代理模型 id(后台子 agent 使用的轻量模型)。 */
         private val KEY_SUBAGENT_MODEL_ID = stringPreferencesKey("subagent_model_id")
+        /** v2.x: 小工具模型绑定(JSON {providerId, modelId};优先于旧 tool_model_id)。 */
+        private val KEY_UTILITY_MODEL_BINDING = stringPreferencesKey("utility_model_binding")
+        /** v2.x: 大工具模型绑定(JSON {providerId, modelId};优先于旧 subagent_model_id)。 */
+        private val KEY_UTILITY_LARGE_MODEL_BINDING = stringPreferencesKey("utility_large_model_binding")
         /** 压缩模型 id(独立便宜模型,供 ConversationCompressor 使用)。 */
         private val KEY_COMPRESS_MODEL_ID = stringPreferencesKey("compress_model_id")
         /** v1.0.52: 自定义压缩 prompt(用户可覆盖默认压缩指令,null 表示用默认)。 */

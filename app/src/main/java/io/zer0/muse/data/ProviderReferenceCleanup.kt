@@ -1,6 +1,7 @@
 package io.zer0.muse.data
 
 import io.zer0.ai.core.ProviderConfig
+import io.zer0.muse.data.routing.UtilityModelBinding
 
 /** Provider 删除时需要同步清理的全局和会话级引用。 */
 internal data class ProviderReferenceCleanup(
@@ -12,6 +13,8 @@ internal data class ProviderReferenceCleanup(
     val compressModelId: String?,
     val visionModelId: String?,
     val visionProviderId: String?,
+    val utilityModelBinding: UtilityModelBinding?,
+    val utilityLargeModelBinding: UtilityModelBinding?,
     val imageGenConfig: ImageGenConfig,
     val videoGenConfig: VideoGenConfig,
     val taskRoutingConfig: SettingsRepository.TaskRoutingConfig,
@@ -37,6 +40,8 @@ internal fun cleanupProviderReferences(
     compressModelId: String?,
     visionModelId: String?,
     visionProviderId: String?,
+    utilityModelBinding: UtilityModelBinding? = null,
+    utilityLargeModelBinding: UtilityModelBinding? = null,
     imageGenConfig: ImageGenConfig = ImageGenConfig(),
     videoGenConfig: VideoGenConfig = VideoGenConfig(),
     taskRoutingConfig: SettingsRepository.TaskRoutingConfig = SettingsRepository.TaskRoutingConfig(),
@@ -59,6 +64,11 @@ internal fun cleanupProviderReferences(
     val active = if (activeProviderId == deletedProviderId) remaining.firstOrNull()?.id else activeProviderId
     val visionProvider = if (visionProviderId == deletedProviderId) null else visionProviderId
     val visionModel = if (visionProviderId == deletedProviderId) null else cleanModel(visionModelId)
+
+    // v2.x: 辅助模型绑定带 providerId — 被删 Provider 的绑定直接置空(不做跨渠道保留:
+    // 绑定的语义就是"精确命中该渠道的该模型",渠道没了即失效)。
+    fun cleanBinding(binding: UtilityModelBinding?): UtilityModelBinding? =
+        if (binding != null && binding.providerId == deletedProviderId) null else binding
 
     fun cleanProviderModel(providerId: String, modelId: String): Pair<String, String> {
         if (providerId == deletedProviderId) return "" to ""
@@ -97,6 +107,8 @@ internal fun cleanupProviderReferences(
         compressModelId = cleanModel(compressModelId),
         visionModelId = visionModel,
         visionProviderId = visionProvider,
+        utilityModelBinding = cleanBinding(utilityModelBinding),
+        utilityLargeModelBinding = cleanBinding(utilityLargeModelBinding),
         imageGenConfig = imageGenConfig.copy(providerId = imageProvider, modelId = imageModel),
         videoGenConfig = videoGenConfig.copy(providerId = videoProvider, modelId = videoModel),
         taskRoutingConfig = taskRoutingConfig.copy(

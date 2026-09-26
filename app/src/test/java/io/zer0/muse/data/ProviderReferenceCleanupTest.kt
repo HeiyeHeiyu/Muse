@@ -31,6 +31,8 @@ class ProviderReferenceCleanupTest {
             compressModelId = "private-model",
             visionModelId = "private-model",
             visionProviderId = "deleted",
+            utilityModelBinding = io.zer0.muse.data.routing.UtilityModelBinding(providerId = "deleted", modelId = "private-model"),
+            utilityLargeModelBinding = io.zer0.muse.data.routing.UtilityModelBinding(providerId = "remaining", modelId = "shared-model"),
             imageGenConfig = ImageGenConfig(providerId = "deleted", modelId = "private-model"),
             videoGenConfig = VideoGenConfig(providerId = "remaining", modelId = "shared-model"),
             taskRoutingConfig = SettingsRepository.TaskRoutingConfig(
@@ -52,6 +54,12 @@ class ProviderReferenceCleanupTest {
         assertNull(result.compressModelId)
         assertNull(result.visionModelId)
         assertNull(result.visionProviderId)
+        // v2.x: 被删 Provider 的辅助模型绑定置空；其他 Provider 的绑定保留
+        assertNull(result.utilityModelBinding)
+        assertEquals(
+            io.zer0.muse.data.routing.UtilityModelBinding(providerId = "remaining", modelId = "shared-model"),
+            result.utilityLargeModelBinding,
+        )
         assertEquals(ImageGenConfig(), result.imageGenConfig)
         assertEquals(
             VideoGenConfig(providerId = "remaining", modelId = "shared-model"),
