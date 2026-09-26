@@ -623,6 +623,66 @@ internal fun ThinkingIndicator(currentSpeaker: AssistantEntity? = null) {
 }
 
 /**
+ * v2.x: 表决票卡片 — messageType=="vote" 专属渲染。
+ *
+ * 表决与讨论视觉区分:带"表决"徽章 + 发言人名 + 票面内容卡片。
+ */
+@Composable
+internal fun GroupVoteCard(message: GroupChatMessageEntity) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MusePaddings.screen),
+        verticalAlignment = Alignment.Top,
+    ) {
+        // "表决"徽章
+        Surface(
+            shape = MuseShapes.small,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            ) {
+                Icon(
+                    imageVector = MuseIcons.check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(12.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = stringResource(R.string.groupchat_vote_card_title),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = message.senderName,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
+            Spacer(Modifier.height(2.dp))
+            Surface(
+                shape = MuseShapes.medium,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = message.body,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(10.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
  * v2.x: 讨论总结卡片 — messageType=="summary" 的专属渲染。
  *
  * 总结不再以普通气泡展示:改为带标题、内文与三个落地动作(复制/分享/存为共享文档)

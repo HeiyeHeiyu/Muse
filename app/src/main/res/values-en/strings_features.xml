@@ -27,6 +27,7 @@
     <string name="groupchat_summary_copy">Copy</string>
     <string name="groupchat_summary_share">Share</string>
     <string name="groupchat_summary_save_doc">Save as shared doc</string>
+    <string name="groupchat_vote_card_title">Vote</string>
     <string name="groupchat_input_placeholder">Enter message…@Mention members</string>
     <string name="groupchat_send">Send</string>
     <string name="groupchat_pick_content">Choose content to send</string>

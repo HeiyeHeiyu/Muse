@@ -755,6 +755,8 @@ fun GroupChatDetailScreen(
                             },
                             onSaveAsSharedDoc = { viewModel.saveSummaryAsSharedDoc(message.id) },
                         )
+                    } else if (message.messageType == "vote") {
+                        GroupVoteCard(message = message)
                     } else {
                     GroupChatMessageBubble(
                         message = message,

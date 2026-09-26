@@ -27,6 +27,7 @@
     <string name="groupchat_summary_copy">复制</string>
     <string name="groupchat_summary_share">分享</string>
     <string name="groupchat_summary_save_doc">存为共享文档</string>
+    <string name="groupchat_vote_card_title">表决</string>
     <string name="groupchat_input_placeholder">输入消息…@提及成员</string>
     <string name="groupchat_send">发送</string>
     <string name="groupchat_pick_content">选择要发送的内容</string>
