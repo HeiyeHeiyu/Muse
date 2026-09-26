@@ -119,10 +119,10 @@ import io.zer0.muse.R
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.groupchat.GroupChatMessageEntity
 import io.zer0.muse.ui.SmartImage
+import io.zer0.muse.ui.chat.StickerAwareMarkdownBody
 import io.zer0.muse.ui.common.media.AssistantAvatar
 import io.zer0.muse.ui.common.form.MuseBottomSheet
 import io.zer0.muse.ui.common.feedback.MuseDialog
-import io.zer0.muse.ui.markdown.MarkdownText
 import io.zer0.muse.ui.theme.MuseHaptics
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
@@ -424,8 +424,10 @@ internal fun GroupChatMessageBubble(
                         ),
                 ) {
                     Column(modifier = Modifier.padding(MusePaddings.cardInner)) {
-                        MarkdownText(
+                        // v2.x: 表情包标记 [[sticker:分类]] → 纯图片卡片(群聊与单聊同管线)
+                        StickerAwareMarkdownBody(
                             text = message.body,
+                            stickerSeed = message.id.hashCode().toLong(),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                             onHtmlPreview = onHtmlPreview,

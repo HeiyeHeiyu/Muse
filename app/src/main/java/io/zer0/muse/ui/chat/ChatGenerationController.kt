@@ -535,11 +535,17 @@ internal class ChatGenerationController(
                 rebuilt
             }
             val dynamicSection = if (timeReminderEnabled) deps.systemPromptAssembler.buildDynamicSection() else ""
+            // v2.x: 表情包使用指南(动态读取;库为空/开关关闭时为空串)
+            val stickerGuide = resultOf { deps.systemPromptAssembler.buildStickerGuideSection() }.getOrNull().orEmpty()
             val combinedSystemPrompt = buildString {
                 if (staticSnapshot.isNotBlank()) append(staticSnapshot)
                 if (dynamicSection.isNotBlank()) {
                     if (isNotEmpty()) append("\n\n---\n\n")
                     append(dynamicSection)
+                }
+                if (stickerGuide.isNotBlank()) {
+                    if (isNotEmpty()) append("\n\n---\n\n")
+                    append(stickerGuide)
                 }
                 // 相关记忆检索(仅当记忆开启且非子助手;检索失败静默跳过)。
                 if (memoryEnabled && !sessionIgnoreMem) {

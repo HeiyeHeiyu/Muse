@@ -159,6 +159,14 @@ class SettingsRepository(
         private set
 
     /**
+     * v2.x: 表情包发送频率档位缓存(occasionally/normal/frequent)。
+     * 标记链路下由 SystemPromptAssembler 读取,生成"使用频率"提示。
+     */
+    @Volatile
+    var stickerFrequencyCache: String = STICKER_FREQ_NORMAL
+        private set
+
+    /**
      * PII Guard 开关的内存缓存,供 ChatViewModel 在发送消息前零阻塞读取。
      * 仿照 [stickerEnabledCache] 模式:后台协程订阅 [piiGuardEnabledFlow],把最新值落到 @Volatile 字段。
      * 默认 true(开启),用户在"数据与隐私"设置页可关闭。
@@ -351,6 +359,10 @@ class SettingsRepository(
     val stickerEnabledFlow: Flow<Boolean> = store.data.map { prefs -> prefs[KEY_STICKER_ENABLED] ?: false }
     // v1.95: 表情包发送概率(0-100,默认 30);模型每次回复时有此概率调用 send_sticker
     val stickerSendProbabilityFlow: Flow<Int> = store.data.map { prefs -> prefs[KEY_STICKER_SEND_PROBABILITY] ?: 30 }
+    // v2.x: 表情包发送频率档位(occasionally/normal/frequent,默认 normal);标记链路 system prompt 注入用
+    val stickerFrequencyFlow: Flow<String> = store.data.map { prefs ->
+        prefs[KEY_STICKER_FREQUENCY] ?: STICKER_FREQ_NORMAL
+    }
     // v1.135: 调用 WebSearchConfig.decrypted() 统一解密 apiKey + apiKeys,并同步旧版单 key 到 apiKeys 映射
     val webSearchConfigFlow: Flow<WebSearchConfig> = store.data.map { prefs ->
         val config = decodePrefsOrNull(
@@ -1158,6 +1170,8 @@ class SettingsRepository(
         // v1.116: 订阅表情包开关与概率 Flow,供 ChatViewModel 零阻塞读取。
         cacheScope.launch { stickerEnabledFlow.collect { stickerEnabledCache = it } }
         cacheScope.launch { stickerSendProbabilityFlow.collect { stickerSendProbabilityCache = it } }
+        // v2.x: 订阅表情包频率档位,供 system prompt 注入零阻塞读取。
+        cacheScope.launch { stickerFrequencyFlow.collect { stickerFrequencyCache = it } }
         // PII Guard:订阅开关 Flow,供 ChatViewModel 在 launchStream 内零阻塞读取。
         cacheScope.launch { piiGuardEnabledFlow.collect { piiGuardEnabledCache = it } }
         // ANR 检测开关:订阅 Flow 落缓存,供 AnrWatcher 同步读取(支持运行时切换)。
@@ -1473,6 +1487,14 @@ class SettingsRepository(
     suspend fun saveStickerEnabled(enabled: Boolean) { store.edit { it[KEY_STICKER_ENABLED] = enabled } }
     // v1.95: 保存表情包发送概率(0-100,超出范围会自动收束)
     suspend fun saveStickerSendProbability(prob: Int) { store.edit { it[KEY_STICKER_SEND_PROBABILITY] = prob.coerceIn(0, 100) } }
+    // v2.x: 保存表情包发送频率档位(occasionally/normal/frequent;其他值收束为 normal)
+    suspend fun saveStickerFrequency(frequency: String) {
+        val normalized = when (frequency) {
+            STICKER_FREQ_OCCASIONALLY, STICKER_FREQ_FREQUENT -> frequency
+            else -> STICKER_FREQ_NORMAL
+        }
+        store.edit { it[KEY_STICKER_FREQUENCY] = normalized }
+    }
     suspend fun addProvider(config: ProviderConfig) {
         store.edit { prefs -> val list = decodePrefsOrNull(prefs[KEY_PROVIDERS], ListSerializer(ProviderConfig.serializer()), "Providers(add)") ?: emptyList(); prefs[KEY_PROVIDERS] = encodeProviders(list + config) }
         auditLogger.log(
@@ -1971,6 +1993,8 @@ class SettingsRepository(
         private val KEY_STICKER_ENABLED = booleanPreferencesKey("sticker_enabled")
         // v1.95: 表情包发送概率(0-100,默认 30)
         private val KEY_STICKER_SEND_PROBABILITY = intPreferencesKey("sticker_send_probability")
+        // v2.x: 表情包发送频率档位(occasionally/normal/frequent,默认 normal)
+        private val KEY_STICKER_FREQUENCY = stringPreferencesKey("sticker_frequency")
         private val KEY_WEB_SEARCH_CONFIG = stringPreferencesKey("web_search_config_json")
         private val KEY_CLOUD_BACKUP_CONFIG = stringPreferencesKey("cloud_backup_config_json")
         private val KEY_WEB_SERVER_CONFIG = stringPreferencesKey("web_server_config_json")
@@ -2228,4 +2252,9 @@ class SettingsRepository(
         )
     }
 }
+
+/** v2.x: 表情包发送频率档位(标记链路;off 档由总开关 stickerEnabled 表达)。 */
+const val STICKER_FREQ_OCCASIONALLY = "occasionally"
+const val STICKER_FREQ_NORMAL = "normal"
+const val STICKER_FREQ_FREQUENT = "frequent"
 

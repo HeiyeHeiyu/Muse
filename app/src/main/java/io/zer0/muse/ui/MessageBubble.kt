@@ -90,13 +90,13 @@ import io.zer0.muse.ui.chat.MessageInfoSheet
 import io.zer0.muse.ui.chat.MuseReactionSheet
 import io.zer0.muse.ui.chat.reactionIcon
 import io.zer0.muse.ui.chat.reactionLabelRes
+import io.zer0.muse.ui.chat.StickerAwareMarkdownBody
 import io.zer0.muse.ui.common.media.AssistantAvatar
 import io.zer0.muse.ui.common.media.ContextMenuItem
 import io.zer0.muse.ui.common.media.DesktopContextMenu
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.media.rememberDesktopShortcutsEnabled
 import io.zer0.muse.ui.markdown.CardAction
-import io.zer0.muse.ui.markdown.MarkdownText
 import io.zer0.muse.transformer.MoodSkinParser
 import io.zer0.muse.transformer.InternalMarkupSanitizer
 import io.zer0.muse.ui.taskcard.AgentPlan
@@ -1290,8 +1290,10 @@ internal fun MessageBubble(
                             modifier = Modifier.fillMaxWidth(),
                         )
                     } else {
-                        MarkdownText(
+                        // v2.x: 表情包标记 [[sticker:分类]] → 纯图片卡片;无标记时零开销直通原 MarkdownText
+                        StickerAwareMarkdownBody(
                             text = MoodSkinParser.stripInlineEffects(bodyContent),
+                            stickerSeed = msg.id.hashCode().toLong(),
                             style = bodyStyle,
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.fillMaxWidth(),

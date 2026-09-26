@@ -443,6 +443,58 @@ class StickerLibraryRepository(private val appContext: Context) {
      */
     fun getStickerFileByPath(relativePath: String): File = File(appContext.filesDir, relativePath)
 
+    // ── v2.x: 标记链路支持(消息内 [[sticker:分类名]] 解析用) ─────────────────
+
+    /** 快照内存缓存(写操作经 [writeManifest] 自动失效)。 */
+    @Volatile
+    private var snapshotCache: StickerSnapshot? = null
+
+    /** 读取分类快照(带内存缓存;首次读盘后常驻,写操作时自动失效)。 */
+    suspend fun snapshot(): StickerSnapshot =
+        withContext(Dispatchers.IO) {
+            snapshotCache?.let { return@withContext it }
+            manifestMutex.withLock {
+                snapshotCache?.let { return@withLock it }
+                val items = readManifest()
+                val snap =
+                    StickerSnapshot(
+                        categories = items.map { it.category }.distinct().sorted(),
+                        byCategory = items.groupBy { it.category },
+                    )
+                snapshotCache = snap
+                snap
+            }
+        }
+
+    /** 分类摘要(分类名 → 张数),供 system prompt 生成"可用分类"清单。 */
+    suspend fun categorySummary(): List<Pair<String, Int>> {
+        val snap = snapshot()
+        return snap.categories.map { it to (snap.byCategory[it]?.size ?: 0) }
+    }
+
+    /**
+     * 容错解析分类名(模型输出的分类名可能不精确)。
+     *
+     * 匹配顺序:精确 → 忽略大小写与空白 → 编辑距离 ≤ 1 → 唯一包含。
+     * 全部失败返回 null(调用方按"忽略该标记"处理)。
+     */
+    suspend fun resolveCategory(raw: String): String? = matchStickerCategory(snapshot().categories, raw)
+
+    /**
+     * 种子随机选取:同一 [seed] 稳定返回同一张(重进会话/重组不跳变)。
+     * 非 suspend(基于已读快照,渲染层先 [snapshot] 再调用)。
+     */
+    fun pickSticker(
+        snap: StickerSnapshot,
+        category: String,
+        seed: Long,
+    ): StickerItem? {
+        val list = snap.byCategory[category] ?: return null
+        if (list.isEmpty()) return null
+        val idx = Math.floorMod(seed, list.size.toLong()).toInt()
+        return list[idx]
+    }
+
     // ── 内部辅助 ─────────────────────────────────────────────────────────
 
     /**
@@ -469,6 +521,8 @@ class StickerLibraryRepository(private val appContext: Context) {
 
     /** 写入清单文件(调用方需持锁)。v1.117: 原子写(temp+rename)避免写中途崩溃损坏清单。 */
     private fun writeManifest(items: List<StickerItem>) {
+        // v2.x: 清单变更 → 分类快照缓存失效(标记链路读取)
+        snapshotCache = null
         if (!rootDir.exists()) rootDir.mkdirs()
         val json = AppJson.encodeToString(ListSerializer(StickerItem.serializer()), items)
         // 原子写:先写 .tmp 再 rename,避免 writeText 中途崩溃留下半截 JSON 导致全部元数据丢失
@@ -496,7 +550,7 @@ class StickerLibraryRepository(private val appContext: Context) {
     private fun parseCategoryAndName(rawName: String): Pair<String, String?> {
         // v1.113: 快速拒绝含 .. 的路径(防 Zip Slip)
         if (rawName.contains("..")) {
-            return "默认" to null  // 返回 null fileName 会被调用方跳过
+            return "默认" to null // 返回 null fileName 会被调用方跳过
         }
         // 统一路径分隔符(zip 规范用 "/",部分工具可能用 "\\")
         val normalized = rawName.replace('\\', '/')
@@ -540,3 +594,67 @@ data class StickerItem(
     val relativePath: String,
     val addedAt: Long,
 )
+
+/**
+ * v2.x: 表情包库分类快照(标记链路读取用)。
+ *
+ * @param categories 所有分类名(排序)
+ * @param byCategory 分类 → 条目列表
+ */
+data class StickerSnapshot(
+    val categories: List<String>,
+    val byCategory: Map<String, List<StickerItem>>,
+) {
+    val isEmpty: Boolean get() = categories.isEmpty()
+}
+
+/**
+ * v2.x: 分类名容错匹配 —— 模型输出的分类名与库中分类的模糊对齐。
+ *
+ * 匹配顺序:精确 → 归一化(大小写/空白) → 编辑距离 ≤ 1(仅短名) → 唯一包含。
+ * 全部失败返回 null(调用方按"忽略该标记"处理,宁可少发不乱发)。
+ */
+internal fun matchStickerCategory(
+    candidates: List<String>,
+    raw: String,
+): String? {
+    val name = raw.trim()
+    if (name.isEmpty() || candidates.isEmpty()) return null
+    // 1. 精确
+    candidates.firstOrNull { it == name }?.let { return it }
+    // 2. 归一化(忽略大小写与空白)
+    val norm = name.lowercase().filterNot { it.isWhitespace() }
+    candidates.firstOrNull { it.lowercase().filterNot { c -> c.isWhitespace() } == norm }?.let { return it }
+    // 3. 编辑距离 ≤ 1(仅短名且等长 —— 等长限制防"开心"误配"不开心"这类插入型差异)
+    if (name.length <= 8) {
+        candidates.firstOrNull {
+            it.length == name.length && levenshteinDistance(it, name) <= 1
+        }?.let { return it }
+    }
+    // 4. 唯一包含(仅 name 包含 candidate 方向:模型把分类名写长了一点;
+    //    反向(candidate 包含 name)禁用 —— "开心" 误配 "不开心" 这类反义风险)
+    val contained = candidates.filter { name.contains(it, ignoreCase = true) }
+    if (contained.size == 1) return contained[0]
+    return null
+}
+
+/** 标准 Levenshtein 距离(短字符串 DP)。 */
+internal fun levenshteinDistance(
+    a: String,
+    b: String,
+): Int {
+    if (a == b) return 0
+    if (a.isEmpty()) return b.length
+    if (b.isEmpty()) return a.length
+    var prev = IntArray(b.length + 1) { it }
+    val curr = IntArray(b.length + 1)
+    for (i in 1..a.length) {
+        curr[0] = i
+        for (j in 1..b.length) {
+            val cost = if (a[i - 1] == b[j - 1]) 0 else 1
+            curr[j] = minOf(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost)
+        }
+        curr.copyInto(prev)
+    }
+    return prev[b.length]
+}

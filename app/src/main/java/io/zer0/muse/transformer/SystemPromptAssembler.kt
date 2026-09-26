@@ -5,6 +5,8 @@ import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
 import io.zer0.muse.data.ExperimentsConfig
 import io.zer0.muse.data.MultiAgentConfig
+import io.zer0.muse.data.STICKER_FREQ_FREQUENT
+import io.zer0.muse.data.STICKER_FREQ_OCCASIONALLY
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantRepository
@@ -141,6 +143,12 @@ class SystemPromptAssembler(
      * 为 null 时不启用 Hook(测试环境或未注入时降级)。
      */
     private val hookRegistry: io.zer0.muse.hook.HookRegistry? = null,
+    /**
+     * v2.x: 表情包库仓库 — 库非空且总开关开启时,向 system prompt 注入"表情包使用指南"
+     * (可用分类清单 + [[sticker:分类名]] 语法 + 频率档位提示)。
+     * 为 null 时不注入(测试环境或未注入时降级)。
+     */
+    private val stickerRepository: io.zer0.muse.data.sticker.StickerLibraryRepository? = null,
 ) {
 
     /**
@@ -167,11 +175,17 @@ class SystemPromptAssembler(
     ): List<UIMessage> {
         val static = buildStaticSnapshot(assistant, memoryEnabled, forSubagent = forSubagent, ignoreMemory = ignoreMemory)
         val dynamic = if (timeReminderEnabled) buildDynamicSection() else ""
+        // v2.x: 表情包使用指南(动态读取库分类;库为空/开关关闭时为空串;子代理不注入)
+        val stickerGuide = if (forSubagent) "" else buildStickerGuideSection()
         var combined = buildString {
             if (static.isNotBlank()) append(static)
             if (dynamic.isNotBlank()) {
                 if (isNotEmpty()) append("\n\n---\n\n")
                 append(dynamic)
+            }
+            if (stickerGuide.isNotBlank()) {
+                if (isNotEmpty()) append("\n\n---\n\n")
+                append(stickerGuide)
             }
         }
 
@@ -465,6 +479,40 @@ class SystemPromptAssembler(
      * 当前仅包含"当前时间",每次发消息都需要重新生成。
      */
     fun buildDynamicSection(): String = buildTimeSection()
+
+    /**
+     * v2.x: 表情包使用指南(动态段) — 库非空且总开关开启时返回注入文本,否则空串。
+     *
+     * 每次 build 实时读取(不走静态快照缓存),导入新库/改档位后下一条消息即生效。
+     * 模型只看到分类名清单(看不到图片内容),按语境选择并在正文里写 [[sticker:分类名]]。
+     */
+    suspend fun buildStickerGuideSection(): String {
+        val repo = stickerRepository ?: return ""
+        if (!settings.stickerEnabledCache) return ""
+        val summary = resultOf { repo.categorySummary() }.getOrNull().orEmpty()
+        if (summary.isEmpty()) return ""
+        val categoryList = summary.joinToString(" / ") { "${it.first}(${it.second})" }
+        val freqHint = when (settings.stickerFrequencyCache) {
+            STICKER_FREQ_OCCASIONALLY -> "偶尔使用——大多数回复不带,只在气氛非常合适时带一个。"
+            STICKER_FREQ_FREQUENT -> "高频使用——只要语境相容就自然带一个,让聊天更生动。"
+            else -> "正常使用——语境合适时自然带一个,没有合适的就不带。"
+        }
+        return buildString {
+            appendLine("<sticker_guide>")
+            appendLine("你可以在回复里自然穿插表情包,让对话更像真人聊天。")
+            appendLine()
+            appendLine("写法:在正文里写 [[sticker:分类名]],系统会把它变成一张表情包图片直接出现在对话里,用户看不到这段说明。")
+            appendLine("可用分类:$categoryList")
+            appendLine("使用频率:$freqHint")
+            appendLine()
+            appendLine("规则:")
+            appendLine("- 分类名必须严格使用上方清单里的名称,不要自创")
+            appendLine("- 表情包是点缀:一条回复最多一个,不强行每句都带")
+            appendLine("- 严肃、技术、正式话题或用户情绪低落时不发表情包")
+            appendLine("- 放在句子末尾或独立成行,不要写进代码块")
+            appendLine("</sticker_guide>")
+        }.trim()
+    }
 
     // ── Section 实现 ────────────────────────────────────────────────────
 

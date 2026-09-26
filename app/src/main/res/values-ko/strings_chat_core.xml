@@ -446,6 +446,11 @@
     <string name="settings_sticker_enabled_subtitle">어시스턴트가 답장으로 스티커를 보낼 수 있도록 허용</string>
     <string name="settings_sticker_send_probability">전송 확률</string>
     <string name="settings_sticker_send_probability_subtitle">어시스턴트가 답장당 스티커를 보낼 확률</string>
+    <string name="settings_sticker_frequency">전송 빈도</string>
+    <string name="settings_sticker_frequency_subtitle">어시스턴트가 문맥에 어울릴 때 자연스럽게 스티커를 첨부합니다</string>
+    <string name="settings_sticker_freq_occasional">가끔</string>
+    <string name="settings_sticker_freq_normal">보통</string>
+    <string name="settings_sticker_freq_frequent">자주</string>
     <string name="settings_sticker_upload_zip">우편번호 가져오기</string>
     <string name="settings_sticker_upload_zip_subtitle">ZIP 파일을 선택하세요.</string>
     <string name="settings_sticker_imported">가져온 %1$d 스티커</string>

@@ -446,6 +446,11 @@
     <string name="settings_sticker_enabled_subtitle">Permitir que el asistente envíe pegatinas en las respuestas</string>
     <string name="settings_sticker_send_probability">Enviar probabilidad</string>
     <string name="settings_sticker_send_probability_subtitle">Probabilidad de que el asistente envíe una pegatina por respuesta</string>
+    <string name="settings_sticker_frequency">Frecuencia</string>
+    <string name="settings_sticker_frequency_subtitle">El asistente añade pegatinas naturalmente cuando el contexto lo permite</string>
+    <string name="settings_sticker_freq_occasional">Ocasional</string>
+    <string name="settings_sticker_freq_normal">Normal</string>
+    <string name="settings_sticker_freq_frequent">Frecuente</string>
     <string name="settings_sticker_upload_zip">Importar ZIP</string>
     <string name="settings_sticker_upload_zip_subtitle">Elija un archivo ZIP;</string>
     <string name="settings_sticker_imported">Pegatinas %1$d importadas</string>

@@ -1981,6 +1981,12 @@ class GroupChatScheduler(
                     appendLine()
                     appendLine(groupChatMemory)
                 }
+                // v2.x: 表情包使用指南(群聊与单聊同管线;库为空/开关关闭时为空串)
+                val stickerGuide = assembler.buildStickerGuideSection()
+                if (stickerGuide.isNotBlank()) {
+                    appendLine()
+                    appendLine(stickerGuide)
+                }
             }
             appendLine()
             appendLine("【辩论模式】你正在参与一场结构化辩论。")
@@ -2873,6 +2879,12 @@ class GroupChatScheduler(
                 if (groupChatMemory.isNotBlank()) {
                     appendLine()
                     appendLine(groupChatMemory)
+                }
+                // v2.x: 表情包使用指南(群聊与单聊同管线;库为空/开关关闭时为空串)
+                val stickerGuide = assembler.buildStickerGuideSection()
+                if (stickerGuide.isNotBlank()) {
+                    appendLine()
+                    appendLine(stickerGuide)
                 }
             }
 

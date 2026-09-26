@@ -60,6 +60,8 @@ val appPromptModule = module {
             pinnedMemoryStore = get(),
             // P1-1: 透传 hookRegistry,SystemPromptComposeHook 在 build 末尾调用
             hookRegistry = get(),
+            // v2.x: 透传 stickerRepository,库非空且开关开启时注入表情包使用指南
+            stickerRepository = get(),
         )
     }
 }

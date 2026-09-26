@@ -61,6 +61,9 @@ import coil.compose.AsyncImage
 import io.zer0.muse.R
 import io.zer0.muse.data.ChatGradient
 import io.zer0.muse.data.ChatPreferences
+import io.zer0.muse.data.STICKER_FREQ_FREQUENT
+import io.zer0.muse.data.STICKER_FREQ_NORMAL
+import io.zer0.muse.data.STICKER_FREQ_OCCASIONALLY
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.sticker.StickerItem
 import io.zer0.muse.data.sticker.StickerLibraryRepository
@@ -961,9 +964,9 @@ fun ChatSettingsPage(
             }
         }
 
-        // ── v1.95: 表情包库 — v1.0.54: 功能弃用,UI 全部关闭(数据保留,代码保留可恢复)──
-        // item { SectionLabel(stringResource(R.string.settings_chat_sticker_section)) }
-        // item { StickerLibrarySection(settings = settings, scope = scope) }
+        // ── v2.x: 表情包库 — 标记链路恢复(模型正文写 [[sticker:分类]] 直接出图,不再走工具调用)──
+        item { SectionLabel(stringResource(R.string.settings_chat_sticker_section)) }
+        item { StickerLibrarySection(settings = settings, scope = scope) }
     }
 
     if (showTitlePromptDialog) {
@@ -1074,7 +1077,7 @@ private fun temperatureHint(value: Float): Int = when {
  *  - 预览网格:80x80dp 缩略图,长按弹删除确认对话框
  *  - 空态:灰色图标 + 标题 + 副标题
  *
- * @param settings 设置仓库(读写 sticker_enabled / sticker_send_probability)
+ * @param settings 设置仓库(读写 sticker_enabled / sticker_frequency)
  * @param scope 协程作用域(发起导入/删除/保存操作)
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
@@ -1086,7 +1089,8 @@ private fun StickerLibrarySection(
     val context = LocalContext.current
     val stickerRepo: StickerLibraryRepository = koinInject()
     val stickerEnabled by settings.stickerEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
-    val probability by settings.stickerSendProbabilityFlow.collectAsStateWithLifecycle(initialValue = 30)
+    // v2.x: 发送频率档位(标记链路;替代旧发送概率)
+    val stickerFrequency by settings.stickerFrequencyFlow.collectAsStateWithLifecycle(initialValue = STICKER_FREQ_NORMAL)
 
     // 刷新触发器:导入/删除后自增以重新加载分类与列表
     var refreshTrigger by remember { mutableStateOf(0) }
@@ -1162,7 +1166,7 @@ private fun StickerLibrarySection(
                 onCheckedChange = { v -> scope.launch { settings.saveStickerEnabled(v) } },
             )
             SettingsGroupDivider()
-            // 发送概率滑块(0-100 连续,百分比显示)
+            // v2.x: 发送频率档位(标记链路;替代旧概率滑块)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1177,54 +1181,38 @@ private fun StickerLibrarySection(
                     modifier = Modifier.size(MuseIconSizes.iconMedium),
                 )
                 Column(modifier = Modifier.weight(1f)) {
-                    // 本地草稿 + 400ms 防抖:拖动时只更新草稿,停止后再写 DataStore
-                    var probDraft by remember { mutableStateOf(probability.toFloat()) }
-                    LaunchedEffect(probability) {
-                        if (probability.toFloat() != probDraft) probDraft = probability.toFloat()
-                    }
-                    LaunchedEffect(probDraft) {
-                        if (probDraft.toInt() != probability) {
-                            delay(400)
-                            scope.launch {
-                                settings.saveStickerSendProbability(probDraft.toInt())
-                                // v1.0.53: 调概率即视为想发表情包 — 自动开启总开关,
-                                //   否则概率拉满但总开关默认 false 时工具永不暴露,模型不会发。
-                                if (probDraft.toInt() > 0 && !stickerEnabled) {
-                                    settings.saveStickerEnabled(true)
-                                }
-                            }
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_sticker_send_probability),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = "${probDraft.toInt()}%",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
                     Text(
-                        text = stringResource(R.string.settings_sticker_send_probability_subtitle),
+                        text = stringResource(R.string.settings_sticker_frequency),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_sticker_frequency_subtitle),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline,
                     )
-                    MuseSlider(
-                        value = probDraft,
-                        onValueChange = { v -> probDraft = v },
-                        valueRange = 0f..100f,
-                        steps = 0,  // 连续
-                        showValueLabel = false,  // 百分比已在标题行显示
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
+                    Row(
+                        modifier = Modifier.padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        listOf(
+                            STICKER_FREQ_OCCASIONALLY to R.string.settings_sticker_freq_occasional,
+                            STICKER_FREQ_NORMAL to R.string.settings_sticker_freq_normal,
+                            STICKER_FREQ_FREQUENT to R.string.settings_sticker_freq_frequent,
+                        ).forEach { (value, labelRes) ->
+                            MuseChip(
+                                selected = stickerFrequency == value,
+                                onClick = {
+                                    scope.launch {
+                                        settings.saveStickerFrequency(value)
+                                        // v2.x: 选择档位即视为想用表情包 — 自动开启总开关
+                                        if (!stickerEnabled) settings.saveStickerEnabled(true)
+                                    }
+                                },
+                                label = stringResource(labelRes),
+                            )
+                        }
+                    }
                 }
             }
             SettingsGroupDivider()

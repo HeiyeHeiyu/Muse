@@ -353,6 +353,11 @@
     <string name="settings_sticker_enabled_subtitle">アシスタントが返信でステッカーを送信できるようにする</string>
     <string name="settings_sticker_send_probability">送信確率</string>
     <string name="settings_sticker_send_probability_subtitle">アシスタントが返信ごとにステッカーを送信する確率</string>
+    <string name="settings_sticker_frequency">送信頻度</string>
+    <string name="settings_sticker_frequency_subtitle">アシスタントは文脈に合うときに自然にステッカーを添えます</string>
+    <string name="settings_sticker_freq_occasional">たまに</string>
+    <string name="settings_sticker_freq_normal">普通</string>
+    <string name="settings_sticker_freq_frequent">よく使う</string>
     <string name="settings_sticker_upload_zip">ZIPをインポート</string>
     <string name="settings_sticker_upload_zip_subtitle">ZIP ファイルを選択します。</string>
     <string name="settings_sticker_imported">輸入された%1$dステッカー</string>

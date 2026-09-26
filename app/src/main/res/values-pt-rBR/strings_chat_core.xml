@@ -446,6 +446,11 @@
     <string name="settings_sticker_enabled_subtitle">Permitir que o assistente envie adesivos nas respostas</string>
     <string name="settings_sticker_send_probability">Enviar probabilidade</string>
     <string name="settings_sticker_send_probability_subtitle">Probabilidade de o assistente enviar um adesivo por resposta</string>
+    <string name="settings_sticker_frequency">Frequência</string>
+    <string name="settings_sticker_frequency_subtitle">O assistente adiciona adesivos naturalmente quando o contexto combina</string>
+    <string name="settings_sticker_freq_occasional">Ocasional</string>
+    <string name="settings_sticker_freq_normal">Normal</string>
+    <string name="settings_sticker_freq_frequent">Frequente</string>
     <string name="settings_sticker_upload_zip">Importar ZIP</string>
     <string name="settings_sticker_upload_zip_subtitle">Escolha um arquivo ZIP;</string>
     <string name="settings_sticker_imported">Adesivos %1$d importados</string>

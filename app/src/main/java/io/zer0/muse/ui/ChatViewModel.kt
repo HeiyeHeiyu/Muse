@@ -2619,13 +2619,19 @@ class ChatViewModel(
         cachedStaticSystemPrompt = staticSnapshot
         cachedStaticSnapshotKey = computeStaticSnapshotKey(assistant, effectiveMemoryEnabled) +
             "|global=$useGlobalMemory|scope=$memoryScope|space=$memorySpaceId"
-        // 2.2 组合完整 system prompt(静态快照 + 当前时间)
+        // 2.2 组合完整 system prompt(静态快照 + 当前时间 + 表情包指南)
         val dynamicSection = if (timeReminderEnabled) systemPromptAssembler.buildDynamicSection() else ""
+        // v2.x: 表情包使用指南(动态读取;库为空/开关关闭时为空串)
+        val stickerGuide = resultOf { systemPromptAssembler.buildStickerGuideSection() }.getOrNull().orEmpty()
         cachedSystemPrompt = buildString {
             if (staticSnapshot.isNotBlank()) append(staticSnapshot)
             if (dynamicSection.isNotBlank()) {
                 if (isNotEmpty()) append("\n\n---\n\n")
                 append(dynamicSection)
+            }
+            if (stickerGuide.isNotBlank()) {
+                if (isNotEmpty()) append("\n\n---\n\n")
+                append(stickerGuide)
             }
         }
         // 3. 更新 state(contextMaxTokens + contextTokenCount)

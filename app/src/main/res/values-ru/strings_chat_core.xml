@@ -446,6 +446,11 @@
     <string name="settings_sticker_enabled_subtitle">Разрешить помощнику отправлять стикеры в ответах</string>
     <string name="settings_sticker_send_probability">Отправить вероятность</string>
     <string name="settings_sticker_send_probability_subtitle">Вероятность того, что помощник отправит стикер за ответ</string>
+    <string name="settings_sticker_frequency">Частота</string>
+    <string name="settings_sticker_frequency_subtitle">Помощник естественно добавляет стикеры, когда это уместно</string>
+    <string name="settings_sticker_freq_occasional">Редко</string>
+    <string name="settings_sticker_freq_normal">Обычно</string>
+    <string name="settings_sticker_freq_frequent">Часто</string>
     <string name="settings_sticker_upload_zip">Импортировать ZIP-файл</string>
     <string name="settings_sticker_upload_zip_subtitle">Выберите ZIP-файл;</string>
     <string name="settings_sticker_imported">Импортированные стикеры %1$d</string>
