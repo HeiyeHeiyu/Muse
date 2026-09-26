@@ -560,8 +560,10 @@ class GroupChatViewModel(
         val now = System.currentTimeMillis()
         if (now - lastSendTimestamp < SEND_DEBOUNCE_MS) return
         lastSendTimestamp = now
-        // v1.111: 用 scheduler 的全局状态检查(替代 _state.isAgentResponding,切页后 _state 会重置)
-        if (scheduler.hasActiveGeneration(chatId)) return
+        // v2.x: 插话机制 — 轮转进行中不丢弃用户消息:先中断当前轮(已发言内容保留),
+        // 待旧轮退场后以本条消息开启新一轮,所有成员都能看到用户的最新发言。
+        val interrupting = scheduler.hasActiveGeneration(chatId)
+        if (interrupting) scheduler.stop(chatId)
 
         val images = _state.value.pendingImages
         val fileAttachments = _state.value.pendingFileAttachments
@@ -594,7 +596,19 @@ class GroupChatViewModel(
             timestamp = now,
         )
         _state.update { it.copy(currentMessages = it.currentMessages + optimisticMsg) }
-        scheduler.launchRoundRobin(chatId, effectiveText, images, fileAttachments)
+        if (interrupting) {
+            // v2.x: 等待被中断的旧轮退场(最多 3s),避免两轮并发写同一群聊
+            viewModelScope.launch {
+                var waited = 0
+                while (scheduler.hasActiveGeneration(chatId) && waited < 30) {
+                    delay(100)
+                    waited++
+                }
+                scheduler.launchRoundRobin(chatId, effectiveText, images, fileAttachments)
+            }
+        } else {
+            scheduler.launchRoundRobin(chatId, effectiveText, images, fileAttachments)
+        }
     }
 
     /**
