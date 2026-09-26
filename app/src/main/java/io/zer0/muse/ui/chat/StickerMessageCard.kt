@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
@@ -70,14 +71,17 @@ internal fun StickerMessageCard(
 
     var previewing by remember { mutableStateOf(false) }
     val painter = rememberAsyncImagePainter(model = file)
-    val size = painter.intrinsicSize
-    // Unspecified 时宽高为 NaN,NaN > 0f 为 false → 回退 1f
-    val ratio =
-        if (size.width > 0f && size.height > 0f) {
+    // v2.2.0: 修复 "Size is unspecified" 崩溃 — 旧注释假设 Unspecified 时宽高为 NaN,
+    // 但部分 Compose 版本的 Size.width 访问器对 Unspecified 直接抛 IllegalStateException。
+    // 用 runCatching + isSpecified 双重防护: 任何异常回退 1f(方形占位), 渲染不再中断。
+    val ratio = runCatching {
+        val size = painter.intrinsicSize
+        if (size.isSpecified && size.width > 0f && size.height > 0f) {
             size.width / size.height
         } else {
             1f
         }
+    }.getOrDefault(1f)
     Image(
         painter = painter,
         contentDescription = null,

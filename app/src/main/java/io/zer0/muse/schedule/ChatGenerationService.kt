@@ -47,6 +47,14 @@ class ChatGenerationService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        // v2.2.0: Koin 未启动时优雅退场(不崩溃) — 系统 sticky 重启服务可发生在
+        // MuseApp 跳过 startKoin 的 Safe Mode 进程里; 此处若无防御, 后续 by inject
+        // 会抛 "KoinApplication has not been started" 形成崩溃循环。
+        if (org.koin.core.context.GlobalContext.getOrNull() == null) {
+            Logger.w("ChatGenService", "Koin 未启动(Safe Mode/进程异常恢复) — 放弃保活")
+            stopSelf()
+            return
+        }
         // v1.112: 服务创建即进入前台状态,避免 onStartCommand 延迟导致 5 秒超时崩溃。
         // 用默认标题构造通知;后续 onStartCommand 会按实际生成状态更新。
         try {
@@ -75,6 +83,15 @@ class ChatGenerationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // v2.2.0: 同 onCreate 的 Koin 防御 — null Intent(sticky 重启)在此场景最常见,
+        // 必须在访问任何 by inject 属性前拦截。
+        // 2026-09-27 真机崩溃修复: ChatGenerationService 曾是唯一无 Koin 防御的组件,
+        // 缺失时抛 "KoinApplication has not been started" 崩溃。
+        if (org.koin.core.context.GlobalContext.getOrNull() == null) {
+            Logger.w("ChatGenService", "Koin 未启动(Safe Mode?) — 停止服务,不进入观察循环")
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val action = intent?.action ?: ACTION_START
         when (action) {
             ACTION_START -> startObserve()

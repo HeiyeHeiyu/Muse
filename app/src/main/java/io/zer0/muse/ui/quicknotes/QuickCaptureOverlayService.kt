@@ -77,6 +77,13 @@ class QuickCaptureOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        // v2.2.0: Koin 未启动时优雅退场(与 ChatGenerationService 同款防御) —
+        // Safe Mode/进程异常恢复场景下 by inject 会崩 "KoinApplication has not been started"。
+        if (org.koin.core.context.GlobalContext.getOrNull() == null) {
+            Logger.w("QuickCaptureOverlayService", "Koin 未启动(Safe Mode?) — 停止悬浮窗服务")
+            stopSelf()
+            return
+        }
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         startForegroundCompat(buildNotification())
         themeWatchJob = serviceScope.launch {
