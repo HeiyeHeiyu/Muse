@@ -132,7 +132,7 @@ val appModule = module {
     single { PromptInjectionRepository(get(), androidContext()) }  // Phase 8.5
     single { io.zer0.muse.data.skill.SkillRepository(get()) }  // Phase 8.8
     single { io.zer0.muse.data.session.FolderRepository(get(), get(), get(), androidContext()) }  // Phase 9.1 (M13) +MuseDb: deleteFolder 事务(M-SESS8)
-    single { io.zer0.muse.data.groupchat.GroupChatRepository(get(), get(), get(), get()) }  // v1.30: 群聊仓库(�?MuseDb 用于跨表事务)
+    single { io.zer0.muse.data.groupchat.GroupChatRepository(get(), get(), get(), get(), get()) }  // v1.30: 群聊仓库(含 MuseDb 用于跨表事务)+ v2.x 遗留收尾 MessageImageStore
     // v2.x: 群聊记忆隔离仓库(独立 fact store,不污染主记忆)
     single { io.zer0.muse.data.groupchat.GroupChatMemoryRepository(get()) }
     // v1.0.72: AI 朋友圈

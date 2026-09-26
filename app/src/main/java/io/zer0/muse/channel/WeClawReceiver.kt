@@ -3,13 +3,11 @@ package io.zer0.muse.channel
 import android.content.Context
 import io.zer0.common.Logger
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 
@@ -112,8 +110,9 @@ class WeClawReceiver(
     /**
      * v2.x (B4): 视频/文件入站 — 下载并解密到 [MEDIA_DIR],记录含文件名与本地路径。
      *
-     * 失败/超限/落盘失败时降级为占位文本(不抛异常,不阻断后续轮询);
-     * 超过 [MAX_MEDIA_SAVE_BYTES] 的文件仅记录,不落盘,避免私有目录被大文件撑爆。
+     * v2.x 遗留收尾:改为**流式**下载(边下边写文件),不再一次性读入内存;
+     * [MAX_MEDIA_SAVE_BYTES] 保护在流内生效(超出立即中止并删除半成品)。
+     * 失败/超限/超时降级为占位文本(不抛异常,不阻断后续轮询)。
      */
     private suspend fun handleBinaryMedia(
         msg: WeClawClient.InboundMsg,
@@ -122,60 +121,53 @@ class WeClawReceiver(
         label: String,
     ) {
         val from = msg.fromUserId
-        val bytes = withTimeoutOrNull(MEDIA_DOWNLOAD_TIMEOUT_MS) {
-            WeClawClient.downloadMedia(media).getOrNull()
+        val target = File(
+            File(context.filesDir, MEDIA_DIR),
+            "${System.currentTimeMillis()}_${defaultMediaFileName(media, kind)}",
+        )
+        val result = withTimeoutOrNull(MEDIA_DOWNLOAD_TIMEOUT_MS) {
+            WeClawClient.downloadMediaToFile(media, target, MAX_MEDIA_SAVE_BYTES)
         }
-        if (bytes == null) {
-            Logger.w(TAG, "媒体下载失败(kind=$kind, from=$from)")
+        if (result == null) {
+            Logger.w(TAG, "媒体下载超时(kind=$kind, from=$from)")
             ChannelInbox.record("WECLAW", from, "$label(未能获取)", "", mediaKind = kind)
             return
         }
-        if (bytes.size > MAX_MEDIA_SAVE_BYTES) {
-            Logger.w(TAG, "媒体超出大小上限(kind=$kind, from=$from, size=${bytes.size})")
-            ChannelInbox.record(
-                "WECLAW",
-                from,
-                "$label(超出大小上限 ${bytes.size / 1024 / 1024}MB,未落盘)",
-                "",
-                mediaKind = kind,
-            )
+        val written = result.getOrNull()
+        if (written == null) {
+            val error = result.exceptionOrNull()
+            if (error is MediaTooLargeException) {
+                Logger.w(TAG, "媒体超出大小上限(kind=$kind, from=$from)")
+                ChannelInbox.record(
+                    "WECLAW",
+                    from,
+                    "$label(超出大小上限 ${MAX_MEDIA_SAVE_BYTES / 1024 / 1024}MB,未落盘)",
+                    "",
+                    mediaKind = kind,
+                )
+            } else {
+                Logger.w(TAG, "媒体下载失败(kind=$kind, from=$from, err=${error?.message})")
+                ChannelInbox.record("WECLAW", from, "$label(未能获取)", "", mediaKind = kind)
+            }
             return
         }
-        val saved = withContext(Dispatchers.IO) { saveMediaToPrivateDir(media, kind, bytes) }
-        if (saved == null) {
-            Logger.w(TAG, "媒体落盘失败(kind=$kind, from=$from)")
-            ChannelInbox.record("WECLAW", from, "$label(本地保存失败)", "", mediaKind = kind)
-            return
-        }
-        val displayName = media.fileName.ifBlank { saved.name }
+        val displayName = media.fileName.ifBlank { target.name }
         ChannelInbox.record(
             platform = "WECLAW",
             from = from,
             text = "$label $displayName",
             rawPayload = "",
             mediaKind = kind,
-            mediaPath = saved.absolutePath,
+            mediaPath = target.absolutePath,
         )
     }
 
-    /**
-     * v2.x (B4): 把视频/文件字节写入私有目录 filesDir/channel_media/,返回落盘文件。
-     * 文件名做路径分隔符/控制字符清洗;前缀时间戳防同名覆盖。失败返回 null。
-     */
-    private fun saveMediaToPrivateDir(
-        media: WeClawClient.MediaRef,
-        kind: String,
-        bytes: ByteArray,
-    ): File? = runCatching {
-        val dir = File(context.filesDir, MEDIA_DIR)
-        if (!dir.exists() && !dir.mkdirs()) error("无法创建媒体目录")
-        val baseName = sanitizeFileName(media.fileName).ifBlank {
-            "${kind}_${System.currentTimeMillis()}${if (kind == "video") ".mp4" else ".bin"}"
-        }
-        val file = File(dir, "${System.currentTimeMillis()}_$baseName")
-        file.writeBytes(bytes)
-        file
-    }.getOrNull()
+    /** v2.x 遗留收尾:清洗文件名;无名字媒体补默认名(扩展名按类型)。 */
+    private fun defaultMediaFileName(media: WeClawClient.MediaRef, kind: String): String {
+        val sanitized = sanitizeFileName(media.fileName)
+        if (sanitized.isNotBlank()) return sanitized
+        return "${kind}${if (kind == "video") ".mp4" else ".bin"}"
+    }
 
     /** v2.x (B4): 清洗文件名 — 只保留末段,剔除路径分隔符与不可见控制字符。 */
     private fun sanitizeFileName(raw: String): String =

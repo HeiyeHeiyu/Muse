@@ -5,9 +5,12 @@ import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.data.assistant.AssistantRepository
+import io.zer0.muse.data.session.MessageImageStore
 import io.zer0.muse.data.session.MuseDb
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -30,12 +33,15 @@ import java.util.UUID
  * @param groupChatDao 群聊 DAO
  * @param groupChatMessageDao 群聊消息 DAO
  * @param assistantRepository Assistant 仓库(用于反查成员名,可选)
+ * @param messageImageStore v2.x 遗留收尾:消息图片统一存储(与单聊同一实例),
+ *        把群聊生成图/用户图的大 base64 落盘到 filesDir/muse_images/,DB 只存 file:// 引用。
  */
 class GroupChatRepository(
     private val db: MuseDb,
     private val groupChatDao: GroupChatDao,
     private val groupChatMessageDao: GroupChatMessageDao,
     private val assistantRepository: AssistantRepository,
+    private val messageImageStore: MessageImageStore,
 ) {
 
     private val TAG = "GroupChatRepo"
@@ -61,7 +67,8 @@ class GroupChatRepository(
         "全量观察长群聊有 OOM 风险,改用 getPagedMessages / getRecentMessagesPaged + getOlderMessages 分页加载。",
         ReplaceWith("getPagedMessages(chatId)"),
     )
-    fun observeMessages(chatId: String): Flow<List<GroupChatMessageEntity>> = groupChatMessageDao.observeMessages(chatId)
+    fun observeMessages(chatId: String): Flow<List<GroupChatMessageEntity>> =
+        groupChatMessageDao.observeMessages(chatId).map { list -> list.map(::hydrateMessage) }.flowOn(Dispatchers.IO)
 
     /**
      * v1.53-GC: 观察指定群聊最近 initialPageSize 条消息(按 timestamp 升序,Flow 实时更新)。
@@ -75,7 +82,10 @@ class GroupChatRepository(
     fun getPagedMessages(
         chatId: String,
         initialPageSize: Int = INITIAL_PAGE_SIZE,
-    ): Flow<List<GroupChatMessageEntity>> = groupChatMessageDao.observeRecentMessages(chatId, initialPageSize)
+    ): Flow<List<GroupChatMessageEntity>> =
+        groupChatMessageDao.observeRecentMessages(chatId, initialPageSize)
+            .map { list -> list.map(::hydrateMessage) }
+            .flowOn(Dispatchers.IO)
 
     /**
      * v1.53-GC: 分页初始加载 — 取指定群聊最近 limit 条消息(按 timestamp 升序)。
@@ -91,7 +101,7 @@ class GroupChatRepository(
         chatId: String,
         limit: Int = INITIAL_PAGE_SIZE,
     ): List<GroupChatMessageEntity> = withContext(Dispatchers.IO) {
-        groupChatMessageDao.getRecentMessages(chatId, limit).reversed()
+        groupChatMessageDao.getRecentMessages(chatId, limit).map(::hydrateMessage).reversed()
     }
 
     /**
@@ -113,7 +123,9 @@ class GroupChatRepository(
         beforeId: String,
         limit: Int = LOAD_MORE_PAGE_SIZE,
     ): List<GroupChatMessageEntity> = withContext(Dispatchers.IO) {
-        groupChatMessageDao.getOlderMessages(chatId, beforeTimestamp, beforeId, limit).reversed()
+        groupChatMessageDao.getOlderMessages(chatId, beforeTimestamp, beforeId, limit)
+            .map(::hydrateMessage)
+            .reversed()
     }
 
     /** 观察指定群聊的元数据(用于详情页标题刷新)。 */
@@ -201,6 +213,7 @@ class GroupChatRepository(
      * @param imageBase64Json 图片附件 base64 列表(JSON 字符串,默认 "[]")
      * @param mood Agent 情绪(可选)
      * @param reasoning Agent 思考过程(可选)
+     * @param videoFileUri v2.x 遗留收尾:generate_video 生成的视频地址(assistant 消息,默认 null)
      * @return 新消息 id;群聊不存在时返回 null(未落库,调用方需处理)
      */
     suspend fun sendMessage(
@@ -216,8 +229,20 @@ class GroupChatRepository(
         whisperTargetId: String? = null,
         replyToId: String? = null,
         messageType: String = "normal",
+        videoFileUri: String? = null,
     ): String? = withContext(Dispatchers.IO) {
         val msgId = UUID.randomUUID().toString()
+        // v2.x 遗留收尾: 图片附件落盘 — 长 base64 经 MessageImageStore 写 filesDir/muse_images/,
+        // DB 只存 file:// 引用(与单聊 SessionRepository 同一策略),避免群聊消息行存 MB 级 base64。
+        // 在事务外先完成文件写,避免文件 IO 包在 DB 事务里。
+        val persistableImageJson = runCatching {
+            val images = AppJson.decodeFromString(ListSerializer(String.serializer()), imageBase64Json)
+            if (images.isEmpty()) imageBase64Json
+            else AppJson.encodeToString(
+                ListSerializer(String.serializer()),
+                messageImageStore.toPersistable(msgId, images),
+            )
+        }.getOrElse { imageBase64Json }
         // H-GC2: 插入消息 + 更新会话时间戳必须原子,避免崩溃后消息已写但时间戳未更新
         // 审计修复 (5.2): 群聊不存在时返回 null,不再返回悬空 msgId(调用方以为发成功
         // 实际没落库,后续引用该 id 全部失效)。
@@ -232,7 +257,8 @@ class GroupChatRepository(
                     senderId = senderId,
                     senderName = senderName,
                     body = body,
-                    imageBase64Json = imageBase64Json,
+                    imageBase64Json = persistableImageJson,
+                    videoFileUri = videoFileUri,
                     fileAttachmentsJson = fileAttachmentsJson,
                     timestamp = System.currentTimeMillis(),
                     mood = mood,
@@ -331,13 +357,13 @@ class GroupChatRepository(
      */
     suspend fun getRecentMessages(chatId: String, limit: Int = 20): List<GroupChatMessageEntity> = withContext(Dispatchers.IO) {
         // DAO 按 DESC 取最近 N 条,反转后按升序返回(便于顺序阅读)
-        groupChatMessageDao.getRecentMessages(chatId, limit).reversed()
+        groupChatMessageDao.getRecentMessages(chatId, limit).map(::hydrateMessage).reversed()
     }
 
     /** v1.0.72: 群聊内搜索消息(关键词匹配正文,按时间倒序)。 */
     suspend fun searchMessages(chatId: String, query: String, limit: Int = 100): List<GroupChatMessageEntity> = withContext(Dispatchers.IO) {
         if (query.isBlank()) return@withContext emptyList()
-        groupChatMessageDao.searchMessages(chatId, query.trim(), limit)
+        groupChatMessageDao.searchMessages(chatId, query.trim(), limit).map(::hydrateMessage)
     }
 
     /** 取指定群聊的最新一条消息(用于列表页预览)。 */
@@ -351,6 +377,35 @@ class GroupChatRepository(
     }
 
     // ── memberIds JSON 序列化辅助 ──
+
+    /**
+     * v2.x 遗留收尾:把 DB 中的图片附件字段(file:// 引用或旧 base64)归一为渲染/上下文所需形式。
+     *
+     * 写入侧经 [MessageImageStore.toPersistable] 把长 base64 落盘为 file:// 路径(DB 只存引用),
+     * 读取侧把 file:// 还原为 base64(补 data:image/png;base64, 前缀,与群聊渲染器
+     * MessageImageGrid/SmartImage 的预期一致);http(s)/已是 data URI 的值原样保留。
+     * 与单聊 [io.zer0.muse.data.session.SessionRepository] 的 imageBase64List 归一同一策略。
+     */
+    private fun hydrateMessage(message: GroupChatMessageEntity): GroupChatMessageEntity {
+        val json = message.imageBase64Json
+        if (json.isBlank() || json == "[]") return message
+        val raw = resultOf {
+            AppJson.decodeFromString(ListSerializer(String.serializer()), json)
+        }.getOrNull() ?: return message
+        if (raw.isEmpty()) return message
+        val hydrated = messageImageStore.toBase64List(raw).mapNotNull { value ->
+            when {
+                value.isBlank() -> null
+                value.startsWith("data:") || value.startsWith("http://") ||
+                    value.startsWith("https://") || value.startsWith("file:") ||
+                    value.startsWith("/") -> value
+                else -> "data:image/png;base64,$value"
+            }
+        }
+        return message.copy(
+            imageBase64Json = AppJson.encodeToString(ListSerializer(String.serializer()), hydrated),
+        )
+    }
 
     /** 把 memberIds 列表序列化为 JSON 字符串。 */
     fun serializeMemberIds(memberIds: List<String>): String {

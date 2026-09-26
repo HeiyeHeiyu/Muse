@@ -169,7 +169,7 @@ import kotlinx.serialization.builtins.serializer
         MessagePartEntity::class,
         SessionBranchHeadEntity::class,
     ],
-    version = 103,
+    version = 104,
     exportSchema = true,
 )
 @TypeConverters(QuickNoteConverters::class)
@@ -877,6 +877,25 @@ abstract class MuseDb : RoomDatabase() {
                 }
                 if ("wholeWord" !in existing) {
                     db.execSQL("ALTER TABLE worldbook_entries ADD COLUMN wholeWord INTEGER NOT NULL DEFAULT 0")
+                }
+            }
+        }
+
+        /**
+         * v103→v104: group_chat_messages 加 videoFileUri 列(群聊视频生成结果持久化)。
+         *
+         * 与单聊 messages.videoFileUri(迁移 87→88)对齐。此前群聊无视频列,
+         * generate_video 只能被群聊工具策略屏蔽;补列后群聊内生成的视频可随消息落库并渲染。
+         * 幂等:PRAGMA 判存在后再 ADD,避免重复列。
+         */
+        val MIGRATION_103_104 = object : Migration(103, 104) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val existing = mutableSetOf<String>()
+                db.query("PRAGMA table_info(group_chat_messages)").use { cursor ->
+                    while (cursor.moveToNext()) existing.add(cursor.getString(1))
+                }
+                if ("videoFileUri" !in existing) {
+                    db.execSQL("ALTER TABLE group_chat_messages ADD COLUMN videoFileUri TEXT DEFAULT NULL")
                 }
             }
         }
@@ -2715,6 +2734,7 @@ abstract class MuseDb : RoomDatabase() {
                         MIGRATION_100_101,
                         MIGRATION_101_102,
                         MIGRATION_102_103,
+                        MIGRATION_103_104,
                     )
                     // 启用外键约束(artifacts 表的 ON DELETE CASCADE 依赖此设置)
                     // onOpen 不在 onCreate 事务内,可以执行此类命令;onCreate 内禁止 PRAGMA
@@ -2918,6 +2938,7 @@ private fun ensureGroupChatMessageColumns(db: androidx.sqlite.db.SupportSQLiteDa
         "id", "chatId", "senderType", "senderId", "senderName", "body",
         "imageBase64Json", "timestamp", "mood", "reasoning",
         "whisper_target_id", "reply_to_id", "messageType", "fileAttachmentsJson",
+        "videoFileUri",
     )
     val existing = mutableMapOf<String, String?>()
     if (tableExists) {
@@ -2967,7 +2988,8 @@ private fun ensureGroupChatMessageColumns(db: androidx.sqlite.db.SupportSQLiteDa
             whisper_target_id TEXT DEFAULT NULL,
             reply_to_id TEXT DEFAULT NULL,
             messageType TEXT NOT NULL DEFAULT 'normal',
-            fileAttachmentsJson TEXT NOT NULL DEFAULT '[]'
+            fileAttachmentsJson TEXT NOT NULL DEFAULT '[]',
+            videoFileUri TEXT DEFAULT NULL
         )
     """.trimIndent()
     db.execSQL("DROP TABLE IF EXISTS group_chat_messages_new")
@@ -2978,6 +3000,7 @@ private fun ensureGroupChatMessageColumns(db: androidx.sqlite.db.SupportSQLiteDa
             "senderName" to "''", "body" to "''", "imageBase64Json" to "'[]'", "timestamp" to "0",
             "mood" to "NULL", "reasoning" to "NULL", "whisper_target_id" to "NULL",
             "reply_to_id" to "NULL", "messageType" to "'normal'", "fileAttachmentsJson" to "'[]'",
+            "videoFileUri" to "NULL",
         )
         val insertColumns = expectedColumns.joinToString(", ") { "`$it`" }
         val selectExpr = expectedColumns.joinToString(", ") { name ->

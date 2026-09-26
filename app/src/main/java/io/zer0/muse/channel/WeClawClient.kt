@@ -2,6 +2,7 @@ package io.zer0.muse.channel
 
 import io.zer0.common.AppJson
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -17,8 +18,10 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.coroutineContext
 
 /**
  * v2.0: 微信 ClawBot(iLink)协议客户端 — 纯 HTTP/JSON,4 个端点。
@@ -33,6 +36,9 @@ internal object WeClawClient {
 
     /** 默认接入域名(扫码确认响应可能带回 baseurl 覆盖值)。 */
     const val DEFAULT_BASE_URL = "https://ilinkai.weixin.qq.com"
+
+    /** v2.x 遗留收尾:流式下载写盘的块大小(64KB)。 */
+    private const val COPY_BUFFER_BYTES = 64 * 1024
 
     private val HTTP: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -277,6 +283,7 @@ internal object WeClawClient {
      * v2.0.1: 下载并解密媒体载荷(IMAGE/VOICE/VIDEO/FILE)。
      *
      * full_url 优先,否则走 `{baseUrl}/download?encrypted_query_param=...`(CDN 链接自带鉴权参数)。
+     * 一次性读入内存,仅适用于小体积媒体(图片/语音);大文件请用 [downloadMediaToFile]。
      */
     suspend fun downloadMedia(
         media: MediaRef,
@@ -284,15 +291,85 @@ internal object WeClawClient {
     ): Result<ByteArray> = withContext(Dispatchers.IO) {
         runCatching {
             require(media.aesKeyBase64.isNotBlank()) { "媒体缺少 aes_key" }
-            val url = media.fullUrl.trim().takeIf { it.isNotBlank() }
-                ?: run {
-                    require(media.encryptedQueryParam.isNotBlank()) { "媒体缺少下载参数" }
-                    "${baseUrl.trimEnd('/')}/download?encrypted_query_param=" +
-                        java.net.URLEncoder.encode(media.encryptedQueryParam, "UTF-8")
-                }
+            val url = mediaUrl(media, baseUrl)
             val ciphertext = requestBytes(url).getOrThrow()
             decryptAesEcb(ciphertext, media.aesKeyBase64)
         }
+    }
+
+    /**
+     * v2.x 遗留收尾:流式下载并解密媒体到文件(边下边写,不在内存中堆积整个文件)。
+     *
+     * 与 [downloadMedia](一次性 readBytes)不同:以 CipherInputStream 包装响应字节流,
+     * 按块边解密边写盘;写入明文字节数超过 [maxBytes] 立即中止并删除半成品文件。
+     * 适用于微信入站的视频/文件等大体积媒体。
+     *
+     * 协程取消(如 withTimeoutOrNull 超时)会在块循环中被检出,并向上抛 CancellationException。
+     *
+     * @return 成功:写入的明文字节数;失败:Result.failure(超限为 [MediaTooLargeException])
+     */
+    suspend fun downloadMediaToFile(
+        media: MediaRef,
+        targetFile: File,
+        maxBytes: Long,
+        baseUrl: String = DEFAULT_BASE_URL,
+    ): Result<Long> = withContext(Dispatchers.IO) {
+        val ctx = coroutineContext
+        try {
+            require(media.aesKeyBase64.isNotBlank()) { "媒体缺少 aes_key" }
+            val url = mediaUrl(media, baseUrl)
+            val key = parseAesKey(media.aesKeyBase64)
+            val cipher = javax.crypto.Cipher.getInstance("AES/ECB/PKCS5Padding").apply {
+                init(
+                    javax.crypto.Cipher.DECRYPT_MODE,
+                    javax.crypto.spec.SecretKeySpec(key, "AES"),
+                )
+            }
+            targetFile.parentFile?.let { if (!it.exists()) it.mkdirs() }
+            val request = Request.Builder().url(url).get().build()
+            val total = HTTP.newCall(request).execute().use { resp ->
+                if (!resp.isSuccessful) error("HTTP ${resp.code}")
+                val body = resp.body ?: error("响应体为空")
+                body.byteStream().use { raw ->
+                    javax.crypto.CipherInputStream(raw, cipher).use { decrypted ->
+                        targetFile.outputStream().buffered().use { out ->
+                            val buffer = ByteArray(COPY_BUFFER_BYTES)
+                            var written = 0L
+                            while (true) {
+                                ctx.ensureActive()
+                                val read = decrypted.read(buffer)
+                                if (read < 0) break
+                                written += read
+                                if (written > maxBytes) {
+                                    throw MediaTooLargeException(
+                                        "媒体超出大小上限(${maxBytes / 1024 / 1024}MB)",
+                                    )
+                                }
+                                out.write(buffer, 0, read)
+                            }
+                            out.flush()
+                            written
+                        }
+                    }
+                }
+            }
+            Result.success(total)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            runCatching { if (targetFile.exists()) targetFile.delete() }
+            throw e
+        } catch (e: Exception) {
+            runCatching { if (targetFile.exists()) targetFile.delete() }
+            Result.failure(e)
+        }
+    }
+
+    /** 构造媒体下载 URL:full_url 优先,否则走 CDN download 端点。 */
+    private fun mediaUrl(media: MediaRef, baseUrl: String): String {
+        val full = media.fullUrl.trim()
+        if (full.isNotBlank()) return full
+        require(media.encryptedQueryParam.isNotBlank()) { "媒体缺少下载参数" }
+        return "${baseUrl.trimEnd('/')}/download?encrypted_query_param=" +
+            java.net.URLEncoder.encode(media.encryptedQueryParam, "UTF-8")
     }
 
     /** 二进制下载(GET,无额外鉴权头 — CDN 参数自带鉴权)。 */
@@ -361,6 +438,14 @@ internal object WeClawClient {
         return android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
     }
 }
+
+/**
+ * v2.x 遗留收尾:媒体流式下载超出大小上限时抛出。
+ *
+ * 供 [WeClawClient.downloadMediaToFile] 调用方区分"超限"与"网络/解析失败",
+ * 前者只记录占位文本,不保留半成品文件。
+ */
+internal class MediaTooLargeException(message: String) : Exception(message)
 
 /**
  * v2.0: 最近一条入站消息的 context_token 缓存。

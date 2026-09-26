@@ -275,6 +275,16 @@ class MuseApp : Application(), ImageLoaderFactory {
                 .onError { msg, t -> Logger.w("MuseApp", "清理孤儿子 agent 线程失败: ${t?.message ?: msg}") }
         }
 
+        // v2.x 遗留收尾: 启动时保守清理微信渠道媒体目录(filesDir/channel_media/),
+        // 防止入站视频/文件长期累积撑爆私有目录(30 天 TTL + 512MB LRU)。
+        appScope.launch {
+            resultOf {
+                io.zer0.muse.channel.ChannelMediaCleaner.cleanup(
+                    java.io.File(filesDir, "channel_media"),
+                )
+            }.onError { msg, t -> Logger.w("MuseApp", "channel_media 清理失败: $msg", t) }
+        }
+
         // v1.0.74: 后台预生成今天的日记(仅当天没有时;打开日记页秒开,不转圈)
         appScope.launch {
             val today = java.time.LocalDate.now().toString()

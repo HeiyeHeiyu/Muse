@@ -2239,21 +2239,25 @@ class GroupChatScheduler(
     }
 
     /**
-     * v2.x (B3): 群聊媒体捕获宿主 — 把 generate_image / generate_qr_code 的生成图收进本轮消息附件。
+     * v2.x (B3): 群聊媒体捕获宿主 — 把 generate_image / generate_qr_code / generate_video 的产物收进本轮消息附件。
      *
-     * 在工具执行的本地协程作用域内通过 [MediaGenHostContext] 注入,只捕获图片
-     * ([MediaGenResult.Success.imageUrls]);视频产物无群聊展示列,忽略。
+     * 在工具执行的本地协程作用域内通过 [MediaGenHostContext] 注入:生成图
+     * ([MediaGenResult.Success.imageUrls])写 imageBase64Json 附件;生成视频
+     * ([MediaGenResult.Success.videoFileUri])写消息 videoFileUri 列
+     * (v2.x 遗留收尾补齐,由 AssistantVideoCard 渲染)。
      * 恒返回非 null 的投递句柄,使媒体工具走"已展示在对话中"分支而非退化为返回文件路径。
      */
     private class GroupChatMediaCaptureHost(
         private val onImages: (List<String>) -> Unit,
+        private val onVideo: (String) -> Unit,
     ) : MediaGenHost {
         override suspend fun begin(kind: MediaGenKind): MediaGenSlot = object : MediaGenSlot {
             override fun isActive(): Boolean = true
             override suspend fun onProgress(elapsedSeconds: Int) = Unit
             override suspend fun report(result: MediaGenResult) {
-                if (result is MediaGenResult.Success && result.imageUrls.isNotEmpty()) {
-                    onImages(result.imageUrls)
+                if (result is MediaGenResult.Success) {
+                    if (result.imageUrls.isNotEmpty()) onImages(result.imageUrls)
+                    result.videoFileUri?.takeIf { it.isNotBlank() }?.let(onVideo)
                 }
             }
         }
@@ -2488,6 +2492,8 @@ class GroupChatScheduler(
         val allToolDefinitions = (channelTools.first + localTools).distinctBy { it.name }
         // v2.x (B3): 本轮 agent 生成图/二维码的媒体结果缓存(收尾时写入回复消息 imageBase64Json)
         val generatedMediaImages = mutableListOf<String>()
+        // v2.x 遗留收尾: 本轮 agent 生成的视频地址(收尾时写入回复消息 videoFileUri 列)
+        var generatedMediaVideo: String? = null
         val toolExecutors = channelTools.second.toMutableMap()
         localTools.forEach { def ->
             toolExecutors[def.name] = { args ->
@@ -2502,7 +2508,14 @@ class GroupChatScheduler(
                         // v2.x (B3): 媒体工具在本地协程作用域注入捕获宿主,把生成图收回本轮消息附件;
                         // 仅作用于本次调用,不触碰全局 UI 宿主(单聊/群聊并发安全)。
                         if (def.name in GroupChatToolPolicy.ENABLED_MEDIA_TOOLS) {
-                            withContext(MediaGenHostContext(GroupChatMediaCaptureHost(generatedMediaImages::addAll))) {
+                            withContext(
+                                MediaGenHostContext(
+                                    GroupChatMediaCaptureHost(
+                                        onImages = generatedMediaImages::addAll,
+                                        onVideo = { generatedMediaVideo = it },
+                                    ),
+                                ),
+                            ) {
                                 execute()
                             }
                         } else {
@@ -2727,7 +2740,8 @@ class GroupChatScheduler(
 
         // 保存 agent 回复到群聊
         // v2.x (B3): 本轮生成的媒体图(生成图/二维码)写入消息附件 imageBase64Json,
-        // 由群聊 MessageImageGrid 渲染;无生成图时为 "[]"(与既有行为一致)。
+        // 由群聊 MessageImageGrid 渲染;v2.x 遗留收尾起,生成视频写 videoFileUri 列,
+        // 由 AssistantVideoCard 渲染;均无时为 "[]"/null(与既有行为一致)。
         val mediaImageJson = if (generatedMediaImages.isNotEmpty()) {
             AppJson.encodeToString(
                 ListSerializer(String.serializer()),
@@ -2741,6 +2755,7 @@ class GroupChatScheduler(
             senderName = assistant.name,
             body = replyText,
             imageBase64Json = mediaImageJson,
+            videoFileUri = generatedMediaVideo,
             mood = extractedMood,
             reasoning = extractedReasoning,
         )
@@ -2779,6 +2794,7 @@ class GroupChatScheduler(
                 senderName = assistant.name,
                 body = replyText,
                 imageBase64Json = mediaImageJson,
+                videoFileUri = generatedMediaVideo,
                 timestamp = System.currentTimeMillis(),
                 mood = extractedMood,
                 reasoning = extractedReasoning,

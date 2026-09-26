@@ -10,24 +10,24 @@ object GroupChatToolPolicy {
     /**
      * v2.x (B3): 群聊已打通"生成结果 → 消息附件"展示通道的媒体工具 — 放开。
      *
-     * 生成图与二维码的产物均可写入群聊消息 `imageBase64Json`(由 MessageImageGrid 渲染),
-     * 不再是"白调后无展示通道"。风险等级经 [ToolPermissionResolver.riskLevelFor] 走
-     * `generate_` 前缀 = SAFE,无需群聊审批。
+     * 生成图的产物写入群聊消息 `imageBase64Json`(由 MessageImageGrid 渲染);
+     * v2.x 遗留收尾起,生成视频的产物写入消息 `videoFileUri` 列(由 AssistantVideoCard
+     * 渲染、点击调起播放器),不再是"白调后无展示通道"。风险等级经
+     * [ToolPermissionResolver.riskLevelFor] 走 `generate_` 前缀 = SAFE,无需群聊审批。
      */
     val ENABLED_MEDIA_TOOLS: Set<String> = setOf(
         "generate_image",
+        "generate_video",
         "generate_qr_code",
     )
 
     /**
-     * v2.x (B3): 仍禁用的媒体工具 — 生成视频。
+     * v2.x (B3): 仍禁用的媒体工具。
      *
-     * 视频产物是视频文件,群聊消息实体没有视频展示列(MessageImageGrid 只渲染图片),
-     * 继续屏蔽以避免模型白调后无展示通道;待视频附件通道补齐后再放开。
+     * 视频通道补齐(消息 `videoFileUri` 列 + AssistantVideoCard 渲染)后已放开,
+     * 当前为空集;保留此集合作为后续新增媒体工具的默认屏蔽位置。
      */
-    val BLOCKED_MEDIA_TOOLS: Set<String> = setOf(
-        "generate_video",
-    )
+    val BLOCKED_MEDIA_TOOLS: Set<String> = emptySet()
 
     /**
      * 过滤群聊媒体工具:只保留已打通展示通道的 [ENABLED_MEDIA_TOOLS]。

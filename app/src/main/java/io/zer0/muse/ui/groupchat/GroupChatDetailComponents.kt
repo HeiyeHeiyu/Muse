@@ -119,6 +119,7 @@ import io.zer0.muse.R
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.groupchat.GroupChatMessageEntity
 import io.zer0.muse.ui.SmartImage
+import io.zer0.muse.ui.AssistantVideoCard
 import io.zer0.muse.ui.chat.StickerAwareMarkdownBody
 import io.zer0.muse.ui.common.media.AssistantAvatar
 import io.zer0.muse.ui.common.form.MuseBottomSheet
@@ -437,6 +438,14 @@ internal fun GroupChatMessageBubble(
                             imageBase64Json = message.imageBase64Json,
                             modifier = Modifier.padding(top = 6.dp),
                         )
+                        // v2.x 遗留收尾:群聊生成视频结果卡片(generate_video 写入的 videoFileUri)
+                        // 复用单聊 AssistantVideoCard,点击调起系统播放器。
+                        message.videoFileUri?.takeIf { it.isNotBlank() }?.let { videoUri ->
+                            AssistantVideoCard(
+                                videoUri = videoUri,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                        }
                     }
                 }
             }

@@ -39,6 +39,15 @@ data class GroupChatMessageEntity(
     val senderName: String,
     val body: String,
     @ColumnInfo(defaultValue = "[]") val imageBase64Json: String = "[]",
+    /**
+     * 视频生成结果地址(assistant 消息,generate_video 写入)。
+     *
+     * 与单聊 [io.zer0.muse.data.session.MessageEntity.videoFileUri] 对齐:群聊此前没有视频列,
+     * generate_video 只能在群聊被屏蔽。补列后群聊内的生成视频随消息落库并由
+     * [io.zer0.muse.ui.MessageBubbleTail.AssistantVideoCard] 渲染、点击播放。
+     * 默认 NULL(null = 无视频),兼容旧数据。
+     */
+    @ColumnInfo(defaultValue = "NULL") val videoFileUri: String? = null,
     @ColumnInfo(defaultValue = "0") val timestamp: Long = System.currentTimeMillis(),
     val mood: String? = null,
     val reasoning: String? = null,
