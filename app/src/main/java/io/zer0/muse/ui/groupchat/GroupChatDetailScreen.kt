@@ -570,6 +570,36 @@ fun GroupChatDetailScreen(
                 // ActivityHub: 输入框上方的紧凑活动状态栏,展示当前轮转中各 agent 的状态 chip。
                 // IDLE 状态被 AgentActivityBar 内部过滤不显示;无活动时整个栏不占空间。
                 AgentActivityBar(activities = state.activities)
+                // v2.x: 轮转导演控制条 — 暂停/继续/跳过剩余(暂停+继续=单步推进,每放一位再停)
+                if (state.isAgentResponding) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(horizontal = MusePaddings.screen, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (!state.roundPaused) {
+                            MuseCapsuleButton(
+                                text = stringResource(R.string.groupchat_round_pause),
+                                onClick = { viewModel.pauseRound() },
+                                variant = IosCapsuleButtonVariant.Text,
+                            )
+                        } else {
+                            MuseCapsuleButton(
+                                text = stringResource(R.string.groupchat_round_resume),
+                                onClick = { viewModel.resumeRound() },
+                                variant = IosCapsuleButtonVariant.Primary,
+                            )
+                            MuseCapsuleButton(
+                                text = stringResource(R.string.groupchat_round_skip),
+                                onClick = { viewModel.skipRoundRemaining() },
+                                variant = IosCapsuleButtonVariant.Text,
+                            )
+                        }
+                    }
+                }
                 // 待发送图片预览行
                 if (state.pendingImages.isNotEmpty()) {
                     PendingImagesRow(

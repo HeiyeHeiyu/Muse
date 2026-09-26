@@ -20,6 +20,9 @@
     <string name="groupchat_agent_thinking">%1$s is thinking…</string>
     <string name="groupchat_tools">Tools</string>
     <string name="groupchat_meeting">Meeting</string>
+    <string name="groupchat_round_pause">Pause</string>
+    <string name="groupchat_round_resume">Resume</string>
+    <string name="groupchat_round_skip">Skip rest</string>
     <string name="groupchat_input_placeholder">Enter message…@Mention members</string>
     <string name="groupchat_send">Send</string>
     <string name="groupchat_pick_content">Choose content to send</string>

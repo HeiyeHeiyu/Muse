@@ -55,6 +55,8 @@ data class GroupChatUiState(
     val pendingImages: List<String> = emptyList(),
     val pendingFileAttachments: List<FileAttachment> = emptyList(),
     val isAgentResponding: Boolean = false,
+    /** v2.x: 轮转是否已被用户暂停(导演控制),暂停中可点击"继续"或"跳过剩余" */
+    val roundPaused: Boolean = false,
     /** v1.104: 当前正在发言的 Agent(用于"谁在思考"指示),null=无人在发言 */
     val currentSpeaker: AssistantEntity? = null,
     val assistants: List<AssistantEntity> = emptyList(),
@@ -262,7 +264,7 @@ class GroupChatViewModel(
         viewModelScope.launch {
             scheduler.activeGroupGeneration.collect { gen ->
                 if (gen == null) {
-                    _state.update { it.copy(isAgentResponding = false, currentSpeaker = null) }
+                    _state.update { it.copy(isAgentResponding = false, currentSpeaker = null, roundPaused = false) }
                 } else if (gen.chatId == currentChatId.value) {
                     // 只在当前群聊匹配时显示生成状态(避免其他群聊的生成干扰当前页)
                     val speaker = gen.currentSpeakerId?.let { id ->
@@ -492,6 +494,33 @@ class GroupChatViewModel(
         if (index in list.indices) {
             list.removeAt(index)
             _state.update { it.copy(pendingFileAttachments = list) }
+        }
+    }
+
+    // ── v2.x: 轮转导演控制(暂停/继续/跳过剩余) ──────────────────
+    // 暂停 + 继续的组合使用即"单步推进":每放行一位成员再停下细看。
+
+    /** v2.x: 暂停当前群聊的轮转(下一位成员开始前挂起)。 */
+    fun pauseRound() {
+        currentChatId.value?.let { id ->
+            scheduler.pauseRound(id)
+            _state.update { it.copy(roundPaused = true) }
+        }
+    }
+
+    /** v2.x: 继续被暂停的轮转。 */
+    fun resumeRound() {
+        currentChatId.value?.let { id ->
+            scheduler.resumeRound(id)
+            _state.update { it.copy(roundPaused = false) }
+        }
+    }
+
+    /** v2.x: 跳过本轮剩余成员,立即结算(已发言的保留)。 */
+    fun skipRoundRemaining() {
+        currentChatId.value?.let { id ->
+            scheduler.skipRoundRemaining(id)
+            _state.update { it.copy(roundPaused = false) }
         }
     }
 

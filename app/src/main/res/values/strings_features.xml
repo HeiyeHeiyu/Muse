@@ -20,6 +20,9 @@
     <string name="groupchat_agent_thinking">%1$s 正在思考…</string>
     <string name="groupchat_tools">工具</string>
     <string name="groupchat_meeting">会议</string>
+    <string name="groupchat_round_pause">暂停</string>
+    <string name="groupchat_round_resume">继续</string>
+    <string name="groupchat_round_skip">跳过剩余</string>
     <string name="groupchat_input_placeholder">输入消息…@提及成员</string>
     <string name="groupchat_send">发送</string>
     <string name="groupchat_pick_content">选择要发送的内容</string>

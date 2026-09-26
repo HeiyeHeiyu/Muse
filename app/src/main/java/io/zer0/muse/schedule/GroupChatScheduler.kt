@@ -1104,6 +1104,39 @@ class GroupChatScheduler(
         )
     }
 
+    // ── v2.x: 轮转导演控制(暂停/继续/快进) ────────────────────────
+    // 用户在轮转进行中可随时喊停:暂停后调度器在下一位成员开始前挂起,
+    // 继续时从断点接着跑;跳过剩余则立即结算本轮(已发言的保留)。
+    // 暂停 + 继续的组合使用即"单步推进"——每放行一位再停下细看。
+
+    /** v2.x: 处于暂停态的群聊 id 集合(轮转在下一位成员前挂起)。 */
+    private val pausedRounds = ConcurrentHashMap.newKeySet<String>()
+
+    /** v2.x: 请求跳过本轮剩余成员的群聊 id 集合。 */
+    private val skipRoundRequests = ConcurrentHashMap.newKeySet<String>()
+
+    /** v2.x: 暂停该群聊的轮转(下一位成员开始前挂起)。 */
+    fun pauseRound(chatId: String) {
+        pausedRounds.add(chatId)
+        Logger.i(TAG, "群聊「$chatId」轮转暂停(等待继续)")
+    }
+
+    /** v2.x: 继续被暂停的轮转。 */
+    fun resumeRound(chatId: String) {
+        pausedRounds.remove(chatId)
+        Logger.i(TAG, "群聊「$chatId」轮转继续")
+    }
+
+    /** v2.x: 跳过本轮剩余成员,立即结算(已发言的保留);处于暂停时一并放行。 */
+    fun skipRoundRemaining(chatId: String) {
+        skipRoundRequests.add(chatId)
+        pausedRounds.remove(chatId)
+        Logger.i(TAG, "群聊「$chatId」请求跳过本轮剩余成员")
+    }
+
+    /** v2.x: 该群聊轮转是否处于暂停。 */
+    fun isRoundPaused(chatId: String): Boolean = chatId in pausedRounds
+
      /**
       * 触发群聊 Agent 轮转发言。
       *
@@ -1221,6 +1254,14 @@ class GroupChatScheduler(
 
         val firstIndex = startMemberIndex.coerceIn(0, orderedAssistants.size)
         for (agentIndex in firstIndex until orderedAssistants.size) {
+            // v2.x: 导演控制 — 暂停挂起 / 快进检查(每进入下一位成员前)
+            while (chatId in pausedRounds) {
+                delay(300)
+            }
+            if (skipRoundRequests.remove(chatId)) {
+                Logger.i(TAG, "群聊「${chat.name}」跳过本轮剩余成员(导演控制)")
+                break
+            }
             if (agentIndex > 0) {
                 delay(GROUP_CHAT_AGENT_INTERVAL_MS)
             }
