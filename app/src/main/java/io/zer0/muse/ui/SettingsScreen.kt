@@ -175,8 +175,6 @@ fun SettingsScreen(
     val providerDesc = stringResource(R.string.settings_screen_provider_desc)
     val taskRoutingTitle = stringResource(R.string.settings_task_routing_title)
     val taskRoutingDesc = stringResource(R.string.settings_screen_task_routing_desc)
-    val visionTitle = stringResource(R.string.settings_screen_vision)
-    val visionDesc = stringResource(R.string.settings_screen_vision_desc)
     val providerPluginsTitle = stringResource(R.string.provider_plugins_title)
     val musePluginsTitle = stringResource(R.string.muse_plugins_external)
     val pluginManageTitle = stringResource(R.string.muse_plugins_manage)
@@ -239,7 +237,6 @@ fun SettingsScreen(
     val entryProactiveTitle = stringResource(R.string.settings_agent_proactive_title)
     val entryScheduledTasksTitle = stringResource(R.string.schedule_title)
     val entryApiKeyTitle = stringResource(R.string.settings_screen_entry_api_key)
-    val entryOcrTitle = stringResource(R.string.settings_screen_entry_ocr)
     val entryKeepAwakeTitle = stringResource(R.string.settings_memory_keep_awake)
     val entryBootStartTitle = stringResource(R.string.settings_agent_boot_section)
     val entryArchivedTitle = stringResource(R.string.settings_screen_entry_archived)
@@ -260,7 +257,6 @@ fun SettingsScreen(
     val entryRagModelTitle = stringResource(R.string.settings_screen_entry_rag_model)
     val entryChunkingTitle = stringResource(R.string.settings_screen_entry_chunking)
     val entrySearchEngineTitle = stringResource(R.string.settings_web_search_engine)
-    val entryVisionModelTitle = stringResource(R.string.settings_vision_model_section)
     val entryMcpServerTitle = stringResource(R.string.settings_mcp_title)
     val entryToolApprovalTitle = stringResource(R.string.settings_screen_entry_tool_approval)
     val entryCollabTitle = stringResource(R.string.settings_screen_entry_collab)
@@ -341,8 +337,6 @@ fun SettingsScreen(
                 SettingsEntry(providerTitle, listOf("供应商", "模型", "provider", "API", "密钥", "gongyingshang", "moxing", "miyao", "gys", "mx", "my", "绘图", "Agnes", "DALL-E", "绘图供应商"), MuseRoutes.SETTINGS_MODEL, groupModels, MuseIcons.provider, onOpenModelSettings),
                 SettingsEntry(entryApiKeyTitle, listOf("API Key", "密钥", "key", "token", "凭证", "apiKey", "miyao", "pingzheng"), MuseRoutes.SETTINGS_MODEL, groupModels, MuseIcons.lock, onOpenModelSettings),
     SettingsEntry(taskRoutingTitle, listOf("辅助模型", "任务路由", "路由", "小工具", "大工具", "视觉", "模型", "fuzhumoxing", "renwuluyou", "luyou", "xiaogongju", "dagongju", "shijue", "moxing", "fzmx", "rwly", "ly", "xgj", "dgj", "sj", "mx"), MuseRoutes.SETTINGS_TASK_ROUTING, groupModels, MuseIcons.taskRouting) { onNavigate(SettingsTaskRoutingRoute) },
-                SettingsEntry(visionTitle, listOf("视觉辅助", "视觉", "vision", "看图", "图像理解", "shijuefuzhu", "shijue", "kantu", "tuxianglijie", "sjfz", "sj", "kt", "txlj"), MuseRoutes.SETTINGS_VISION, groupModels, MuseIcons.eye, onOpenVisionSettings),
-                SettingsEntry(entryOcrTitle, listOf("OCR", "ocr", "文字识别", "图片文字", "识别", "wenzi", "shibie", "tupianwenzi", "wzsb", "tpwz", "sb"), MuseRoutes.SETTINGS_VISION, groupModels, MuseIcons.eye, onOpenVisionSettings),
                 SettingsEntry(
                     pluginManageTitle,
                     listOf("插件管理", "外部插件", "muse-plugin", "插件包", "导入插件", "chajian", "plugin", "daoruchajian", "cjb", "cjgl"),
@@ -409,8 +403,6 @@ fun SettingsScreen(
                 SettingsEntry(entryChunkingTitle, listOf("分段", "分块", "策略", "fenduan", "fenkuai", "celve", "fd", "fk", "cl"), MuseRoutes.SETTINGS_RAG, ragTitle, MuseIcons.book, onOpenRagSettings),
 
                 SettingsEntry(entrySearchEngineTitle, listOf("搜索引擎", "Bing", "Jina", "SearXNG", "sousuoyinqing", "ssyq"), MuseRoutes.SETTINGS_WEB_SEARCH, webSearchEntryTitle, MuseIcons.globe, onOpenWebSearch),
-
-                SettingsEntry(entryVisionModelTitle, listOf("视觉模型", "看图模型", "shijuemoxing", "kantumoxing", "sjmx", "ktmx"), MuseRoutes.SETTINGS_VISION, visionTitle, MuseIcons.eye, onOpenVisionSettings),
 
                 SettingsEntry(entryMcpServerTitle, listOf("MCP", "服务器", "ModelContextProtocol", "fuwuqi", "fwq"), MuseRoutes.SETTINGS_MCP, mcpEntryTitle, MuseIcons.affiliate, onOpenMcp),
                 SettingsEntry(entryToolApprovalTitle, listOf("工具批准", "批准模式", "自动批准", "gongjupizhun", "pizhunmoshi", "zidongpizhun", "gjpz", "pzms", "zdpz"), MuseRoutes.TOOLS, toolsTitle, MuseIcons.wrench, onOpenTools),
@@ -520,7 +512,6 @@ fun SettingsScreen(
                         SettingsCardGroup(title = groupModels) {
                             link(providerTitle, R.string.settings_screen_provider_desc, MuseIcons.provider, onOpenModelSettings)
                             link(taskRoutingTitle, taskRoutingDesc, MuseIcons.taskRouting) { onNavigate(SettingsTaskRoutingRoute) }
-                            link(visionTitle, R.string.settings_screen_vision_desc, MuseIcons.eye, onOpenVisionSettings)
                             link(webSearchEntryTitle, R.string.settings_screen_web_search_desc, MuseIcons.globe, onOpenWebSearch)
                             link(asrEntryTitle, R.string.settings_screen_asr_desc, MuseIcons.microphone, onOpenAsr)
                             // v2.0.1: 消息渠道入口已收敛到「连接中心」（工具分组），此处不再单独展示

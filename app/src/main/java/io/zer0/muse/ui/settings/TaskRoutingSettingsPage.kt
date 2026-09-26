@@ -1,7 +1,10 @@
 package io.zer0.muse.ui.settings
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,6 +31,7 @@ import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.routing.UtilityModelBinding
 import io.zer0.muse.data.routing.UtilityTier
 import io.zer0.muse.ui.ModelSwitchSheet
+import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.settings.ChevronRight
 import io.zer0.muse.ui.common.settings.SectionLabel
@@ -61,6 +66,14 @@ fun TaskRoutingSettingsPage(
     val settings: SettingsRepository = koinInject()
     val providers by settings.providersFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val activeProviderId by settings.activeProviderIdFlow.collectAsStateWithLifecycle(initialValue = null)
+    // v2.x: 全局默认模型(主对话/Agent 共用)
+    val selectedModelId by settings.selectedModelIdFlow.collectAsStateWithLifecycle(initialValue = null)
+    val currentModelName = remember(providers, activeProviderId, selectedModelId) {
+        val provider = providers.firstOrNull { it.id == activeProviderId } ?: providers.firstOrNull()
+        val model = provider?.models?.firstOrNull { it.id == selectedModelId } ?: provider?.models?.firstOrNull()
+        model?.name ?: "—"
+    }
+    var showMainModelPicker by remember { mutableStateOf(false) }
     // v2.x: 辅助模型(小工具/大工具)绑定状态 + 视觉模型展示
     val utilityBinding by settings.utilityModelBindingFlow.collectAsStateWithLifecycle(initialValue = null)
     val utilityLargeBinding by settings.utilityLargeModelBindingFlow.collectAsStateWithLifecycle(initialValue = null)
@@ -101,6 +114,16 @@ fun TaskRoutingSettingsPage(
         item { SectionLabel(stringResource(R.string.settings_task_routing_aux_models_label)) }
         item {
             SettingsGroup(modifier = Modifier.padding(top = 4.dp)) {
+                // v2.x: 主对话模型(全局默认) — 主聊天/Agent 共用的主模型
+                SettingsItemRow(
+                    icon = MuseIcons.chat,
+                    title = stringResource(R.string.settings_agent_current_model),
+                    subtitle = currentModelName + " · " + stringResource(R.string.settings_agent_current_model_hint),
+                    onClick = { showMainModelPicker = true },
+                ) {
+                    ChevronRight()
+                }
+                SettingsGroupDivider()
                 // 小工具模型
                 SettingsItemRow(
                     icon = MuseIcons.wrench,
@@ -144,6 +167,23 @@ fun TaskRoutingSettingsPage(
                 }
             }
         }
+    }
+
+    // v2.x: 全局默认模型选择弹窗(按 Provider 分组,点击即切 Provider 并选模型)
+    if (showMainModelPicker) {
+        MainModelPickerDialog(
+            providers = providers,
+            activeProviderId = activeProviderId,
+            selectedModelId = selectedModelId,
+            onPick = { providerId, modelId ->
+                scope.launch {
+                    settings.setActiveProvider(providerId)
+                    settings.saveSelectedModel(modelId)
+                }
+                showMainModelPicker = false
+            },
+            onDismiss = { showMainModelPicker = false },
+        )
     }
 
     // v2.x: 辅助模型编辑弹窗(小工具/大工具共用,ModelSwitchSheet 带 Provider 选择)
@@ -206,6 +246,74 @@ private suspend fun saveUtilityBinding(
         UtilityTier.LARGE -> settings.saveUtilityLargeModelBinding(binding)
         else -> Unit
     }
+}
+
+/**
+ * v2.x: 全局默认模型选择弹窗 — 按 Provider 分组列出全部模型,
+ * 点击即切换激活 Provider 并设置全局默认模型(主对话/Agent 共用)。
+ */
+@Composable
+private fun MainModelPickerDialog(
+    providers: List<io.zer0.ai.core.ProviderConfig>,
+    activeProviderId: String?,
+    selectedModelId: String?,
+    onPick: (providerId: String, modelId: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    MuseDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.settings_agent_select_model),
+        content = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                providers.forEach { provider ->
+                    if (provider.models.isNotEmpty()) {
+                        Text(
+                            text = provider.displayName,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+                        )
+                        provider.models.forEach { model ->
+                            val isSelected = provider.id == activeProviderId && model.id == selectedModelId
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onPick(provider.id, model.id) }
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = model.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = MuseIcons.check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                if (providers.isEmpty() || providers.all { it.models.isEmpty() }) {
+                    Text(
+                        text = stringResource(R.string.settings_agent_no_models_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
+            }
+        },
+        dismissText = stringResource(R.string.action_cancel),
+        onDismiss = onDismiss,
+    )
 }
 
 /** 辅助模型的绑定状态胶囊:已绑定显示模型名(主色浅底),未绑定显示"沿用/复用"提示(灰底)。 */
