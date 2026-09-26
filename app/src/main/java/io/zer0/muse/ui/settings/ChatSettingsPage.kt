@@ -839,6 +839,9 @@ fun ChatSettingsPage(
                     onCheckedChange = { v -> update { it.copy(performanceMode = v) } },
                 )
                 SettingsGroupDivider()
+                // v2.x: 会话缓存上限(高级) — 后台保留的会话消息内存副本数,热更生效
+                SessionCacheSizeRow(settings = settings, scope = scope)
+                SettingsGroupDivider()
                 // v1.0.47 P5-3: Token 估算(默认关闭)——开启后输入栏显示 Token 计数按钮,点击查看上下文占用
                 // v1.0.52: 这是唯一真正生效的 Token 开关(消息显示分组里的"显示Token"已移除,因为它从未工作)
                 SettingsSwitchRow(
@@ -1062,6 +1065,61 @@ private fun temperatureHint(value: Float): Int = when {
 }
 
 /** 解析压缩模型的显示名称(未绑定回退默认文本)。 */
+
+/**
+ * v2.x: 会话缓存上限选择行(高级) — 后台保留的会话消息内存副本数。
+ *
+ * 越大:会话问切换越快,内存占用越高。热更生效(上限由 SettingsRepository 实时读取)。
+ *
+ * @param settings 设置仓库(读写 session_cache_size)
+ * @param scope 协程作用域(保存操作)
+ */
+@Composable
+private fun SessionCacheSizeRow(
+    settings: SettingsRepository,
+    scope: CoroutineScope,
+) {
+    val current by settings.sessionCacheSizeFlow.collectAsStateWithLifecycle(initialValue = 5)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(MusePaddings.cardInner),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(
+            imageVector = MuseIcons.stack,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.size(MuseIconSizes.iconMedium),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.settings_chat_session_cache),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = stringResource(R.string.settings_chat_session_cache_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
+            Row(
+                modifier = Modifier.padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf(3, 5, 8, 12).forEach { size ->
+                    MuseChip(
+                        selected = current == size,
+                        onClick = { scope.launch { settings.saveSessionCacheSize(size) } },
+                        label = size.toString(),
+                    )
+                }
+            }
+        }
+    }
+}
+
 /**
  * v1.95: 表情包库管理区 — 启用开关 + 发送概率 + 导入 zip + 分类筛选 + 预览网格。
  *

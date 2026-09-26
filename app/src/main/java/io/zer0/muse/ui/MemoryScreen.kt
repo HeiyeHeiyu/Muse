@@ -3,6 +3,7 @@
 package io.zer0.muse.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -47,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseAnchoredMenu
 import io.zer0.muse.ui.common.form.MuseBottomSheet
@@ -594,16 +596,19 @@ private fun LazyListScope.memoryStreamItems(
                     MonthHeader(month = month)
                 }
                 items(filtered, key = { "timeline_${it.id}" }) { item ->
-                    TimelineEventCard(
-                        item = TimelineItem(
-                            id = item.id,
-                            content = item.content,
-                            source = item.source,
-                            importance = item.importance,
-                            createdAt = item.createdAt ?: item.time,
-                            tags = item.tags,
-                        ),
-                    )
+                    // v2.x: 动效补齐 — 时间轴拍平条目统一入场动画(与列表模式同规格)
+                    Box(museAnimateItem()) {
+                        TimelineEventCard(
+                            item = TimelineItem(
+                                id = item.id,
+                                content = item.content,
+                                source = item.source,
+                                importance = item.importance,
+                                createdAt = item.createdAt ?: item.time,
+                                tags = item.tags,
+                            ),
+                        )
+                    }
                 }
             }
         }
@@ -623,7 +628,8 @@ private fun LazyListScope.memoryStreamItems(
             )
         }
         items(dayItems, key = { "stream_${it.id}" }) { item ->
-            Box(modifier = Modifier.padding(horizontal = MusePaddings.screen)) {
+            // v2.x: 动效补齐 — 记忆流列表条目入场/位移过渡
+            Box(modifier = museAnimateItem().padding(horizontal = MusePaddings.screen)) {
                 MemoryFactRow(
                     item = item,
                     onEdit = { onEdit(item) },
@@ -786,7 +792,8 @@ private fun LazyListScope.memoryFactsItems(
             }
         } else {
             items(items, key = { "lib_${it.id}" }) { item ->
-                Box(modifier = Modifier.padding(horizontal = MusePaddings.screen)) {
+                // v2.x: 动效补齐 — 事实库列表条目入场/位移过渡
+                Box(modifier = museAnimateItem().padding(horizontal = MusePaddings.screen)) {
                     MemoryFactRow(
                         item = item,
                         onEdit = { onEdit(item) },
@@ -823,29 +830,43 @@ private fun MemoryConstellationTab(
                 .weight(1f)
                 .clip(MuseShapes.extraLarge),
         ) {
-            if (graphState.isLoading) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    io.zer0.muse.ui.common.state.MuseLoadingState()
+            // v2.x: 动效补齐 — 加载/空态/图谱三态切换走 Crossfade(NORMAL_MS, 同 ChatScreen 规格)。
+            // 切换记忆空间(spaceId)或作用域(scope)时星座重新加载,也会经此过渡淡入淡出。
+            val constellationState = when {
+                graphState.isLoading -> 0
+                graphState.nodes.isEmpty() -> 1
+                else -> 2
+            }
+            Crossfade(
+                targetState = constellationState,
+                animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+                label = "memoryConstellationContent",
+                modifier = Modifier.fillMaxSize(),
+            ) { kind ->
+                when (kind) {
+                    0 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        io.zer0.muse.ui.common.state.MuseLoadingState()
+                    }
+                    1 -> {
+                        // v2.0: 空态改为贴顶居中 — 星座容器高 560dp 起,超过首屏高度时
+                        // 垂直居中点会落在屏幕外,文案被底部截断(实测第二行不可见)。
+                        Box(
+                            Modifier.fillMaxSize().padding(horizontal = 20.dp).padding(top = 72.dp),
+                            contentAlignment = Alignment.TopCenter,
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    if (factCount == 0) R.string.memory_center_constellation_empty
+                                    else R.string.memory_center_filter_empty,
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                    else -> MemoryGraphView(state = graphState, modifier = Modifier.fillMaxSize())
                 }
-            } else if (graphState.nodes.isEmpty()) {
-                // v2.0: 空态改为贴顶居中 — 星座容器高 560dp 起,超过首屏高度时
-                // 垂直居中点会落在屏幕外,文案被底部截断(实测第二行不可见)。
-                Box(
-                    Modifier.fillMaxSize().padding(horizontal = 20.dp).padding(top = 72.dp),
-                    contentAlignment = Alignment.TopCenter,
-                ) {
-                    Text(
-                        text = stringResource(
-                            if (factCount == 0) R.string.memory_center_constellation_empty
-                            else R.string.memory_center_filter_empty,
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            } else {
-                MemoryGraphView(state = graphState, modifier = Modifier.fillMaxSize())
             }
         }
     }

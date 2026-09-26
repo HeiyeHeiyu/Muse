@@ -1,5 +1,6 @@
 package io.zer0.muse.ui.memory
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -50,6 +51,8 @@ import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseLoadingState
+import io.zer0.muse.ui.theme.MuseAnimation
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.statusColors
 import kotlin.math.hypot
@@ -97,6 +100,14 @@ fun MemoryGraphView(
     }
 
     val nodes = state.nodes
+    // v2.x: 动效补齐 — 星座整体入场 fade + scale(仅整体过渡,不做节点级 stagger,绘制层保持原样)。
+    var entryStarted by remember { mutableStateOf(false) }
+    LaunchedEffect(nodes) { entryStarted = true }
+    val entryProgress by animateFloatAsState(
+        targetValue = if (entryStarted) 1f else 0f,
+        animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+        label = "memoryGraphEntry",
+    )
     // 画布尺寸由最大簇的节点环半径决定,保证节点永远画在画布内。
     val sizeDp = remember(nodes) {
         val maxClusterSize = nodes.groupingBy { it.category.lowercase() }.eachCount().values.maxOrNull() ?: 1
@@ -144,6 +155,13 @@ fun MemoryGraphView(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
             .background(colors.surface)
+            // v2.x: 动效补齐 — 整体入场:淡入 + 轻微放大到位(0.96→1.0)
+            .graphicsLayer {
+                alpha = entryProgress
+                val entryScale = 0.96f + 0.04f * entryProgress
+                scaleX = entryScale
+                scaleY = entryScale
+            }
             .onSizeChanged { viewportSize = it }
             .pointerInput(nodes) {
                 detectTransformGestures { centroid, panChange, zoomChange, _ ->

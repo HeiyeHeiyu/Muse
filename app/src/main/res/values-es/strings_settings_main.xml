@@ -393,6 +393,8 @@
     <!-- v1.0.4 P3-4: Performance mode (MessagePaginator integration) -->
     <string name="settings_chat_performance_mode">Modo de rendimiento</string>
     <string name="settings_chat_performance_mode_subtitle">Para chats largos, muestre solo los 50 mensajes más recientes y cargue más en el desplazamiento hacia arriba para reducir el retraso.</string>
+    <string name="settings_chat_session_cache">Tamano de cache de sesiones</string>
+    <string name="settings_chat_session_cache_subtitle">Copias de mensajes de sesion en memoria; mayor = cambio mas rapido, mas memoria</string>
     <!-- v1.0.47 P5-3: Token estimate (experimental) -->
     <string name="settings_chat_token_estimate">Estimación de tokens (experimental)</string>
     <string name="settings_chat_token_estimate_subtitle">Mostrar un botón de recuento de tokens en la barra de entrada;</string>

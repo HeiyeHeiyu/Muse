@@ -49,6 +49,86 @@ fun stripThinkTags(text: String): String {
 }
 
 /**
+ * 单趟抽取 [content] 中所有匹配 [regex] 的块。
+ *
+ * - 单次 findAll 收集全部匹配,再单趟拼接字符串(避免循环 removeRange 的 O(n*k) 拷贝)
+ * - 无论捕获组是否为空都从 content 移除标签外壳(空标签也剥离)
+ * - 多块内容用换行连接,空块过滤
+ *
+ * @return Pair(抽取内容, 剥离后的文本);抽取内容为空时前半段为 null
+ */
+private fun extractTagBlocks(content: String, regex: Regex): Pair<String?, String> {
+    val matches = regex.findAll(content).toList()
+    if (matches.isEmpty()) return null to content
+    val extracted = matches
+        .map { it.groupValues[1] }
+        .filter { it.isNotBlank() }
+        .joinToString("\n")
+        .trim()
+        .ifBlank { null }
+    val sb = StringBuilder(content.length)
+    var lastEnd = 0
+    for (m in matches) {
+        sb.append(content, lastEnd, m.range.first)
+        lastEnd = m.range.last + 1
+    }
+    sb.append(content, lastEnd, content.length)
+    return extracted to sb.toString()
+}
+
+/**
+ * B10: 流式 ThinkTag 实时剥离的轻量纯函数。
+ *
+ * 逻辑与 [ThinkTagTransformer.visualTransform] 完全一致,抽为无副作用纯函数,
+ * 供 ChatViewModel 的流式节流 UI 更新路径直接调用(不再走 transformerPipeline 全管道):
+ *  - 已闭合 `<think>...</think>` 全部抽出为 reasoning
+ *  - 流式中未闭合的 `<think>foo`(尚无 `</think>`)把 foo 也作为 reasoning,
+ *    让用户实时看到思考过程
+ *
+ * 幂等: [existingReasoning] 非空时原样返回(已有推理通道内容,不重复抽取)。
+ * 无 `<think>` 标记时原样返回(快速路径,零行为变化)。
+ *
+ * 注意: 触发守卫(`<think>`)与 [ThinkTagTransformer.visualTransform] 保持一致;
+ * `<thinking>` 等变体由 updateAssistant 的完整清洗路径处理,本函数不接管。
+ *
+ * @return Pair(reasoning, content);reasoning 无内容时为 null
+ */
+fun splitThinkTagsForStreaming(
+    content: String,
+    existingReasoning: String? = null,
+): Pair<String?, String> {
+    if (existingReasoning != null) return existingReasoning to content
+    if (!content.contains("<think>", ignoreCase = true)) return null to content
+
+    // 1. 先抽出已闭合的 <think>...</think> 块
+    val (extractedClosed, remainingAfterClosed) = extractTagBlocks(content, MusePatterns.THINK_TAG_REGEX)
+
+    // 2. 流式特殊处理: 检测未闭合的 <think>foo(无 </think>),把 foo 也作为 reasoning 显示
+    val unclosedIdx = remainingAfterClosed.indexOf("<think>", ignoreCase = true)
+    val extractedUnclosed: String?
+    val finalContent: String
+    if (unclosedIdx >= 0) {
+        extractedUnclosed = remainingAfterClosed
+            .substring(unclosedIdx + "<think>".length)
+            .trim()
+            .ifBlank { null }
+        finalContent = remainingAfterClosed.substring(0, unclosedIdx)
+    } else {
+        extractedUnclosed = null
+        finalContent = remainingAfterClosed
+    }
+
+    val combinedReasoning = listOfNotNull(extractedClosed, extractedUnclosed)
+        .filter { it.isNotBlank() }
+        .joinToString("\n")
+        .trim()
+        .ifBlank { null }
+
+    if (combinedReasoning == null && finalContent == content) return null to content
+    return combinedReasoning to finalContent.trim()
+}
+
+/**
  * Think 标签 Transformer(Phase 8.1 H1)。
  *
  * 把 ASSISTANT 消息 content 里的 `<think>...</think>` 标签抽出到 [UIMessage.reasoning] 字段,
@@ -91,24 +171,7 @@ class ThinkTagTransformer : Transformer {
      */
     private fun extractTag(content: String, regex: Regex, existing: String?): Pair<String?, String> {
         if (existing != null) return existing to content
-        val matches = regex.findAll(content).toList()
-        if (matches.isEmpty()) return null to content
-        // 多块内容用换行连接,空块过滤掉
-        val extracted = matches
-            .map { it.groupValues[1] }
-            .filter { it.isNotBlank() }
-            .joinToString("\n")
-            .trim()
-            .ifBlank { null }
-        // 单趟构建新 content,无论 group 是否为空都移除标签
-        val sb = StringBuilder(content.length)
-        var lastEnd = 0
-        for (m in matches) {
-            sb.append(content, lastEnd, m.range.first)
-            lastEnd = m.range.last + 1
-        }
-        sb.append(content, lastEnd, content.length)
-        return extracted to sb.toString()
+        return extractTagBlocks(content, regex)
     }
 
     override suspend fun transform(
@@ -148,43 +211,12 @@ class ThinkTagTransformer : Transformer {
     ): List<UIMessage> = messages.map { msg ->
         if (msg.role != MessageRole.ASSISTANT) return@map msg
         if (msg.reasoning != null) return@map msg  // 已有 reasoning,跳过
-        val content = msg.content
-        if (!content.contains("<think>", ignoreCase = true)) return@map msg  // 快速路径
-
-        // 1. 先抽出已闭合的 <think>...</think> 块(与 transform 一致)
-        val (extractedClosed, remainingAfterClosed) = extractTag(content, thinkRegex, null)
-
-        // 2. 流式特殊处理:检测未闭合的 <think>foo(无 </think>),
-        //    把 foo 也作为 reasoning 显示,让 UI 即时展示思考过程
-        val unclosedIdx = remainingAfterClosed.indexOf("<think>", ignoreCase = true)
-        val extractedUnclosed: String?
-        val finalContent: String
-        if (unclosedIdx >= 0) {
-            val unclosedReasoning = remainingAfterClosed
-                .substring(unclosedIdx + "<think>".length)
-                .trim()
-                .ifBlank { null }
-            extractedUnclosed = unclosedReasoning
-            finalContent = remainingAfterClosed.substring(0, unclosedIdx)
-        } else {
-            extractedUnclosed = null
-            finalContent = remainingAfterClosed
-        }
-
-        // 合并已闭合 + 未闭合的 reasoning
-        val combinedReasoning = listOfNotNull(extractedClosed, extractedUnclosed)
-            .filter { it.isNotBlank() }
-            .joinToString("\n")
-            .trim()
-            .ifBlank { null }
-
-        if (combinedReasoning == null && finalContent == content) {
+        // 委托 B10 抽出的纯函数,与 ChatViewModel 流式路径共用同一份剥离逻辑
+        val (reasoning, content) = splitThinkTagsForStreaming(msg.content, msg.reasoning)
+        if (reasoning == msg.reasoning && content == msg.content) {
             msg  // 没有任何可抽取内容,原样返回
         } else {
-            msg.copy(
-                reasoning = combinedReasoning,
-                content = finalContent.trim(),
-            )
+            msg.copy(reasoning = reasoning, content = content)
         }
     }
 }

@@ -88,6 +88,7 @@ import io.zer0.muse.transformer.ThinkTagTransformer
 import io.zer0.muse.transformer.TimeReminderTransformer
 import io.zer0.muse.transformer.TransformContext
 import io.zer0.muse.transformer.TransformerPipeline
+import io.zer0.muse.transformer.splitThinkTagsForStreaming
 import io.zer0.muse.ui.chat.ChatStateAccessor
 import io.zer0.muse.ui.chat.ChatAudioCoordinator
 import io.zer0.muse.ui.chat.ChatGenerationController
@@ -1381,7 +1382,8 @@ class ChatViewModel(
     // 此处以 LRU 策略保留最近 SessionMemoryCache.MAX_CACHE_SIZE 个会话的内存副本,
     // 超出后自动驱逐最久未访问的会话,切回时从 DB 重新加载。
     // 注:无外部依赖,直接实例化,不走 Koin(避免改动 single{} 注册的位置参数列表)。
-    private val sessionMemoryCache = SessionMemoryCache()
+    // v2.x: 上限热读设置(聊天设置→高级,默认 5)
+    private val sessionMemoryCache = SessionMemoryCache { settings.sessionCacheSizeCache }
 
     // ── 语音对话模式(录音 → 识别 → 思考 → 播报循环)──────────
     // 状态机:IDLE → LISTENING → THINKING → SPEAKING → LISTENING(循环)
@@ -4101,20 +4103,11 @@ class ChatViewModel(
         // C-17: 本代媒体登记表清零(上一代遗留 id 不参与本代收尾兜底)
         toolMediaMessages.clear()
         val baseHistorySize = conversationHistory.size
-        // v1.x: 三钩子接入 — 流式视觉转换(applyVisualTransform)接入说明:
-        // 当前流式 UI 更新走 updateAssistant(id, content, ...) 路径,
-        // 直接调用 transformerPipeline.applyVisualTransform 需要把 builder 内容
-        // 包成 UIMessage,跑钩子后再拆出 content/reasoning 喂回 updateAssistant。
-        // 接入示例(待后续重构 streamRound 时启用):
-        // ```
-        // val ctx = state.transformContext ?: return@streamRound ...
-        // val visualMsg = UIMessage(id=params.currentAssistantId, role=ASSISTANT, content=unmaskPii(builder.toString()))
-        // val visualized = transformerPipeline.applyVisualTransform(listOf(visualMsg), ctx).first()
-        // updateAssistant(visualized.id, visualized.content, visualized.reasoning, isStreaming=true)
-        // ```
-        // 暂不接入:streamRound 内有自适应切片/节流逻辑,直接套 visualTransform 会破坏
-        // 节流策略(每次都跑全管道)。待把 visualTransform 改为"只在内容含 <think> 时触发"再做。
-        // TODO(streaming-visual-transform): 接入 applyVisualTransform,启用 ThinkTag 流式实时剥离
+        // B10: 流式 ThinkTag 实时剥离已接入 — 挂点在 flushPendingToUi(节流触发的 UI 更新),
+        // 由 updateAssistantWithVisualTransform 完成: 先 O(n) contains("<think>") 短路,
+        // 命中时才调用 transformer 层纯函数 splitThinkTagsForStreaming(见 ThinkTagTransformer.kt),
+        // 把剥离后的 content / reasoning 喂回 updateAssistant。不含标签的普通流式路径
+        // 零行为变化,50ms / 自适应切片节流机制本身未改动。
         val toolLoopHost = object : ToolLoopHost {
             override suspend fun streamRound(params: StreamRoundParams): StreamRoundResult {
                 val round = params.round
@@ -4339,7 +4332,6 @@ class ChatViewModel(
                         params.builder.append(pendingBuilder.substring(0, sliceLength))
                         pendingBuilder.delete(0, sliceLength)
                         updateAssistantWithVisualTransform(
-                            state,
                             params.currentAssistantId,
                             unmaskPii(params.builder.toString()),
                             isStreaming = true,
@@ -5759,24 +5751,35 @@ class ChatViewModel(
     ) = streamCoordinator.updateAssistant(id, content, reasoning, imageBase64List, imageUrls, videoFileUri, isStreaming)
 
     /**
-     * B3-02: 流式 ThinkTag 剥离。
+     * B10: 流式 ThinkTag 实时剥离(轻量纯函数路径)。
      *
-     * 只有内容包含 <think> 时才跑视觉管道,避免破坏 50ms 自适应切片节流;
-     * 其余情况走原始 updateAssistant 快速路径。
+     * 只有缓冲内容含 `<think>` 标记时才做视觉转换,其余情况直接走原始
+     * [updateAssistant] 快速路径 —— 不含标签的普通流式路径零行为变化。
+     *
+     * 性能契约(替代原 applyVisualTransform 全管道调用):
+     *  - 短路: 先做一次 O(n) 的 `contains("<think>")`,绝大多数 chunk 不含标签,
+     *    直接命中快速路径,不触达任何转换逻辑。
+     *  - 轻量: 命中时调用 [splitThinkTagsForStreaming] 纯函数(单趟正则 + 单趟字符串拼接),
+     *    不再跑 transformerPipeline.applyVisualTransform(那会遍历全部 Transformer
+     *    并为每次节流 flush 构造临时消息列表)。
+     *  - 触发频率: 每次节流 UI flush 一次(默认 50ms,长文本按 streamFlushIntervalMs 自适应放大),
+     *    且仅在内容含 `<think>` 期间;一次生成通常只在开头 think 段落命中。
+     *
+     * 说明: 流式视觉转换当前唯一实现是 ThinkTag 剥离;若将来新增 visualTransform 钩子,
+     * 需评估是否并入本轻量路径(而非无条件回退全管道)。
      */
     private suspend fun updateAssistantWithVisualTransform(
-        state: StreamRunState,
         assistantId: Uuid,
         content: String,
         reasoning: String? = null,
         isStreaming: Boolean = false,
     ) {
-        val ctx = state.transformContext
-        val raw = UIMessage(id = assistantId, role = MessageRole.ASSISTANT, content = content, reasoning = reasoning)
-        val visual = if (ctx != null && content.contains("<think>", ignoreCase = true)) {
-            transformerPipeline.applyVisualTransform(listOf(raw), ctx).firstOrNull() ?: raw
-        } else raw
-        updateAssistant(visual.id, visual.content, visual.reasoning, isStreaming = isStreaming)
+        val (visualReasoning, visualContent) = if (content.contains("<think>", ignoreCase = true)) {
+            splitThinkTagsForStreaming(content, reasoning)
+        } else {
+            reasoning to content
+        }
+        updateAssistant(assistantId, visualContent, visualReasoning, isStreaming = isStreaming)
     }
 
     // ── v1.135 / P2-23: 媒体工具结果落盘(工具本体已迁至 MediaGenToolsImpl) ──────

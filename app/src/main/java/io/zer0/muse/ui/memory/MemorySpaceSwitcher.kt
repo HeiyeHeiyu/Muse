@@ -2,6 +2,7 @@ package io.zer0.muse.ui.memory
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,6 +30,7 @@ import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.ui.common.surface.MuseSurface
 import io.zer0.muse.ui.theme.MuseActionColors
 import io.zer0.muse.ui.theme.MusePaddings
@@ -123,25 +125,28 @@ fun MemorySpaceManageScreen(
                 .padding(padding),
         ) {
             itemsIndexed(spaces, key = { _, it -> it.id }) { index, space ->
-                SpaceRow(
-                    space = space,
-                    onRename = { renameTarget = space },
-                    onDelete = { viewModel.deleteSpace(space.id) },
-                    onMoveUp = {
-                        if (index > 0) viewModel.reorderSpaces(
-                            spaces.toMutableList().apply {
-                                add(index - 1, removeAt(index))
-                            }.map { it.id },
-                        )
-                    },
-                    onMoveDown = {
-                        if (index < spaces.lastIndex) viewModel.reorderSpaces(
-                            spaces.toMutableList().apply {
-                                add(index + 1, removeAt(index))
-                            }.map { it.id },
-                        )
-                    },
-                )
+                // v2.x: 动效补齐 — 空间列表条目入场/重排过渡(上移/下移会带动画)
+                Box(museAnimateItem()) {
+                    SpaceRow(
+                        space = space,
+                        onRename = { renameTarget = space },
+                        onDelete = { viewModel.deleteSpace(space.id) },
+                        onMoveUp = {
+                            if (index > 0) viewModel.reorderSpaces(
+                                spaces.toMutableList().apply {
+                                    add(index - 1, removeAt(index))
+                                }.map { it.id },
+                            )
+                        },
+                        onMoveDown = {
+                            if (index < spaces.lastIndex) viewModel.reorderSpaces(
+                                spaces.toMutableList().apply {
+                                    add(index + 1, removeAt(index))
+                                }.map { it.id },
+                            )
+                        },
+                    )
+                }
             }
         }
 

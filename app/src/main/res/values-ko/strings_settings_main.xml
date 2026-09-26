@@ -393,6 +393,8 @@
     <!-- v1.0.4 P3-4: Performance mode (MessagePaginator integration) -->
     <string name="settings_chat_performance_mode">성능 모드</string>
     <string name="settings_chat_performance_mode_subtitle">긴 채팅의 경우 최신 50개 메시지만 렌더링하고 스크롤 업 시 더 많은 메시지를 로드하여 지연을 줄입니다.</string>
+    <string name="settings_chat_session_cache">세션 캐시 상한</string>
+    <string name="settings_chat_session_cache_subtitle">메모리에 유지하는 세션 메시지 사본 수; 클수록 전환이 빠르고 메모리 사용량이 높습니다</string>
     <!-- v1.0.47 P5-3: Token estimate (experimental) -->
     <string name="settings_chat_token_estimate">토큰 추정치(실험적)</string>
     <string name="settings_chat_token_estimate_subtitle">입력 표시줄에 토큰 카운트 버튼을 표시합니다.</string>

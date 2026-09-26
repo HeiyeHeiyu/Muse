@@ -548,6 +548,26 @@ internal fun extractStickerPaths(text: String): List<String> {
 }
 
 /**
+ * v2.x: 长文消息判定 — 结构型内容或超长正文时,AI 消息"不进卡"
+ * (ColorOS 17 借鉴:长内容直接落在呼吸边上全宽排版,不被气泡容器包住)。
+ *
+ * 判定信号(任一命中):
+ *  - 代码块围栏 ```
+ *  - Markdown 标题行(行首 #~###### + 空格)
+ *  - Markdown 表格分隔行 |---
+ *  - 正文超长(> 500 字符)
+ */
+internal fun isLongFormContent(content: String): Boolean {
+    if (content.length > 500) return true
+    if (content.contains("```")) return true
+    if (content.contains("|---")) return true
+    return LONG_FORM_HEADING_REGEX.containsMatchIn(content)
+}
+
+/** v2.x: Markdown 标题行(行首 1-6 个 # + 空格)。 */
+private val LONG_FORM_HEADING_REGEX = Regex("(?m)^#{1,6}\\s")
+
+/**
  * v1.133: RAG 引用 chip 列表 — 渲染知识库检索引用,点击展开 snippet 预览。
  *
  * Phase 2 补齐:

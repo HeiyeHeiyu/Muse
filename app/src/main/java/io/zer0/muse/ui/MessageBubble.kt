@@ -987,9 +987,18 @@ internal fun MessageBubble(
                     ?: MuseBubbleStyles.assistantSurfaceColor()
                 val assistantShape = resolvedSkin?.style?.radiusDp?.dp?.let { RoundedCornerShape(it) }
                     ?: MuseBubbleStyles.assistantBubbleShape()
+                // v2.x: 长文校准 — 结构型/超长回复"不进卡":外壳容器取消(底色/描边/圆角/70% 宽度上限全去),
+                // 内容直接落在呼吸边上全宽排版(ColorOS 17 借鉴的"长内容阅读节奏")。皮肤模式下以皮肤为准。
+                val isLongFormBubble = !isPureToolBubble && resolvedSkin == null &&
+                    isLongFormContent(msg.content)
                 Column(
                     modifier = if (isPureToolBubble) {
                         Modifier.padding(PaddingValues(0.dp))
+                    } else if (isLongFormBubble) {
+                        // v2.x: 长文"不进卡" — 无底色/无描边/无圆角/无宽度上限,全宽直排
+                        Modifier.padding(
+                            PaddingValues(horizontal = 0.dp, vertical = MusePaddings.contentGap),
+                        )
                     } else {
                         Modifier
                             .clip(assistantShape)

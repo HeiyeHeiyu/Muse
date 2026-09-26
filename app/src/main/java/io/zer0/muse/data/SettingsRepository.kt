@@ -166,6 +166,11 @@ class SettingsRepository(
     var stickerFrequencyCache: String = STICKER_FREQ_NORMAL
         private set
 
+    /** v2.x: 会话内存缓存上限(高级设置,默认 5;范围 2..12)。 */
+    @Volatile
+    var sessionCacheSizeCache: Int = 5
+        private set
+
     /**
      * PII Guard 开关的内存缓存,供 ChatViewModel 在发送消息前零阻塞读取。
      * 仿照 [stickerEnabledCache] 模式:后台协程订阅 [piiGuardEnabledFlow],把最新值落到 @Volatile 字段。
@@ -363,6 +368,8 @@ class SettingsRepository(
     val stickerFrequencyFlow: Flow<String> = store.data.map { prefs ->
         prefs[KEY_STICKER_FREQUENCY] ?: STICKER_FREQ_NORMAL
     }
+    // v2.x: 会话内存缓存上限(高级,默认 5;2..12)
+    val sessionCacheSizeFlow: Flow<Int> = store.data.map { prefs -> prefs[KEY_SESSION_CACHE_SIZE] ?: 5 }
     // v1.135: 调用 WebSearchConfig.decrypted() 统一解密 apiKey + apiKeys,并同步旧版单 key 到 apiKeys 映射
     val webSearchConfigFlow: Flow<WebSearchConfig> = store.data.map { prefs ->
         val config = decodePrefsOrNull(
@@ -1172,6 +1179,8 @@ class SettingsRepository(
         cacheScope.launch { stickerSendProbabilityFlow.collect { stickerSendProbabilityCache = it } }
         // v2.x: 订阅表情包频率档位,供 system prompt 注入零阻塞读取。
         cacheScope.launch { stickerFrequencyFlow.collect { stickerFrequencyCache = it } }
+        // v2.x: 订阅会话内存缓存上限(SessionMemoryCache 热读)。
+        cacheScope.launch { sessionCacheSizeFlow.collect { sessionCacheSizeCache = it } }
         // PII Guard:订阅开关 Flow,供 ChatViewModel 在 launchStream 内零阻塞读取。
         cacheScope.launch { piiGuardEnabledFlow.collect { piiGuardEnabledCache = it } }
         // ANR 检测开关:订阅 Flow 落缓存,供 AnrWatcher 同步读取(支持运行时切换)。
@@ -1495,6 +1504,8 @@ class SettingsRepository(
         }
         store.edit { it[KEY_STICKER_FREQUENCY] = normalized }
     }
+    // v2.x: 保存会话内存缓存上限(2..12 收束)
+    suspend fun saveSessionCacheSize(size: Int) { store.edit { it[KEY_SESSION_CACHE_SIZE] = size.coerceIn(2, 12) } }
     suspend fun addProvider(config: ProviderConfig) {
         store.edit { prefs -> val list = decodePrefsOrNull(prefs[KEY_PROVIDERS], ListSerializer(ProviderConfig.serializer()), "Providers(add)") ?: emptyList(); prefs[KEY_PROVIDERS] = encodeProviders(list + config) }
         auditLogger.log(
@@ -1995,6 +2006,8 @@ class SettingsRepository(
         private val KEY_STICKER_SEND_PROBABILITY = intPreferencesKey("sticker_send_probability")
         // v2.x: 表情包发送频率档位(occasionally/normal/frequent,默认 normal)
         private val KEY_STICKER_FREQUENCY = stringPreferencesKey("sticker_frequency")
+        // v2.x: 会话内存缓存上限(2..12,默认 5)
+        private val KEY_SESSION_CACHE_SIZE = intPreferencesKey("session_cache_size")
         private val KEY_WEB_SEARCH_CONFIG = stringPreferencesKey("web_search_config_json")
         private val KEY_CLOUD_BACKUP_CONFIG = stringPreferencesKey("cloud_backup_config_json")
         private val KEY_WEB_SERVER_CONFIG = stringPreferencesKey("web_server_config_json")

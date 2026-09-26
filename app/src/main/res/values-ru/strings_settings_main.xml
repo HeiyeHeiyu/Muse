@@ -393,6 +393,8 @@
     <!-- v1.0.4 P3-4: Performance mode (MessagePaginator integration) -->
     <string name="settings_chat_performance_mode">Режим производительности</string>
     <string name="settings_chat_performance_mode_subtitle">Для длинных чатов отображайте только последние 50 сообщений и загружайте больше при прокрутке вверх, чтобы уменьшить задержку.</string>
+    <string name="settings_chat_session_cache">Лимит кеша сессий</string>
+    <string name="settings_chat_session_cache_subtitle">Количество копий сообщений сессий в памяти; больше — быстрее переключение, больше памяти</string>
     <!-- v1.0.47 P5-3: Token estimate (experimental) -->
     <string name="settings_chat_token_estimate">Оценка токена (экспериментальная)</string>
     <string name="settings_chat_token_estimate_subtitle">Показывать кнопку подсчета токенов на панели ввода;</string>

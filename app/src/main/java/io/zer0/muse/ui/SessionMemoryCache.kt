@@ -28,15 +28,19 @@ import java.util.LinkedHashMap
  * 不会就地修改已缓存的列表,因此引用共享是安全的。
  */
 class SessionMemoryCache(
-    private val maxSize: Int = MAX_CACHE_SIZE,
+    /**
+     * v2.x: 缓存上限提供者 — 每次驱逐判断时实时读取(支持设置热更新,
+     * 入口见聊天设置→高级"会话缓存上限"),默认 [MAX_CACHE_SIZE]。
+     */
+    private val maxSizeProvider: () -> Int = { MAX_CACHE_SIZE },
 ) {
     companion object {
         /**
          * 默认 LRU 缓存上限(保留最近 5 个会话的消息内存副本)。
          *
-         * TODO: 后续通过 [io.zer0.muse.data.SettingsRepository] 暴露为高级设置项,
-         *       支持用户自定义(需同时扩展 ChatSettingsPage UI)。当前先以常量形式提供,
-         *       避免一次性改动过大。
+         * v2.x: 已接入设置热更新 — 用户可在 聊天设置→高级 调整(3/5/8/12),
+         * 上限经 [io.zer0.muse.data.SettingsRepository.sessionCacheSizeFlow] 实时读取;
+         * 本常量仅作为默认值/兜底。
          */
         const val MAX_CACHE_SIZE = 5
 
@@ -52,7 +56,7 @@ class SessionMemoryCache(
     private val cache = object : LinkedHashMap<String, List<UIMessage>>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: Map.Entry<String, List<UIMessage>>): Boolean {
             // 注意:此处 size 是插入新条目后的容量,超过 maxSize 才驱逐
-            val shouldEvict = size > maxSize
+            val shouldEvict = size > maxSizeProvider().coerceAtLeast(1)
             if (shouldEvict) {
                 evictListener?.invoke(eldest.key, eldest.value)
             }

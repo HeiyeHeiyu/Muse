@@ -393,6 +393,8 @@
     <!-- v1.0.4 P3-4: Performance mode (MessagePaginator integration) -->
     <string name="settings_chat_performance_mode">パフォーマンスモード</string>
     <string name="settings_chat_performance_mode_subtitle">長いチャットの場合は、最新の 50 メッセージのみを表示し、スクロールアップ時にさらに読み込むことでラグを軽減します。</string>
+    <string name="settings_chat_session_cache">セッションキャッシュ上限</string>
+    <string name="settings_chat_session_cache_subtitle">メモリに保持するセッションのメッセージ副本数;大きいほど切替が速く、メモリ使用量も増えます</string>
     <!-- v1.0.47 P5-3: Token estimate (experimental) -->
     <string name="settings_chat_token_estimate">トークンの推定 (実験的)</string>
     <string name="settings_chat_token_estimate_subtitle">入力バーにトークンカウントボタンを表示します。</string>
