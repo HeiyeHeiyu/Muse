@@ -248,6 +248,9 @@ class  MemoryTicker(
         pipelineLog = pipelineLog,
     )
 
+    /** D3-P3: 步骤级失败退避(daily 兜底 tick 的无限重试收敛)。 */
+    private val stepBackoff = io.zer0.memory.observe.MemoryStepBackoff()
+
     /**
      * D3-P1: 标记步骤开始(供 markSuccess/markFailure 计算耗时与触发来源)。
      * 未标记的步骤在记录时会得 0 耗时 + "unknown" 来源,不影响正确性。
@@ -263,10 +266,22 @@ class  MemoryTicker(
         val trigger = meta?.trigger ?: "unknown"
         val scope = meta?.scope
         if (error == null) {
+            stepBackoff.recordSuccess(stepKey)
             stepRunner.recordSuccess(stepKey, duration, trigger, scope = scope)
         } else {
+            stepBackoff.recordFailure(stepKey)
             stepRunner.recordFailure(stepKey, error, duration, trigger, scope = scope)
         }
+    }
+
+    /** D3-P3: 步骤是否可运行(checkpoint 未完成且不在失败退避窗口)。 */
+    private fun canRunStep(stepKey: String, completed: Map<String, String>): Boolean {
+        if (stepKey in completed) return false
+        if (!stepBackoff.shouldRun(stepKey)) {
+            Logger.d(TAG, "步骤 $stepKey 处于失败退避窗口,跳过本轮(连续失败 ${stepBackoff.failureCount(stepKey)} 次)")
+            return false
+        }
+        return true
     }
 
     private fun markSuccess(stepKey: String) {
@@ -485,6 +500,7 @@ class  MemoryTicker(
         locale: String,
         timeZone: String,
     ) {
+        if (!stepBackoff.shouldRun("compileToday")) return
         try {
             markStepStart("compileToday", "turn")
             val target = currentCompileTarget()
@@ -536,7 +552,7 @@ class  MemoryTicker(
                 // 必须先于 compileToday 执行:compileDaily 读取的"昨天最终版今日草稿"是这一刻仍
                 // 躺在 TODAY section 里的内容;compileToday 一旦先跑,日期切换会把 today 重置为
                 // 新一天的空白草稿,昨天的草稿就再也读不到了。
-                if ("compileDaily" !in completed) {
+                if (canRunStep("compileDaily", completed)) {
                     try {
                         markStepStart("compileDaily", "daily")
                         val yesterday = runCatching {
@@ -574,7 +590,7 @@ class  MemoryTicker(
                 }
 
                 // Step 1: compileToday(日期切换后刷新 today.md)
-                if ("compileToday" !in completed) {
+                if (canRunStep("compileToday", completed)) {
                     try {
                         markStepStart("compileToday", "daily")
                         // A-19: 只编译主助手摘要
@@ -605,7 +621,7 @@ class  MemoryTicker(
 
             // Step 3: rollDailyWindow——把滚出 N 日窗口的 daily 条目 fold 进 longterm 并删除源文件。
             // 依赖 compileDaily 已经把昨天落盘,否则窗口判断会漏看最新一天。
-            if ("rollDailyWindow" !in completed && "compileDaily" in completed) {
+            if (canRunStep("rollDailyWindow", completed) && "compileDaily" in completed) {
                 try {
                     markStepStart("rollDailyWindow", "daily")
                     compiler.rollDailyWindow(model, locale, context.logicalDate, target)
@@ -626,7 +642,7 @@ class  MemoryTicker(
             // 审查修复 (B-6): FACTS 段编译纳入 _compileFactsLock,与 forceCompileNow 里的
             // compileFacts 互斥 — 两条链都直写 FACTS(读 prevFacts + LLM 合并 + 写),不加锁
             // 会 last-writer-wins 覆盖彼此产物。对账亦写 FACTS 段,故随同一临界区持锁。
-            if ("compileFacts" !in completed) {
+            if (canRunStep("compileFacts", completed)) {
                 _compileFactsLock.withLock {
                     try {
                         markStepStart("compileFacts", "daily")
@@ -659,7 +675,7 @@ class  MemoryTicker(
             }
 
             // Step 5: deepMemory(独立,更新 FactStore)
-            if ("deepMemory" !in completed) {
+            if (canRunStep("deepMemory", completed)) {
                 try {
                     markStepStart("deepMemory", "daily")
                     val result = deepProcessor.processDirtySessions(summaryManager, model, locale, runtimeContext.getConfig())
