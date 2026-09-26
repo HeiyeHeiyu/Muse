@@ -14,7 +14,9 @@ package io.zer0.muse.ui.groupchat
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseAnchoredMenu
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseSlider
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
@@ -617,6 +619,81 @@ internal fun ThinkingIndicator(currentSpeaker: AssistantEntity? = null) {
             size = 12.dp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/**
+ * v2.x: 讨论总结卡片 — messageType=="summary" 的专属渲染。
+ *
+ * 总结不再以普通气泡展示:改为带标题、内文与三个落地动作(复制/分享/存为共享文档)
+ * 的结构化卡片 — 补上"讨论 → 可执行物"的最后一公里。
+ * 存为共享文档后,下次讨论时全员 agent 会在 system prompt 中自动看到它。
+ */
+@Composable
+internal fun GroupSummaryCard(
+    message: GroupChatMessageEntity,
+    onCopy: () -> Unit = {},
+    onShare: () -> Unit = {},
+    onSaveAsSharedDoc: () -> Unit = {},
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MusePaddings.screen),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        // 标题行:图标 + "讨论总结" + 总结者
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = MuseIcons.fileText,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = stringResource(R.string.groupchat_summary_card_title),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = message.senderName,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
+        }
+        // 正文卡片
+        Surface(
+            shape = MuseShapes.medium,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = message.body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(MusePaddings.cardInner),
+            )
+        }
+        // 落地动作行
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MuseCapsuleButton(
+                text = stringResource(R.string.groupchat_summary_copy),
+                onClick = onCopy,
+                variant = IosCapsuleButtonVariant.Text,
+            )
+            MuseCapsuleButton(
+                text = stringResource(R.string.groupchat_summary_share),
+                onClick = onShare,
+                variant = IosCapsuleButtonVariant.Text,
+            )
+            MuseCapsuleButton(
+                text = stringResource(R.string.groupchat_summary_save_doc),
+                onClick = onSaveAsSharedDoc,
+                variant = IosCapsuleButtonVariant.Secondary,
+            )
+        }
     }
 }
 

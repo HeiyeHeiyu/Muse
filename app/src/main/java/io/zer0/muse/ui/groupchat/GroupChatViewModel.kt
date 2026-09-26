@@ -525,6 +525,27 @@ class GroupChatViewModel(
     }
 
     /**
+     * v2.x: 把总结消息沉淀为群共享文档(讨论结晶)。
+     *
+     * 沉淀后,下次任何成员发言时该文档会自动注入其 system prompt 的【群共享文档】段——
+     * 讨论成果从"一条消息"变成"全员共识背景",供后续讨论继续引用。
+     */
+    fun saveSummaryAsSharedDoc(messageId: String) {
+        val chatId = currentChatId.value ?: return
+        viewModelScope.launch {
+            val message = _state.value.currentMessages.firstOrNull { it.id == messageId } ?: return@launch
+            if (message.body.isBlank()) return@launch
+            val title = "讨论总结 · " + java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault())
+                .format(java.util.Date(message.timestamp))
+            runCatching {
+                groupChatRepository.addSharedDoc(chatId, title, message.body)
+            }.onFailure { t ->
+                Logger.w("GroupChatViewModel", "总结存为共享文档失败", t)
+            }
+        }
+    }
+
+    /**
      * 发送用户消息并触发 Agent 轮转回复。
      *
      * v1.111: 轮转运行在 [GroupChatScheduler.launchRoundRobin] 的 appScope 中,

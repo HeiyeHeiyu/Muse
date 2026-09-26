@@ -738,6 +738,24 @@ fun GroupChatDetailScreen(
                         DateSeparator(timestamp = message.timestamp)
                     }
                     val expandedState = state.messageExpandedStates[message.id]
+                    // v2.x: 总结消息专属卡片 — 复制/分享/存为共享文档(讨论结晶)
+                    if (message.messageType == "summary") {
+                        GroupSummaryCard(
+                            message = message,
+                            onCopy = {
+                                val cm = context.getSystemService(android.content.ClipboardManager::class.java)
+                                cm?.setPrimaryClip(android.content.ClipData.newPlainText("muse-summary", message.body))
+                            },
+                            onShare = {
+                                val sendIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(android.content.Intent.EXTRA_TEXT, message.body)
+                                }
+                                ShareIntentHelper.startChooserSafely(context, sendIntent)
+                            },
+                            onSaveAsSharedDoc = { viewModel.saveSummaryAsSharedDoc(message.id) },
+                        )
+                    } else {
                     GroupChatMessageBubble(
                         message = message,
                         assistants = state.assistants,
@@ -766,6 +784,7 @@ fun GroupChatDetailScreen(
                         onSelectToggle = { viewModel.toggleMessageSelection(message.id) },
                         onHtmlPreview = onHtmlPreview,
                     )
+                    }
                 }
                 // Agent 正在回复时的"正在思考..."状态
                 if (state.isAgentResponding) {
