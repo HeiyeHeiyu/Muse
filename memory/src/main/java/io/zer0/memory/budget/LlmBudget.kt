@@ -49,7 +49,11 @@ object LlmBudget {
         model: Model?,
     ): Int {
         if (model == null) return visibleMaxTokens
-        val isReasoning = model.id.contains("o1", ignoreCase = true) ||
+        // v2.x: 优先用模型能力字段 — 仅按 id 子串判断会漏掉新型推理模型
+        // (如 deepseek-flash / v4-pro: 目录 abilities=[TOOL, REASONING] 但 id 不带下列关键词),
+        // 导致思考余量未加、正文被 reasoning 挤空(finishReason=length 的最小预算截断)。
+        val isReasoning = io.zer0.ai.core.ModelAbility.REASONING in model.abilities ||
+            model.id.contains("o1", ignoreCase = true) ||
             model.id.contains("o3", ignoreCase = true) ||
             model.id.contains("o4", ignoreCase = true) ||
             model.id.contains("-thinking", ignoreCase = true) ||

@@ -126,6 +126,7 @@
     <string name="settings_model_ability_chat">聊天</string>
     <!-- v1.0.8 (7.7): 上下文窗口标签(如 "128K 上下文") -->
     <string name="settings_model_context_label">%1$s 上下文</string>
+    <string name="settings_model_output_label">%1$s 输出</string>
     <!-- v1.0.8 (7.6): 模型健康检查按钮 + 状态文案 -->
     <string name="settings_model_action_test">测试</string>
     <!-- F-12: 模型完整链路测试按钮 -->

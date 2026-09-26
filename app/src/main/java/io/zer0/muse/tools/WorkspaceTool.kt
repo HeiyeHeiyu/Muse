@@ -71,11 +71,13 @@ object WorkspaceTool {
         ),
         ToolRegistry.ToolDef(
             name = NAME_WRITE,
-            description = "写入文本文件到工作区(UTF-8,覆盖写入)。内容大小上限 10MB。" +
-                "父目录不存在时自动创建。路径禁止包含 \"..\"。",
+            description = "写入文本文件到工作区(UTF-8)。默认覆盖;append=true 时追加。" +
+                "单次内容上限 10MB。父目录不存在时自动创建。路径禁止包含 \"..\"。" +
+                "写长文件时请分批:先写首段,后续用 append=true 逐段追加,避免单次输出被截断。",
             parameters = mapOf(
                 "path" to "必填,相对工作区根目录的文件路径",
                 "content" to "必填,要写入的文本内容",
+                "append" to "可选,是否追加写入(默认 false 覆盖)。写长文件建议分批追加",
             ),
             required = setOf("path", "content"),
             category = "built-in",
@@ -152,8 +154,11 @@ object WorkspaceTool {
                     val path = args["path"]?.trim()?.takeIf { it.isNotEmpty() }
                         ?: return@runBlocking "Error: 参数 path 必填"
                     val content = args["content"] ?: return@runBlocking "Error: 参数 content 必填"
-                    when (val r = manager.writeFile(path, content)) {
-                        is WorkspaceManager.OpResult.Success -> "OK: 已写入 $path(${content.length} 字符)"
+                    val append = args["append"]?.toBoolean() ?: false
+                    val r = if (append) manager.appendFile(path, content) else manager.writeFile(path, content)
+                    when (r) {
+                        is WorkspaceManager.OpResult.Success ->
+                            "OK: 已${if (append) "追加" else "写入"} $path(${content.length} 字符)"
                         is WorkspaceManager.OpResult.Error -> "Error: ${r.message}"
                     }
                 }

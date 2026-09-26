@@ -158,6 +158,7 @@ internal fun ModelAbilityChips(
     val labelVideo = stringResource(R.string.settings_model_ability_video)
     val labelChat = stringResource(R.string.settings_model_ability_chat)
     val labelContextFmt = stringResource(R.string.settings_model_context_label)
+    val labelOutputFmt = stringResource(R.string.settings_model_output_label)
     val labelTestInProgress = stringResource(R.string.settings_model_test_in_progress)
     val labelTestSuccess = stringResource(R.string.settings_model_test_success)
     val labelTestFailed = stringResource(R.string.settings_model_test_failed)
@@ -166,6 +167,8 @@ internal fun ModelAbilityChips(
 
     // v1.0.8 (7.7): 上下文窗口 chip 文本(格式化为 K/M 后缀,null/0 不显示)
     val contextChip = rememberContextChip(model, labelContextFmt)
+    // v2.x: 输出上限 chip 文本(与上下文 chip 并列展示模型元数据上限)
+    val outputChip = rememberOutputChip(model, labelOutputFmt)
 
     val labels = buildList {
         if (model.supportsToolCalling()) add(labelTool)
@@ -175,6 +178,7 @@ internal fun ModelAbilityChips(
         if (model.supportsVisionInput()) add(labelMultimodal)
         if (model.supportsVideoOutput()) add(labelVideo)
         contextChip?.let { add(it) }
+        outputChip?.let { add(it) }
     }.ifEmpty { listOf(labelChat) }
 
     FlowRow(
@@ -192,6 +196,7 @@ internal fun ModelAbilityChips(
                 labelVideo -> MaterialTheme.colorScheme.inverseSurface to MaterialTheme.colorScheme.inverseOnSurface
                 labelChat -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
                 contextChip -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+                outputChip -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
                 else -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
             }
             Surface(
@@ -308,6 +313,22 @@ private fun rememberContextChip(model: Model, labelFormat: String): String? {
             ctx >= 1_000_000 -> "${ctx / 1_000_000}M"
             ctx >= 1000 -> "${ctx / 1000}K"
             else -> ctx.toString()
+        }
+        labelFormat.format(formatted)
+    }
+}
+
+/**
+ * v2.x: 输出上限 chip 文本(如 "64K 输出"),格式规则与上下文 chip 一致,null/0 不显示。
+ */
+@Composable
+private fun rememberOutputChip(model: Model, labelFormat: String): String? {
+    return androidx.compose.runtime.remember(model.id, model.maxOutputTokens, labelFormat) {
+        val out = model.maxOutputTokens?.takeIf { it > 0 } ?: return@remember null
+        val formatted = when {
+            out >= 1_000_000 -> "${out / 1_000_000}M"
+            out >= 1000 -> "${out / 1000}K"
+            else -> out.toString()
         }
         labelFormat.format(formatted)
     }

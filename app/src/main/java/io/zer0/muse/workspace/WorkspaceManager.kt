@@ -135,6 +135,29 @@ class WorkspaceManager(private val context: Context) {
     }
 
     /**
+     * v2.x: 追加写入工作区文件(不覆盖原内容)。
+     *
+     * 用于"长内容分批写入":模型单次输出有 token 上限,一次性塞长文会被截断
+     * (finishReason=length);分批 append 可绕开单次上限。文件不存在时等价于创建。
+     * 限制与 [writeFile] 一致(单次 10MB)。
+     */
+    suspend fun appendFile(relativePath: String, content: String): OpResult = withContext(Dispatchers.IO) {
+        if (content.toByteArray(Charsets.UTF_8).size.toLong() > MAX_WRITE_BYTES) {
+            return@withContext OpResult.Error("内容过大,单次追加上限为 $MAX_WRITE_BYTES 字节")
+        }
+        val file = resolveSafe(relativePath, allowRoot = false, mustExist = false, mustBeDirectory = false)
+            ?: return@withContext OpResult.Error("非法路径: $relativePath")
+        try {
+            file.parentFile?.takeIf { !it.exists() }?.mkdirs()
+            file.appendText(content, Charsets.UTF_8)
+            OpResult.Success
+        } catch (e: Exception) {
+            Logger.w(TAG, "appendFile 失败: ${e.message}")
+            OpResult.Error("追加失败: ${e.message}")
+        }
+    }
+
+    /**
      * 删除文件或目录(目录递归删除)。
      *
      * @param relativePath 相对工作区根目录的路径
