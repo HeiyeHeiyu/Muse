@@ -80,7 +80,8 @@ internal fun WebSearchSection(
     SectionLabel(stringResource(R.string.settings_web_search_section))
     SettingsGroup(modifier = Modifier.padding(top = 8.dp)) {
         SettingsSwitchRow(
-            icon = MuseIcons.languages,
+            // v2.x: 联网搜索图标修正为 globe(原 languages 是翻译语义)
+            icon = MuseIcons.globe,
             title = stringResource(R.string.settings_web_search_enable),
             subtitle = stringResource(R.string.settings_web_search_enable_subtitle),
             checked = webSearchConfig.enabled,

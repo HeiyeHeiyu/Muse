@@ -284,7 +284,8 @@ internal fun InputBar(
                 horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
             ) {
                 QuickBarAction(
-                    icon = MuseIcons.languages,
+                    // v2.x: 联网搜索图标从"翻译"语义(languages)修正为 globe
+                    icon = MuseIcons.globe,
                     contentDescription = stringResource(R.string.chat_web_search_cd),
                     active = isWebSearchEnabled,
                     onClick = {
@@ -741,7 +742,8 @@ internal fun InputBar(
                      val toolEntries = buildList {
                          add(
                              ToolEntry(
-                                 icon = MuseIcons.languages,
+                                 // v2.x: 联网搜索图标修正为 globe(原 languages 是翻译语义)
+                                 icon = MuseIcons.globe,
                                  title = stringResource(R.string.chat_web_search_cd),
                                  isActive = isWebSearchEnabled,
                                  showArrow = false,

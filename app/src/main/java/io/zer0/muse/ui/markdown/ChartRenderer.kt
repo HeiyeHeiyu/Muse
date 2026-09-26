@@ -471,7 +471,8 @@ private fun PlantUmlRemoteNotice(onRender: () -> Unit) {
                 text = stringResource(R.string.markdown_plantuml_render_online),
                 onClick = onRender,
                 variant = IosCapsuleButtonVariant.Secondary,
-                leadingIcon = MuseIcons.languages,
+                // v2.x: 在线渲染图标修正为 globe(联网语义)
+                leadingIcon = MuseIcons.globe,
                 fillWidth = false,
             )
         }

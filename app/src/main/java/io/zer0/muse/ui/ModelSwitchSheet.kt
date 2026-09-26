@@ -562,7 +562,8 @@ private fun ModelRow(
                 // v0.47: 补充绘图能力(模型支持图片输出)
                 if (model.supportsImageOutput()) add(imageLabel to MuseIcons.image)
                 // v0.47: 补充联网搜索能力(model.tools 含 SEARCH 或 Provider 支持原生搜索)
-                if (model.tools.contains(BuiltInTool.SEARCH) || hasNativeWebSearch) add(searchLabel to MuseIcons.languages)
+                // v2.x: 图标从 languages(翻译语义)修正为 globe
+                if (model.tools.contains(BuiltInTool.SEARCH) || hasNativeWebSearch) add(searchLabel to MuseIcons.globe)
             }
             if (abilities.isNotEmpty()) {
                 Row(
