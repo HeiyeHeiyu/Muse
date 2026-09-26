@@ -33,6 +33,8 @@ object ChannelConversationStore {
         val mediaKind: String = "",
         /** v2.0.1: 图片 base64(压缩后)。 */
         val mediaBase64: String = "",
+        /** v2.x (B4): 非图片媒体(视频/文件)落盘的本地路径。 */
+        val mediaPath: String = "",
         /** v2.0.1: 视觉降级描述缓存(模型不支持视觉时生成,避免重复分析)。 */
         val mediaDescription: String = "",
     )
@@ -87,6 +89,8 @@ object ChannelConversationStore {
         text: String,
         mediaKind: String = "",
         mediaBase64: String = "",
+        // v2.x (B4): 视频/文件落盘路径;默认空保持向后兼容。
+        mediaPath: String = "",
     ) {
         val key = key(channelId, from)
         val current = _conversations.value[key] ?: Conversation()
@@ -96,6 +100,7 @@ object ChannelConversationStore {
                 text = text,
                 mediaKind = mediaKind,
                 mediaBase64 = mediaBase64,
+                mediaPath = mediaPath,
             )
             ).takeLast(MAX_TURNS)
         val updated = current.copy(turns = turns, updatedAt = System.currentTimeMillis())

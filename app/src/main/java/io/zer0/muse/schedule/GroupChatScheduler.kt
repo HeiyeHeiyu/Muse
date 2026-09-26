@@ -33,6 +33,11 @@ import io.zer0.muse.rag.RagConfig
 import io.zer0.muse.rag.RagService
 import io.zer0.muse.tools.DelegationChainTracker
 import io.zer0.muse.tools.DelegationContract
+import io.zer0.muse.tools.MediaGenHost
+import io.zer0.muse.tools.MediaGenHostContext
+import io.zer0.muse.tools.MediaGenKind
+import io.zer0.muse.tools.MediaGenResult
+import io.zer0.muse.tools.MediaGenSlot
 import io.zer0.muse.tools.SkillExecutor
 import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.tools.channel.ChannelToolFactory
@@ -2234,6 +2239,39 @@ class GroupChatScheduler(
     }
 
     /**
+     * v2.x (B3): 群聊媒体捕获宿主 — 把 generate_image / generate_qr_code 的生成图收进本轮消息附件。
+     *
+     * 在工具执行的本地协程作用域内通过 [MediaGenHostContext] 注入,只捕获图片
+     * ([MediaGenResult.Success.imageUrls]);视频产物无群聊展示列,忽略。
+     * 恒返回非 null 的投递句柄,使媒体工具走"已展示在对话中"分支而非退化为返回文件路径。
+     */
+    private class GroupChatMediaCaptureHost(
+        private val onImages: (List<String>) -> Unit,
+    ) : MediaGenHost {
+        override suspend fun begin(kind: MediaGenKind): MediaGenSlot = object : MediaGenSlot {
+            override fun isActive(): Boolean = true
+            override suspend fun onProgress(elapsedSeconds: Int) = Unit
+            override suspend fun report(result: MediaGenResult) {
+                if (result is MediaGenResult.Success && result.imageUrls.isNotEmpty()) {
+                    onImages(result.imageUrls)
+                }
+            }
+        }
+
+        override suspend fun finish(kind: MediaGenKind) = Unit
+    }
+
+    /**
+     * v2.x (B3): 群聊消息附件归一 — 渲染器(MessageImageGrid/SmartImage)只识别
+     * data:image/ 前缀、http(s) 与 file 路径;个别 provider 返回裸 base64 时补 data URI 前缀。
+     */
+    private fun normalizeGroupChatMediaRef(raw: String): String = when {
+        raw.startsWith("data:") || raw.startsWith("http://") || raw.startsWith("https://") ||
+            raw.startsWith("file:") || raw.startsWith("/") -> raw
+        else -> "data:image/png;base64,$raw"
+    }
+
+    /**
      * 单个 agent 一轮调用的结果。
      *
      * 用于区分"主动 PASS"、"正常回复"与"流式异常",避免 [triggerAgentRoundRobin]
@@ -2431,28 +2469,45 @@ class GroupChatScheduler(
                 formatMessageTranscript(visibleMessagesFor(more, assistant.id))
             },
         )
-        // B8-03 方案 B: 群聊暂不支持媒体输出,移除生图/生视频/二维码工具,避免模型白调
+        // B8-03 方案 B → v2.x (B3): 群聊媒体输出打通 — 生成图/二维码的产物写入消息附件
+        // (imageBase64Json,由 MessageImageGrid 渲染);生成视频仍屏蔽(群聊消息实体无视频列)。
         // B8-02: 按成员助手 toolIdsJson 过滤,未配置时保持全部工具
         val enabledToolIds = runCatching {
             AppJson.decodeFromString(ListSerializer(String.serializer()), assistant.toolIdsJson)
         }.getOrNull()?.takeIf { it.isNotEmpty() }
+        // v2.x (B3): 媒体工具与常规工具开关解耦 — 常规工具默认关闭(防小模型空 tool call 风暴),
+        // 媒体工具已有展示通道,单独注入;两者都受成员 toolIdsJson 过滤。
+        val assistantToolDefs = toolRegistry?.listToolsAsToolDefinitions(enabledToolIds) ?: emptyList()
+        val mediaTools = GroupChatToolPolicy.filterMediaTools(assistantToolDefs)
         val regularTools = if (ENABLE_GROUP_CHAT_REGULAR_TOOLS) {
-            GroupChatToolPolicy.filterRegularTools(
-                toolRegistry?.listToolsAsToolDefinitions(enabledToolIds) ?: emptyList(),
-            )
+            GroupChatToolPolicy.filterRegularTools(assistantToolDefs)
         } else {
             emptyList<io.zer0.ai.core.ToolDefinition>()
         }
-        val allToolDefinitions = (channelTools.first + regularTools).distinctBy { it.name }
+        val localTools = (mediaTools + regularTools).distinctBy { it.name }
+        val allToolDefinitions = (channelTools.first + localTools).distinctBy { it.name }
+        // v2.x (B3): 本轮 agent 生成图/二维码的媒体结果缓存(收尾时写入回复消息 imageBase64Json)
+        val generatedMediaImages = mutableListOf<String>()
         val toolExecutors = channelTools.second.toMutableMap()
-        regularTools.forEach { def ->
+        localTools.forEach { def ->
             toolExecutors[def.name] = { args ->
                 withContext(Dispatchers.IO) {
                     toolRegistry?.let { registry ->
-                        io.zer0.muse.tools.ToolRouteExecutionGuard(registry).executeFromJson(
-                            def.name,
-                            AppJson.encodeToString(MapSerializer(String.serializer(), String.serializer()), args),
-                        )
+                        val execute: suspend () -> String = {
+                            io.zer0.muse.tools.ToolRouteExecutionGuard(registry).executeFromJson(
+                                def.name,
+                                AppJson.encodeToString(MapSerializer(String.serializer(), String.serializer()), args),
+                            )
+                        }
+                        // v2.x (B3): 媒体工具在本地协程作用域注入捕获宿主,把生成图收回本轮消息附件;
+                        // 仅作用于本次调用,不触碰全局 UI 宿主(单聊/群聊并发安全)。
+                        if (def.name in GroupChatToolPolicy.ENABLED_MEDIA_TOOLS) {
+                            withContext(MediaGenHostContext(GroupChatMediaCaptureHost(generatedMediaImages::addAll))) {
+                                execute()
+                            }
+                        } else {
+                            execute()
+                        }
                     } ?: "(工具不可用)"
                 }
             }
@@ -2671,12 +2726,21 @@ class GroupChatScheduler(
             .ifBlank { null }
 
         // 保存 agent 回复到群聊
+        // v2.x (B3): 本轮生成的媒体图(生成图/二维码)写入消息附件 imageBase64Json,
+        // 由群聊 MessageImageGrid 渲染;无生成图时为 "[]"(与既有行为一致)。
+        val mediaImageJson = if (generatedMediaImages.isNotEmpty()) {
+            AppJson.encodeToString(
+                ListSerializer(String.serializer()),
+                generatedMediaImages.map { normalizeGroupChatMediaRef(it) },
+            )
+        } else "[]"
         val msgId = groupChatRepository.sendMessage(
             chatId = chatId,
             senderType = "assistant",
             senderId = assistant.id,
             senderName = assistant.name,
             body = replyText,
+            imageBase64Json = mediaImageJson,
             mood = extractedMood,
             reasoning = extractedReasoning,
         )
@@ -2714,6 +2778,7 @@ class GroupChatScheduler(
                 senderId = assistant.id,
                 senderName = assistant.name,
                 body = replyText,
+                imageBase64Json = mediaImageJson,
                 timestamp = System.currentTimeMillis(),
                 mood = extractedMood,
                 reasoning = extractedReasoning,

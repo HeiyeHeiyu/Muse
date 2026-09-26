@@ -6,7 +6,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** B8-03: 群聊媒体工具过滤策略测试。 */
+/** B8-03 / v2.x (B3): 群聊媒体工具进出策略测试。 */
 class GroupChatToolPolicyTest {
 
     private fun def(name: String) = ToolDefinition(
@@ -16,7 +16,8 @@ class GroupChatToolPolicyTest {
     )
 
     @Test
-    fun filtersMediaOutputTools() {
+    fun mediaFilterKeepsOnlyEnabledMediaTools() {
+        // v2.x (B3): 已打通展示通道的 generate_image / generate_qr_code 可用,generate_video 仍屏蔽
         val input = listOf(
             def("web_search"),
             def("generate_image"),
@@ -25,10 +26,33 @@ class GroupChatToolPolicyTest {
             def("calculator"),
         )
 
+        val result = GroupChatToolPolicy.filterMediaTools(input)
+
+        assertEquals(listOf("generate_image", "generate_qr_code"), result.map { it.name })
+        assertTrue(result.all { it.name in GroupChatToolPolicy.ENABLED_MEDIA_TOOLS })
+        assertFalse(result.any { it.name in GroupChatToolPolicy.BLOCKED_MEDIA_TOOLS })
+    }
+
+    @Test
+    fun regularFilterDropsBlockedMediaAndHighRisk() {
+        // B8-03: generate_video 属屏蔽媒体;P1-11: 高风险工具必须被风险白名单挡住
+        val input = listOf(
+            def("web_search"),
+            def("generate_image"),
+            def("generate_qr_code"),
+            def("generate_video"),
+            def("send_sms"),
+            def("workspace_write"),
+            def("calculator"),
+        )
+
         val result = GroupChatToolPolicy.filterRegularTools(input)
 
-        assertEquals(listOf("web_search", "calculator"), result.map { it.name })
-        assertFalse(result.any { it.name in GroupChatToolPolicy.MEDIA_OUTPUT_TOOLS })
+        assertEquals(
+            listOf("web_search", "generate_image", "generate_qr_code", "calculator"),
+            result.map { it.name },
+        )
+        assertFalse(result.any { it.name in GroupChatToolPolicy.BLOCKED_MEDIA_TOOLS })
     }
 
     @Test

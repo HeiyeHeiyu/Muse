@@ -35,6 +35,13 @@ object ChannelInbox {
         val mediaKind: String = "",
         /** v2.0.1: 图片 base64(压缩后;仅 image 类)。 */
         val mediaBase64: String = "",
+        /**
+         * v2.x (B4): 非图片媒体(视频/文件)落盘后的本地绝对路径。
+         *
+         * 视频/文件体积大,不适合走 [mediaBase64];下载后保存到私有目录,
+         * 路径记于此,供后续处理/引用。空 = 无本地文件(纯文本或未落盘)。
+         */
+        val mediaPath: String = "",
     )
 
     private const val TAG = "ChannelInbox"
@@ -75,6 +82,8 @@ object ChannelInbox {
         rawPayload: String,
         mediaKind: String = "",
         mediaBase64: String = "",
+        // v2.x (B4): 视频/文件落盘路径(非图片媒体);默认空保持向后兼容。
+        mediaPath: String = "",
     ) {
         val safeSummary = text
             ?.let { t ->
@@ -90,6 +99,7 @@ object ChannelInbox {
             raw = rawPayload.take(MAX_RAW_LENGTH),
             mediaKind = mediaKind,
             mediaBase64 = mediaBase64,
+            mediaPath = mediaPath,
         )
         val updated = (listOf(item) + _messages.value).take(MAX_ITEMS)
         _messages.value = updated

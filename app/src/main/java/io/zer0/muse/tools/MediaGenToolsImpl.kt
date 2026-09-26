@@ -18,6 +18,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.coroutines.AbstractCoroutineContextElement
+import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.coroutineContext
 
 /** P2-23: 媒体生成类型。 */
@@ -81,6 +83,18 @@ interface MediaGenHost {
 }
 
 /**
+ * v2.x (B3): 协程作用域内的媒体投递宿主覆盖。
+ *
+ * 群聊链路没有 UI 宿主;工具执行前用 `withContext(MediaGenHostContext(host)) { ... }`
+ * 注入本元素,[MediaGenToolsImpl] 优先取它,把生成图交回群聊消息附件,
+ * 而不触碰全局 [MediaGenToolsImpl.installHost] 安装的 UI 宿主(单聊/群聊并发安全)。
+ */
+class MediaGenHostContext(val host: MediaGenHost) :
+    AbstractCoroutineContextElement(MediaGenHostContext) {
+    companion object Key : CoroutineContext.Key<MediaGenHostContext>
+}
+
+/**
  * P2-23: 媒体生成工具实现(图片 / 视频 / 二维码),与 ViewModel 无关。
  *
  * 从 ChatViewModel 的 `execGenerateImage / execGenerateVideo / execGenerateQrCode` 迁出的
@@ -115,6 +129,13 @@ class MediaGenToolsImpl(
     }
 
     /**
+     * v2.x (B3): 解析当前生效的投递宿主 — 协程作用域覆盖([MediaGenHostContext])优先,
+     * 无覆盖时回退到全局安装的 UI 宿主。媒体工具三个 exec* 方法均走此入口。
+     */
+    private suspend fun currentHost(): MediaGenHost? =
+        coroutineContext[MediaGenHostContext]?.host ?: host
+
+    /**
      * 根据用户描述生成图片。
      *
      * 模型选择优先级:args.model → 持久化的 imageGenConfig.modelId →
@@ -133,7 +154,7 @@ class MediaGenToolsImpl(
         // v1.0.18: 参考图(图生图),支持 URL / base64 / data URI。仅取工具参数 —
         // 用户在相册里选的临时参考图不持久化,无 UI 进程也无从注入。
         val referenceImage = args["reference_image"]?.takeIf { it.isNotBlank() }
-        val slot = host?.begin(MediaGenKind.IMAGE)
+        val slot = currentHost()?.begin(MediaGenKind.IMAGE)
 
         return try {
             val providerConfig = genConfig.providerId.takeIf { it.isNotBlank() }
@@ -245,7 +266,7 @@ class MediaGenToolsImpl(
             }
         }
 
-        val slot = host?.begin(MediaGenKind.VIDEO)
+        val slot = currentHost()?.begin(MediaGenKind.VIDEO)
         val startedAt = System.currentTimeMillis()
         // v1.135: 每 5 秒刷新一次进度提示,让用户感知长任务仍在进行。
         val progressJob = slot?.let { target ->
@@ -300,7 +321,7 @@ class MediaGenToolsImpl(
         val content = args["content"]?.takeIf { it.isNotBlank() }
             ?: return "缺少必填参数: content"
         val size = args["size"]?.toIntOrNull()?.coerceIn(128, 1024) ?: 400
-        val slot = host?.begin(MediaGenKind.QR_CODE)
+        val slot = currentHost()?.begin(MediaGenKind.QR_CODE)
 
         return try {
             val bitmap = QrCodeGenerator.generateQrBitmap(content, size)
@@ -346,7 +367,7 @@ class MediaGenToolsImpl(
 
     /** 结束生成(清理 UI 占位状态),失败不影响工具返回值。 */
     private suspend fun safeFinish(kind: MediaGenKind) {
-        val target = host ?: return
+        val target = currentHost() ?: return
         runCatching { withContext(NonCancellable) { target.finish(kind) } }
             .onFailure { Logger.w(TAG, "媒体生成收尾失败(kind=$kind): ${it.message}") }
     }

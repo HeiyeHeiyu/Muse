@@ -93,6 +93,8 @@ class ChannelAutoReply(
                 text,
                 mediaKind = inbound.mediaKind,
                 mediaBase64 = inbound.mediaBase64,
+                // v2.x (B4): 视频/文件本地路径随轮次一并保存。
+                mediaPath = inbound.mediaPath,
             )
             val reply = runAgent(config, inbound.from) ?: return
             ChannelConversationStore.append(config.id, inbound.from, "assistant", reply)
