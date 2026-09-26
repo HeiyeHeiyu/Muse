@@ -70,7 +70,7 @@ class ModelCatalogStore(
     )
 
     /**
-     * 远端目录文档格式：`{ "schemaVersion":1, "publishedAt":"...", "items":[ModelCatalogEntry...] }`。
+     * 远端目录文档格式(JSON)：schemaVersion / publishedAt / items 三段，
      * 与内置/用户覆盖共用 [ModelCatalogEntry]，字段级合并。
      */
     @Serializable
