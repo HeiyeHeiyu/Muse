@@ -8,10 +8,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
@@ -19,6 +28,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.ui.theme.MuseActionColors
+import io.zer0.muse.ui.theme.MuseAnimation
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.semiLarge
@@ -49,22 +60,46 @@ fun MuseChip(
 ) {
     // UI-FIX A: 选中=实心黑底白字；未选中=不透明中性底。
     // 旧实现未选中用 surfaceVariant@50% 半透明，压在内容上像一层遮罩，已取消。
-    val bgColor = if (selected) MuseActionColors.container else MuseActionColors.neutralContainer
-    val contentColor = if (selected) MuseActionColors.content else MuseActionColors.neutralContent
+    // v2.x: 交互动效 — 按压缩放 + 选中态颜色弹性过渡 + 可见涟漪
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.95f else 1f,
+        animationSpec = MuseMotion.tween(MuseAnimation.FAST_MS),
+        label = "chipPress",
+    )
+    val bgColor by animateColorAsState(
+        targetValue = if (selected) MuseActionColors.container else MuseActionColors.neutralContainer,
+        animationSpec = MuseMotion.tween(MuseAnimation.TACTILE_MS),
+        label = "chipBg",
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (selected) MuseActionColors.content else MuseActionColors.neutralContent,
+        animationSpec = MuseMotion.tween(MuseAnimation.TACTILE_MS),
+        label = "chipContent",
+    )
     Surface(
         shape = MuseShapes.semiLarge,
         color = bgColor,
         contentColor = contentColor,
-        onClick = onClick,
-        enabled = enabled,
         modifier = modifier
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
             .alpha(if (enabled) 1f else 0.38f)
             // CMP-04/A11Y-01: 选中语义 + 48dp 最小触控(TalkBack 可读"已选中")
             .heightIn(min = 48.dp)
             .semantics {
                 this.selected = selected
                 role = Role.Checkbox
-            },
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(),
+                enabled = enabled,
+                onClick = onClick,
+            ),
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
