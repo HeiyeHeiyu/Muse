@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -39,8 +39,6 @@ import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.settings.SettingsItemRow
-import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.ui.theme.huge
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -144,7 +142,7 @@ fun TaskRoutingSettingsPage(
                         editingUtilityTier = UtilityTier.SMALL
                     },
                 ) {
-                    ModelPill(
+                    ModelValue(
                         text = utilitySmallLabel ?: utilitySmallInheritText,
                         bound = utilityBinding != null,
                     )
@@ -160,7 +158,7 @@ fun TaskRoutingSettingsPage(
                         editingUtilityTier = UtilityTier.LARGE
                     },
                 ) {
-                    ModelPill(
+                    ModelValue(
                         text = utilityLargeLabel ?: utilityLargeInheritText,
                         bound = utilityLargeBinding != null,
                     )
@@ -360,40 +358,28 @@ private fun MainModelPickerDialog(
     )
 }
 
-/** 辅助模型的绑定状态胶囊:已绑定显示模型名(主色浅底),未绑定显示"沿用/复用"提示(灰底)。 */
+/** 尾部模型取值 — 右对齐单行值 + 标准箭头(iOS 式)。
+ *
+ * v2.x: 替换原“胶囊内含长句 + 内嵌箭头”样式 — 长文本会挤压标题列,且内嵌箭头与行点击语义重复。
+ * 已绑定 = 正常色;未绑定 = 弱化色("沿用/复用"提示);超长省略号。
+ */
 @Composable
-private fun ModelPill(text: String, bound: Boolean) {
-    Surface(
-        shape = MuseShapes.huge,
-        color = if (bound) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-        },
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 10.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
-        ) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelMedium,
-                color = if (bound) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = 132.dp),
-            )
-            Spacer(Modifier.width(3.dp))
-            Icon(
-                imageVector = MuseIcons.arrowRight,
-                contentDescription = null,
-                tint = if (bound) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.75f)
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
-                },
-                modifier = Modifier.size(14.dp),
-            )
-        }
+private fun ModelValue(text: String, bound: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (bound) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.End,
+            modifier = Modifier.widthIn(max = 140.dp),
+        )
+        Spacer(Modifier.width(4.dp))
+        ChevronRight()
     }
 }

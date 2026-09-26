@@ -7,9 +7,9 @@
     <!-- Agent Settings -->
     <string name="settings_agent_model_not_configured">구성되지 않음</string>
     <string name="settings_agent_tool_model_not_set">설정되지 않음</string>
-    <string name="settings_agent_tool_model_not_set_inherit">설정되지 않음(메인 모델 사용)</string>
+    <string name="settings_agent_tool_model_not_set_inherit">메인 모델 사용</string>
     <!-- v2.x: auxiliary model tiers -->
-    <string name="settings_agent_utility_large_not_set_inherit">설정되지 않음(소형 모델 재사용)</string>
+    <string name="settings_agent_utility_large_not_set_inherit">소형 모델 재사용</string>
     <string name="settings_agent_section_assistant">에이전트 어시스턴트</string>
     <string name="settings_agent_default_assistant_title">기본 상담원 보조</string>
     <string name="settings_agent_loading">로드 중...</string>

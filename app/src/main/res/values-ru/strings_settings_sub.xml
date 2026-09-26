@@ -7,9 +7,9 @@
     <!-- Agent Settings -->
     <string name="settings_agent_model_not_configured">Не настроено</string>
     <string name="settings_agent_tool_model_not_set">Не установлено</string>
-    <string name="settings_agent_tool_model_not_set_inherit">Не установлено (используйте основную модель)</string>
+    <string name="settings_agent_tool_model_not_set_inherit">Использует основную модель</string>
     <!-- v2.x: auxiliary model tiers -->
-    <string name="settings_agent_utility_large_not_set_inherit">Не установлено (использовать малую)</string>
+    <string name="settings_agent_utility_large_not_set_inherit">Использует малую модель</string>
     <string name="settings_agent_section_assistant">Помощник агента</string>
     <string name="settings_agent_default_assistant_title">Помощник агента по умолчанию</string>
     <string name="settings_agent_loading">Загрузка...</string>

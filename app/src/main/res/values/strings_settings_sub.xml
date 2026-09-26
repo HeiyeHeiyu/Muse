@@ -7,9 +7,9 @@
     <!-- Agent 设置 -->
     <string name="settings_agent_model_not_configured">未配置</string>
     <string name="settings_agent_tool_model_not_set">未设置</string>
-    <string name="settings_agent_tool_model_not_set_inherit">未设置(沿用主模型)</string>
+    <string name="settings_agent_tool_model_not_set_inherit">沿用主模型</string>
     <!-- v2.x: 辅助模型三档 — 大工具未绑定时复用小工具 -->
-    <string name="settings_agent_utility_large_not_set_inherit">未设置(复用小工具模型)</string>
+    <string name="settings_agent_utility_large_not_set_inherit">复用小工具模型</string>
     <string name="settings_agent_section_assistant">Agent 助手</string>
     <string name="settings_agent_default_assistant_title">默认 Agent 助手</string>
     <string name="settings_agent_loading">加载中...</string>

@@ -7,9 +7,9 @@
     <!-- Agent Settings -->
     <string name="settings_agent_model_not_configured">Não configurado</string>
     <string name="settings_agent_tool_model_not_set">Não definido</string>
-    <string name="settings_agent_tool_model_not_set_inherit">Não definido (usar modelo principal)</string>
+    <string name="settings_agent_tool_model_not_set_inherit">Usa o modelo principal</string>
     <!-- v2.x: auxiliary model tiers -->
-    <string name="settings_agent_utility_large_not_set_inherit">Não definido (reutilizar o pequeno)</string>
+    <string name="settings_agent_utility_large_not_set_inherit">Reutiliza o modelo pequeno</string>
     <string name="settings_agent_section_assistant">Assistente de agente</string>
     <string name="settings_agent_default_assistant_title">Assistente de agente padrão</string>
     <string name="settings_agent_loading">Carregando...</string>
