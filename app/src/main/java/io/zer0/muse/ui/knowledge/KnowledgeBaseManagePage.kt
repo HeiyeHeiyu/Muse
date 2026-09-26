@@ -62,6 +62,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import io.zer0.common.resultOf
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
@@ -135,60 +137,7 @@ fun KnowledgeBaseManagePage(
                         if (idx >= 0 && cursor.moveToFirst()) cursor.getString(idx) else null
                     } ?: uri.lastPathSegment?.substringAfterLast('/')?.substringAfterLast('%')
                 } ?: "doc-$now"
-                // v2.x: 文件大小防线(OOM 第一层) — 超限直接拒绝,不进入读取/解析
-                // (2026-09 用户导入超大文件触发 readText 的 StringWriter ~128MB 扩容 OOM)
-                val fileSizeBytes = withContext(Dispatchers.IO) {
-                    context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null)?.use { c ->
-                        if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else -1L
-                    } ?: -1L
-                }
-                if (fileSizeBytes > MAX_IMPORT_FILE_BYTES) {
-                    MuseToast.show(
-                        context.getString(
-                            R.string.knowledge_import_file_too_large,
-                            MAX_IMPORT_FILE_BYTES / 1024 / 1024,
-                        ),
-                    )
-                    return@launch
-                }
                 val lowerName = fileName.lowercase()
-                var textReadTruncated = false
-                val content = withContext(Dispatchers.IO) {
-                    when {
-                        lowerName.endsWith(".pdf") || lowerName.endsWith(".docx") || lowerName.endsWith(".epub") ||
-                            lowerName.endsWith(".pptx") -> {
-                            val ragCfg = settings.getRagConfig()
-                            documentParser
-                                .parseResult(
-                                    uri,
-                                    context,
-                                    ragCfg.documentParserType,
-                                    ragCfg.cloudParserEndpoint,
-                                    ragCfg.mineruEndpoint,
-                                    ragCfg.mineruToken,
-                                )
-                                .getOrNull()
-                                .orEmpty()
-                        }
-                        lowerName.endsWith(".png") || lowerName.endsWith(".jpg") ||
-                            lowerName.endsWith(".jpeg") || lowerName.endsWith(".bmp") ||
-                            lowerName.endsWith(".webp") -> ocrManager.recognize(uri, context)
-                        else -> context.contentResolver.openInputStream(uri)?.use { input ->
-                            // v2.x: 有界读取(替代无上限 readText) — 见 readTextBounded 说明
-                            val (text, truncated) = readTextBounded(input, CONTENT_CHAR_LIMIT)
-                            textReadTruncated = truncated
-                            text
-                        }.orEmpty()
-                    }
-                }
-                if (content.isBlank()) {
-                    MuseToast.show(context.getString(R.string.knowledge_import_empty))
-                    return@launch
-                }
-                if (textReadTruncated) {
-                    // v2.x: 大文件截断可见化(此前静默截断,用户无感知)
-                    MuseToast.show(context.getString(R.string.knowledge_import_truncated))
-                }
                 val fileType = when {
                     lowerName.endsWith(".md") || lowerName.endsWith(".markdown") -> "md"
                     lowerName.endsWith(".pdf") -> "pdf"
@@ -196,13 +145,97 @@ fun KnowledgeBaseManagePage(
                     lowerName.endsWith(".epub") -> "epub"
                     else -> "txt"
                 }
-                val truncated = if (content.length > 500_000) content.take(500_000) else content
+                val isParsedDoc = lowerName.endsWith(".pdf") || lowerName.endsWith(".docx") ||
+                    lowerName.endsWith(".epub") || lowerName.endsWith(".pptx")
+                val isImage = lowerName.endsWith(".png") || lowerName.endsWith(".jpg") ||
+                    lowerName.endsWith(".jpeg") || lowerName.endsWith(".bmp") || lowerName.endsWith(".webp")
+                if (!isParsedDoc && !isImage) {
+                    // v2.x: 文本文件流式导入 — 滑窗分块 + 增量索引,内存 O(窗口),不限制文件大小
+                    // (2026-09 用户反馈:知识库就是要收大文件,不做大小拒绝;
+                    //  2026-09-26 崩溃事故的根治方案 — 不再把全文读入内存)
+                    val ragCfg = settings.getRagConfig()
+                    // 占位 doc(内容/块数在索引完成后回填;失败时用户可见,可删除重导)
+                    docDao.upsert(
+                        KnowledgeDocEntity(
+                            id = docId,
+                            title = fileName,
+                            content = "",
+                            filePath = uri.toString(),
+                            fileType = fileType,
+                            createdAt = now,
+                            updatedAt = now,
+                            kbId = targetKb.id,
+                        ),
+                    )
+                    importProgress = context.getString(R.string.knowledge_chunking)
+                    var previewContent = ""
+                    var seenChars = 0
+                    val textFlow = flow {
+                        context.contentResolver.openInputStream(uri)?.use { input ->
+                            val reader = input.bufferedReader()
+                            val buf = CharArray(64 * 1024)
+                            while (true) {
+                                val n = reader.read(buf)
+                                if (n < 0) break
+                                if (seenChars < CONTENT_CHAR_LIMIT) {
+                                    val take = minOf(CONTENT_CHAR_LIMIT - seenChars, n)
+                                    previewContent += String(buf, 0, take)
+                                }
+                                seenChars += n
+                                emit(String(buf, 0, n))
+                            }
+                        }
+                    }.flowOn(Dispatchers.IO)
+                    val streamedChunkCount = ragService.indexDocumentStreamed(docId, textFlow, ragCfg) { indexed ->
+                        importProgress = context.getString(R.string.knowledge_import_indexed_chunks, indexed)
+                    }
+                    if (streamedChunkCount <= 0) {
+                        resultOf { ragService.deleteDocument(docId) }
+                        MuseToast.show(context.getString(R.string.knowledge_import_empty))
+                        return@launch
+                    }
+                    docDao.upsert(
+                        (docDao.getById(docId) ?: return@launch).copy(
+                            content = previewContent,
+                            chunkCount = streamedChunkCount,
+                            updatedAt = System.currentTimeMillis(),
+                        ),
+                    )
+                    // F-33: 记录本次索引用到的 embedding 配置
+                    scope.launch { settings.saveLastEmbeddingModelKey(io.zer0.muse.rag.RagConfig.embeddingModelKey(ragCfg)) }
+                    MuseToast.show(context.getString(R.string.knowledge_imported_indexed, fileName, streamedChunkCount))
+                    return@launch
+                }
+                // v2.x: 解析类(pdf/docx/epub/pptx/图片) — 解析/OCR 得到全文后索引(doc 存预览)
+                val content = withContext(Dispatchers.IO) {
+                    if (isParsedDoc) {
+                        val ragCfg = settings.getRagConfig()
+                        documentParser
+                            .parseResult(
+                                uri,
+                                context,
+                                ragCfg.documentParserType,
+                                ragCfg.cloudParserEndpoint,
+                                ragCfg.mineruEndpoint,
+                                ragCfg.mineruToken,
+                            )
+                            .getOrNull()
+                            .orEmpty()
+                    } else {
+                        ocrManager.recognize(uri, context)
+                    }
+                }
+                if (content.isBlank()) {
+                    MuseToast.show(context.getString(R.string.knowledge_import_empty))
+                    return@launch
+                }
+                val preview = if (content.length > CONTENT_CHAR_LIMIT) content.take(CONTENT_CHAR_LIMIT) else content
                 // F-31: 关键 — 写入 kbId,使文档归属到目标知识库
                 docDao.upsert(
                     KnowledgeDocEntity(
                         id = docId,
                         title = fileName,
-                        content = truncated,
+                        content = preview,
                         filePath = uri.toString(),
                         fileType = fileType,
                         createdAt = now,
@@ -212,7 +245,7 @@ fun KnowledgeBaseManagePage(
                 )
                 importProgress = context.getString(R.string.knowledge_chunking)
                 val ragConfig = settings.getRagConfig()
-                val chunkCount = resultOf { ragService.indexDocument(docId, truncated, ragConfig) }.getOrNull()
+                val chunkCount = resultOf { ragService.indexDocument(docId, content, ragConfig) }.getOrNull()
                 if (chunkCount != null && chunkCount > 0) {
                     docDao.upsert(
                         (docDao.getById(docId) ?: return@launch).copy(
@@ -761,42 +794,14 @@ private fun KbEditDialog(
 }
 
 /**
- * 简化线性进度条(避免引入 Material3 LinearProgressIndicator 的实验 API)。
+ * v2.x: 文档预览最大字符数 — doc.content 只保留前 N 字符作预览展示;
+ * 检索/注入走全量分块(chunk 表),不受此限制影响。
  */
-/** v2.x: 知识库单文件大小上限(100MB) — 超过直接拒绝,防 OOM 第一层。 */
-private const val MAX_IMPORT_FILE_BYTES = 100L * 1024 * 1024
-
-/** v2.x: 文本内容读取上限(与既有的 500K 字符截断对齐)。 */
 private const val CONTENT_CHAR_LIMIT = 500_000
 
 /**
- * v2.x: 有界文本读取 — 替代 readText() 的无上限 StringWriter 扩容。
- *
- * 2026-09 用户崩溃:导入超大文本文件时，readText()(内部 StringWriter)扩到 ~128MB
- * 触发 OutOfMemoryError。本函数最多读取 [maxChars] 个字符,超出部分丢弃。
- *
- * @return (读取到的文本, 是否因超限被截断)
+ * 简化线性进度条(避免引入 Material3 LinearProgressIndicator 的实验 API)。
  */
-private fun readTextBounded(input: java.io.InputStream, maxChars: Int): Pair<String, Boolean> {
-    val reader = input.bufferedReader()
-    val sb = StringBuilder(minOf(maxChars, 256 * 1024))
-    val buf = CharArray(16 * 1024)
-    var total = 0
-    var truncated = false
-    while (true) {
-        if (total >= maxChars) {
-            // 读满上限后还有剩余字符 → 视为被截断
-            truncated = reader.read() >= 0
-            break
-        }
-        val n = reader.read(buf, 0, minOf(buf.size, maxChars - total))
-        if (n < 0) break
-        sb.append(buf, 0, n)
-        total += n
-    }
-    return sb.toString() to truncated
-}
-
 @Composable
 private fun LinearProgress(progress: Float) {
     val clamped = progress.coerceIn(0f, 1f)

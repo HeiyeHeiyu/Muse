@@ -509,8 +509,7 @@
     <string name="knowledge_reindexing">正在重新索引</string>
     <string name="knowledge_cancel">取消</string>
     <string name="knowledge_reading_file">正在读取文件…</string>
-    <string name="knowledge_import_file_too_large">文件超过 %1$dMB,无法导入</string>
-    <string name="knowledge_import_truncated">文件较大,已读取前 50 万字符</string>
+    <string name="knowledge_import_indexed_chunks">已索引 %1$d 块</string>
     <string name="knowledge_parsing_doc">正在解析文档…</string>
     <string name="knowledge_ocr">正在 OCR 识别…</string>
     <string name="knowledge_chunking">正在分块和生成向量索引…</string>

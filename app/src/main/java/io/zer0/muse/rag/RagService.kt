@@ -12,6 +12,8 @@ import io.zer0.muse.data.knowledge.KnowledgeChunkFtsRow
 import io.zer0.muse.data.knowledge.KnowledgeChunkFtsSelfHealer
 import io.zer0.muse.data.knowledge.KnowledgeDocDao
 import io.zer0.muse.util.TokenEstimator
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -502,6 +504,194 @@ class RagService(
     }
 
     /**
+     * v2.x: 流式索引文档 — 分块/embedding/存储全程流式,内存占用 O(窗口) 而非 O(全文)。
+     *
+     * 与 [indexDocument] 语义对齐(先清旧块再写新块 / 维度校验 / FTS 同步),差异在文本入口:
+     * 文本以 [textPieces] 分片流式喂入,不需要把全文一次性载入内存,支持任意大小文件导入。
+     *
+     * 实现:滑窗摄取 — 缓冲区累积到 [windowChars] 后在安全边界(段落/换行)切窗,
+     * 复用 [TextChunker] 逐窗分块;块攒批([embedBatchSize])嵌入后分批写入 chunk 表 / HNSW / FTS。
+     *
+     * 失败语义:
+     *  - 首批 embedding 失败或维度不匹配:不清理旧块、零写入(与 [indexDocument] 一致);
+     *  - 中途失败:已写入块保留(部分索引),重新导入时首批写入前会清理旧数据。
+     *
+     * @param textPieces 文本分片流(文件读取循环逐块 emit)
+     * @param windowChars 滑窗大小(字符,默认 [STREAM_WINDOW_CHARS];测试可调小)
+     * @param onProgress 已索引块数回调(每批一次)
+     * @return 总索引块数
+     */
+    suspend fun indexDocumentStreamed(
+        docId: String,
+        textPieces: Flow<String>,
+        ragConfig: RagConfig,
+        windowChars: Int = STREAM_WINDOW_CHARS,
+        onProgress: (indexedChunks: Int) -> Unit = {},
+    ): Int {
+        val perfTimer = Perf.start("rag-index-stream-$docId")
+        val effectiveWindow = windowChars.coerceAtLeast(1024)
+        val chunker = TextChunker(
+            targetSize = ragConfig.chunkSize,
+            overlap = ragConfig.chunkOverlap,
+            markdownAware = ragConfig.markdownAware,
+            chunkByToken = ragConfig.chunkByToken,
+        )
+        val provider = embeddingService.getProvider(ragConfig)
+
+        val buffer = StringBuilder()
+        val pending = mutableListOf<TextChunker.Chunk>()
+        var nextIndex = 0
+        var totalIndexed = 0
+        var initialized = false
+
+        suspend fun storeBatch(batch: List<TextChunker.Chunk>) {
+            if (batch.isEmpty()) return
+            val vectors = resultOf { provider.embed(batch.map { it.content }) }
+                .onError { msg, e -> Logger.e("RagService", "流式索引 embedding 批次失败(已索引 $totalIndexed 块): $msg", e) }
+                .getOrThrow()
+            check(vectors.size == batch.size) {
+                "Provider returned ${vectors.size} vectors for ${batch.size} chunks"
+            }
+            if (!initialized) {
+                // 首批:维度一致性校验(与 indexDocument 相同口径;失败时不清理旧块、零写入)
+                val newDim = vectors.firstOrNull()?.size ?: 0
+                if (newDim > 0) {
+                    val existingDim = resultOf { chunkDao.getFirstIndexedEmbeddingDim() }.getOrNull()
+                    if (existingDim != null && existingDim > 0 && existingDim != newDim) {
+                        Logger.e(
+                            "RagService",
+                            "Embedding 维度不匹配:库中已有 chunk 维度=$existingDim,新文档 $docId 维度=$newDim。",
+                        )
+                        throw IllegalStateException(
+                            "Embedding dimension mismatch: existing=$existingDim, new=$newDim (doc=$docId). " +
+                                "Run 'reindex all' with the same embedding model.",
+                        )
+                    }
+                }
+                // 首批 embedding 成功后才清理旧块(与 indexDocument「embedding 成功后删旧分块」对齐)
+                removeDocChunksFromVectorIndex(docId)
+                chunkDao.deleteByDoc(docId)
+                withFtsSelfHeal { ftsDao.deleteByDoc(docId) }
+                initialized = true
+            }
+            val now = System.currentTimeMillis()
+            val entities = batch.mapIndexed { i, chunk ->
+                KnowledgeChunkEntity(
+                    id = "chunk-$docId-${chunk.index}",
+                    docId = docId,
+                    content = chunk.content,
+                    embedding = "",
+                    embeddingBlob = VectorSearchService.floatArrayToBlob(vectors[i]),
+                    chunkIndex = chunk.index,
+                    tokenCount = chunker.estimateTokens(chunk.content),
+                    metadataJson = encodeMetadata(chunk.metadata),
+                    createdAt = now,
+                )
+            }
+            chunkDao.insertAll(entities)
+            addChunksToVectorIndex(entities, vectors)
+            val ftsRows = entities.map {
+                KnowledgeChunkFtsRow(chunkId = it.id, docId = it.docId, content = it.content)
+            }
+            resultOf { withFtsSelfHeal { ftsDao.insertAll(ftsRows) } }
+                .onError { msg, e -> Logger.w("RagService", "FTS 同步失败(不影响向量检索): $msg", e) }
+            totalIndexed += entities.size
+            onProgress(totalIndexed)
+        }
+
+        /** 切出一窗并分块入队;返回是否有窗口被消费。 */
+        fun drainWindow(hard: Boolean): Boolean {
+            if (buffer.isEmpty()) return false
+            if (!hard && buffer.length < effectiveWindow) return false
+            val limit = minOf(buffer.length, effectiveWindow)
+            val cut = run {
+                val para = buffer.lastIndexOf("\n\n", limit - 1)
+                if (para >= limit / 2) {
+                    para + 2
+                } else {
+                    val line = buffer.lastIndexOf("\n", limit - 1)
+                    if (line >= limit / 2) line + 1 else limit
+                }
+            }
+            val part = buffer.substring(0, cut)
+            buffer.delete(0, cut)
+            if (part.isNotBlank()) {
+                for (chunk in chunker.split(part)) {
+                    for (piece in splitOversizedPlainChunk(chunk, ragConfig.chunkSize, ragConfig.chunkOverlap)) {
+                        pending.add(piece.copy(index = nextIndex++))
+                    }
+                }
+            }
+            return true
+        }
+
+        textPieces.collect { piece ->
+            if (piece.isEmpty()) return@collect
+            buffer.append(piece)
+            while (drainWindow(hard = false)) {
+                while (pending.size >= embedBatchSize) {
+                    val batch = pending.subList(0, embedBatchSize).toList()
+                    pending.subList(0, embedBatchSize).clear()
+                    storeBatch(batch)
+                }
+            }
+        }
+        // 收尾:残余窗口循环切完(每次 drain 只消费一窗),块在下方按批写入
+        while (drainWindow(hard = true)) {
+            // 每轮消费一窗,直到缓冲区空
+        }
+        while (pending.size >= embedBatchSize) {
+            val batch = pending.subList(0, embedBatchSize).toList()
+            pending.subList(0, embedBatchSize).clear()
+            storeBatch(batch)
+        }
+        if (pending.isNotEmpty()) {
+            storeBatch(pending.toList())
+            pending.clear()
+        }
+
+        if (totalIndexed > 0) {
+            vectorSearch.invalidateCache()
+            invalidateTitlesCache()
+        }
+        perfTimer.end()
+        Logger.d("RagService", "文档 $docId 流式索引完成:$totalIndexed 块")
+        return totalIndexed
+    }
+
+    /**
+     * v2.x: 流式摄取保底切分 — 窗口内超长纯文本块二次切分。
+     *
+     * TextChunker 的 markdown-aware 模式按结构边界(标题/代码块/表格)切分,
+     * 无 Markdown 结构的纯段落长文会被合并成单一巨块(见 TextChunkerTest
+     * 「纯段落无边界时会合并到单块」)。巨块直接进入 embedding 会超模型上限、
+     * 进入检索会拖垮注入质量,因此在流式摄取侧对超过 2×targetSize 的纯文本块
+     * 做保底硬切(切成 targetSize 量级,保留 overlap)。
+     *
+     * 代码块/表格(metadata type=code/table)尊重结构语义,保持整体不切。
+     */
+    private fun splitOversizedPlainChunk(
+        chunk: TextChunker.Chunk,
+        targetSize: Int,
+        overlap: Int,
+    ): List<TextChunker.Chunk> {
+        val type = chunk.metadata["type"]
+        if (type == "code" || type == "table") return listOf(chunk)
+        val limit = targetSize * 2
+        val text = chunk.content
+        if (text.length <= limit) return listOf(chunk)
+        val pieces = mutableListOf<TextChunker.Chunk>()
+        var start = 0
+        while (start < text.length) {
+            val end = minOf(start + targetSize, text.length)
+            pieces.add(chunk.copy(content = text.substring(start, end)))
+            if (end >= text.length) break
+            start = (end - overlap).coerceAtLeast(start + 1)
+        }
+        return pieces
+    }
+
+    /**
      * v1.133: 检索 — 支持混合检索 / MMR / scopeDocIds。
      *
      * v1.55: 大规模库(>=5000 chunk)优先走 HNSW 近似最近邻;
@@ -964,6 +1154,9 @@ class RagService(
         const val TITLES_TTL_MS = 5L * 60 * 1000
         /** v1.55: HNSW 索引自动保存阈值(累计新增 SAVE_INTERVAL 个 chunk 后触发一次 save)。 */
         const val SAVE_INTERVAL = 50
+
+        /** v2.x: 流式索引滑窗大小(字符)。窗口越大内存峰值越高、窗口间切分越少。 */
+        const val STREAM_WINDOW_CHARS = 200_000
         /** B-35: chunkMetaCache LRU 上限条数(约 20MB 量级,防止全量 content 常驻内存)。 */
         const val MAX_CHUNK_META = 2000
         /** v1.0.47: embedding 熔断时长 — 失败后 5 分钟内 retrieve 直接返回空,降级本地搜索。 */
