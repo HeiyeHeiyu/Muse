@@ -3074,8 +3074,9 @@ class ChatViewModel(
      */
     fun forkSessionFromMessage(messageId: kotlin.uuid.Uuid) = sessionController.forkSessionFromMessage(messageId)
 
-    /** 新建会话。 */
-    fun createNewSession(onReady: (() -> Unit)? = null) = sessionController.createNewSession(onReady)
+    /** 新建会话。[assistantIdOverride] 非空时以指定助手创建(伙伴横排快捷开聊)。 */
+    fun createNewSession(onReady: (() -> Unit)? = null, assistantIdOverride: String? = null) =
+        sessionController.createNewSession(onReady, assistantIdOverride)
 
     /**
      * v1.97 gap8: 将文本发送到新会话。

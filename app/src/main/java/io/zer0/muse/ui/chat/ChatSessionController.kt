@@ -139,9 +139,10 @@ internal class ChatSessionController(
         }
     }
 
-    /** 新建会话:释放旧会话 → 按默认助手创建 → 重置 UI 状态 → 刷新上下文。 */
+    /** 新建会话:释放旧会话 → 按默认助手创建 → 重置 UI 状态 → 刷新上下文。
+     *  v2.x: [assistantIdOverride] 非空时以指定助手创建(伙伴横排快捷开聊用)。 */
     @Suppress("CyclomaticComplexMethod")
-    fun createNewSession(onReady: (() -> Unit)? = null) {
+    fun createNewSession(onReady: (() -> Unit)? = null, assistantIdOverride: String? = null) {
         if (accessor.snapshot.isStreaming) bridge.detachStreaming()
         // Phase 8.7: 切换会话时停止 TTS(避免跨会话继续朗读)
         sessionDeps.onStopTts()
@@ -156,7 +157,9 @@ internal class ChatSessionController(
         currentSession?.let { sessionDeps.sessionManager.release(it) }
         accessor.coroutineScope.launch {
             // v1.0.63: 新任务使用设置里的默认助手
-            val currentAssistantId = sessionDeps.settings.defaultAssistantIdFlow.first().ifBlank { "default" }
+            // v2.x: assistantIdOverride 非空时以指定助手创建(伙伴横排快捷入口)
+            val currentAssistantId = assistantIdOverride
+                ?: sessionDeps.settings.defaultAssistantIdFlow.first().ifBlank { "default" }
             val id = sessionRepository.createSession(assistantId = currentAssistantId)
             // v1.x: 新会话权限模式跟随全局默认
             val permissionMode = sessionDeps.sessionPermissionStore.getMode(

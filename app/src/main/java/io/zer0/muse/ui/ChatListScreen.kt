@@ -175,6 +175,8 @@ fun ChatListScreen(
     onOpenRecentlyDeleted: () -> Unit = {},
     /** Phase 1 WS5: 打开助手/角色管理页面(情感空状态 CTA 用)。 */
     onOpenAssistants: () -> Unit = {},
+    /** v2.x: 伙伴横排 — 以指定助手开新聊天(assistantId)。 */
+    onOpenAssistantChat: (String) -> Unit = {},
     /** v1.72: 会话列表首次加载标志(避免闪空状态) */
     isSessionsLoading: Boolean = false,
     /** v1.0.62: 会话列表加载失败信息(null=正常)。 */
@@ -389,8 +391,7 @@ fun ChatListScreen(
                         item(key = "partners_row") {
                             PartnerRow(
                                 assistants = assistants.filter { it.enabled }.sortedBy { it.sortIndex },
-                                sessions = sessions,
-                                onSelectSession = onSelect,
+                                onOpenAssistantChat = onOpenAssistantChat,
                                 onOpenAssistants = onOpenAssistants,
                                 modifier = Modifier.padding(top = 8.dp),
                             )
@@ -567,53 +568,44 @@ private fun GreetingHeader(
 /**
  * v2.x: 我的伙伴横排 — 常用助手(启用状态)头像快捷入口。
  *
- * 点击助手头像 → 直进与该助手的最近会话(无会话时回落到打开助手管理)。
+ * 点击助手头像 → 以该助手开一个新聊天(回顾条负责"继续上次",本入口负责"开新聊")。
  * 末尾"+"为加伙伴入口。
  */
 @Composable
 private fun PartnerRow(
     assistants: List<AssistantEntity>,
-    sessions: List<SessionEntity>,
-    onSelectSession: (String) -> Unit,
+    onOpenAssistantChat: (String) -> Unit,
     onOpenAssistants: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val latestByAssistant = remember(sessions) {
-        sessions.groupBy { it.assistantId }
-            .mapValues { (_, list) -> list.maxByOrNull { it.updatedAt } }
-    }
     Row(
         modifier = modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = MusePaddings.screen),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+            .padding(horizontal = MusePaddings.screen, vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         assistants.forEach { assistant ->
-            val latest = latestByAssistant[assistant.id]
             Column(
                 modifier = Modifier
                     .clip(MuseShapes.medium)
-                    .clickable {
-                        val target = latest
-                        if (target != null) onSelectSession(target.id) else onOpenAssistants()
-                    }
+                    .clickable { onOpenAssistantChat(assistant.id) }
                     .padding(2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // v2.x: 统一助手头像组件(图片→Emoji→首字三级回退,与全 app 一致)
                 io.zer0.muse.ui.common.media.AssistantAvatar(
                     assistant = assistant,
-                    avatarSize = 42.dp,
+                    avatarSize = 52.dp,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
                     text = assistant.name,
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 52.dp),
+                    modifier = Modifier.widthIn(max = 60.dp),
                 )
             }
         }
@@ -627,7 +619,7 @@ private fun PartnerRow(
         ) {
             Box(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(52.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                 contentAlignment = Alignment.Center,
@@ -636,13 +628,13 @@ private fun PartnerRow(
                     imageVector = MuseIcons.plus,
                     contentDescription = stringResource(R.string.chat_list_add_partner),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(22.dp),
                 )
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(6.dp))
             Text(
                 text = " ",
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.bodySmall,
             )
         }
     }
@@ -669,18 +661,18 @@ private fun RecallBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = MusePaddings.screen)
+            // v2.x: 与"最近"列表卡平齐(全宽,去左右边距)
             .clip(MuseShapes.medium)
             .background(MaterialTheme.colorScheme.surface)
             .clickable { onSelect(session.id) }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = MusePaddings.screen, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = "💬", fontSize = 13.sp)
-        Spacer(Modifier.width(8.dp))
+        Text(text = "💬", fontSize = 14.sp)
+        Spacer(Modifier.width(10.dp))
         Text(
             text = stringResource(R.string.chat_list_recall_format, name, preview.take(18)),
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

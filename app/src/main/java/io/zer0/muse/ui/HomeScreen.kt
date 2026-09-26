@@ -385,6 +385,10 @@ fun HomeScreen(
                                 onOpenKnowledgeBase = onOpenKnowledgeBase,
                                 onOpenRecentlyDeleted = onOpenRecentlyDeleted,
                                 onOpenAssistants = onOpenAssistants,
+                                // v2.x: 伙伴横排 — 以指定助手开新聊天(宽屏双栏就地切新会话)
+                                onOpenAssistantChat = { id ->
+                                    viewModel.createNewSession(assistantIdOverride = id)
+                                },
                                 onCreateWithText = { text ->
                                     viewModel.sendToNewChat(text)
                                 },
@@ -447,6 +451,10 @@ fun HomeScreen(
                             onOpenKnowledgeBase = onOpenKnowledgeBase,
                             onOpenRecentlyDeleted = onOpenRecentlyDeleted,
                             onOpenAssistants = onOpenAssistants,
+                            // v2.x: 伙伴横排 — 以指定助手开新聊天并进入聊天页
+                            onOpenAssistantChat = { id ->
+                                viewModel.createNewSession(onReady = onOpenChat, assistantIdOverride = id)
+                            },
                             onCreateWithText = { text ->
                                 if (isWideTasks) {
                                     viewModel.sendToNewChat(text)
