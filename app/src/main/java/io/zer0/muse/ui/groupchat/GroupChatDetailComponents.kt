@@ -1449,6 +1449,7 @@ internal fun EditGroupChatDialog(
     initialDiscussionMode: String = "round_robin",
     initialAutoMaxRounds: Int = 5,
     initialHostId: String? = null,
+    initialReplyLengthMode: String = "standard",
     onDismiss: () -> Unit,
     onConfirm: (
         newName: String,
@@ -1456,6 +1457,7 @@ internal fun EditGroupChatDialog(
         newDiscussionMode: String,
         newAutoMaxRounds: Int,
         newHostId: String?,
+        newReplyLengthMode: String,
     ) -> Unit,
 ) {
     // v1.97: 用 rememberSaveable 持久化编辑中的状态,旋转屏不丢
@@ -1469,6 +1471,8 @@ internal fun EditGroupChatDialog(
     var discussionMode by rememberSaveable(dialogKey) { mutableStateOf(initialDiscussionMode) }
     var autoMaxRounds by rememberSaveable(dialogKey) { mutableStateOf(initialAutoMaxRounds) }
     var hostId by rememberSaveable(dialogKey) { mutableStateOf(initialHostId ?: "") }
+    // v2.x: 发言长度档位状态(brief/standard/detailed)
+    var replyLengthMode by rememberSaveable(dialogKey) { mutableStateOf(initialReplyLengthMode) }
 
     val maxNameLength = 30
     val nameError = showErrors && name.isBlank()
@@ -1601,6 +1605,29 @@ internal fun EditGroupChatDialog(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            // ── v2.x: 发言长度档位(简短/标准/详尽) ──
+            Spacer(Modifier.height(20.dp))
+            Text(
+                text = stringResource(R.string.groupchat_length_title),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(
+                    "brief" to R.string.groupchat_length_brief,
+                    "standard" to R.string.groupchat_length_standard,
+                    "detailed" to R.string.groupchat_length_detailed,
+                ).forEach { (lengthMode, labelRes) ->
+                    MuseChip(
+                        selected = replyLengthMode == lengthMode,
+                        onClick = { replyLengthMode = lengthMode },
+                        label = stringResource(labelRes),
+                    )
+                }
+            }
+
             // Auto 模式:最大轮数滑块
             if (discussionMode == "auto") {
                 Spacer(Modifier.height(12.dp))
@@ -1673,6 +1700,7 @@ internal fun EditGroupChatDialog(
                     discussionMode,
                     autoMaxRounds,
                     hostId.ifBlank { null },
+                    replyLengthMode,
                 )
             } else {
                 showErrors = true

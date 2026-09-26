@@ -158,6 +158,7 @@ class GroupChatRepository(
      * @param discussionMode 讨论模式(null 表示不更新)
      * @param autoMaxRounds Auto 模式最大轮数(null 表示不更新)
      * @param hostId 主持人 AI id(null 表示不更新;传 "" 清空)
+     * @param replyLengthMode 发言长度档位(brief/standard/detailed,null 表示不更新)
      */
     suspend fun updateChat(
         chatId: String,
@@ -167,6 +168,7 @@ class GroupChatRepository(
         discussionMode: String? = null,
         autoMaxRounds: Int? = null,
         hostId: String? = null,
+        replyLengthMode: String? = null,
     ) = withContext(Dispatchers.IO) {
         // M2: 用事务包裹读-改-写,防止并发更新丢失
         db.withTransaction {
@@ -178,6 +180,7 @@ class GroupChatRepository(
                 discussionMode = discussionMode ?: existing.discussionMode,
                 autoMaxRounds = autoMaxRounds ?: existing.autoMaxRounds,
                 hostId = if (hostId != null) hostId.ifBlank { null } else existing.hostId,
+                replyLengthMode = replyLengthMode ?: existing.replyLengthMode,
                 updatedAt = System.currentTimeMillis(),
             )
             groupChatDao.upsert(updated)

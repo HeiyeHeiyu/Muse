@@ -73,6 +73,15 @@ data class GroupChatEntity(
     @ColumnInfo(name = "member_private_context_json", defaultValue = "{}") val memberPrivateContextJson: String = "{}",
     /** v2.x: 群聊归档标记。true时群聊从主列表隐藏，可在归档列表中查看和恢复 */
     @ColumnInfo(defaultValue = "0") val isArchived: Boolean = false,
+
+    // ── v2.x 发言长度档位 ──
+    /**
+     * 发言长度档位:
+     * - "brief": 简短 — 头脑风暴/寒暄,一两句说清
+     * - "standard": 标准(默认)
+     * - "detailed": 详尽 — 评审/深度讨论,充分展开
+     */
+    @ColumnInfo(defaultValue = "standard") val replyLengthMode: String = "standard",
 )
 
 /**

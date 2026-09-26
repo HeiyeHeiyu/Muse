@@ -169,7 +169,7 @@ import kotlinx.serialization.builtins.serializer
         MessagePartEntity::class,
         SessionBranchHeadEntity::class,
     ],
-    version = 100,
+    version = 101,
     exportSchema = true,
 )
 @TypeConverters(QuickNoteConverters::class)
@@ -825,6 +825,24 @@ abstract class MuseDb : RoomDatabase() {
                 }
                 if ("isArchived" !in existing) {
                     db.execSQL("ALTER TABLE group_chats ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0")
+                }
+            }
+        }
+
+        /**
+         * v100→v101: 群聊发言长度档位 — group_chats 表新增 replyLengthMode 列(默认 'standard')。
+         *
+         * brief/standard/detailed 三档控制成员发言长度;旧群聊默认标准档。
+         * 幂等:PRAGMA 判存在后再 ADD,避免重复列。
+         */
+        val MIGRATION_100_101 = object : Migration(100, 101) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val existing = mutableSetOf<String>()
+                db.query("PRAGMA table_info(group_chats)").use { cursor ->
+                    while (cursor.moveToNext()) existing.add(cursor.getString(1))
+                }
+                if ("replyLengthMode" !in existing) {
+                    db.execSQL("ALTER TABLE group_chats ADD COLUMN replyLengthMode TEXT NOT NULL DEFAULT 'standard'")
                 }
             }
         }
@@ -2660,6 +2678,7 @@ abstract class MuseDb : RoomDatabase() {
                         MIGRATION_97_98,
                         MIGRATION_98_99,
                         MIGRATION_99_100,
+                        MIGRATION_100_101,
                     )
                     // 启用外键约束(artifacts 表的 ON DELETE CASCADE 依赖此设置)
                     // onOpen 不在 onCreate 事务内,可以执行此类命令;onCreate 内禁止 PRAGMA

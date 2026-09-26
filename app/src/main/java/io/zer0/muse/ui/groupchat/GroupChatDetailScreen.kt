@@ -961,8 +961,9 @@ fun GroupChatDetailScreen(
             initialDiscussionMode = chat?.discussionMode ?: "round_robin",
             initialAutoMaxRounds = chat?.autoMaxRounds ?: 5,
             initialHostId = chat?.hostId,
+            initialReplyLengthMode = chat?.replyLengthMode ?: "standard",
             onDismiss = { showEditDialog = false },
-            onConfirm = { newName, newMemberIds, newMode, newMaxRounds, newHostId ->
+            onConfirm = { newName, newMemberIds, newMode, newMaxRounds, newHostId, newReplyLengthMode ->
                 viewModel.updateChat(
                     chatId = chatId,
                     name = newName,
@@ -970,6 +971,7 @@ fun GroupChatDetailScreen(
                     discussionMode = newMode,
                     autoMaxRounds = newMaxRounds,
                     hostId = newHostId,
+                    replyLengthMode = newReplyLengthMode,
                 )
                 showEditDialog = false
             },

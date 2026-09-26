@@ -2917,6 +2917,12 @@ class GroupChatScheduler(
             appendLine("【避免重复】发言前先浏览本轮前面成员说过的内容:" +
                 "如果观点与已有发言高度重合,优先补充新角度/新证据/不同意见,或调用 channel_pass 跳过;" +
                 "与其复读他人,宁可简短也不要重复。")
+            // v2.x: 发言长度档位(brief/standard/detailed) — 群设置控制
+            when (chat.replyLengthMode) {
+                "brief" -> appendLine("【发言长度】本轮要求简短发言:一两句话直击要点,不要展开铺陈。")
+                "detailed" -> appendLine("【发言长度】本轮要求详尽发言:充分展开论证,可分段与举例。")
+                else -> Unit
+            }
         }
         messages.add(UIMessage(role = MessageRole.SYSTEM, content = systemContent))
 
