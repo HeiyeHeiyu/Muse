@@ -1240,6 +1240,9 @@ class ChatViewModel(
      * 返回文件路径/URL)。
      */
     private val mediaGenTools: io.zer0.muse.tools.MediaGenToolsImpl? = null,
+    // v2.x: 委员会 — 从主对话随时召唤临时群聊讨论并把结论回灌(与群聊页共享同一调度器实例)
+    private val groupChatScheduler: io.zer0.muse.schedule.GroupChatScheduler? = null,
+    private val groupChatRepository: io.zer0.muse.data.groupchat.GroupChatRepository? = null,
 ) : ViewModel(), ChatStateAccessor, io.zer0.muse.tools.ToolApprovalBridge {
     // v1.0.54: autoSave 去重状态(30 秒内同会话只跑一次,防堆积)
     private var lastAutoSaveSessionId: String? = null
@@ -2388,6 +2391,56 @@ class ChatViewModel(
     /** v1.0.47 P5-3: 关闭 Token 计数菜单。 */
     fun dismissTokenCountMenu() {
         _state.update { it.copy(tokenCountVisible = false) }
+    }
+
+    /**
+     * v2.x: 委员会 — 从主对话随时召唤一组助手开临时群聊讨论,结论自动回灌本条会话。
+     *
+     * 流程:创建临时群聊 → 以议题触发轮转 → 自动总结 → 通过 DeferredResultStore
+     * 把结论作为 interlude 注入当前会话(用户可在群聊页查看完整讨论过程)。
+     *
+     * @param memberIds 参与讨论的助手 id(≥2)
+     * @param topic 讨论议题
+     */
+    fun launchCommittee(memberIds: List<String>, topic: String) {
+        val scheduler = groupChatScheduler ?: return
+        val repository = groupChatRepository ?: return
+        val sessionId = state.value.currentSessionId ?: return
+        if (memberIds.size < 2 || topic.isBlank()) return
+        val taskId = "committee-" + java.util.UUID.randomUUID().toString()
+        val chatName = "委员会 · " + java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault())
+            .format(java.util.Date())
+        deferredResultStore.defer(taskId, sessionId, null, "委员会", topic.take(60))
+        viewModelScope.launch {
+            try {
+                val committeeChatId = repository.createChat(chatName, memberIds)
+                // 1. 触发轮转讨论
+                scheduler.launchRoundRobin(committeeChatId, topic, emptyList())
+                var waited = 0
+                while (scheduler.hasActiveGeneration(committeeChatId) && waited < 1800) {
+                    delay(1000); waited++
+                }
+                // 2. 自动总结
+                scheduler.launchSummary(committeeChatId)
+                waited = 0
+                while (scheduler.hasActiveGeneration(committeeChatId) && waited < 300) {
+                    delay(1000); waited++
+                }
+                // 3. 取总结并回灌主对话
+                val recent = repository.getRecentMessages(committeeChatId, 10)
+                val summary = recent.lastOrNull { it.messageType == "summary" }?.body
+                if (summary != null) {
+                    deferredResultStore.resolve(taskId, "【委员会结论 · $chatName】\n$summary")
+                } else {
+                    deferredResultStore.resolve(taskId, "【委员会】讨论已完成(群聊「$chatName」),未生成总结。议题:$topic")
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Logger.e("ChatVM", "委员会执行失败", e)
+                deferredResultStore.fail(taskId, e.message ?: "执行失败")
+            }
+        }
     }
 
     /** 清空全部错误(向后兼容入口,UI"关闭"按钮调用)。 */

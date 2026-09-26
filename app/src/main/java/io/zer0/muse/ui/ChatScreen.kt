@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseChip
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.util.ShareIntentHelper
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -47,6 +49,7 @@ import io.zer0.muse.ui.chat.SubagentFloatingWindow
 import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.transformer.InternalMarkupSanitizer
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -283,6 +286,8 @@ fun ChatScreen(
     var showCompressDialog by rememberSaveable { mutableStateOf(false) }
     var compressKeepText by rememberSaveable { mutableStateOf("") }
     var compressInstruction by rememberSaveable { mutableStateOf("") }
+    // v2.x: 委员会 — 从对话召唤临时群聊讨论(结论经 DeferredResultStore 回灌本条会话)
+    var showCommitteeDialog by remember { mutableStateOf(false) }
     // 命中列表:当前会话已加载消息中,内容含查询词(忽略大小写)的消息 id;空查询返回空。
     // 仅覆盖已加载消息(OBSERVE_LIMIT 内),更早历史需先上滑加载更多。
     val findMatches = remember(messages, inChatQuery) {
@@ -1097,11 +1102,33 @@ fun ChatScreen(
                                                 sheetState.showToolCallSheet = true
                                             },
                                         ),
+                                        // v2.x: 委员会 — 从对话中随时召唤一组助手开临时群聊讨论
+                                        MuseFloatingActionItem(
+                                            key = "committee",
+                                            icon = MuseIcons.users,
+                                            label = stringResource(R.string.chat_committee),
+                                            enabled = !isStreaming,
+                                            onClick = {
+                                                showTopMenu = false
+                                                showCommitteeDialog = true
+                                            },
+                                        ),
                                     ),
                                     onDismiss = { showTopMenu = false },
                                 )
                             }
                         }
+                    }
+                    // v2.x: 委员会对话框 — 选成员 + 议题,启动临时群聊讨论
+                    if (showCommitteeDialog) {
+                        CommitteeDialog(
+                            assistants = state.assistants,
+                            onDismiss = { showCommitteeDialog = false },
+                            onConfirm = { memberIds, topic ->
+                                showCommitteeDialog = false
+                                viewModel.launchCommittee(memberIds, topic)
+                            },
+                        )
                     }
                     // 浏览器真正启动后，入口独立显示在标题栏下方，不再挤占助手标题岛。
                     BrowserStatusCapsule(
@@ -2643,6 +2670,70 @@ private fun PinnedMessageBanner(
             )
         }
     }
+}
+
+/**
+ * H10: 手动压缩参数对话框 — 保留条数 / 附加指令 / 保留区 token 估算。
+ * 确认后以 (keepRecent, instruction) 回调,由 ChatScreen 转发 manualCompress。
+ */
+/** v2.x: 委员会对话框 — 从主对话召唤一组助手开临时群聊讨论,结论回灌本条会话。 */
+@Composable
+fun CommitteeDialog(
+    assistants: List<io.zer0.muse.data.assistant.AssistantEntity>,
+    onDismiss: () -> Unit,
+    onConfirm: (memberIds: List<String>, topic: String) -> Unit,
+) {
+    var selectedIds by rememberSaveable { mutableStateOf(setOf<String>()) }
+    var topic by rememberSaveable { mutableStateOf("") }
+    val canConfirm = selectedIds.size >= 2 && topic.isNotBlank()
+    MuseDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.chat_committee),
+        content = {
+            Text(
+                text = stringResource(R.string.chat_committee_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
+            Spacer(Modifier.height(12.dp))
+            MuseTextField(
+                value = topic,
+                onValueChange = { topic = it },
+                label = { Text(stringResource(R.string.chat_committee_topic)) },
+                singleLine = false,
+                maxLines = 3,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.chat_committee_members),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(horizontal = 2.dp),
+            ) {
+                items(assistants, key = { it.id }) { assistant ->
+                    val selected = assistant.id in selectedIds
+                    MuseChip(
+                        selected = selected,
+                        onClick = {
+                            selectedIds = if (selected) selectedIds - assistant.id else selectedIds + assistant.id
+                        },
+                        label = assistant.name,
+                    )
+                }
+            }
+        },
+        confirmText = stringResource(R.string.chat_committee_start),
+        onConfirm = { if (canConfirm) onConfirm(selectedIds.toList(), topic.trim()) },
+        dismissText = stringResource(R.string.groupchat_cancel),
+        onDismiss = onDismiss,
+    )
 }
 
 /**

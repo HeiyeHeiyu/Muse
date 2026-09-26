@@ -77,6 +77,9 @@ val appChatModule = module {
             // P2-23: 媒体生成工具实现(AppKoinModule 单例) —
             // ChatViewModel 初始化时向它安装 ChatMediaGenHost(生成结果写回助手消息)
             mediaGenTools = get(),
+            // v2.x: 委员会 — 群聊调度器/仓库(与群聊页共享同一单例)
+            groupChatScheduler = get(),
+            groupChatRepository = get(),
         )
     }
 }
