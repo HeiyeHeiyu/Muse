@@ -83,29 +83,71 @@ class ToolExposurePolicyTest {
         tool("generate_video"), tool("parse_pdf"), tool("ping_host"), tool("notify"),
         tool("show_card"), tool("todo_write"), tool("share_text"), tool("set_timer"),
         tool("list_reminders"), tool("base64_encode"), tool("mcp_github__create_issue"), tool("mcp_files__list"),
+        tool("workspace_write"), tool("browser_navigate"), tool("plugin_market_install"),
     )
 
     @Test
-    fun `simple request narrows tools to matched family`() {
+    fun `simple matched request keeps only family core standard and mcp`() {
         val filtered = ToolExposurePolicy.filterToolsForRequest("设个明天早上八点的闹钟", manyTools)
         val names = filtered.map { it.name }.toSet()
-        assertTrue("闹钟工具应保留", "set_alarm" in names)
+        assertTrue("命中族工具应保留", "set_alarm" in names)
         assertTrue("核心工具应保留", "calculator" in names)
+        assertTrue("常开工具应保留", "web_search" in names)
         assertTrue("MCP 工具应保留", "mcp_github__create_issue" in names)
-        assertFalse("无关工具应被收窄", "generate_image" in names)
-        assertFalse("无关工具应被收窄", "web_search" in names)
+        assertFalse("无关可选工具应被收窄", "generate_image" in names)
+        assertFalse("无关全局工具应被收窄", "workspace_write" in names)
     }
 
     @Test
-    fun `complex request keeps the full tool list`() {
-        val filtered = ToolExposurePolicy.filterToolsForRequest("请分析这个方案为什么失败,并画一张图", manyTools)
-        assertTrue(filtered.size == manyTools.size)
-    }
-
-    @Test
-    fun `unmatched simple request keeps the full tool list`() {
+    fun `unmatched simple request narrows to core and standard`() {
         val filtered = ToolExposurePolicy.filterToolsForRequest("你好呀,今天心情不错", manyTools)
-        assertTrue(filtered.size == manyTools.size)
+        val names = filtered.map { it.name }.toSet()
+        assertTrue("常开工具应保留", "web_search" in names)
+        assertFalse("无关可选工具应被收窄", "echo" in names)
+        assertFalse("无关全局工具应被收窄", "browser_navigate" in names)
+    }
+
+    @Test
+    fun `complex request without action keywords also narrows`() {
+        val filtered = ToolExposurePolicy.filterToolsForRequest("请分析这个方案为什么失败", manyTools)
+        assertTrue(filtered.size < manyTools.size)
+        assertFalse(filtered.map { it.name }.contains("echo"))
+    }
+
+    @Test
+    fun `complex direct request relaxes optional but not global`() {
+        val filtered = ToolExposurePolicy.filterToolsForRequest(
+            "帮我执行一下：分析这份数据,然后整理成笔记发给团队",
+            manyTools,
+        )
+        val names = filtered.map { it.name }.toSet()
+        assertTrue("明确动作请求应放开可选工具", "echo" in names)
+        assertFalse("全局工具仍需命中或授权", "workspace_write" in names)
+    }
+
+    @Test
+    fun `global tools need family hit sticky or authorization`() {
+        val hit = ToolExposurePolicy.filterToolsForRequest("帮我改一下工作区里的代码", manyTools)
+        assertTrue("族命中应放开工作区工具", "workspace_write" in hit.map { it.name })
+        val sticky = ToolExposurePolicy.filterToolsForRequest(
+            "继续",
+            manyTools,
+            stickyToolNames = setOf("browser_navigate"),
+        )
+        assertTrue("会话粘性应保留用过的工具", "browser_navigate" in sticky.map { it.name })
+        val authorized = ToolExposurePolicy.filterToolsForRequest(
+            "继续",
+            manyTools,
+            authorizedToolNames = setOf("plugin_market_install"),
+        )
+        assertTrue("会话授权应保留工具", "plugin_market_install" in authorized.map { it.name })
+    }
+
+    @Test
+    fun `small tool face is untouched by tiering`() {
+        val small = allTools.take(8)
+        val filtered = ToolExposurePolicy.filterToolsForRequest("你好", small)
+        assertTrue(filtered.size == small.size)
     }
 
     @Test

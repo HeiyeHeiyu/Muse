@@ -66,29 +66,47 @@ object ToolExposurePolicy {
     }
 
     /**
-     * v2.0: 简单请求下的工具收窄。
+     * 默认分层收窄(v2.x 工具瘦身阶段1,升级自 v2.0 简单请求收窄)。
      *
-     * 内置工具已过百,简单请求(短句、无复杂度关键词)不需要同时看到全部工具。
-     * 按关键词命中工具族:命中时只暴露命中的族 + 核心工具 + MCP 工具;
-     * 未命中、工具本来就不多、或请求本身复杂时返回原列表,行为完全不变。
+     * 工具面大于 [SIMPLE_TOOL_SUBSET_THRESHOLD] 时,按 [ToolCategories] 分层:
+     *  - CORE / STANDARD:恒发(模型能力底座与常开稳定工具);
+     *  - OPTIONAL:命中关键词族、本会话用过(粘性)、会话内已授权,或明确动作请求(宽松兜底)才发;
+     *  - GLOBAL:命中关键词族、本会话用过、会话内已授权才发(未授权/未命中不发);
+     *  - 未登记分类的工具(MCP / 插件 / 技能等)保持原可见性。
+     *
+     * 小工具面(≤阈值)完全不动 — 助手显式配置的小清单优先语义保留。
      * 纯关键词规则、无副作用,避免向量检索可能带来的不确定误召回。
+     *
+     * @param stickyToolNames 本会话历史中已调用过的工具名(用过的工具后续轮次持续可见)
+     * @param authorizedToolNames 本会话内用户点过"本会话允许"的工具名集合
      */
-    fun filterToolsForRequest(userText: String, tools: List<ToolDefinition>): List<ToolDefinition> {
+    fun filterToolsForRequest(
+        userText: String,
+        tools: List<ToolDefinition>,
+        stickyToolNames: Set<String> = emptySet(),
+        authorizedToolNames: Set<String> = emptySet(),
+    ): List<ToolDefinition> {
         if (tools.size <= SIMPLE_TOOL_SUBSET_THRESHOLD) return tools
-        if (!isSimpleToolRequest(userText)) return tools
         val normalized = userText.trim().lowercase()
         if (normalized.isBlank()) return tools
         val matched = TOOL_FAMILIES.filter { family -> family.keywords.any { normalized.contains(it) } }
-        if (matched.isEmpty()) return tools
-        val allowed = matched.flatMapTo(mutableSetOf()) { it.toolNames }
-        allowed += CORE_TOOL_NAMES
-        return tools.filter { it.name.startsWith("mcp_") || it.name in allowed }
+        val familyAllowed = matched.flatMapTo(mutableSetOf()) { it.toolNames }
+        val dynamicAllowed = familyAllowed + stickyToolNames + authorizedToolNames
+        // 宽松兜底:明确动作请求且非简单短句 → OPTIONAL 长尾全放,避免多步任务中途缺工具
+        val optionalRelaxed = !isSimpleToolRequest(userText) && isDirectToolRequest(userText, tools)
+        return tools.filter { tool ->
+            when (ToolCategories.categoryOf(tool.name)) {
+                // 未登记分类(MCP / 插件 / 技能等动态工具):维持既有可见性
+                null -> true
+                ToolCategory.CORE, ToolCategory.STANDARD, ToolCategory.LEGACY -> true
+                ToolCategory.OPTIONAL -> tool.name in dynamicAllowed || optionalRelaxed
+                ToolCategory.GLOBAL -> tool.name in dynamicAllowed
+            }
+        }
     }
 
     /** 工具族:关键词 → 相关工具集合。 */
     private data class ToolFamily(val keywords: Set<String>, val toolNames: Set<String>)
-
-    private val CORE_TOOL_NAMES = setOf("get_current_time", "calculator", "get_device_info")
 
     private const val SIMPLE_TOOL_SUBSET_THRESHOLD = 20
 
@@ -139,7 +157,7 @@ object ToolExposurePolicy {
             ),
         ),
         ToolFamily(
-            keywords = setOf("笔记", "速记", "知识库", "资源", "note", "resource"),
+            keywords = setOf("笔记", "速记", "知识库", "资源", "记一下", "记录", "note", "resource"),
             toolNames = setOf(
                 "quick_note_add", "quick_note_list", "quick_note_search", "quick_note_get",
                 "quick_note_update", "quick_note_delete", "quick_note_pin",
@@ -158,7 +176,7 @@ object ToolExposurePolicy {
             ),
         ),
         ToolFamily(
-            keywords = setOf("画图", "图片", "生成图", "视频", "二维码", "朗读", "图像", "image", "video", "qr code"),
+            keywords = setOf("画图", "画", "图片", "生成图", "视频", "二维码", "朗读", "图像", "image", "video", "qr code"),
             toolNames = setOf("generate_image", "generate_video", "generate_qr_code", "speak_text"),
         ),
         ToolFamily(
@@ -166,6 +184,7 @@ object ToolExposurePolicy {
             toolNames = setOf(
                 "subagent_task", "subagent_run", "subagent_close", "delegate_agent",
                 "channel_pass", "channel_read_context", "channel_reply", "list_stickers", "send_sticker",
+                "send_channel_message", "channel_list",
             ),
         ),
         ToolFamily(
@@ -175,6 +194,49 @@ object ToolExposurePolicy {
         ToolFamily(
             keywords = setOf("ping", "dns", "公网 ip", "public ip"),
             toolNames = setOf("ping_host", "dns_lookup", "get_public_ip"),
+        ),
+        ToolFamily(
+            keywords = setOf("工作区", "项目", "工程", "代码", "仓库", "脚本", "workspace"),
+            toolNames = setOf(
+                "workspace_list", "workspace_read", "workspace_write", "workspace_delete",
+                "workspace_mkdir", "workspace_move",
+            ),
+        ),
+        ToolFamily(
+            keywords = setOf("浏览器", "网页", "打开网站", "网址", "browser", "webpage"),
+            toolNames = setOf(
+                "browser_navigate", "browser_click", "browser_type", "browser_extract",
+                "browser_scroll_bottom", "browser_get_html", "browser_snapshot",
+            ),
+        ),
+        ToolFamily(
+            keywords = setOf("插件", "plugin"),
+            toolNames = setOf(
+                "plugin_market_search", "plugin_market_install",
+                "plugin_market_uninstall", "plugin_market_set_enabled",
+            ),
+        ),
+        ToolFamily(
+            keywords = setOf("终端", "命令行", "shell", "root", "adb", "系统命令"),
+            toolNames = setOf(
+                "execute_shell", "execute_javascript",
+                "settings_get", "settings_put", "am_start", "list_packages",
+                "logcat_tail", "input_inject",
+            ),
+        ),
+        ToolFamily(
+            keywords = setOf("自动点击", "自动操作", "界面操作", "屏幕操作", "无障碍", "accessibility"),
+            toolNames = setOf(
+                "ui_get_page_info", "ui_click", "ui_long_press", "ui_swipe", "ui_set_text",
+                "ui_screenshot", "ui_back", "ui_home", "ui_global_action", "ui_get_current_app",
+                "screen_read", "screen_current_app", "screen_back", "screen_home", "screen_tap",
+                "screen_tap_text", "screen_swipe", "screen_input", "screen_launch_app",
+                "screen_open_notifications", "screen_permission_status", "screen_wait",
+            ),
+        ),
+        ToolFamily(
+            keywords = setOf("连接器", "oauth", "connector"),
+            toolNames = setOf("connector_list", "call_connector"),
         ),
     )
 

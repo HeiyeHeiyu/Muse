@@ -92,6 +92,14 @@ class SessionPermissionStore(private val context: Context) {
     }
 
     /**
+     * 读取指定会话的临时允许工具名集合(工具暴露分层用);无记录时为空集。
+     *
+     * v2.x 工具瘦身阶段1:已授权的工具(GLOBAL 类)在后续请求中维持可见。
+     */
+    fun allowedToolsThisSession(sessionId: String): Set<String> =
+        sessionAllowedTools[sessionId].orEmpty()
+
+    /**
      * 把工具加入当前会话的临时允许集合。
      *
      * 由 ChatViewModel 在用户点击"本会话允许"按钮时调用。

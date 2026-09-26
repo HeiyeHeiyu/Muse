@@ -1266,6 +1266,8 @@ class ChatViewModel(
         private const val TOOL_TIMEOUT_MS = 120_000L
         /** 审批卡不能无限期阻塞后台生成；超时按拒绝处理。 */
         private const val TOOL_APPROVAL_TIMEOUT_MS = 60_000L
+        /** v2.x 工具瘦身阶段1:粘性工具扫描的历史消息上限(从后往前)。 */
+        private const val STICKY_HISTORY_SCAN_MESSAGES = 50
         /** v1.53-A1: 消息分页页大小(初始加载 + 上滑加载更多的窗口大小)。 */
         private const val MESSAGE_PAGE_SIZE = 50
         /** v1.78 (#32): 手动压缩保留最近消息条数上限(自适应 min(此值, size-1))。 */
@@ -4020,6 +4022,20 @@ class ChatViewModel(
     // ===== Phase G: 视觉辅助 =====
     // v1.0.27 Phase 4-A.2: prepareVisionContext 抽到 ChatStreamCoordinator
 
+    /**
+     * v2.x 工具瘦身阶段1:从会话历史收集"用过的工具"粘性集合。
+     *
+     * ASSISTANT 消息的 [UIMessage.toolCalls] 即本会话真实(或曾尝试)调用的工具;
+     * 只扫最近 [STICKY_HISTORY_SCAN_MESSAGES] 条,长会话不做全量扫描。
+     */
+    private fun collectStickyToolNames(history: List<UIMessage>): Set<String> {
+        val names = mutableSetOf<String>()
+        history.asReversed().take(STICKY_HISTORY_SCAN_MESSAGES).forEach { message ->
+            message.toolCalls?.forEach { call -> names += call.name }
+        }
+        return names
+    }
+
     // ===== Phase H: 工具调用循环(含流式 streamRound)=====
     // 返回 true 表示成功完成(可继续 finalizeResponse),false 表示已处理错误并应跳过 finalize。
     private suspend fun runToolLoop(state: StreamRunState): Boolean {
@@ -4266,9 +4282,13 @@ class ChatViewModel(
                     requestedReasoningLevel: ReasoningLevel,
                     requestedMode: ChatRequestMode,
                 ): Flow<ChatStreamEvent> {
-                    // v2.0: 简单请求下按关键词收窄工具族,避免一次性给模型塞上百个工具
+                    // v2.0 简单请求关键词收窄 → v2.x 阶段1 升级为默认分层:
+                    //   CORE/STANDARD 恒发;OPTIONAL/GLOBAL 按族命中 + 会话粘性(用过的工具)
+                    //   + 会话授权("本会话允许")放行;GLOBAL 未命中/未授权不发。
+                    val stickyToolNames = collectStickyToolNames(params.history)
+                    val authorizedToolNames = sessionPermissionStore.allowedToolsThisSession(state.sessionId)
                     val requestTools = ToolExposurePolicy
-                        .filterToolsForRequest(latestUserText, tools)
+                        .filterToolsForRequest(latestUserText, tools, stickyToolNames, authorizedToolNames)
                         .takeUnless { disableTools || nativeSearchForRound }
                         ?: emptyList()
                     val resumeText = params.builder.toString()
