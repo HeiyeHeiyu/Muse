@@ -1582,9 +1582,6 @@ fun ChatScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         EmptyChatGuide(
-                            onPickPrompt = { prompt ->
-                                viewModel.updateInput(prompt)
-                            },
                             assistant = state.currentAssistant,
                             // v1.0.72: 此条对话不参考记忆
                             ignoreMemory = currentSessionIgnoreMemory,

@@ -63,13 +63,12 @@ import io.zer0.muse.ui.theme.MuseMotion
  * 设计(iOS 风格空状态):
  *  - 不覆盖全屏(Box + CenterAlignment,只占居中区域,不拦截 InputBar)
  *  - 居中品牌图标 + 一句引导语
- *  - 下方 FlowRow 排列建议 prompt 胶囊,点击即填入输入框
- *  - 胶囊用 surfaceVariant 背景,轻量不抢眼
+ *  - 底部"不参考记忆"开关胶囊
+ *  - v2.2.0: 移除建议 prompt 胶囊与"换一批"(按用户要求)
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 internal fun EmptyChatGuide(
-    onPickPrompt: (String) -> Unit,
     modifier: Modifier = Modifier,
     assistant: io.zer0.muse.data.assistant.AssistantEntity? = null,
     // v1.0.72: 本会话不参考记忆开关
@@ -121,52 +120,7 @@ internal fun EmptyChatGuide(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        // 建议 prompt 胶囊(FlowRow 自动换行)
-        // v2.0.1: 灵感库 — 8 条建议池，支持"换一批"轮换
-        val promptPool = listOf(
-            stringResource(R.string.chat_suggested_prompt_report),
-            stringResource(R.string.chat_suggested_prompt_summary),
-            stringResource(R.string.chat_suggested_prompt_explain),
-            stringResource(R.string.chat_suggested_prompt_ideas),
-            stringResource(R.string.chat_suggested_prompt_life),
-            stringResource(R.string.chat_suggested_prompt_creative),
-            stringResource(R.string.chat_suggested_prompt_translate),
-            stringResource(R.string.chat_suggested_prompt_todo),
-        )
-        var promptBatch by androidx.compose.runtime.remember { androidx.compose.runtime.mutableIntStateOf(0) }
-        val prompts = promptPool.chunked(4).getOrElse(promptBatch % 2) { promptPool.take(4) }
-        androidx.compose.foundation.layout.FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
-            verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
-        ) {
-            prompts.forEach { prompt ->
-                Surface(
-                    onClick = { onPickPrompt(prompt) },
-                    shape = MuseShapes.medium,
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                ) {
-                    Text(
-                        text = prompt,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = MusePaddings.contentGap),
-                    )
-                }
-            }
-            // v2.0.1: 换一批（灵感库轮换）
-            Surface(
-                onClick = { promptBatch += 1 },
-                shape = MuseShapes.medium,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-            ) {
-                Text(
-                    text = stringResource(R.string.chat_suggested_swap),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = MusePaddings.contentGap),
-                )
-            }
-        }
+        // v2.2.0: 按用户要求移除建议 prompt 胶囊与"换一批"(保留下方"不参考记忆"开关)
 
         // v1.0.72: 此条对话不参考记忆 — 开关式胶囊选项
         // 开启后本会话不注入任何记忆(用户画像/置顶/长期记忆/群聊记忆/经验库),从零开始
