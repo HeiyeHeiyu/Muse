@@ -150,6 +150,9 @@ android {
                     "META-INF/LICENSE*",
                     "META-INF/NOTICE*",
                     "META-INF/*.kotlin_module",
+                    // ktor-server-netty 引入多个 Netty 模块, 以下文件在各 jar 中重复
+                    "META-INF/INDEX.LIST",
+                    "META-INF/io.netty.versions.properties",
                 )
         }
     }
