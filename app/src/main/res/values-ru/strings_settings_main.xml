@@ -299,6 +299,9 @@
     <string name="settings_web_enable_subtitle">Вступает в силу при следующем запуске приложения</string>
     <string name="settings_web_allow_lan">Разрешить доступ по LAN</string>
     <string name="settings_web_allow_lan_subtitle">По умолчанию только локально; включите, чтобы разрешить устройствам в одной Wi-Fi сети</string>
+    <string name="settings_web_https">Включить HTTPS</string>
+    <string name="settings_web_https_subtitle">Шифрование самоподписанным сертификатом; при первом визите браузер предупредит о недоверенном сертификате</string>
+    <string name="settings_web_https_fingerprint">Отпечаток сертификата (SHA-256)</string>
     <string name="settings_web_port">Порт</string>
     <string name="settings_web_port_subtitle">%1$d (перезапустите приложение, чтобы применить)</string>
     <string name="settings_web_password">Логин Пароль</string>

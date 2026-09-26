@@ -26,6 +26,12 @@ data class WebServerConfig(
     val jwtSecret: String = "",
     /** R-SEC-03: 是否允许局域网访问;false 时仅绑定 127.0.0.1 且 CORS 仅本机来源。 */
     val allowLan: Boolean = false,
+    /**
+     * v2.x: 是否启用 HTTPS(自签证书)。
+     * 默认 false,保持既有 HTTP 行为不变;启用后由 Netty 引擎配 sslConnector,
+     * WebSocket 同步走 wss,Cookie secure=true。
+     */
+    val httpsEnabled: Boolean = false,
 ) {
     /**
      * H8: 返回 password/pin 已加密(走 [SecureKeyStore.encrypt])的副本,

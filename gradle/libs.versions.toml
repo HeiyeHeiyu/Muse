@@ -126,6 +126,8 @@ google-mlkit-text-recognition-chinese = { group = "com.google.mlkit", name = "te
 # Phase 8.11: Ktor 嵌入式 Web 服务器(CIO 引擎 — 纯 Kotlin 协程实现,无 JNI,适合 Android)
 ktor-server-core = { group = "io.ktor", name = "ktor-server-core", version.ref = "ktor" }
 ktor-server-cio = { group = "io.ktor", name = "ktor-server-cio", version.ref = "ktor" }
+# v2.x: HTTPS 支持 — Netty 引擎(原生 sslConnector;CIO 引擎不支持 HTTPS)
+ktor-server-netty = { group = "io.ktor", name = "ktor-server-netty", version.ref = "ktor" }
 ktor-server-auth = { group = "io.ktor", name = "ktor-server-auth", version.ref = "ktor" }
 ktor-server-auth-jwt = { group = "io.ktor", name = "ktor-server-auth-jwt", version.ref = "ktor" }
 ktor-server-content-negotiation = { group = "io.ktor", name = "ktor-server-content-negotiation", version.ref = "ktor" }

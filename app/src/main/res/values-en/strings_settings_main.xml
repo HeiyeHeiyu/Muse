@@ -299,6 +299,9 @@
     <string name="settings_web_enable_subtitle">Starts or stops the service immediately</string>
     <string name="settings_web_allow_lan">Allow LAN access</string>
     <string name="settings_web_allow_lan_subtitle">Localhost only by default; enable to allow devices on the same Wi-Fi to connect via IP</string>
+    <string name="settings_web_https">Enable HTTPS</string>
+    <string name="settings_web_https_subtitle">Encrypted with a self-signed certificate; the browser will warn about the untrusted certificate on first visit</string>
+    <string name="settings_web_https_fingerprint">Certificate fingerprint (SHA-256)</string>
     <string name="settings_web_port">Port</string>
     <string name="settings_web_port_subtitle">%1$d (applied immediately)</string>
     <string name="settings_web_password">Login Password</string>

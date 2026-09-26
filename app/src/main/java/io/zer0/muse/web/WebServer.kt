@@ -16,9 +16,12 @@ import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.authenticate
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.jwt.jwt
-import io.ktor.server.cio.CIO
 import io.ktor.server.engine.EmbeddedServer
+import io.ktor.server.engine.applicationEnvironment
+import io.ktor.server.engine.connector
 import io.ktor.server.engine.embeddedServer
+import io.ktor.server.engine.sslConnector
+import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.statuspages.StatusPages
@@ -60,7 +63,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Phase 8.11: 嵌入式 Web 服务器(Ktor CIO + JWT + mDNS)。
+ * Phase 8.11: 嵌入式 Web 服务器(Ktor Netty + JWT + mDNS,可选 HTTPS)。
  *
  * 功能:
  *  - 在局域网内暴露 REST API,允许 PC/其他设备浏览会话与设置
@@ -86,8 +89,13 @@ import kotlinx.serialization.json.jsonPrimitive
  *  - `GET  /api/settings` — 设置摘要(Provider 名称/模型数,密钥脱敏)(JWT 鉴权)
  *
  * 引擎选择:
- *  - CIO(Coroutine I/O) — 纯 Kotlin 协程实现,无 JNI 依赖,适合 Android
- *  - 相比 Netty(~4MB)体积极小,功能足够(不支持 WebSocket,但本场景不需要)
+ *  - Netty(Ktor 原生 sslConnector)— 支持 HTTPS/WSS,用于局域网加密访问
+ *  - 切换前为 CIO(不支持 HTTPS,启动会直接报错);保留 CIO 依赖仅为避免影响面扩大
+ *
+ * v2.x: 可选 HTTPS(自签证书)
+ *  - [WebServerConfig.httpsEnabled] 开启后由 Netty 配 `sslConnector`,WebSocket 同步走 wss
+ *  - 证书由 [WebServerTls] 首次生成并持久化到 filesDir,重启复用
+ *  - 启用 HTTPS 时鉴权 Cookie 置 secure=true;证书 SHA-256 指纹经日志与状态暴露
  *
  * 安全:
  *  - 默认绑定 `127.0.0.1`;开启局域网访问后才绑定 `0.0.0.0`(所有网卡)
@@ -124,6 +132,14 @@ class WebServer(
     private var currentPassword: String = ""
     @Volatile
     private var currentPin: String = ""
+
+    /** v2.x: 当前是否启用 HTTPS(决定鉴权 Cookie 的 secure 属性与状态展示)。 */
+    @Volatile
+    private var currentHttpsEnabled: Boolean = false
+
+    /** v2.x: 当前 HTTPS 自签证书 SHA-256 指纹(仅 HTTPS 启用时有值)。 */
+    @Volatile
+    private var currentFingerprint: String? = null
 
     /** 启动时间戳(用于 /api/health 的 uptime 计算)。 */
     @Volatile
@@ -195,7 +211,40 @@ class WebServer(
         startedAt = System.currentTimeMillis()
         // M4: runCatching 改为 resultOf;M14: withContext(Dispatchers.IO) 保证配置读取不在主线程
         return resultOf {
-            val candidate = embeddedServer(CIO, port = port, host = WebServer.bindHost(config.allowLan)) {
+            val bindHost = WebServer.bindHost(config.allowLan)
+            val listenPort = port
+            // v2.x: HTTPS — 启用时准备自签证书(首次生成,之后复用 filesDir 中的 keystore)
+            val tls = if (config.httpsEnabled) {
+                WebServerTls.loadOrCreate(context).also { material ->
+                    Logger.i(TAG, "WebServer HTTPS 已启用,自签证书 SHA-256 指纹: ${material.fingerprint}")
+                }
+            } else {
+                null
+            }
+            val candidate = embeddedServer(
+                Netty,
+                environment = applicationEnvironment { },
+                configure = {
+                    // v2.x: 引擎由 CIO 切换为 Netty(CIO 不支持 HTTPS);
+                    // 默认分支仍为明文 connector,监听端口/绑定策略与既有行为一致。
+                    if (tls != null) {
+                        sslConnector(
+                            keyStore = tls.keyStore,
+                            keyAlias = tls.alias,
+                            keyStorePassword = { tls.password },
+                            privateKeyPassword = { tls.password },
+                        ) {
+                            this.host = bindHost
+                            this.port = listenPort
+                        }
+                    } else {
+                        connector {
+                            this.host = bindHost
+                            this.port = listenPort
+                        }
+                    }
+                },
+            ) {
                 configureSecurity(jwtSecret)
                 install(WebSockets)
                 configureSerialization()
@@ -208,11 +257,13 @@ class WebServer(
             currentPort = port
             currentPassword = password
             currentPin = pin
+            currentHttpsEnabled = config.httpsEnabled
+            currentFingerprint = tls?.fingerprint
             _isRunning.value = true
             mdnsService.register(port)
             notificationManager.updateWebServerStatus(port, true)
             // H4: 不再明文输出密码/PIN,避免日志泄露敏感凭据
-            Logger.i(TAG, "WebServer 已启动: ${WebServer.bindHost(config.allowLan)}:$port")
+            Logger.i(TAG, "WebServer 已启动: $bindHost:$port (${if (config.httpsEnabled) "HTTPS" else "HTTP"})")
             true
         }.onError { msg, t ->
             recordStartFailure(t?.message?.takeIf { it.isNotBlank() } ?: msg, t)
@@ -227,6 +278,8 @@ class WebServer(
         currentPort = 0
         currentPassword = ""
         currentPin = ""
+        currentHttpsEnabled = false
+        currentFingerprint = null
         startedAt = 0L
     }
 
@@ -252,6 +305,8 @@ class WebServer(
         currentPort = 0
         currentPassword = ""
         currentPin = ""
+        currentHttpsEnabled = false
+        currentFingerprint = null
         startedAt = 0L
     }
 
@@ -266,6 +321,8 @@ class WebServer(
             pinMasked = maskSecret(currentPin),
             startedAt = startedAt,
             lastError = _lastError.value,
+            httpsEnabled = currentHttpsEnabled,
+            fingerprint = currentFingerprint,
         )
     }
 
@@ -647,10 +704,9 @@ class WebServer(
 
     /**
      * C-29: 通过 httpOnly Cookie 下发 JWT(不进 query/URL,避免进浏览器历史/Referer/访问日志)。
-     * 当前为 HTTP 服务,Cookie 无法设 secure=true(JWT 仅限局域网信任模型);
+     * v2.x: 启用 HTTPS 时置 secure=true(仅经 TLS 回传);否则保持 false(JWT 仅限局域网信任模型)。
      * A-10/C-11: Ktor 3 无独立 sameSite 参数,经 extensions 写入 `SameSite=Lax`,
-     *   缓解 CSRF 场景下 Cookie 被跨站请求携带的风险(登录仅经浏览器同源请求);
-     * TODO: HTTPS 启用时改为 secure=true。
+     *   缓解 CSRF 场景下 Cookie 被跨站请求携带的风险(登录仅经浏览器同源请求)。
      */
     private fun ApplicationCall.appendTokenCookie(token: String) {
         response.cookies.append(
@@ -659,7 +715,7 @@ class WebServer(
             maxAge = TOKEN_TTL_MS / 1000,
             path = "/",
             httpOnly = true,
-            secure = false,
+            secure = currentHttpsEnabled,
             extensions = mapOf("SameSite" to "Lax"),
         )
     }
@@ -676,7 +732,7 @@ class WebServer(
             maxAge = 0L,
             path = "/",
             httpOnly = true,
-            secure = false,
+            secure = currentHttpsEnabled,
             extensions = mapOf("SameSite" to "Lax"),
         )
     }
@@ -722,6 +778,10 @@ class WebServer(
         val pinMasked: String,
         val startedAt: Long,
         val lastError: String? = null,
+        /** v2.x: 当前是否以 HTTPS 运行。 */
+        val httpsEnabled: Boolean = false,
+        /** v2.x: HTTPS 自签证书 SHA-256 指纹(未启用 HTTPS 时为 null)。 */
+        val fingerprint: String? = null,
     )
 
     @Serializable

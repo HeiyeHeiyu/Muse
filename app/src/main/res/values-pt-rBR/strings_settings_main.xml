@@ -299,6 +299,9 @@
     <string name="settings_web_enable_subtitle">Entra em vigor no próximo lançamento do aplicativo</string>
     <string name="settings_web_allow_lan">Permitir acesso LAN</string>
     <string name="settings_web_allow_lan_subtitle">Somente local por padrão; ative para permitir dispositivos na mesma Wi-Fi</string>
+    <string name="settings_web_https">Ativar HTTPS</string>
+    <string name="settings_web_https_subtitle">Criptografado com certificado autoassinado; o navegador avisara sobre o certificado nao confiavel na primeira visita</string>
+    <string name="settings_web_https_fingerprint">Impressao digital do certificado (SHA-256)</string>
     <string name="settings_web_port">Porta</string>
     <string name="settings_web_port_subtitle">%1$d (reinicie o aplicativo para aplicar)</string>
     <string name="settings_web_password">Senha de login</string>

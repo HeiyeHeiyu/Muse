@@ -364,6 +364,9 @@
     <string name="settings_web_enable_subtitle">保存后立即启动或停止服务</string>
     <string name="settings_web_allow_lan">启用局域网访问</string>
     <string name="settings_web_allow_lan_subtitle">默认仅本机访问；开启后同一 Wi-Fi 设备可通过 IP 访问</string>
+    <string name="settings_web_https">启用 HTTPS</string>
+    <string name="settings_web_https_subtitle">自签证书加密传输；首次访问浏览器会提示证书不受信任</string>
+    <string name="settings_web_https_fingerprint">证书指纹(SHA-256)</string>
     <string name="settings_web_port">端口</string>
     <string name="settings_web_port_subtitle">%1$d(保存后立即应用)</string>
     <string name="settings_web_password">登录密码</string>

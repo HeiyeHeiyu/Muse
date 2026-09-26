@@ -299,6 +299,9 @@
     <string name="settings_web_enable_subtitle">次回のアプリ起動時に有効になります</string>
     <string name="settings_web_allow_lan">LANアクセスを許可</string>
     <string name="settings_web_allow_lan_subtitle">默認ではローカルのみ。同じ Wi-Fi の端末から IP で接続するには有効化</string>
+    <string name="settings_web_https">HTTPS を有効化</string>
+    <string name="settings_web_https_subtitle">自己署名証明書で暗号化;初回アクセス時にブラウザが証明書警告を表示します</string>
+    <string name="settings_web_https_fingerprint">証明書フィンガープリント (SHA-256)</string>
     <string name="settings_web_port">ポート</string>
     <string name="settings_web_port_subtitle">%1$d (適用するにはアプリを再起動してください)</string>
     <string name="settings_web_password">ログインパスワード</string>

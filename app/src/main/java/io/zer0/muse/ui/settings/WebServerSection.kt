@@ -64,6 +64,7 @@ import kotlinx.coroutines.launch
  *  - 密码(用于 JWT 登录,可重新生成)
  *  - PIN(用于 Web 端首次访问验证,可重新生成)
  *  - 访问地址(动态 IP + 复制按钮)
+ *  - v2.x: HTTPS 开关(自签证书,默认关);开启后展示证书 SHA-256 指纹供核对
  */
 @Suppress("LongMethod", "CyclomaticComplexMethod", "FunctionNaming")
 @Composable
@@ -82,7 +83,7 @@ internal fun WebServerSection(
     var portInput by remember { mutableStateOf(config.port.toString()) }
     // 动态获取局域网 IP
     val localIp = remember { NetworkUtils.getLocalIpAddress() }
-    val accessUrl = buildAccessUrl(config.allowLan, localIp, config.port)
+    val accessUrl = buildAccessUrl(config.allowLan, localIp, config.port, config.httpsEnabled)
     val runningAccessUrl = if (isRunning) accessUrl else null
 
     SectionLabel(stringResource(R.string.settings_web_title))
@@ -166,6 +167,9 @@ internal fun WebServerSection(
         )
         SettingsGroupDivider()
         lanAccessSwitch(config = config, webServer = webServer)
+        SettingsGroupDivider()
+        // v2.x: HTTPS 开关(自签证书);保存后重启服务即走 TLS
+        httpsSwitch(config = config, webServer = webServer)
         // 端口
         SettingsItemRow(
             icon = MuseIcons.globe,
@@ -267,6 +271,18 @@ internal fun WebServerSection(
                 )
             }
         }
+        // v2.x: HTTPS 运行时展示证书 SHA-256 指纹,供用户核对/信任
+        if (config.httpsEnabled && isRunning) {
+            val fingerprint = webServer.status().fingerprint
+            if (fingerprint != null) {
+                SettingsGroupDivider()
+                SettingsItemRow(
+                    icon = MuseIcons.lock,
+                    title = stringResource(R.string.settings_web_https_fingerprint),
+                    subtitle = fingerprint,
+                )
+            }
+        }
     }
 
     // 端口修改对话框
@@ -316,8 +332,11 @@ internal fun WebServerSection(
 }
 
 /** R-SEC-03: 默认仅本机;开启局域网访问后才展示局域网 IP 地址。 */
-private fun buildAccessUrl(allowLan: Boolean, localIp: String?, port: Int): String? =
-    if (allowLan) localIp?.let { "http://$it:$port" } else "http://127.0.0.1:$port"
+private fun buildAccessUrl(allowLan: Boolean, localIp: String?, port: Int, httpsEnabled: Boolean): String? {
+    // v2.x: HTTPS 启用时展示 https:// 访问地址(避免用户点了 http 地址连不上)
+    val scheme = if (httpsEnabled) "https" else "http"
+    return if (allowLan) localIp?.let { "$scheme://$it:$port" } else "$scheme://127.0.0.1:$port"
+}
 
 /** R-SEC-03: 局域网访问开关;默认仅本机,开启后才允许同 Wi-Fi 设备通过 IP 访问。 */
 @Composable
@@ -335,6 +354,30 @@ private fun lanAccessSwitch(
         onCheckedChange = { allowLan ->
             scope.launch {
                 resultOf { webServer.saveAndApplyConfig(config.copy(allowLan = allowLan)) }
+                    .onError { _, t ->
+                        MuseToast.show(context.getString(R.string.settings_web_failed, t?.message))
+                    }
+            }
+        },
+    )
+}
+
+/** v2.x: HTTPS 开关 — 自签证书;保存后立即重启服务并切换 HTTP/HTTPS。 */
+@Composable
+private fun httpsSwitch(
+    config: WebServerConfig,
+    webServer: WebServer,
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    SettingsSwitchRow(
+        icon = MuseIcons.lock,
+        title = stringResource(R.string.settings_web_https),
+        subtitle = stringResource(R.string.settings_web_https_subtitle),
+        checked = config.httpsEnabled,
+        onCheckedChange = { enabled ->
+            scope.launch {
+                resultOf { webServer.saveAndApplyConfig(config.copy(httpsEnabled = enabled)) }
                     .onError { _, t ->
                         MuseToast.show(context.getString(R.string.settings_web_failed, t?.message))
                     }

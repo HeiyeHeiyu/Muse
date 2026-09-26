@@ -275,6 +275,8 @@ dependencies {
     // Phase 8.11: Ktor 嵌入式 Web 服务器(CIO 引擎 + JWT + ContentNegotiation + CORS)
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)
+    // v2.x: HTTPS 支持 — Netty 引擎(CIO 不支持 HTTPS;保留 CIO 依赖以减少影响面)
+    implementation(libs.ktor.server.netty)
     implementation(libs.ktor.server.auth)
     // 排除 jwks-rsa: 它依赖 guava,与 AndroidX 的 listenablefuture 能力冲突;
     // 我们用 HMAC-SHA256 对称签名,不需要 JWKS(RSA 公钥轮换),排除不影响功能
