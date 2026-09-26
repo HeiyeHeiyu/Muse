@@ -623,6 +623,55 @@ internal fun ThinkingIndicator(currentSpeaker: AssistantEntity? = null) {
 }
 
 /**
+ * v2.x: 轮次折叠判定 — 返回 (段起点, 段长, 是否中段) 或 null(非连续助理段成员)。
+ *
+ * 连续助理段 ≥4 条时:保留首 2 条 + 末 1 条,中段收起,
+ * 由 [CollapsedRoundBar] 提供"点击展开"; 长讨论轮读起来不再刷屏。
+ */
+internal fun groupCollapseSegment(
+    messages: List<GroupChatMessageEntity>,
+    index: Int,
+): Triple<Int, Int, Boolean>? {
+    val m = messages.getOrNull(index) ?: return null
+    if (m.senderType != "assistant" || m.messageType != "normal") return null
+    var start = index
+    while (start > 0) {
+        val p = messages[start - 1]
+        if (p.senderType == "assistant" && p.messageType == "normal") start-- else break
+    }
+    var end = index
+    while (end < messages.size - 1) {
+        val n = messages[end + 1]
+        if (n.senderType == "assistant" && n.messageType == "normal") end++ else break
+    }
+    val isMiddle = index >= start + 2 && index < end
+    return Triple(start, end - start + 1, isMiddle)
+}
+
+/** v2.x: 轮次折叠提示条 — 收起的中段发言,点击展开。 */
+@Composable
+internal fun CollapsedRoundBar(hiddenCount: Int, onExpand: () -> Unit) {
+    Surface(
+        onClick = onExpand,
+        shape = MuseShapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MusePaddings.screen),
+    ) {
+        Text(
+            text = stringResource(R.string.groupchat_collapsed_round, hiddenCount),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp),
+        )
+    }
+}
+
+/**
  * v2.x: 表决票卡片 — messageType=="vote" 专属渲染。
  *
  * 表决与讨论视觉区分:带"表决"徽章 + 发言人名 + 票面内容卡片。

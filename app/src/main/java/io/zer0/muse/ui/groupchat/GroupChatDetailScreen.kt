@@ -186,6 +186,8 @@ fun GroupChatDetailScreen(
     var showSummaryDialog by remember { mutableStateOf(false) }
     // v2.x: 群聊上下文管理 sheet(群共享文档 + AI 专属上下文)
     var showContextSheet by remember { mutableStateOf(false) }
+    // v2.x: 轮次折叠 — 已展开的连续助理段起点集合(长讨论轮中段收起保持可读)
+    var expandedRoundStarts by remember { mutableStateOf(setOf<Int>()) }
     val keyboard = LocalSoftwareKeyboardController.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -741,10 +743,26 @@ fun GroupChatDetailScreen(
                     items = state.currentMessages,
                     key = { _, it -> it.id },
                 ) { index, message ->
+                    // v2.x: 轮次折叠 — 连续助理段 ≥4 条且未展开时,中段(首2/末1之外)收起
+                    val collapseSeg = groupCollapseSegment(state.currentMessages, index)
+                    if (collapseSeg != null && collapseSeg.second >= 4 && collapseSeg.third &&
+                        collapseSeg.first !in expandedRoundStarts
+                    ) {
+                        return@itemsIndexed
+                    }
                     // CHAT-04: 群聊补日期分隔线(跨天时,复用单聊实现)
                     val prevMessage = state.currentMessages.getOrNull(index - 1)
                     if (prevMessage == null || !isSameDay(prevMessage.timestamp, message.timestamp)) {
                         DateSeparator(timestamp = message.timestamp)
+                    }
+                    // v2.x: 折叠提示条 — 段首第 2 条之后提示被收起的中段
+                    if (collapseSeg != null && collapseSeg.second >= 4 &&
+                        index == collapseSeg.first + 1 && collapseSeg.first !in expandedRoundStarts
+                    ) {
+                        CollapsedRoundBar(
+                            hiddenCount = collapseSeg.second - 3,
+                            onExpand = { expandedRoundStarts = expandedRoundStarts + collapseSeg.first },
+                        )
                     }
                     val expandedState = state.messageExpandedStates[message.id]
                     // v2.x: 总结消息专属卡片 — 复制/分享/存为共享文档(讨论结晶)
