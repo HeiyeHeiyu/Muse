@@ -32,6 +32,7 @@
         <error line="82" column="36" source="standard:no-multi-spaces" />
         <error line="82" column="60" source="standard:discouraged-comment-location" />
         <error line="85" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="95" column="27" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="src/main/java/io/zer0/muse/AppKoinModule.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -12959,219 +12960,221 @@
         <error line="308" column="22" source="standard:wrapping" />
         <error line="312" column="9" source="standard:wrapping" />
         <error line="329" column="1" source="standard:max-line-length" />
-        <error line="345" column="30" source="standard:multiline-expression-wrapping" />
-        <error line="353" column="28" source="standard:multiline-expression-wrapping" />
-        <error line="401" column="39" source="standard:multiline-expression-wrapping" />
-        <error line="466" column="1" source="standard:max-line-length" />
-        <error line="466" column="64" source="standard:argument-list-wrapping" />
-        <error line="466" column="84" source="standard:argument-list-wrapping" />
-        <error line="466" column="103" source="standard:argument-list-wrapping" />
-        <error line="466" column="120" source="standard:argument-list-wrapping" />
-        <error line="466" column="154" source="standard:argument-list-wrapping" />
-        <error line="466" column="155" source="standard:argument-list-wrapping" />
-        <error line="495" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="524" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="532" column="30" source="standard:multiline-expression-wrapping" />
-        <error line="536" column="9" source="standard:string-template-indent" />
-        <error line="574" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="593" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="662" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="666" column="21" source="standard:multiline-expression-wrapping" />
-        <error line="706" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="710" column="21" source="standard:multiline-expression-wrapping" />
-        <error line="727" column="18" source="standard:multiline-expression-wrapping" />
-        <error line="738" column="25" source="standard:multiline-expression-wrapping" />
-        <error line="754" column="1" source="standard:no-consecutive-blank-lines" />
-        <error line="755" column="5" source="standard:no-consecutive-comments" />
-        <error line="762" column="5" source="standard:blank-line-before-declaration" />
-        <error line="762" column="5" source="standard:no-consecutive-comments" />
-        <error line="763" column="34" source="standard:function-signature" />
-        <error line="763" column="49" source="standard:function-signature" />
-        <error line="763" column="62" source="standard:function-signature" />
-        <error line="777" column="32" source="standard:function-signature" />
-        <error line="777" column="47" source="standard:function-signature" />
-        <error line="777" column="59" source="standard:function-signature" />
-        <error line="799" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="807" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="815" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="825" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="830" column="32" source="standard:multiline-expression-wrapping" />
-        <error line="847" column="28" source="standard:multiline-expression-wrapping" />
-        <error line="871" column="54" source="standard:function-signature" />
-        <error line="871" column="75" source="standard:function-signature" />
-        <error line="871" column="89" source="standard:function-signature" />
-        <error line="874" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="878" column="21" source="standard:multiline-expression-wrapping" />
-        <error line="898" column="27" source="standard:multiline-expression-wrapping" />
-        <error line="903" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="912" column="21" source="standard:multiline-expression-wrapping" />
-        <error line="925" column="37" source="standard:function-signature" />
-        <error line="925" column="60" source="standard:function-signature" />
-        <error line="925" column="80" source="standard:function-signature" />
-        <error line="927" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="927" column="74" source="standard:multiline-if-else" />
-        <error line="927" column="74" source="standard:if-else-wrapping" />
-        <error line="927" column="77" source="standard:if-else-wrapping" />
-        <error line="928" column="13" source="standard:multiline-if-else" />
-        <error line="961" column="21" source="standard:multiline-expression-wrapping" />
-        <error line="973" column="34" source="standard:multiline-expression-wrapping" />
-        <error line="987" column="1" source="standard:spacing-between-declarations-with-annotations" />
-        <error line="987" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="1010" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="1013" column="33" source="standard:multiline-expression-wrapping" />
-        <error line="1018" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="1026" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="1060" column="25" source="standard:multiline-expression-wrapping" />
-        <error line="1064" column="34" source="standard:multiline-expression-wrapping" />
-        <error line="1072" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="1098" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="1140" column="28" source="standard:function-signature" />
-        <error line="1140" column="42" source="standard:function-signature" />
-        <error line="1140" column="65" source="standard:function-signature" />
-        <error line="1192" column="1" source="standard:max-line-length" />
-        <error line="1195" column="1" source="standard:max-line-length" />
-        <error line="1219" column="36" source="standard:multiline-expression-wrapping" />
-        <error line="1220" column="33" source="standard:argument-list-wrapping" />
-        <error line="1220" column="46" source="standard:argument-list-wrapping" />
-        <error line="1220" column="59" source="standard:argument-list-wrapping" />
-        <error line="1220" column="71" source="standard:argument-list-wrapping" />
-        <error line="1221" column="28" source="standard:argument-list-wrapping" />
-        <error line="1221" column="48" source="standard:argument-list-wrapping" />
-        <error line="1223" column="35" source="standard:multiline-expression-wrapping" />
-        <error line="1228" column="39" source="standard:multiline-expression-wrapping" />
-        <error line="1229" column="33" source="standard:argument-list-wrapping" />
-        <error line="1229" column="48" source="standard:argument-list-wrapping" />
-        <error line="1229" column="67" source="standard:argument-list-wrapping" />
-        <error line="1230" column="29" source="standard:argument-list-wrapping" />
-        <error line="1231" column="30" source="standard:argument-list-wrapping" />
-        <error line="1239" column="45" source="standard:multiline-expression-wrapping" />
-        <error line="1240" column="1" source="standard:string-template-indent" />
-        <error line="1241" column="1" source="standard:string-template-indent" />
-        <error line="1242" column="1" source="standard:string-template-indent" />
-        <error line="1243" column="1" source="standard:string-template-indent" />
-        <error line="1244" column="1" source="standard:string-template-indent" />
-        <error line="1245" column="1" source="standard:string-template-indent" />
-        <error line="1246" column="1" source="standard:string-template-indent" />
-        <error line="1247" column="1" source="standard:string-template-indent" />
-        <error line="1248" column="9" source="standard:string-template-indent" />
-        <error line="1256" column="43" source="standard:multiline-expression-wrapping" />
-        <error line="1257" column="1" source="standard:string-template-indent" />
-        <error line="1259" column="1" source="standard:string-template-indent" />
-        <error line="1260" column="1" source="standard:string-template-indent" />
-        <error line="1261" column="1" source="standard:string-template-indent" />
-        <error line="1263" column="1" source="standard:string-template-indent" />
-        <error line="1264" column="1" source="standard:string-template-indent" />
-        <error line="1266" column="1" source="standard:string-template-indent" />
-        <error line="1268" column="1" source="standard:string-template-indent" />
-        <error line="1269" column="1" source="standard:string-template-indent" />
-        <error line="1270" column="1" source="standard:string-template-indent" />
-        <error line="1271" column="1" source="standard:string-template-indent" />
-        <error line="1272" column="1" source="standard:string-template-indent" />
-        <error line="1273" column="1" source="standard:string-template-indent" />
-        <error line="1274" column="1" source="standard:string-template-indent" />
-        <error line="1275" column="1" source="standard:string-template-indent" />
-        <error line="1276" column="1" source="standard:string-template-indent" />
+        <error line="346" column="35" source="standard:multiline-expression-wrapping" />
+        <error line="355" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="363" column="28" source="standard:multiline-expression-wrapping" />
+        <error line="412" column="39" source="standard:multiline-expression-wrapping" />
+        <error line="477" column="1" source="standard:max-line-length" />
+        <error line="477" column="64" source="standard:argument-list-wrapping" />
+        <error line="477" column="84" source="standard:argument-list-wrapping" />
+        <error line="477" column="103" source="standard:argument-list-wrapping" />
+        <error line="477" column="120" source="standard:argument-list-wrapping" />
+        <error line="477" column="154" source="standard:argument-list-wrapping" />
+        <error line="477" column="155" source="standard:argument-list-wrapping" />
+        <error line="506" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="535" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="543" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="547" column="9" source="standard:string-template-indent" />
+        <error line="585" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="604" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="673" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="677" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="717" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="721" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="738" column="18" source="standard:multiline-expression-wrapping" />
+        <error line="752" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="774" column="1" source="standard:no-consecutive-blank-lines" />
+        <error line="775" column="5" source="standard:no-consecutive-comments" />
+        <error line="782" column="5" source="standard:blank-line-before-declaration" />
+        <error line="782" column="5" source="standard:no-consecutive-comments" />
+        <error line="783" column="34" source="standard:function-signature" />
+        <error line="783" column="49" source="standard:function-signature" />
+        <error line="783" column="62" source="standard:function-signature" />
+        <error line="797" column="32" source="standard:function-signature" />
+        <error line="797" column="47" source="standard:function-signature" />
+        <error line="797" column="59" source="standard:function-signature" />
+        <error line="824" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="832" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="839" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="847" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="857" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="862" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="879" column="28" source="standard:multiline-expression-wrapping" />
+        <error line="908" column="54" source="standard:function-signature" />
+        <error line="908" column="75" source="standard:function-signature" />
+        <error line="908" column="89" source="standard:function-signature" />
+        <error line="911" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="915" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="935" column="27" source="standard:multiline-expression-wrapping" />
+        <error line="940" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="949" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="962" column="37" source="standard:function-signature" />
+        <error line="962" column="60" source="standard:function-signature" />
+        <error line="962" column="80" source="standard:function-signature" />
+        <error line="964" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="964" column="74" source="standard:multiline-if-else" />
+        <error line="964" column="74" source="standard:if-else-wrapping" />
+        <error line="964" column="77" source="standard:if-else-wrapping" />
+        <error line="965" column="13" source="standard:multiline-if-else" />
+        <error line="998" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="1010" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="1024" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="1024" column="5" source="standard:spacing-between-declarations-with-comments" />
+        <error line="1047" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="1050" column="33" source="standard:multiline-expression-wrapping" />
+        <error line="1055" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="1063" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="1097" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="1101" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="1109" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="1135" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="1177" column="28" source="standard:function-signature" />
+        <error line="1177" column="42" source="standard:function-signature" />
+        <error line="1177" column="65" source="standard:function-signature" />
+        <error line="1229" column="1" source="standard:max-line-length" />
+        <error line="1232" column="1" source="standard:max-line-length" />
+        <error line="1256" column="36" source="standard:multiline-expression-wrapping" />
+        <error line="1257" column="33" source="standard:argument-list-wrapping" />
+        <error line="1257" column="46" source="standard:argument-list-wrapping" />
+        <error line="1257" column="59" source="standard:argument-list-wrapping" />
+        <error line="1257" column="71" source="standard:argument-list-wrapping" />
+        <error line="1258" column="28" source="standard:argument-list-wrapping" />
+        <error line="1258" column="48" source="standard:argument-list-wrapping" />
+        <error line="1260" column="35" source="standard:multiline-expression-wrapping" />
+        <error line="1265" column="39" source="standard:multiline-expression-wrapping" />
+        <error line="1266" column="33" source="standard:argument-list-wrapping" />
+        <error line="1266" column="48" source="standard:argument-list-wrapping" />
+        <error line="1266" column="67" source="standard:argument-list-wrapping" />
+        <error line="1267" column="29" source="standard:argument-list-wrapping" />
+        <error line="1268" column="30" source="standard:argument-list-wrapping" />
+        <error line="1276" column="45" source="standard:multiline-expression-wrapping" />
         <error line="1277" column="1" source="standard:string-template-indent" />
         <error line="1278" column="1" source="standard:string-template-indent" />
         <error line="1279" column="1" source="standard:string-template-indent" />
         <error line="1280" column="1" source="standard:string-template-indent" />
         <error line="1281" column="1" source="standard:string-template-indent" />
+        <error line="1282" column="1" source="standard:string-template-indent" />
         <error line="1283" column="1" source="standard:string-template-indent" />
-        <error line="1285" column="1" source="standard:string-template-indent" />
-        <error line="1286" column="1" source="standard:string-template-indent" />
-        <error line="1287" column="1" source="standard:string-template-indent" />
-        <error line="1288" column="1" source="standard:string-template-indent" />
-        <error line="1289" column="1" source="standard:string-template-indent" />
-        <error line="1291" column="1" source="standard:string-template-indent" />
-        <error line="1292" column="1" source="standard:string-template-indent" />
-        <error line="1293" column="1" source="standard:string-template-indent" />
+        <error line="1284" column="1" source="standard:string-template-indent" />
+        <error line="1285" column="9" source="standard:string-template-indent" />
+        <error line="1293" column="43" source="standard:multiline-expression-wrapping" />
         <error line="1294" column="1" source="standard:string-template-indent" />
-        <error line="1295" column="1" source="standard:string-template-indent" />
         <error line="1296" column="1" source="standard:string-template-indent" />
         <error line="1297" column="1" source="standard:string-template-indent" />
-        <error line="1298" column="9" source="standard:string-template-indent" />
-        <error line="1306" column="47" source="standard:multiline-expression-wrapping" />
+        <error line="1298" column="1" source="standard:string-template-indent" />
+        <error line="1300" column="1" source="standard:string-template-indent" />
+        <error line="1301" column="1" source="standard:string-template-indent" />
+        <error line="1303" column="1" source="standard:string-template-indent" />
+        <error line="1305" column="1" source="standard:string-template-indent" />
+        <error line="1306" column="1" source="standard:string-template-indent" />
         <error line="1307" column="1" source="standard:string-template-indent" />
+        <error line="1308" column="1" source="standard:string-template-indent" />
         <error line="1309" column="1" source="standard:string-template-indent" />
         <error line="1310" column="1" source="standard:string-template-indent" />
+        <error line="1311" column="1" source="standard:string-template-indent" />
         <error line="1312" column="1" source="standard:string-template-indent" />
         <error line="1313" column="1" source="standard:string-template-indent" />
         <error line="1314" column="1" source="standard:string-template-indent" />
+        <error line="1315" column="1" source="standard:string-template-indent" />
         <error line="1316" column="1" source="standard:string-template-indent" />
         <error line="1317" column="1" source="standard:string-template-indent" />
         <error line="1318" column="1" source="standard:string-template-indent" />
-        <error line="1319" column="1" source="standard:string-template-indent" />
         <error line="1320" column="1" source="standard:string-template-indent" />
-        <error line="1321" column="1" source="standard:string-template-indent" />
         <error line="1322" column="1" source="standard:string-template-indent" />
         <error line="1323" column="1" source="standard:string-template-indent" />
+        <error line="1324" column="1" source="standard:string-template-indent" />
         <error line="1325" column="1" source="standard:string-template-indent" />
         <error line="1326" column="1" source="standard:string-template-indent" />
-        <error line="1327" column="1" source="standard:string-template-indent" />
         <error line="1328" column="1" source="standard:string-template-indent" />
         <error line="1329" column="1" source="standard:string-template-indent" />
         <error line="1330" column="1" source="standard:string-template-indent" />
         <error line="1331" column="1" source="standard:string-template-indent" />
         <error line="1332" column="1" source="standard:string-template-indent" />
         <error line="1333" column="1" source="standard:string-template-indent" />
-        <error line="1334" column="9" source="standard:string-template-indent" />
-        <error line="1341" column="47" source="standard:multiline-expression-wrapping" />
-        <error line="1342" column="2" source="standard:string-template-indent" />
-        <error line="1343" column="2" source="standard:string-template-indent" />
-        <error line="1344" column="2" source="standard:string-template-indent" />
-        <error line="1345" column="2" source="standard:string-template-indent" />
-        <error line="1346" column="2" source="standard:string-template-indent" />
-        <error line="1347" column="2" source="standard:string-template-indent" />
-        <error line="1348" column="9" source="standard:string-template-indent" />
-        <error line="1355" column="48" source="standard:multiline-expression-wrapping" />
+        <error line="1334" column="1" source="standard:string-template-indent" />
+        <error line="1335" column="9" source="standard:string-template-indent" />
+        <error line="1343" column="47" source="standard:multiline-expression-wrapping" />
+        <error line="1344" column="1" source="standard:string-template-indent" />
+        <error line="1346" column="1" source="standard:string-template-indent" />
+        <error line="1347" column="1" source="standard:string-template-indent" />
+        <error line="1349" column="1" source="standard:string-template-indent" />
+        <error line="1350" column="1" source="standard:string-template-indent" />
+        <error line="1351" column="1" source="standard:string-template-indent" />
+        <error line="1353" column="1" source="standard:string-template-indent" />
+        <error line="1354" column="1" source="standard:string-template-indent" />
+        <error line="1355" column="1" source="standard:string-template-indent" />
         <error line="1356" column="1" source="standard:string-template-indent" />
         <error line="1357" column="1" source="standard:string-template-indent" />
         <error line="1358" column="1" source="standard:string-template-indent" />
         <error line="1359" column="1" source="standard:string-template-indent" />
         <error line="1360" column="1" source="standard:string-template-indent" />
-        <error line="1361" column="1" source="standard:string-template-indent" />
-        <error line="1362" column="9" source="standard:string-template-indent" />
-        <error line="1389" column="35" source="standard:multiline-expression-wrapping" />
-        <error line="1389" column="35" source="standard:wrapping" />
-        <error line="1389" column="35" source="standard:argument-list-wrapping" />
-        <error line="1390" column="70" source="standard:wrapping" />
-        <error line="1390" column="71" source="standard:argument-list-wrapping" />
-        <error line="1401" column="52" source="standard:string-template" />
-        <error line="1426" column="39" source="standard:function-signature" />
-        <error line="1426" column="57" source="standard:function-signature" />
-        <error line="1426" column="80" source="standard:function-signature" />
-        <error line="1426" column="104" source="standard:function-signature" />
-        <error line="1464" column="35" source="standard:function-signature" />
-        <error line="1464" column="53" source="standard:function-signature" />
-        <error line="1464" column="79" source="standard:function-signature" />
-        <error line="1464" column="100" source="standard:function-signature" />
-        <error line="1467" column="1" source="standard:string-template-indent" />
-        <error line="1468" column="1" source="standard:string-template-indent" />
-        <error line="1469" column="1" source="standard:string-template-indent" />
-        <error line="1471" column="1" source="standard:string-template-indent" />
-        <error line="1472" column="1" source="standard:string-template-indent" />
-        <error line="1473" column="1" source="standard:string-template-indent" />
-        <error line="1474" column="1" source="standard:string-template-indent" />
-        <error line="1475" column="1" source="standard:string-template-indent" />
-        <error line="1476" column="1" source="standard:indent" />
-        <error line="1476" column="13" source="standard:string-template-indent" />
-        <error line="1489" column="1" source="standard:indent" />
-        <error line="1489" column="48" source="standard:multiline-expression-wrapping" />
-        <error line="1490" column="1" source="standard:string-template-indent" />
-        <error line="1491" column="1" source="standard:string-template-indent" />
-        <error line="1492" column="1" source="standard:string-template-indent" />
-        <error line="1493" column="1" source="standard:string-template-indent" />
-        <error line="1495" column="1" source="standard:string-template-indent" />
-        <error line="1496" column="1" source="standard:string-template-indent" />
-        <error line="1497" column="1" source="standard:string-template-indent" />
-        <error line="1498" column="1" source="standard:string-template-indent" />
-        <error line="1499" column="1" source="standard:string-template-indent" />
-        <error line="1501" column="1" source="standard:string-template-indent" />
-        <error line="1502" column="1" source="standard:string-template-indent" />
-        <error line="1503" column="1" source="standard:string-template-indent" />
+        <error line="1362" column="1" source="standard:string-template-indent" />
+        <error line="1363" column="1" source="standard:string-template-indent" />
+        <error line="1364" column="1" source="standard:string-template-indent" />
+        <error line="1365" column="1" source="standard:string-template-indent" />
+        <error line="1366" column="1" source="standard:string-template-indent" />
+        <error line="1367" column="1" source="standard:string-template-indent" />
+        <error line="1368" column="1" source="standard:string-template-indent" />
+        <error line="1369" column="1" source="standard:string-template-indent" />
+        <error line="1370" column="1" source="standard:string-template-indent" />
+        <error line="1371" column="9" source="standard:string-template-indent" />
+        <error line="1378" column="47" source="standard:multiline-expression-wrapping" />
+        <error line="1379" column="2" source="standard:string-template-indent" />
+        <error line="1380" column="2" source="standard:string-template-indent" />
+        <error line="1381" column="2" source="standard:string-template-indent" />
+        <error line="1382" column="2" source="standard:string-template-indent" />
+        <error line="1383" column="2" source="standard:string-template-indent" />
+        <error line="1384" column="2" source="standard:string-template-indent" />
+        <error line="1385" column="9" source="standard:string-template-indent" />
+        <error line="1392" column="48" source="standard:multiline-expression-wrapping" />
+        <error line="1393" column="1" source="standard:string-template-indent" />
+        <error line="1394" column="1" source="standard:string-template-indent" />
+        <error line="1395" column="1" source="standard:string-template-indent" />
+        <error line="1396" column="1" source="standard:string-template-indent" />
+        <error line="1397" column="1" source="standard:string-template-indent" />
+        <error line="1398" column="1" source="standard:string-template-indent" />
+        <error line="1399" column="9" source="standard:string-template-indent" />
+        <error line="1426" column="35" source="standard:multiline-expression-wrapping" />
+        <error line="1426" column="35" source="standard:wrapping" />
+        <error line="1426" column="35" source="standard:argument-list-wrapping" />
+        <error line="1427" column="70" source="standard:wrapping" />
+        <error line="1427" column="71" source="standard:argument-list-wrapping" />
+        <error line="1438" column="52" source="standard:string-template" />
+        <error line="1463" column="39" source="standard:function-signature" />
+        <error line="1463" column="57" source="standard:function-signature" />
+        <error line="1463" column="80" source="standard:function-signature" />
+        <error line="1463" column="104" source="standard:function-signature" />
+        <error line="1501" column="35" source="standard:function-signature" />
+        <error line="1501" column="53" source="standard:function-signature" />
+        <error line="1501" column="79" source="standard:function-signature" />
+        <error line="1501" column="100" source="standard:function-signature" />
         <error line="1504" column="1" source="standard:string-template-indent" />
         <error line="1505" column="1" source="standard:string-template-indent" />
-        <error line="1506" column="9" source="standard:string-template-indent" />
+        <error line="1506" column="1" source="standard:string-template-indent" />
+        <error line="1508" column="1" source="standard:string-template-indent" />
+        <error line="1509" column="1" source="standard:string-template-indent" />
+        <error line="1510" column="1" source="standard:string-template-indent" />
+        <error line="1511" column="1" source="standard:string-template-indent" />
+        <error line="1512" column="1" source="standard:string-template-indent" />
+        <error line="1513" column="1" source="standard:indent" />
+        <error line="1513" column="13" source="standard:string-template-indent" />
+        <error line="1526" column="1" source="standard:indent" />
+        <error line="1526" column="48" source="standard:multiline-expression-wrapping" />
+        <error line="1527" column="1" source="standard:string-template-indent" />
+        <error line="1528" column="1" source="standard:string-template-indent" />
+        <error line="1529" column="1" source="standard:string-template-indent" />
+        <error line="1530" column="1" source="standard:string-template-indent" />
+        <error line="1532" column="1" source="standard:string-template-indent" />
+        <error line="1533" column="1" source="standard:string-template-indent" />
+        <error line="1534" column="1" source="standard:string-template-indent" />
+        <error line="1535" column="1" source="standard:string-template-indent" />
+        <error line="1536" column="1" source="standard:string-template-indent" />
+        <error line="1538" column="1" source="standard:string-template-indent" />
+        <error line="1539" column="1" source="standard:string-template-indent" />
+        <error line="1540" column="1" source="standard:string-template-indent" />
+        <error line="1541" column="1" source="standard:string-template-indent" />
+        <error line="1542" column="1" source="standard:string-template-indent" />
+        <error line="1543" column="9" source="standard:string-template-indent" />
     </file>
     <file name="src/main/java/io/zer0/muse/transformer/TemplateTransformer.kt">
         <error line="66" column="1" source="standard:no-empty-first-line-in-class-body" />
