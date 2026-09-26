@@ -159,6 +159,7 @@ class GroupChatRepository(
      * @param autoMaxRounds Auto 模式最大轮数(null 表示不更新)
      * @param hostId 主持人 AI id(null 表示不更新;传 "" 清空)
      * @param replyLengthMode 发言长度档位(brief/standard/detailed,null 表示不更新)
+     * @param observerIds 观察者成员 id 列表(不参与默认轮转发言,null 表示不更新)
      */
     suspend fun updateChat(
         chatId: String,
@@ -169,6 +170,7 @@ class GroupChatRepository(
         autoMaxRounds: Int? = null,
         hostId: String? = null,
         replyLengthMode: String? = null,
+        observerIds: List<String>? = null,
     ) = withContext(Dispatchers.IO) {
         // M2: 用事务包裹读-改-写,防止并发更新丢失
         db.withTransaction {
@@ -181,6 +183,7 @@ class GroupChatRepository(
                 autoMaxRounds = autoMaxRounds ?: existing.autoMaxRounds,
                 hostId = if (hostId != null) hostId.ifBlank { null } else existing.hostId,
                 replyLengthMode = replyLengthMode ?: existing.replyLengthMode,
+                observerIdsJson = observerIds?.let { serializeObserverIds(it) } ?: existing.observerIdsJson,
                 updatedAt = System.currentTimeMillis(),
             )
             groupChatDao.upsert(updated)
@@ -399,6 +402,19 @@ class GroupChatRepository(
                 chat.sharedDocsJson,
             )
         }.getOrNull() ?: emptyList()
+    }
+
+    /** v2.x: 解析观察者成员 id 列表(不参与默认轮转发言)。 */
+    fun parseObserverIds(chat: GroupChatEntity): List<String> {
+        if (chat.observerIdsJson.isBlank() || chat.observerIdsJson == "[]") return emptyList()
+        return resultOf {
+            AppJson.decodeFromString(ListSerializer(String.serializer()), chat.observerIdsJson)
+        }.getOrNull() ?: emptyList()
+    }
+
+    /** v2.x: 序列化观察者成员 id 列表。 */
+    fun serializeObserverIds(ids: List<String>): String {
+        return AppJson.encodeToString(ListSerializer(String.serializer()), ids)
     }
 
     /**

@@ -992,10 +992,11 @@ class GroupChatViewModel(
         autoMaxRounds: Int? = null,
         hostId: String? = null,
         replyLengthMode: String? = null,
+        observerIds: List<String>? = null,
     ) {
         viewModelScope.launch {
             try {
-                groupChatRepository.updateChat(chatId, name, description, memberIds, discussionMode, autoMaxRounds, hostId, replyLengthMode)
+                groupChatRepository.updateChat(chatId, name, description, memberIds, discussionMode, autoMaxRounds, hostId, replyLengthMode, observerIds)
             } catch (e: Exception) {
                 Logger.e(TAG, "更新群聊失败", e)
                 _state.update { it.copy(errorMessage = appContext.getString(R.string.err_group_chat_update_failed)) }
@@ -1008,6 +1009,10 @@ class GroupChatViewModel(
      */
     fun parseMemberIds(chat: GroupChatEntity): List<String> =
         groupChatRepository.parseMemberIds(chat)
+
+    /** v2.x: 解析群聊观察者成员 id 列表(编辑对话框预选用)。 */
+    fun parseObserverIds(chat: GroupChatEntity): List<String> =
+        groupChatRepository.parseObserverIds(chat)
 
     /**
      * v2.x: 解析群聊的共享文档列表(供 UI 渲染)。

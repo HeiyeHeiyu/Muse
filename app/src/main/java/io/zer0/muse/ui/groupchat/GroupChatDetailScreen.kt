@@ -989,8 +989,9 @@ fun GroupChatDetailScreen(
             initialAutoMaxRounds = chat?.autoMaxRounds ?: 5,
             initialHostId = chat?.hostId,
             initialReplyLengthMode = chat?.replyLengthMode ?: "standard",
+            initialObserverIds = chat?.let { viewModel.parseObserverIds(it) } ?: emptyList(),
             onDismiss = { showEditDialog = false },
-            onConfirm = { newName, newMemberIds, newMode, newMaxRounds, newHostId, newReplyLengthMode ->
+            onConfirm = { newName, newMemberIds, newMode, newMaxRounds, newHostId, newReplyLengthMode, newObserverIds ->
                 viewModel.updateChat(
                     chatId = chatId,
                     name = newName,
@@ -999,6 +1000,7 @@ fun GroupChatDetailScreen(
                     autoMaxRounds = newMaxRounds,
                     hostId = newHostId,
                     replyLengthMode = newReplyLengthMode,
+                    observerIds = newObserverIds,
                 )
                 showEditDialog = false
             },

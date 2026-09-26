@@ -1212,12 +1212,14 @@ class GroupChatScheduler(
         }
 
         // 2. 解析成员显示名(用于群聊提示)
+        // v2.x: 观察者成员不参与默认轮转发言(静观讨论)
+        val observerIds = groupChatRepository.parseObserverIds(chat)
         val assistants = memberIds.mapNotNull { id ->
             resultOf { assistantRepository.getById(id) }.getOrNull()
                 ?: run { Logger.w(TAG, "Agent $id 不存在,跳过"); null }
-        }
+        }.filterNot { it.id in observerIds }
         if (assistants.isEmpty()) {
-            Logger.w(TAG, "群聊「${chat.name}」无有效成员,跳过轮转")
+            Logger.w(TAG, "群聊「${chat.name}」无有效发言成员,跳过轮转")
             return@withContext emptyList()
         }
         val memberNames = assistants.map { it.name }

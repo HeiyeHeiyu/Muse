@@ -1499,6 +1499,7 @@ internal fun EditGroupChatDialog(
     initialAutoMaxRounds: Int = 5,
     initialHostId: String? = null,
     initialReplyLengthMode: String = "standard",
+    initialObserverIds: List<String> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (
         newName: String,
@@ -1507,6 +1508,7 @@ internal fun EditGroupChatDialog(
         newAutoMaxRounds: Int,
         newHostId: String?,
         newReplyLengthMode: String,
+        newObserverIds: List<String>,
     ) -> Unit,
 ) {
     // v1.97: 用 rememberSaveable 持久化编辑中的状态,旋转屏不丢
@@ -1522,6 +1524,8 @@ internal fun EditGroupChatDialog(
     var hostId by rememberSaveable(dialogKey) { mutableStateOf(initialHostId ?: "") }
     // v2.x: 发言长度档位状态(brief/standard/detailed)
     var replyLengthMode by rememberSaveable(dialogKey) { mutableStateOf(initialReplyLengthMode) }
+    // v2.x: 观察者成员(不参与默认轮转发言)
+    var observerIds by rememberSaveable(dialogKey) { mutableStateOf(initialObserverIds.toSet()) }
 
     val maxNameLength = 30
     val nameError = showErrors && name.isBlank()
@@ -1598,6 +1602,38 @@ internal fun EditGroupChatDialog(
                                     selectedMemberIds - assistant.id
                                 } else {
                                     selectedMemberIds + assistant.id
+                                }
+                            },
+                            label = assistant.name,
+                        )
+                    }
+                }
+            }
+            // v2.x: 观察者成员 — 从已选成员中指定,不参与默认轮转发言
+            val selectedAssistants = assistants.filter { it.id in selectedMemberIds }
+            if (selectedAssistants.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.groupchat_observers),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    contentPadding = PaddingValues(horizontal = 2.dp),
+                ) {
+                    items(selectedAssistants, key = { "obs_${it.id}" }) { assistant ->
+                        val isObserver = assistant.id in observerIds
+                        MuseChip(
+                            selected = isObserver,
+                            onClick = {
+                                observerIds = if (isObserver) {
+                                    observerIds - assistant.id
+                                } else {
+                                    observerIds + assistant.id
                                 }
                             },
                             label = assistant.name,
@@ -1750,6 +1786,7 @@ internal fun EditGroupChatDialog(
                     autoMaxRounds,
                     hostId.ifBlank { null },
                     replyLengthMode,
+                    observerIds.toList(),
                 )
             } else {
                 showErrors = true

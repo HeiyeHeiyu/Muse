@@ -82,6 +82,14 @@ data class GroupChatEntity(
      * - "detailed": 详尽 — 评审/深度讨论,充分展开
      */
     @ColumnInfo(defaultValue = "standard") val replyLengthMode: String = "standard",
+
+    // ── v2.x 观察者成员 ──
+    /**
+     * 观察者成员 id 列表(JSON 字符串,默认 "[]")。
+     *
+     * 观察者不参与默认轮转发言(静观讨论),但保留在成员列表中;空列表 = 无观察者。
+     */
+    @ColumnInfo(name = "observer_ids_json", defaultValue = "[]") val observerIdsJson: String = "[]",
 )
 
 /**

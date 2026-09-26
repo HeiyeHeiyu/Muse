@@ -169,7 +169,7 @@ import kotlinx.serialization.builtins.serializer
         MessagePartEntity::class,
         SessionBranchHeadEntity::class,
     ],
-    version = 101,
+    version = 102,
     exportSchema = true,
 )
 @TypeConverters(QuickNoteConverters::class)
@@ -843,6 +843,24 @@ abstract class MuseDb : RoomDatabase() {
                 }
                 if ("replyLengthMode" !in existing) {
                     db.execSQL("ALTER TABLE group_chats ADD COLUMN replyLengthMode TEXT NOT NULL DEFAULT 'standard'")
+                }
+            }
+        }
+
+        /**
+         * v101→v102: 群聊观察者成员 — group_chats 表新增 observer_ids_json 列(默认 '[]')。
+         *
+         * 观察者不参与默认轮转发言(静观讨论),但保留在成员列表中。
+         * 幂等:PRAGMA 判存在后再 ADD,避免重复列。
+         */
+        val MIGRATION_101_102 = object : Migration(101, 102) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val existing = mutableSetOf<String>()
+                db.query("PRAGMA table_info(group_chats)").use { cursor ->
+                    while (cursor.moveToNext()) existing.add(cursor.getString(1))
+                }
+                if ("observer_ids_json" !in existing) {
+                    db.execSQL("ALTER TABLE group_chats ADD COLUMN observer_ids_json TEXT NOT NULL DEFAULT '[]'")
                 }
             }
         }
@@ -2679,6 +2697,7 @@ abstract class MuseDb : RoomDatabase() {
                         MIGRATION_98_99,
                         MIGRATION_99_100,
                         MIGRATION_100_101,
+                        MIGRATION_101_102,
                     )
                     // 启用外键约束(artifacts 表的 ON DELETE CASCADE 依赖此设置)
                     // onOpen 不在 onCreate 事务内,可以执行此类命令;onCreate 内禁止 PRAGMA
