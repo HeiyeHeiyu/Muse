@@ -3,7 +3,7 @@
     <!-- ===== ui/onboarding ===== Boot onboarding -->
     <!-- Step 0: Welcome -->
     <string name="onboarding_welcome_title">ミューズ</string>
-    <string name="onboarding_welcome_subtitle">覚えて、手伝ってくれる相棒</string>
+    <string name="onboarding_welcome_subtitle">覚えて、手伝ってくれる相棒。2分で、あなたのものに。</string>
     <string name="onboarding_feature_chat_title">AIチャット</string>
     <string name="onboarding_feature_chat_desc">返事は書きながらそのまま表示</string>
     <string name="onboarding_feature_memory_title">長期記憶</string>
@@ -14,8 +14,10 @@
     <string name="onboarding_feature_knowledge_desc">資料を入れておけばいつでも検索</string>
 
     <!-- Step 1: Language & Appearance -->
-    <string name="onboarding_language_title">インターフェース言語</string>
-    <string name="onboarding_theme_title">テーマの外観</string>
+    <string name="onboarding_language_title">言語を選びましょう。</string>
+    <string name="onboarding_language_subtitle">画面の表示に使われます。いつでも変更できます。</string>
+    <string name="onboarding_theme_title">好きな見た目に。</string>
+    <string name="onboarding_theme_subtitle">テーマは設定からいつでも変更できます。</string>
     <string name="onboarding_lang_zh">簡体字中国語</string>
     <string name="onboarding_lang_zh_tw">繁体字中国語</string>
     <string name="onboarding_lang_en">英語</string>
@@ -23,14 +25,23 @@
     <string name="onboarding_lang_ko">한국어</string>
 
     <!-- Step 2: Your Name -->
-    <string name="onboarding_names_title">はじめまして</string>
-    <string name="onboarding_names_user_label">あなたの名前</string>
-    <string name="onboarding_names_agent_label">AIアシスタント名</string>
-    <string name="onboarding_names_hint">AI アシスタント名はデフォルトのアシスタントに適用されます。</string>
+    <string name="onboarding_names_title">はじめまして。</string>
+    <string name="onboarding_names_subtitle">呼び名と名前は、あとからでも変えられます。</string>
+    <string name="onboarding_names_user_label">なんて呼べばいい？</string>
+    <string name="onboarding_names_agent_label">名前をつけてあげて</string>
+    <string name="onboarding_names_hint">名前はデフォルトのアシスタントに使われます。あとから変更できます。</string>
+    <string name="onboarding_memory_title">あなたを覚えさせて。</string>
+    <string name="onboarding_memory_subtitle">オンにすると、会話の終わりに長期記憶として整理されます。記憶の更新が多いとモデルのキャッシュ効率が下がります（オフのほうが安いことも）が、長く寄り添うほど良くなります。</string>
+    <string name="onboarding_memory_switch_title">記憶を有効にする</string>
+    <string name="onboarding_memory_switch_subtitle">会話後に自動整理。設定からいつでもオフにできます。</string>
 
     <!-- Step 3: Configure Provider -->
-    <string name="onboarding_provider_title">AI プロバイダーの構成</string>
-    <string name="onboarding_provider_subtitle">プロバイダーを選択し、API キーを入力します。</string>
+    <string name="onboarding_provider_title">頭脳をつなぐ。</string>
+    <string name="onboarding_provider_subtitle">モデルサービスを選び、キーを入力して接続テスト。成功するとモデル一覧を取得し、能力を自動で照合します。</string>
+    <string name="onboarding_provider_err_auth">認証に失敗しました。API Key を確認してください。</string>
+    <string name="onboarding_provider_err_empty">接続は成功しましたが、モデルが返されませんでした。エンドポイントを確認してください。</string>
+    <string name="onboarding_provider_err_other">接続に失敗しました：%1$s</string>
+    <string name="onboarding_provider_caps">能力を照合済み：視覚 %1$d · 推論 %2$d · ツール %3$d</string>
     <string name="onboarding_provider_select_label">プロバイダーの選択</string>
     <string name="onboarding_provider_apikey_label">APIキー</string>
     <string name="onboarding_provider_apikey_input">APIキーを入力してください</string>
@@ -44,13 +55,14 @@
     <string name="onboarding_provider_custom_baseurl_input">https://api.example.com/v1</string>
 
     <!-- Step 4: Select Model -->
-    <string name="onboarding_model_title">デフォルトのモデルを選択</string>
+    <string name="onboarding_model_title">主力モデルを選びましょう。</string>
+    <string name="onboarding_model_subtitle">デフォルトの対話モデルになります。いつでも変更できます。</string>
     <string name="onboarding_model_search_label">モデルを検索する</string>
     <string name="onboarding_model_empty_title">プロバイダーが構成されていません</string>
     <string name="onboarding_model_empty_desc">後で [設定] でプロバイダーを構成し、モデルを選択できます。</string>
 
     <!-- Step 5: Complete -->
-    <string name="onboarding_complete_title">オールセット</string>
+    <string name="onboarding_complete_title">準備完了。</string>
     <string name="onboarding_complete_subtitle">さっそく試してみましょう</string>
     <string name="onboarding_tutorial_chat_title">デイリーチャット</string>
     <string name="onboarding_tutorial_chat_desc">文字も写真もファイルも送れて、返事は自然</string>
@@ -65,5 +77,5 @@
     <string name="onboarding_button_start">セットアップの開始</string>
     <string name="onboarding_button_previous">前の</string>
     <string name="onboarding_button_next">次</string>
-    <string name="onboarding_button_finish">始めましょう</string>
+    <string name="onboarding_button_finish">話してみましょう</string>
 </resources>

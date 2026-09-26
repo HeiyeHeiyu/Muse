@@ -3,7 +3,7 @@
     <!-- ===== ui/onboarding ===== Boot onboarding -->
     <!-- Step 0: Welcome -->
     <string name="onboarding_welcome_title">뮤즈 신</string>
-    <string name="onboarding_welcome_subtitle">기억하고 도와주는 친구</string>
+    <string name="onboarding_welcome_subtitle">기억하고 도와주는 친구. 2분이면 당신의 것으로.</string>
     <string name="onboarding_feature_chat_title">AI채팅</string>
     <string name="onboarding_feature_chat_desc">답변이 쓰이는 대로 보여요</string>
     <string name="onboarding_feature_memory_title">장기 기억</string>
@@ -14,8 +14,10 @@
     <string name="onboarding_feature_knowledge_desc">문서를 넣어두면 언제든 검색</string>
 
     <!-- Step 1: Language & Appearance -->
-    <string name="onboarding_language_title">인터페이스 언어</string>
-    <string name="onboarding_theme_title">테마 모양</string>
+    <string name="onboarding_language_title">언어를 골라 주세요.</string>
+    <string name="onboarding_language_subtitle">인터페이스에 사용됩니다. 언제든 바꿀 수 있어요.</string>
+    <string name="onboarding_theme_title">마음에 드는 모습으로.</string>
+    <string name="onboarding_theme_subtitle">테마는 설정에서 언제든 바꿀 수 있어요.</string>
     <string name="onboarding_lang_zh">간체 중국어</string>
     <string name="onboarding_lang_zh_tw">번체 중국어</string>
     <string name="onboarding_lang_en">영어</string>
@@ -23,14 +25,23 @@
     <string name="onboarding_lang_ko">한국어</string>
 
     <!-- Step 2: Your Name -->
-    <string name="onboarding_names_title">먼저 인사부터</string>
-    <string name="onboarding_names_user_label">당신의 이름</string>
-    <string name="onboarding_names_agent_label">AI 비서 이름</string>
-    <string name="onboarding_names_hint">기본 어시스턴트에는 AI 어시스턴트 이름이 적용됩니다.</string>
+    <string name="onboarding_names_title">먼저 인사부터.</string>
+    <string name="onboarding_names_subtitle">호칭과 이름은 나중에 바꿀 수 있어요.</string>
+    <string name="onboarding_names_user_label">뭐라고 부를까요?</string>
+    <string name="onboarding_names_agent_label">이름을 지어 주세요</string>
+    <string name="onboarding_names_hint">이름은 기본 어시스턴트에 적용되며 언제든 바꿀 수 있어요.</string>
+    <string name="onboarding_memory_title">당신을 기억하게 해 주세요.</string>
+    <string name="onboarding_memory_subtitle">켜면 대화가 끝날 때 장기 기억으로 정리됩니다. 기억이 자주 바뀌면 모델 캐시 적중률이 낮아져요(끄는 쪽이 보통 더 저렴해요). 대신 오래 곁에 있을수록 훨씬 좋아집니다.</string>
+    <string name="onboarding_memory_switch_title">기억 사용</string>
+    <string name="onboarding_memory_switch_subtitle">대화 후 자동 정리. 설정에서 언제든 끌 수 있어요.</string>
 
     <!-- Step 3: Configure Provider -->
-    <string name="onboarding_provider_title">AI 공급자 구성</string>
-    <string name="onboarding_provider_subtitle">공급자를 선택하고 API 키를 입력하세요.</string>
+    <string name="onboarding_provider_title">두뇌를 연결하세요.</string>
+    <string name="onboarding_provider_subtitle">모델 서비스를 고르고 키를 입력한 뒤 연결을 테스트하세요. 성공하면 모델 목록을 가져와 능력을 자동으로 맞춰 줍니다.</string>
+    <string name="onboarding_provider_err_auth">인증 실패: API Key를 확인해 주세요.</string>
+    <string name="onboarding_provider_err_empty">연결은 성공했지만 모델이 없습니다 — 엔드포인트를 확인해 주세요.</string>
+    <string name="onboarding_provider_err_other">연결 실패: %1$s</string>
+    <string name="onboarding_provider_caps">능력 매칭 완료: 비전 %1$d · 추론 %2$d · 도구 %3$d</string>
     <string name="onboarding_provider_select_label">제공업체 선택</string>
     <string name="onboarding_provider_apikey_label">API 키</string>
     <string name="onboarding_provider_apikey_input">API 키 입력</string>
@@ -44,13 +55,14 @@
     <string name="onboarding_provider_custom_baseurl_input">https://api.example.com/v1</string>
 
     <!-- Step 4: Select Model -->
-    <string name="onboarding_model_title">기본 모델 선택</string>
+    <string name="onboarding_model_title">주력 모델을 고르세요.</string>
+    <string name="onboarding_model_subtitle">기본 대화 모델이 됩니다. 언제든 바꿀 수 있어요.</string>
     <string name="onboarding_model_search_label">모델 검색</string>
     <string name="onboarding_model_empty_title">구성된 공급자 없음</string>
     <string name="onboarding_model_empty_desc">나중에 설정에서 공급자를 구성하고 모델을 선택할 수 있습니다.</string>
 
     <!-- Step 5: Complete -->
-    <string name="onboarding_complete_title">모든 세트</string>
+    <string name="onboarding_complete_title">준비됐어요.</string>
     <string name="onboarding_complete_subtitle">이런 것부터 해보세요</string>
     <string name="onboarding_tutorial_chat_title">일일채팅</string>
     <string name="onboarding_tutorial_chat_desc">글, 사진, 파일 모두 보낼 수 있어요</string>
@@ -65,5 +77,5 @@
     <string name="onboarding_button_start">설정 시작</string>
     <string name="onboarding_button_previous">이전의</string>
     <string name="onboarding_button_next">다음</string>
-    <string name="onboarding_button_finish">시작하기</string>
+    <string name="onboarding_button_finish">얘기해 볼까요</string>
 </resources>

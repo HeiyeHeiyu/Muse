@@ -3,7 +3,7 @@
     <!-- ===== ui/onboarding ===== Boot onboarding -->
     <!-- Step 0: Welcome -->
     <string name="onboarding_welcome_title">Муза</string>
-    <string name="onboarding_welcome_subtitle">Компаньон, который помнит и помогает</string>
+    <string name="onboarding_welcome_subtitle">Компаньон, который помнит и помогает. Две минуты, чтобы он стал вашим.</string>
     <string name="onboarding_feature_chat_title">AI-чат</string>
     <string name="onboarding_feature_chat_desc">Ответ появляется по мере написания</string>
     <string name="onboarding_feature_memory_title">Долговременная память</string>
@@ -14,8 +14,10 @@
     <string name="onboarding_feature_knowledge_desc">Загрузите документы и ищите по ним когда угодно</string>
 
     <!-- Step 1: Language & Appearance -->
-    <string name="onboarding_language_title">Язык интерфейса</string>
-    <string name="onboarding_theme_title">Внешний вид темы</string>
+    <string name="onboarding_language_title">Выберите язык.</string>
+    <string name="onboarding_language_subtitle">Интерфейс будет использовать его. Можно сменить в любой момент.</string>
+    <string name="onboarding_theme_title">Выберите облик по вкусу.</string>
+    <string name="onboarding_theme_subtitle">Тему можно менять в настройках.</string>
     <string name="onboarding_lang_zh">Упрощенный китайский</string>
     <string name="onboarding_lang_zh_tw">Традиционный китайский</string>
     <string name="onboarding_lang_en">Английский</string>
@@ -23,14 +25,23 @@
     <string name="onboarding_lang_ko">한국어</string>
 
     <!-- Step 2: Your Name -->
-    <string name="onboarding_names_title">Давайте познакомимся</string>
-    <string name="onboarding_names_user_label">Ваше имя</string>
-    <string name="onboarding_names_agent_label">Имя помощника ИИ</string>
-    <string name="onboarding_names_hint">Имя помощника AI будет применено к помощнику по умолчанию.</string>
+    <string name="onboarding_names_title">Давайте познакомимся.</string>
+    <string name="onboarding_names_subtitle">Ваше имя и его имя — оба можно изменить позже.</string>
+    <string name="onboarding_names_user_label">Как вас называть?</string>
+    <string name="onboarding_names_agent_label">Дайте ему имя</string>
+    <string name="onboarding_names_hint">Применяется к помощнику по умолчанию; изменить можно в любой момент.</string>
+    <string name="onboarding_memory_title">Позвольте вас запомнить.</string>
+    <string name="onboarding_memory_subtitle">Когда включено, разговоры превращаются в долговременную память. Частые обновления памяти снижают попадания в кэш модели (без неё обычно дешевле), зато долгое общение становится намного лучше.</string>
+    <string name="onboarding_memory_switch_title">Включить память</string>
+    <string name="onboarding_memory_switch_subtitle">Сортируется после каждого разговора; отключается в настройках.</string>
 
     <!-- Step 3: Configure Provider -->
-    <string name="onboarding_provider_title">Настройка поставщика AI</string>
-    <string name="onboarding_provider_subtitle">Выберите провайдера и введите свой ключ API.</string>
+    <string name="onboarding_provider_title">Подключите разум.</string>
+    <string name="onboarding_provider_subtitle">Выберите сервис, введите ключ и проверьте соединение. При успехе мы загрузим список моделей и сопоставим их возможности.</string>
+    <string name="onboarding_provider_err_auth">Ошибка авторизации: проверьте API Key.</string>
+    <string name="onboarding_provider_err_empty">Соединение есть, но модели не вернулись — проверьте адрес.</string>
+    <string name="onboarding_provider_err_other">Ошибка подключения: %1$s</string>
+    <string name="onboarding_provider_caps">Возможности сопоставлены: зрение %1$d · рассуждение %2$d · инструменты %3$d</string>
     <string name="onboarding_provider_select_label">Выберите поставщика</string>
     <string name="onboarding_provider_apikey_label">API-ключ</string>
     <string name="onboarding_provider_apikey_input">Введите ключ API</string>
@@ -44,13 +55,14 @@
     <string name="onboarding_provider_custom_baseurl_input">https://api.example.com/v1</string>
 
     <!-- Step 4: Select Model -->
-    <string name="onboarding_model_title">Выберите модель по умолчанию</string>
+    <string name="onboarding_model_title">Выберите основную модель.</string>
+    <string name="onboarding_model_subtitle">Она станет моделью чата по умолчанию; можно сменить позже.</string>
     <string name="onboarding_model_search_label">Поиск моделей</string>
     <string name="onboarding_model_empty_title">Поставщик не настроен</string>
     <string name="onboarding_model_empty_desc">Вы можете настроить поставщика и выбрать модель позже в настройках.</string>
 
     <!-- Step 5: Complete -->
-    <string name="onboarding_complete_title">Все готово</string>
+    <string name="onboarding_complete_title">Готово.</string>
     <string name="onboarding_complete_subtitle">Вот что можно попробовать дальше</string>
     <string name="onboarding_tutorial_chat_title">Ежедневный чат</string>
     <string name="onboarding_tutorial_chat_desc">Текст, фото и файлы: ответы звучат живо</string>
@@ -65,5 +77,5 @@
     <string name="onboarding_button_start">Начать установку</string>
     <string name="onboarding_button_previous">Предыдущий</string>
     <string name="onboarding_button_next">Следующий</string>
-    <string name="onboarding_button_finish">Начать</string>
+    <string name="onboarding_button_finish">Пойдём общаться</string>
 </resources>

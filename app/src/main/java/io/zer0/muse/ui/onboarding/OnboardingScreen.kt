@@ -1,6 +1,12 @@
 package io.zer0.muse.ui.onboarding
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -41,6 +47,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,6 +58,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -59,25 +68,25 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import io.zer0.ai.ProviderRegistry
 import io.zer0.ai.core.Model
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.common.Logger
-import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.preset.PresetProviders
+import io.zer0.muse.data.provider.ProviderModelFetcher
+import io.zer0.muse.ui.settings.ModelAbilityChips
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.PresetThemes
 import io.zer0.muse.ui.theme.pill
 import io.zer0.muse.ui.theme.semiLarge
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 
 // ── 测试连接状态 ──────────────────────────────────────────────
@@ -88,8 +97,16 @@ private sealed class TestStatus {
     data class Error(val message: String) : TestStatus()
 }
 
+/** 拉取失败 → 本地化展示文案。 */
+private fun ProviderModelFetcher.Outcome.Failure.toDisplayMessage(context: android.content.Context): String = when (kind) {
+    ProviderModelFetcher.FailureKind.AUTH -> context.getString(R.string.onboarding_provider_err_auth)
+    ProviderModelFetcher.FailureKind.EMPTY -> context.getString(R.string.onboarding_provider_err_empty)
+    else -> context.getString(R.string.onboarding_provider_err_other, message)
+}
+
 /**
- * 开机引导页面 — 全屏 HorizontalPager，6 步完成初始配置。
+ * 开机引导页面 — 全屏 HorizontalPager,8 步完成初始配置:
+ * 欢迎(多语言问候轮播) → 语言 → 认识 → 记忆 → 接入 → 模型 → 外观 → 出发。
  *
  * 数据流：OnboardingScreen 接收 [onComplete] 回调，内部用 koinInject 获取
  * [SettingsRepository] / [AssistantRepository] / [PresetProviders]，
@@ -104,7 +121,8 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     val assistantRepo: AssistantRepository = koinInject()
     val presetProviders: PresetProviders = koinInject()
     val scope = rememberCoroutineScope()
-    val pagerState = rememberPagerState(pageCount = { 6 })
+    val context = LocalContext.current
+    val pagerState = rememberPagerState(pageCount = { 8 })
     val keyboardController = LocalSoftwareKeyboardController.current
 
     // ── 各步骤状态 ──
@@ -121,6 +139,8 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     var selectedModelId by rememberSaveable { mutableStateOf("") }
     var modelSearchQuery by rememberSaveable { mutableStateOf("") }
     var providerSkipped by rememberSaveable { mutableStateOf(false) }
+    // v2.x: 记忆系统开关(新增步骤;默认开,切换即时落库)
+    var memoryEnabled by rememberSaveable { mutableStateOf(true) }
 
     // 翻页时收起键盘
     LaunchedEffect(pagerState.currentPage) {
@@ -138,7 +158,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
         }
     }
 
-    val pageCount = 6
+    val pageCount = 8
     val currentPage = pagerState.currentPage
 
     Column(
@@ -165,17 +185,12 @@ fun OnboardingScreen(onComplete: () -> Unit) {
         ) { page ->
             when (page) {
                 0 -> StepWelcome()
-                1 -> StepLanguageTheme(
+                1 -> StepLanguage(
                     selectedLanguage = selectedLanguage,
                     onLanguageSelected = { lang ->
                         selectedLanguage = lang
                         // I4: 语言热切换 — 保存后由 RuntimeLocaleProvider 即时重组,不重建 Activity
                         scope.launch { settings.saveLanguage(lang) }
-                    },
-                    selectedThemeId = selectedThemeId,
-                    onThemeSelected = { id ->
-                        selectedThemeId = id
-                        scope.launch { settings.saveThemeId(id) }
                     },
                 )
                 2 -> StepNames(
@@ -184,7 +199,14 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                     agentName = agentName,
                     onAgentNameChange = { agentName = it },
                 )
-                3 -> StepProviderConfig(
+                3 -> StepMemory(
+                    memoryEnabled = memoryEnabled,
+                    onMemoryEnabledChange = { v ->
+                        memoryEnabled = v
+                        scope.launch { settings.saveMemoryEnabled(v) }
+                    },
+                )
+                4 -> StepProviderConfig(
                     presetProviders = presetProviders,
                     selectedPresetId = selectedPresetId,
                     onPresetSelected = { id ->
@@ -212,52 +234,52 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                         testStatus = TestStatus.Loading
                         scope.launch {
                             val config = preset.copy(apiKey = apiKey)
-                            val result = withContext(Dispatchers.IO) {
-                                resultOf {
-                                    ProviderRegistry.create(config).listModels(config)
+                            // v2.x: 统一走 ProviderModelFetcher(URL 多策略补全 + 能力富化 + 缓存),
+                            // 与供应商编辑页同口径 — 任意预置供应商或自定义端点都能拉到清单并匹配能力
+                            when (val outcome = ProviderModelFetcher.fetch(config)) {
+                                is ProviderModelFetcher.Outcome.Success -> {
+                                    fetchedModels = outcome.models
+                                    testStatus = TestStatus.Success(outcome.models)
+                                    if (outcome.models.isNotEmpty()) {
+                                        selectedModelId = outcome.models.first().id
+                                    }
+                                    // 测试成功即落库(幂等),不再依赖"下一步"时机 —
+                                    // 此前测试成功后再点"跳过"会把已填内容静默丢弃。
+                                    val bound = config.copy(
+                                        baseUrl = outcome.usedConfig.baseUrl,
+                                        models = outcome.models,
+                                    )
+                                    settings.upsertProvider(bound)
+                                    settings.setActiveProvider(bound.id)
+                                    if (outcome.models.isNotEmpty()) {
+                                        settings.saveSelectedModel(outcome.models.first().id)
+                                    }
                                 }
-                            }
-                            result.onSuccess { models ->
-                                fetchedModels = models
-                                testStatus = TestStatus.Success(models)
-                                if (models.isNotEmpty()) {
-                                    selectedModelId = models.first().id
+                                is ProviderModelFetcher.Outcome.Failure -> {
+                                    Logger.w("Onboarding", "测试连接失败: ${outcome.kind} ${outcome.message}")
+                                    testStatus = TestStatus.Error(outcome.toDisplayMessage(context))
                                 }
-                                // v2.0 修复: 测试成功即落库(幂等),不再依赖"下一步"时机 —
-                                // 此前测试成功后再点"跳过"会把已填内容静默丢弃。
-                                val bound = config.copy(models = models)
-                                settings.upsertProvider(bound)
-                                settings.setActiveProvider(bound.id)
-                                if (models.isNotEmpty()) {
-                                    settings.saveSelectedModel(models.first().id)
-                                }
-                            }.onError { msg, t ->
-                                Logger.w("Onboarding", "测试连接失败: ${t?.message ?: msg}", t)
-                                testStatus = TestStatus.Error(t?.message ?: "连接失败")
                             }
                         }
                     },
                     onSkip = {
-                        // v2.0 修复: 若已测试成功,先落库再跳 — 用户可能只想跳过"选模型"环节,
-                        // 已配置的供应商不应因跳过而丢失。
+                        // v2.x: 测试成功时配置已在测试环节即时落库;跳过 = 跳过"接入+模型"两步,
+                        // 主题与收尾保留(跳转到"外观"步)。
                         val preset = selectedPreset
                         if (testStatus is TestStatus.Success && preset != null) {
                             scope.launch {
-                                val bound = preset.copy(apiKey = apiKey, models = fetchedModels)
-                                settings.upsertProvider(bound)
-                                settings.setActiveProvider(bound.id)
                                 if (selectedModelId.isNotBlank()) {
                                     settings.saveSelectedModel(selectedModelId)
                                 }
-                                pagerState.animateScrollToPage(5)
+                                pagerState.animateScrollToPage(6)
                             }
                         } else {
                             providerSkipped = true
-                            scope.launch { pagerState.animateScrollToPage(5) }
+                            scope.launch { pagerState.animateScrollToPage(6) }
                         }
                     },
                 )
-                4 -> StepSelectModel(
+                5 -> StepSelectModel(
                     models = fetchedModels,
                     selectedModelId = selectedModelId,
                     onSelectModel = { id ->
@@ -268,16 +290,23 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                     onSearchQueryChange = { modelSearchQuery = it },
                     providerSkipped = providerSkipped,
                 )
-                5 -> StepComplete()
+                6 -> StepTheme(
+                    selectedThemeId = selectedThemeId,
+                    onThemeSelected = { id ->
+                        selectedThemeId = id
+                        scope.launch { settings.saveThemeId(id) }
+                    },
+                )
+                7 -> StepComplete()
             }
         }
 
         // 底部按钮区域
         BottomButtons(
             currentPage = currentPage,
-            // 步骤 3 需测试成功才能下一步
+            // 接入步(4)需测试成功才能下一步
             canGoNext = when (currentPage) {
-                3 -> testStatus is TestStatus.Success
+                4 -> testStatus is TestStatus.Success
                 else -> true
             },
             onPrevious = {
@@ -299,10 +328,8 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                         providerSkipped = providerSkipped,
                     )
                     val targetPage = when {
-                        // 步骤 3 → 若跳过则直接到步骤 5
-                        currentPage == 3 && providerSkipped -> 5
-                        // 步骤 4 → 若无供应商则直接到步骤 5
-                        currentPage == 4 && providerSkipped -> 5
+                        // 接入步(4)→ 若已跳过配置则直接去"外观"(6),顺带跳过模型步
+                        currentPage == 4 && providerSkipped -> 6
                         else -> currentPage + 1
                     }
                     pagerState.animateScrollToPage(targetPage)
@@ -367,6 +394,20 @@ private fun ProgressDots(
 }
 
 // ── 步骤 0：欢迎页 ──────────────────────────────────────────────
+/**
+ * 问候语轮播表 — 跟随支持的语言逐条切换(中文优先,其次英文,其余顺序轮转)。
+ * 每条本身就是对应语言的原文,不走资源本地化。
+ */
+private val WELCOME_GREETINGS = listOf(
+    "嗨，终于见面了。",
+    "Hi, nice to meet you.",
+    "はじめまして。",
+    "반가워요.",
+    "Hola, encantado.",
+    "Olá, prazer.",
+    "Привет, рады знакомству.",
+)
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StepWelcome() {
@@ -377,6 +418,28 @@ private fun StepWelcome() {
         FeatureItem(MuseIcons.bookOpen, stringResource(R.string.onboarding_feature_knowledge_title), stringResource(R.string.onboarding_feature_knowledge_desc)),
     )
 
+    // v2.x: 多语言问候轮播 — 每 2.6s 换一条,像开机欢迎屏一样安静地“换语言”
+    var greetingIndex by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(2600)
+            greetingIndex = (greetingIndex + 1) % WELCOME_GREETINGS.size
+        }
+    }
+    // 首次入场:logo 与问候语轻微浮现(无弹跳,只做透明度 + 微缩放)
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { entered = true }
+    val logoAlpha by animateFloatAsState(
+        targetValue = if (entered) 1f else 0f,
+        animationSpec = MuseMotion.tween(600),
+        label = "welcomeLogoAlpha",
+    )
+    val logoScale by animateFloatAsState(
+        targetValue = if (entered) 1f else 0.94f,
+        animationSpec = MuseMotion.tween(700),
+        label = "welcomeLogoScale",
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -385,11 +448,17 @@ private fun StepWelcome() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        // 品牌图标:使用项目图标
+        // 品牌图标:使用项目图标(带入场浮现)
         Surface(
             shape = MuseShapes.large,
             color = MaterialTheme.colorScheme.surfaceContainer,
-            modifier = Modifier.size(96.dp),
+            modifier = Modifier
+                .size(96.dp)
+                .graphicsLayer {
+                    alpha = logoAlpha
+                    scaleX = logoScale
+                    scaleY = logoScale
+                },
         ) {
             Image(
                 painter = painterResource(R.drawable.ic_muse_logo),
@@ -408,6 +477,36 @@ private fun StepWelcome() {
             ),
             color = MaterialTheme.colorScheme.onSurface,
         )
+        Spacer(modifier = Modifier.height(MusePaddings.contentGap))
+        // 多语言问候轮播 — 交叉淡入 + 轻微上浮,高度锁定避免跳动
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 64.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            // 过渡 spec 需在组合上下文里构建(MuseMotion 依赖动静设置),不能在 transitionSpec lambda 内取
+            val greetingFadeInSpec = MuseMotion.tween<Float>(520, easing = MuseAnimation.EaseOutCubic)
+            val greetingSlideSpec = MuseMotion.tween<IntOffset>(520, easing = MuseAnimation.EaseOutCubic)
+            val greetingExitSpec = MuseMotion.tween<Float>(360)
+            AnimatedContent(
+                targetState = greetingIndex,
+                transitionSpec = {
+                    (
+                        fadeIn(greetingFadeInSpec) +
+                            slideInVertically(greetingSlideSpec) { h -> h / 5 }
+                        ).togetherWith(fadeOut(greetingExitSpec))
+                },
+                label = "welcomeGreeting",
+            ) { index ->
+                Text(
+                    text = WELCOME_GREETINGS[index],
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(MusePaddings.tightGap))
         Text(
             text = stringResource(R.string.onboarding_welcome_subtitle),
@@ -469,13 +568,11 @@ private fun FeatureChip(
     }
 }
 
-// ── 步骤 1：语言与外观 ──────────────────────────────────────────
+// ── 步骤 1：语言 ────────────────────────────────────────────────
 @Composable
-private fun StepLanguageTheme(
+private fun StepLanguage(
     selectedLanguage: String,
     onLanguageSelected: (String) -> Unit,
-    selectedThemeId: String,
-    onThemeSelected: (String) -> Unit,
 ) {
     val languages = listOf(
         "zh" to stringResource(R.string.onboarding_lang_zh),
@@ -493,10 +590,16 @@ private fun StepLanguageTheme(
     ) {
         Text(
             text = stringResource(R.string.onboarding_language_title),
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(modifier = Modifier.height(MusePaddings.contentGap))
+        Text(
+            text = stringResource(R.string.onboarding_language_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(MusePaddings.itemGap))
         languages.forEach { (code, label) ->
             LanguageCard(
                 label = label,
@@ -505,14 +608,33 @@ private fun StepLanguageTheme(
             )
             Spacer(modifier = Modifier.height(MusePaddings.contentGap))
         }
+    }
+}
 
-        Spacer(modifier = Modifier.height(MusePaddings.sectionGap))
+// ── 步骤 6：外观 ────────────────────────────────────────────────
+@Composable
+private fun StepTheme(
+    selectedThemeId: String,
+    onThemeSelected: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = MusePaddings.screen),
+    ) {
         Text(
             text = stringResource(R.string.onboarding_theme_title),
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(modifier = Modifier.height(MusePaddings.contentGap))
+        Text(
+            text = stringResource(R.string.onboarding_theme_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(MusePaddings.itemGap))
         // 12 套主题网格（3 列 x 4 行）
         PresetThemes.chunked(3).forEach { rowThemes ->
             Row(
@@ -650,6 +772,12 @@ private fun StepNames(
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
+        Spacer(modifier = Modifier.height(MusePaddings.contentGap))
+        Text(
+            text = stringResource(R.string.onboarding_names_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Spacer(modifier = Modifier.height(MusePaddings.sectionGap))
         // v1.0.28: label 放到输入框上方,避免 OutlinedTextField 内部 label 的白色背景块
         Text(
@@ -688,7 +816,77 @@ private fun StepNames(
     }
 }
 
-// ── 步骤 3：配置供应商 ──────────────────────────────────────────
+// ── 步骤 3：记忆 ────────────────────────────────────────────────
+@Composable
+private fun StepMemory(
+    memoryEnabled: Boolean,
+    onMemoryEnabledChange: (Boolean) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = MusePaddings.screen),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = stringResource(R.string.onboarding_memory_title),
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(modifier = Modifier.height(MusePaddings.contentGap))
+        Text(
+            text = stringResource(R.string.onboarding_memory_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(MusePaddings.itemGap))
+        // 记忆开关卡片:标题 + 一行说明 + 右侧 Switch
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MuseShapes.semiLarge,
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = BorderStroke(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            ),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(MusePaddings.cardInner),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = MuseIcons.atom,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.width(MusePaddings.iconPadding))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.onboarding_memory_switch_title),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(modifier = Modifier.height(MusePaddings.tightGap))
+                    Text(
+                        text = stringResource(R.string.onboarding_memory_switch_subtitle),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Spacer(modifier = Modifier.width(MusePaddings.contentGap))
+                Switch(
+                    checked = memoryEnabled,
+                    onCheckedChange = onMemoryEnabledChange,
+                )
+            }
+        }
+    }
+}
+
+// ── 步骤 4：配置供应商 ──────────────────────────────────────────
 @Composable
 private fun StepProviderConfig(
     presetProviders: PresetProviders,
@@ -862,6 +1060,16 @@ private fun StepProviderConfig(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
+                // v2.x: 能力匹配摘要 — 证明"拉取到的清单已经带上能力信息"(视觉/推理/工具)
+                val visionCount = testStatus.models.count { it.supportsVisionInput() }
+                val reasoningCount = testStatus.models.count { it.supportsReasoning() }
+                val toolCount = testStatus.models.count { it.supportsToolCalling() }
+                Spacer(modifier = Modifier.height(MusePaddings.tightGap))
+                Text(
+                    text = stringResource(R.string.onboarding_provider_caps, visionCount, reasoningCount, toolCount),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             is TestStatus.Error -> {
                 Spacer(modifier = Modifier.height(MusePaddings.contentGap))
@@ -1015,6 +1223,9 @@ private fun ModelItem(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Spacer(modifier = Modifier.height(MusePaddings.tightGap))
+                // v2.x: 能力徽章 — 与供应商编辑页同口径(复用同一组件)
+                ModelAbilityChips(model = model)
             }
             if (selected) {
                 Icon(
@@ -1252,8 +1463,8 @@ private fun BottomButtons(
                         .padding(MusePaddings.screen),
                 )
             }
-            // 步骤 5：只有"开始使用"按钮（居中）
-            5 -> {
+            // 步骤 7：只有"开始使用"按钮（居中）
+            7 -> {
                 // v2.0 修复: Surface 内部为 Box,两个按钮直接并列会叠画导致文字重叠 —
                 // 改为垂直排列(主按钮在上、游客入口在下)。
                 Column(
@@ -1270,7 +1481,7 @@ private fun BottomButtons(
                     )
                 }
             }
-            // 步骤 1-4：左边"上一步"，右边"下一步"
+            // 步骤 1-6：左边"上一步"，右边"下一步"
             else -> {
                 Row(
                     modifier = Modifier
@@ -1304,10 +1515,10 @@ private fun BottomButtons(
  *
  * 各步骤对应的保存逻辑：
  *  - 步骤 2：保存用户名（mockLogin）+ 更新默认助手名字
- *  - 步骤 3：创建并保存 ProviderConfig + 设置激活供应商
- *  - 步骤 4：保存选中的模型 id
+ *  - 步骤 4：创建并保存 ProviderConfig + 设置激活供应商
+ *  - 步骤 5：保存选中的模型 id
  *
- * 语言（步骤 1）和主题（步骤 1）在用户选择时即时保存，此处不重复。
+ * 语言(步骤 1)/记忆开关(步骤 3)/主题(步骤 6)在用户操作时即时保存，此处不重复。
  */
 private suspend fun saveStepData(
     currentPage: Int,
@@ -1340,7 +1551,7 @@ private suspend fun saveStepData(
                 ),
             )
         }
-        3 -> {
+        4 -> {
             // 创建并保存供应商配置（仅当测试成功且未跳过时）
             // v1.0.18: allowMissingApiKey 供应商(如 SiliconFlow 免费)允许不填 key 保存
             // v2.0: 改用 upsert 幂等保存 — 测试成功时已即时落库,此处为翻页兑底,避免重复条目
@@ -1355,7 +1566,7 @@ private suspend fun saveStepData(
                 settings.setActiveProvider(config.id)
             }
         }
-        4 -> {
+        5 -> {
             // 保存选中的模型
             settings.saveSelectedModel(selectedModelId.ifBlank { null })
         }

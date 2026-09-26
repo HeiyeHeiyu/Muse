@@ -3,7 +3,7 @@
     <!-- ===== ui/onboarding ===== Boot onboarding -->
     <!-- Step 0: Welcome -->
     <string name="onboarding_welcome_title">Musa</string>
-    <string name="onboarding_welcome_subtitle">Un compañero que recuerda y ayuda</string>
+    <string name="onboarding_welcome_subtitle">Un compañero que recuerda y ayuda. Dos minutos para hacerlo tuyo.</string>
     <string name="onboarding_feature_chat_title">Chat de IA</string>
     <string name="onboarding_feature_chat_desc">Las respuestas aparecen mientras se escriben</string>
     <string name="onboarding_feature_memory_title">Memoria a largo plazo</string>
@@ -14,8 +14,10 @@
     <string name="onboarding_feature_knowledge_desc">Suelta tus documentos y consúltalos cuando quieras</string>
 
     <!-- Step 1: Language & Appearance -->
-    <string name="onboarding_language_title">Idioma de la interfaz</string>
-    <string name="onboarding_theme_title">Apariencia del tema</string>
+    <string name="onboarding_language_title">Elige un idioma.</string>
+    <string name="onboarding_language_subtitle">La interfaz lo usará. Cámbialo cuando quieras.</string>
+    <string name="onboarding_theme_title">Elige un aspecto que te guste.</string>
+    <string name="onboarding_theme_subtitle">Puedes cambiarlo cuando quieras en Ajustes.</string>
     <string name="onboarding_lang_zh">Chino simplificado</string>
     <string name="onboarding_lang_zh_tw">Chino tradicional</string>
     <string name="onboarding_lang_en">Inglés</string>
@@ -23,14 +25,23 @@
     <string name="onboarding_lang_ko">한국어</string>
 
     <!-- Step 2: Your Name -->
-    <string name="onboarding_names_title">Vamos a conocernos</string>
-    <string name="onboarding_names_user_label">Su nombre</string>
-    <string name="onboarding_names_agent_label">Nombre del asistente de IA</string>
-    <string name="onboarding_names_hint">El nombre del asistente AI se aplicará al asistente predeterminado.</string>
+    <string name="onboarding_names_title">Vamos a conocernos.</string>
+    <string name="onboarding_names_subtitle">Tu nombre y el suyo — ambos se pueden cambiar después.</string>
+    <string name="onboarding_names_user_label">¿Cómo te llamo?</string>
+    <string name="onboarding_names_agent_label">Ponle un nombre</string>
+    <string name="onboarding_names_hint">Se aplica a tu asistente predeterminado; cámbialo cuando quieras.</string>
+    <string name="onboarding_memory_title">Déjame recordarte.</string>
+    <string name="onboarding_memory_subtitle">Con esto activado, las conversaciones se organizan en memoria a largo plazo. Las actualizaciones frecuentes reducen el acierto de caché del modelo (desactivarlo suele ser más barato), pero la compañía a largo plazo mejora mucho.</string>
+    <string name="onboarding_memory_switch_title">Activar memoria</string>
+    <string name="onboarding_memory_switch_subtitle">Se organiza al terminar cada charla; desactívalo cuando quieras.</string>
 
     <!-- Step 3: Configure Provider -->
-    <string name="onboarding_provider_title">Configurar proveedor de IA</string>
-    <string name="onboarding_provider_subtitle">Seleccione un proveedor e ingrese su clave API.</string>
+    <string name="onboarding_provider_title">Conecta un cerebro.</string>
+    <string name="onboarding_provider_subtitle">Elige un servicio, introduce tu clave y prueba la conexión. Al conectar, se obtiene la lista de modelos y se emparejan sus capacidades.</string>
+    <string name="onboarding_provider_err_auth">Autenticación fallida: revisa tu API Key.</string>
+    <string name="onboarding_provider_err_empty">Conectado, pero el servidor no devolvió modelos — revisa la dirección.</string>
+    <string name="onboarding_provider_err_other">Conexión fallida: %1$s</string>
+    <string name="onboarding_provider_caps">Capacidades detectadas: Visión %1$d · Razonamiento %2$d · Herramientas %3$d</string>
     <string name="onboarding_provider_select_label">Seleccionar Proveedor</string>
     <string name="onboarding_provider_apikey_label">Clave API</string>
     <string name="onboarding_provider_apikey_input">Ingrese la clave API</string>
@@ -44,13 +55,14 @@
     <string name="onboarding_provider_custom_baseurl_input">https://api.example.com/v1</string>
 
     <!-- Step 4: Select Model -->
-    <string name="onboarding_model_title">Seleccionar modelo predeterminado</string>
+    <string name="onboarding_model_title">Elige un modelo principal.</string>
+    <string name="onboarding_model_subtitle">Será tu modelo de chat predeterminado; cámbialo cuando quieras.</string>
     <string name="onboarding_model_search_label">Buscar modelos</string>
     <string name="onboarding_model_empty_title">Ningún proveedor configurado</string>
     <string name="onboarding_model_empty_desc">Puede configurar un proveedor y seleccionar un modelo más adelante en Configuración.</string>
 
     <!-- Step 5: Complete -->
-    <string name="onboarding_complete_title">Listo</string>
+    <string name="onboarding_complete_title">Todo listo.</string>
     <string name="onboarding_complete_subtitle">Algunas cosas para probar</string>
     <string name="onboarding_tutorial_chat_title">Chat diario</string>
     <string name="onboarding_tutorial_chat_desc">Envía texto, fotos o archivos; respuestas naturales</string>
@@ -65,5 +77,5 @@
     <string name="onboarding_button_start">Iniciar configuración</string>
     <string name="onboarding_button_previous">Anterior</string>
     <string name="onboarding_button_next">Próximo</string>
-    <string name="onboarding_button_finish">Empezar</string>
+    <string name="onboarding_button_finish">Vamos a charlar</string>
 </resources>
