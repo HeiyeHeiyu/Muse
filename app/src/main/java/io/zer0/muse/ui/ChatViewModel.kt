@@ -22,6 +22,7 @@ import io.zer0.ai.core.inferFromMessage
 import io.zer0.ai.image.ImageService
 import io.zer0.common.AppDispatchers
 import io.zer0.common.Logger
+import io.zer0.common.Perf
 import io.zer0.common.resultOf
 import io.zer0.memory.ticker.MemoryTicker
 import io.zer0.muse.util.ErrorMessages
@@ -4498,6 +4499,8 @@ class ChatViewModel(
                             val isFirstToken = firstTokenTime == 0L
                             if (isFirstToken) {
                                 firstTokenTime = System.currentTimeMillis()
+                                // P3-9: 首字耗时埋点 — 从本轮生成启动到首个正文 token 的间隔
+                                Perf.log("chat-first-token", firstTokenTime - streamStartedAt)
                                 // 立即清除"等待首 token"状态,ShimmerBubble 消失,StreamingCursor 接管
                                 // F-10: 首 token 到达 → STREAMING
                                 _state.update {
@@ -4565,6 +4568,8 @@ class ChatViewModel(
                             val isFirstToken = firstTokenTime == 0L
                             if (isFirstToken) {
                                 firstTokenTime = System.currentTimeMillis()
+                                // P3-9: 首字耗时埋点(reasoning 首 token 同样计入)
+                                Perf.log("chat-first-token", firstTokenTime - streamStartedAt)
                                 _state.update { it.copy(isWaitingFirstToken = false) }
                             }
                             params.reasoningBuilder.append(event.delta)

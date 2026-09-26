@@ -56,6 +56,33 @@ interface AutomationExecutor {
         durationMs: Long = 400,
     ): Boolean
 
+    /**
+     * v2.x: 双指缩放(pinch) — 两指以 (centerX, centerY) 为中心对称开合。
+     *
+     * @param startDistance 起始两指间距(像素)
+     * @param endDistance 结束两指间距(像素);大 = 放大,小 = 缩小
+     * 默认不支持(仅无障碍层实现;Shell/Root 的 input 命令无多指注入能力)。
+     */
+    suspend fun pinch(
+        centerX: Int, centerY: Int,
+        startDistance: Int, endDistance: Int,
+        durationMs: Long = 300,
+    ): Boolean = false
+
+    /**
+     * v2.x: 多段滑动 — 单指依次经过多个路径点(解锁图案/复杂拖拽)。
+     * 默认实现降级为首点 → 末点单段滑动;无障碍层为精确逐点实现。
+     */
+    suspend fun swipePath(
+        points: List<Pair<Int, Int>>,
+        durationMs: Long = 400,
+    ): Boolean {
+        if (points.size < 2) return false
+        val first = points.first()
+        val last = points.last()
+        return swipe(first.first, first.second, last.first, last.second, durationMs)
+    }
+
     /** 输入文本(往当前聚焦的输入框写入)。 */
     suspend fun inputText(text: String): Boolean
 

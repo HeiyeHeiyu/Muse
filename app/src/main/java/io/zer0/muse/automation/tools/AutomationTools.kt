@@ -150,6 +150,60 @@ class AutomationTools(
 
         registry.register(
             ToolRegistry.ToolDef(
+                name = "screen_pinch",
+                description = "双指缩放手势(放大/缩小)。两指以 (center_x, center_y) 为中心对称开合。" +
+                    "需要无障碍通道;Shizuku/Root 的 input 命令不支持多指。",
+                parameters = mapOf(
+                    "center_x" to "必填,缩放中心 X 坐标",
+                    "center_y" to "必填,缩放中心 Y 坐标",
+                    "scale" to "必填,缩放倍数(>1 放大,<1 缩小),如 2.0 / 0.5",
+                    "duration_ms" to "可选,手势时长(毫秒),默认 300",
+                ),
+                required = setOf("center_x", "center_y", "scale"),
+                riskLevel = ToolRiskLevel.HIGH,
+            ),
+        ) { args ->
+            val cx = args["center_x"]?.toIntOrNull() ?: return@register "错误:center_x 必须是整数"
+            val cy = args["center_y"]?.toIntOrNull() ?: return@register "错误:center_y 必须是整数"
+            val scale = args["scale"]?.toFloatOrNull() ?: return@register "错误:scale 必须是数字"
+            if (scale <= 0f) return@register "错误:scale 必须大于 0"
+            val dur = args["duration_ms"]?.toLongOrNull() ?: 300L
+            // 以 300px 为基准指距,按 scale 换算起止指距(有界,防越界)
+            val base = 300
+            val end = (base * scale).toInt().coerceIn(60, 2000)
+            if (manager.pinch(cx, cy, base, end, dur)) "已缩放 (scale=$scale)" else "缩放失败(需要无障碍通道)"
+        }
+
+        registry.register(
+            ToolRegistry.ToolDef(
+                name = "screen_swipe_path",
+                description = "多段滑动:单指依次经过多个路径点(至少 2 个),适合解锁图案/复杂拖拽。",
+                parameters = mapOf(
+                    "points" to "必填,路径点列表,格式 \"x1,y1;x2,y2;x3,y3\"(至少 2 个点)",
+                    "duration_ms" to "可选,总时长(毫秒),默认 400",
+                ),
+                required = setOf("points"),
+                riskLevel = ToolRiskLevel.HIGH,
+            ),
+        ) { args ->
+            val raw = args["points"] ?: return@register "错误:缺少 points"
+            val points = raw.split(";").mapNotNull { seg ->
+                val p = seg.split(",")
+                if (p.size == 2) {
+                    val x = p[0].trim().toIntOrNull() ?: return@mapNotNull null
+                    val y = p[1].trim().toIntOrNull() ?: return@mapNotNull null
+                    x to y
+                } else {
+                    null
+                }
+            }
+            if (points.size < 2) return@register "错误:至少需要 2 个合法点(格式 x,y;x,y)"
+            val dur = args["duration_ms"]?.toLongOrNull() ?: 400L
+            if (manager.swipePath(points, dur)) "已执行 ${points.size} 点路径滑动" else "路径滑动失败"
+        }
+
+        registry.register(
+            ToolRegistry.ToolDef(
                 name = "screen_input",
                 description = "往当前聚焦的输入框输入文字(支持中文)。输入前应先点击输入框使其聚焦。",
                 parameters = mapOf(

@@ -123,6 +123,12 @@ class TtsManager(
     val initFailedState: StateFlow<Boolean> = _initFailed.asStateFlow()
     private var currentUtteranceId: String? = null
 
+    /**
+     * v2.x: 排队追加缓冲 — speak(flush=false) 且正在播放时,新分片段挂到此队列,
+     * 当前段播完后按序继续(如"依次朗读多条消息"场景)。停止/打断时清空。
+     */
+    private val pendingTail = ArrayDeque<Pair<List<String>, String>>()
+
     /** v0.52: 流式朗读的句子缓冲(等完整句子再交给 TTS,避免 token 级断句拗口)。 */
     private val sentenceBuffer = StringBuilder()
 
@@ -410,7 +416,7 @@ class TtsManager(
      *
      * @param text 待朗读的纯文本(含 Markdown 会被 [stripMarkdown] 清理)
      * @param utteranceId 跟踪 id(通常传消息 id,用于 UI 切换图标)
-     * @param flush true 打断旧请求(默认);false 排队追加(暂未使用,保留接口)
+     * @param flush true 打断旧请求(默认);false 排队追加(正在播放时当前段播完续播)
      * @return true 已开始播放;false TTS 未就绪或文本为空
      */
     fun speak(text: String, utteranceId: String, flush: Boolean = true): Boolean {
@@ -427,12 +433,21 @@ class TtsManager(
         sentenceBuffer.clear()
         val clean = MoodSkinParser.cleanForExport(stripMarkdown(text)).trim()
         if (clean.isEmpty()) return false
-        // 新请求打断旧请求(flush 默认 true)
-        if (flush) stopInternal(resetState = false)
-        currentUtteranceId = utteranceId
         // 用 TextChunker 按标点分片
         val chunks = TextChunker.chunk(clean)
         if (chunks.isEmpty()) return false
+        // 新请求处理:
+        // - flush=true(默认): 打断旧请求,立即播新内容
+        // - flush=false: 若正在播放,当前段播完后接着播(排队追加),不打断
+        if (flush) {
+            stopInternal(resetState = false)
+            pendingTail.clear()
+        } else if (playbackJob?.isActive == true) {
+            pendingTail.addLast(chunks to utteranceId)
+            Logger.d("TtsManager", "speak(flush=false): 排队追加 ${chunks.size} 片,队列深度=${pendingTail.size}")
+            return true
+        }
+        currentUtteranceId = utteranceId
         currentChunks = chunks
         // 标记朗读开始(UI 高亮)
         onStateChange?.invoke(utteranceId, true)
@@ -460,28 +475,56 @@ class TtsManager(
                     durationMs = 0L,
                 )
             }
-            for ((index, chunk) in chunks.withIndex()) {
-                if (!isActive) return@launch
-                updateState { it.copy(currentChunkIndex = index, positionMs = 0L, durationMs = 0L) }
-                // 合成到临时 wav 文件
-                val file = File(cacheDir, "tts_chunk_${utteranceId}_$index.wav")
-                // L-SP3 修复: 用 try-finally 确保临时 wav 文件在任何路径下都被清理,
-                // 含: 合成失败(continue)、协程取消(CancellationException 传播时 finally 执行)、
-                // 正常播放完成。原先仅在各分支末尾手动 file.delete(),取消路径会漏删。
-                try {
-                    val ok = synthesizeToFile(chunk, file)
-                    if (!ok) continue
-                    if (!isActive) return@launch
-                    // 用 MediaPlayer 播放(暂停时协程挂起在 await completion)
-                    playWithMediaPlayer(file)
-                } finally {
-                    file.delete()
+            // v2.x: 排队追加支持 — 主体按段播放,段间消费 [pendingTail](flush=false 追加的后续分段)
+            var segment = chunks
+            var segmentUtterance = utteranceId
+            while (isActive) {
+                playChunks(segment, segmentUtterance)
+                val next = if (isActive) pendingTail.removeFirstOrNull() else null
+                if (next == null) break
+                segment = next.first
+                segmentUtterance = next.second
+                currentUtteranceId = segmentUtterance
+                currentChunks = segment
+                updateState {
+                    it.copy(
+                        currentChunkIndex = 0,
+                        totalChunks = segment.size,
+                        positionMs = 0L,
+                        durationMs = 0L,
+                    )
                 }
+                onStateChange?.invoke(segmentUtterance, true)
             }
             // 全部播完
-            updateState { it.copy(status = PlaybackStatus.Ended, positionMs = it.durationMs) }
-            currentUtteranceId = null
-            onStateChange?.invoke(utteranceId, false)
+            if (isActive) {
+                updateState { it.copy(status = PlaybackStatus.Ended, positionMs = it.durationMs) }
+                currentUtteranceId = null
+                onStateChange?.invoke(segmentUtterance, false)
+            }
+        }
+    }
+
+    /**
+     * v2.x: 播放一段分片(合成一片 → 播一片),供 [startPlayback] 主路径与排队续播共用。
+     *
+     * L-SP3: 用 try-finally 确保临时 wav 文件在任何路径下都被清理,
+     * 含: 合成失败(continue)、协程取消(CancellationException 传播时 finally 执行)、正常播放完成。
+     * 取消由 suspend 调用链自然传播(synthesizeToFile / playWithMediaPlayer),无需显式检查。
+     */
+    private suspend fun playChunks(chunks: List<String>, utteranceId: String) {
+        for ((index, chunk) in chunks.withIndex()) {
+            updateState { it.copy(currentChunkIndex = index, positionMs = 0L, durationMs = 0L) }
+            // 合成到临时 wav 文件
+            val file = File(cacheDir, "tts_chunk_${utteranceId}_$index.wav")
+            try {
+                val ok = synthesizeToFile(chunk, file)
+                if (!ok) continue
+                // 用 MediaPlayer 播放(暂停时协程挂起在 await completion)
+                playWithMediaPlayer(file)
+            } finally {
+                file.delete()
+            }
         }
     }
 
@@ -1124,6 +1167,8 @@ class TtsManager(
 
     /** v1.4: 内部停止 — resetState=true 时把 playbackState 重置为 Idle(对外停止)。 */
     private fun stopInternal(resetState: Boolean) {
+        // v2.x: 停止即清空排队追加缓冲(不再续播)
+        pendingTail.clear()
         stopPlayback()
         stopCloudStream()
         // 停流式朗读

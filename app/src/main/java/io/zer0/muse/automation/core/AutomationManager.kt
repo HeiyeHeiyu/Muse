@@ -162,6 +162,38 @@ class AutomationManager(
         else root.swipe(x1, y1, x2, y2, durationMs)
     }
 
+    /**
+     * v2.x: 双指缩放 — 无障碍 dispatchGesture 双指实现;
+     * Shell/Root 的 input 命令无多指注入能力,不可用时返回 false。
+     */
+    suspend fun pinch(
+        centerX: Int, centerY: Int,
+        startDistance: Int, endDistance: Int,
+        durationMs: Long = 300,
+    ): Boolean = mutex.withLock {
+        if (accessibility.isAvailable()) {
+            accessibility.pinch(centerX, centerY, startDistance, endDistance, durationMs)
+        } else {
+            false
+        }
+    }
+
+    /** v2.x: 多段滑动 — 无障碍精确逐点;其余层降级首末两点直滑。 */
+    suspend fun swipePath(
+        points: List<Pair<Int, Int>>,
+        durationMs: Long = 400,
+    ): Boolean = mutex.withLock {
+        if (points.size < 2) return@withLock false
+        if (accessibility.isAvailable()) return@withLock accessibility.swipePath(points, durationMs)
+        val first = points.first()
+        val last = points.last()
+        if (shell.isAvailable()) {
+            shell.swipe(first.first, first.second, last.first, last.second, durationMs)
+        } else {
+            root.swipe(first.first, first.second, last.first, last.second, durationMs)
+        }
+    }
+
     /** 输入文本。 */
     suspend fun inputText(text: String): Boolean = mutex.withLock {
         if (accessibility.isAvailable()) accessibility.inputText(text)

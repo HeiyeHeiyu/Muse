@@ -206,6 +206,22 @@ class RootExecutor(
      * Supports global/secure/system namespace via prefix: `global:name`, `secure:name`, `system:name`.
      * Without prefix defaults to `secure:`.
      */
+    /**
+     * v2.x: 切换无线网络开关(`svc wifi|data enable|disable`)。
+     *
+     * 白名单仅 wifi / data;其余服务返回 null(调用方按"不支持"处理)。
+     * 命令为固定拼接,无用户输入注入面。需 root。
+     */
+    suspend fun svcToggle(service: String, enabled: Boolean): Boolean? {
+        val svc = service.trim().lowercase()
+        if (svc != "wifi" && svc != "data") {
+            Logger.w(TAG, "svcToggle 拒绝: 不支持的服务 $service")
+            return null
+        }
+        val action = if (enabled) "enable" else "disable"
+        return exec("svc $svc $action").isSuccess
+    }
+
     suspend fun settingsGet(name: String): String? {
         // v2.0.1: 支持 "namespace:name"(如 secure:location_mode);无前缀默认 secure。
         val idx = name.indexOf(':')

@@ -46,6 +46,8 @@ class ToolExecutionPolicy(
         TIME_BUDGET_EXHAUSTED,
         /** 同一 (工具名+参数) 连续重复调用超限(调用风暴指纹)。 */
         REPEATED_IDENTICAL_CALL,
+        /** P2-7: 单 turn 工具输出累计字符超限(结果回填风暴)。 */
+        MAX_TOTAL_OUTPUT_CHARS,
     }
 
     /** 单次调用放行决策。 */
@@ -65,6 +67,18 @@ class ToolExecutionPolicy(
 
     /** 当前累计调用次数(观测用)。 */
     val executedCalls: Int get() = totalCalls
+
+    // P2-7: turn 级工具输出累计字符(结果回填预算) — 单次输出由 [clampOutput] 截断,
+    // 这里累计整个 turn 的实际回填字符,轮次开头校验是否撑爆预算。
+    private var outputCharsAccum = 0
+
+    /** 当前 turn 累计工具输出字符数(预算/观测用)。 */
+    val totalOutputChars: Int get() = outputCharsAccum
+
+    /** 累加一条工具结果实际回填到上下文的字符数(调用方传入截断后的长度)。 */
+    fun recordOutputChars(chars: Int) {
+        if (chars > 0) outputCharsAccum += chars
+    }
 
     // M3.3: turn 级结果统计(非预算,供 ToolLoopResult 快照取值)。由 ToolOrchestrator 记录,
     // 避免 Orchestrator 再维护 totalToolCallCount/totalCharCount 两套可变计数。
@@ -184,6 +198,33 @@ class ToolExecutionPolicy(
     }
 
     /**
+     * P2-7: 每轮循环开头的剩余预算校验(轮次之外的全部 turn 级维度)。
+     *
+     * 与 [beforeExecute](单次调用前)的区别:本方法在"新一轮 LLM 请求发出前"调用,
+     * 任一项已耗尽即提前收尾,避免再浪费一次必然被拦截的模型往返。
+     * 轮次上限由 ToolOrchestrator 的 while 条件负责,不在本方法内重复。
+     *
+     * @param nowMs 当前时间(测试可注入)
+     * @return 放行,或携带首个命中的终止原因
+     */
+    fun checkRoundBudget(nowMs: Long = System.currentTimeMillis()): Decision {
+        val elapsedMs = nowMs - startedAtMs
+        val budgetMs = limits.totalBudgetMs
+        return listOf(
+            blocked(StopReason.MAX_TOTAL_CALLS, "totalCalls=$totalCalls max=${limits.maxTotalCalls}")
+                .takeIf { totalCalls >= limits.maxTotalCalls },
+            blocked(
+                StopReason.MAX_TOTAL_OUTPUT_CHARS,
+                "totalOutputChars=$outputCharsAccum max=${limits.maxTotalOutputChars}",
+            ).takeIf { outputCharsAccum >= limits.maxTotalOutputChars },
+            blocked(StopReason.CONSECUTIVE_FAILURES, "consecutiveFailures=$consecutiveFailures")
+                .takeIf { consecutiveFailures >= limits.maxConsecutiveFailures },
+            blocked(StopReason.TIME_BUDGET_EXHAUSTED, "elapsedMs=$elapsedMs budget=$budgetMs")
+                .takeIf { budgetMs != null && elapsedMs > budgetMs },
+        ).firstOrNull { it != null } ?: Decision(allowed = true)
+    }
+
+    /**
      * M3.2: 输出大小上限。超限截断并附注说明,防止单个工具结果
      * 撑爆下一轮 LLM 上下文(读大文件/网页抓取场景)。
      *
@@ -228,4 +269,11 @@ data class ToolExecutionLimits(
     val totalBudgetMs: Long? = null,
     /** 单条工具结果输出上限(字符);超出截断。 */
     val maxOutputChars: Int = 200_000,
+    /**
+     * P2-7: 单 turn 工具输出累计字符上限(结果回填风暴兜底)。
+     *
+     * 默认取宽松值(约 60 次调用 × 16K 均长),正常多轮工具任务不会命中,
+     * 仅拦住"反复读大文件/抓长网页"把上下文推向必然超限的极端场景。
+     */
+    val maxTotalOutputChars: Int = 1_000_000,
 )

@@ -43,6 +43,8 @@ val appRagModule = module {
                             docTitle = titles[chunk.docId] ?: "Unknown",
                             content = chunk.content, embedding = chunk.embedding,
                             embeddingBlob = chunk.embeddingBlob, chunkIndex = chunk.chunkIndex,
+                            // B4-03: 透传元数据/时间戳,供 metadataFilter 在混合检索的向量链路内过滤
+                            metadataJson = chunk.metadataJson, createdAt = chunk.createdAt,
                         )
                     }
                 },
@@ -67,6 +69,8 @@ val appRagModule = module {
                             docTitle = titles[chunk.docId] ?: "Unknown",
                             content = chunk.content, embedding = chunk.embedding,
                             embeddingBlob = chunk.embeddingBlob, chunkIndex = chunk.chunkIndex,
+                            // B4-03: 透传元数据/时间戳,供 metadataFilter 在定向检索内过滤
+                            metadataJson = chunk.metadataJson, createdAt = chunk.createdAt,
                         )
                     }
                 },
@@ -82,6 +86,9 @@ val appRagModule = module {
                         docTitle = titles[chunk.docId] ?: "Unknown",
                         content = chunk.content,
                         chunkIndex = chunk.chunkIndex,
+                        // B4-03: 透传元数据/时间戳,供 HybridSearchService 过滤 BM25 链路
+                        metadataJson = chunk.metadataJson,
+                        createdAt = chunk.createdAt,
                     )
                 }
             },

@@ -104,6 +104,17 @@ class AccessibilityExecutor(
         durationMs: Long,
     ): Boolean = dispatchSwipe(x1, y1, x2, y2, durationMs)
 
+    override suspend fun pinch(
+        centerX: Int, centerY: Int,
+        startDistance: Int, endDistance: Int,
+        durationMs: Long,
+    ): Boolean = dispatchPinch(centerX, centerY, startDistance, endDistance, durationMs)
+
+    override suspend fun swipePath(
+        points: List<Pair<Int, Int>>,
+        durationMs: Long,
+    ): Boolean = dispatchSwipePath(points, durationMs)
+
     override suspend fun inputText(text: String): Boolean {
         val svc = service ?: return false
         return try {
@@ -252,6 +263,50 @@ class AccessibilityExecutor(
         val path = Path().apply {
             moveTo(x1.toFloat(), y1.toFloat())
             lineTo(x2.toFloat(), y2.toFloat())
+        }
+        val stroke = GestureDescription.StrokeDescription(path, 0, durationMs)
+        val gesture = GestureDescription.Builder().addStroke(stroke).build()
+        return dispatchGesture(svc, gesture)
+    }
+
+    /** v2.x: 双指缩放 — 两指沿水平方向对称开合(同手势两条 stroke,起点时间一致)。 */
+    private suspend fun dispatchPinch(
+        centerX: Int, centerY: Int,
+        startDistance: Int, endDistance: Int,
+        durationMs: Long,
+    ): Boolean {
+        val svc = service ?: return false
+        val startHalf = (startDistance / 2).coerceAtLeast(1).toFloat()
+        val endHalf = (endDistance / 2).coerceAtLeast(1).toFloat()
+        val cy = centerY.toFloat()
+        val cx = centerX.toFloat()
+        val left = Path().apply {
+            moveTo(cx - startHalf, cy)
+            lineTo(cx - endHalf, cy)
+        }
+        val right = Path().apply {
+            moveTo(cx + startHalf, cy)
+            lineTo(cx + endHalf, cy)
+        }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(left, 0, durationMs))
+            .addStroke(GestureDescription.StrokeDescription(right, 0, durationMs))
+            .build()
+        return dispatchGesture(svc, gesture)
+    }
+
+    /** v2.x: 多段滑动 — 单指沿路径点逐个 lineTo(解锁图案/复杂拖拽)。 */
+    private suspend fun dispatchSwipePath(
+        points: List<Pair<Int, Int>>,
+        durationMs: Long,
+    ): Boolean {
+        val svc = service ?: return false
+        if (points.size < 2) return false
+        val path = Path().apply {
+            moveTo(points[0].first.toFloat(), points[0].second.toFloat())
+            for (i in 1 until points.size) {
+                lineTo(points[i].first.toFloat(), points[i].second.toFloat())
+            }
         }
         val stroke = GestureDescription.StrokeDescription(path, 0, durationMs)
         val gesture = GestureDescription.Builder().addStroke(stroke).build()

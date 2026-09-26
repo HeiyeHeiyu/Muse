@@ -3,11 +3,12 @@ package io.zer0.muse.ui.common.media
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
+import io.zer0.muse.ui.theme.MuseBreakpoints
 
 /**
  * P1-4 平板适配:窗口宽度分级。
  *
- * 阈值(对齐 Material 3 WindowSizeClass 规范):
+ * 阈值(对齐 Material 3 WindowSizeClass 规范,数值收敛于 [MuseBreakpoints] 令牌):
  *  - [Compact]:  < 600dp(手机竖屏)
  *  - [Medium]:   600dp - 839dp(平板竖屏 / 手机横屏)
  *  - [Expanded]: ≥ 840dp(平板横屏 / 桌面)
@@ -47,8 +48,8 @@ fun rememberWindowWidthClass(): WindowWidthClass {
     val configuration = LocalConfiguration.current
     return remember(configuration.screenWidthDp) {
         when {
-            configuration.screenWidthDp >= 840 -> WindowWidthClass.Expanded
-            configuration.screenWidthDp >= 600 -> WindowWidthClass.Medium
+            configuration.screenWidthDp >= MuseBreakpoints.EXPANDED_DP -> WindowWidthClass.Expanded
+            configuration.screenWidthDp >= MuseBreakpoints.MEDIUM_DP -> WindowWidthClass.Medium
             else -> WindowWidthClass.Compact
         }
     }

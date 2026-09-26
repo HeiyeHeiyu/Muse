@@ -169,7 +169,7 @@ import kotlinx.serialization.builtins.serializer
         MessagePartEntity::class,
         SessionBranchHeadEntity::class,
     ],
-    version = 102,
+    version = 103,
     exportSchema = true,
 )
 @TypeConverters(QuickNoteConverters::class)
@@ -861,6 +861,22 @@ abstract class MuseDb : RoomDatabase() {
                 }
                 if ("observer_ids_json" !in existing) {
                     db.execSQL("ALTER TABLE group_chats ADD COLUMN observer_ids_json TEXT NOT NULL DEFAULT '[]'")
+                }
+            }
+        }
+
+        /**
+         * v2.x: worldbook_entries 加 wholeWord 列(全词匹配,默认 false)。
+         * 幂等:PRAGMA 判存在后再 ADD。
+         */
+        val MIGRATION_102_103 = object : Migration(102, 103) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val existing = mutableSetOf<String>()
+                db.query("PRAGMA table_info(worldbook_entries)").use { cursor ->
+                    while (cursor.moveToNext()) existing.add(cursor.getString(1))
+                }
+                if ("wholeWord" !in existing) {
+                    db.execSQL("ALTER TABLE worldbook_entries ADD COLUMN wholeWord INTEGER NOT NULL DEFAULT 0")
                 }
             }
         }
@@ -2698,6 +2714,7 @@ abstract class MuseDb : RoomDatabase() {
                         MIGRATION_99_100,
                         MIGRATION_100_101,
                         MIGRATION_101_102,
+                        MIGRATION_102_103,
                     )
                     // 启用外键约束(artifacts 表的 ON DELETE CASCADE 依赖此设置)
                     // onOpen 不在 onCreate 事务内,可以执行此类命令;onCreate 内禁止 PRAGMA

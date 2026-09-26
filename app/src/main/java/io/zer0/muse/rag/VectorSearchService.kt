@@ -19,7 +19,7 @@ import kotlin.math.sqrt
  *  - embedding 读取:BLOB 优先,无 BLOB fallback JSON(兼容旧数据)
  *  - [mmrLambda] 参数:MMR 多样性重排(0=纯多样性,1=纯相似度)
  *  - [scopeDocIds] 参数:限定检索范围(@mention 定向检索 / 助手绑定 KB 时用)
- *  - [metadataFilter] 参数:元数据过滤(暂未实现,接口预留)
+ *  - [metadataFilter] 参数:元数据过滤(docIds/标题/来源/tag/时间范围),向量与 BM25 两条链路共用同一判定
  *
  * @param chunkPageProvider 分页加载已索引 chunk(由调用方 join docTitle)
  * @param chunkCountProvider 已索引 chunk 总数
@@ -75,14 +75,52 @@ class VectorSearchService(
     )
 
 
-    /** B4-03: 元数据过滤条件(docIds/tag/时间范围,全部可选)。 */
+    /**
+     * B4-03: 元数据过滤条件(全部可选,均为「与」关系;为空表示不约束)。
+     *
+     * 文档级条件([docIds]/[titleKeyword])与分块级条件([sourceKeyword]/[tag]/[startTime]/[endTime])
+     * 统一由 [matches] 判定,向量检索与 BM25 检索共用同一份语义,避免两条链路过滤结果不一致。
+     */
     data class MetadataFilter(
+        /** 限定文档 ID 集合(空 = 不按文档过滤)。 */
         val docIds: List<String> = emptyList(),
+        /** 分块 metadata_json 中的 tag 精确标记(空 = 不按 tag 过滤)。 */
         val tag: String = "",
+        /** 分块创建时间下界(0 = 不限制,含边界)。 */
         val startTime: Long = 0L,
+        /** 分块创建时间上界(0 = 不限制,含边界)。 */
         val endTime: Long = 0L,
+        /** 标题关键字(忽略大小写包含匹配,命中文档标题;空 = 不按标题过滤)。 */
+        val titleKeyword: String = "",
+        /** 来源关键字(忽略大小写包含匹配,命中分块 metadata_json 的 source/file 等字段;空 = 不按来源过滤)。 */
+        val sourceKeyword: String = "",
     ) {
-        fun isEmpty(): Boolean = docIds.isEmpty() && tag.isBlank() && startTime == 0L && endTime == 0L
+        fun isEmpty(): Boolean =
+            docIds.isEmpty() && tag.isBlank() && startTime == 0L && endTime == 0L &&
+                titleKeyword.isBlank() && sourceKeyword.isBlank()
+
+        /**
+         * B4-03: 判定单条分块是否满足全部过滤条件。
+         *
+         * @param docId 所属文档 ID(对应 [docIds])
+         * @param docTitle 文档标题(对应 [titleKeyword])
+         * @param metadataJson 分块元数据 JSON(对应 [sourceKeyword]/[tag])
+         * @param createdAt 分块创建时间戳(对应 [startTime]/[endTime])
+         */
+        fun matches(
+            docId: String,
+            docTitle: String,
+            metadataJson: String,
+            createdAt: Long,
+        ): Boolean {
+            if (docIds.isNotEmpty() && docId !in docIds) return false
+            if (titleKeyword.isNotBlank() && !docTitle.contains(titleKeyword, ignoreCase = true)) return false
+            if (sourceKeyword.isNotBlank() && !metadataJson.contains(sourceKeyword, ignoreCase = true)) return false
+            if (tag.isNotBlank() && !metadataJson.contains("\"$tag\"")) return false
+            if (startTime > 0L && createdAt < startTime) return false
+            if (endTime > 0L && createdAt > endTime) return false
+            return true
+        }
     }
 
     private data class CachedVector(
@@ -127,8 +165,10 @@ class VectorSearchService(
         val queryNorm = norm(queryVector)
         if (queryNorm == 0f) return emptyList()
 
-        // B4-03: metadata 过滤路径 — 下推到 SQL provider(SQL 已过滤,不走全量缓存)
+        // B4-03: metadata 过滤路径 — docIds/tag/时间下推到 SQL provider(避免全量缓存)。
         // P2-33: 分批拉取(旧实现传 Int.MAX_VALUE,一次性把过滤结果全部载入内存)
+        // 注意:SQL provider 只覆盖 docIds/tag/时间,标题/来源等条件仍需内存兜底判定,
+        //       故 applyMetadataInMemory=true(SQL 为优化,内存判定为语义唯一真源)。
         if (metadataFilter != null && !metadataFilter.isEmpty() && chunkPageByMetadataProvider != null) {
             return scanPagedProvider(
                 queryVector = queryVector,
@@ -136,7 +176,7 @@ class VectorSearchService(
                 topK = topK,
                 threshold = threshold,
                 mmrLambda = mmrLambda,
-                applyMetadataInMemory = false,
+                applyMetadataInMemory = true,
                 metadataFilter = metadataFilter,
                 pageProvider = { limit, offset -> chunkPageByMetadataProvider(metadataFilter, limit, offset) },
             )
@@ -184,8 +224,9 @@ class VectorSearchService(
      *  - λ≥1.0(纯相似度,含默认值):用 [BoundedTopK] 有界候选池,只保留 topK 且平局次序
      *    与稳定排序 `sortedByDescending{score}.take(topK)` 一致。
      *
-     * @param applyMetadataInMemory scope 路径需要按 metadataFilter 内存兜底过滤;metadata 路径
-     *   已由 SQL 过滤,保持既有语义不再二次过滤。
+     * @param applyMetadataInMemory 是否按 metadataFilter 逐条内存判定。scope / metadata 两条
+     *   provider 路径均需开启:provider 只承担候选范围裁剪,过滤语义统一由 [MetadataFilter.matches]
+     *   在内存中判定(避免标题/来源等 provider 未覆盖的条件被静默忽略)。
      */
     private suspend fun scanPagedProvider(
         queryVector: FloatArray,
@@ -355,7 +396,8 @@ class VectorSearchService(
         metadataFilter: MetadataFilter?,
     ): List<CachedVector> {
         val filterKey = metadataFilter?.let {
-            "${it.docIds.sorted().joinToString(",")}#${it.tag}#${it.startTime}#${it.endTime}"
+            "${it.docIds.sorted().joinToString(",")}#${it.tag}#${it.startTime}#${it.endTime}" +
+                "#${it.titleKeyword}#${it.sourceKeyword}"
         } ?: ""
         val key = (scopeDocIds?.sorted()?.joinToString(",") ?: "ALL") + "|" + filterKey
         // scope 变化或首次加载
@@ -384,14 +426,10 @@ class VectorSearchService(
     /**
      * v1.133: 解析 embedding — BLOB 优先,JSON 兜底。
      */
-    /** B4-03: metadata 内存过滤兜底(SQL provider 不可用时使用)。 */
+    /** B4-03: metadata 内存过滤(SQL provider 未注入或缺字段时兜底)。 */
     private fun chunkMatchesMetadata(chunk: ChunkWithDoc, filter: MetadataFilter?): Boolean {
         if (filter == null || filter.isEmpty()) return true
-        if (filter.docIds.isNotEmpty() && chunk.docId !in filter.docIds) return false
-        if (filter.tag.isNotBlank() && !chunk.metadataJson.contains("\"${filter.tag}\"")) return false
-        if (filter.startTime > 0L && chunk.createdAt < filter.startTime) return false
-        if (filter.endTime > 0L && chunk.createdAt > filter.endTime) return false
-        return true
+        return filter.matches(chunk.docId, chunk.docTitle, chunk.metadataJson, chunk.createdAt)
     }
     private fun parseEmbedding(chunk: ChunkWithDoc): FloatArray? {
         // BLOB 优先

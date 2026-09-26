@@ -29,12 +29,16 @@ class HybridSearchService(
      */
     private val bm25MetaResolver: (suspend (List<String>) -> Map<String, ChunkMeta>)? = null,
 ) {
-    /** P2-31: BM25-only 命中补齐所需的元数据。 */
+    /** P2-31: BM25 命中补齐内容/过滤判定所需的元数据。 */
     data class ChunkMeta(
         val docId: String,
         val docTitle: String,
         val content: String,
         val chunkIndex: Int,
+        /** B4-03: 分块元数据 JSON(来源/tag 等过滤判定用)。 */
+        val metadataJson: String = "",
+        /** B4-03: 分块创建时间戳(时间范围过滤判定用)。 */
+        val createdAt: Long = 0L,
     )
     /** 混合检索结果 — 用 RRF 分数替代原始相似度。 */
     data class HybridResult(
@@ -60,6 +64,9 @@ class HybridSearchService(
      * @param bm25Weight BM25 路 RRF 权重(默认 1.0)
      * @param vectorWeight 向量路 RRF 权重(默认 1.0)
      * @param scopeDocIds 限定检索范围(可选)
+     * @param metadataFilter 元数据过滤条件(可选,null/空 = 不过滤)。docIds/标题/来源/tag/时间
+     *   同时作用于向量与 BM25 两条链路:向量侧由 [VectorSearchService.search] 过滤,
+     *   BM25 侧在本方法内按 [bm25MetaResolver] 解析出的文档元数据过滤,保证两边结果一致。
      * @param vectorCandidateK 向量候选数(默认 topK×3,扩大 RRF 候选池)
      * @param bm25CandidateK BM25 候选数(默认 topK×3)
      */
@@ -94,11 +101,46 @@ class HybridSearchService(
 
         if (vectorResults.isEmpty() && bm25Hits.isEmpty()) return emptyList()
 
+        // B4-03: 元数据过滤只在非空时启用(null / 空 filter = 不过滤,向后兼容)。
+        val filter = metadataFilter?.takeIf { !it.isEmpty() }
+
         // 2. RRF 融合
         // 向量路径:按 score 降序排(已在 search 内排过,但保险起见再排一次)
+        //   向量侧过滤已由 VectorSearchService.search(metadataFilter) 在链路内完成。
         val vectorRanked = vectorResults.sortedByDescending { it.score }
+        val vectorChunkIds = vectorRanked.map { it.chunkId }.toHashSet()
         // BM25 路径:score 升序(SQLite bm25 返回负值,越小越相关),取反作为正向
-        val bm25Ranked = bm25Hits.sortedBy { it.score }
+        val bm25Sorted = bm25Hits.sortedBy { it.score }
+
+        // P2-31/B4-03: 解析 BM25 命中的文档元数据(resolver 注入时)。
+        //  - 无过滤:仅补齐 bm25-only 命中的内容(旧行为);
+        //  - 有过滤:全部 BM25 命中都要拿到 docId/标题/元数据,才能与向量链路同样被过滤。
+        val bm25MetaById: Map<String, ChunkMeta> = if (bm25MetaResolver != null) {
+            val needIds = if (filter != null) {
+                bm25Sorted.map { it.chunkId }
+            } else {
+                bm25Sorted.map { it.chunkId }.filter { it !in vectorChunkIds }
+            }.distinct()
+            if (needIds.isEmpty()) {
+                emptyMap()
+            } else {
+                runCatching { bm25MetaResolver(needIds) }.getOrNull().orEmpty()
+            }
+        } else {
+            emptyMap()
+        }
+
+        // B4-03: BM25 过滤必须在 RRF 融合前完成 — 被过滤掉的命中不得贡献 RRF 分数。
+        // 无法解析元数据的命中在过滤开启时按「不通过」处理,避免放行未校验文档(安全侧)。
+        val bm25Ranked = if (filter == null) {
+            bm25Sorted
+        } else {
+            bm25Sorted.filter { hit ->
+                bm25MetaById[hit.chunkId]?.let { m ->
+                    filter.matches(m.docId, m.docTitle, m.metadataJson, m.createdAt)
+                } == true
+            }
+        }
 
         val rrfScores = mutableMapOf<String, Float>()  // chunkId -> rrfScore
         val metaMap = mutableMapOf<String, VectorSearchService.SearchResult>()
@@ -123,19 +165,16 @@ class HybridSearchService(
         // 精确命中(专有名词/代码标识符)恰好是 BM25 的强项,不该丢。注入 resolver
         // 后为 BM25-only 命中补齐内容元数据;无法解析的(库中已删除)仍按旧行为跳过。
         val bm25OnlyIds = rrfScores.keys.filter { it !in metaMap }
-        if (bm25OnlyIds.isNotEmpty() && bm25MetaResolver != null) {
-            runCatching { bm25MetaResolver(bm25OnlyIds) }.getOrNull()?.let { metas ->
-                for ((chunkId, m) in metas) {
-                    metaMap[chunkId] = VectorSearchService.SearchResult(
-                        docId = m.docId,
-                        docTitle = m.docTitle,
-                        chunkContent = m.content,
-                        score = 0f,
-                        chunkIndex = m.chunkIndex,
-                        chunkId = chunkId,
-                    )
-                }
-            }
+        for (chunkId in bm25OnlyIds) {
+            val m = bm25MetaById[chunkId] ?: continue
+            metaMap[chunkId] = VectorSearchService.SearchResult(
+                docId = m.docId,
+                docTitle = m.docTitle,
+                chunkContent = m.content,
+                score = 0f,
+                chunkIndex = m.chunkIndex,
+                chunkId = chunkId,
+            )
         }
         val maxScore = rrfScores.values.maxOrNull() ?: 0f
         return rrfScores.entries

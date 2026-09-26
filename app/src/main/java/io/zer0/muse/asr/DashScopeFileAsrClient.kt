@@ -44,7 +44,8 @@ import java.util.concurrent.TimeUnit
  * 注意:
  *  - `recognize(audioData, sampleRate)` 接口要求 PCM 字节,但本 client 需要 URL。
  *    调用方应使用 [recognizeFile] 传 URL,而非 [recognize]。
- *  - 若调用 [recognize],会尝试把 PCM 上传(当前未实现,返回 null)。
+ *  - [recognize] 会用 [AsrConfig.fileAudioUrl] 走转录;未配置时返回带错误信息的空结果
+ *    (PCM 直传需先有公网 URL,本地文件上传/OSS 直传为后续扩展点)。
  *
  * 独立编写(按 DashScope 官方文档),Apache 2.0。
  */
@@ -92,8 +93,8 @@ class DashScopeFileAsrClient(
     /**
      * AsrClient 接口实现:异步文件转录需 URL 而非 PCM 字节。
      *
-     * 当前实现:若 [AsrConfig.fileAudioUrl] 已配置,直接用配置的 URL;
-     * 否则返回 null(不支持把 PCM 字节直接上传)。
+     * 实现:若 [AsrConfig.fileAudioUrl] 已配置,直接用配置的 URL 走转录;
+     * 否则返回带明确错误信息的空结果(PCM 字节无法直接上传,需要先有 URL)。
      *
      * 后续可扩展:加 OSS 上传逻辑(需用户配 OSS 凭证),把 PCM 转 wav 上传拿 URL。
      */

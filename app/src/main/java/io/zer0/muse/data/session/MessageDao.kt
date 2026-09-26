@@ -154,21 +154,14 @@ interface MessageDao {
     suspend fun getRecentAssistantMessages(limit: Int): List<MessageEntity>
 
     /**
-     * Phase 10.3 之前:LIKE 搜索(保留作为 fallback,单字查询 / FTS4 不可用时用)。
+     * LIKE 兜底搜索:仅当 FTS 无法覆盖该 query(无可索引 token / 单字)或 FTS 查询异常时使用。
      *
-     * M-SESS2: 用 ESCAPE '\' + 预转义 pattern,避免 query 内的 %/_ 被当作通配符。
-     * 调用方([SessionRepository.buildLikePattern])负责把 \ % _ 转义后包成 %...% 传入。
-     */
-    @Query("SELECT * FROM messages WHERE content LIKE :pattern ESCAPE '\\' ORDER BY createdAt DESC LIMIT 50")
-    suspend fun searchLike(pattern: String): List<MessageEntity>
-
-    /**
-     * v2.x: LIKE 兜底搜索(FTS4 不可用 / ngram 转换为空时使用)。
+     * 单条 SQL JOIN sessions 一次取回会话标题(无逐条补查的 N+1);返回 [MessageSearchJoin]
+     * (含 content 原文),由 Repository 层用 buildSnippet 基于原文构建
+     * [SearchResult.contentSnippet],与 FTS 路径片段语义一致。
      *
-     * 返回 [MessageSearchJoin](含 content 原文),由 Repository 层用 buildSnippet
-     * 构建 [SearchResult.contentSnippet](基于原文,片段语义正确)。
-     *
-     * TODO: LIKE 路径性能低于 FTS,仅作兜底;FTS5 + 原文 snippet 落地后可移除。
+     * 性能说明:LIKE 是全表扫描,天然慢于 FTS;这里通过 (a) 只在前述边界触发、
+     * (b) [limit] 上界把代价限制在有界范围,故保留为兜底而非强行改走 FTS。
      *
      * @param pattern 已转义的 LIKE 模式串(如 %keyword%),配合 ESCAPE '\'
      * @param limit 最大返回条数(默认 50)

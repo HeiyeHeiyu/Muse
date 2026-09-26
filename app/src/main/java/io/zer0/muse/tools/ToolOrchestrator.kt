@@ -12,6 +12,7 @@ import io.zer0.ai.core.ToolDefinition
 import io.zer0.ai.core.UIMessage
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
+import io.zer0.common.Perf
 import io.zer0.common.resultOf
 import io.zer0.muse.chat.PendingToolCallStore
 import io.zer0.muse.data.ExperimentsConfig
@@ -630,13 +631,16 @@ class ToolOrchestrator(
             val stepStartedAt = System.currentTimeMillis()
             Logger.d(TAG, "Agent Loop step $round/${execPolicy.maxRounds} 开始 | sessionId=${params.sessionId}")
 
-            // M3.2: turn 级时间预算(默认关闭;配置后超限即停,与连续失败早停同级的兜底防线)
-            if (execPolicy.isTimeBudgetExhausted()) {
-                abortReason = "工具循环总耗时预算耗尽"
+            // M3.2/P2-7: 每轮开头统一校验剩余预算(总调用数/输出字符/连续失败/时间),
+            // 任一项耗尽即提前收尾并注入可见文案,不再浪费一次必然被拦截的模型往返。
+            val roundBudget = execPolicy.checkRoundBudget()
+            if (!roundBudget.allowed) {
+                abortReason = roundBudgetStopText(roundBudget.reason)
                 terminationReason = ToolLoopTerminationReason.BUDGET_EXHAUSTED
                 Logger.w(
                     TAG,
-                    "Agent Loop 时间预算耗尽,提前终止 | sessionId=${params.sessionId} | " +
+                    "Agent Loop 轮次预算耗尽,提前终止 | sessionId=${params.sessionId} | " +
+                        "reason=${roundBudget.reason} | ${roundBudget.detail} | " +
                         "traceId=${params.traceId} | 已执行调用=${execPolicy.executedCalls}",
                 )
                 break
@@ -1170,6 +1174,8 @@ class ToolOrchestrator(
                     val toolNames = toolCallList.joinToString(",") { it.name }
                     val successCount = execResults.count { it.isSuccess }
                     val failCount = execResults.size - successCount
+                    // P3-9: 每轮耗时埋点 — 除 debug 日志外同时写入 Perf(供一次日志/ANR 诊断定位慢在哪一段)
+                    Perf.log("chat-tool-round", stepElapsedMs)
                     Logger.d(
                         TAG,
                         "Agent Loop step $round/${execPolicy.maxRounds} 结束 | 工具=[$toolNames]" +
@@ -1237,6 +1243,24 @@ class ToolOrchestrator(
             toolRounds = toolRounds.toList(),
             terminationReason = effectiveReason,
         )
+    }
+
+    /**
+     * P2-7: 轮次预算命中的用户可见收尾文案。
+     *
+     * 与 ToolLoopResult.error.message 同源,最终由 runLoop 收尾注入为 assistant 消息,
+     * 保证"提前收尾"对用户可见(而不是只有任务卡悬空)。
+     */
+    private fun roundBudgetStopText(reason: ToolExecutionPolicy.StopReason?): String = when (reason) {
+        ToolExecutionPolicy.StopReason.MAX_TOTAL_CALLS ->
+            "本轮工具调用次数已达上限,已自动停止。如需继续,可以让我接着处理。"
+        ToolExecutionPolicy.StopReason.MAX_TOTAL_OUTPUT_CHARS ->
+            "本轮工具输出已超出预算,已自动停止。如需继续,可以让我接着处理。"
+        ToolExecutionPolicy.StopReason.CONSECUTIVE_FAILURES ->
+            "连续多次工具调用失败,已自动停止。如需继续,可以让我重新处理。"
+        ToolExecutionPolicy.StopReason.TIME_BUDGET_EXHAUSTED ->
+            "工具循环耗时已超出预算,已自动停止。如需继续,可以让我接着处理。"
+        else -> "工具调用已超出预算,已自动停止。如需继续,可以让我接着处理。"
     }
 
     private suspend fun persistToolRoundIncrementally(
@@ -1735,7 +1759,10 @@ class ToolOrchestrator(
             // M3.2: 执行落账(计数/失败连击/重复指纹)+ 输出大小上限
             // (审批拒绝/预算拦截的路径已提前 return,不计入调用数)
             execPolicy.afterExecute(tc.name, tc.arguments, isSuccess)
-            execPolicy.clampOutput(finalToolResult)
+            val clamped = execPolicy.clampOutput(finalToolResult)
+            // P2-7: 累计本 turn 工具回填字符(截断后长度),供轮次开头输出预算校验
+            execPolicy.recordOutputChars(clamped.first.length)
+            clamped
         }
         if (wasTruncated) {
             Logger.w(

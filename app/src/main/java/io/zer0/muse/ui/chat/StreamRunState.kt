@@ -76,6 +76,11 @@ var sessionModelOverride: String? = null
     var systemMessages: List<UIMessage> = emptyList()
     var prefixMessages: List<UIMessage> = emptyList()
     var pendingRagCitations: List<RagCitation> = emptyList()
+    /**
+     * P3-10: 压缩/截断后本轮 payload 仍超出模型上下文上限 — 置位后由 launchStream 拒绝发送,
+     * 避免发出必然 400 的请求。仅本轮有效。
+     */
+    var contextOverflowBlocked: Boolean = false
 
     // Phase D: applyTransformers
     var transformedMessages: List<UIMessage> = emptyList()

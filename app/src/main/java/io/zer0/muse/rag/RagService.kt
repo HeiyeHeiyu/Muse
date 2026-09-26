@@ -508,6 +508,8 @@ class RagService(
      *       非混合 / 非定向检索场景下若 [vectorIndex] 有数据则用 HNSW,否则回退暴力遍历。
      *
      * @param scopeDocIds 限定检索范围(@mention 定向检索 / 助手绑定 KB 用)
+     * @param metadataFilter 元数据过滤条件(docIds/标题/来源/tag/时间范围,可选,null = 不过滤);
+     *   同时作用于混合检索(向量+BM25)与纯向量检索两条链路。
      */
     suspend fun retrieve(
         query: String,
@@ -573,9 +575,11 @@ class RagService(
 
         // v1.55: HNSW 路径(大规模库 + 非定向检索)
         // 条件:vectorIndex 有数据 + 无 scopeDocIds(scope 场景候选集小,暴力遍历足够)
+        //      + 无 metadataFilter:HNSW 结果不带元数据,无法过滤;过滤开启时必须落到
+        //        vectorSearch(其内部支持 metadataFilter),避免过滤被静默忽略。
         // 注意:混合检索失败 fallback 时也会走到这里 — HNSW 比 brute-force 快得多
         val vi = vectorIndex
-        if (vi != null && scopeDocIds.isNullOrEmpty()) {
+        if (vi != null && scopeDocIds.isNullOrEmpty() && (metadataFilter == null || metadataFilter.isEmpty())) {
             ensureVectorIndexLoaded()
             if (vi.size > 0) {
                 val hnswResults = resultOf { vi.search(queryVector, topK) }
@@ -663,11 +667,14 @@ class RagService(
      *  - 引用列表(供 ChatUI 渲染)
      *
      * @param scopeDocIds 限定检索范围(@mention 定向检索用)
+     * @param metadataFilter 元数据过滤条件(可选,null = 不过滤);由 [retrieve] 向下透传,
+     *   向量与 BM25 两条链路都生效。
      */
     suspend fun buildInjectionContextWithCitations(
         query: String,
         ragConfig: RagConfig,
         scopeDocIds: List<String>? = null,
+        metadataFilter: VectorSearchService.MetadataFilter? = null,
     ): RagInjection {
         val start = System.currentTimeMillis()
         if (query.isBlank()) return RagInjection("", emptyList(), 0)
@@ -677,7 +684,7 @@ class RagService(
         val candidateK = if (ragConfig.rerankEnabled && activeRerankProvider != null) ragConfig.topK * 5 else ragConfig.topK
         // 内部文档只允许显式的 knowledge_search include_internal 路径使用，
         // 不得进入自动 system-prompt RAG 注入。
-        var results = retrieve(query, candidateK, ragConfig.threshold, ragConfig, scopeDocIds)
+        var results = retrieve(query, candidateK, ragConfig.threshold, ragConfig, scopeDocIds, metadataFilter)
             .filterNot { it.isInternal }
 
         // v1.133: 缓存 docId → isInternal 映射(retrieve 已回填过),rerank 后需重新回填

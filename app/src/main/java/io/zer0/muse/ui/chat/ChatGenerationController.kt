@@ -4,6 +4,7 @@ import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
 import io.zer0.ai.core.limitContextWithContext
 import io.zer0.common.Logger
+import io.zer0.common.Perf
 import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
@@ -578,12 +579,16 @@ internal class ChatGenerationController(
             updateContextTokenCount()
 
             // 发送前上下文长度硬检查:token 占用超过预警比例时激进截断历史。
+            // P3-10: 同时记录本轮是否已近上限 — 仅近上限时才做发送 payload 超限复核,
+            // 避免正常发送多付一次 BPE 估算开销。
+            var nearContextLimit = false
             run {
                 val maxTokens = accessor.snapshot.contextMaxTokens
                 val currentTokens = accessor.snapshot.contextTokenCount
                 if (maxTokens > 0 && currentTokens > 0) {
                     val ratio = currentTokens.toFloat() / maxTokens
-                    if (ratio >= PRESEND_TOKEN_WARNING_RATIO && rawHistory.size > 5) {
+                    nearContextLimit = ratio >= PRESEND_TOKEN_WARNING_RATIO
+                    if (nearContextLimit && rawHistory.size > 5) {
                         val newSize = (contextSize / 2).coerceAtLeast(2)
                         if (newSize < contextSize) {
                             Logger.w(
@@ -657,6 +662,24 @@ internal class ChatGenerationController(
                             }
                         }
                     }
+                }
+            }
+
+            // P3-10: 上下文超限兜底 — 近上限时复核本轮真实 payload(system + preset + RAG
+            // + 截断后历史)的估算 token;仍达到硬上限(CONTEXT_HARD_LIMIT_RATIO)则置位拒绝
+            // 发送,由 launchStream 回滚空占位并给出用户可见提示。
+            if (nearContextLimit) {
+                val payloadTokens = withContext(Dispatchers.Default) {
+                    TokenEstimator.estimate(prefixMessages + truncatedHistory)
+                }
+                val hardMaxTokens = accessor.snapshot.contextMaxTokens
+                if (hardMaxTokens > 0 && payloadTokens >= (hardMaxTokens * CONTEXT_HARD_LIMIT_RATIO).toInt()) {
+                    contextOverflowBlocked = true
+                    Logger.w(
+                        "ChatVM",
+                        "pre-send context overflow: payload=$payloadTokens/$hardMaxTokens " +
+                            "(${payloadTokens * 100 / hardMaxTokens}%), refuse to send | sessionId=$sessionId",
+                    )
                 }
             }
         }
@@ -796,8 +819,12 @@ internal class ChatGenerationController(
             )
             // B7-04: 继续生成时预置已产出内容
             continueFrom?.let { state.builder.append(it.content) }
+            // P3-9: 阶段耗时埋点 — 准备/首字/每轮/收尾分段计时,一次 debug 日志可定位慢在哪一段。
+            // (首字/每轮由 ChatViewModel / ToolOrchestrator 的 Perf 埋点补充)
+            val stageTimer = Perf.start("chat-turn")
             try {
                 deps.streamCoordinator.prepareHistory(state)
+                stageTimer.split("prepare")
                 val mcpServerIds = state.assistant
                     ?.let(deps.assistantRepository::parseMcpServerIds)
                     ?.toSet()
@@ -809,13 +836,33 @@ internal class ChatGenerationController(
                     }
                 }
                 buildSystemPromptForStream(state)
+                stageTimer.split("prompt")
+                // P3-10: 上下文超限兜底 — 预压缩(80%)+ 激进截断(90%)之后仍超出模型窗口时,
+                // 拒绝发送本轮请求(避免必然 400 的无效调用),回滚空占位并给出可见提示。
+                if (state.contextOverflowBlocked) {
+                    deps.addError(
+                        ChatErrorType.UNKNOWN,
+                        deps.appContext.getString(R.string.error_api_context_length),
+                        true,
+                    )
+                    deps.stateStore.messages.value = deps.stateStore.messages.value.filterNot { msg ->
+                        msg.id == state.currentAssistantId && msg.content.isBlank()
+                    }
+                    deps.messageController.rebuildConversationTree()
+                    clearStreamingStateIfLatest(state, ChatStreamPhase.FAILED)
+                    sessionManager.runtime(sessionId)?.markFinished(TurnPhase.FAILED, state.turnId)
+                    return@launchGeneration
+                }
                 deps.streamCoordinator.applyTransformers(state)
                 deps.streamCoordinator.resolveToolsAndModel(state)
                 deps.streamCoordinator.applyPiiGuard(state)
                 deps.streamCoordinator.prepareVisionContext(state)
+                stageTimer.split("assemble")
                 val success = deps.runToolLoop(state)
+                stageTimer.split("stream")
                 if (success) {
                     finalizeResponse(state)
+                    stageTimer.split("finalize")
                     sessionManager.runtime(sessionId)?.markFinished(TurnPhase.COMPLETED, state.turnId)
                 } else {
                     sessionManager.runtime(sessionId)?.markFinished(TurnPhase.FAILED, state.turnId)
@@ -918,6 +965,8 @@ internal class ChatGenerationController(
                     notificationManager.updateLiveProgress("", 0, false)
                 }.onFailure { Logger.w("ChatVM", "取消进度通知失败: ${it.message}") }
             } finally {
+                // P3-9: 结束阶段计时(含准备/首字/每轮/收尾分段;异常路径同样落日志)
+                stageTimer.end()
                 val executionState = generationExecutionId?.let { executionRegistry?.state(it) }
                 if (generationExecutionId != null && executionState == ExecutionState.RUNNING) {
                     executionRegistry?.finish(generationExecutionId)
@@ -1097,5 +1146,7 @@ internal class ChatGenerationController(
     companion object {
         private const val MAX_INPUT_HISTORY = 50
         private const val PRESEND_TOKEN_WARNING_RATIO = 0.9f
+        /** P3-10: 发送 payload 硬上限比例 — 达到即拒绝发送(压缩/截断后仍超限的兜底)。 */
+        private const val CONTEXT_HARD_LIMIT_RATIO = 0.98f
     }
 }

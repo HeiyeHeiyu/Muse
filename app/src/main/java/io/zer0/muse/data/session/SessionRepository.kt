@@ -1172,42 +1172,37 @@ class SessionRepository(
     private suspend fun searchFtsByMode(matchQuery: String): List<MessageSearchJoin> =
         if (MessageFtsRuntime.useFts5) messageFtsDao.searchFts5(matchQuery) else messageFtsDao.searchFts(matchQuery)
 
-    private suspend fun searchMessageContentByMode(matchQuery: String, limit: Int = 50): List<SearchResult> =
-        if (MessageFtsRuntime.useFts5) {
-            messageFtsDao.searchMessageContentFts5(matchQuery, limit)
-        } else {
-            messageFtsDao.searchMessageContent(matchQuery, limit)
-        }
-
     /**
-     * 全文搜索消息(跨会话)。返回搜索结果列表(含会话标题 + 内容片段)。
+     * 全文搜索消息(跨会话)。返回结果含会话标题 + 基于原文的内容片段。
      *
-     * Phase 10.3 改造:
-     * - 优先走 FTS4 MATCH 查询([MessageFtsManager.toMatchQuery] 转 ngram + 引号转义)
-     * - JOIN messages + sessions 一次查出(修复 P5-B 的 N+1:原实现循环 sessionDao.getById)
-     * - ngram 转换后为空(纯符号)或 FTS 查询异常时回退 LIKE([searchLike])
-     * - 片段仍取匹配位置前后 30 字(基于原文 content,不是 ngram)
+     * 路由(FTS 优先,LIKE 仅兜底,选择规则见 [shouldUseLikeFallback]):
+     * - FTS 可用时走 MATCH([MessageFtsManager] 按当前引擎转 FTS5 原文 / FTS4 ngram 查询词)
+     * - LIKE 覆盖 FTS 覆盖不到的边界(无可索引 token / 单字)与 FTS 查询异常
+     * - 两条路径都 JOIN messages + sessions 一次查出,不再逐条补查 session(B4-01 消除 N+1)
+     * - 片段统一由 [buildSnippet] 基于原文 content 构建,与匹配语义对齐
      */
     suspend fun searchMessages(query: String): List<SearchResult> = withContext(Dispatchers.IO) {
+        searchMessagesInternal(query)
+    }
+
+    /**
+     * 搜索核心实现:[searchMessages] 与 [searchMessageContentFlow] 共用的唯一入口,保证
+     * 两条搜索链路的命中集合、排序与片段语义一致(避免 FTS / LIKE 两份实现漂移)。
+     */
+    private suspend fun searchMessagesInternal(query: String): List<SearchResult> {
         // 注意:流式 upsertMessage(skipFts=true)周期性落盘后 FTS 可能滞后,
         // 最终落盘(skipFts=false)或下次启动 ensureFtsIndexConsistent 会补齐。
         val trimmed = query.trim()
-        if (trimmed.isBlank()) return@withContext emptyList()
+        if (trimmed.isBlank()) return emptyList()
 
-        val matchQuery = if (MessageFtsRuntime.useFts5) {
-            MessageFtsManager.toFts5MatchQuery(trimmed)
-        } else {
-            MessageFtsManager.toMatchQuery(trimmed)
-        }
-        val joins: List<MessageSearchJoin> = if (matchQuery.isBlank()) {
-            // ngram 转换后为空(纯符号/纯空白),直接走 LIKE
+        val joins: List<MessageSearchJoin> = if (shouldUseLikeFallback(trimmed)) {
             searchLikeAndJoin(trimmed)
         } else {
             // H-SESS1: FTS 查询异常时回退 LIKE;用 resultOf 正确重抛 CancellationException
             // i18n 示范改造点 5:原硬编码英文 "FTS search failed, fallback to LIKE: ..."
             // 改为 ErrorMessage.StorageError.IO_ERROR + raw message 作为补充 debug 信息。
             // FTS 失败已有 LIKE 兜底,不上抛 ErrorMessage,仅标准化日志 code 便于监控告警聚合。
-            when (val r = resultOf { searchFtsByMode(matchQuery) }) {
+            when (val r = resultOf { searchFtsByMode(ftsMatchQuery(trimmed)) }) {
                 is io.zer0.common.Result.Success -> r.data
                 is io.zer0.common.Result.Error -> {
                     Logger.w(
@@ -1219,7 +1214,7 @@ class SessionRepository(
             }
         }
 
-        joins.map { join ->
+        return joins.map { join ->
             SearchResult(
                 messageId = join.messageId,
                 sessionId = join.sessionId,
@@ -1233,96 +1228,49 @@ class SessionRepository(
         }
     }
 
+    /** 按当前 FTS 引擎生成 MATCH 查询词(FTS5 原文 unicode61 / FTS4 ngram)。 */
+    private fun ftsMatchQuery(trimmed: String): String =
+        if (MessageFtsRuntime.useFts5) MessageFtsManager.toFts5MatchQuery(trimmed) else MessageFtsManager.toMatchQuery(trimmed)
+
     /**
-     * LIKE 回退路径:查 messages 后补查 session 标题(FTS 不可用时的兜底)。
+     * 判断该 query 是否应跳过 FTS 直接走 LIKE 子串匹配。
      *
-     * TODO: LIKE 回退路径 N+1 查询(每条 msg 单独查 session),性能优化时改为 IN 批查或 JOIN。
-     * FTS 正常时本路径几乎不触发,暂保留现状。
+     * 两种 FTS 引擎都无法可靠覆盖、必须回退 LIKE 的边界:
+     *  - 无可索引 token:query 不含任何中英文/数字字符(如 "!!!"、"~~"),ngram 与 unicode61
+     *    都切不出 token,MATCH 必为空集;
+     *  - 单字 query:中文单字不是 FTS4 ngram 的独立 token(只有游程末字会保留),FTS5 unicode61
+     *    又把连续 CJK 并成一个 token,单字 MATCH 会漏召回;英文单字母在 FTS 里是整词匹配而非子串。
+     * 这两种情况用 LIKE 的"包含即命中"语义才与用户预期一致。
      */
-    private suspend fun searchLikeAndJoin(query: String): List<MessageSearchJoin> {
-        // B4-01: 直接用 JOIN sessions 的批查,消除原逐条查 session 的 N+1
-        val pattern = buildLikePattern(query)
-        return messageDao.searchMessageContentLike(pattern, 50)
+    private fun shouldUseLikeFallback(trimmed: String): Boolean {
+        if (trimmed.length == 1) return true
+        return MessageFtsManager.toNgram(trimmed).isBlank()
     }
+
+    /**
+     * LIKE 兜底路径:JOIN messages + sessions 批查(单条 SQL 取回会话标题)。
+     *
+     * B4-01:已消除原"逐条查 session 补标题"的 N+1;本路径仅在 [shouldUseLikeFallback]
+     * 命中或 FTS 查询异常时触发,且有 LIMIT 上界,正常搜索几乎不落此分支。
+     */
+    private suspend fun searchLikeAndJoin(query: String): List<MessageSearchJoin> =
+        messageDao.searchMessageContentLike(buildLikePattern(query), 50)
 
     /**
      * v2.x: 消息内容搜索 Flow 版本(供 SearchViewModel 监听)。
      *
-     * 与 [searchMessages] 区别:
-     *  - 返回 [Flow](便于 ViewModel 用 collectAsStateWithLifecycle 监听)
-     *  - 走 [MessageDao.searchMessageContent](FTS4 snippet 直接生成片段),而非 [searchFts] + buildSnippet
-     *  - FTS4 snippet 作用于 content_ngram,片段为 ngram 串,效果有限(详见 DAO 注释 TODO);
-     *    FTS 异常或 ngram 转换为空时回退 [searchMessageContentLike] + 原文 buildSnippet
+     * 直接复用 [searchMessagesInternal](与 [searchMessages] 同一条实现),因此两条搜索
+     * 入口的命中集合、排序与片段语义完全一致;片段统一由 [buildSnippet] 基于原文生成
+     * (FTS5 不再返回带 `[ ]` 标记的 SQL snippet,UI / 命令面板可直接展示)。
      *
      * 调用方:SearchViewModel 的 searchMessageContent() 一次性 collect 后存入 StateFlow。
-     *
-     * TODO: FTS4 snippet 作用于 content_ngram,片段为 ngram 串,效果不理想。
-     *       后续迁移到 FTS5 + 外部内容表后,本方法可直接返回 SQL snippet 结果。
      *
      * @param query 用户输入的搜索关键词(未转义)
      * @return [SearchResult] 的 Flow(单次 emit,空查询返回空列表)
      */
     fun searchMessageContentFlow(query: String): Flow<List<SearchResult>> = flow {
-        val trimmed = query.trim()
-        if (trimmed.isBlank()) {
-            emit(emptyList())
-            return@flow
-        }
-        val matchQuery = if (MessageFtsRuntime.useFts5) {
-            MessageFtsManager.toFts5MatchQuery(trimmed)
-        } else {
-            MessageFtsManager.toMatchQuery(trimmed)
-        }
-        val results: List<SearchResult> = if (matchQuery.isBlank()) {
-            // ngram 转换后为空(纯符号/纯空白),直接走 LIKE 兜底
-            searchMessageContentLikeInternal(trimmed)
-        } else {
-            // H-SESS1: FTS 查询异常时回退 LIKE;用 resultOf 正确重抛 CancellationException
-            // i18n 示范改造点 5(同类延伸):与 searchMessages 一致,FTS 失败兜底日志
-            // 改为 ErrorMessage.StorageError.IO_ERROR,保持 code 一致便于监控聚合。
-            when (val r = resultOf { searchMessageContentByMode(matchQuery, 50) }) {
-                is io.zer0.common.Result.Success -> r.data
-                is io.zer0.common.Result.Error -> {
-                    Logger.w(
-                        TAG,
-                        "${ErrorMessage.StorageError.IO_ERROR.toLogString()} [scope=fts_search_content, fallback=LIKE, raw=${r.message}]",
-                    )
-                    searchMessageContentLikeInternal(trimmed)
-                }
-            }
-        }
-        // B4-01: DAO 只返回原文,片段由 Repository 基于原文构建,避免 ngram 串片段
-        emit(
-            if (MessageFtsRuntime.useFts5) {
-                results
-            } else {
-                results.map { it.copy(contentSnippet = buildSnippet(it.content, trimmed)) }
-            },
-        )
+        emit(searchMessagesInternal(query))
     }.flowOn(Dispatchers.IO)
-
-    /**
-     * v2.x: LIKE 兜底路径(消息内容搜索专用)。
-     *
-     * 调 [MessageDao.searchMessageContentLike](JOIN sessions 一次查出,避免 N+1),
-     * 再用 [buildSnippet] 基于原文 content 构建 [SearchResult.contentSnippet]。
-     */
-    private suspend fun searchMessageContentLikeInternal(query: String): List<SearchResult> {
-        val pattern = buildLikePattern(query)
-        val joins = messageDao.searchMessageContentLike(pattern, 50)
-        return joins.map { join ->
-            SearchResult(
-                messageId = join.messageId,
-                sessionId = join.sessionId,
-                sessionTitle = join.sessionTitle,
-                contentSnippet = buildSnippet(join.content, query),
-                role = join.role,
-                createdAt = join.createdAt,
-                // 任务 2:携带原文供 UI 提取前后 2 句上下文 + 关键词高亮
-                content = join.content,
-            )
-        }
-    }
 
     /** M-SESS2: 构造 LIKE 模式串,转义通配符 \ % _ 后包成 %...%。 */
     private fun buildLikePattern(query: String): String {
@@ -1472,17 +1420,45 @@ class SessionRepository(
         }
     }
 
-    /** 构建搜索片段:取匹配位置前后 [SNIPPET_RADIUS] 字。 */
+    /**
+     * 构建搜索片段:命中位置前后 [SNIPPET_RADIUS] 字,两端按需补 "…"。
+     *
+     * 与 FTS 匹配语义对齐:FTS4 ngram 命中不保证原文存在连续的 query 子串(只要求 query
+     * 的各个 2-gram token 命中),此时用首个命中的 query token 定位,保证片段落在真实命中
+     * 处,而不是无匹配时直接退化成前缀。LIKE 路径必然能精确命中,行为不变。
+     */
     private fun buildSnippet(content: String, query: String): String {
-        // TODO: ngram 匹配与 snippet 高亮语义不一致(FTS 用 2-gram 匹配,这里用原 query indexOf),
-        // 后续改用 FTS4 snippet() 函数在 SQL 层生成高亮片段,保证匹配/高亮语义一致。
-        val idx = content.indexOf(query, ignoreCase = true)
-        if (idx < 0) return content.take(SNIPPET_FALLBACK_LENGTH)
-        val start = (idx - SNIPPET_RADIUS).coerceAtLeast(0)
-        val end = (idx + query.length + SNIPPET_RADIUS).coerceAtMost(content.length)
+        val (matchStart, matchLength) = locateSnippetMatch(content, query)
+        if (matchStart < 0) return content.take(SNIPPET_FALLBACK_LENGTH)
+        val start = (matchStart - SNIPPET_RADIUS).coerceAtLeast(0)
+        val end = (matchStart + matchLength + SNIPPET_RADIUS).coerceAtMost(content.length)
         val prefix = if (start > 0) "…" else ""
         val suffix = if (end < content.length) "…" else ""
         return prefix + content.substring(start, end) + suffix
+    }
+
+    /**
+     * 定位片段锚点,返回 (起始下标, 匹配长度);找不到返回 (-1, 0)。
+     *
+     * 1. 优先精确子串(大小写不敏感):LIKE 路径必然命中,输出与旧实现一致;
+     * 2. 否则用 query 的 ngram token 里在原文中出现且位置最靠前的一个作为锚点,
+     *    对齐 FTS 的 token 匹配语义(取最早出现的 token 保证片段尽量靠前)。
+     */
+    private fun locateSnippetMatch(content: String, query: String): Pair<Int, Int> {
+        val exact = content.indexOf(query, ignoreCase = true)
+        if (exact >= 0) return exact to query.length
+        if (query.isBlank()) return -1 to 0
+        var bestStart = -1
+        var bestLength = 0
+        val tokens = MessageFtsManager.toNgram(query).split(' ').filter { it.isNotBlank() }
+        for (token in tokens) {
+            val idx = content.indexOf(token, ignoreCase = true)
+            if (idx >= 0 && (bestStart < 0 || idx < bestStart)) {
+                bestStart = idx
+                bestLength = token.length
+            }
+        }
+        return bestStart to bestLength
     }
 
     /**

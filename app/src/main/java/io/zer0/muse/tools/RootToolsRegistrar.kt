@@ -11,6 +11,7 @@ import io.zer0.muse.automation.executors.RootExecutor
  *
  * Tools:
  * - settings_get / settings_put — read/write Android settings (requires root)
+ * - network_toggle — toggle wifi/data via svc (requires root)
  * - am_start — launch activity with extras (requires root)
  * - list_packages — list installed apps (requires root)
  * - logcat_tail — read recent logs (requires root)
@@ -43,6 +44,30 @@ class RootToolsRegistrar(
             val name = args["name"]?.takeIf { it.isNotBlank() } ?: return@register "Error: name is required"
             val value = rootExecutor.settingsGet(name)
             if (value != null) "Setting '$name' = $value" else "Setting '$name' not found or error"
+        }
+
+        toolRegistry.register(
+            ToolRegistry.ToolDef(
+                name = "network_toggle",
+                description = "Toggle Wi-Fi or cellular data on/off via root (svc command). " +
+                    "Requires root permission. Use with caution — may interrupt connectivity.",
+                parameters = mapOf(
+                    "service" to "Required. Service to toggle: wifi or data",
+                    "enabled" to "Required. true to enable, false to disable",
+                ),
+                required = setOf("service", "enabled"),
+                category = "built-in",
+                riskLevel = ToolRiskLevel.HIGH,
+            ),
+        ) { args ->
+            val service = args["service"]?.takeIf { it.isNotBlank() } ?: return@register "Error: service is required"
+            val enabled = args["enabled"]?.trim()?.lowercase()?.toBooleanStrictOrNull()
+                ?: return@register "Error: enabled must be true or false"
+            when (rootExecutor.svcToggle(service, enabled)) {
+                true -> "$service ${if (enabled) "enabled" else "disabled"}"
+                false -> "Failed to toggle $service"
+                null -> "Error: unsupported service '$service' (only wifi/data)"
+            }
         }
 
         toolRegistry.register(

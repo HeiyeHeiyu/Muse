@@ -201,4 +201,45 @@ class ToolExecutionPolicyTest {
         // 统计与预算执行计数彼此独立
         assertEquals(0, policy.executedCalls)
     }
+
+    @Test
+    fun `round budget reports remaining quota across dimensions`() {
+        // 空跑:一切放行
+        assertTrue(ToolExecutionPolicy().checkRoundBudget().allowed)
+
+        // 总调用数耗尽 → 轮次开头拦截
+        val calls = ToolExecutionPolicy(ToolExecutionLimits(maxTotalCalls = 2))
+        repeat(2) { i ->
+            calls.beforeExecute("t", "{\"n\":$i}")
+            calls.afterExecute("t", "{\"n\":$i}", success = true)
+        }
+        val callBlocked = calls.checkRoundBudget()
+        assertFalse(callBlocked.allowed)
+        assertEquals(ToolExecutionPolicy.StopReason.MAX_TOTAL_CALLS, callBlocked.reason)
+
+        // 输出字符累计超限 → 轮次开头拦截
+        val chars = ToolExecutionPolicy(ToolExecutionLimits(maxTotalOutputChars = 100))
+        chars.recordOutputChars(60)
+        chars.recordOutputChars(50)
+        assertEquals(110, chars.totalOutputChars)
+        val charBlocked = chars.checkRoundBudget()
+        assertFalse(charBlocked.allowed)
+        assertEquals(ToolExecutionPolicy.StopReason.MAX_TOTAL_OUTPUT_CHARS, charBlocked.reason)
+
+        // 时间预算(测试注入 nowMs)→ 轮次开头拦截
+        val timed = ToolExecutionPolicy(ToolExecutionLimits(totalBudgetMs = 1_000))
+        assertTrue(timed.checkRoundBudget(nowMs = timed.startedAtMs + 500).allowed)
+        assertFalse(timed.checkRoundBudget(nowMs = timed.startedAtMs + 2_500).allowed)
+    }
+
+    @Test
+    fun `record output chars ignores non-positive and accumulates`() {
+        val policy = ToolExecutionPolicy()
+        policy.recordOutputChars(0)
+        policy.recordOutputChars(-5)
+        assertEquals(0, policy.totalOutputChars)
+        policy.recordOutputChars(10)
+        policy.recordOutputChars(15)
+        assertEquals(25, policy.totalOutputChars)
+    }
 }
