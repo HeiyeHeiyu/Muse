@@ -409,31 +409,6 @@ fun ChatListScreen(
                         }
                     }
 
-                    // 全局输入条
-                    item(key = "input") {
-                        TaskInputBar(
-                            onSend = { text ->
-                                if (text.isNotBlank()) {
-                                    onCreateWithText(text.trim())
-                                }
-                            },
-                            modifier = Modifier.padding(top = MusePaddings.sectionGap + 4.dp),
-                        )
-                    }
-
-                    // U-7/U-22: 列表工具行 — 已归档入口 + 编辑(多选)入口
-                    item(key = "list_toolbar") {
-                        ListToolbarRow(
-                            archivedCount = archivedSessions.size,
-                            onOpenArchived = { showArchived = true },
-                            onEdit = {
-                                editMode = true
-                                selectedIds = emptySet()
-                            },
-                            modifier = Modifier.padding(top = MusePaddings.sectionGap),
-                        )
-                    }
-
                     // 已置顶(标题 + 每条会话独立 item,平铺懒加载)
                     if (pinned.isNotEmpty()) {
                         pinnedSectionItems(
@@ -626,24 +601,11 @@ private fun PartnerRow(
                     .padding(2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    val emoji = assistant.avatarEmoji.takeIf { it.isNotBlank() }
-                    if (emoji != null) {
-                        Text(text = emoji, fontSize = 20.sp)
-                    } else {
-                        Text(
-                            text = assistant.name.take(1),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+                // v2.x: 统一助手头像组件(图片→Emoji→首字三级回退,与全 app 一致)
+                io.zer0.muse.ui.common.media.AssistantAvatar(
+                    assistant = assistant,
+                    avatarSize = 42.dp,
+                )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = assistant.name,
