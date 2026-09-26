@@ -2794,15 +2794,16 @@ class GroupChatScheduler(
      * 改造 2(Phone Session 模式):每个 agent 独立收到"手机推送"式 prompt,
      * 而非把所有成员塞进同一上下文。按 既有实现 channel-router.ts:793-821。
      *  - System:assistant.systemPrompt + buildGroupChatHintSection(含身份防混淆 guidance)
-     *    + MOOD 格式 + 不要输出 channel_* 工具调用文本
-     *  - User:buildPhonePrompt 构造的"手机推送"prompt(最近消息 + @提及 + 决策修复 + [PASS])
+     *    + MOOD 格式 + 必须通过 channel_* 工具决策
+     *  - User:buildPhonePrompt 构造的"手机推送"prompt(最近消息 + @提及 + 决策修复)
      *
      * 改造 3(身份防混淆 guidance):由 [SystemPromptAssembler.buildGroupChatHintSection]
      * 内部调用 [SystemPromptAssembler.buildIdentityGuidance] 注入,per-agent。
      *
-     * TODO(channel_* 工具接入):channel_reply / channel_pass / channel_read_context 工具
-     * 由另一个任务实现。当前保持 [PASS] 文本标记机制;工具接入后改为带 tools 的 streamChat 调用,
-     * 并根据是否调用工具判断 PASS(未调用 channel_reply 即视为 PASS)。
+     * channel_* 工具接入（v1.0.53 Phase 5 已落地）：[invokeAgentInternal] 每轮通过
+     * [ChannelToolFactory.createChannelToolDefinitions] 构造 channel_reply / channel_pass /
+     * channel_read_context 三件套并传给 streamChat；LLM 调用 channel_reply 发言、channel_pass 跳过、
+     * channel_read_context 读取更多历史。未调用任一工具时按 [PASS] 文本协议兜底（兼容不支持工具调用的模型）。
      *
      * @param chatId 群聊 id(用于 VisionBridge 缓存 key)
      * @param chatName 群聊名称

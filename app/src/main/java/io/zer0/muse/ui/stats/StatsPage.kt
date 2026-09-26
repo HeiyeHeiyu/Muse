@@ -2,6 +2,7 @@ package io.zer0.muse.ui.stats
 
 import android.content.Context
 import android.content.Intent
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -62,7 +63,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.ui.common.surface.MuseSurface
+import io.zer0.muse.ui.theme.MuseAnimation
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.semiLarge
@@ -109,23 +113,38 @@ fun StatsScreen(
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
-        if (state.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                MuseSpinner()
+        // v2.x: 动效补齐 — 加载/空态/内容三态切换走令牌淡入淡出(与 ChatScreen 同 Crossfade 规格)
+        val statsContentState = when {
+            state.isLoading -> 0
+            state.totalMessages == 0 && state.totalSessions == 0 -> 1
+            else -> 2
+        }
+        Crossfade(
+            targetState = statsContentState,
+            animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+            label = "statsContent",
+            modifier = Modifier.fillMaxSize(),
+        ) { kind ->
+        when (kind) {
+            0 -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    MuseSpinner()
+                }
             }
-        } else if (state.totalMessages == 0 && state.totalSessions == 0) {
-            EmptyStatsState(
-                onAction = onBack,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-            )
-        } else {
+            1 -> {
+                EmptyStatsState(
+                    onAction = onBack,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                )
+            }
+            else -> {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
@@ -135,64 +154,86 @@ fun StatsScreen(
                 verticalArrangement = Arrangement.spacedBy(MusePaddings.sectionGap),
             ) {
                 // 1. 时间范围筛选(仅影响下方指标网格)
+                // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
                 item(key = "time_range_filter") {
+                    Box(museAnimateItem()) {
                     TimeRangeFilterRow(
                         currentRange = state.timeRange,
                         onRangeChange = { viewModel.setTimeRange(it) },
                         modifier = Modifier.padding(horizontal = MusePaddings.screen),
                     )
+                    }
                 }
 
                 // 2. 关键指标网格 2×3(响应 timeRange)
+                // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
                 item(key = "metrics_grid") {
+                    Box(museAnimateItem()) {
                     KeyMetricsGrid(
                         state = state,
                         modifier = Modifier.padding(horizontal = MusePaddings.screen),
                     )
+                    }
                 }
 
                 // 3. 活跃热力图(单 Canvas,全量历史)
+                // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
                 item(key = "heatmap") {
+                    Box(museAnimateItem()) {
                     HeatmapCard(
                         messagesPerDay = state.messagesPerDay,
                         modifier = Modifier.padding(horizontal = MusePaddings.screen),
                     )
+                    }
                 }
 
                 // 4. 活跃趋势(7/30/90 天窗口,折线 + 平均线)
+                // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
                 item(key = "trend") {
+                    Box(museAnimateItem()) {
                     TrendCard(
                         messagesPerDay = state.messagesPerDay,
                         modifier = Modifier.padding(horizontal = MusePaddings.screen),
                     )
+                    }
                 }
 
                 // 5. 小时活跃分布(24 根柱状图)
+                // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
                 item(key = "hourly") {
+                    Box(museAnimateItem()) {
                     HourlyDistributionCard(
                         hourlyDistribution = state.hourlyDistribution,
                         modifier = Modifier.padding(horizontal = MusePaddings.screen),
                     )
+                    }
                 }
 
                 // 6. 助手使用占比(环形图)
+                // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
                 item(key = "assistant_donut") {
+                    Box(museAnimateItem()) {
                     AssistantDonutCard(
                         assistantCounts = state.assistantCounts,
                         modifier = Modifier.padding(horizontal = MusePaddings.screen),
                     )
+                    }
                 }
 
                 // 7. Top 模型(Top 5 + 展开)
+                // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
                 item(key = "top_models") {
+                    Box(museAnimateItem()) {
                     TopModelsCard(
                         modelCounts = state.modelCounts,
                         modifier = Modifier.padding(horizontal = MusePaddings.screen),
                     )
+                    }
                 }
             }
+            }
         }
-
+        }
     }
 }
 // ── 1. 仪表盘头部 ──────────────────────────────────────────────────────

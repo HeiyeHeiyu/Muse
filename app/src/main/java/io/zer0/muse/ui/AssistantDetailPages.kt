@@ -69,6 +69,7 @@ import io.zer0.muse.ui.common.settings.ChevronRight
 import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.ui.common.surface.CardGroup
 import io.zer0.muse.ui.common.surface.CardGroupScope
 import io.zer0.muse.ui.common.surface.MuseListItem
@@ -263,8 +264,9 @@ fun AssistantDetailPage(
     SettingsSubPageScaffold(title = title, onBack = onBack) {
         item {
             // 头部: 大头像 + 名称 + systemPrompt 摘要
+            // v2.x: 动效补齐 — 头部入场(令牌 animateItem)
             Column(
-                modifier = Modifier
+                modifier = museAnimateItem()
                     .fillMaxWidth()
                     .padding(vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -298,8 +300,9 @@ fun AssistantDetailPage(
             }
         }
         // v1.0.28: 模型选择入口 — 在详情页直接展示当前使用的模型,点击可切换
+        // v2.x: 动效补齐 — 卡片组入场(令牌 animateItem)
         item {
-            CardGroup {
+            CardGroup(modifier = museAnimateItem()) {
                 item(
                     onClick = { showModelPicker = true },
                     leadingContent = {
@@ -348,7 +351,7 @@ fun AssistantDetailPage(
         }
         item {
             CardGroup(
-                modifier = Modifier.padding(horizontal = 0.dp), // inset-guard: allow（外层列表已提供 screen 边距）
+                modifier = museAnimateItem().padding(horizontal = 0.dp), // inset-guard: allow（外层列表已提供 screen 边距）
             ) {
                 item(
                     onClick = onOpenBasic,
@@ -391,6 +394,7 @@ fun AssistantDetailPage(
         // 把当前助手导出为业内通用格式, 可在其他支持 SillyTavern 角色卡的 App 中导入
         item {
             CardGroup(
+                modifier = museAnimateItem(),
                 title = { Text(stringResource(R.string.assistant_detail_share_section)) },
             ) {
                 item(
@@ -424,6 +428,7 @@ fun AssistantDetailPage(
         // Muse 角色卡分享(系统分享 Intent)
         item {
             CardGroup(
+                modifier = museAnimateItem(),
                 title = { Text(stringResource(R.string.assistant_detail_share_section)) },
             ) {
                 item(
@@ -650,8 +655,9 @@ fun AssistantBasicPage(
             return@SettingsSubPageScaffold
         }
         // 卡片组 1: 基础信息
+        // v2.x: 动效补齐 — 卡片组入场(令牌 animateItem)
         item {
-            CardGroup {
+            CardGroup(modifier = museAnimateItem()) {
                 // 头像 + 选图按钮
                 item(
                     headlineContent = {
@@ -696,8 +702,9 @@ fun AssistantBasicPage(
             }
         }
         // 卡片组 2: 名称与 Emoji
+        // v2.x: 动效补齐 — 卡片组入场(令牌 animateItem)
         item {
-            CardGroup {
+            CardGroup(modifier = museAnimateItem()) {
                 item(
                     headlineContent = {
                         DebouncedTextField(
@@ -724,8 +731,9 @@ fun AssistantBasicPage(
             }
         }
         // 卡片组 3: 模型与采样参数
+        // v2.x: 动效补齐 — 卡片组入场(令牌 animateItem)
         item {
-            CardGroup {
+            CardGroup(modifier = museAnimateItem()) {
                 // Phase 6: 模型选择器 UX 改进 — 更大点击区域、前置图标、显示全局模型名称
                 item(
                     onClick = { showModelPicker = true },
@@ -900,8 +908,9 @@ fun AssistantBasicPage(
             }
         }
         // 卡片组 4: 简介 + 显示名 + 群聊(v1.0.19 Assistant 字段补齐)
+        // v2.x: 动效补齐 — 卡片组入场(令牌 animateItem)
         item {
-            CardGroup {
+            CardGroup(modifier = museAnimateItem()) {
                 item(
                     headlineContent = {
                         DebouncedTextField(
@@ -973,7 +982,7 @@ fun AssistantPromptPage(
             return@SettingsSubPageScaffold
         }
         item {
-            CardGroup {
+            CardGroup(modifier = museAnimateItem()) {
                 item(
                     headlineContent = {
                         DebouncedTextField(
@@ -1172,7 +1181,7 @@ fun AssistantExtensionsPage(
             return@SettingsSubPageScaffold
         }
         item {
-            CardGroup {
+            CardGroup(modifier = museAnimateItem()) {
                 ExtensionRow(
                     type = ExtensionType.QUICK_MESSAGE,
                     count = repo.parseQuickMessageIds(a).size,
@@ -1390,7 +1399,7 @@ fun AssistantMemoryPage(
             return@SettingsSubPageScaffold
         }
         item {
-            CardGroup {
+            CardGroup(modifier = museAnimateItem()) {
                 item(
                     headlineContent = { Text(stringResource(R.string.assistant_detail_enable_memory)) },
                     supportingContent = { Text(stringResource(R.string.assistant_detail_enable_memory_desc)) },
@@ -1435,7 +1444,7 @@ fun AssistantMemoryPage(
         }
         // 手动记忆入口
         item {
-            CardGroup(title = { Text(stringResource(R.string.assistant_detail_manual_memory)) }) {
+            CardGroup(modifier = museAnimateItem(), title = { Text(stringResource(R.string.assistant_detail_manual_memory)) }) {
                 item(
                     headlineContent = { Text(stringResource(R.string.assistant_detail_add_memory)) },
                     supportingContent = { Text(stringResource(R.string.assistant_detail_add_memory_desc)) },
@@ -1446,7 +1455,7 @@ fun AssistantMemoryPage(
         }
         // 已存记忆列表(支持删除)
         item {
-            CardGroup(title = { Text(stringResource(R.string.assistant_detail_saved_memory_count, facts.size)) }) {
+            CardGroup(modifier = museAnimateItem(), title = { Text(stringResource(R.string.assistant_detail_saved_memory_count, facts.size)) }) {
                 if (facts.isEmpty()) {
                     item(headlineContent = { Text(stringResource(R.string.assistant_detail_no_memory)) })
                 } else {

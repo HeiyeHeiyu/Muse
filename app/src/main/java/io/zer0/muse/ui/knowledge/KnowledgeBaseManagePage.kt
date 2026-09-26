@@ -1,5 +1,6 @@
 package io.zer0.muse.ui.knowledge
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +43,7 @@ import io.zer0.muse.data.knowledge.KnowledgeDocEntity
 import io.zer0.muse.rag.RagConfig
 import io.zer0.muse.rag.RagService
 import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
 import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseErrorStateBox
@@ -52,6 +54,8 @@ import io.zer0.muse.ui.common.media.rememberWindowWidthClass
 import io.zer0.muse.ui.common.media.WindowWidthClass
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.settings.SettingField
+import io.zer0.muse.ui.theme.MuseAnimation
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -338,8 +342,21 @@ fun KnowledgeBaseManagePage(
                 contentAlignment = Alignment.TopCenter,
             ) {
                 val list = kbs
-                // ST-01: 加载失败错误态 + 重试(仅在无数据时显示,避免与已有列表重叠)
-                if (kbsLoadError != null && list == null) {
+                // v2.x: 动效补齐 — 加载/错误/空/列表四态切换走令牌淡入淡出
+                val kbContentState = when {
+                    kbsLoadError != null && list == null -> 0
+                    list == null -> 1
+                    list.isEmpty() -> 2
+                    else -> 3
+                }
+                Crossfade(
+                    targetState = kbContentState,
+                    animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+                    label = "kbManageContent",
+                    modifier = Modifier.fillMaxSize(),
+                ) { kind ->
+                when (kind) {
+                    0 -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         MuseErrorStateBox(
                             message = kbsLoadError.orEmpty(),
@@ -349,17 +366,20 @@ fun KnowledgeBaseManagePage(
                             },
                         )
                     }
-                } else if (list == null) {
+                    }
+                    1 -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         MuseSpinner()
                     }
-                } else if (list.isEmpty()) {
+                    }
+                    2 -> {
                     MuseEmptyState(
                         icon = MuseIcons.folder,
                         title = stringResource(R.string.kb_manage_empty),
                         modifier = Modifier.fillMaxSize(),
                     )
-                } else {
+                    }
+                    else -> {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
@@ -375,7 +395,9 @@ fun KnowledgeBaseManagePage(
                             bottom = MusePaddings.screen + 80.dp,
                         ),
                     ) {
-                        items(list, key = { it.id }) { kb ->
+                        items(list.orEmpty(), key = { it.id }) { kb ->
+                            // v2.x: 动效补齐 — 知识库行入场(令牌 animateItem)
+                            Box(museAnimateItem()) {
                             KbRow(
                                 kb = kb,
                                 onEdit = { editing = kb },
@@ -388,8 +410,11 @@ fun KnowledgeBaseManagePage(
                                 // ST-02: 先二次确认(点名该库 + 说明后果),不再点一下就直接重建
                                 onReindex = { reindexConfirmTarget = kb },
                             )
+                            }
                         }
                     }
+                    }
+                }
                 }
             }
         }

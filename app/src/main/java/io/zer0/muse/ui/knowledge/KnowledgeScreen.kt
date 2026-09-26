@@ -8,12 +8,14 @@ import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseErrorStateBox
 import io.zer0.muse.ui.common.form.MuseFloatingButton
 import io.zer0.muse.ui.common.feedback.MuseToast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -63,10 +65,12 @@ import io.zer0.muse.data.knowledge.KnowledgeDocEntity
 import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.state.MuseSpinner
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseDateFormats
 import io.zer0.muse.ui.theme.MuseElevation
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseMonoFontFamily
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.semiLarge
@@ -649,10 +653,20 @@ fun KnowledgeScreen(
                     .weight(1f),
             ) {
                 val docsList = docs
-                // ST-01: 加载失败错误态 + 重试(避免被"搜索无结果"或加载态掩盖)
-                // v2.0 复核修正:错误优先于加载态 — 首屏加载失败时 docs 保持 null,
-                // 若先判 null 会永远转圈;已有列表时的刷新错误仍不覆盖列表。
-                if (docsLoadError != null && docsList.isNullOrEmpty()) {
+                // v2.x: 动效补齐 — 加载/错误/空/列表四态切换走令牌淡入淡出
+                val knowledgeContentState = when {
+                    docsLoadError != null && docsList.isNullOrEmpty() -> 0
+                    docsList == null -> 1
+                    else -> 2
+                }
+                Crossfade(
+                    targetState = knowledgeContentState,
+                    animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+                    label = "knowledgeContent",
+                    modifier = Modifier.fillMaxSize(),
+                ) { kind ->
+                when (kind) {
+                    0 -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
@@ -665,7 +679,8 @@ fun KnowledgeScreen(
                             },
                         )
                     }
-                } else if (docsList == null) {
+                    }
+                    1 -> {
                     // v1.0.62: 首次加载中显示转圈指示器
                     Column(
                         modifier = Modifier.fillMaxSize(),
@@ -674,13 +689,14 @@ fun KnowledgeScreen(
                     ) {
                         MuseSpinner()
                     }
-                } else {
+                    }
+                    else -> {
                     // v0.43: 隐藏开发文档(isInternal=true 的内部文档只供 LLM 通过 knowledge_search 查询,不向用户展示)
                     // v1.133: 改用 isInternal 字段判断(替代原 fileType="devdoc" 硬编码,与 MIGRATION_38_39 标记一致)
                     // v1.66: 按 sortMode 排序(DAO 仅 updated_at DESC,其余维度在 UI 排序)
                     // M-Kn1: 用 remember 缓存 filter+sort 结果,避免每次重组都重算
                     val visibleDocs = remember(docsList, sortMode) {
-                        docsList
+                        docsList.orEmpty()
                             .filterNot { it.isInternal }
                             .sortedWith(sortMode.comparator)
                     }
@@ -696,6 +712,8 @@ fun KnowledgeScreen(
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 80.dp),
                         ) {
                             items(visibleDocs, key = { it.id }) { doc ->
+                                // v2.x: 动效补齐 — 文档卡入场(令牌 animateItem)
+                                Box(museAnimateItem()) {
                                 DocCard(
                                     doc = doc,
                                     highlight = searchQuery.takeIf { it.isNotBlank() },
@@ -707,9 +725,12 @@ fun KnowledgeScreen(
                                         MuseToast.show(context.getString(R.string.knowledge_deleted))
                                     },
                                 )
+                                }
                             }
                         }
                     }
+                    }
+                }
                 }
             }
         }

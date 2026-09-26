@@ -1323,33 +1323,33 @@
     <file name="src/main/java/io/zer0/ai/openai/OpenAIDto.kt">
         <error line="3" column="1" source="standard:import-ordering" />
         <error line="26" column="1" source="standard:no-consecutive-comments" />
-        <error line="135" column="22" source="standard:parameter-list-spacing" />
-        <error line="135" column="23" source="standard:no-multi-spaces" />
-        <error line="135" column="24" source="standard:discouraged-comment-location" />
-        <error line="147" column="33" source="standard:no-multi-spaces" />
-        <error line="147" column="34" source="standard:discouraged-comment-location" />
-        <error line="152" column="22" source="standard:parameter-list-spacing" />
-        <error line="152" column="23" source="standard:no-multi-spaces" />
-        <error line="152" column="24" source="standard:discouraged-comment-location" />
-        <error line="206" column="1" source="standard:indent" />
-        <error line="424" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="425" column="28" source="standard:try-catch-finally-spacing" />
-        <error line="425" column="29" source="standard:statement-wrapping" />
-        <error line="425" column="65" source="standard:statement-wrapping" />
-        <error line="425" column="65" source="standard:try-catch-finally-spacing" />
-        <error line="425" column="89" source="standard:try-catch-finally-spacing" />
-        <error line="425" column="90" source="standard:statement-wrapping" />
-        <error line="425" column="95" source="standard:statement-wrapping" />
-        <error line="425" column="95" source="standard:try-catch-finally-spacing" />
-        <error line="429" column="31" source="standard:wrapping" />
-        <error line="429" column="33" source="standard:multiline-expression-wrapping" />
-        <error line="438" column="28" source="standard:function-signature" />
-        <error line="438" column="46" source="standard:function-signature" />
-        <error line="438" column="66" source="standard:function-signature" />
-        <error line="496" column="83" source="standard:multiline-expression-wrapping" />
-        <error line="496" column="83" source="standard:function-signature" />
-        <error line="504" column="76" source="standard:multiline-expression-wrapping" />
-        <error line="504" column="76" source="standard:function-signature" />
+        <error line="139" column="22" source="standard:parameter-list-spacing" />
+        <error line="139" column="23" source="standard:no-multi-spaces" />
+        <error line="139" column="24" source="standard:discouraged-comment-location" />
+        <error line="151" column="33" source="standard:no-multi-spaces" />
+        <error line="151" column="34" source="standard:discouraged-comment-location" />
+        <error line="156" column="22" source="standard:parameter-list-spacing" />
+        <error line="156" column="23" source="standard:no-multi-spaces" />
+        <error line="156" column="24" source="standard:discouraged-comment-location" />
+        <error line="210" column="1" source="standard:indent" />
+        <error line="428" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="429" column="28" source="standard:try-catch-finally-spacing" />
+        <error line="429" column="29" source="standard:statement-wrapping" />
+        <error line="429" column="65" source="standard:statement-wrapping" />
+        <error line="429" column="65" source="standard:try-catch-finally-spacing" />
+        <error line="429" column="89" source="standard:try-catch-finally-spacing" />
+        <error line="429" column="90" source="standard:statement-wrapping" />
+        <error line="429" column="95" source="standard:statement-wrapping" />
+        <error line="429" column="95" source="standard:try-catch-finally-spacing" />
+        <error line="433" column="31" source="standard:wrapping" />
+        <error line="433" column="33" source="standard:multiline-expression-wrapping" />
+        <error line="442" column="28" source="standard:function-signature" />
+        <error line="442" column="46" source="standard:function-signature" />
+        <error line="442" column="66" source="standard:function-signature" />
+        <error line="500" column="83" source="standard:multiline-expression-wrapping" />
+        <error line="500" column="83" source="standard:function-signature" />
+        <error line="508" column="76" source="standard:multiline-expression-wrapping" />
+        <error line="508" column="76" source="standard:function-signature" />
     </file>
     <file name="src/main/java/io/zer0/ai/openai/OpenAIProvider.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -1567,36 +1567,36 @@
         <error line="2365" column="39" source="standard:multiline-expression-wrapping" />
         <error line="2382" column="36" source="standard:multiline-expression-wrapping" />
         <error line="2382" column="36" source="standard:wrapping" />
-        <error line="2386" column="21" source="standard:wrapping" />
-        <error line="2392" column="40" source="standard:multiline-expression-wrapping" />
-        <error line="2392" column="40" source="standard:wrapping" />
-        <error line="2397" column="25" source="standard:wrapping" />
-        <error line="2406" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="2420" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="2431" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="2433" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="2446" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="2484" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="2488" column="40" source="standard:no-multi-spaces" />
-        <error line="2491" column="30" source="standard:multiline-expression-wrapping" />
-        <error line="2502" column="21" source="standard:multiline-expression-wrapping" />
-        <error line="2502" column="21" source="standard:wrapping" />
-        <error line="2505" column="17" source="standard:wrapping" />
-        <error line="2516" column="25" source="standard:multiline-expression-wrapping" />
-        <error line="2516" column="25" source="standard:wrapping" />
-        <error line="2519" column="21" source="standard:wrapping" />
-        <error line="2566" column="56" source="standard:multiline-expression-wrapping" />
-        <error line="2580" column="21" source="standard:multiline-expression-wrapping" />
-        <error line="2595" column="9" source="standard:spacing-between-declarations-with-comments" />
-        <error line="2598" column="9" source="standard:spacing-between-declarations-with-comments" />
+        <error line="2389" column="21" source="standard:wrapping" />
+        <error line="2395" column="40" source="standard:multiline-expression-wrapping" />
+        <error line="2395" column="40" source="standard:wrapping" />
+        <error line="2400" column="25" source="standard:wrapping" />
+        <error line="2409" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="2423" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="2434" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="2436" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="2449" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="2489" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="2493" column="40" source="standard:no-multi-spaces" />
+        <error line="2496" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="2507" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="2507" column="21" source="standard:wrapping" />
+        <error line="2510" column="17" source="standard:wrapping" />
+        <error line="2521" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="2521" column="25" source="standard:wrapping" />
+        <error line="2524" column="21" source="standard:wrapping" />
+        <error line="2571" column="56" source="standard:multiline-expression-wrapping" />
+        <error line="2585" column="21" source="standard:multiline-expression-wrapping" />
         <error line="2600" column="9" source="standard:spacing-between-declarations-with-comments" />
-        <error line="2602" column="9" source="standard:spacing-between-declarations-with-comments" />
-        <error line="2604" column="58" source="standard:no-multi-spaces" />
-        <error line="2615" column="21" source="standard:multiline-expression-wrapping" />
-        <error line="2637" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="2639" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="2641" column="5" source="standard:spacing-between-declarations-with-comments" />
-        <error line="2643" column="5" source="standard:spacing-between-declarations-with-comments" />
+        <error line="2603" column="9" source="standard:spacing-between-declarations-with-comments" />
+        <error line="2605" column="9" source="standard:spacing-between-declarations-with-comments" />
+        <error line="2607" column="9" source="standard:spacing-between-declarations-with-comments" />
+        <error line="2609" column="58" source="standard:no-multi-spaces" />
+        <error line="2620" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="2642" column="5" source="standard:spacing-between-declarations-with-comments" />
+        <error line="2644" column="5" source="standard:spacing-between-declarations-with-comments" />
+        <error line="2646" column="5" source="standard:spacing-between-declarations-with-comments" />
+        <error line="2648" column="5" source="standard:spacing-between-declarations-with-comments" />
     </file>
     <file name="src/main/java/io/zer0/ai/openai/ToolCallArgsAccumulator.kt">
         <error line="33" column="1" source="standard:no-empty-first-line-in-class-body" />

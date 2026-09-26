@@ -3,6 +3,7 @@
 package io.zer0.muse.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -33,6 +34,7 @@ import io.zer0.muse.ui.common.form.MuseSwitch
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.ui.common.surface.CardGroup
 import io.zer0.muse.ui.settings.SettingsSubPageScaffold
 import kotlinx.coroutines.flow.map
@@ -57,11 +59,14 @@ fun AssistantAdvancedPage(
     SettingsSubPageScaffold(title = stringResource(R.string.assistant_detail_advanced), onBack = onBack) {
         val a = assistant
         if (a == null) {
-            item { Text(stringResource(R.string.assistant_detail_loading), color = MaterialTheme.colorScheme.outline) }
+            // v2.x: 动效补齐 — 加载态入场(令牌 animateItem)
+            item { Box(museAnimateItem()) { Text(stringResource(R.string.assistant_detail_loading), color = MaterialTheme.colorScheme.outline) } }
             return@SettingsSubPageScaffold
         }
         // 卡片组 1: 自定义请求
+        // v2.x: 动效补齐 — 卡片组入场(令牌 animateItem)
         item {
+            Box(museAnimateItem()) {
             CardGroup {
                 item(
                     headlineContent = {
@@ -84,9 +89,12 @@ fun AssistantAdvancedPage(
                     },
                 )
             }
+            }
         }
         // 卡片组 3: 标签
+        // v2.x: 动效补齐 — 卡片组入场(令牌 animateItem)
         item {
+            Box(museAnimateItem()) {
             CardGroup {
                 item(
                     headlineContent = {
@@ -101,20 +109,27 @@ fun AssistantAdvancedPage(
                     },
                 )
             }
+            }
         }
         // 卡片组 2: 多 Agent 能力标签
+        // v2.x: 动效补齐 — 能力标签卡片入场(令牌 animateItem)
         item {
+            Box(museAnimateItem()) {
             CapabilityChipsSection(
                 capabilitiesJson = a.capabilitiesJson,
                 onCapabilitiesChange = { newJson -> update { it.copy(capabilitiesJson = newJson) } },
             )
+            }
         }
         // 卡片组 3: v1.97 正则替换规则
+        // v2.x: 动效补齐 — 正则规则卡片入场(令牌 animateItem)
         item {
+            Box(museAnimateItem()) {
             RegexRulesSection(
                 rulesJson = a.regexRulesJson,
                 onRulesChange = { newJson -> update { it.copy(regexRulesJson = newJson) } },
             )
+            }
         }
     }
 }

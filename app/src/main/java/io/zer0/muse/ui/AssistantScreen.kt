@@ -49,6 +49,7 @@ import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.CharacterCardImporter
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.ui.common.media.AssistantAvatar
 import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
 import io.zer0.muse.ui.common.navigation.MuseTopBar
@@ -247,7 +248,9 @@ fun AssistantScreen(
         ) {
             // 助手列表
             if (state.isAssistantsLoading) {
+                // v2.x: 动效补齐 — 骨架屏入场(令牌 animateItem)
                 item {
+                    Box(museAnimateItem()) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
@@ -256,9 +259,12 @@ fun AssistantScreen(
                             io.zer0.muse.ui.common.surface.AvatarRowSkeleton()
                         }
                     }
+                    }
                 }
             } else {
+                // v2.x: 动效补齐 — 卡片组入场(令牌 animateItem)
                 item {
+                    Box(museAnimateItem()) {
                     CardGroup(
                         title = {
                             Text(defaultAssistantTitle)
@@ -284,9 +290,12 @@ fun AssistantScreen(
                             trailingContent = { ChevronRight() },
                         )
                     }
+                    }
                 }
 
+                // v2.x: 动效补齐 — 卡片组入场(令牌 animateItem)
                 item {
+                    Box(museAnimateItem()) {
                     CardGroup(
                         title = {
                             Text(sectionAssistants)
@@ -359,11 +368,14 @@ fun AssistantScreen(
                             }
                         }
                     }
+                    }
                 }
 
                 // 操作区:仅在已有助手时显示,避免空状态重复"新建"
+                // v2.x: 动效补齐 — 卡片组入场(令牌 animateItem)
                 if (state.assistants.isNotEmpty()) {
                     item {
+                        Box(museAnimateItem()) {
                         CardGroup(
                             title = {
                                 Text(sectionActions)
@@ -413,6 +425,7 @@ fun AssistantScreen(
                                 },
                                 trailingContent = { ChevronRight() },
                             )
+                        }
                         }
                     }
                 }

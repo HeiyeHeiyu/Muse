@@ -2,6 +2,7 @@ package io.zer0.muse.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -33,6 +34,7 @@ import io.zer0.muse.data.plugin.PluginManifest
 import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.tools.ToolRiskLevel
 import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.state.MuseEmptyState
@@ -96,7 +98,9 @@ fun ToolsScreen(
             verticalArrangement = Arrangement.spacedBy(MusePaddings.sectionGap),
         ) {
             // ── 说明卡片 ────────────────────────────────────────────────────
+            // v2.x: 动效补齐 — 列表项入场(令牌 animateItem)
             item(key = "intro") {
+                Box(museAnimateItem()) {
                 CardGroup(modifier = Modifier.padding(horizontal = MusePaddings.screen)) {
                     item(
                         leadingContent = {
@@ -122,31 +126,40 @@ fun ToolsScreen(
                         },
                     )
                 }
+                }
             }
 
             // ── 工具总数 + 高风险数 ────────────────────────────────────────
+            // v2.x: 动效补齐 — 列表项入场(令牌 animateItem)
             item(key = "stats") {
                 val highRiskCount = tools.count { it.riskLevel == ToolRiskLevel.HIGH }
+                Box(museAnimateItem()) {
                 Text(
                     text = stringResource(R.string.tools_stats_count, tools.size, highRiskCount),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = MusePaddings.screen),
                 )
+                }
             }
 
             // ── 按分类分组展示 ─────────────────────────────────────────────
             if (tools.isEmpty()) {
+                // v2.x: 动效补齐 — 空态入场(令牌 animateItem)
                 item(key = "tools_empty") {
+                    Box(museAnimateItem()) {
                     MuseEmptyState(
                         title = stringResource(R.string.tools_empty_title),
                         subtitle = stringResource(R.string.tools_empty_subtitle),
                         modifier = Modifier.padding(horizontal = MusePaddings.screen),
                     )
+                    }
                 }
             }
             grouped.forEach { (category, toolsInCategory) ->
+                // v2.x: 动效补齐 — 分类分组入场(令牌 animateItem)
                 item(key = "group_$category") {
+                    Box(museAnimateItem()) {
                     CardGroup(
                         modifier = Modifier.padding(horizontal = MusePaddings.screen),
                         title = {
@@ -160,6 +173,7 @@ fun ToolsScreen(
                             )
                         }
                     }
+                    }
                 }
             }
 
@@ -167,7 +181,9 @@ fun ToolsScreen(
             // 后端 PluginManifest.BUILT_IN 声明了 5 个内置插件(image-gen / beautify /
             // media / mcp-bridge / office),含 trust/capabilities/activationEvents。
             // 此处透出给用户,提升能力边界透明度(只读展示,启用/禁用仍由代码控制)。
+            // v2.x: 动效补齐 — 插件分组入场(令牌 animateItem)
             item(key = "plugins_group") {
+                Box(museAnimateItem()) {
                 CardGroup(
                     modifier = Modifier.padding(horizontal = MusePaddings.screen),
                     title = {
@@ -184,6 +200,7 @@ fun ToolsScreen(
                     PluginManifest.BUILT_IN.forEach { plugin ->
                         PluginRow(plugin = plugin)
                     }
+                }
                 }
             }
         }

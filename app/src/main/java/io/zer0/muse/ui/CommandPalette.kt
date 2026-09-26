@@ -51,14 +51,17 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import compose.icons.tablericons.Search
+import androidx.compose.animation.AnimatedVisibility
 import io.zer0.muse.R
 import io.zer0.muse.data.session.SearchResult
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
@@ -216,7 +219,12 @@ internal fun CommandPalette(
                 // 结果面板：胶囊下方 12dp，实色圆角卡片。
                 // v2.0.1: 仅在「输入了内容」时显示 — 刚打开时保持干净（用户反馈：输入后有匹配才显示）；
                 // 无匹配由面板内部空态承担；"/" 命令模式同样走 query 非空分支。
-                if (query.isNotBlank()) {
+                // v2.x: 动效补齐 — 结果面板出现/消失走令牌 slide+fade（向下展开感）
+                AnimatedVisibility(
+                    visible = query.isNotBlank(),
+                    enter = MuseMotion.verticalSlideFadeEnter(initialOffsetY = { -it / 4 }),
+                    exit = MuseMotion.verticalSlideFadeExit(targetOffsetY = { -it / 4 }),
+                ) {
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -390,6 +398,8 @@ private fun PaletteResultList(
                 visibleCommands,
                 key = { index, entry -> "command_${entry.command}_$index" },
             ) { index, entry ->
+                // v2.x: 动效补齐 — 结果行入场(令牌 animateItem)
+                Box(museAnimateItem()) {
                 CommandRow(
                     icon = entry.icon,
                     label = stringResource(entry.labelRes),
@@ -397,6 +407,7 @@ private fun PaletteResultList(
                     selected = selectedIndex == index,
                     onClick = { onSelect(index) },
                 )
+                }
             }
             if (visibleCommands.isEmpty()) {
                 item(key = "commands_empty") {
@@ -422,6 +433,8 @@ private fun PaletteResultList(
                         sessionResults,
                         key = { index, session -> "s_${session.sessionId}_$index" },
                     ) { index, session ->
+                        // v2.x: 动效补齐 — 结果行入场(令牌 animateItem)
+                        Box(museAnimateItem()) {
                         CommandRow(
                             icon = MuseIcons.search,
                             label = session.sessionTitle.ifBlank { session.sessionId },
@@ -429,6 +442,7 @@ private fun PaletteResultList(
                             selected = selectedIndex == visibleCommands.size + index,
                             onClick = { onSelect(visibleCommands.size + index) },
                         )
+                        }
                     }
                 }
                 if (messageResults.isNotEmpty()) {
@@ -439,6 +453,8 @@ private fun PaletteResultList(
                         messageResults,
                         key = { index, message -> "m_${message.messageId}_$index" },
                     ) { index, message ->
+                        // v2.x: 动效补齐 — 结果行入场(令牌 animateItem)
+                        Box(museAnimateItem()) {
                         CommandRow(
                             icon = MuseIcons.search,
                             label = message.sessionTitle.ifBlank { message.sessionId },
@@ -446,6 +462,7 @@ private fun PaletteResultList(
                             selected = selectedIndex == visibleCommands.size + sessionResults.size + index,
                             onClick = { onSelect(visibleCommands.size + sessionResults.size + index) },
                         )
+                        }
                     }
                 }
                 if (sessionResults.isEmpty() && messageResults.isEmpty()) {
