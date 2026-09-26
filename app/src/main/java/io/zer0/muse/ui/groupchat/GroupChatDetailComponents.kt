@@ -744,6 +744,7 @@ internal fun GroupSummaryCard(
     onCopy: () -> Unit = {},
     onShare: () -> Unit = {},
     onSaveAsSharedDoc: () -> Unit = {},
+    onContinue: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -801,6 +802,12 @@ internal fun GroupSummaryCard(
                 text = stringResource(R.string.groupchat_summary_save_doc),
                 onClick = onSaveAsSharedDoc,
                 variant = IosCapsuleButtonVariant.Secondary,
+            )
+            // v2.x: 继续落实 — 把总结带回输入框,用户可补充指令或 @成员后继续推进
+            MuseCapsuleButton(
+                text = stringResource(R.string.groupchat_summary_continue),
+                onClick = onContinue,
+                variant = IosCapsuleButtonVariant.Text,
             )
         }
     }

@@ -781,6 +781,12 @@ fun GroupChatDetailScreen(
                                 ShareIntentHelper.startChooserSafely(context, sendIntent)
                             },
                             onSaveAsSharedDoc = { viewModel.saveSummaryAsSharedDoc(message.id) },
+                            onContinue = {
+                                // v2.x: 继续落实 — 总结带回输入框,可补充指令或 @成员后继续推进
+                                val body = if (message.body.length > 500) message.body.take(500) + "…" else message.body
+                                val prefix = if (state.inputText.isBlank()) "" else state.inputText + "\n\n"
+                                viewModel.updateInput(prefix + "【落实总结】" + body)
+                            },
                         )
                     } else if (message.messageType == "vote") {
                         GroupVoteCard(message = message)
