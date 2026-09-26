@@ -273,6 +273,9 @@ class AssistantRepository(
         // 交付标准版本之前的融合版（自动升级到含交付标准的版本）
         "prompt_templates/legacy/default_persona_zh_v3.prompt",
         "prompt_templates/legacy/default_persona_en_v3.prompt",
+        // emoji 克制规则之前的版本（自动升级到含 emoji 规则的版本）
+        "prompt_templates/legacy/default_persona_zh_v4.prompt",
+        "prompt_templates/legacy/default_persona_en_v4.prompt",
     ).mapNotNull { name ->
         runCatching {
             context.assets.open(name).bufferedReader().use { it.readText() }
