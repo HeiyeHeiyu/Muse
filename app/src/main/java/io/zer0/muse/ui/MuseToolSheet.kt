@@ -12,12 +12,19 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,6 +45,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.layout.ContentScale
@@ -392,24 +401,70 @@ private fun QuickAttachTab(
     dense: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    // v2.x: 交互动效重做 — 修复 ripple 被背景盖住(顺序问题) + 按压缩放 + 颜色弹性过渡
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.93f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "quickTabPress",
+    )
+    val containerColor by animateColorAsState(
+        targetValue = if (isActive) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.78f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+        },
+        animationSpec = tween(durationMillis = 200),
+        label = "quickTabContainer",
+    )
+    val circleColor by animateColorAsState(
+        targetValue = if (isActive) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+        } else {
+            MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+        },
+        animationSpec = tween(durationMillis = 200),
+        label = "quickTabCircle",
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (isActive) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.onSurface,
+        animationSpec = tween(durationMillis = 200),
+        label = "quickTabContent",
+    )
     Row(
         modifier = modifier
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
             .heightIn(min = when {
                 dense -> 64.dp
                 compact -> 48.dp
                 else -> 72.dp
             })
             .clip(if (compact) MuseShapes.pill else MuseShapes.large)
+            // v2.x: 背景在 clickable 之前 — 涟漪画在背景之上,点点都有反馈
+            .background(containerColor)
             .then(
                 if (onLongClick != null) {
-                    Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                    Modifier.combinedClickable(
+                        interactionSource = interactionSource,
+                        indication = ripple(),
+                        onClick = onClick,
+                        onLongClick = onLongClick,
+                    )
                 } else {
-                    Modifier.clickable(onClick = onClick)
+                    Modifier.clickable(
+                        interactionSource = interactionSource,
+                        indication = ripple(),
+                        onClick = onClick,
+                    )
                 },
-            )
-            .background(
-                if (isActive) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
-                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
             )
             .padding(
                 horizontal = when {
@@ -430,11 +485,7 @@ private fun QuickAttachTab(
     ) {
         Surface(
             shape = CircleShape,
-            color = if (isActive) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-            } else {
-                MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
-            },
+            color = circleColor,
             modifier = Modifier.size(
                 when {
                     dense -> 36.dp
@@ -450,8 +501,7 @@ private fun QuickAttachTab(
                 Icon(
                     imageVector = icon,
                     contentDescription = label,
-                    tint = if (isActive) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurface,
+                    tint = contentColor,
                     modifier = Modifier.size(
                         when {
                             dense -> MuseIconSizes.iconSmall
@@ -465,8 +515,7 @@ private fun QuickAttachTab(
         Text(
             text = label,
             style = if (compact || dense) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleSmall,
-            color = if (isActive) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurface,
+            color = contentColor,
             maxLines = if (compact && !dense) 1 else 2,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             modifier = if (compact && !dense) Modifier else Modifier.weight(1f),
@@ -475,7 +524,7 @@ private fun QuickAttachTab(
             Icon(
                 imageVector = MuseIcons.check,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                tint = contentColor,
                 modifier = Modifier.size(MuseIconSizes.iconSmall),
             )
         } else if (!compact && onLongClick != null) {

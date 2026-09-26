@@ -761,7 +761,8 @@ internal fun InputBar(
                                      onToggleDeepThinking()
                                  },
                                  onLongClick = {
-                                     MuseHaptics.light(hapticFeedback)
+                                     // v2.x: 换等级用更重触感 + title 随等级即时更新(可见反馈)
+                                     MuseHaptics.medium(hapticFeedback)
                                      onCycleDeepThinkingLevel()
                                  },
                              ),
