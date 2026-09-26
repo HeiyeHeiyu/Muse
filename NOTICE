@@ -50,7 +50,15 @@ the Muse codebase beyond static/dynamic linking):
   - kotlinx.serialization (Apache 2.0) https://github.com/Kotlin/kotlinx.serialization
   - Material 3 (Apache 2.0)            https://m3.material.io/
   - pdfbox-android (Apache 2.0)        https://github.com/TomRoush/PdfBox-Android
-  - Vosk (Apache 2.0)                  https://alphacephei.com/vosk/
   - Glance (Apache 2.0)                https://developer.android.com/jetpack/compose/glance
   - Ktor (Apache 2.0)                  https://ktor.io/
   - Jsoup (MIT)                        https://jsoup.org/
+  - Haze (Apache 2.0)                  https://github.com/chrisbanes/haze
+  - ML Kit (Apache 2.0)                https://developers.google.com/ml-kit
+  - ZXing (Apache 2.0)                 https://github.com/zxing/zxing
+  - ONNX Runtime (MIT)                 https://github.com/microsoft/onnxruntime
+  - JTokkit (Apache 2.0)               https://github.com/knuddelsgmbh/jtokkit
+  - Shizuku API (MIT)                  https://github.com/RikkaApps/Shizuku-API
+  - CameraX (Apache 2.0)               https://developer.android.com/jetpack/androidx/releases/camera
+  - WorkManager (Apache 2.0)           https://developer.android.com/jetpack/androidx/releases/work
+  - Tabler Icons / Compose Icons (MIT) https://github.com/DevSrSouza/compose-icons
