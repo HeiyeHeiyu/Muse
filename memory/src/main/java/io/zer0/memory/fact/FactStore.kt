@@ -568,6 +568,51 @@ class FactStore(
         promoted
     }
 
+    /** D6 第 2 期: 同实体多断言分组 —— “合并建议”的确定性候选,不代表应合并。 */
+    data class SameEntityAssertions(
+        /** 实体归一化键。 */
+        val entityKey: String,
+        /** 该实体下去重后的断言(每条一个 [Fact])。 */
+        val assertions: List<Fact>,
+    )
+
+    /**
+     * D6 第 2 期: 检测“同实体多断言”实体,为“合并建议”提供确定性候选。
+     *
+     * 设计(只检测,不改数据、不自动合并):
+     *  - 仅统计 entity_key 非空且未置顶的实体(中文名无键的存量不误判,沿用“宁漏不错”);
+     *  - 同实体的重复断言用 [isSameEntityFact] 去重后再计数;
+     *  - 断言数 ≥ [minAssertions] 的实体视为“多断言实体”,可提示用户或供后续 LLM 版整合为实体画像。
+     *
+     * 定位: 与 [mergeSameEntityDuplicates](重叠断言)互补 —— 本方法处理
+     * “同一实体多条不同断言”,为后续合并建议提供候选,当前不产生任何写操作。
+     *
+     * @return 按断言数降序的多断言分组;无匹配返回空列表
+     */
+    suspend fun findSameEntityMultiAssertionGroups(
+        scope: String = "main",
+        spaceId: String = "default",
+        minAssertions: Int = DEFAULT_MIN_ASSERTIONS,
+    ): List<SameEntityAssertions> = withContext(Dispatchers.IO) {
+        if (minAssertions < 2) return@withContext emptyList()
+        val byKey = dao.getByScopeAndSpace(scope, spaceId)
+            .filter { !it.entityKey.isNullOrBlank() && it.pinnedAt == null }
+            .map { it.toDomainFact() }
+            .groupBy { it.entityKey!! }
+        if (byKey.isEmpty()) return@withContext emptyList()
+        val result = mutableListOf<SameEntityAssertions>()
+        for ((key, facts) in byKey) {
+            val distinct = mutableListOf<Fact>()
+            for (fact in facts) {
+                if (distinct.none { isSameEntityFact(it.fact, fact.fact) }) distinct.add(fact)
+            }
+            if (distinct.size >= minAssertions) {
+                result.add(SameEntityAssertions(key, distinct))
+            }
+        }
+        result.sortedByDescending { it.assertions.size }
+    }
+
     /**
      * v13 (T4-1): 记录修订 — 仅对关键记忆(importance ≥ 1 或实体键非空)写入,防止表膨胀。
      * revisionDao 为 null 或写入失败时静默降级,不影响主流程。
@@ -1462,6 +1507,9 @@ class FactStore(
         text.trim().replace(WHITESPACE_RE, " ")
 
     companion object {
+        /** D6 第 2 期: “多断言实体”默认阈值 —— 同实体 ≥3 条不同断言才值得提示整合。 */
+        const val DEFAULT_MIN_ASSERTIONS = 3
+
         private val WHITESPACE_RE = Regex("\\s+")
 
         /** B-26: 进程级墓碑锁(所有 FactStore 实例共享同一把锁)。 */

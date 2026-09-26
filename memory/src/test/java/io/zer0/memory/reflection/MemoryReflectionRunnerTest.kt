@@ -130,4 +130,17 @@ class MemoryReflectionRunnerTest {
         val promoted = store.promoteRepeatedFacts("main", "default", minConfirmations = 2)
         assertEquals("单条事实不晋升", 0, promoted)
     }
+
+    @Test
+    fun `reflection reports same entity multi assertion suggestions`() = runTest {
+        store.add(FactStore.Fact(fact = "赵六喜欢咖啡", entityKey = "赵六"))
+        store.add(FactStore.Fact(fact = "赵六在学游泳", entityKey = "赵六"))
+        store.add(FactStore.Fact(fact = "赵六喜欢跑步", entityKey = "赵六"))
+
+        val result = runner.runReflection()
+
+        assertEquals("应报告 1 个同实体多断言实体", 1, result.mergeSuggestions)
+        // 只建议不合并:三条不同断言仍在
+        assertEquals("不自动合并,事实保留 3 条", 3, store.getByScopeAndSpace("main", "default").size)
+    }
 }

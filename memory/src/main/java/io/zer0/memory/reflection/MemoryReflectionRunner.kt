@@ -15,6 +15,7 @@ import kotlinx.coroutines.withContext
  *  2. 合并同实体键重复事实(解决"同一用户名 3 条"的存量清洗)
  *  3. 检测同实体矛盾断言 → 生成待确认清单(不自动删除)
  *  4. 重复确认晋升(同实体多条事实 → 重要度提升)
+ *  5. D6 第 2 期: 同实体多断言检测 → 生成“合并建议”候选(只统计,不自动合并)
  *
  * 定位: 与 [FactStore] 写入时查重(快路径)互补 — 写入时拦不住的历史重复,
  * 由反思任务在后台定期整理,形成\"写入防增量 + 反思清存量\"的双层闭环。
@@ -66,11 +67,20 @@ class MemoryReflectionRunner(
             .onError { msg, t -> Logger.w(TAG, "反思晋升失败: ${t?.message ?: msg}") }
             .getOrNull() ?: 0
 
+        // 5. D6 第 2 期: 同实体多断言检测 — 生成“合并建议”候选(确定性,只统计不自动合并)
+        val mergeSuggestions = resultOf { factStore.findSameEntityMultiAssertionGroups(scope, spaceId) }
+            .onError { msg, t -> Logger.w(TAG, "同实体多断言检测失败: ${t?.message ?: msg}") }
+            .getOrNull()?.size ?: 0
+        if (mergeSuggestions > 0) {
+            Logger.i(TAG, "同实体多断言: $mergeSuggestions 个实体可考虑合并(仅建议,未改动任何数据)")
+        }
+
         val result = ReflectionResult(
             backfilled = backfilled,
             merged = merged,
             contradictions = contradictions.size,
             promoted = promoted,
+            mergeSuggestions = mergeSuggestions,
         )
         if (result.hasWork) {
             Logger.i(TAG, "记忆反思完成: 回填实体键=$backfilled, 合并重复=$merged, 矛盾对=$contradictions.size, 晋升=$promoted")
@@ -83,6 +93,8 @@ class MemoryReflectionRunner(
         val merged: Int = 0,
         val contradictions: Int = 0,
         val promoted: Int = 0,
+        /** D6 第 2 期: 同实体多断言实体数(合并建议候选,不自动合并)。 */
+        val mergeSuggestions: Int = 0,
     ) {
         val hasWork: Boolean get() = backfilled + merged + contradictions + promoted > 0
     }

@@ -8,7 +8,8 @@ package io.zer0.memory.prompt
  */
 object FactExtractionPrompt {
 
-    const val TEMPLATE_VERSION = "fact-extraction.v2"
+    // D6 第 2 期: 强化原子性约束(单一实体+单一谓词、连接词多断言拆分、正反例) → v3
+    const val TEMPLATE_VERSION = "fact-extraction.v3"
     const val CACHE_GROUP = "memory.extract_facts"
 
     fun buildSystemPrompt(
@@ -43,9 +44,14 @@ object FactExtractionPrompt {
    如果一条内容描述的是“以后遇到类似任务应如何做”，它属于经验或技能，不属于记忆事实。
    如果一条内容只是某个主题下的具体子问题、具体方案、具体改法，也不要收录。
 
-3. 每条事实只承载一件事，保持原子性。
-   反例：“用户讨论了搬家安排并决定先整理书房”太细。
-   正例：
+3. 每条事实只承载一个断言 —— 单一实体、单一谓词，保持原子性。
+   (a) 一条表述里用“并且/而且/同时/另外/以及”等连接词串联起两个及以上判断时，必须拆成多条。
+       反例（一条里两个断言）：“用户在北京工作，而且周末喜欢爬山”。
+       拆成正例：“用户在北京工作” + “周末喜欢爬山”。
+   (b) 一条事实尽量只出现一个实体、一个谓词；不要一条里既说 A 又说 B。
+   (c) 但也不要拆得过细：某个主题下的具体子问题、具体方案不要收录。
+       反例：“用户讨论了搬家安排并决定先整理书房”太细，不收。
+   正例（各自原子、独立可检索）：
    - “用户最近在筹备搬家”
    - “用户希望新家客厅走极简风格”
 
@@ -122,9 +128,14 @@ You are a memory fact splitter. $diffInstruction
    If a statement describes how to handle similar tasks in the future, it belongs in the experience or skill layer, not in memory facts.
    If a statement describes a concrete subproblem, concrete solution, or concrete change inside a topic, do not record it.
 
-3. Each fact must be atomic: one entry, one fact.
-   Wrong: "The user discussed moving plans and decided to sort the study first" is too detailed.
-   Correct:
+3. Each fact must carry exactly one assertion: one entity, one predicate.
+   (a) When a single sentence joins two or more assertions with a connective such as "and", "also", "while", or "and also", split it into multiple entries.
+       Wrong (two assertions in one entry): "The user works in Beijing, and likes hiking on weekends".
+       Split into: "The user works in Beijing" + "likes hiking on weekends".
+   (b) Keep each fact to one entity and one predicate; do not state both A and B in one entry.
+   (c) Do not over-split either: concrete subproblems or concrete solutions within a topic should not be recorded.
+       Wrong: "The user discussed moving plans and decided to sort the study first" is too detailed.
+   Correct (each atomic and independently retrievable):
    - "The user is preparing to move"
    - "The user wants a minimalist style for the new living room"
 

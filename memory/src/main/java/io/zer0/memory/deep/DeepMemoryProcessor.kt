@@ -224,8 +224,18 @@ class DeepMemoryProcessor(
                     summaryManager.markProcessed(summary.sessionId)
                     return 0
                 }
+                // D6 第 2 期: 原子性校验 — 提取 prompt 已要求“一条一断言”,这里做兜底：
+                // 含连接词串联的多个断言的条目保守拆开(不改 schema,拆分失败原样保留)。
+                val atomicity = FactAtomicityValidator.enforce(filteredFacts)
+                if (atomicity.splitCount > 0) {
+                    Logger.i(
+                        "DeepMemoryProcessor",
+                        "原子性校验: 拆分 ${atomicity.splitCount} 条多断言事实(+${atomicity.addedCount} 条, " +
+                            "session=${summary.sessionId.take(8)}…)",
+                    )
+                }
                 // 摘要携带空间归属，深度提取不能再落入 default。
-                val added = factStore.addBatch(filteredFacts, scope = scope, spaceId = summary.spaceId)
+                val added = factStore.addBatch(atomicity.facts, scope = scope, spaceId = summary.spaceId)
                 // v0.32: 接入 MemoryConfig —— 每个脏 session 处理完后顺手跑一次衰减,
                 // 让 decayPerDay / forgetSpeed / compileThreshold / baseImportance 真正生效。
                 // 单 session 的 fact 增量很小,applyDecay 的开销可忽略;失败也不阻塞主流程。
