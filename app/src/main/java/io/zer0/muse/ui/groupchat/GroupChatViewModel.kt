@@ -57,6 +57,8 @@ data class GroupChatUiState(
     val isAgentResponding: Boolean = false,
     /** v2.x: 轮转是否已被用户暂停(导演控制),暂停中可点击"继续"或"跳过剩余" */
     val roundPaused: Boolean = false,
+    /** v2.x: 本轮剩余待发言成员名(队列可视化,导演条展示)。 */
+    val upcomingSpeakers: List<String> = emptyList(),
     /** v1.104: 当前正在发言的 Agent(用于"谁在思考"指示),null=无人在发言 */
     val currentSpeaker: AssistantEntity? = null,
     val assistants: List<AssistantEntity> = emptyList(),
@@ -264,7 +266,7 @@ class GroupChatViewModel(
         viewModelScope.launch {
             scheduler.activeGroupGeneration.collect { gen ->
                 if (gen == null) {
-                    _state.update { it.copy(isAgentResponding = false, currentSpeaker = null, roundPaused = false) }
+                    _state.update { it.copy(isAgentResponding = false, currentSpeaker = null, roundPaused = false, upcomingSpeakers = emptyList()) }
                 } else if (gen.chatId == currentChatId.value) {
                     // 只在当前群聊匹配时显示生成状态(避免其他群聊的生成干扰当前页)
                     val speaker = gen.currentSpeakerId?.let { id ->
@@ -274,6 +276,7 @@ class GroupChatViewModel(
                         it.copy(
                             isAgentResponding = gen.isResponding,
                             currentSpeaker = speaker,
+                            upcomingSpeakers = gen.upcomingSpeakerNames,
                         )
                     }
                 } else {

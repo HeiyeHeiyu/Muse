@@ -159,6 +159,8 @@ class GroupChatScheduler(
         val isResponding: Boolean = true,
         val currentSpeakerId: String? = null,
         val currentSpeakerName: String? = null,
+        /** v2.x: 剩余待发言成员名(队列可视化,UI 导演条展示"接下来: A → B")。 */
+        val upcomingSpeakerNames: List<String> = emptyList(),
         val lastUpdatedAt: Long = System.currentTimeMillis(),
     )
 
@@ -1285,6 +1287,10 @@ class GroupChatScheduler(
             }
             // v1.104: 通知 UI 当前轮到谁发言
             onSpeakerChange?.invoke(assistant)
+            // v2.x: 队列可视化 — 同步剩余待发言成员(导演条展示"接下来: A → B")
+            _activeGroupGeneration.update {
+                it?.copy(upcomingSpeakerNames = orderedAssistants.drop(agentIndex + 1).map { a -> a.name })
+            }
             when (val result = invokeAgent(chat, chatId, assistant, memberNames, isMentioned = isMentioned)) {
                 is AgentResult.Reply -> {
                     replies.add(result.message)

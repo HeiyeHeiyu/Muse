@@ -598,6 +598,15 @@ fun GroupChatDetailScreen(
                                 variant = IosCapsuleButtonVariant.Text,
                             )
                         }
+                        // v2.x: 队列可视化 — 本轮剩余待发言成员
+                        if (state.upcomingSpeakers.isNotEmpty()) {
+                            Text(
+                                text = stringResource(R.string.groupchat_round_upcoming) + " " +
+                                    state.upcomingSpeakers.joinToString(" → "),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline,
+                            )
+                        }
                     }
                 }
                 // 待发送图片预览行

@@ -32,6 +32,7 @@
     <string name="groupchat_length_brief">简短</string>
     <string name="groupchat_length_standard">标准</string>
     <string name="groupchat_length_detailed">详尽</string>
+    <string name="groupchat_round_upcoming">接下来:</string>
     <string name="groupchat_input_placeholder">输入消息…@提及成员</string>
     <string name="groupchat_send">发送</string>
     <string name="groupchat_pick_content">选择要发送的内容</string>
