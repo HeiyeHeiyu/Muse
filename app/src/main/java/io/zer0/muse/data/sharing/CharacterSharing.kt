@@ -4,8 +4,13 @@ import android.content.Context
 import io.zer0.muse.util.ShareIntentHelper
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.net.Uri
 import androidx.core.content.FileProvider
@@ -24,6 +29,16 @@ import java.io.FileOutputStream
 object CharacterSharer {
 
     private const val TAG = "CharacterShare"
+
+    // v2.x: 卡片配色 — 与 UiTheme 月桂绿体系对齐(Canvas 绘制读不到 Compose 主题,取同源色值)
+    private val LAUREL_DEEP = android.graphics.Color.parseColor("#0F3D2A")
+    private val LAUREL_MAIN = android.graphics.Color.parseColor("#2A7A55")
+    private val LAUREL_BRIGHT = android.graphics.Color.parseColor("#4A9F70")
+    private val LAUREL_PALE = android.graphics.Color.parseColor("#D4EBDD")
+    private val WARM_WHITE = android.graphics.Color.parseColor("#FAFAF8")
+    private val INK = android.graphics.Color.parseColor("#1A1A1A")
+    private val SUBTLE = android.graphics.Color.parseColor("#8E8E93")
+    private val STAR_GOLD = android.graphics.Color.parseColor("#F5C842")
 
     /**
      * 导出助手为 JSON 字符串(可保存为文件分享)。
@@ -45,7 +60,10 @@ object CharacterSharer {
     }
 
     /**
-     * 生成角色卡片 PNG(头像 + 名称 + 标语 + 水印)。
+     * v2.x: 生成角色卡片 PNG(月桂绿渐变冠部 + 圆形头像 + 名字/描述 + 品牌水印)。
+     *
+     * 头像优先使用 [ShareableAssistant.avatarUrl] 指向的本地图片(圆形裁剪);
+     * 无图片时用 emoji 居中绘制。卡片规格 1080×1350(3:4),适合社交分享。
      *
      * @return 生成的文件 URI, 用于分享
      */
@@ -58,60 +76,96 @@ object CharacterSharer {
         return try {
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
+            val w = width.toFloat()
+            val h = height.toFloat()
 
-            // 背景
-            canvas.drawColor(android.graphics.Color.parseColor("#1A1A2E"))
+            // ── 1. 冠部:月桂绿渐变(深→亮) ──
+            val topHeight = h * 0.46f
+            val topPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                shader = LinearGradient(
+                    0f, 0f, 0f, topHeight,
+                    intArrayOf(LAUREL_DEEP, LAUREL_MAIN, LAUREL_BRIGHT),
+                    floatArrayOf(0f, 0.55f, 1f),
+                    Shader.TileMode.CLAMP,
+                )
+            }
+            canvas.drawRect(0f, 0f, w, topHeight, topPaint)
 
-            val paint = Paint().apply {
-                isAntiAlias = true
-                color = android.graphics.Color.WHITE
+            // ── 2. 主体:暖白 ──
+            val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = WARM_WHITE }
+            canvas.drawRect(0f, topHeight, w, h, bodyPaint)
+
+            // ── 3. 头像(圆形,骑在分界线上) ──
+            val cx = w / 2f
+            val avatarR = 180f
+            val cy = topHeight + 12f
+            canvas.drawCircle(cx, cy, avatarR + 16f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = WARM_WHITE })
+            canvas.drawCircle(cx, cy, avatarR, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = LAUREL_PALE })
+            val avatarBitmap = assistant.avatarUrl
+                .takeIf { it.isNotBlank() }
+                ?.let { path -> File(path).takeIf { it.exists() } }
+                ?.let { file -> BitmapFactory.decodeFile(file.absolutePath) }
+            if (avatarBitmap != null) {
+                canvas.save()
+                canvas.clipPath(Path().apply { addCircle(cx, cy, avatarR, Path.Direction.CW) })
+                val scale = maxOf(avatarR * 2f / avatarBitmap.width, avatarR * 2f / avatarBitmap.height)
+                val dw = avatarBitmap.width * scale
+                val dh = avatarBitmap.height * scale
+                canvas.drawBitmap(
+                    avatarBitmap,
+                    null,
+                    RectF(cx - dw / 2f, cy - dh / 2f, cx + dw / 2f, cy + dh / 2f),
+                    Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG),
+                )
+                canvas.restore()
+                avatarBitmap.recycle()
+            } else {
+                val emojiPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    textSize = avatarR * 1.3f
+                    textAlign = Paint.Align.CENTER
+                }
+                canvas.drawText(
+                    assistant.emoji.ifBlank { "\uD83E\uDD16" },
+                    cx,
+                    cy + avatarR * 0.48f,
+                    emojiPaint,
+                )
             }
 
-            // 品牌
-            paint.textSize = 36f
-            paint.typeface = Typeface.DEFAULT_BOLD
-            canvas.drawText("Muse", 60f, 80f, paint)
+            // ── 4. 名字与描述 ──
+            val namePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = INK
+                textSize = 68f
+                typeface = Typeface.DEFAULT_BOLD
+                textAlign = Paint.Align.CENTER
+            }
+            canvas.drawText(assistant.name.take(24), cx, cy + avatarR + 150f, namePaint)
 
-            // 头像 emoji (大号居中)
-            paint.textSize = 200f
-            paint.textAlign = Paint.Align.CENTER
-            canvas.drawText(assistant.emoji.ifBlank { "\uD83E\uDD16" }, width / 2f, 400f, paint)
-
-            // 名称
-            paint.textSize = 64f
-            paint.typeface = Typeface.DEFAULT_BOLD
-            paint.color = android.graphics.Color.WHITE
-            canvas.drawText(assistant.name, width / 2f, 550f, paint)
-
-            // 标语/描述
-            paint.textSize = 32f
-            paint.typeface = Typeface.DEFAULT
-            paint.color = android.graphics.Color.parseColor("#9B8EC4")
-            val desc = assistant.description.take(60)
-            canvas.drawText(desc, width / 2f, 620f, paint)
-
-            // 分隔线
-            paint.color = android.graphics.Color.parseColor("#333355")
-            canvas.drawLine(100f, 680f, width - 100f, 680f, paint)
-
-            // 系统提示(前 3 行)
-            paint.textSize = 24f
-            paint.color = android.graphics.Color.parseColor("#AAAAAA")
-            paint.textAlign = Paint.Align.LEFT
-            val promptLines = assistant.systemPrompt.take(150).split("\n").take(3)
-            var y = 730f
-            promptLines.forEach { line ->
-                canvas.drawText(line.take(40), 80f, y, paint)
-                y += 36f
+            val desc = assistant.description.trim().take(80)
+            if (desc.isNotEmpty()) {
+                val descPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = SUBTLE
+                    textSize = 30f
+                    textAlign = Paint.Align.CENTER
+                }
+                canvas.drawText(desc, cx, cy + avatarR + 220f, descPaint)
             }
 
-            // 水印
-            paint.textSize = 20f
-            paint.color = android.graphics.Color.parseColor("#555577")
-            paint.textAlign = Paint.Align.RIGHT
-            canvas.drawText("Made with Muse", width - 60f, height - 40f, paint)
+            // ── 5. 冠部点缀(金色星点) ──
+            val starPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = STAR_GOLD }
+            canvas.drawCircle(w * 0.13f, h * 0.075f, 9f, starPaint)
+            canvas.drawCircle(w * 0.87f, h * 0.13f, 5f, starPaint)
+            canvas.drawCircle(w * 0.78f, h * 0.055f, 4f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = LAUREL_PALE })
 
-            // 保存
+            // ── 6. 底部水印 ──
+            val markPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = SUBTLE
+                textSize = 22f
+                textAlign = Paint.Align.CENTER
+            }
+            canvas.drawText("Made with Muse · museai.ltd", cx, h - 52f, markPaint)
+
+            // ── 保存 ──
             val file = File(context.cacheDir, "character_card_${System.currentTimeMillis()}.png")
             FileOutputStream(file).use { out ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)

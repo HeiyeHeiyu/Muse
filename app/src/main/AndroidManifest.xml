@@ -140,6 +140,12 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+            <!-- v2.x: 接收角色包(.muse-assistant) — 从文件管理/聊天应用点开时直接进入导入 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/x-muse-assistant" />
+            </intent-filter>
             <!-- Launcher 长按快捷方式:静态 shortcuts 注册(必须为 <activity> 直接子元素) -->
             <meta-data
                 android:name="android.app.shortcuts"

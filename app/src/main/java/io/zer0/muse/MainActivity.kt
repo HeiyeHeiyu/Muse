@@ -46,6 +46,7 @@ import io.zer0.muse.crash.MuseCrashHandler
 import io.zer0.muse.data.ChatPreferences
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.AppearanceSettingsStore
+import io.zer0.muse.data.assistant.AssistantCardImportBridge
 import io.zer0.muse.intent.ShareIntentHandler
 import io.zer0.muse.ui.ChatViewModel
 import io.zer0.muse.ui.MuseRoutes
@@ -499,6 +500,11 @@ private fun MuseNavGraph(
                             }
                         }
                         is ShareIntentHandler.ShareResult.OpenAssistants -> {
+                            navController.navigate(AssistantsRoute)
+                        }
+                        is ShareIntentHandler.ShareResult.ImportAssistantCard -> {
+                            // v2.x: 角色包导入 — URI 交给助手页的导入预览对话框消费
+                            AssistantCardImportBridge.offer(result.uri)
                             navController.navigate(AssistantsRoute)
                         }
                         is ShareIntentHandler.ShareResult.OpenSettings -> {

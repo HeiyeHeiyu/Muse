@@ -182,6 +182,10 @@
     <string name="assistant_detail_share_muse_card_desc">生成视觉化卡片并通过系统分享</string>
     <string name="assistant_detail_share_muse_json">分享 Muse JSON</string>
     <string name="assistant_detail_share_muse_json_desc">通过系统分享 Muse 格式 JSON</string>
+    <string name="assistant_detail_share_pack">发送角色包</string>
+    <string name="assistant_detail_share_pack_desc">通过任意应用发送完整角色包(含头像),对方可直接导入</string>
+    <string name="assistant_import_preview_title">导入角色卡</string>
+    <string name="assistant_import_preview_confirm">导入</string>
     <string name="assistant_detail_share_muse_failed">分享失败:%1$s</string>
     <!-- Toast -->
     <string name="assistant_toast_sillytavern_imported">已导入 SillyTavern 角色卡: %1$s</string>

@@ -1,83 +1,66 @@
 package io.zer0.muse.intent
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.test.core.app.ApplicationProvider
+import io.mockk.every
+import io.mockk.mockk
+import io.zer0.muse.data.assistant.AssistantCardExporter
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
 /**
- * 通知深链解析回归测试。
+ * v2.x: ShareIntentHandler 角色包接收分支测试。
  *
- * 通知点击经过 MainActivity 后统一由 ShareIntentHandler 解析；这些测试
- * 确保带实体 ID 的通知不会退回到对应功能的首页。
+ * 覆盖: VIEW + application/x-muse-assistant → ImportAssistantCard;
+ * 其他 mime 不误触发; 既有 ACTION_SEND 文本路径回归不受影响。
  */
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [33])
 class ShareIntentHandlerTest {
 
-    private val handler by lazy {
-        ShareIntentHandler(ApplicationProvider.getApplicationContext())
-    }
+    private val context = mockk<Context>(relaxed = true)
 
     @Test
-    fun `session deep link preserves session id`() = runBlocking {
-        val result = handler.handle(deepLink("muse://session/session-20260819"))
+    fun `view intent with pack mime returns ImportAssistantCard`() = runBlocking {
+        val intent = mockk<Intent>(relaxed = true)
+        val uri = mockk<Uri>(relaxed = true)
+        every { intent.action } returns Intent.ACTION_VIEW
+        every { intent.data } returns uri
+        every { intent.type } returns AssistantCardExporter.MIME_TYPE
 
+        val result = ShareIntentHandler(context).handle(intent)
+
+        assertTrue("应返回 ImportAssistantCard,实际: $result", result is ShareIntentHandler.ShareResult.ImportAssistantCard)
         assertEquals(
-            ShareIntentHandler.ShareResult.OpenSession("session-20260819"),
-            result,
-        )
-    }
-
-    @Test
-    fun `scheduled task deep link preserves task id`() = runBlocking {
-        val result = handler.handle(deepLink("muse://scheduled-task/task-20260819"))
-
-        assertEquals(
-            ShareIntentHandler.ShareResult.OpenScheduledTask("task-20260819"),
-            result,
+            uri,
+            (result as ShareIntentHandler.ShareResult.ImportAssistantCard).uri,
         )
     }
 
     @Test
-    fun `quick note deep link preserves note id`() = runBlocking {
-        val result = handler.handle(deepLink("muse://quick-note/note-20260819"))
+    fun `view intent with unrelated mime is not treated as card import`() = runBlocking {
+        val intent = mockk<Intent>(relaxed = true)
+        val uri = mockk<Uri>(relaxed = true)
+        every { intent.action } returns Intent.ACTION_VIEW
+        every { intent.data } returns uri
+        every { intent.type } returns "application/pdf"
 
-        assertEquals(
-            ShareIntentHandler.ShareResult.OpenQuickNote("note-20260819"),
-            result,
-        )
+        val result = ShareIntentHandler(context).handle(intent)
+
+        assertTrue("非角色包 mime 不应触发导入,实际: $result", result !is ShareIntentHandler.ShareResult.ImportAssistantCard)
     }
 
     @Test
-    fun `settings and knowledge notification targets resolve to dedicated pages`() = runBlocking {
-        assertEquals(
-            ShareIntentHandler.ShareResult.OpenSettingsData,
-            handler.handle(deepLink("muse://settings-data")),
-        )
-        assertEquals(
-            ShareIntentHandler.ShareResult.OpenKnowledgeBases,
-            handler.handle(deepLink("muse://knowledge-bases")),
-        )
-    }
+    fun `send text path still prefills (regression)`() = runBlocking {
+        val intent = mockk<Intent>(relaxed = true)
+        every { intent.action } returns Intent.ACTION_SEND
+        every { intent.data } returns null
+        every { intent.getStringExtra(Intent.EXTRA_TEXT) } returns "分享的文本"
 
-    @Test
-    fun `invalid entity id is rejected instead of opening a generic page`() = runBlocking {
-        assertEquals(
-            ShareIntentHandler.ShareResult.None,
-            handler.handle(deepLink("muse://scheduled-task/../../settings")),
-        )
-        assertEquals(
-            ShareIntentHandler.ShareResult.None,
-            handler.handle(deepLink("muse://quick-note/")),
-        )
-    }
+        val result = ShareIntentHandler(context).handle(intent)
 
-    private fun deepLink(value: String): Intent =
-        Intent(Intent.ACTION_VIEW, Uri.parse(value))
+        assertTrue("应走预填路径,实际: $result", result is ShareIntentHandler.ShareResult.PrefillText)
+        assertEquals("分享的文本", (result as ShareIntentHandler.ShareResult.PrefillText).text)
+    }
 }

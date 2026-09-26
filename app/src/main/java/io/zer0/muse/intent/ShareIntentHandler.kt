@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.data.assistant.AssistantCardExporter
 
 /**
  * Phase 8.10: Deep Link + 系统分享接收处理器。
@@ -72,6 +73,8 @@ class ShareIntentHandler(private val context: Context) {
         object OpenKnowledge : ShareResult()
         /** 打开知识库集合管理。 */
         object OpenKnowledgeBases : ShareResult()
+        /** v2.x: 导入角色包(.muse-assistant 文件被点开)。 */
+        data class ImportAssistantCard(val uri: Uri) : ShareResult()
         /** Launcher 快捷方式:打开翻译页(来自 ACTION_TRANSLATE)。 */
         object OpenTranslate : ShareResult()
         /** Launcher 快捷方式:进入主页并触发语音输入(来自 ACTION_VOICE_INPUT)。 */
@@ -97,6 +100,15 @@ class ShareIntentHandler(private val context: Context) {
         val data = intent.data
         if (data != null && data.scheme == SCHEME) {
             return parseDeepLink(data)
+        }
+        // v2.x: 角色包文件打开(VIEW + application/x-muse-assistant)→ 导入预览流程
+        if (intent.action == Intent.ACTION_VIEW && data != null) {
+            val type = intent.type ?: withContext(Dispatchers.IO) {
+                resultOf { context.contentResolver.getType(data) }.getOrNull()
+            }
+            if (type == AssistantCardExporter.MIME_TYPE) {
+                return ShareResult.ImportAssistantCard(data)
+            }
         }
         // 再处理系统分享
         when (intent.action) {

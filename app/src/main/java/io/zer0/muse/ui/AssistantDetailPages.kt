@@ -52,6 +52,7 @@ import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ReasoningLevel
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
+import io.zer0.muse.data.assistant.AssistantCardExporter
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.assistant.AvatarStorage
@@ -431,6 +432,25 @@ fun AssistantDetailPage(
                 modifier = museAnimateItem(),
                 title = { Text(stringResource(R.string.assistant_detail_share_section)) },
             ) {
+                // v2.x: 发送完整角色包(含头像,对方可直接导入) — 最常用入口,排首位
+                item(
+                    onClick = {
+                        val a = assistant ?: return@item
+                        scope.launch {
+                            val ok = AssistantCardExporter.share(context, a)
+                            if (!ok) {
+                                MuseToast.show(
+                                    context.getString(R.string.assistant_detail_share_muse_failed, "pack"),
+                                    3000,
+                                )
+                            }
+                        }
+                    },
+                    leadingContent = { io.zer0.muse.ui.common.form.MuseSettingsIcon(MuseIcons.share) },
+                    headlineContent = { Text(stringResource(R.string.assistant_detail_share_pack)) },
+                    supportingContent = { Text(stringResource(R.string.assistant_detail_share_pack_desc)) },
+                    trailingContent = { ChevronRight() },
+                )
                 item(
                     onClick = {
                         val a = assistant ?: return@item
@@ -442,6 +462,7 @@ fun AssistantDetailPage(
                             topP = a.topP ?: 0.95f,
                             maxTokens = a.maxTokens ?: 2048,
                             emoji = a.avatarEmoji,
+                            avatarUrl = a.avatarImageUrl,
                         )
                         val uri = CharacterSharer.generateCardPng(context, shareable)
                         if (uri != null) {

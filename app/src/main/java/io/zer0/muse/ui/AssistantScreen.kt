@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
 import io.zer0.muse.data.assistant.AssistantCardExporter
+import io.zer0.muse.data.assistant.AssistantCardImportBridge
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.SettingsRepository
@@ -94,6 +97,8 @@ fun AssistantScreen(
     var deleteTargetId by rememberSaveable { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     var exportTargetId by rememberSaveable { mutableStateOf<String?>(null) }
+    // v2.x: 待确认导入的角色卡(解析完成,用户确认后才写入)
+    var pendingImportCard by remember { mutableStateOf<AssistantCardExporter.ParsedCard?>(null) }
 
     // 前端修复 (持久化-2): 由保存的 id 反查实体(列表来自 ViewModel state,进程重建后仍可恢复;
     // id 找不到时反查为 null,弹窗自然不显示,安全降级)
@@ -104,6 +109,8 @@ fun AssistantScreen(
     // i18n: 预提取字符串资源
     val screenTitle = stringResource(R.string.assistant_screen_title)
     val importCardCd = stringResource(R.string.assistant_import_card_cd)
+    val importPreviewTitle = stringResource(R.string.assistant_import_preview_title)
+    val importPreviewConfirm = stringResource(R.string.assistant_import_preview_confirm)
     val emptyCreateText = stringResource(R.string.assistant_empty_create)
     val unnamedText = stringResource(R.string.assistant_unnamed)
     val currentText = stringResource(R.string.assistant_current)
@@ -146,16 +153,16 @@ fun AssistantScreen(
         }
     }
 
-    // 导入角色卡 launcher(SAF OpenDocument)
+    // 导入角色卡 launcher(SAF OpenDocument) — v2.x: 先解析再弹预览确认,确认后才写入
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri ->
         uri?.let {
             scope.launch {
-                runCatching { AssistantCardExporter.import(context, repo, it) }
-                    .onSuccess { imported ->
-                        if (imported != null) {
-                            MuseToast.show(context.getString(R.string.assistant_toast_imported, imported.name))
+                runCatching { AssistantCardExporter.parse(context, it) }
+                    .onSuccess { parsed ->
+                        if (parsed != null) {
+                            pendingImportCard = parsed
                         } else {
                             MuseToast.show(context.getString(R.string.assistant_toast_import_invalid), 3500)
                         }
@@ -163,6 +170,22 @@ fun AssistantScreen(
                     .onFailure { MuseToast.show(context.getString(R.string.assistant_toast_import_failed, it.message ?: ""), 3500) }
             }
         }
+    }
+
+    // v2.x: 外部点开角色包文件(.muse-assistant)→ 解析并弹预览确认
+    val pendingExternalCardUri by AssistantCardImportBridge.pendingUri.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingExternalCardUri) {
+        val uri = pendingExternalCardUri ?: return@LaunchedEffect
+        AssistantCardImportBridge.consume()
+        runCatching { AssistantCardExporter.parse(context, uri) }
+            .onSuccess { parsed ->
+                if (parsed != null) {
+                    pendingImportCard = parsed
+                } else {
+                    MuseToast.show(context.getString(R.string.assistant_toast_import_invalid), 3500)
+                }
+            }
+            .onFailure { MuseToast.show(context.getString(R.string.assistant_toast_import_failed, it.message ?: ""), 3500) }
     }
 
     // 导入 SillyTavern 角色卡 launcher
@@ -637,6 +660,50 @@ fun AssistantScreen(
                 deleteTargetId = null
             },
             onDismiss = { deleteTargetId = null },
+        )
+    }
+
+    // v2.x: 导入预览确认对话框(解析完成后弹出,确认才写入)
+    pendingImportCard?.let { card ->
+        MuseDialog(
+            onDismissRequest = { pendingImportCard = null },
+            title = importPreviewTitle,
+            content = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    AssistantAvatar(assistant = card.entity, avatarSize = 72.dp)
+                    Spacer(Modifier.height(MusePaddings.contentGap))
+                    Text(
+                        text = card.entity.name.ifBlank { unnamedText },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    val previewText = card.entity.systemPrompt.trim()
+                    if (previewText.isNotEmpty()) {
+                        Spacer(Modifier.height(MusePaddings.auxGap))
+                        Text(
+                            text = previewText.take(160),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            },
+            confirmText = importPreviewConfirm,
+            onConfirm = {
+                pendingImportCard?.let { target ->
+                    pendingImportCard = null
+                    scope.launch {
+                        runCatching { AssistantCardExporter.commitParsed(context, repo, target) }
+                            .onSuccess { MuseToast.show(context.getString(R.string.assistant_toast_imported, it.name)) }
+                            .onFailure { MuseToast.show(context.getString(R.string.assistant_toast_import_failed, it.message ?: ""), 3500) }
+                    }
+                }
+            },
+            onDismiss = { pendingImportCard = null },
         )
     }
 }

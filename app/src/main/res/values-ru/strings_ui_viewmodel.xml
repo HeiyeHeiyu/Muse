@@ -176,6 +176,10 @@
     <string name="assistant_detail_share_muse_card_desc">Создайте визуальную карту и поделитесь ею через систему</string>
     <string name="assistant_detail_share_muse_json">Поделиться Muse в формате JSON</string>
     <string name="assistant_detail_share_muse_json_desc">Поделитесь JSON Muse через систему</string>
+    <string name="assistant_detail_share_pack">Отправить карточку персонажа</string>
+    <string name="assistant_detail_share_pack_desc">Отправьте полную карточку (с аватаром) через любое приложение — получатель сможет сразу импортировать</string>
+    <string name="assistant_import_preview_title">Импорт карточки персонажа</string>
+    <string name="assistant_import_preview_confirm">Импортировать</string>
     <string name="assistant_detail_share_muse_failed">Не удалось поделиться: %1$s</string>
     <!-- Toast -->
     <string name="assistant_toast_sillytavern_imported">Импортирована карточка персонажа SillyTavern: %1$s</string>
