@@ -315,6 +315,13 @@ fun HomeScreen(
                 }
             }
             if (release != null) {
+                // 下载/更新出口统一指向官网下载页(版本、更新日志与下载入口一体,国内 CDN 直连)
+                val openDownloadPage: () -> Unit = {
+                    val intent = UpdateNotifier.buildOfficialDownloadIntent()
+                    runCatching {
+                        ShareIntentHelper.startChooserSafely(context, intent)
+                    }.onFailure { Logger.w("HomeScreen", "startActivity failed: ${it.message}") }
+                }
                 UpdateAvailableBanner(
                     release = release,
                     onClose = {
@@ -322,18 +329,8 @@ fun HomeScreen(
                         // v1.0.72: 忽略后持久化,该版本不再提示(用户可在设置-更新里手动检查)
                         scope.launch { settings.saveIgnoredUpdateVersion(release.tagName) }
                     },
-                    onViewRelease = { url ->
-                        val intent = UpdateNotifier.buildViewReleaseIntent(url)
-                        runCatching {
-                            ShareIntentHelper.startChooserSafely(context, intent)
-                        }.onFailure { Logger.w("HomeScreen", "startActivity failed: ${it.message}") }
-                    },
-                    onDownloadApk = { url ->
-                        val intent = UpdateNotifier.buildDownloadApkIntent(url)
-                        runCatching {
-                            ShareIntentHelper.startChooserSafely(context, intent)
-                        }.onFailure { Logger.w("HomeScreen", "startActivity failed: ${it.message}") }
-                    },
+                    onViewRelease = openDownloadPage,
+                    onDownloadApk = openDownloadPage,
                 )
             }
             HorizontalPager(
@@ -523,21 +520,20 @@ fun HomeScreen(
  * 设计:
  *  - Surface 容器用 primaryContainer 色(暖色调高亮,与品牌一致)
  *  - 左侧:Close 图标(关闭 Banner,本次会话不再显示)
- *  - 中间:标题"<tagName> 已发布" + 副标题"点击查看详情或下载 APK"
- *  - 右侧:两个 TextButton("查看详情" / "下载 APK")
- *  - "下载 APK"在无 APK 资源时禁用
+ *  - 中间:标题"<tagName> 已发布" + 版本名
+ *  - 右侧:两个 TextButton("查看详情" / "下载 APK"),均打开官网下载页
  *
  * @param release 最新版本信息
  * @param onClose 关闭 Banner 回调
- * @param onViewRelease 打开 release 页面(htmlUrl)
- * @param onDownloadApk 下载 APK(browser_download_url)
+ * @param onViewRelease 打开官网下载页(版本与更新日志)
+ * @param onDownloadApk 打开官网下载页(下载入口)
  */
 @Composable
 private fun UpdateAvailableBanner(
     release: UpdateChecker.ReleaseInfo,
     onClose: () -> Unit,
-    onViewRelease: (String) -> Unit,
-    onDownloadApk: (String) -> Unit,
+    onViewRelease: () -> Unit,
+    onDownloadApk: () -> Unit,
 ) {
     val closeCd = stringResource(R.string.update_banner_close_cd)
     val viewDetailText = stringResource(R.string.update_banner_view_detail)
@@ -575,16 +571,13 @@ private fun UpdateAvailableBanner(
             }
             MuseCapsuleButton(
                 text = viewDetailText,
-                onClick = { onViewRelease(release.htmlUrl) },
+                onClick = onViewRelease,
                 variant = IosCapsuleButtonVariant.Text,
                 fillWidth = false,
             )
-            // 仅显示 GitHub 官方 HTTPS APK 资产；缓存中的旧数据也必须重新过一遍信任校验。
-            val firstApk = release.apkAssets.firstOrNull(UpdateChecker::isTrustedApkAsset)
             MuseCapsuleButton(
                 text = downloadApkText,
-                onClick = { firstApk?.let { onDownloadApk(it.downloadUrl) } },
-                enabled = firstApk != null,
+                onClick = onDownloadApk,
                 variant = IosCapsuleButtonVariant.Text,
                 fillWidth = false,
             )

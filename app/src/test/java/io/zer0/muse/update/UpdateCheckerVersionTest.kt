@@ -2,7 +2,6 @@ package io.zer0.muse.update
 
 import io.zer0.common.AppJson
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -12,6 +11,7 @@ import org.junit.Test
  * 覆盖:
  *  - 语义版本比较(带 v 前缀/多段版本/长度不等)
  *  - ReleaseInfo 序列化往返(UI Banner 缓存依赖)
+ *  - 下载 URL 信任校验 + 官网下载页常量(下载/更新出口迁移)
  *  - "升级到同版本后不再提示"的判定逻辑(compareVersions >= 0 即不提示)
  *
  * 注意:不依赖网络,纯逻辑测试,CI 可稳定运行。
@@ -111,10 +111,19 @@ class UpdateCheckerVersionTest {
     // ── Banner 显示判定(升级到同版本后不再提示) ──
 
     @Test
-    fun `download intent rejects untrusted asset url`() {
-        assertThrows(IllegalArgumentException::class.java) {
-            UpdateNotifier.buildDownloadApkIntent("https://example.com/malicious.apk")
-        }
+    fun `official download page constant points to museai ltd https`() {
+        // 下载/更新出口统一指向官网下载页:必须是 museai.ltd 域名的 HTTPS 地址
+        val url = UpdateNotifier.OFFICIAL_DOWNLOAD_PAGE
+        assertTrue(url.startsWith("https://museai.ltd/"))
+        assertTrue(url.endsWith("/"))
+    }
+
+    @Test
+    fun `untrusted download url is rejected`() {
+        // 资产解析层的信任校验仍然拒绝非 GitHub 官方 HTTPS 地址
+        assertTrue(!UpdateChecker.isTrustedDownloadUrl("https://example.com/malicious.apk"))
+        assertTrue(!UpdateChecker.isTrustedDownloadUrl("http://github.com/app.apk"))
+        assertTrue(UpdateChecker.isTrustedDownloadUrl("https://github.com/Zer0Qing/Muse/releases/download/v1/a.apk"))
     }
 
     @Test

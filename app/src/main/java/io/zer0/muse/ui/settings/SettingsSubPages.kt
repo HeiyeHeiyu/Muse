@@ -51,6 +51,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.BuildConfig
 import io.zer0.muse.UpdateChecker
 import io.zer0.muse.data.SettingsRepository
+import io.zer0.muse.update.UpdateNotifier
 import io.zer0.muse.ui.common.navigation.MuseLargeTitleHeader
 import io.zer0.muse.ui.common.navigation.MuseStickyBackButton
 import io.zer0.muse.ui.common.settings.ChevronRight
@@ -803,7 +804,7 @@ fun SettingsAboutPage(
         }
     }
 
-    // P3-15: 发现新版本弹窗 — 确认后用浏览器打开 release html_url
+    // P3-15: 发现新版本弹窗 — 确认后用浏览器打开官网下载页
     newVersion?.let { version ->
         MuseDialog(
             onDismissRequest = { newVersion = null },
@@ -818,10 +819,8 @@ fun SettingsAboutPage(
             },
             confirmText = stringResource(R.string.settings_about_download),
             onConfirm = {
-                if (version.htmlUrl.isNotBlank()) {
-                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(version.htmlUrl))
-                    runCatching { context.startActivity(browserIntent) }
-                }
+                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(UpdateNotifier.OFFICIAL_DOWNLOAD_PAGE))
+                runCatching { context.startActivity(browserIntent) }
                 newVersion = null
             },
             dismissText = stringResource(R.string.action_cancel),

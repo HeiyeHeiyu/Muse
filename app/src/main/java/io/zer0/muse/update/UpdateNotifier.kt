@@ -149,23 +149,20 @@ class UpdateNotifier(
         }
 
         /**
-         * 构造用于打开 release 页面 URL 的 [Intent](ACTION_VIEW)。
-         * 调用方负责 startActivity / chooser。
+         * 官网下载页 — 应用内所有下载/更新出口统一指向这里。
+         *
+         * 下载/更新入口从 GitHub Releases 迁到官网下载页:走七牛 CDN 加速,国内可直连;
+         * 页面自带 CDN → 本机镜像 → GitHub 三级回退。
          */
-        fun buildViewReleaseIntent(htmlUrl: String): Intent =
-            Intent(Intent.ACTION_VIEW, Uri.parse(htmlUrl))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        const val OFFICIAL_DOWNLOAD_PAGE = "https://museai.ltd/download/"
 
         /**
-         * 构造用于打开浏览器下载 APK 的 [Intent](ACTION_VIEW)。
+         * 构造用于打开官网下载页的 [Intent](ACTION_VIEW)。
+         * 调用方负责 startActivity / chooser。
          */
-        fun buildDownloadApkIntent(downloadUrl: String): Intent {
-            require(UpdateChecker.isTrustedDownloadUrl(downloadUrl)) {
-                "APK 下载地址必须是 GitHub 官方 HTTPS 资产地址"
-            }
-            return Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl))
+        fun buildOfficialDownloadIntent(): Intent =
+            Intent(Intent.ACTION_VIEW, Uri.parse(OFFICIAL_DOWNLOAD_PAGE))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
     }
 }
 
