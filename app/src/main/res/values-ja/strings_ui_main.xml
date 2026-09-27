@@ -171,6 +171,18 @@
     <string name="permission_sui_detected">Sui バックエンドを検出しました(root ユーザーは Shizuku APK をインストールする必要はありません。Sui が Shizuku 互換インターフェースを提供します)</string>
     <string name="permission_global_action_title">グローバルアクション (ui_global_action の action_id)</string>
     <string name="permission_refresh_status">状態を更新</string>
+    <string name="permission_termux_title">Termux 拡張チャンネル</string>
+    <string name="permission_termux_apk_installed">Termux インストール済み</string>
+    <string name="permission_termux_apk_not_installed">Termux 未インストール(任意チャンネル)</string>
+    <string name="permission_termux_permission_ok">実行権限が付与済み</string>
+    <string name="permission_termux_permission_missing">実行権限が未付与</string>
+    <string name="permission_termux_probe_ok">外部呼び出し設定は正常</string>
+    <string name="permission_termux_probe_failed">外部呼び出し設定が未完了</string>
+    <string name="permission_termux_probe_unchecked">設定は未検出</string>
+    <string name="permission_termux_get_btn">Termux を入手</string>
+    <string name="permission_termux_open_btn">Termux を開く</string>
+    <string name="permission_termux_grant_btn">権限を付与</string>
+    <string name="permission_termux_config_hint">Termux で echo \'allow-external-apps = true\' &gt;&gt; ~/.termux/termux.properties を実行し、Termux を再起動</string>
     <string name="shizuku_apk_installed">Shizuku APK がインストールされています</string>
     <string name="shizuku_apk_not_installed">Shizuku APK がインストールされていません</string>
     <string name="shizuku_service_running">Shizuku サービスは実行中です</string>

@@ -171,6 +171,18 @@
     <string name="permission_sui_detected">Бэкенд Sui обнаружен (root-пользователям не нужно устанавливать APK Shizuku; Sui предоставляет совместимый с Shizuku интерфейс)</string>
     <string name="permission_global_action_title">Глобальные действия (action_id из ui_global_action)</string>
     <string name="permission_refresh_status">Обновить статус</string>
+    <string name="permission_termux_title">Канал расширения Termux</string>
+    <string name="permission_termux_apk_installed">Termux установлен</string>
+    <string name="permission_termux_apk_not_installed">Termux не установлен (необязательный канал)</string>
+    <string name="permission_termux_permission_ok">Разрешение на выполнение выдано</string>
+    <string name="permission_termux_permission_missing">Разрешение на выполнение не выдано</string>
+    <string name="permission_termux_probe_ok">Внешний вызов настроен</string>
+    <string name="permission_termux_probe_failed">Внешний вызов не настроен</string>
+    <string name="permission_termux_probe_unchecked">Настройка не проверена</string>
+    <string name="permission_termux_get_btn">Получить Termux</string>
+    <string name="permission_termux_open_btn">Открыть Termux</string>
+    <string name="permission_termux_grant_btn">Выдать разрешение</string>
+    <string name="permission_termux_config_hint">В Termux выполните echo \'allow-external-apps = true\' &gt;&gt; ~/.termux/termux.properties и перезапустите Termux</string>
     <string name="shizuku_apk_installed">APK Shizuku установлен</string>
     <string name="shizuku_apk_not_installed">APK Shizuku не установлен</string>
     <string name="shizuku_service_running">Служба Shizuku запущена</string>

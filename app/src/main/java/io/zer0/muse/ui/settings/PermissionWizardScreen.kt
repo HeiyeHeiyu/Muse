@@ -86,6 +86,12 @@ fun PermissionWizardScreen(
     var rootRequesting by remember { mutableStateOf(false) }
     var suiAvailable by remember { mutableStateOf(false) }
 
+    // v2.2.1: Termux 扩展通道(可选;不参与"三通道权限等级"判定)
+    val termuxChannel = remember { io.zer0.muse.terminal.TermuxChannel.get(context) }
+    var termuxInstalled by remember { mutableStateOf(false) }
+    var termuxPermitted by remember { mutableStateOf(false) }
+    var termuxProbe by remember { mutableStateOf<Boolean?>(null) }
+
     // 刷新状态
     suspend fun refresh() {
         try {
@@ -96,6 +102,14 @@ fun PermissionWizardScreen(
             shizukuAuthorized = shizukuAuthorizer.checkReady()
             rootAvailable = rootAuthorizer.checkPermission()
             suiAvailable = shizukuAuthorizer.isSuiBackendAvailable()
+            // v2.2.1: Termux 通道静态检测 + 已就绪时轻量探测(验证 allow-external-apps)
+            termuxInstalled = termuxChannel.isInstalled()
+            termuxPermitted = termuxChannel.hasPermission()
+            termuxProbe = if (termuxInstalled && termuxPermitted) {
+                termuxChannel.probe() is io.zer0.muse.terminal.TermuxChannel.Availability.Ready
+            } else {
+                null
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: SecurityException) {
@@ -222,6 +236,40 @@ fun PermissionWizardScreen(
                             }
                             refresh()
                         }
+                    }
+                },
+                onRefresh = { refreshAsync() },
+            )
+
+            // 通道 4(v2.2.1): Termux 扩展通道 — 完整 Linux 环境命令执行(可选)
+            TermuxChannelCard(
+                installed = termuxInstalled,
+                permitted = termuxPermitted,
+                probeOk = termuxProbe,
+                onGet = {
+                    runCatching {
+                        context.startActivity(
+                            android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse("https://f-droid.org/packages/com.termux/"),
+                            ),
+                        )
+                    }
+                },
+                onGrant = {
+                    runCatching {
+                        context.startActivity(
+                            android.content.Intent(
+                                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                android.net.Uri.fromParts("package", io.zer0.muse.terminal.TermuxChannel.PKG, null),
+                            ),
+                        )
+                    }
+                },
+                onOpenApp = {
+                    runCatching {
+                        context.packageManager.getLaunchIntentForPackage(io.zer0.muse.terminal.TermuxChannel.PKG)
+                            ?.let { context.startActivity(it) }
                     }
                 },
                 onRefresh = { refreshAsync() },
@@ -389,6 +437,100 @@ private fun ShizukuChannelCard(
                         onClick = onAuthorize,
                         fillWidth = false,
                     )
+                }
+                MuseCapsuleButton(
+                    text = stringResource(R.string.permission_refresh_status),
+                    onClick = onRefresh,
+                    variant = IosCapsuleButtonVariant.Secondary,
+                    fillWidth = false,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TermuxChannelCard(
+    installed: Boolean,
+    permitted: Boolean,
+    probeOk: Boolean?,
+    onGet: () -> Unit,
+    onGrant: () -> Unit,
+    onOpenApp: () -> Unit,
+    onRefresh: () -> Unit,
+) {
+    MuseSurface(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = stringResource(R.string.permission_termux_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                val ready = installed && permitted && probeOk == true
+                Icon(
+                    imageVector = if (ready) MuseIcons.circleCheck else MuseIcons.alertTriangle,
+                    contentDescription = null,
+                    tint = if (ready) MaterialTheme.statusColors.success else MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            StatusLine(
+                done = installed,
+                text = if (installed) stringResource(R.string.permission_termux_apk_installed)
+                    else stringResource(R.string.permission_termux_apk_not_installed),
+            )
+            StatusLine(
+                done = permitted,
+                text = if (permitted) stringResource(R.string.permission_termux_permission_ok)
+                    else stringResource(R.string.permission_termux_permission_missing),
+            )
+            StatusLine(
+                done = probeOk == true,
+                text = when (probeOk) {
+                    true -> stringResource(R.string.permission_termux_probe_ok)
+                    false -> stringResource(R.string.permission_termux_probe_failed)
+                    null -> stringResource(R.string.permission_termux_probe_unchecked)
+                },
+            )
+            if (installed && permitted && probeOk != true) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.permission_termux_config_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                when {
+                    !installed -> {
+                        MuseCapsuleButton(
+                            text = stringResource(R.string.permission_termux_get_btn),
+                            onClick = onGet,
+                            fillWidth = false,
+                        )
+                    }
+
+                    !permitted -> {
+                        MuseCapsuleButton(
+                            text = stringResource(R.string.permission_termux_grant_btn),
+                            onClick = onGrant,
+                            fillWidth = false,
+                        )
+                    }
+
+                    probeOk != true -> {
+                        MuseCapsuleButton(
+                            text = stringResource(R.string.permission_termux_open_btn),
+                            onClick = onOpenApp,
+                            fillWidth = false,
+                        )
+                    }
                 }
                 MuseCapsuleButton(
                     text = stringResource(R.string.permission_refresh_status),

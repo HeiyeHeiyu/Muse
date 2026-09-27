@@ -178,6 +178,18 @@
     <string name="permission_sui_detected">Sui backend detected (root users don\'t need to install the Shizuku APK; Sui provides a Shizuku-compatible interface)</string>
     <string name="permission_global_action_title">Global Actions (ui_global_action action_id)</string>
     <string name="permission_refresh_status">Refresh status</string>
+    <string name="permission_termux_title">Termux extension channel</string>
+    <string name="permission_termux_apk_installed">Termux installed</string>
+    <string name="permission_termux_apk_not_installed">Termux not installed (optional channel)</string>
+    <string name="permission_termux_permission_ok">Run-command permission granted</string>
+    <string name="permission_termux_permission_missing">Run-command permission missing</string>
+    <string name="permission_termux_probe_ok">External command setup OK</string>
+    <string name="permission_termux_probe_failed">External command setup not ready</string>
+    <string name="permission_termux_probe_unchecked">Setup not detected yet</string>
+    <string name="permission_termux_get_btn">Get Termux</string>
+    <string name="permission_termux_open_btn">Open Termux</string>
+    <string name="permission_termux_grant_btn">Grant permission</string>
+    <string name="permission_termux_config_hint">In Termux run echo \'allow-external-apps = true\' &gt;&gt; ~/.termux/termux.properties, then restart Termux</string>
     <string name="shizuku_apk_installed">Shizuku APK installed</string>
     <string name="shizuku_apk_not_installed">Shizuku APK not installed</string>
     <string name="shizuku_service_running">Shizuku service running</string>

@@ -213,6 +213,18 @@
     <string name="permission_sui_detected">Sui 后端已检测到(root 用户无需安装 Shizuku APK,Sui 提供 Shizuku 兼容接口)</string>
     <string name="permission_global_action_title">全局动作 (ui_global_action 的 action_id)</string>
     <string name="permission_refresh_status">刷新状态</string>
+    <string name="permission_termux_title">Termux 扩展通道</string>
+    <string name="permission_termux_apk_installed">已安装 Termux</string>
+    <string name="permission_termux_apk_not_installed">未安装 Termux(可选通道)</string>
+    <string name="permission_termux_permission_ok">调用权限已授予</string>
+    <string name="permission_termux_permission_missing">调用权限未授予</string>
+    <string name="permission_termux_probe_ok">外部调用配置正常</string>
+    <string name="permission_termux_probe_failed">外部调用未配置或未响应</string>
+    <string name="permission_termux_probe_unchecked">尚未检测配置</string>
+    <string name="permission_termux_get_btn">获取 Termux</string>
+    <string name="permission_termux_open_btn">打开 Termux</string>
+    <string name="permission_termux_grant_btn">去授予权限</string>
+    <string name="permission_termux_config_hint">在 Termux 中执行 echo \'allow-external-apps = true\' &gt;&gt; ~/.termux/termux.properties 并重启 Termux</string>
     <string name="shizuku_apk_installed">Shizuku APK 已安装</string>
     <string name="shizuku_apk_not_installed">Shizuku APK 未安装</string>
     <string name="shizuku_service_running">Shizuku 服务已运行</string>
