@@ -146,6 +146,15 @@ fun TerminalScreen(onBack: () -> Unit) {
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            if (session.isPty) {
+                IconButton(onClick = { session.sendInterrupt() }) {
+                    Icon(
+                        imageVector = MuseIcons.power,
+                        contentDescription = stringResource(R.string.terminal_interrupt_cd),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
 
         // ── 终端画面(xterm.js) ───────────────────────────────
@@ -170,6 +179,11 @@ fun TerminalScreen(onBack: () -> Unit) {
                                         }
                                     }
                                 }
+                            }
+
+                            @JavascriptInterface
+                            fun onResize(rows: Int, cols: Int) {
+                                session.resize(rows, cols)
                             }
                         },
                         "MuseBridge",
@@ -218,7 +232,8 @@ fun TerminalScreen(onBack: () -> Unit) {
             IconButton(onClick = {
                 val cmd = input.trimEnd()
                 if (cmd.isNotBlank()) {
-                    pushText("❯ $cmd\r\n")
+                    // PTY 下由终端自身回显输入与提示符;管道引擎本地回显
+                    if (!session.isPty) pushText("❯ $cmd\r\n")
                     session.write(cmd + "\n")
                 }
                 input = ""

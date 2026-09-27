@@ -5,5 +5,6 @@
     <string name="terminal_back_cd">Назад</string>
     <string name="terminal_clear_cd">Очистить</string>
     <string name="terminal_restart_cd">Перезапустить сеанс</string>
+    <string name="terminal_interrupt_cd">Прервать (Ctrl-C)</string>
     <string name="terminal_send_cd">Отправить</string>
 </resources>

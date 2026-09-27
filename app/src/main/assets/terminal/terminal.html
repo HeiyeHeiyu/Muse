@@ -31,8 +31,14 @@
     var fit = new FitAddon.FitAddon();
     term.loadAddon(fit);
     term.open(document.getElementById("term"));
+    function postSize() {
+      if (window.MuseBridge && window.MuseBridge.onResize) {
+        try { window.MuseBridge.onResize(term.rows, term.cols); } catch (e) {}
+      }
+    }
     try { fit.fit(); } catch (e) {}
-    window.addEventListener("resize", function () { try { fit.fit(); } catch (e) {} });
+    postSize();
+    window.addEventListener("resize", function () { try { fit.fit(); } catch (e) {} postSize(); });
 
     function writeB64(b64) {
       var bin = atob(b64);
@@ -45,6 +51,7 @@
 
     if (window.MuseBridge && window.MuseBridge.onReady) {
       window.MuseBridge.onReady();
+      postSize();
     }
   })();
 </script>

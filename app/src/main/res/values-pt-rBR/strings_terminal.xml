@@ -5,5 +5,6 @@
     <string name="terminal_back_cd">Voltar</string>
     <string name="terminal_clear_cd">Limpar</string>
     <string name="terminal_restart_cd">Reiniciar sessão</string>
+    <string name="terminal_interrupt_cd">Interromper (Ctrl-C)</string>
     <string name="terminal_send_cd">Enviar</string>
 </resources>
