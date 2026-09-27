@@ -45,6 +45,9 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <!-- v1.136: 定时提醒(schedule_reminder)设置精确闹钟 -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- v2.x: AlarmClock.ACTION_SET_ALARM / ACTION_SET_TIMER 启动系统时钟应用所需(normal 权限,无运行时弹窗);
+         此前缺失导致 set_alarm/set_timer 被系统拦截(Permission Denial) -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <!-- v1.27: 相册访问权限(InputBar 授权访问相册需要) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <!-- v1.43: 前台服务保活(切后台时保持 AI 生成) -->
