@@ -14,6 +14,7 @@
 #include <fcntl.h>
 #include <pty.h>
 #include <stdlib.h>
+#include <string.h>
 #include <termios.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
@@ -27,6 +28,7 @@
 
 /**
  * 创建伪终端子进程。
+ * 语义对齐 forkpty(3):首参为出参 master fd,返回值为子进程 pid(0 = 当前为子进程)。
  * @return 主端(master) fd;失败返回 -1。子进程 pid 写入 pidArray[0]。
  */
 JNIEXPORT jint JNICALL
@@ -42,9 +44,9 @@ Java_io_zer0_muse_terminal_Pty_createSubprocess(
     }
 
     struct winsize ws = {24, 80, 0, 0};
-    int pid = -1;
-    int master = forkpty(&pid, NULL, NULL, &ws);
-    if (master < 0) {
+    int master = -1;
+    pid_t pid = forkpty(&master, NULL, NULL, &ws);
+    if (pid < 0) {
         LOGE("forkpty failed: %s", strerror(errno));
         (*env)->ReleaseStringUTFChars(env, execPath, exec_c);
         (*env)->ReleaseStringUTFChars(env, cwd, cwd_c);
@@ -65,12 +67,12 @@ Java_io_zer0_muse_terminal_Pty_createSubprocess(
         _exit(127);
     }
 
-    /* 父进程 */
-    jint pidVal = pid;
+    /* 父进程:master 为 pty 主端 fd,pid 为子进程 pid */
+    jint pidVal = (jint) pid;
     (*env)->SetIntArrayRegion(env, pidArray, 0, 1, &pidVal);
     (*env)->ReleaseStringUTFChars(env, execPath, exec_c);
     (*env)->ReleaseStringUTFChars(env, cwd, cwd_c);
-    LOGI("pty created: pid=%d master=%d", pid, master);
+    LOGI("pty created: pid=%d master=%d", (int) pid, master);
     return master;
 }
 
@@ -156,4 +158,10 @@ Java_io_zer0_muse_terminal_Pty_setWindowSize(
 JNIEXPORT void JNICALL
 Java_io_zer0_muse_terminal_Pty_closeFd(JNIEnv *env, jobject thiz, jint fd) {
     if (fd >= 0) close(fd);
+}
+
+/** 最近一次系统调用 errno(调试诊断用;仅当前线程)。 */
+JNIEXPORT jint JNICALL
+Java_io_zer0_muse_terminal_Pty_errnoValue(JNIEnv *env, jobject thiz) {
+    return errno;
 }

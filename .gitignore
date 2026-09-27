@@ -58,3 +58,7 @@ releases/**/*.apk
 
 # F-05: 发布 manifest 为构建产物(每次构建生成,不入库)
 release/
+
+# CMake 构建产物(终端二期原生构建)
+.cxx/
+**/.cxx/

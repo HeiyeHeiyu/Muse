@@ -1,5 +1,7 @@
 package io.zer0.muse.terminal
 
+import io.zer0.common.Logger
+
 /**
  * v2.x 终端二期:PTY 桥(native 自编译,见 src/main/jni/pty.c)。
  *
@@ -8,11 +10,20 @@ package io.zer0.muse.terminal
  */
 object Pty {
 
-    /** native 库是否加载成功(NDK 未接入的构建里为 false)。 */
-    val available: Boolean = runCatching {
+    private const val TAG = "MusePty"
+
+    /** native 库加载失败原因(诊断用;加载成功为 null)。 */
+    val loadError: String? = runCatching {
         System.loadLibrary("pty")
-        true
-    }.getOrDefault(false)
+        null
+    }.getOrElse { t ->
+        val message = "libpty.so 加载失败: ${t.message}"
+        runCatching { Logger.w(TAG, message) }
+        message
+    }
+
+    /** native 库是否加载成功(NDK 未接入的构建里为 false)。 */
+    val available: Boolean = loadError == null
 
     /**
      * 创建伪终端子进程。
@@ -37,4 +48,7 @@ object Pty {
 
     /** 关闭主端 fd(用于终止会话)。 */
     external fun closeFd(fd: Int)
+
+    /** 最近一次系统调用 errno(调试诊断用)。 */
+    external fun errnoValue(): Int
 }

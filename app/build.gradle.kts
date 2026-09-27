@@ -34,6 +34,17 @@ android {
     namespace = "io.zer0.muse"
     compileSdk = 35
 
+    // v2.2.x: 终端 PTY 原生库(自写 forkpty,零第三方代码;源码 app/src/main/jni/)
+    // ⚠️ 接入后所有构建均需 NDK 27.0.12077973 + CMake 3.22.1(见 CI 工作流)
+    ndkVersion = "27.0.12077973"
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/jni/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
     defaultConfig {
         applicationId = "io.zer0.muse"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

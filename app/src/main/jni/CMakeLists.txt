@@ -4,5 +4,9 @@ project("pty")
 
 add_library(pty SHARED pty.c)
 
+# Android 15+ 16KB 页支持:显式要求 16KB 对齐
+# (4KB 页设备向后兼容;16KB 页设备缺少该对齐会 dlopen 失败)
+target_link_options(pty PRIVATE "-Wl,-z,max-page-size=16384" "-Wl,-z,common-page-size=16384")
+
 find_library(log-lib log)
 target_link_libraries(pty ${log-lib})
