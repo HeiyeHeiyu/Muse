@@ -30,6 +30,7 @@ import io.zer0.muse.ui.ChatErrorType
 import io.zer0.muse.ui.CompactionState
 import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.util.MusePatterns
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
@@ -535,8 +536,14 @@ class ChatStreamCoordinator(
                 }
             }
 
-            // 去掉占位 assistant,并按 Assistant.contextMessageSize 截断
-            val messagesExceptPlaceholder = accessor.messagesSnapshot.dropLast(1)
+            // v2.x 导入预热:外部导入/备份恢复会话首轮 —— 全量历史优先(见 WarmupHistory)
+            warmupActive = sessionRepository.getSessionById(sessionId)?.warmupPending == true
+            // 去掉占位 assistant;预热轮改用 DB 全量 + 尚未落库的新消息(按 id 去重)
+            val messagesExceptPlaceholder = if (warmupActive) {
+                warmupFullHistory(sessionId)
+            } else {
+                accessor.messagesSnapshot.dropLast(1)
+            }
             // v1.0.2: 防御性清理孤儿 tool_call
             rawHistory = messagesExceptPlaceholder.filterIndexed { index, msg ->
                 if (msg.role == MessageRole.ASSISTANT && !msg.toolCalls.isNullOrEmpty()) {
@@ -551,9 +558,43 @@ class ChatStreamCoordinator(
                     "清理孤儿 tool_call: ${messagesExceptPlaceholder.size - rawHistory.size} 条 assistant 消息被丢弃",
                 )
             }
-            // v1.x: 工具依赖感知截断
-            truncatedHistory = rawHistory.limitContextWithContext(contextSize)
+            // v1.x: 工具依赖感知截断;预热轮改为 token 预算截断(全量优先)
+            truncatedHistory = if (warmupActive) {
+                val budget = WarmupHistory.budgetTokensFor(accessor.snapshot.contextMaxTokens)
+                val trimmed = withContext(Dispatchers.Default) {
+                    WarmupHistory.trimToBudget(rawHistory, budget)
+                }
+                Logger.i(
+                    tag,
+                    "warmup first turn: full=${rawHistory.size} kept=${trimmed.history.size} " +
+                        "budget=$budget truncated=${trimmed.truncated} | sessionId=$sessionId",
+                )
+                listOf(WarmupHistory.briefingMessage(trimmed.truncated)) + trimmed.history
+            } else {
+                rawHistory.limitContextWithContext(contextSize)
+            }
         }
+    }
+
+    /**
+     * v2.x 导入预热:首轮全量历史 = DB 全量有效消息 + UI 快照中尚未落库的新消息(按 id 去重)。
+     *
+     * DB 读取失败时退回 UI 窗口快照(尽力而为,不阻断生成)。
+     */
+    private suspend fun warmupFullHistory(sessionId: String): List<UIMessage> {
+        val uiSnapshot = accessor.messagesSnapshot.dropLast(1)
+        val dbHistory = try {
+            sessionRepository.getAllMessagesForWarmup(sessionId)
+        } catch (ce: kotlinx.coroutines.CancellationException) {
+            throw ce
+        } catch (t: Throwable) {
+            Logger.w(tag, "warmup full history load failed: ${t.message}")
+            return uiSnapshot
+        }
+        if (dbHistory.isEmpty()) return uiSnapshot
+        val dbIds = dbHistory.mapTo(HashSet()) { it.id }
+        val pendingUi = uiSnapshot.filter { it.id !in dbIds }
+        return if (pendingUi.isEmpty()) dbHistory else dbHistory + pendingUi
     }
 
     // ── Phase F: PII 遮蔽 ────────────────────────────────────────────

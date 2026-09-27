@@ -75,6 +75,10 @@ interface SessionDao {
     @Query("UPDATE sessions SET ignoreMemory = :ignore WHERE id = :id")
     suspend fun setIgnoreMemory(id: String, ignore: Boolean)
 
+    /** v2.x 导入预热:设置/清除会话首轮全量历史标记。 */
+    @Query("UPDATE sessions SET warmupPending = :pending WHERE id = :id")
+    suspend fun setWarmupPending(id: String, pending: Boolean)
+
     /** Phase 9.1 (M13): 切换会话所属文件夹(null = 移出文件夹到未分组)。 */
     @Query("UPDATE sessions SET folderId = :folderId WHERE id = :id")
     suspend fun setFolderId(id: String, folderId: String?)

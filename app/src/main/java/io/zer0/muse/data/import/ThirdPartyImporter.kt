@@ -558,8 +558,8 @@ object ThirdPartyImporter {
                     // 0 时间戳节点保持相对顺序,其余按时间排序
                     val orderedNodes = nodes.sortedBy { it.createTime }
 
-                    // 创建会话
-                    val sessionId = sessionRepo.createSession(assistantId = defaultAssistantId)
+                    // 创建会话(v2.x 导入预热:首轮全量补历史)
+                    val sessionId = sessionRepo.createSession(assistantId = defaultAssistantId, warmupPending = true)
                     sessionRepo.renameSession(sessionId, title)
                     conversationsCount++
 
@@ -707,7 +707,8 @@ object ThirdPartyImporter {
                     }
                     if (parsed.isEmpty()) continue
 
-                    val sessionId = sessionRepo.createSession(assistantId = defaultAssistantId)
+                    // v2.x 导入预热:首轮全量补历史
+                    val sessionId = sessionRepo.createSession(assistantId = defaultAssistantId, warmupPending = true)
                     sessionRepo.renameSession(sessionId, title)
                     conversationsCount++
                     parsed.forEach { m ->
@@ -926,7 +927,8 @@ object ThirdPartyImporter {
                                 }
                             } ?: defaultAssistantId
 
-                            val sessionId = sessionRepo.createSession(assistantId = mappedAssistantId)
+                            // v2.x 导入预热:首轮全量补历史
+                            val sessionId = sessionRepo.createSession(assistantId = mappedAssistantId, warmupPending = true)
                             sessionRepo.renameSession(sessionId, title)
                             conversationsCount++
 

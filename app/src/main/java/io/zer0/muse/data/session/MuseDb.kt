@@ -169,7 +169,7 @@ import kotlinx.serialization.builtins.serializer
         MessagePartEntity::class,
         SessionBranchHeadEntity::class,
     ],
-    version = 104,
+    version = 105,
     exportSchema = true,
 )
 @TypeConverters(QuickNoteConverters::class)
@@ -896,6 +896,24 @@ abstract class MuseDb : RoomDatabase() {
                 }
                 if ("videoFileUri" !in existing) {
                     db.execSQL("ALTER TABLE group_chat_messages ADD COLUMN videoFileUri TEXT DEFAULT NULL")
+                }
+            }
+        }
+
+        /**
+         * v104→v105: sessions 加 warmupPending 列(导入预热标记,默认 0)。
+         *
+         * 外部导入 / 备份恢复的会话置 1:首轮对话以全量历史 + token 预算构建上下文一次
+         * (见 WarmupHistory),成功回复后由会话仓储清除。幂等:PRAGMA 判存在后再 ADD。
+         */
+        val MIGRATION_104_105 = object : Migration(104, 105) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val existing = mutableSetOf<String>()
+                db.query("PRAGMA table_info(sessions)").use { cursor ->
+                    while (cursor.moveToNext()) existing.add(cursor.getString(1))
+                }
+                if ("warmupPending" !in existing) {
+                    db.execSQL("ALTER TABLE sessions ADD COLUMN warmupPending INTEGER NOT NULL DEFAULT 0")
                 }
             }
         }
@@ -2735,6 +2753,7 @@ abstract class MuseDb : RoomDatabase() {
                         MIGRATION_101_102,
                         MIGRATION_102_103,
                         MIGRATION_103_104,
+                        MIGRATION_104_105,
                     )
                     // 启用外键约束(artifacts 表的 ON DELETE CASCADE 依赖此设置)
                     // onOpen 不在 onCreate 事务内,可以执行此类命令;onCreate 内禁止 PRAGMA

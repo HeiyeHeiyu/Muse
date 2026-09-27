@@ -961,7 +961,11 @@ class BackupService(
                     if (!name.isNullOrBlank() && content != null) fileStoreBuf[name] = content
                 }
                     "session" -> obj["data"]?.let {
-                        sessionBuf.add(json.decodeFromJsonElement(SessionEntity.serializer(), it))
+                        // v2.x 导入预热:恢复的会话首轮以全量历史构建上下文一次
+                        sessionBuf.add(
+                            json.decodeFromJsonElement(SessionEntity.serializer(), it)
+                                .copy(warmupPending = true),
+                        )
                         if (sessionBuf.size >= IMPORT_BATCH) {
                             sessionCount += sessionBuf.size
                             flushBatch(sessionBuf) { batch -> db.withTransaction { batch.forEach { db.sessionDao().insert(it) } } }
@@ -2217,7 +2221,8 @@ class BackupService(
         db.withTransaction {
             db.messageDao().deleteAll()
             db.sessionDao().deleteAll()
-            backup.sessions.forEach { db.sessionDao().insert(it) }
+            // v2.x 导入预热:恢复的会话首轮以全量历史构建上下文一次
+            backup.sessions.forEach { db.sessionDao().insert(it.copy(warmupPending = true)) }
             backup.messages.forEach { db.messageDao().upsert(it) }
 
             // v3: 扩展表(在同一事务中清空 + 插入)

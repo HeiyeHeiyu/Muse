@@ -588,7 +588,8 @@ internal class ChatGenerationController(
                 if (maxTokens > 0 && currentTokens > 0) {
                     val ratio = currentTokens.toFloat() / maxTokens
                     nearContextLimit = ratio >= PRESEND_TOKEN_WARNING_RATIO
-                    if (nearContextLimit && rawHistory.size > 5) {
+                    // v2.x 导入预热:预算截断已生效,跳过按条数折半(否则会毁掉全量意图)
+                    if (nearContextLimit && rawHistory.size > 5 && !warmupActive) {
                         val newSize = (contextSize / 2).coerceAtLeast(2)
                         if (newSize < contextSize) {
                             Logger.w(
@@ -984,6 +985,9 @@ internal class ChatGenerationController(
         val sessionId = state.sessionId
         val sessionTitle = state.sessionTitle
         val streamStartedAt = state.streamStartedAt
+        // v2.x 导入预热:首轮成功完成响应后清除标记(全量历史只补一次;幂等)
+        resultOf { deps.sessionRepository.clearWarmupPending(sessionId) }
+            .onError { msg, _ -> Logger.w("ChatVM", "clearWarmupPending failed: $msg") }
         if (ConversationRebuildFlagStore.current.shadowEventsEnabled) {
             val finalMessage = deps.stateStore.messages.value.firstOrNull { it.id == state.currentAssistantId }
             val shadowContent = finalMessage?.content ?: state.builder.toString()

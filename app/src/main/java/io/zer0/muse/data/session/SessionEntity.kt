@@ -86,4 +86,6 @@ data class SessionEntity(
      * true = 仅在小手机「消息」Tab 显示;false = 主 App 常规会话。
      */
     @ColumnInfo(defaultValue = "0") val isMiniPhone: Boolean = false,
+    /** v2.x 导入预热:会话由外部导入/备份恢复,首轮以全量历史构建上下文一次(成功回复后清除)。 */
+    @ColumnInfo(defaultValue = "0") val warmupPending: Boolean = false,
 )

@@ -231,8 +231,11 @@ class SessionRepository(
     /** v2.0: 一次性获取消息总数。 */
     suspend fun getTotalMessageCount(): Int = messageDao.countMessages()
 
-    /** 创建新会话。返回会话 id。标题默认"新会话"。 */
-    suspend fun createSession(assistantId: String = "default"): String {
+    /**
+     * 创建新会话。返回会话 id。标题默认"新会话"。
+     * @param warmupPending v2.x 导入预热:外部导入/备份恢复的会话置 true,首轮以全量历史构建上下文。
+     */
+    suspend fun createSession(assistantId: String = "default", warmupPending: Boolean = false): String {
         val id = Uuid.random().toString()
         val now = System.currentTimeMillis()
         sessionDao.insert(
@@ -242,6 +245,7 @@ class SessionRepository(
                 createdAt = now,
                 updatedAt = now,
                 assistantId = assistantId,
+                warmupPending = warmupPending,
             )
         )
         return id
@@ -604,6 +608,24 @@ class SessionRepository(
      */
     suspend fun getAllMessagesForBackfill(sessionId: String): List<UIMessage> = withContext(Dispatchers.IO) {
         messageDao.observeBySession(sessionId).first().map { it.toUIMessage() }
+    }
+
+    /**
+     * v2.x 导入预热:一次性读取会话全部有效消息(升序,排除软删除)。
+     *
+     * 与 [getRecentMessages] 的窗口加载不同,此处不走 limit —— 预热轮需要把导入的
+     * 完整历史交给 token 预算截断(见 WarmupHistory),而不是先按条数砍掉。
+     */
+    suspend fun getAllMessagesForWarmup(sessionId: String): List<UIMessage> = withContext(Dispatchers.IO) {
+        messageDao.observeBySession(sessionId).first()
+            .filter { it.deletedAt == null }
+            .map { it.toUIMessage() }
+    }
+
+    /** v2.x 导入预热:首轮成功回复后清除标记(幂等;清除失败不阻断主流程)。 */
+    suspend fun clearWarmupPending(sessionId: String) {
+        resultOf { sessionDao.setWarmupPending(sessionId, false) }
+            .onError { msg, _ -> Logger.w(TAG, "clearWarmupPending failed: $msg") }
     }
 
     /**

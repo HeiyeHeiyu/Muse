@@ -69,6 +69,8 @@ var sessionModelOverride: String? = null
     var requestedReasoningLevel: ReasoningLevel = ReasoningLevel.OFF
     var effectiveTemperature: Float = 0f
     var contextSize: Int = 20
+    /** v2.x 导入预热:本轮为导入会话首轮,历史走全量 + token 预算截断(见 WarmupHistory)。 */
+    var warmupActive: Boolean = false
     var rawHistory: List<UIMessage> = emptyList()
     var truncatedHistory: List<UIMessage> = emptyList()
 
