@@ -128,7 +128,14 @@ class TermuxChannel private constructor(private val context: Context) {
         } catch (e: Exception) {
             pending.remove(requestId)
             Logger.w(TAG, "启动 Termux 服务失败: ${e.message}")
-            return ExecResult(-1, "", "", "启动 Termux 服务失败: ${e.message ?: e.javaClass.simpleName}")
+            val raw = e.message ?: e.javaClass.simpleName
+            // Android 8+ 后台服务启动限制:App 纯后台时启动外部服务会被系统拒绝
+            val hint = if (raw.contains("Not allowed to start service") || raw.contains("background")) {
+                "(Android 后台限制:请保持 App 在前台,或开启「设置→Agent→后台与可靠性→保持后台运行」)"
+            } else {
+                ""
+            }
+            return ExecResult(-1, "", "", "启动 Termux 服务失败: $raw$hint")
         }
         val result = try {
             withTimeoutOrNull(timeoutMs) { deferred.await() }
