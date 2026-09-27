@@ -15,6 +15,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
+import io.zer0.muse.tools.ToolFailureText
 import java.io.File
 
 /**
@@ -168,7 +169,8 @@ object SkillBridge {
             val message = if (e is SkillBridgeHttpClient.PinnedAddressException) {
                 "http_post 拒绝访问内网/非公网地址: ${e.url}"
             } else {
-                "http_post 请求失败: ${e.message ?: "网络异常"}"
+                // v2.2.1: 带地址与失败阶段(超时/解析/TLS)
+                ToolFailureText.httpFailure("http_post", url, e)
             }
             HandleResult.Failure(message)
         }
@@ -196,7 +198,8 @@ object SkillBridge {
             val message = if (e is SkillBridgeHttpClient.PinnedAddressException) {
                 "http_get 拒绝访问内网/非公网地址: ${e.url}"
             } else {
-                "http_get 请求失败: ${e.message ?: "网络异常"}"
+                // v2.2.1: 带地址与失败阶段(超时/解析/TLS)
+                ToolFailureText.httpFailure("http_get", startUrl, e)
             }
             HandleResult.Failure(message)
         }

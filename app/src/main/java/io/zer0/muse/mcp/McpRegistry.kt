@@ -524,24 +524,36 @@ class McpRegistry(
                     ?.requestTimeoutMs
                     ?.coerceIn(1_000L, 120_000L)
                     ?: 30_000L
-                val result = withTimeoutOrNull(timeoutMs) {
-                    client.callTool(tool.name, arguments)
-                }
-                if (result == null) {
-                    // 超时不再静默：使用 server 配置的 requestTimeoutMs 回传失败原因。
-                    Logger.w(TAG, "[$serverId] 工具 ${tool.name} 调用超时(${timeoutMs}ms)")
-                    "Error: " + context.getString(R.string.mcp_tool_call_timeout, tool.name)
-                } else if (result.isError) {
-                    // v1.0.79 (A-1): 错误详情完整回传 — server 返回的 content/structuredContent
-                    // 都带回,模型拿得到失败原因才能自我纠正。
-                    val detail = formatToolResult(result)
-                    Logger.w(TAG, "[$serverId] 工具 ${tool.name} 调用失败: $detail")
-                    "Error: " + context.getString(
-                        R.string.mcp_tool_call_failed,
-                        tool.name,
-                    ) + ": " + detail
-                } else {
-                    formatToolResult(result)
+                try {
+                    val result = withTimeoutOrNull(timeoutMs) {
+                        client.callTool(tool.name, arguments)
+                    }
+                    if (result == null) {
+                        // 超时不再静默：使用 server 配置的 requestTimeoutMs 回传失败原因
+                        // (v2.2.1: 附带 server 名与超时秒数,模型可直接定位是哪个 server 慢)。
+                        Logger.w(TAG, "[$serverId] 工具 ${tool.name} 调用超时(${timeoutMs}ms)")
+                        "Error: " + context.getString(
+                            R.string.mcp_tool_call_timeout,
+                            "$serverId / ${tool.name} (${timeoutMs / 1000}s)",
+                        )
+                    } else if (result.isError) {
+                        // v1.0.79 (A-1): 错误详情完整回传 — server 返回的 content/structuredContent
+                        // 都带回,模型拿得到失败原因才能自我纠正。
+                        val detail = formatToolResult(result)
+                        Logger.w(TAG, "[$serverId] 工具 ${tool.name} 调用失败: $detail")
+                        "Error: " + context.getString(
+                            R.string.mcp_tool_call_failed,
+                            "$serverId / ${tool.name}",
+                        ) + ": " + detail
+                    } else {
+                        formatToolResult(result)
+                    }
+                } catch (ce: kotlinx.coroutines.CancellationException) {
+                    throw ce
+                } catch (e: Exception) {
+                    // v2.2.1: 调用抛异常(连接断开/协议错误等)不再落到通用兜底,带 server/工具名回传。
+                    Logger.w(TAG, "[$serverId] 工具 ${tool.name} 调用异常: ${e.message}", e)
+                    "Error: [MCP $serverId] 工具 '${tool.name}' 调用异常(${e.javaClass.simpleName}): ${e.message ?: "未知错误"}"
                 }
             }
         }

@@ -159,7 +159,8 @@ class SkillSearchToolsImpl(
             // 超时/连接失败/逐跳 SSRF 拒绝均降级到搜索摘要;若降级不可用则返回原错误
             val degraded = degradeToSearchSummary(url, -1, e.message ?: "")
             if (degraded != null) return degraded
-            context.getString(R.string.skill_connect_failed, e.message ?: "")
+            // v2.2.1: 失败反馈带地址与阶段(超时/解析/TLS),替代纯 e.message
+            ToolFailureText.httpFailure("HTTP GET", url, e)
         }
     }
 
@@ -192,8 +193,8 @@ class SkillSearchToolsImpl(
                 return "HTTP ${resp.code}\n$respBody"
             }
         } catch (e: java.io.IOException) {
-            // 连接失败或逐跳 SSRF 拒绝
-            "HTTP 请求失败: ${e.message ?: "网络异常"}"
+            // 连接失败或逐跳 SSRF 拒绝(v2.2.1: 带地址与失败阶段)
+            ToolFailureText.httpFailure("HTTP POST", url, e)
         }
     }
 
