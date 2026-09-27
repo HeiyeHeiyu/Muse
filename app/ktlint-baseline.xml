@@ -32513,15 +32513,25 @@
         <error line="796" column="26" source="standard:if-else-wrapping" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/terminal/TerminalScreen.kt">
-        <error line="10" column="1" source="standard:no-unused-imports" />
-        <error line="56" column="5" source="standard:function-naming" />
-        <error line="83" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="102" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="185" column="42" source="standard:function-signature" />
-        <error line="185" column="53" source="standard:function-signature" />
-        <error line="185" column="62" source="standard:function-signature" />
-        <error line="194" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="201" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="15" column="1" source="standard:no-unused-imports" />
+        <error line="64" column="5" source="standard:function-naming" />
+        <error line="92" column="18" source="standard:function-signature" />
+        <error line="92" column="31" source="standard:function-signature" />
+        <error line="92" column="42" source="standard:function-signature" />
+        <error line="93" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="105" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="124" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="193" column="39" source="standard:multiline-expression-wrapping" />
+        <error line="202" column="37" source="standard:multiline-expression-wrapping" />
+        <error line="203" column="53" source="standard:function-signature" />
+        <error line="203" column="69" source="standard:function-signature" />
+        <error line="203" column="81" source="standard:function-signature" />
+        <error line="215" column="39" source="standard:multiline-expression-wrapping" />
+        <error line="245" column="42" source="standard:function-signature" />
+        <error line="245" column="53" source="standard:function-signature" />
+        <error line="245" column="62" source="standard:function-signature" />
+        <error line="254" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="261" column="24" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/theme/ActionColors.kt">
         <error line="1" column="1" source="standard:filename" />
