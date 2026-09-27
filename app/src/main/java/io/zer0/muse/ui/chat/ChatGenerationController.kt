@@ -517,6 +517,41 @@ internal class ChatGenerationController(
         )
     }
 
+    /**
+     * v2.2.1: 清理指定会话中悬空的 Provider/模型覆盖(Provider 不存在,或模型不在该
+     * Provider 下)。仅处理"会话显式覆盖",不触碰助手/全局配置;providers 未加载完成时
+     * 跳过,避免误清。清掉后本代生成即按助手/全局回退解析,同时停用后续警告刷屏。
+     */
+    private suspend fun healStaleSessionOverride(sessionId: String) {
+        val providers = accessor.snapshot.providers
+        if (providers.isEmpty()) return
+        val state = deps.generationState
+        val providerId = state.sessionProviderOverrides[sessionId]
+        var changed = false
+        if (providerId != null && providers.none { it.id == providerId }) {
+            // Provider 已消失:成对清掉 provider + model 覆盖(防半套配置,
+            // 与 ProviderReferenceCleanup 的删除清理同语义)
+            state.sessionProviderOverrides = state.sessionProviderOverrides - sessionId
+            state.sessionModelOverrides = state.sessionModelOverrides - sessionId
+            runCatching { deps.settings.saveSessionProviderOverride(sessionId, null) }
+                .onFailure { e -> Logger.w("ChatVM", "清理悬空 Provider 覆盖失败: ${e.message}", e) }
+            runCatching { deps.settings.saveSessionModelOverride(sessionId, null) }
+                .onFailure { e -> Logger.w("ChatVM", "清理悬空模型覆盖失败: ${e.message}", e) }
+            changed = true
+        } else if (providerId != null) {
+            val modelId = state.sessionModelOverrides[sessionId]
+            if (modelId != null && providers.first { it.id == providerId }.models.none { it.id == modelId }) {
+                state.sessionModelOverrides = state.sessionModelOverrides - sessionId
+                runCatching { deps.settings.saveSessionModelOverride(sessionId, null) }
+                    .onFailure { e -> Logger.w("ChatVM", "清理悬空模型覆盖失败: ${e.message}", e) }
+                changed = true
+            }
+        }
+        if (changed) {
+            Logger.i("ChatVM", "已清除会话 $sessionId 的悬空模型/Provider 覆盖")
+        }
+    }
+
     /** 快速更新 token 计数(流式过程中每 200 字符或 1000ms 调用,避免每次重建 system prompt)。 */
     suspend fun updateContextTokenCount() {
         val msgsSnapshot = deps.stateStore.messages.value
@@ -925,6 +960,10 @@ internal class ChatGenerationController(
                     cancel = { generationJob?.cancel() },
                 )
             generationExecutionId?.let { id -> executionRegistry?.start(id) }
+            // v2.2.1: 会话级覆盖悬空自愈 — 指向的 provider/model 已不存在时,先清掉本会话的
+            // 悬空覆盖(内存 + 持久化),避免每次生成都走回退并刷 "requested model binding
+            // unavailable" 警告;助手/全局绑定不受影响。
+            healStaleSessionOverride(sessionId)
             // 会话选择显式覆盖助手/全局默认；生成任务捕获启动时的配置，期间切页不会串台。
             state.sessionModelOverride = deps.generationState.sessionModelOverrides[sessionId]
             state.sessionProviderOverride = deps.generationState.sessionProviderOverrides[sessionId]
