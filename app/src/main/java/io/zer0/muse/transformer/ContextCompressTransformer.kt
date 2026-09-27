@@ -8,6 +8,8 @@ import io.zer0.ai.core.UIMessage
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 
 /**
  * 按原始历史顺序保留最近消息与优先级消息。
@@ -56,7 +58,6 @@ class ContextCompressTransformer(
      */
     private val compressor: ConversationCompressor? = null,
 ) : Transformer {
-
     override val name: String = "ContextCompress"
 
     override suspend fun transform(
@@ -80,9 +81,10 @@ class ContextCompressTransformer(
 
         // M-COMP3: 压缩水位线 — 已存在压缩摘要时,要求 size > threshold + threshold/2 才再次压缩,
         // 避免压缩触发频率失控
-        val hasCompressed = messages.any {
-            it.role == MessageRole.SYSTEM && it.content.startsWith(COMPRESSED_MARKER)
-        }
+        val hasCompressed =
+            messages.any {
+                it.role == MessageRole.SYSTEM && it.content.startsWith(COMPRESSED_MARKER)
+            }
         if (hasCompressed && messages.size <= threshold + threshold / 2) return messages
 
         // v1.116 (C1-5): 跳过头部连续的 SYSTEM 消息(system prompt / RAG / webSearch / lorebook 等动态注入的 prefix),
@@ -92,19 +94,21 @@ class ContextCompressTransformer(
         val prefix = messages.subList(0, prefixEnd)
 
         // v5: 优先级保留 — 工具调用消息和包含工具结果的消息应保留,不压缩
-        val priorityIds = messages.filter { msg ->
-            msg.toolCalls != null || msg.toolCallInfo != null ||
-                msg.role == MessageRole.TOOL || msg.role == MessageRole.SYSTEM
-        }.map { it.id.toString() }.toSet()
+        val priorityIds =
+            messages.filter { msg ->
+                msg.toolCalls != null || msg.toolCallInfo != null ||
+                    msg.role == MessageRole.TOOL || msg.role == MessageRole.SYSTEM
+            }.map { it.id.toString() }.toSet()
 
         // 可压缩区间 = prefix 之后到 recent 之前
         val compressibleEnd = messages.size - keepRecent
-        if (prefixEnd >= compressibleEnd) return messages  // prefix 本身就占了大部分,无可压缩区间
+        if (prefixEnd >= compressibleEnd) return messages // prefix 本身就占了大部分,无可压缩区间
 
         // M-COMP3: 跳过已压缩的 SYSTEM 摘要消息,避免摘要叠加摘要
-        val toCompress = messages.subList(prefixEnd, compressibleEnd).filter {
-            !(it.role == MessageRole.SYSTEM && it.content.startsWith(COMPRESSED_MARKER))
-        }
+        val toCompress =
+            messages.subList(prefixEnd, compressibleEnd).filter {
+                !(it.role == MessageRole.SYSTEM && it.content.startsWith(COMPRESSED_MARKER))
+            }
         val recent = messages.takeLast(keepRecent)
 
         // v5: 把优先级高的消息(工具调用等)保留到 recent 中,避免被压缩。
@@ -117,81 +121,100 @@ class ContextCompressTransformer(
         // Phase 8.5 修复: keepRecent >= messages.size 时 toCompress 为空,跳过避免发无意义 LLM 请求
         if (adjustedToCompress.isEmpty()) return messages
 
-        val summary = try {
-            if (compressor != null) {
-                // 优先走分块并行 + 独立便宜模型(既有实现 ChatService.compressConversation)
-                compressWithCompressor(adjustedToCompress, instruction)
-            } else {
-                // 回退:原同步单次 LLM 压缩
-                compressMessages(adjustedToCompress, instruction)
+        val summary =
+            try {
+                // v2.x: 压缩调用加超时护栏 — 压缩模型偶发长时间无响应会拖慢整轮生成(实测有 ~30s 首字延迟),
+                // 超时后走降级标记路径,不再无限等待。
+                withTimeout(COMPRESS_TIMEOUT_MS) {
+                    if (compressor != null) {
+                        // 优先走分块并行 + 独立便宜模型(既有实现 ChatService.compressConversation)
+                        compressWithCompressor(adjustedToCompress, instruction)
+                    } else {
+                        // 回退:原同步单次 LLM 压缩
+                        compressMessages(adjustedToCompress, instruction)
+                    }
+                }
+            } catch (timeout: TimeoutCancellationException) {
+                // 超时属于压缩失败的一种:降级为截断标记,不中断主流程
+                Logger.w(name, "compress timeout after ${COMPRESS_TIMEOUT_MS}ms, fallback to marker")
+                return prefix + listOf(fallbackMessage()) + adjustedRecent
+            } catch (e: CancellationException) {
+                // H-COMP1: 不吞 CancellationException,直接重抛(协程取消必须传播)
+                throw e
+            } catch (t: Throwable) {
+                Logger.e(name, "compress failed, fallback to truncation", t)
+                // M-COMP4: 降级时插入 SYSTEM 标记消息,告知模型历史被截断(而非静默丢弃全部历史)
+                return prefix + listOf(fallbackMessage()) + adjustedRecent
             }
-        } catch (e: CancellationException) {
-            // H-COMP1: 不吞 CancellationException,直接重抛(协程取消必须传播)
-            throw e
-        } catch (t: Throwable) {
-            Logger.e(name, "compress failed, fallback to truncation", t)
-            // M-COMP4: 降级时插入 SYSTEM 标记消息,告知模型历史被截断(而非静默丢弃全部历史)
-            val fallbackMsg = UIMessage(
-                role = MessageRole.SYSTEM,
-                content = "(历史暂不可用,仅保留最近消息)",
-            )
-            return prefix + listOf(fallbackMsg) + adjustedRecent
-        }
 
         // M-COMP3: 压缩摘要加 [COMPRESSED] 前缀标记,下次压缩时识别并跳过
-        val summaryMsg = UIMessage(
-            role = MessageRole.SYSTEM,
-            content = "$COMPRESSED_MARKER 历史对话摘要\n\n$summary",
-        )
+        val summaryMsg =
+            UIMessage(
+                role = MessageRole.SYSTEM,
+                content = "$COMPRESSED_MARKER 历史对话摘要\n\n$summary",
+            )
         return prefix + listOf(summaryMsg) + adjustedRecent
     }
 
+    /** M-COMP4: 降级标记消息 — 告知模型历史被截断(而非静默丢弃全部历史)。 */
+    private fun fallbackMessage(): UIMessage =
+        UIMessage(
+            role = MessageRole.SYSTEM,
+            content = "(历史暂不可用,仅保留最近消息)",
+        )
+
     /** 调用 LLM 压缩旧消息为摘要。 */
-    private suspend fun compressMessages(oldMessages: List<UIMessage>, instruction: String? = null): String {
-        val prompt = buildString {
-            appendLine("请把下面的对话历史压缩成简洁的摘要,保留关键信息(事实/决策/用户偏好)。")
-            appendLine("- 用要点形式,每点一行")
-            appendLine("- 不要编造未提及的内容")
-            appendLine("- 总长度不超过 800 字")
-            // H10: 手动压缩附加指令(如"重点保留预算讨论"),拼进压缩指令
-            if (!instruction.isNullOrBlank()) {
-                appendLine("- 附加要求: $instruction")
-            }
-            appendLine()
-            appendLine("对话历史:")
-            oldMessages.forEach { msg ->
-                val role = when (msg.role) {
-                    MessageRole.USER -> "用户"
-                    MessageRole.ASSISTANT -> "助手"
-                    MessageRole.SYSTEM -> "系统"
-                    MessageRole.TOOL -> "工具"
+    private suspend fun compressMessages(
+        oldMessages: List<UIMessage>,
+        instruction: String? = null,
+    ): String {
+        val prompt =
+            buildString {
+                appendLine("请把下面的对话历史压缩成简洁的摘要,保留关键信息(事实/决策/用户偏好)。")
+                appendLine("- 用要点形式,每点一行")
+                appendLine("- 不要编造未提及的内容")
+                appendLine("- 总长度不超过 800 字")
+                // H10: 手动压缩附加指令(如"重点保留预算讨论"),拼进压缩指令
+                if (!instruction.isNullOrBlank()) {
+                    appendLine("- 附加要求: $instruction")
                 }
-                // L-COMP5: 截断处加 "…" 标记(而非静默截断)
-                // v1.116 (C1-5): 单条消息截断阈值从 500 提升到 1500 字符,
-                // 避免长回复(如代码块/详细分析)被过度截断导致摘要丢失关键信息。
-                val raw = msg.content
-                val text = if (raw.length > MAX_COMPRESS_MSG_CHARS) raw.take(MAX_COMPRESS_MSG_CHARS) + "…" else raw
-                appendLine("[$role] $text")
+                appendLine()
+                appendLine("对话历史:")
+                oldMessages.forEach { msg ->
+                    val role =
+                        when (msg.role) {
+                            MessageRole.USER -> "用户"
+                            MessageRole.ASSISTANT -> "助手"
+                            MessageRole.SYSTEM -> "系统"
+                            MessageRole.TOOL -> "工具"
+                        }
+                    // L-COMP5: 截断处加 "…" 标记(而非静默截断)
+                    // v1.116 (C1-5): 单条消息截断阈值从 500 提升到 1500 字符,
+                    // 避免长回复(如代码块/详细分析)被过度截断导致摘要丢失关键信息。
+                    val raw = msg.content
+                    val text = if (raw.length > MAX_COMPRESS_MSG_CHARS) raw.take(MAX_COMPRESS_MSG_CHARS) + "…" else raw
+                    appendLine("[$role] $text")
+                }
             }
-        }
 
         val request = listOf(UIMessage(role = MessageRole.USER, content = prompt))
         // H-COMP2 / L-COMP7: 用 resultOf 替代 runCatching.getOrElse
         //  - resultOf 会重抛 CancellationException(不吞协程取消)
         //  - 其他错误转为 Result.Error,onError 记录原始异常后回退 streamChat
         //  - CancellationException 不会到达 getOrNull(),因此不会错误回退
-        val completion: ChatCompletion = resultOf {
-            chatService.completeText(messages = request)
-        }.onError { msg, t ->
-            Logger.w(name, "completeText 失败,回退 streamChat: $msg", t)
-        }.getOrNull() ?: run {
-            // 兜底: 流式收集(仅对非 CancellationException 错误到达此处)
-            val sb = StringBuilder()
-            chatService.streamChat(messages = request).collect { ev ->
-                if (ev is ChatStreamEvent.ContentDelta) sb.append(ev.delta)
+        val completion: ChatCompletion =
+            resultOf {
+                chatService.completeText(messages = request)
+            }.onError { msg, t ->
+                Logger.w(name, "completeText 失败,回退 streamChat: $msg", t)
+            }.getOrNull() ?: run {
+                // 兜底: 流式收集(仅对非 CancellationException 错误到达此处)
+                val sb = StringBuilder()
+                chatService.streamChat(messages = request).collect { ev ->
+                    if (ev is ChatStreamEvent.ContentDelta) sb.append(ev.delta)
+                }
+                ChatCompletion(text = sb.toString())
             }
-            ChatCompletion(text = sb.toString())
-        }
         // v1.0.74 fix: 剥离 <think> 推理标签,防止思考内容混入压缩摘要
         return io.zer0.muse.transformer.stripThinkTags(completion.text)
             .ifBlank { "历史对话已压缩(摘要为空)" }
@@ -205,27 +228,36 @@ class ContextCompressTransformer(
      *   (与 [ContextCompressTransformer] 原"单条 SYSTEM 摘要"语义保持一致,
      *    避免下游 transformer / 持久化逻辑感知分块)
      */
-    private suspend fun compressWithCompressor(oldMessages: List<UIMessage>, instruction: String? = null): String {
+    private suspend fun compressWithCompressor(
+        oldMessages: List<UIMessage>,
+        instruction: String? = null,
+    ): String {
         val summaries = compressor!!.compress(oldMessages, instruction)
         return when {
             summaries.isEmpty() -> "历史对话已压缩(摘要为空)"
             summaries.size == 1 -> summaries.first()
-            else -> buildString {
-                summaries.forEachIndexed { idx, s ->
-                    append("[对话摘要 ${idx + 1}/${summaries.size}]\n")
-                    append(s)
-                    if (idx != summaries.lastIndex) append("\n\n")
+            else ->
+                buildString {
+                    summaries.forEachIndexed { idx, s ->
+                        append("[对话摘要 ${idx + 1}/${summaries.size}]\n")
+                        append(s)
+                        if (idx != summaries.lastIndex) append("\n\n")
+                    }
                 }
-            }
         }
     }
 
     private companion object {
         const val DEFAULT_THRESHOLD = 20
         const val DEFAULT_KEEP_RECENT = 15
+
         // M-COMP3: 压缩摘要前缀标记,下次压缩时识别并跳过
         const val COMPRESSED_MARKER = "[COMPRESSED]"
+
         // v1.116 (C1-5): 单条消息送入 LLM 压缩时的最大字符数(原 500,提升到 1500)
         const val MAX_COMPRESS_MSG_CHARS = 1500
+
+        // v2.x: 压缩模型调用超时(毫秒);超时后降级为截断标记,避免拖慢整轮生成
+        const val COMPRESS_TIMEOUT_MS = 20_000L
     }
 }

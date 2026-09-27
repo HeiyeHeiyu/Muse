@@ -10,7 +10,10 @@ import kotlin.uuid.Uuid
  */
 @Serializable
 enum class MessageRole {
-    SYSTEM, USER, ASSISTANT, TOOL
+    SYSTEM,
+    USER,
+    ASSISTANT,
+    TOOL,
 }
 
 /**
@@ -110,7 +113,7 @@ data class UIMessage(
      * 下一轮请求需在 assistant 消息的 thinking 块里回传该 signature 才能继续思考链。
      * 由 ChatViewModel 从 [io.zer0.ai.core.ChatStreamEvent.ReasoningDelta.signature] 累积并存入此字段。
      * v1.121: AnthropicProvider.splitSystem 已处理 reasoning/thinkingSignature 回传,
- * ASSISTANT 消息的 thinking content block 包含 thinking+signature,服务端可验证前序思考完整性。
+     * ASSISTANT 消息的 thinking content block 包含 thinking+signature,服务端可验证前序思考完整性。
      * 其他 Provider 忽略此字段。
      */
     val thinkingSignature: String? = null,
@@ -157,7 +160,6 @@ data class UIMessage(
      * 由 MoodTagTransformer 从 content 中剥离后存入此字段。
      * UI 渲染为可折叠卡片(默认折叠,类似深度思考块)。
      */
-
     /** B6-03/B6-02: 情绪皮肤标识(rage/rage2/desire/vuoto/moonlight/off),与 <moodfx> 标签对应。 */
     val moodSkin: String? = null,
     val mood: String? = null,
@@ -227,34 +229,35 @@ data class UIMessage(
      * v1.80 (L-CORE4): 拼出用于摘要/上下文匹配的文本(含推理过程)。
      * memory 摘要、context 匹配等场景可能需要 reasoning 信息。
      */
-    fun toSummaryText(): String = buildString {
-        append(content)
-        reasoning?.takeIf { it.isNotBlank() }?.let { append("\n[reasoning]").append(it) }
-    }
+    fun toSummaryText(): String =
+        buildString {
+            append(content)
+            reasoning?.takeIf { it.isNotBlank() }?.let { append("\n[reasoning]").append(it) }
+        }
 }
 
 /**
- * 工具依赖感知的上下文截断 — 截断时倒推 tool_call 依赖,避免"截断后 tool_call 无 result"。
- *
- * 通过依赖图倒推截断点。
+ * 工具依赖感知的上下文切分 — 返回 (窗口外, 窗口内) 两段。
  *
  * 背景:简单的 `takeLast(N)` 可能从 assistant(tool_call) 与 tool(result) 之间切开,
  * 导致截断后的首条消息是孤儿 tool result 或孤儿 tool_call,触发 provider HTTP 400。
  * 本函数在切点处倒推:若切点首条消息涉及工具(tool_call / tool_result),则继续往前回退,
  * 直到切点首条消息是不涉及工具的普通消息(或回退到列表起点)。
  *
+ * 调用方可对窗口外部分构建历史摘录(见 [ContextHistoryDigest]),避免静默丢弃对话。
+ *
  * 行为:
- *  - maxSize <= 0 或 size <= maxSize:原样返回
+ *  - maxSize <= 0 或 size <= maxSize:窗口外为空,窗口内为全部消息
  *  - 切点首条消息是 ASSISTANT.toolCalls 非空 或 role=TOOL: startIndex-- 继续
- *  - 否则停止回退,返回 subList(startIndex, size)
+ *  - 否则停止回退,窗口内为 subList(startIndex, size)
  *
  * 注意:回退后实际保留的消息数可能略多于 maxSize(为保完整性),不会少于。
- * 极端情况下(整段历史都是 tool 调用链)startIndex 会回退到 0,保留全部历史。
+ * 极端情况下(整段历史都是 tool 调用链)startIndex 会回退到 0,窗口内为全部历史。
  *
  * @param maxSize 期望保留的最大消息条数(实际可能略多)
  */
-fun List<UIMessage>.limitContextWithContext(maxSize: Int): List<UIMessage> {
-    if (maxSize <= 0 || this.size <= maxSize) return this
+fun List<UIMessage>.splitContextWindow(maxSize: Int): Pair<List<UIMessage>, List<UIMessage>> {
+    if (maxSize <= 0 || this.size <= maxSize) return emptyList<UIMessage>() to this
     var startIndex = this.size - maxSize
 
     // 倒推调整 startIndex,确保不破坏 tool_call / tool_result 配对
@@ -271,5 +274,12 @@ fun List<UIMessage>.limitContextWithContext(maxSize: Int): List<UIMessage> {
         break
     }
 
-    return subList(startIndex, size)
+    return subList(0, startIndex) to subList(startIndex, size)
 }
+
+/**
+ * 工具依赖感知的上下文截断 — [splitContextWindow] 的窗口内视图(保留既有调用方语义)。
+ *
+ * @param maxSize 期望保留的最大消息条数(实际可能略多)
+ */
+fun List<UIMessage>.limitContextWithContext(maxSize: Int): List<UIMessage> = splitContextWindow(maxSize).second

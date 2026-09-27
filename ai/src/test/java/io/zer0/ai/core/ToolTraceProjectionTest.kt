@@ -7,20 +7,20 @@ import org.junit.Test
 
 /** 纯 Kotlin：模型上下文中的工具轨迹压缩投影测试。 */
 class ToolTraceProjectionTest {
-
     @Test
     fun `compresses old successful tool round and keeps latest round complete`() {
         val oldCall = ToolCall("old-call", "search", "{\"q\":\"old\"}")
         val latestCall = ToolCall("latest-call", "read_file", "{\"path\":\"/tmp/a\"}")
-        val messages = listOf(
-            UIMessage(role = MessageRole.USER, content = "old question"),
-            UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(oldCall)),
-            UIMessage(role = MessageRole.TOOL, content = "old result", toolCallId = oldCall.id),
-            UIMessage(role = MessageRole.USER, content = "new question"),
-            UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(latestCall)),
-            UIMessage(role = MessageRole.TOOL, content = "latest result", toolCallId = latestCall.id),
-            UIMessage(role = MessageRole.ASSISTANT, content = "final answer"),
-        )
+        val messages =
+            listOf(
+                UIMessage(role = MessageRole.USER, content = "old question"),
+                UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(oldCall)),
+                UIMessage(role = MessageRole.TOOL, content = "old result", toolCallId = oldCall.id),
+                UIMessage(role = MessageRole.USER, content = "new question"),
+                UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(latestCall)),
+                UIMessage(role = MessageRole.TOOL, content = "latest result", toolCallId = latestCall.id),
+                UIMessage(role = MessageRole.ASSISTANT, content = "final answer"),
+            )
 
         val projected = ToolTraceProjection.project(messages)
 
@@ -37,14 +37,34 @@ class ToolTraceProjectionTest {
     }
 
     @Test
+    fun `keeps assistant preamble text when compressing old round`() {
+        val call = ToolCall("old-call", "get_battery_info", "{}")
+        val messages =
+            listOf(
+                UIMessage(role = MessageRole.USER, content = "看下电量"),
+                UIMessage(role = MessageRole.ASSISTANT, content = "我先查一下设备信息。", toolCalls = listOf(call)),
+                UIMessage(role = MessageRole.TOOL, content = "battery=80%", toolCallId = call.id),
+                UIMessage(role = MessageRole.USER, content = "继续"),
+            )
+
+        val projected = ToolTraceProjection.project(messages, keepRecentRounds = 0)
+
+        assertEquals(3, projected.size)
+        assertTrue(projected[1].content.contains(ToolTraceProjection.SUMMARY_MARKER))
+        assertTrue(projected[1].content.contains("助手说明"))
+        assertTrue(projected[1].content.contains("我先查一下设备信息"))
+    }
+
+    @Test
     fun `keeps failed tool round complete`() {
         val call = ToolCall("failed-call", "delete_file", "{\"path\":\"/tmp/a\"}")
-        val messages = listOf(
-            UIMessage(role = MessageRole.USER, content = "remove it"),
-            UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(call)),
-            UIMessage(role = MessageRole.TOOL, content = "Error: permission denied", toolCallId = call.id),
-            UIMessage(role = MessageRole.USER, content = "continue"),
-        )
+        val messages =
+            listOf(
+                UIMessage(role = MessageRole.USER, content = "remove it"),
+                UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(call)),
+                UIMessage(role = MessageRole.TOOL, content = "Error: permission denied", toolCallId = call.id),
+                UIMessage(role = MessageRole.USER, content = "continue"),
+            )
 
         val projected = ToolTraceProjection.project(messages, keepRecentRounds = 0)
 
@@ -54,13 +74,14 @@ class ToolTraceProjectionTest {
     @Test
     fun `does not break unmatched or interleaved tool call pairing`() {
         val call = ToolCall("call-1", "search", "{}")
-        val messages = listOf(
-            UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(call)),
-            UIMessage(role = MessageRole.USER, content = "interleaved"),
-            UIMessage(role = MessageRole.TOOL, content = "result", toolCallId = call.id),
-            UIMessage(role = MessageRole.ASSISTANT, content = "later", toolCalls = listOf(call)),
-            UIMessage(role = MessageRole.TOOL, content = "wrong id", toolCallId = "other-id"),
-        )
+        val messages =
+            listOf(
+                UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(call)),
+                UIMessage(role = MessageRole.USER, content = "interleaved"),
+                UIMessage(role = MessageRole.TOOL, content = "result", toolCallId = call.id),
+                UIMessage(role = MessageRole.ASSISTANT, content = "later", toolCalls = listOf(call)),
+                UIMessage(role = MessageRole.TOOL, content = "wrong id", toolCallId = "other-id"),
+            )
 
         val projected = ToolTraceProjection.project(messages, keepRecentRounds = 0)
 
@@ -74,13 +95,14 @@ class ToolTraceProjectionTest {
     fun `truncates result preview and projection is idempotent`() {
         val call = ToolCall("call-long", "fetch", "{}")
         val longResult = "x".repeat(500)
-        val messages = listOf(
-            UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(call)),
-            UIMessage(role = MessageRole.TOOL, content = longResult, toolCallId = call.id),
-            UIMessage(role = MessageRole.USER, content = "next"),
-            UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(ToolCall("call-new", "fetch", "{}"))),
-            UIMessage(role = MessageRole.TOOL, content = "new", toolCallId = "call-new"),
-        )
+        val messages =
+            listOf(
+                UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(call)),
+                UIMessage(role = MessageRole.TOOL, content = longResult, toolCallId = call.id),
+                UIMessage(role = MessageRole.USER, content = "next"),
+                UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(ToolCall("call-new", "fetch", "{}"))),
+                UIMessage(role = MessageRole.TOOL, content = "new", toolCallId = "call-new"),
+            )
 
         val once = ToolTraceProjection.project(messages)
         val twice = ToolTraceProjection.project(once)
@@ -94,13 +116,14 @@ class ToolTraceProjectionTest {
     @Test
     fun `recognizes structured failure statuses and keeps the round`() {
         val call = ToolCall("json-failed", "lookup", "{}")
-        val messages = listOf(
-            UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(call)),
-            UIMessage(role = MessageRole.TOOL, content = "{\"success\":false,\"value\":\"no\"}", toolCallId = call.id),
-            UIMessage(role = MessageRole.USER, content = "next"),
-            UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(ToolCall("call-ok", "lookup", "{}"))),
-            UIMessage(role = MessageRole.TOOL, content = "{\"value\":\"yes\"}", toolCallId = "call-ok"),
-        )
+        val messages =
+            listOf(
+                UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(call)),
+                UIMessage(role = MessageRole.TOOL, content = "{\"success\":false,\"value\":\"no\"}", toolCallId = call.id),
+                UIMessage(role = MessageRole.USER, content = "next"),
+                UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(ToolCall("call-ok", "lookup", "{}"))),
+                UIMessage(role = MessageRole.TOOL, content = "{\"value\":\"yes\"}", toolCallId = "call-ok"),
+            )
 
         val projected = ToolTraceProjection.project(messages, keepRecentRounds = 0)
 
@@ -113,26 +136,30 @@ class ToolTraceProjectionTest {
 
     @Test
     fun `compresses persisted tool cards but keeps a failed card round`() {
-        val oldCard = UIMessage(
-            role = MessageRole.ASSISTANT,
-            content = "",
-            toolCallInfo = ToolCallInfo(
-                toolName = "search",
-                arguments = "{}",
-                result = "old card result",
-                isSuccess = true,
-            ),
-        )
-        val failedCard = UIMessage(
-            role = MessageRole.ASSISTANT,
-            content = "",
-            toolCallInfo = ToolCallInfo(
-                toolName = "write_file",
-                arguments = "{}",
-                result = "permission denied",
-                isSuccess = false,
-            ),
-        )
+        val oldCard =
+            UIMessage(
+                role = MessageRole.ASSISTANT,
+                content = "",
+                toolCallInfo =
+                    ToolCallInfo(
+                        toolName = "search",
+                        arguments = "{}",
+                        result = "old card result",
+                        isSuccess = true,
+                    ),
+            )
+        val failedCard =
+            UIMessage(
+                role = MessageRole.ASSISTANT,
+                content = "",
+                toolCallInfo =
+                    ToolCallInfo(
+                        toolName = "write_file",
+                        arguments = "{}",
+                        result = "permission denied",
+                        isSuccess = false,
+                    ),
+            )
         val next = UIMessage(role = MessageRole.USER, content = "next")
         val messages = listOf(oldCard, next, failedCard)
 
@@ -148,22 +175,25 @@ class ToolTraceProjectionTest {
 
     @Test
     fun `keeps all cards in the latest persisted tool round`() {
-        val firstLatestCard = UIMessage(
-            role = MessageRole.ASSISTANT,
-            content = "",
-            toolCallInfo = ToolCallInfo("search", "{}", "first", true),
-        )
-        val secondLatestCard = UIMessage(
-            role = MessageRole.ASSISTANT,
-            content = "",
-            toolCallInfo = ToolCallInfo("fetch", "{}", "second", true),
-        )
-        val messages = listOf(
-            UIMessage(role = MessageRole.ASSISTANT, content = "", toolCallInfo = ToolCallInfo("old", "{}", "old", true)),
-            UIMessage(role = MessageRole.USER, content = "current"),
-            firstLatestCard,
-            secondLatestCard,
-        )
+        val firstLatestCard =
+            UIMessage(
+                role = MessageRole.ASSISTANT,
+                content = "",
+                toolCallInfo = ToolCallInfo("search", "{}", "first", true),
+            )
+        val secondLatestCard =
+            UIMessage(
+                role = MessageRole.ASSISTANT,
+                content = "",
+                toolCallInfo = ToolCallInfo("fetch", "{}", "second", true),
+            )
+        val messages =
+            listOf(
+                UIMessage(role = MessageRole.ASSISTANT, content = "", toolCallInfo = ToolCallInfo("old", "{}", "old", true)),
+                UIMessage(role = MessageRole.USER, content = "current"),
+                firstLatestCard,
+                secondLatestCard,
+            )
 
         val projected = ToolTraceProjection.project(messages)
 

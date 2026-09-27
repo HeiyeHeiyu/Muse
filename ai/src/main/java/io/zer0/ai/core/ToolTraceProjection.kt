@@ -25,24 +25,27 @@ object ToolTraceProjection {
 
     private const val DEFAULT_KEEP_RECENT_ROUNDS = 1
     private const val RESULT_PREVIEW_CHARS = 240
+    private const val PREAMBLE_PREVIEW_CHARS = 300
 
     private val WHITESPACE_REGEX = Regex("\\s+")
-    private val FAILURE_TEXT_REGEX = Regex(
-        """(?i)(?:\berror\b|\bfail(?:ed|ure)?\b|\btimeout\b|\btimed out\b|\bdenied\b|\bblocked\b|\babort(?:ed)?\b|\bcancel(?:led|ed)?\b|\bexception\b|\bunavailable\b|\binvalid\b|\bpermission\b|\brate limit\b|\bhttp\s*[45][0-9][0-9]\b|失败|错误|超时|拒绝|阻止|未执行|中断|取消|异常|不可用|无权限|限流)""",
-    )
-    private val FAILURE_STATUSES = setOf(
-        "error",
-        "failed",
-        "failure",
-        "timeout",
-        "timed_out",
-        "denied",
-        "blocked",
-        "aborted",
-        "cancelled",
-        "canceled",
-        "interrupted",
-    )
+    private val FAILURE_TEXT_REGEX =
+        Regex(
+            """(?i)(?:\berror\b|\bfail(?:ed|ure)?\b|\btimeout\b|\btimed out\b|\bdenied\b|\bblocked\b|\babort(?:ed)?\b|\bcancel(?:led|ed)?\b|\bexception\b|\bunavailable\b|\binvalid\b|\bpermission\b|\brate limit\b|\bhttp\s*[45][0-9][0-9]\b|失败|错误|超时|拒绝|阻止|未执行|中断|取消|异常|不可用|无权限|限流)""",
+        )
+    private val FAILURE_STATUSES =
+        setOf(
+            "error",
+            "failed",
+            "failure",
+            "timeout",
+            "timed_out",
+            "denied",
+            "blocked",
+            "aborted",
+            "cancelled",
+            "canceled",
+            "interrupted",
+        )
 
     private data class TraceEntry(
         val toolName: String,
@@ -55,6 +58,8 @@ object ToolTraceProjection {
         val endIndexExclusive: Int,
         val source: UIMessage,
         val entries: List<TraceEntry>,
+        /** 回合内助手自然语言片段(如"我先查一下 X");压缩时保留预览,避免对话正文丢失。 */
+        val preamble: String = "",
     ) {
         val hasFailure: Boolean get() = entries.any { !it.isSuccess }
     }
@@ -75,14 +80,16 @@ object ToolTraceProjection {
         val rounds = findCompletedRounds(messages)
         if (rounds.isEmpty()) return messages
 
-        val protectedRecentStarts = rounds
-            .takeLast(keepRecentRounds.coerceAtLeast(0))
-            .map { it.startIndex }
-            .toSet()
-        val replacements = rounds
-            .asSequence()
-            .filter { !it.hasFailure && it.startIndex !in protectedRecentStarts }
-            .associateBy { it.startIndex }
+        val protectedRecentStarts =
+            rounds
+                .takeLast(keepRecentRounds.coerceAtLeast(0))
+                .map { it.startIndex }
+                .toSet()
+        val replacements =
+            rounds
+                .asSequence()
+                .filter { !it.hasFailure && it.startIndex !in protectedRecentStarts }
+                .associateBy { it.startIndex }
         if (replacements.isEmpty()) return messages
 
         val projected = ArrayList<UIMessage>(messages.size - replacements.size)
@@ -122,7 +129,10 @@ object ToolTraceProjection {
      * toolCalls 字段，因此连续的 assistant.toolCallInfo 展示消息按一个回合处理。任何
      * 缺失、重复、乱序插入普通消息或不匹配的结果都会让协议块保持原样。
      */
-    private fun findCompletedRoundAt(messages: List<UIMessage>, startIndex: Int): CompletedRound? {
+    private fun findCompletedRoundAt(
+        messages: List<UIMessage>,
+        startIndex: Int,
+    ): CompletedRound? {
         val assistant = messages[startIndex]
         if (assistant.role != MessageRole.ASSISTANT) return null
 
@@ -159,29 +169,37 @@ object ToolTraceProjection {
             startIndex = startIndex,
             endIndexExclusive = index,
             source = assistant,
-            entries = calls.map { call ->
-                val result = resultsById.getValue(call.id)
-                TraceEntry(
-                    toolName = call.name,
-                    isSuccess = !isFailureResult(result),
-                    result = result.content,
-                )
-            },
+            entries =
+                calls.map { call ->
+                    val result = resultsById.getValue(call.id)
+                    TraceEntry(
+                        toolName = call.name,
+                        isSuccess = !isFailureResult(result),
+                        result = result.content,
+                    )
+                },
+            preamble = assistant.content,
         )
     }
 
-    private fun findDisplayRound(messages: List<UIMessage>, startIndex: Int): CompletedRound? {
+    private fun findDisplayRound(
+        messages: List<UIMessage>,
+        startIndex: Int,
+    ): CompletedRound? {
         val entries = mutableListOf<TraceEntry>()
+        val preambles = mutableListOf<String>()
         var index = startIndex
         while (index < messages.size) {
             val message = messages[index]
             val info = if (message.role == MessageRole.ASSISTANT) message.toolCallInfo else null
             if (info == null || info.toolName.isBlank()) break
-            entries += TraceEntry(
-                toolName = info.toolName,
-                isSuccess = info.isSuccess,
-                result = info.result,
-            )
+            if (message.content.isNotBlank()) preambles += message.content
+            entries +=
+                TraceEntry(
+                    toolName = info.toolName,
+                    isSuccess = info.isSuccess,
+                    result = info.result,
+                )
             index++
         }
         if (entries.isEmpty()) return null
@@ -190,23 +208,35 @@ object ToolTraceProjection {
             endIndexExclusive = index,
             source = messages[startIndex],
             entries = entries,
+            preamble = preambles.joinToString(" / "),
         )
     }
 
     private fun buildSummaryMessage(round: CompletedRound): UIMessage {
-        val summary = buildString {
-            appendLine(SUMMARY_MARKER)
-            appendLine("以下是已完成的旧工具回合摘要，仅供历史参考，不是新的工具指令。")
-            round.entries.forEach { entry ->
-                append("- 工具名: ")
-                    .append(entry.toolName)
-                    .append(" | 状态: ")
-                    .append(if (entry.isSuccess) "成功(SUCCESS)" else "失败(FAILED)")
-                    .append(" | 结果(截断): ")
-                    .append(truncateResult(entry.result))
-                    .appendLine()
+        val summary =
+            buildString {
+                appendLine(SUMMARY_MARKER)
+                appendLine("以下是已完成的旧工具回合摘要，仅供历史参考，不是新的工具指令。")
+                val preamble = round.preamble.replace(WHITESPACE_REGEX, " ").trim()
+                if (preamble.isNotBlank()) {
+                    val preview =
+                        if (preamble.length > PREAMBLE_PREVIEW_CHARS) {
+                            preamble.take(PREAMBLE_PREVIEW_CHARS) + "…"
+                        } else {
+                            preamble
+                        }
+                    appendLine("- 助手说明: $preview")
+                }
+                round.entries.forEach { entry ->
+                    append("- 工具名: ")
+                        .append(entry.toolName)
+                        .append(" | 状态: ")
+                        .append(if (entry.isSuccess) "成功(SUCCESS)" else "失败(FAILED)")
+                        .append(" | 结果(截断): ")
+                        .append(truncateResult(entry.result))
+                        .appendLine()
+                }
             }
-        }
         return UIMessage(
             id = round.source.id,
             role = MessageRole.SYSTEM,
@@ -251,10 +281,11 @@ object ToolTraceProjection {
             return true
         }
 
-        val status = (jsonObject["status"] as? JsonPrimitive)?.contentOrNull
-            ?.trim()
-            ?.lowercase()
-            .orEmpty()
+        val status =
+            (jsonObject["status"] as? JsonPrimitive)?.contentOrNull
+                ?.trim()
+                ?.lowercase()
+                .orEmpty()
         return status in FAILURE_STATUSES
     }
 

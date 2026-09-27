@@ -2,7 +2,6 @@ package io.zer0.muse.ui.chat
 
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
-import io.zer0.ai.core.limitContextWithContext
 import io.zer0.common.Logger
 import io.zer0.common.Perf
 import io.zer0.common.resultOf
@@ -740,7 +739,7 @@ internal class ChatGenerationController(
                                     "history truncated $contextSize -> $newSize messages",
                             )
                             contextSize = newSize
-                            truncatedHistory = rawHistory.limitContextWithContext(contextSize)
+                            truncatedHistory = buildContextWindow(rawHistory, contextSize)
                         }
                     }
                 }

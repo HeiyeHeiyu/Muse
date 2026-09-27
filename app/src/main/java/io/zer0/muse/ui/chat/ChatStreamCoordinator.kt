@@ -2,12 +2,11 @@ package io.zer0.muse.ui.chat
 
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.Model
-import io.zer0.ai.registry.ModelRegistry
+import io.zer0.ai.core.ProviderSpecificConfig
 import io.zer0.ai.core.ReasoningLevel
 import io.zer0.ai.core.ToolDefinition
 import io.zer0.ai.core.UIMessage
-import io.zer0.ai.core.ProviderSpecificConfig
-import io.zer0.ai.core.limitContextWithContext
+import io.zer0.ai.registry.ModelRegistry
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.memory.ticker.MemoryTicker
@@ -19,12 +18,11 @@ import io.zer0.muse.data.promptinjection.PromptInjectionEntity
 import io.zer0.muse.data.promptinjection.PromptInjectionRepository
 import io.zer0.muse.data.session.SessionRepository
 import io.zer0.muse.data.skill.SkillRepository
-import kotlinx.serialization.json.jsonObject
 import io.zer0.muse.privacy.PiiGuard
 import io.zer0.muse.tools.ToolRegistry
-import io.zer0.muse.transformer.TransformContext
-import io.zer0.muse.transformer.MoodSkinParser
 import io.zer0.muse.transformer.InternalMarkupSanitizer
+import io.zer0.muse.transformer.MoodSkinParser
+import io.zer0.muse.transformer.TransformContext
 import io.zer0.muse.transformer.TransformerPipeline
 import io.zer0.muse.ui.ChatErrorType
 import io.zer0.muse.ui.CompactionState
@@ -35,6 +33,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.jsonObject
 import kotlin.uuid.Uuid
 
 /**
@@ -77,7 +76,6 @@ class ChatStreamCoordinator(
     // P1-1: Hook 注册表 — 在管道执行后调用 PromptFinalizeHook
     private val hookRegistry: io.zer0.muse.hook.HookRegistry? = null,
 ) {
-
     /** MOOD/MOD 的两种标签写法，正文与 reasoning 通道共用。 */
     private fun containsMoodMarker(text: String): Boolean =
         text.contains("<mood>", ignoreCase = true) ||
@@ -133,8 +131,9 @@ class ChatStreamCoordinator(
     fun notifySessionEndForCurrent() {
         // v1.136: Agent 模式用 agentSessionId,任务模式用 currentSessionId
         val state = accessor.snapshot
-        val sessionId = (if (state.isAgentMode) state.agentSessionId else state.currentSessionId)
-            ?: return
+        val sessionId =
+            (if (state.isAgentMode) state.agentSessionId else state.currentSessionId)
+                ?: return
         val messages = accessor.messagesSnapshot
         if (messages.isNotEmpty()) {
             // onCleared 时 viewModelScope 即将取消;MemoryTicker 用自己的 application scope fire-and-forget
@@ -206,16 +205,18 @@ class ChatStreamCoordinator(
         // v1.0.90: 检测口径从"完整开标签"改为"标签名标记" —— 模型只吐半个标签(<mood)
         // 或孤立闭标签(</mood>、</think>)时，旧逻辑误判为普通正文走快速路径，
         // 标签原文就上屏了。凡命中标记一律走完整清洗路径。
-        val hasSpecialTags = InternalMarkupSanitizer.TAG_MARKER_REGEX.containsMatchIn(content) ||
-            (!reasoning.isNullOrBlank() && InternalMarkupSanitizer.TAG_MARKER_REGEX.containsMatchIn(reasoning))
+        val hasSpecialTags =
+            InternalMarkupSanitizer.TAG_MARKER_REGEX.containsMatchIn(content) ||
+                (!reasoning.isNullOrBlank() && InternalMarkupSanitizer.TAG_MARKER_REGEX.containsMatchIn(reasoning))
         if (isStreaming && !hasSpecialTags) {
-            val updated = msg.copy(
-                content = content,
-                reasoning = reasoning ?: msg.reasoning,
-                imageBase64List = imageBase64List ?: msg.imageBase64List,
-                imageUrls = imageUrls ?: msg.imageUrls,
-                videoFileUri = videoFileUri ?: msg.videoFileUri,
-            )
+            val updated =
+                msg.copy(
+                    content = content,
+                    reasoning = reasoning ?: msg.reasoning,
+                    imageBase64List = imageBase64List ?: msg.imageBase64List,
+                    imageUrls = imageUrls ?: msg.imageUrls,
+                    videoFileUri = videoFileUri ?: msg.videoFileUri,
+                )
             val newMessages = messages.toMutableList().apply { set(index, updated) }
             accessor.updateMessages { newMessages }
             return
@@ -227,16 +228,18 @@ class ChatStreamCoordinator(
         // 正文稍后由 InternalMarkupSanitizer 统一剥离，避免“标签消失但 mood 也没保存”。
         val moodContent = InternalMarkupSanitizer.extractMood(content)
         // B6-02: moodfx 独立解析,不与应用自带 <mood> 串台
-        val (moodSkinContent, contentAfterMoodSkin) = if (contentAfterMood.contains("<moodfx>", ignoreCase = true)) {
-            MoodSkinParser.extract(contentAfterMood)
-        } else {
-            null to contentAfterMood
-        }
-        val (contentAfterReflection, reflectionContent) = if (contentAfterMoodSkin.contains("<reflection>", ignoreCase = true)) {
-            extractTagContent(contentAfterMoodSkin, "reflection")
-        } else {
-            contentAfterMoodSkin to null
-        }
+        val (moodSkinContent, contentAfterMoodSkin) =
+            if (contentAfterMood.contains("<moodfx>", ignoreCase = true)) {
+                MoodSkinParser.extract(contentAfterMood)
+            } else {
+                null to contentAfterMood
+            }
+        val (contentAfterReflection, reflectionContent) =
+            if (contentAfterMoodSkin.contains("<reflection>", ignoreCase = true)) {
+                extractTagContent(contentAfterMoodSkin, "reflection")
+            } else {
+                contentAfterMoodSkin to null
+            }
         val (cleanContentRaw, thinkContent) = extractThinkContent(contentAfterReflection)
         val cleanContent = InternalMarkupSanitizer.stripForDisplay(cleanContentRaw)
         // v1.0.73: mood 兜底 — 模型(尤其深度思考)可能把 <mood> 腹稿写进思考通道
@@ -249,9 +252,27 @@ class ChatStreamCoordinator(
             effectiveMood = InternalMarkupSanitizer.extractMood(reasoning)
             // reasoning 里可能同时有 <mood> 和 <think>;只移除 mood 块，不能把
             // mood 正文当成 reasoning 继续展示。
-            effectiveReasoningInput = InternalMarkupSanitizer.stripContainerTags(
-                InternalMarkupSanitizer.stripMoodBlocks(reasoning),
-            )
+            effectiveReasoningInput =
+                InternalMarkupSanitizer.stripContainerTags(
+                    InternalMarkupSanitizer.stripMoodBlocks(reasoning),
+                )
+        }
+        // v2.x: MOOD 调试出口 — 提取结果/来源/预览,以及"有标记但解析不出"的告警,
+        // 便于出问题时在 logcat 中用 MoodDebug 过滤定位(不再只能靠猜)。
+        if (!isStreaming) {
+            if (effectiveMood != null) {
+                Logger.d(
+                    "MoodDebug",
+                    "mood extracted | source=${if (moodContent != null) "content" else "reasoning"} | " +
+                        "len=${effectiveMood.length} | skin=${moodSkinContent ?: "-"} | " +
+                        "reflection=${reflectionContent != null} | preview=${effectiveMood.replace('\n', ' ').take(120)}",
+                )
+            } else if (containsMoodMarker(content) || (!reasoning.isNullOrBlank() && containsMoodMarker(reasoning))) {
+                Logger.w(
+                    "MoodDebug",
+                    "mood marker present but not parsed | contentLen=${content.length} | reasoningLen=${reasoning?.length ?: 0}",
+                )
+            }
         }
         // v1.62 修复:reasoning 重复问题。
         // 旧逻辑把 existingReasoning + newReasoning + thinkContent 三者拼接,
@@ -260,21 +281,23 @@ class ChatStreamCoordinator(
         // 新逻辑:reasoning 参数非空时直接覆盖(来自 ReasoningDelta 累积,已是完整值);
         // reasoning 参数为 null 时,用 thinkContent(content 中 <think> 提取)作为 fallback;
         // 两者都无时保留 msg.reasoning。
-        val combinedReasoning = when {
-            !effectiveReasoningInput.isNullOrBlank() -> InternalMarkupSanitizer.stripContainerTags(effectiveReasoningInput)
-            !thinkContent.isNullOrBlank() -> InternalMarkupSanitizer.stripContainerTags(thinkContent)
-            else -> msg.reasoning?.let(InternalMarkupSanitizer::stripContainerTags)
-        }
-        val updated = msg.copy(
-            content = cleanContent,
-            reasoning = combinedReasoning,
-            imageBase64List = imageBase64List ?: msg.imageBase64List,
-            imageUrls = imageUrls ?: msg.imageUrls,
-            videoFileUri = videoFileUri ?: msg.videoFileUri,
-            mood = effectiveMood ?: msg.mood,
-            moodSkin = moodSkinContent ?: msg.moodSkin,
-            reflection = reflectionContent ?: msg.reflection,
-        )
+        val combinedReasoning =
+            when {
+                !effectiveReasoningInput.isNullOrBlank() -> InternalMarkupSanitizer.stripContainerTags(effectiveReasoningInput)
+                !thinkContent.isNullOrBlank() -> InternalMarkupSanitizer.stripContainerTags(thinkContent)
+                else -> msg.reasoning?.let(InternalMarkupSanitizer::stripContainerTags)
+            }
+        val updated =
+            msg.copy(
+                content = cleanContent,
+                reasoning = combinedReasoning,
+                imageBase64List = imageBase64List ?: msg.imageBase64List,
+                imageUrls = imageUrls ?: msg.imageUrls,
+                videoFileUri = videoFileUri ?: msg.videoFileUri,
+                mood = effectiveMood ?: msg.mood,
+                moodSkin = moodSkinContent ?: msg.moodSkin,
+                reflection = reflectionContent ?: msg.reflection,
+            )
         val newMessages = messages.toMutableList().apply { set(index, updated) }
         accessor.updateMessages { newMessages }
     }
@@ -301,12 +324,13 @@ class ChatStreamCoordinator(
                 if (msg.id != id) {
                     msg
                 } else {
-                    val mergedContent = when {
-                        content == null -> msg.content
-                        msg.content.isBlank() -> content
-                        msg.content.contains(content) -> msg.content
-                        else -> "${msg.content}\n\n$content"
-                    }
+                    val mergedContent =
+                        when {
+                            content == null -> msg.content
+                            msg.content.isBlank() -> content
+                            msg.content.contains(content) -> msg.content
+                            else -> "${msg.content}\n\n$content"
+                        }
                     msg.copy(
                         content = mergedContent,
                         imageUrls = if (imageUrls != null) (msg.imageUrls + imageUrls).distinct() else msg.imageUrls,
@@ -316,7 +340,6 @@ class ChatStreamCoordinator(
             }
         }
     }
-
 
     /**
      * v1.43: 周期性落盘 — 把当前 assistant 消息的流中进度持久化到数据库,
@@ -378,9 +401,10 @@ class ChatStreamCoordinator(
     ) {
         // v1.97: partialMsg 参数用于切页后 _state.messages 已切换到新会话的场景。
         // 生成闭包用 builder 构造 UIMessage 传入,绕过 _state.messages 查找。
-        val partial = partialMsg ?: expectedAssistantId?.let { id ->
-            accessor.messagesSnapshot.firstOrNull { it.id == id }
-        } ?: return
+        val partial =
+            partialMsg ?: expectedAssistantId?.let { id ->
+                accessor.messagesSnapshot.firstOrNull { it.id == id }
+            } ?: return
         // A-14: 本轮没有任何可保留内容(首 token 前被取消)时不写 [已中断] 空消息,
         // 避免生成占位残留;有媒体时仍保留(图片/视频生成中被打断)。
         if (partial.content.isBlank() && partial.reasoning.isNullOrBlank() &&
@@ -432,23 +456,38 @@ class ChatStreamCoordinator(
         }
 
         // 处理流式过程中标签尚未闭合的情况
-        val openIdx = listOf("<think>", "<thinking>")
-            .map { remaining.indexOf(it, ignoreCase = true) }
-            .filter { it >= 0 }
-            .minOrNull() ?: -1
-        val partialThink: String? = if (openIdx != -1 && !remaining.contains("</think>", ignoreCase = true)) {
-            val tagLength = if (remaining.regionMatches(openIdx, "<thinking>", 0, "<thinking>".length, ignoreCase = true)) "<thinking>".length else "<think>".length
-            val afterTag = remaining.substring(openIdx + tagLength)
-            remaining = remaining.substring(0, openIdx)
-            afterTag.trim().ifBlank { null }
-        } else {
-            null
-        }
+        val openIdx =
+            listOf("<think>", "<thinking>")
+                .map { remaining.indexOf(it, ignoreCase = true) }
+                .filter { it >= 0 }
+                .minOrNull() ?: -1
+        val partialThink: String? =
+            if (openIdx != -1 && !remaining.contains("</think>", ignoreCase = true)) {
+                val tagLength =
+                    if (remaining.regionMatches(
+                            openIdx,
+                            "<thinking>",
+                            0,
+                            "<thinking>".length,
+                            ignoreCase = true,
+                        )
+                    ) {
+                        "<thinking>".length
+                    } else {
+                        "<think>".length
+                    }
+                val afterTag = remaining.substring(openIdx + tagLength)
+                remaining = remaining.substring(0, openIdx)
+                afterTag.trim().ifBlank { null }
+            } else {
+                null
+            }
 
-        val fullThink = listOfNotNull(
-            sb.toString().trim().ifBlank { null },
-            partialThink,
-        ).joinToString("\n\n").ifBlank { null }
+        val fullThink =
+            listOfNotNull(
+                sb.toString().trim().ifBlank { null },
+                partialThink,
+            ).joinToString("\n\n").ifBlank { null }
 
         return remaining.trim() to fullThink
     }
@@ -458,7 +497,10 @@ class ChatStreamCoordinator(
      *
      * 与 MoodTagTransformer 保持一致的逻辑,但只在确认含标签时调用,避免流式中高频正则。
      */
-    private fun extractTagContent(input: String, tagName: String): Pair<String, String?> {
+    private fun extractTagContent(
+        input: String,
+        tagName: String,
+    ): Pair<String, String?> {
         if (!input.contains("<$tagName>", ignoreCase = true)) return input to null
         val regex = Regex("""<$tagName>([\s\S]*?)</$tagName>""", RegexOption.IGNORE_CASE)
         val sb = StringBuilder()
@@ -507,23 +549,30 @@ class ChatStreamCoordinator(
                 ?: assistantRepository.getById("default")
             // v1.136: 用户/助手请求的推理等级
             // v1.0.47 P5-6: deepThinkingEnabled 时使用用户选择的级别(默认 HIGH),不再硬编码 HIGH
-            requestedReasoningLevel = if (accessor.snapshot.deepThinkingEnabled) {
-                accessor.snapshot.deepThinkingLevel
-            } else assistant?.let {
-                runCatching { ReasoningLevel.valueOf(it.reasoningLevel) }
-                    .getOrElse { ReasoningLevel.DEFAULT }
-                    .let { if (it == ReasoningLevel.AUTO) ReasoningLevel.OFF else it }
-            } ?: ReasoningLevel.OFF
+            requestedReasoningLevel =
+                if (accessor.snapshot.deepThinkingEnabled) {
+                    accessor.snapshot.deepThinkingLevel
+                } else {
+                    assistant?.let {
+                        runCatching { ReasoningLevel.valueOf(it.reasoningLevel) }
+                            .getOrElse { ReasoningLevel.DEFAULT }
+                            .let { if (it == ReasoningLevel.AUTO) ReasoningLevel.OFF else it }
+                    } ?: ReasoningLevel.OFF
+                }
             // 全局温度回退
             effectiveTemperature = assistant?.temperature
                 ?: accessor.snapshot.chatPreferences.globalTemperature
             // v0.32 实验性:读取 ExperimentsConfig
-            experiments = runCatching { settings.experimentsCache }
-                .getOrDefault(ExperimentsConfig())
+            experiments =
+                runCatching { settings.experimentsCache }
+                    .getOrDefault(ExperimentsConfig())
             // v0.32 实验性 debugMode:重置 debugInfo,启动计时器与计数器
             if (experiments.debugMode) {
                 accessor.update { it.copy(debugInfo = null) }
-                Logger.d("ChatVM-Debug", "launchStream start | sessionId=$sessionId | assistantId=${assistant?.id} | requestedReasoningLevel=$requestedReasoningLevel")
+                Logger.d(
+                    "ChatVM-Debug",
+                    "launchStream start | sessionId=$sessionId | assistantId=${assistant?.id} | requestedReasoningLevel=$requestedReasoningLevel",
+                )
             }
             streamStartedAt = System.currentTimeMillis()
 
@@ -539,19 +588,21 @@ class ChatStreamCoordinator(
             // v2.x 导入预热:外部导入/备份恢复会话首轮 —— 全量历史优先(见 WarmupHistory)
             warmupActive = sessionRepository.getSessionById(sessionId)?.warmupPending == true
             // 去掉占位 assistant;预热轮改用 DB 全量 + 尚未落库的新消息(按 id 去重)
-            val messagesExceptPlaceholder = if (warmupActive) {
-                warmupFullHistory(sessionId)
-            } else {
-                accessor.messagesSnapshot.dropLast(1)
-            }
-            // v1.0.2: 防御性清理孤儿 tool_call
-            rawHistory = messagesExceptPlaceholder.filterIndexed { index, msg ->
-                if (msg.role == MessageRole.ASSISTANT && !msg.toolCalls.isNullOrEmpty()) {
-                    messagesExceptPlaceholder.getOrNull(index + 1)?.role == MessageRole.TOOL
+            val messagesExceptPlaceholder =
+                if (warmupActive) {
+                    warmupFullHistory(sessionId)
                 } else {
-                    true
+                    accessor.messagesSnapshot.dropLast(1)
                 }
-            }
+            // v1.0.2: 防御性清理孤儿 tool_call
+            rawHistory =
+                messagesExceptPlaceholder.filterIndexed { index, msg ->
+                    if (msg.role == MessageRole.ASSISTANT && !msg.toolCalls.isNullOrEmpty()) {
+                        messagesExceptPlaceholder.getOrNull(index + 1)?.role == MessageRole.TOOL
+                    } else {
+                        true
+                    }
+                }
             if (rawHistory.size < messagesExceptPlaceholder.size) {
                 Logger.w(
                     "ChatViewModel",
@@ -559,20 +610,22 @@ class ChatStreamCoordinator(
                 )
             }
             // v1.x: 工具依赖感知截断;预热轮改为 token 预算截断(全量优先)
-            truncatedHistory = if (warmupActive) {
-                val budget = WarmupHistory.budgetTokensFor(accessor.snapshot.contextMaxTokens)
-                val trimmed = withContext(Dispatchers.Default) {
-                    WarmupHistory.trimToBudget(rawHistory, budget)
+            truncatedHistory =
+                if (warmupActive) {
+                    val budget = WarmupHistory.budgetTokensFor(accessor.snapshot.contextMaxTokens)
+                    val trimmed =
+                        withContext(Dispatchers.Default) {
+                            WarmupHistory.trimToBudget(rawHistory, budget)
+                        }
+                    Logger.i(
+                        tag,
+                        "warmup first turn: full=${rawHistory.size} kept=${trimmed.history.size} " +
+                            "budget=$budget truncated=${trimmed.truncated} | sessionId=$sessionId",
+                    )
+                    listOf(WarmupHistory.briefingMessage(trimmed.truncated)) + trimmed.history
+                } else {
+                    buildContextWindow(rawHistory, contextSize)
                 }
-                Logger.i(
-                    tag,
-                    "warmup first turn: full=${rawHistory.size} kept=${trimmed.history.size} " +
-                        "budget=$budget truncated=${trimmed.truncated} | sessionId=$sessionId",
-                )
-                listOf(WarmupHistory.briefingMessage(trimmed.truncated)) + trimmed.history
-            } else {
-                rawHistory.limitContextWithContext(contextSize)
-            }
         }
     }
 
@@ -583,14 +636,15 @@ class ChatStreamCoordinator(
      */
     private suspend fun warmupFullHistory(sessionId: String): List<UIMessage> {
         val uiSnapshot = accessor.messagesSnapshot.dropLast(1)
-        val dbHistory = try {
-            sessionRepository.getAllMessagesForWarmup(sessionId)
-        } catch (ce: kotlinx.coroutines.CancellationException) {
-            throw ce
-        } catch (t: Throwable) {
-            Logger.w(tag, "warmup full history load failed: ${t.message}")
-            return uiSnapshot
-        }
+        val dbHistory =
+            try {
+                sessionRepository.getAllMessagesForWarmup(sessionId)
+            } catch (ce: kotlinx.coroutines.CancellationException) {
+                throw ce
+            } catch (t: Throwable) {
+                Logger.w(tag, "warmup full history load failed: ${t.message}")
+                return uiSnapshot
+            }
         if (dbHistory.isEmpty()) return uiSnapshot
         val dbIds = dbHistory.mapTo(HashSet()) { it.id }
         val pendingUi = uiSnapshot.filter { it.id !in dbIds }
@@ -640,11 +694,12 @@ class ChatStreamCoordinator(
         modelSupportsVision: Boolean,
         historyImageCount: Int,
     ): String {
-        val snapshot = if (model != null) {
-            io.zer0.ai.registry.ModelCapabilityQuery.snapshot(model.id)
-        } else {
-            null
-        }
+        val snapshot =
+            if (model != null) {
+                io.zer0.ai.registry.ModelCapabilityQuery.snapshot(model.id)
+            } else {
+                null
+            }
         return "vision preflight: effectiveModel=${model?.id} " +
             "supportsVision=$modelSupportsVision " +
             "registryKnown=${snapshot?.known} registryVision=${snapshot?.visionInput} " +
@@ -666,10 +721,11 @@ class ChatStreamCoordinator(
             val modelSupportsVision = visionBridge.supportsVisionModel(effectiveModelLocal)
             Logger.i("ChatVM", visionPreflightDiagnostics(effectiveModelLocal, modelSupportsVision, historyImageCount))
             if (effectiveModelLocal != null && !visionBridge.supportsVision(effectiveModelLocal)) {
-                val userImageIndexes = conversationHistory.indices.filter { idx ->
-                    conversationHistory[idx].role == MessageRole.USER &&
-                        conversationHistory[idx].imageBase64List.isNotEmpty()
-                }
+                val userImageIndexes =
+                    conversationHistory.indices.filter { idx ->
+                        conversationHistory[idx].role == MessageRole.USER &&
+                            conversationHistory[idx].imageBase64List.isNotEmpty()
+                    }
                 Logger.i("ChatVM", "视觉辅助[条件满足]: userImageIndexes=${userImageIndexes.size}")
                 if (userImageIndexes.isNotEmpty()) {
                     val lastIdx = userImageIndexes.last()
@@ -681,43 +737,54 @@ class ChatStreamCoordinator(
                             "图片数=$imageCount 历史待清理=${userImageIndexes.size - 1}",
                     )
                     MuseToast.show(appContext.getString(R.string.vision_analysis_starting))
-                    val prepareResult = run {
-                        accessor.update {
-                            it.copy(visionProgress = io.zer0.muse.vision.VisionProgress(
-                                idle = false, index = 0, total = lastUserMsg.imageBase64List.size,
-                                messageId = lastUserMsg.id.toString(),
-                            ))
-                        }
-                        try {
-                            visionBridge.prepare(
-                                text = lastUserMsg.content,
-                                images = lastUserMsg.imageBase64List,
-                                userRequest = lastUserMsg.content,
-                                sessionId = sessionId,
-                                messageId = lastUserMsg.id.toString(),
-                                onProgress = { current, total ->
-                                    accessor.update {
-                                        it.copy(visionProgress = io.zer0.muse.vision.VisionProgress(
+                    val prepareResult =
+                        run {
+                            accessor.update {
+                                it.copy(
+                                    visionProgress =
+                                        io.zer0.muse.vision.VisionProgress(
                                             idle = false,
-                                            index = current,
-                                            total = total,
+                                            index = 0,
+                                            total = lastUserMsg.imageBase64List.size,
                                             messageId = lastUserMsg.id.toString(),
-                                        ))
-                                    }
-                                },
-                            )
-                        } finally {
-                            accessor.update { it.copy(visionProgress = null) }
+                                        ),
+                                )
+                            }
+                            try {
+                                visionBridge.prepare(
+                                    text = lastUserMsg.content,
+                                    images = lastUserMsg.imageBase64List,
+                                    userRequest = lastUserMsg.content,
+                                    sessionId = sessionId,
+                                    messageId = lastUserMsg.id.toString(),
+                                    onProgress = { current, total ->
+                                        accessor.update {
+                                            it.copy(
+                                                visionProgress =
+                                                    io.zer0.muse.vision.VisionProgress(
+                                                        idle = false,
+                                                        index = current,
+                                                        total = total,
+                                                        messageId = lastUserMsg.id.toString(),
+                                                    ),
+                                            )
+                                        }
+                                    },
+                                )
+                            } finally {
+                                accessor.update { it.copy(visionProgress = null) }
+                            }
                         }
-                    }
-                    conversationHistory[lastIdx] = lastUserMsg.copy(
-                        // M4.3: 视觉描述注入受统一 ContextBudget 上限约束(截断可诊断)
-                        content = io.zer0.muse.context.ContextBudget().clampText(
-                            io.zer0.muse.context.ContextSection.VISION_DESCRIPTION,
-                            prepareResult.text,
-                        ),
-                        imageBase64List = prepareResult.images,
-                    )
+                    conversationHistory[lastIdx] =
+                        lastUserMsg.copy(
+                            // M4.3: 视觉描述注入受统一 ContextBudget 上限约束(截断可诊断)
+                            content =
+                                io.zer0.muse.context.ContextBudget().clampText(
+                                    io.zer0.muse.context.ContextSection.VISION_DESCRIPTION,
+                                    prepareResult.text,
+                                ),
+                            imageBase64List = prepareResult.images,
+                        )
                     if (prepareResult.success) {
                         Logger.i("ChatVM", "视觉辅助[成功]: 已注入 ${prepareResult.descriptionCount} 条视觉描述")
                         MuseToast.show(appContext.getString(R.string.vision_analysis_done, prepareResult.descriptionCount))
@@ -774,57 +841,70 @@ class ChatStreamCoordinator(
             // MemoryInjection / TimeReminder 改为禁用,只保留 Lorebook/PromptInjection/Template/ThinkTag)
             // Phase 8.5: 预查询 Assistant 绑定的 Lorebook 条目
             val lorebookIds = assistant?.let { parseIdList(it.lorebookIdsJson) } ?: emptyList()
-            val lorebookEntries: List<LorebookEntity> = if (lorebookIds.isNotEmpty()) {
-                resultOf { lorebookRepository.getByIdsEnabled(lorebookIds) }
-                    .getOrNull() ?: emptyList()
-            } else emptyList()
+            val lorebookEntries: List<LorebookEntity> =
+                if (lorebookIds.isNotEmpty()) {
+                    resultOf { lorebookRepository.getByIdsEnabled(lorebookIds) }
+                        .getOrNull() ?: emptyList()
+                } else {
+                    emptyList()
+                }
             // Phase 8.5: 预查询当前模式对应的 PromptInjection 条目。
             // default 也是有效模式：助手显式绑定的注入项不能因为当前模式是 default 就被吞掉。
             val currentMode = accessor.snapshot.currentMode
             val injIds = assistant?.let { parseIdList(it.modeInjectionIdsJson) } ?: emptyList()
-            val modeInjections: List<PromptInjectionEntity> = if (injIds.isNotEmpty()) {
-                (resultOf { promptInjectionRepository.getByIdsEnabled(injIds) }
-                    .getOrNull() ?: emptyList())
-                    .filter { it.mode == currentMode }
-            } else {
-                resultOf { promptInjectionRepository.getEnabledByMode(currentMode) }
-                    .getOrNull() ?: emptyList()
-            }
+            val modeInjections: List<PromptInjectionEntity> =
+                if (injIds.isNotEmpty()) {
+                    (
+                        resultOf { promptInjectionRepository.getByIdsEnabled(injIds) }
+                            .getOrNull() ?: emptyList()
+                    )
+                        .filter { it.mode == currentMode }
+                } else {
+                    resultOf { promptInjectionRepository.getEnabledByMode(currentMode) }
+                        .getOrNull() ?: emptyList()
+                }
             // v1.97: 读取用户画像,把 user_nickname / assistant_name 注入模板变量
             val userProfile = resultOf { settings.getUserProfile() }.getOrNull()
-            val assistantName = userProfile?.assistantName
-                ?: assistant?.name
+            val assistantName =
+                userProfile?.assistantName
+                    ?: assistant?.name
             val userNickname = userProfile?.userNickName
-            val context = TransformContext(
-                sessionId = sessionId,
-                modelId = assistant?.modelId,
-                temperature = effectiveTemperature,
-                maxTokens = assistant?.maxTokens,
-                extras = mapOf(
-                    // v0.30-a: 已由 SystemPromptAssembler 接管,关闭 Transformer 管道里的对应职责
-                    "memory_enabled" to false,
-                    "time_reminder_enabled" to false,
-                    "current_scope" to (assistant?.id?.takeIf { it.isNotBlank() && it != "default" } ?: "main"),
-                    "current_space" to settings.currentSpaceIdFlow.firstOrNull().orEmpty().ifBlank { "default" },
-                    // Phase 8.5
-                    "lorebook_entries" to lorebookEntries,
-                    "prompt_injections" to modeInjections,
-                    // v1.97: 助手级正则规则(预解析,供 RegexMessageTransformer 使用)
-                    "regex_rules" to (assistant?.let {
-                        io.zer0.muse.transformer.RegexTransformer.parseRules(it)
-                    } ?: emptyList()),
-                    // v1.97: 模板变量 — 用户昵称与助手名(供 {{user}} / {{char}} 等)
-                    "user_nickname" to userNickname,
-                    "assistant_name" to assistantName,
-                    // v0.25: 长上下文压缩 — 默认启用,20 条触发,保留最近 15 条
-                    // v0.32 实验性 longMemoryCompression:阈值从 20 降到 10,更早触发摘要压缩
-                    "compress_enabled" to true,
-                    // v1.138: 修复 compress_threshold < compress_keep_recent 导致压缩无法触发。
-                    // longMemoryCompression 模式下 threshold=10,keep_recent 必须小于 threshold。
-                    "compress_threshold" to if (experiments.longMemoryCompression) 10 else 20,
-                    "compress_keep_recent" to if (experiments.longMemoryCompression) 8 else 15,
-                ),
-            )
+            val context =
+                TransformContext(
+                    sessionId = sessionId,
+                    modelId = assistant?.modelId,
+                    temperature = effectiveTemperature,
+                    maxTokens = assistant?.maxTokens,
+                    extras =
+                        mapOf(
+                            // v0.30-a: 已由 SystemPromptAssembler 接管,关闭 Transformer 管道里的对应职责
+                            "memory_enabled" to false,
+                            "time_reminder_enabled" to false,
+                            "current_scope" to (assistant?.id?.takeIf { it.isNotBlank() && it != "default" } ?: "main"),
+                            "current_space" to settings.currentSpaceIdFlow.firstOrNull().orEmpty().ifBlank { "default" },
+                            // Phase 8.5
+                            "lorebook_entries" to lorebookEntries,
+                            "prompt_injections" to modeInjections,
+                            // v1.97: 助手级正则规则(预解析,供 RegexMessageTransformer 使用)
+                            "regex_rules" to (
+                                assistant?.let {
+                                    io.zer0.muse.transformer.RegexTransformer.parseRules(it)
+                                } ?: emptyList()
+                            ),
+                            // v1.97: 模板变量 — 用户昵称与助手名(供 {{user}} / {{char}} 等)
+                            "user_nickname" to userNickname,
+                            "assistant_name" to assistantName,
+                            // v2.x: 调试开关透传(供 MoodTag 等 transformer 输出诊断日志)
+                            "debug_mode" to experiments.debugMode,
+                            // v0.25: 长上下文压缩 — 默认启用,20 条触发,保留最近 15 条
+                            // v0.32 实验性 longMemoryCompression:阈值从 20 降到 10,更早触发摘要压缩
+                            "compress_enabled" to true,
+                            // v1.138: 修复 compress_threshold < compress_keep_recent 导致压缩无法触发。
+                            // longMemoryCompression 模式下 threshold=10,keep_recent 必须小于 threshold。
+                            "compress_threshold" to if (experiments.longMemoryCompression) 10 else 20,
+                            "compress_keep_recent" to if (experiments.longMemoryCompression) 8 else 15,
+                        ),
+                )
             // v1.0.47 P1: 流式 Compaction UI — 消息数超过阈值时显示"正在压缩上下文"状态
             val compressThreshold = if (experiments.longMemoryCompression) 10 else 20
             val totalMsgCount = prefixMessages.size + truncatedHistory.size
@@ -836,19 +916,21 @@ class ChatStreamCoordinator(
             // P1-1: 调用 PromptFinalizeHook — 在管道执行后、发送给 LLM 前做最终修改
             // 典型用途: 楼层式上下文限制(P1-4)、Worldbook 关键词触发注入(P1-2)
             if (hookRegistry != null) {
-                val finalizeEvent = io.zer0.muse.hook.PromptFinalizeEvent(
-                    preparedHistory = transformedMessages,
-                    assistantId = accessor.snapshot.currentAssistant?.id,
-                    sessionId = accessor.snapshot.currentSessionId,
-                    transformContext = context,
-                )
-                val finalizeResult = hookRegistry.execute(
-                    io.zer0.muse.hook.PromptFinalizeHook::class,
-                    initial = io.zer0.muse.hook.PromptFinalizeResult(finalizeEvent.preparedHistory),
-                ) { hook, acc ->
-                    val event = finalizeEvent.copy(preparedHistory = acc.preparedHistory)
-                    hook.beforeFinalizePrompt(event)
-                }
+                val finalizeEvent =
+                    io.zer0.muse.hook.PromptFinalizeEvent(
+                        preparedHistory = transformedMessages,
+                        assistantId = accessor.snapshot.currentAssistant?.id,
+                        sessionId = accessor.snapshot.currentSessionId,
+                        transformContext = context,
+                    )
+                val finalizeResult =
+                    hookRegistry.execute(
+                        io.zer0.muse.hook.PromptFinalizeHook::class,
+                        initial = io.zer0.muse.hook.PromptFinalizeResult(finalizeEvent.preparedHistory),
+                    ) { hook, acc ->
+                        val event = finalizeEvent.copy(preparedHistory = acc.preparedHistory)
+                        hook.beforeFinalizePrompt(event)
+                    }
                 transformedMessages = finalizeResult.preparedHistory
             }
             // v1.0.47 P1: 压缩完成 — 更新状态为 Compacted(显示短暂提示)或清除
@@ -859,8 +941,11 @@ class ChatStreamCoordinator(
                 accessor.coroutineScope.launch {
                     kotlinx.coroutines.delay(3000)
                     accessor.update { curr ->
-                        if (curr.compactionState is CompactionState.Compacted) curr.copy(compactionState = null)
-                        else curr
+                        if (curr.compactionState is CompactionState.Compacted) {
+                            curr.copy(compactionState = null)
+                        } else {
+                            curr
+                        }
                     }
                 }
             }
@@ -891,18 +976,22 @@ class ChatStreamCoordinator(
             val configuredToolIds = assistant?.let { parseIdList(it.toolIdsJson).toSet() }.orEmpty()
             val configuredMcpServerIds = assistant?.let { parseIdList(it.mcpServerIdsJson).toSet() }.orEmpty()
             val configuredSkillIds = assistant?.let { parseIdList(it.skillIdsJson).toSet() }.orEmpty()
-            val registeredToolDefs = toolRegistry.listToolsAsToolDefinitions().filter { definition ->
-                val selectedByTool = configuredToolIds.isEmpty() || definition.name in configuredToolIds ||
-                    // v2.x 阶段3:find_tools 是分层收窄的补全通道,对任何助手白名单都保持可用
-                    definition.name == io.zer0.muse.tools.FindToolsTool.TOOL_NAME
-                val isMcpTool = definition.name.startsWith("mcp_") &&
-                    definition.name.contains("__")
-                val selectedByMcp = !isMcpTool || configuredMcpServerIds.isEmpty() ||
-                    configuredMcpServerIds.any { serverId ->
-                        definition.name.startsWith("mcp_${serverId}__")
-                    }
-                selectedByTool && selectedByMcp
-            }
+            val registeredToolDefs =
+                toolRegistry.listToolsAsToolDefinitions().filter { definition ->
+                    val selectedByTool =
+                        configuredToolIds.isEmpty() || definition.name in configuredToolIds ||
+                            // v2.x 阶段3:find_tools 是分层收窄的补全通道,对任何助手白名单都保持可用
+                            definition.name == io.zer0.muse.tools.FindToolsTool.TOOL_NAME
+                    val isMcpTool =
+                        definition.name.startsWith("mcp_") &&
+                            definition.name.contains("__")
+                    val selectedByMcp =
+                        !isMcpTool || configuredMcpServerIds.isEmpty() ||
+                            configuredMcpServerIds.any { serverId ->
+                                definition.name.startsWith("mcp_${serverId}__")
+                            }
+                    selectedByTool && selectedByMcp
+                }
 
             // Phase 8.8: 加载已启用且被当前助手绑定的 Skills 并转为 ToolDefinition;
             // 空 skillIdsJson 同样兼容旧助手,表示使用全部全局启用 Skills。
@@ -915,10 +1004,11 @@ class ChatStreamCoordinator(
             //   主会话 skillMap 必须剔除,否则主会话 LLM 可用 skill 版以任意 agent
             //   身份向任意群聊发言(绕过 ChannelToolFactory 的身份绑定防护)。
             val localToolNames = toolRegistry.listTools().map { it.name }.toSet()
-            val enabledSkills = skillRepository.listEnabled()
-                .distinctBy { it.id }
-                .filterNot { it.id in localToolNames || it.id.startsWith("channel_") }
-                .filter { configuredSkillIds.isEmpty() || it.id in configuredSkillIds }
+            val enabledSkills =
+                skillRepository.listEnabled()
+                    .distinctBy { it.id }
+                    .filterNot { it.id in localToolNames || it.id.startsWith("channel_") }
+                    .filter { configuredSkillIds.isEmpty() || it.id in configuredSkillIds }
             // 缓存 skill id → SkillEntity 映射,工具执行时用
             skillMap = enabledSkills.associateBy { it.id }
             // v1.116: 表情包概率控制 — 读取设置缓存,决定本轮是否向 LLM 暴露 sticker 工具。
@@ -929,23 +1019,27 @@ class ChatStreamCoordinator(
             // 中性对话保持用户设置的基线概率。
             // v1.0.54: 表情包功能已弃用 — 工具永不暴露(UI 已关闭,数据保留)
             val stickerToolsEnabled = false
-            val skillToolDefs = enabledSkills.map { sk ->
-                // v1.0.53: send_sticker 动态注入概率引导 — 让模型真正按用户设置的概率发贴纸
-                //   (概率控制只决定"工具是否暴露",发不发由模型判断;显式告知概率后
-                //   模型会按此概率主动调用,100% 时每次合适回复都会尝试发)。
-                val stickerProbHint = if (sk.id == "send_sticker") {
-                    " 用户设置的表情包发送概率为 ${settings.stickerSendProbabilityCache}%(在设置中调整)。" +
-                        "概率 ≥ 50% 时请在合适的回复中主动调用本工具发送表情包;概率 = 100% 时每次回复都应尝试发送。"
-                } else ""
-                io.zer0.ai.core.ToolDefinition(
-                    name = sk.id,
-                    description = sk.description + stickerProbHint,
-                    parametersJsonSchema = normalizeSkillSchema(sk.parametersJson),
-                )
-            }.filter { def ->
-                // 概率未命中时过滤掉 sticker 相关工具
-                if (stickerToolsEnabled) true else def.name !in STICKER_TOOL_IDS
-            }
+            val skillToolDefs =
+                enabledSkills.map { sk ->
+                    // v1.0.53: send_sticker 动态注入概率引导 — 让模型真正按用户设置的概率发贴纸
+                    //   (概率控制只决定"工具是否暴露",发不发由模型判断;显式告知概率后
+                    //   模型会按此概率主动调用,100% 时每次合适回复都会尝试发)。
+                    val stickerProbHint =
+                        if (sk.id == "send_sticker") {
+                            " 用户设置的表情包发送概率为 ${settings.stickerSendProbabilityCache}%(在设置中调整)。" +
+                                "概率 ≥ 50% 时请在合适的回复中主动调用本工具发送表情包;概率 = 100% 时每次回复都应尝试发送。"
+                        } else {
+                            ""
+                        }
+                    io.zer0.ai.core.ToolDefinition(
+                        name = sk.id,
+                        description = sk.description + stickerProbHint,
+                        parametersJsonSchema = normalizeSkillSchema(sk.parametersJson),
+                    )
+                }.filter { def ->
+                    // 概率未命中时过滤掉 sticker 相关工具
+                    if (stickerToolsEnabled) true else def.name !in STICKER_TOOL_IDS
+                }
             // v1.0.4 修复 HTTP 400 "Tool names must be unique":
             // `generate_image` 同时被注册为 ToolRegistry 内置工具(P2-23 起由
             // MediaGenToolsRegistrar 在启动时注册,此前是 ChatViewModel.registerMediaTools)
@@ -960,8 +1054,9 @@ class ChatStreamCoordinator(
             // 静默移除工具会让模型"看不到能力就不会调用"(功能性回退),是否裁剪属
             // 产品决策,需要显式的意图筛选/全集测试路径配套(M3 已有全集路径)。
             val schemaTotalChars = allToolDefs.sumOf { it.description.length + it.parametersJsonSchema.length }
-            val schemaBudget = io.zer0.muse.context.ContextBudget
-                .DEFAULT_LIMITS[io.zer0.muse.context.ContextSection.TOOL_SCHEMA]
+            val schemaBudget =
+                io.zer0.muse.context.ContextBudget
+                    .DEFAULT_LIMITS[io.zer0.muse.context.ContextSection.TOOL_SCHEMA]
             if (schemaBudget != null && schemaTotalChars > schemaBudget) {
                 Logger.w(
                     "ChatVM",
@@ -977,26 +1072,33 @@ class ChatStreamCoordinator(
             // v1.0.79 (F-1): 会话内手动切换的模型优先于助手专属模型
             val taskRouteModel = taskRouteSelection?.modelId?.takeIf { it.isNotBlank() }
             val taskRouteProvider = taskRouteSelection?.providerId?.takeIf { it.isNotBlank() }
-            val sessionOverride = taskRouteModel
-                ?: state.sessionModelOverride?.takeIf { it.isNotBlank() }
-            val sessionProviderOverride = taskRouteProvider
-                ?: state.sessionProviderOverride?.takeIf { it.isNotBlank() }
-            val activeProviderId = sessionProviderOverride
-                ?: assistant?.providerId?.takeIf { it.isNotBlank() }
-                ?: state.fallbackProviderId
-                ?: accessor.snapshot.activeProviderId
-            val assistantModelId = sessionOverride
-                ?: assistant?.modelId?.takeIf { it.isNotBlank() }
-                ?: state.fallbackModelId
+            val sessionOverride =
+                taskRouteModel
+                    ?: state.sessionModelOverride?.takeIf { it.isNotBlank() }
+            val sessionProviderOverride =
+                taskRouteProvider
+                    ?: state.sessionProviderOverride?.takeIf { it.isNotBlank() }
+            val activeProviderId =
+                sessionProviderOverride
+                    ?: assistant?.providerId?.takeIf { it.isNotBlank() }
+                    ?: state.fallbackProviderId
+                    ?: accessor.snapshot.activeProviderId
+            val assistantModelId =
+                sessionOverride
+                    ?: assistant?.modelId?.takeIf { it.isNotBlank() }
+                    ?: state.fallbackModelId
             // 会话手动切换的 Provider 与模型须成对优先，不能继续拿助手或全局 Provider 覆盖它。
-            val assistantProviderId = sessionProviderOverride
-                ?: assistant?.providerId?.takeIf { it.isNotBlank() }
-                ?: state.fallbackProviderId
-            val requestedProviderMissing = assistantProviderId != null &&
-                allProviders.none { it.id == assistantProviderId }
-            val requestedModelMissing = assistantModelId != null && assistantProviderId != null &&
-                allProviders.firstOrNull { it.id == assistantProviderId }
-                    ?.models?.none { it.id == assistantModelId } == true
+            val assistantProviderId =
+                sessionProviderOverride
+                    ?: assistant?.providerId?.takeIf { it.isNotBlank() }
+                    ?: state.fallbackProviderId
+            val requestedProviderMissing =
+                assistantProviderId != null &&
+                    allProviders.none { it.id == assistantProviderId }
+            val requestedModelMissing =
+                assistantModelId != null && assistantProviderId != null &&
+                    allProviders.firstOrNull { it.id == assistantProviderId }
+                        ?.models?.none { it.id == assistantModelId } == true
             if (requestedProviderMissing || requestedModelMissing) {
                 Logger.w(
                     "ChatVM",
@@ -1007,46 +1109,51 @@ class ChatStreamCoordinator(
                         "sessionId=${state.sessionId}, assistantId=${assistant?.id ?: "-"}",
                 )
             }
-            val resolvedModel: Model? = if (assistantModelId != null && assistantProviderId != null) {
-                allProviders.firstOrNull { it.id == assistantProviderId }
-                    ?.models?.firstOrNull { it.id == assistantModelId }
-            } else {
-                // v1.0.53+: 激活 Provider 优先 — 助手只配了 modelId（未配 providerId）时，
-                // 优先在激活 Provider 的模型里找同 id，避免多个 provider 存在同 id 模型
-                // （如 deepseek-v4-flash 同时存在于 opencode-go 与官方渠道）时 flatMap 全局匹配
-                // 命中非激活 provider，导致“切了 Provider 聊天请求仍走旧渠道”。
-                // 激活 Provider 找不到（如助手绑定的是该 Provider 没有的模型）才全局兜底。
-                assistantModelId?.let { aid ->
-                    val inActive = allProviders.firstOrNull { it.id == activeProviderId }
-                        ?.models?.firstOrNull { it.id == aid }
-                    inActive ?: allProviders.flatMap { it.models }.firstOrNull { it.id == aid }
+            val resolvedModel: Model? =
+                if (assistantModelId != null && assistantProviderId != null) {
+                    allProviders.firstOrNull { it.id == assistantProviderId }
+                        ?.models?.firstOrNull { it.id == assistantModelId }
+                } else {
+                    // v1.0.53+: 激活 Provider 优先 — 助手只配了 modelId（未配 providerId）时，
+                    // 优先在激活 Provider 的模型里找同 id，避免多个 provider 存在同 id 模型
+                    // （如 deepseek-v4-flash 同时存在于 opencode-go 与官方渠道）时 flatMap 全局匹配
+                    // 命中非激活 provider，导致“切了 Provider 聊天请求仍走旧渠道”。
+                    // 激活 Provider 找不到（如助手绑定的是该 Provider 没有的模型）才全局兜底。
+                    assistantModelId?.let { aid ->
+                        val inActive =
+                            allProviders.firstOrNull { it.id == activeProviderId }
+                                ?.models?.firstOrNull { it.id == aid }
+                        inActive ?: allProviders.flatMap { it.models }.firstOrNull { it.id == aid }
+                    }
+                } ?: accessor.snapshot.selectedModelId?.let { sid ->
+                    // 与上面相同的激活 Provider 优先策略
+                    val inActive =
+                        allProviders.firstOrNull { it.id == activeProviderId }
+                            ?.models?.firstOrNull { it.id == sid }
+                    inActive ?: allProviders.flatMap { it.models }.firstOrNull { it.id == sid }
                 }
-            } ?: accessor.snapshot.selectedModelId?.let { sid ->
-                // 与上面相同的激活 Provider 优先策略
-                val inActive = allProviders.firstOrNull { it.id == activeProviderId }
-                    ?.models?.firstOrNull { it.id == sid }
-                inActive ?: allProviders.flatMap { it.models }.firstOrNull { it.id == sid }
-            }
-            // 兜底:selectedModelId 为 null 且 assistant 未配 modelId 时,
-            // 优先用激活 Provider 的首个模型,避免跨 Provider 误选其他 provider 的模型。
-            // v1.0.28 修复: 之前用 allProviders.firstOrNull 不考虑激活 provider,
-            // 在多 provider 场景下会误选 SiliconFlow 免费模型(若 SiliconFlow 排在 allProviders 前面)。
-            // 场景:用户切到 OpenCode 但未点选具体模型(让默认选首个),应选 OpenCode 的首个模型,
-            // 而非 SiliconFlow 的 GLM-4-9B。
-            ?: allProviders.firstOrNull { it.id == activeProviderId && it.models.isNotEmpty() }?.let { p ->
-                p.models.firstOrNull()
-            }
-            // 二级兜底:激活 Provider 无模型(如未拉取/未填 apiKey),才退回首个有模型的 provider
-            ?: allProviders.firstOrNull { it.models.isNotEmpty() }?.let { p ->
-                p.models.firstOrNull()
-            }
-            val resolvedProviderConfig = resolvedModel?.let { m ->
-                allProviders.firstOrNull { it.id == m.providerId }
-            } ?: allProviders.firstOrNull { it.id == activeProviderId && it.models.isNotEmpty() }
-                ?: allProviders.firstOrNull { it.models.isNotEmpty() }
-            val assistantProviderConfig = resolvedProviderConfig?.let { provider ->
-                applyAssistantRequestOverrides(provider, assistant)
-            }
+                    // 兜底:selectedModelId 为 null 且 assistant 未配 modelId 时,
+                    // 优先用激活 Provider 的首个模型,避免跨 Provider 误选其他 provider 的模型。
+                    // v1.0.28 修复: 之前用 allProviders.firstOrNull 不考虑激活 provider,
+                    // 在多 provider 场景下会误选 SiliconFlow 免费模型(若 SiliconFlow 排在 allProviders 前面)。
+                    // 场景:用户切到 OpenCode 但未点选具体模型(让默认选首个),应选 OpenCode 的首个模型,
+                    // 而非 SiliconFlow 的 GLM-4-9B。
+                    ?: allProviders.firstOrNull { it.id == activeProviderId && it.models.isNotEmpty() }?.let { p ->
+                        p.models.firstOrNull()
+                    }
+                    // 二级兜底:激活 Provider 无模型(如未拉取/未填 apiKey),才退回首个有模型的 provider
+                    ?: allProviders.firstOrNull { it.models.isNotEmpty() }?.let { p ->
+                        p.models.firstOrNull()
+                    }
+            val resolvedProviderConfig =
+                resolvedModel?.let { m ->
+                    allProviders.firstOrNull { it.id == m.providerId }
+                } ?: allProviders.firstOrNull { it.id == activeProviderId && it.models.isNotEmpty() }
+                    ?: allProviders.firstOrNull { it.models.isNotEmpty() }
+            val assistantProviderConfig =
+                resolvedProviderConfig?.let { provider ->
+                    applyAssistantRequestOverrides(provider, assistant)
+                }
 
             // v1.60-A: 工具模型路由 — 工具调用轮次优先使用用户配置的轻量 toolModel
             // v1.0.53: per-assistant 优先 — 助手自己配了 toolModelId 时用它,否则回退全局 toolModelId
@@ -1057,36 +1164,42 @@ class ChatStreamCoordinator(
             val utilityBoundModelId = utilityBinding?.modelId?.takeIf { it.isNotBlank() }
             val toolModelId = assistantToolModelId ?: utilityBoundModelId ?: accessor.snapshot.toolModelId
             // v2.x: 绑定命中的 provider id(助手级/旧键路径为 null,走原有"主模型 provider 优先"策略)
-            val boundProviderId = utilityBinding?.providerId
-                ?.takeIf { assistantToolModelId == null && utilityBoundModelId == toolModelId }
+            val boundProviderId =
+                utilityBinding?.providerId
+                    ?.takeIf { assistantToolModelId == null && utilityBoundModelId == toolModelId }
             // v1.0.53: 解析时主模型 provider 优先 — 同一模型 id 可能存在于多个 provider,
             //   直接 flatMap.firstOrNull 会匹配到无关 provider(如 kimi-k2.6 匹配到 opencode 的),
             //   导致 Agent 模式跨 provider 跳变。先找主模型所在 provider,找不到再全局兜底。
-            val toolModel: Model? = toolModelId?.let { tid ->
-                // v2.x: 绑定路径 — 按绑定的 provider 精确命中
-                val fromBinding = boundProviderId?.let { pid ->
-                    allProviders.firstOrNull { it.id == pid }?.models?.firstOrNull { it.id == tid }
-                }
-                fromBinding ?: run {
-                    val inMainProvider = resolvedModel?.let { rm ->
-                        allProviders.firstOrNull { it.id == rm.providerId }
-                            ?.models?.firstOrNull { it.id == tid }
+            val toolModel: Model? =
+                toolModelId?.let { tid ->
+                    // v2.x: 绑定路径 — 按绑定的 provider 精确命中
+                    val fromBinding =
+                        boundProviderId?.let { pid ->
+                            allProviders.firstOrNull { it.id == pid }?.models?.firstOrNull { it.id == tid }
+                        }
+                    fromBinding ?: run {
+                        val inMainProvider =
+                            resolvedModel?.let { rm ->
+                                allProviders.firstOrNull { it.id == rm.providerId }
+                                    ?.models?.firstOrNull { it.id == tid }
+                            }
+                        inMainProvider ?: allProviders.flatMap { it.models }.firstOrNull { it.id == tid }
                     }
-                    inMainProvider ?: allProviders.flatMap { it.models }.firstOrNull { it.id == tid }
                 }
-            }
-            val toolProviderConfig = toolModel?.let { m ->
-                allProviders.firstOrNull { it.id == m.providerId }
-            }
+            val toolProviderConfig =
+                toolModel?.let { m ->
+                    allProviders.firstOrNull { it.id == m.providerId }
+                }
             // v1.0.53: 工具模型可用性 — 助手显式配置的工具模型允许任意 provider;
             //   回退全局的工具模型要求与主模型同 provider,避免 Agent 模式跨 provider 跳变
             //   (主对话走 tokenrhythm、工具轮却跳 opencode 的割裂观感)。
-            val toolModelUsable = toolModel != null && (
-                assistantToolModelId != null ||
-                    // v2.x: 新绑定显式带 provider,允许工具轮跨 provider(用户已精确指定渠道)
-                    boundProviderId != null ||
-                    resolvedModel == null ||
-                    toolModel.providerId == resolvedModel.providerId
+            val toolModelUsable =
+                toolModel != null && (
+                    assistantToolModelId != null ||
+                        // v2.x: 新绑定显式带 provider,允许工具轮跨 provider(用户已精确指定渠道)
+                        boundProviderId != null ||
+                        resolvedModel == null ||
+                        toolModel.providerId == resolvedModel.providerId
                 )
             // C-12: 主模型固定为主对话模型(可能支持视觉),不再被 toolModel 整体替换。
             //  effectiveModel 直接参与视觉辅助判定(prepareVisionContext)与最终回复轮路由,
@@ -1099,18 +1212,22 @@ class ChatStreamCoordinator(
             // C-12: 工具模型仅在"工具轮"使用(上一轮结果含 toolCalls 的续接轮,
             //  由 streamRound 按 round>1 判定);最终回复轮切回主模型,保留主模型的视觉能力。
             this.toolModel = if (toolModelUsable) toolModel?.let { ModelRegistry.enhanceModel(it) } else null
-            this.toolProviderConfig = if (toolModelUsable) {
-                toolProviderConfig?.let { provider -> applyAssistantRequestOverrides(provider, assistant) }
-            } else {
-                null
-            }
+            this.toolProviderConfig =
+                if (toolModelUsable) {
+                    toolProviderConfig?.let { provider -> applyAssistantRequestOverrides(provider, assistant) }
+                } else {
+                    null
+                }
 
             // v1.136: 若当前模型不支持推理,将推理等级降级到 AUTO/OFF。
             // 避免向非推理模型发送 reasoning_effort 导致简单问题过度思考,或对不支持的模型返回 400。
             val effectiveModelForReasoning = effectiveModel
-            reasoningLevel = if (effectiveModelForReasoning != null && !effectiveModelForReasoning.supportsReasoning()) {
-                if (requestedReasoningLevel == ReasoningLevel.OFF) ReasoningLevel.OFF else ReasoningLevel.AUTO
-            } else requestedReasoningLevel
+            reasoningLevel =
+                if (effectiveModelForReasoning != null && !effectiveModelForReasoning.supportsReasoning()) {
+                    if (requestedReasoningLevel == ReasoningLevel.OFF) ReasoningLevel.OFF else ReasoningLevel.AUTO
+                } else {
+                    requestedReasoningLevel
+                }
 
             // 累积的对话历史(含工具调用结果,每轮可能追加 assistant+tool 消息)
             conversationHistory = transformedMessages.toMutableList()
@@ -1133,17 +1250,20 @@ class ChatStreamCoordinator(
         val bodies = assistantRepository.parseCustomBodies(assistant)
         if (headers.isEmpty() && bodies.isEmpty()) return provider
         val specific = provider.resolvedSpecific()
-        val updatedSpecific = when (specific) {
-            is ProviderSpecificConfig.Custom -> specific.copy(
-                customHeaders = specific.customHeaders + headers,
-                customBody = specific.customBody + bodies,
-            )
-            is ProviderSpecificConfig.OpenAI -> specific.copy(
-                customHeaders = specific.customHeaders + headers,
-                customBody = specific.customBody + bodies,
-            )
-            else -> specific
-        }
+        val updatedSpecific =
+            when (specific) {
+                is ProviderSpecificConfig.Custom ->
+                    specific.copy(
+                        customHeaders = specific.customHeaders + headers,
+                        customBody = specific.customBody + bodies,
+                    )
+                is ProviderSpecificConfig.OpenAI ->
+                    specific.copy(
+                        customHeaders = specific.customHeaders + headers,
+                        customBody = specific.customBody + bodies,
+                    )
+                else -> specific
+            }
         return provider.copy(
             specific = updatedSpecific,
         )
