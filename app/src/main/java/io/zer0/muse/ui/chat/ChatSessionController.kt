@@ -14,8 +14,8 @@ import io.zer0.muse.ui.SessionMemoryCache
 import io.zer0.muse.ui.common.feedback.MuseToast
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlin.uuid.Uuid
 import org.koin.core.context.GlobalContext
+import kotlin.uuid.Uuid
 
 /**
  * v1.x: 从 ChatViewModel 抽离的会话 CRUD Controller。
@@ -37,15 +37,20 @@ internal class ChatSessionController(
     private val bridge: SessionFlowBridge,
     private val sessionDeps: SessionDeps,
 ) {
-
-    fun renameSession(sessionId: String, title: String) {
+    fun renameSession(
+        sessionId: String,
+        title: String,
+    ) {
         accessor.coroutineScope.launch {
             sessionRepository.renameSession(sessionId, title)
         }
     }
 
     /** v0.45: 切换会话归档状态。归档当前会话时切换到剩余首个会话;无剩余会话时清空状态,不创建新会话。 */
-    fun setSessionArchived(sessionId: String, archived: Boolean) {
+    fun setSessionArchived(
+        sessionId: String,
+        archived: Boolean,
+    ) {
         accessor.coroutineScope.launch {
             if (archived) {
                 // P0-5: 归档即停 — 停止该会话在途生成 + 写抑制,防止流式回调写入已归档
@@ -107,9 +112,10 @@ internal class ChatSessionController(
             // 更新本地会话状态(驱动 EmptyChatGuide 开关 + system prompt 缓存键)
             accessor.update { state ->
                 state.copy(
-                    sessions = state.sessions.map {
-                        if (it.id == sessionId) it.copy(ignoreMemory = ignore) else it
-                    },
+                    sessions =
+                        state.sessions.map {
+                            if (it.id == sessionId) it.copy(ignoreMemory = ignore) else it
+                        },
                 )
             }
             // 记忆开关影响静态快照,刷新上下文
@@ -142,7 +148,10 @@ internal class ChatSessionController(
     /** 新建会话:释放旧会话 → 按默认助手创建 → 重置 UI 状态 → 刷新上下文。
      *  v2.x: [assistantIdOverride] 非空时以指定助手创建(伙伴横排快捷开聊用)。 */
     @Suppress("CyclomaticComplexMethod")
-    fun createNewSession(onReady: (() -> Unit)? = null, assistantIdOverride: String? = null) {
+    fun createNewSession(
+        onReady: (() -> Unit)? = null,
+        assistantIdOverride: String? = null,
+    ) {
         if (accessor.snapshot.isStreaming) bridge.detachStreaming()
         // Phase 8.7: 切换会话时停止 TTS(避免跨会话继续朗读)
         sessionDeps.onStopTts()
@@ -158,17 +167,20 @@ internal class ChatSessionController(
         accessor.coroutineScope.launch {
             // v1.0.63: 新任务使用设置里的默认助手
             // v2.x: assistantIdOverride 非空时以指定助手创建(伙伴横排快捷入口)
-            val currentAssistantId = assistantIdOverride
-                ?: sessionDeps.settings.defaultAssistantIdFlow.first().ifBlank { "default" }
+            val currentAssistantId =
+                assistantIdOverride
+                    ?: sessionDeps.settings.defaultAssistantIdFlow.first().ifBlank { "default" }
             val id = sessionRepository.createSession(assistantId = currentAssistantId)
             // v1.x: 新会话权限模式跟随全局默认
-            val permissionMode = sessionDeps.sessionPermissionStore.getMode(
-                id,
-                sessionDeps.settings.defaultSessionPermissionModeFlow.first(),
-            )
+            val permissionMode =
+                sessionDeps.sessionPermissionStore.getMode(
+                    id,
+                    sessionDeps.settings.defaultSessionPermissionModeFlow.first(),
+                )
             sessionDeps.sessionManager.acquire(id)
-            val assistant = sessionDeps.assistantRepository.getById(currentAssistantId)
-                ?: sessionDeps.assistantRepository.getById("default")
+            val assistant =
+                sessionDeps.assistantRepository.getById(currentAssistantId)
+                    ?: sessionDeps.assistantRepository.getById("default")
             sessionDeps.stateStore.messages.value = emptyList()
             accessor.update {
                 it.copy(
@@ -212,14 +224,16 @@ internal class ChatSessionController(
         accessor.coroutineScope.launch {
             val currentAssistantId = accessor.snapshot.currentAssistant?.id ?: "default"
             // v1.28: Agent 模式下创建 Agent 会话,不污染任务列表
-            val id = if (accessor.snapshot.isAgentMode) {
-                sessionRepository.createAgentSession(assistantId = currentAssistantId)
-            } else {
-                sessionRepository.createSession(assistantId = currentAssistantId)
-            }
+            val id =
+                if (accessor.snapshot.isAgentMode) {
+                    sessionRepository.createAgentSession(assistantId = currentAssistantId)
+                } else {
+                    sessionRepository.createSession(assistantId = currentAssistantId)
+                }
             sessionDeps.sessionManager.acquire(id)
-            val assistant = sessionDeps.assistantRepository.getById(currentAssistantId)
-                ?: sessionDeps.assistantRepository.getById("default")
+            val assistant =
+                sessionDeps.assistantRepository.getById(currentAssistantId)
+                    ?: sessionDeps.assistantRepository.getById("default")
             accessor.update {
                 if (it.isAgentMode) {
                     sessionDeps.stateStore.messages.value = emptyList()
@@ -264,7 +278,10 @@ internal class ChatSessionController(
     }
 
     /** v1.97 gap8: 将文本发送到新会话(原子创建新会话 + 填充输入 + 触发发送)。 */
-    fun sendToNewChat(text: String, onReady: (() -> Unit)? = null) {
+    fun sendToNewChat(
+        text: String,
+        onReady: (() -> Unit)? = null,
+    ) {
         if (accessor.snapshot.isStreaming) bridge.detachStreaming()
         sessionDeps.onStopTts()
         sessionDeps.onDisposeAsr()
@@ -287,13 +304,15 @@ internal class ChatSessionController(
             // v1.0.63: 新任务使用设置里的默认助手
             val currentAssistantId = sessionDeps.settings.defaultAssistantIdFlow.first().ifBlank { "default" }
             val id = sessionRepository.createSession(assistantId = currentAssistantId)
-            val permissionMode = sessionDeps.sessionPermissionStore.getMode(
-                id,
-                sessionDeps.settings.defaultSessionPermissionModeFlow.first(),
-            )
+            val permissionMode =
+                sessionDeps.sessionPermissionStore.getMode(
+                    id,
+                    sessionDeps.settings.defaultSessionPermissionModeFlow.first(),
+                )
             sessionDeps.sessionManager.acquire(id)
-            val assistant = sessionDeps.assistantRepository.getById(currentAssistantId)
-                ?: sessionDeps.assistantRepository.getById("default")
+            val assistant =
+                sessionDeps.assistantRepository.getById(currentAssistantId)
+                    ?: sessionDeps.assistantRepository.getById("default")
             sessionDeps.stateStore.messages.value = emptyList()
             accessor.update {
                 it.copy(
@@ -325,7 +344,10 @@ internal class ChatSessionController(
 
     /** v1.28: 设置 Agent Tab 模式(恢复/创建独立 Agent 会话;退出时恢复任务会话)。 */
     @Suppress("LongMethod", "CyclomaticComplexMethod")
-    fun setAgentMode(enabled: Boolean, requestedSessionId: String? = null) {
+    fun setAgentMode(
+        enabled: Boolean,
+        requestedSessionId: String? = null,
+    ) {
         if (accessor.snapshot.isStreaming) bridge.detachStreaming()
         sessionDeps.onStopTts()
         sessionDeps.onDisposeAsr()
@@ -335,64 +357,85 @@ internal class ChatSessionController(
             accessor.update { it.copy(isSwitchingSession = true) }
             accessor.coroutineScope.launch {
                 try {
-                val preferredAgentId = sessionDeps.settings.proactiveMessageConfigFlow.first()
-                    .agentId.ifBlank { "default" }
-                val requestedAgentSession = requestedSessionId
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let { sessionRepository.getSessionById(it) }
-                    ?.takeIf { it.isAgentSession && it.deletedAt == null }
-                val agentSession = requestedAgentSession
-                    ?: sessionRepository.getRecentAgentByAssistant(preferredAgentId, 1).firstOrNull()
-                    ?: sessionRepository.getLatestAgentSession()
-                val sessionId = agentSession?.id
-                    ?: sessionRepository.createAgentSession(preferredAgentId)
-                prevSessionId?.let { sessionDeps.sessionManager.release(it) }
-                sessionDeps.sessionManager.acquire(sessionId)
-                val permissionMode = sessionDeps.sessionPermissionStore.getMode(
-                    sessionId,
-                    sessionDeps.settings.defaultSessionPermissionModeFlow.first(),
-                )
-                val (messages, hasMore) = sessionDeps.messageController.loadMessagesPaged(sessionId)
-                val assistantId = sessionRepository.getAssistantId(sessionId)
-                val assistant = sessionDeps.assistantRepository.getById(assistantId)
-                    ?: sessionDeps.assistantRepository.getById("default")
-                val restoredAgentPlans = sessionDeps.messageController.restoreAgentPlansForSession(sessionId, messages)
-                sessionDeps.stateStore.messages.value = messages
-                val agentBackgroundStreaming = sessionDeps.chatGenerationManager.isStreaming(sessionId)
-                accessor.update {
-                    it.copy(
-                        isAgentMode = true,
-                        agentSessionId = sessionId,
-                        isSwitchingSession = false,
-                        isStreaming = agentBackgroundStreaming,
-                        isWaitingFirstToken = agentBackgroundStreaming && messages
-                            .lastOrNull { msg -> msg.role == MessageRole.ASSISTANT }
-                            ?.let { msg -> msg.content.isBlank() && msg.toolCalls.isNullOrEmpty() }
-                            == true,
-                        currentAssistant = assistant,
-                        errors = emptyList(),
-                        hasMoreHistory = hasMore,
-                        isLoadingMore = false,
-                        lastHistoryLoadCount = 0,
-                        replyingTo = null,
-                        replyQuoteOverride = null,
-                        taskCards = emptyMap(),
-                        toolCallHistory = emptyList(),
-                        agentPlans = restoredAgentPlans,
-                        visionAssistedMessageIds = emptySet(),
-                        visionProgress = null,
-                        sessionPermissionMode = permissionMode,
-                        listFirstVisibleItemIndex = messages.lastIndex.coerceAtLeast(0),
-                        listFirstVisibleItemScrollOffset = 0,
-                        isSessionLocked = true,
-                    )
-                }
-                val model = resultOf { sessionDeps.settings.getSelectedModel() }.getOrNull()
-                val weakHint = WeakToolUseDetector.getWeakToolHint(model)
-                accessor.update {
-                    it.copy(isWeakToolModel = weakHint != null, weakToolHint = weakHint)
-                }
-                bridge.refreshContext()
+                    val preferredAgentId =
+                        sessionDeps.settings.proactiveMessageConfigFlow.first()
+                            .agentId.ifBlank { "default" }
+                    val requestedAgentSession =
+                        requestedSessionId
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { sessionRepository.getSessionById(it) }
+                            ?.takeIf { it.isAgentSession && it.deletedAt == null }
+                    val agentSession =
+                        requestedAgentSession
+                            ?: sessionRepository.getRecentAgentByAssistant(preferredAgentId, 1).firstOrNull()
+                            ?: sessionRepository.getLatestAgentSession()
+                    val sessionId =
+                        agentSession?.id
+                            ?: sessionRepository.createAgentSession(preferredAgentId)
+                    prevSessionId?.let { sessionDeps.sessionManager.release(it) }
+                    sessionDeps.sessionManager.acquire(sessionId)
+                    val permissionMode =
+                        sessionDeps.sessionPermissionStore.getMode(
+                            sessionId,
+                            sessionDeps.settings.defaultSessionPermissionModeFlow.first(),
+                        )
+                    val (messages, hasMore) = sessionDeps.messageController.loadMessagesPaged(sessionId)
+                    val assistantId = sessionRepository.getAssistantId(sessionId)
+                    val assistant =
+                        sessionDeps.assistantRepository.getById(assistantId)
+                            ?: sessionDeps.assistantRepository.getById("default")
+                    val restoredAgentPlans = sessionDeps.messageController.restoreAgentPlansForSession(sessionId, messages)
+                    sessionDeps.stateStore.messages.value = messages
+                    val agentBackgroundStreaming = sessionDeps.chatGenerationManager.isStreaming(sessionId)
+                    accessor.update {
+                        it.copy(
+                            isAgentMode = true,
+                            agentSessionId = sessionId,
+                            isSwitchingSession = false,
+                            isStreaming = agentBackgroundStreaming,
+                            isWaitingFirstToken =
+                                agentBackgroundStreaming && messages
+                                    .lastOrNull { msg -> msg.role == MessageRole.ASSISTANT }
+                                    ?.let { msg -> msg.content.isBlank() && msg.toolCalls.isNullOrEmpty() }
+                                    == true,
+                            currentAssistant = assistant,
+                            errors = emptyList(),
+                            hasMoreHistory = hasMore,
+                            isLoadingMore = false,
+                            lastHistoryLoadCount = 0,
+                            replyingTo = null,
+                            replyQuoteOverride = null,
+                            taskCards = emptyMap(),
+                            toolCallHistory = emptyList(),
+                            agentPlans = restoredAgentPlans,
+                            visionAssistedMessageIds = emptySet(),
+                            visionProgress = null,
+                            sessionPermissionMode = permissionMode,
+                            // v2.2.1: Agent 页面恢复离开前的位置;新会话(缓存不属于该会话)才回落到列表底部
+                            agentListFirstVisibleItemIndex =
+                                if (it.agentScrollOwnerSessionId == sessionId &&
+                                    it.agentListFirstVisibleItemIndex >= 0
+                                ) {
+                                    it.agentListFirstVisibleItemIndex
+                                } else {
+                                    messages.lastIndex.coerceAtLeast(0)
+                                },
+                            agentListFirstVisibleItemScrollOffset =
+                                if (it.agentScrollOwnerSessionId == sessionId) {
+                                    it.agentListFirstVisibleItemScrollOffset
+                                } else {
+                                    0
+                                },
+                            agentScrollOwnerSessionId = sessionId,
+                            isSessionLocked = true,
+                        )
+                    }
+                    val model = resultOf { sessionDeps.settings.getSelectedModel() }.getOrNull()
+                    val weakHint = WeakToolUseDetector.getWeakToolHint(model)
+                    accessor.update {
+                        it.copy(isWeakToolModel = weakHint != null, weakToolHint = weakHint)
+                    }
+                    bridge.refreshContext()
                 } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -400,9 +443,10 @@ internal class ChatSessionController(
                     // 回落安全态: 尽力创建兑底会话,保证界面可用且可切回。
                     Logger.e("ChatVM", "setAgentMode 失败,回落安全状态", e)
                     val fallbackId = resultOf { sessionRepository.createAgentSession("default") }.getOrNull()
-                    val fallbackAssistant = runCatching {
-                        sessionDeps.assistantRepository.getById("default")
-                    }.getOrNull()
+                    val fallbackAssistant =
+                        runCatching {
+                            sessionDeps.assistantRepository.getById("default")
+                        }.getOrNull()
                     accessor.update {
                         it.copy(
                             isAgentMode = true,
@@ -438,13 +482,15 @@ internal class ChatSessionController(
                 sessionDeps.sessionManager.acquire(sid)
                 accessor.coroutineScope.launch {
                     val (messages, hasMore) = sessionDeps.messageController.loadMessagesPaged(sid)
-                    val permissionMode = sessionDeps.sessionPermissionStore.getMode(
-                        sid,
-                        sessionDeps.settings.defaultSessionPermissionModeFlow.first(),
-                    )
+                    val permissionMode =
+                        sessionDeps.sessionPermissionStore.getMode(
+                            sid,
+                            sessionDeps.settings.defaultSessionPermissionModeFlow.first(),
+                        )
                     val assistantId = sessionRepository.getAssistantId(sid)
-                    val assistant = sessionDeps.assistantRepository.getById(assistantId)
-                        ?: sessionDeps.assistantRepository.getById("default")
+                    val assistant =
+                        sessionDeps.assistantRepository.getById(assistantId)
+                            ?: sessionDeps.assistantRepository.getById("default")
                     val restoredAgentPlans = sessionDeps.messageController.restoreAgentPlansForSession(sid, messages)
                     sessionDeps.stateStore.messages.value = messages
                     val taskBackgroundStreaming = sessionDeps.chatGenerationManager.isStreaming(sid)
@@ -452,10 +498,11 @@ internal class ChatSessionController(
                         it.copy(
                             currentAssistant = assistant,
                             isStreaming = taskBackgroundStreaming,
-                            isWaitingFirstToken = taskBackgroundStreaming && messages
-                                .lastOrNull { msg -> msg.role == MessageRole.ASSISTANT }
-                                ?.let { msg -> msg.content.isBlank() && msg.toolCalls.isNullOrEmpty() }
-                                == true,
+                            isWaitingFirstToken =
+                                taskBackgroundStreaming && messages
+                                    .lastOrNull { msg -> msg.role == MessageRole.ASSISTANT }
+                                    ?.let { msg -> msg.content.isBlank() && msg.toolCalls.isNullOrEmpty() }
+                                    == true,
                             hasMoreHistory = hasMore,
                             isLoadingMore = false,
                             lastHistoryLoadCount = 0,
@@ -534,22 +581,26 @@ internal class ChatSessionController(
             val isBackgroundStreaming = sessionDeps.chatGenerationManager.isStreaming(sessionId)
             val cached = if (!isBackgroundStreaming) sessionMemoryCache.get(sessionId) else null
             val memoryCacheHit = cached != null
-            val (messages, hasMore) = if (cached != null) {
-                cached to (cached.size >= MESSAGE_PAGE_SIZE)
-            } else {
-                sessionDeps.messageController.loadMessagesPaged(sessionId)
-            }
-            val backgroundWaitingForOutput = isBackgroundStreaming && (
-                messages.lastOrNull { it.role == MessageRole.ASSISTANT }
-                    ?.let { it.content.isBlank() && it.toolCalls.isNullOrEmpty() } == true
+            val (messages, hasMore) =
+                if (cached != null) {
+                    cached to (cached.size >= MESSAGE_PAGE_SIZE)
+                } else {
+                    sessionDeps.messageController.loadMessagesPaged(sessionId)
+                }
+            val backgroundWaitingForOutput =
+                isBackgroundStreaming && (
+                    messages.lastOrNull { it.role == MessageRole.ASSISTANT }
+                        ?.let { it.content.isBlank() && it.toolCalls.isNullOrEmpty() } == true
                 )
-            val permissionMode = sessionDeps.sessionPermissionStore.getMode(
-                sessionId,
-                sessionDeps.settings.defaultSessionPermissionModeFlow.first(),
-            )
+            val permissionMode =
+                sessionDeps.sessionPermissionStore.getMode(
+                    sessionId,
+                    sessionDeps.settings.defaultSessionPermissionModeFlow.first(),
+                )
             val assistantId = sessionRepository.getAssistantId(sessionId)
-            val assistant = sessionDeps.assistantRepository.getById(assistantId)
-                ?: sessionDeps.assistantRepository.getById("default")
+            val assistant =
+                sessionDeps.assistantRepository.getById(assistantId)
+                    ?: sessionDeps.assistantRepository.getById("default")
             val restoredAgentPlans = sessionDeps.messageController.restoreAgentPlansForSession(sessionId, messages)
             accessor.update {
                 sessionDeps.stateStore.messages.value = messages
@@ -602,9 +653,10 @@ internal class ChatSessionController(
             sessionDeps.messageController.rebuildConversationTree(previousOverride = treeSnapshot)
             sessionDeps.restorePendingApprovalsForSession(sessionId)
             // 断点续传:检查本会话是否有未完成的工具调用
-            val pendingCount = resultOf { PendingToolCallStore.getForChat(sessionId) }
-                .onError { msg, t -> Logger.w("ChatVM", "switchSession getForChat 失败: $msg", t) }
-                .getOrNull()?.size ?: 0
+            val pendingCount =
+                resultOf { PendingToolCallStore.getForChat(sessionId) }
+                    .onError { msg, t -> Logger.w("ChatVM", "switchSession getForChat 失败: $msg", t) }
+                    .getOrNull()?.size ?: 0
             if (pendingCount > 0) {
                 accessor.update { it.copy(pendingToolCallCount = pendingCount) }
                 Logger.i("ChatVM", "switchSession 检测到 $pendingCount 个未完成工具调用,会话=$sessionId")

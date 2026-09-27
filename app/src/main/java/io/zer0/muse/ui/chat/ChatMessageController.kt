@@ -36,7 +36,6 @@ class ChatMessageController(
     private val treeSnapshotStore: ConversationTreeSnapshotStore?,
     private val messagePageSize: Int = 50,
 ) {
-
     /** 初始分页加载:取最近 [messagePageSize] 条;返回 (升序消息列表, 是否还有更早历史)。 */
     suspend fun loadMessagesPaged(sessionId: String): Pair<List<UIMessage>, Boolean> {
         val total = sessionRepository.getMessageCount(sessionId)
@@ -54,9 +53,10 @@ class ChatMessageController(
         sessionId: String,
         visibleMessages: List<UIMessage>,
     ): Map<String, AgentPlan> {
-        val persistedToolMessages = resultOf {
-            sessionRepository.getToolCallMessages(sessionId)
-        }.getOrNull().orEmpty()
+        val persistedToolMessages =
+            resultOf {
+                sessionRepository.getToolCallMessages(sessionId)
+            }.getOrNull().orEmpty()
         val merged = linkedMapOf<String, UIMessage>()
         // 数据库历史先建立稳定顺序,当前窗口再覆盖同 id 的旧投影内容。
         persistedToolMessages.forEach { merged[it.id.toString()] = it }
@@ -107,11 +107,16 @@ class ChatMessageController(
             rebuildConversationTree()
         }
     }
-    fun selectUserVariant(userGroupId: String, variantIndex: Int) {
+
+    fun selectUserVariant(
+        userGroupId: String,
+        variantIndex: Int,
+    ) {
         val tree = treeState.value
-        val node = tree.userNodes.firstOrNull { user ->
-            (user.currentVariant?.message?.variantGroupId ?: user.groupId) == userGroupId
-        } ?: return
+        val node =
+            tree.userNodes.firstOrNull { user ->
+                (user.currentVariant?.message?.variantGroupId ?: user.groupId) == userGroupId
+            } ?: return
         val updated = tree.selectUserVariant(node.userId, variantIndex)
         treeState.value = updated
         accessor.updateMessages { updated.displayMessages }
@@ -120,7 +125,11 @@ class ChatMessageController(
     /**
      * 切换助手回复变体（P0 对话树）：作用域仅限当前用户变体下的指定助手组。
      */
-    fun selectAssistantVariant(userGroupId: String, assistantGroupId: String, index: Int) {
+    fun selectAssistantVariant(
+        userGroupId: String,
+        assistantGroupId: String,
+        index: Int,
+    ) {
         val updated = treeState.value.selectAssistantVariant(userGroupId, assistantGroupId, index)
         treeState.value = updated
         accessor.updateMessages { updated.displayMessages }
@@ -133,18 +142,20 @@ class ChatMessageController(
         tree: ConversationTree,
     ) {
         val originalById = original.associateBy { it.id.toString() }
-        val normalizedAll = buildList {
-            tree.userNodes.forEach { user ->
-                user.variants.forEach { add(it.message) }
-                user.variants.forEach { variant ->
-                    variant.assistantNodes.forEach { assistant -> assistant.variants.forEach { add(it) } }
+        val normalizedAll =
+            buildList {
+                tree.userNodes.forEach { user ->
+                    user.variants.forEach { add(it.message) }
+                    user.variants.forEach { variant ->
+                        variant.assistantNodes.forEach { assistant -> assistant.variants.forEach { add(it) } }
+                    }
                 }
             }
-        }
-        val changed = normalizedAll.filter { msg ->
-            val old = originalById[msg.id.toString()]
-            old != null && (old.variantIndex != msg.variantIndex || old.variantCount != msg.variantCount)
-        }
+        val changed =
+            normalizedAll.filter { msg ->
+                val old = originalById[msg.id.toString()]
+                old != null && (old.variantIndex != msg.variantIndex || old.variantCount != msg.variantCount)
+            }
         if (changed.isEmpty()) return
         changed.forEach { sessionRepository.upsertMessage(sessionId, it) }
     }
@@ -159,11 +170,12 @@ class ChatMessageController(
      */
     fun rebuildConversationTree(previousOverride: ConversationTree? = null) {
         val sessionId = accessor.snapshot.currentSessionId ?: accessor.snapshot.agentSessionId
-        val currentTree = if (sessionId != null && treeSessionId == sessionId) {
-            treeState.value
-        } else {
-            ConversationTree()
-        }
+        val currentTree =
+            if (sessionId != null && treeSessionId == sessionId) {
+                treeState.value
+            } else {
+                ConversationTree()
+            }
         // 旧树 flat 保留全部重试/编辑分支,current 保留最新内容与新追加消息,二者按 id 合并。
         val messages = mergeRebuildMessages(currentTree, accessor.messagesSnapshot)
         if (messages.isEmpty()) {
@@ -185,7 +197,10 @@ class ChatMessageController(
     }
 
     /** 编辑 assistant 消息内容(乐观更新消息列表 + 落库)。 */
-    fun editAssistantMessage(messageId: kotlin.uuid.Uuid, newContent: String) {
+    fun editAssistantMessage(
+        messageId: kotlin.uuid.Uuid,
+        newContent: String,
+    ) {
         val snapshot = accessor.snapshot
         val messages = accessor.messagesSnapshot
         val index = messages.indexOfFirst { it.id == messageId && it.role == MessageRole.ASSISTANT }
@@ -209,10 +224,17 @@ class ChatMessageController(
         }
     }
 
-    /** 缓存列表滚动位置,切页/后台后恢复。 */
-    fun onListScrollPositionChanged(index: Int, offset: Int) {
+    /** 缓存列表滚动位置,切页/后台后恢复。Agent 模式写入独立缓存(见 ChatUiState 字段注释),退出/切换不互相污染。 */
+    fun onListScrollPositionChanged(
+        index: Int,
+        offset: Int,
+    ) {
         accessor.update {
-            it.copy(listFirstVisibleItemIndex = index, listFirstVisibleItemScrollOffset = offset)
+            if (it.isAgentMode) {
+                it.copy(agentListFirstVisibleItemIndex = index, agentListFirstVisibleItemScrollOffset = offset)
+            } else {
+                it.copy(listFirstVisibleItemIndex = index, listFirstVisibleItemScrollOffset = offset)
+            }
         }
     }
 
@@ -223,8 +245,9 @@ class ChatMessageController(
             val default = current.chatPreferences.moodExpandedByDefault
             val newExpanded = !(currentState.isMoodExpanded ?: default)
             current.copy(
-                messageExpandedStates = current.messageExpandedStates +
-                    (messageId to currentState.copy(isMoodExpanded = newExpanded)),
+                messageExpandedStates =
+                    current.messageExpandedStates +
+                        (messageId to currentState.copy(isMoodExpanded = newExpanded)),
             )
         }
     }
@@ -236,8 +259,9 @@ class ChatMessageController(
             val default = current.chatPreferences.reasoningExpandedByDefault
             val newExpanded = !(currentState.isReasoningExpanded ?: default)
             current.copy(
-                messageExpandedStates = current.messageExpandedStates +
-                    (messageId to currentState.copy(isReasoningExpanded = newExpanded)),
+                messageExpandedStates =
+                    current.messageExpandedStates +
+                        (messageId to currentState.copy(isReasoningExpanded = newExpanded)),
             )
         }
     }
@@ -249,8 +273,9 @@ class ChatMessageController(
             val default = current.chatPreferences.reflectionExpandedByDefault
             val newExpanded = !(currentState.isReflectionExpanded ?: default)
             current.copy(
-                messageExpandedStates = current.messageExpandedStates +
-                    (messageId to currentState.copy(isReflectionExpanded = newExpanded)),
+                messageExpandedStates =
+                    current.messageExpandedStates +
+                        (messageId to currentState.copy(isReflectionExpanded = newExpanded)),
             )
         }
     }

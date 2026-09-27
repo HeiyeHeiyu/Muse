@@ -1,14 +1,6 @@
 package io.zer0.muse.ui
 
 import android.Manifest
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseChip
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.util.ShareIntentHelper
 import android.content.pm.PackageManager
 import android.view.KeyEvent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -20,9 +12,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,48 +28,35 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import io.zer0.muse.ui.common.media.WindowWidthClass
-import io.zer0.muse.ui.common.navigation.ChatTopBarScrim
-import io.zer0.muse.ui.common.navigation.MuseTopBarIconButton
-import io.zer0.muse.ui.common.state.MuseLoadingState
-import io.zer0.muse.ui.common.surface.MusePageScaffold
-import io.zer0.muse.ui.common.surface.museBottomBarInsets
-import io.zer0.muse.ui.chat.SessionTodoBar
-import io.zer0.muse.ui.markdown.CardAction
-import io.zer0.muse.ui.chat.SubagentFloatingWindow
-import io.zer0.muse.ui.common.museAnimateItem
-import io.zer0.muse.transformer.InternalMarkupSanitizer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.sample
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -92,57 +71,79 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
-import io.zer0.muse.ui.common.media.DesktopShortcuts
-import io.zer0.muse.ui.common.form.MuseTextField
-import io.zer0.muse.ui.common.feedback.MuseDialog
-import io.zer0.muse.ui.common.feedback.MuseToast
-import io.zer0.muse.ui.common.media.rememberDesktopShortcutsEnabled
-import io.zer0.muse.ui.common.media.rememberWindowWidthClass
-import io.zer0.muse.ui.common.MuseFloatingActionItem
-import io.zer0.muse.ui.common.MuseFloatingActionMenu
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.artifact.ArtifactEntity
 import io.zer0.muse.data.knowledge.KnowledgeDocDao
-import io.zer0.muse.ui.chat.ToolApprovalCard
-import io.zer0.muse.ui.chat.PendingApprovalsSummary
-import io.zer0.muse.ui.chat.TokenStatsBar
-import io.zer0.muse.ui.chat.SlashCommand
-import io.zer0.muse.ui.chat.PendingQueueBar
-import io.zer0.muse.ui.chat.MessageMapBar
+import io.zer0.muse.perf.MessagePaginator
+import io.zer0.muse.transformer.InternalMarkupSanitizer
+import io.zer0.muse.ui.chat.BrowserStatusCapsule
 import io.zer0.muse.ui.chat.MESSAGE_MAP_MIN_MESSAGES
+import io.zer0.muse.ui.chat.MessageMapBar
+import io.zer0.muse.ui.chat.PendingApprovalsSummary
+import io.zer0.muse.ui.chat.PendingQueueBar
+import io.zer0.muse.ui.chat.SessionTodoBar
+import io.zer0.muse.ui.chat.SlashCommand
+import io.zer0.muse.ui.chat.SubagentFloatingWindow
+import io.zer0.muse.ui.chat.TokenStatsBar
+import io.zer0.muse.ui.chat.ToolApprovalCard
+import io.zer0.muse.ui.common.MuseFloatingActionItem
+import io.zer0.muse.ui.common.MuseFloatingActionMenu
+import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.media.DesktopShortcuts
+import io.zer0.muse.ui.common.media.WindowWidthClass
+import io.zer0.muse.ui.common.media.rememberDesktopShortcutsEnabled
+import io.zer0.muse.ui.common.media.rememberWindowWidthClass
+import io.zer0.muse.ui.common.museAnimateItem
+import io.zer0.muse.ui.common.navigation.ChatTopBarScrim
+import io.zer0.muse.ui.common.navigation.MuseTopBarIconButton
+import io.zer0.muse.ui.common.state.MuseLoadingState
+import io.zer0.muse.ui.common.state.MuseSpinner
+import io.zer0.muse.ui.common.surface.MusePageScaffold
+import io.zer0.muse.ui.common.surface.museBottomBarInsets
+import io.zer0.muse.ui.markdown.CardAction
 import io.zer0.muse.ui.speech.SpeechInput
 import io.zer0.muse.ui.speech.TtsControllerWidget
 import io.zer0.muse.ui.speech.VoiceConversationMode
-import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.ui.theme.MusePaddings
-import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseAnimation
+import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseMotion
-import io.zer0.muse.perf.MessagePaginator
+import io.zer0.muse.ui.theme.MusePaddings
+import io.zer0.muse.ui.theme.MuseShapes
+import io.zer0.muse.util.ShareIntentHelper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.compose.koinInject
-import io.zer0.muse.ui.chat.BrowserStatusCapsule
-/** P6-B3: 翻译支持的目标语言列表(常用语言,中文名便于 LLM 理解)。 */
-internal val TranslationLanguages = listOf(
-    "中文", "English", "日本語", "한국어", "Français", "Deutsch", "Español", "Русский", "العربية", "Português",
-)
 
+/** P6-B3: 翻译支持的目标语言列表(常用语言,中文名便于 LLM 理解)。 */
+internal val TranslationLanguages =
+    listOf(
+        "中文", "English", "日本語", "한국어", "Français", "Deutsch", "Español", "Русский", "العربية", "Português",
+    )
 
 /** Phase 8.10: 音量键滚动单次位移(px),M21。 */
 private const val VOLUME_SCROLL_DISTANCE_PX = 200f
@@ -163,7 +164,9 @@ private fun isRenderableChatMessage(message: UIMessage): Boolean {
     if (message.role == MessageRole.SYSTEM) return false
     if (message.content.isNotBlank() &&
         (message.role == MessageRole.USER || InternalMarkupSanitizer.stripForDisplay(message.content).isNotBlank())
-    ) return true
+    ) {
+        return true
+    }
     return message.reasoning?.isNotBlank() == true ||
         message.imageUrls.isNotEmpty() ||
         message.imageBase64List.isNotEmpty() ||
@@ -179,8 +182,7 @@ private fun isRenderableChatMessage(message: UIMessage): Boolean {
         !message.reflection.isNullOrBlank()
 }
 
-private fun List<UIMessage>.filterRenderableChatMessages(): List<UIMessage> =
-    filter(::isRenderableChatMessage)
+private fun List<UIMessage>.filterRenderableChatMessages(): List<UIMessage> = filter(::isRenderableChatMessage)
 
 /**
  * Phase 8.10: 拦截音量键上/下键事件,转为滚动操作。
@@ -192,17 +194,19 @@ private fun List<UIMessage>.filterRenderableChatMessages(): List<UIMessage> =
  * [android.view.KeyEvent],访问 keyCode/action(Compose 包装层 type/key 属性
  * 在不同版本可用性不一致,nativeKeyEvent 稳定可靠)。
  */
-private fun Modifier.onVolumeKeyEvent(onScroll: (Float) -> Unit): Modifier = this.onKeyEvent { event ->
-    val native = event.nativeKeyEvent
-    if (native.action != KeyEvent.ACTION_DOWN) return@onKeyEvent false
-    val direction = when (native.keyCode) {
-        KeyEvent.KEYCODE_VOLUME_UP -> -1f
-        KeyEvent.KEYCODE_VOLUME_DOWN -> 1f
-        else -> return@onKeyEvent false
+private fun Modifier.onVolumeKeyEvent(onScroll: (Float) -> Unit): Modifier =
+    this.onKeyEvent { event ->
+        val native = event.nativeKeyEvent
+        if (native.action != KeyEvent.ACTION_DOWN) return@onKeyEvent false
+        val direction =
+            when (native.keyCode) {
+                KeyEvent.KEYCODE_VOLUME_UP -> -1f
+                KeyEvent.KEYCODE_VOLUME_DOWN -> 1f
+                else -> return@onKeyEvent false
+            }
+        onScroll(direction)
+        true
     }
-    onScroll(direction)
-    true
-}
 
 /**
  * 聊天页 — 顶部 Tab 导航化,移除 Drawer 架构。
@@ -257,10 +261,23 @@ fun ChatScreen(
     val pendingMessages by pendingMessageManager.pendingMessagesFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val pendingScope = rememberCoroutineScope()
     // v1.45: 用 ViewModel 中缓存的滚动位置初始化 LazyListState,切页/后台后恢复位置
-    val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = state.listFirstVisibleItemIndex,
-        initialFirstVisibleItemScrollOffset = state.listFirstVisibleItemScrollOffset,
-    )
+    // v2.2.1: Agent 模式用独立缓存恢复用户离开前的位置;普通会话维持原行为
+    val agentCachedIndex = state.agentListFirstVisibleItemIndex.takeIf { it >= 0 }
+    val listState =
+        rememberLazyListState(
+            initialFirstVisibleItemIndex =
+                if (state.isAgentMode && agentCachedIndex != null) {
+                    agentCachedIndex
+                } else {
+                    state.listFirstVisibleItemIndex
+                },
+            initialFirstVisibleItemScrollOffset =
+                if (state.isAgentMode && agentCachedIndex != null) {
+                    state.agentListFirstVisibleItemScrollOffset
+                } else {
+                    state.listFirstVisibleItemScrollOffset
+                },
+        )
     // v1.45: 滚动位置变化时同步缓存到 ViewModel
     // v1.100: 加 distinctUntilChanged + sample(100ms) 降频,避免滚动时高频
     // 写入 ViewModel state 导致 ChatScreen 全量重组(滚动 → 写 state → 重组 → 重测量的隐性循环)
@@ -291,15 +308,17 @@ fun ChatScreen(
     var showCommitteeDialog by remember { mutableStateOf(false) }
     // 命中列表:当前会话已加载消息中,内容含查询词(忽略大小写)的消息 id;空查询返回空。
     // 仅覆盖已加载消息(OBSERVE_LIMIT 内),更早历史需先上滑加载更多。
-    val findMatches = remember(messages, inChatQuery) {
-        val q = inChatQuery.trim()
-        if (q.isEmpty()) {
-            emptyList()
-        } else {
-            messages.filter { it.content.isNotBlank() && it.content.contains(q, ignoreCase = true) }
-                .map { it.id.toString() }
+    val findMatches =
+        remember(messages, inChatQuery) {
+            val q = inChatQuery.trim()
+            if (q.isEmpty()) {
+                emptyList()
+            } else {
+                messages.filter { it.content.isNotBlank() && it.content.contains(q, ignoreCase = true) }
+                    .map { it.id.toString() }
+            }
         }
-    }
+
     // 跳转:复用 v2.x setTargetMessage 管线(滚动定位 + 文本高亮 + 2.5s 窗口);
     // 负索引/越界取模回绕,支持上一条/下一条循环跳转。
     fun jumpToMatch(index: Int) {
@@ -331,9 +350,10 @@ fun ChatScreen(
     // Phase 4: 当前选中的气泡皮肤;未选中/皮肤非法时为 null,MessageBubble 保持既有外观。
     // 插件皮肤来自已安装 ui-skin 插件(每次读取重新校验),插件禁用/卸载后 store 自动回退内置 default。
     val pluginSkinSource: io.zer0.muse.ui.theme.PluginSkinSource = koinInject()
-    val bubbleSkinStore = remember(context, pluginSkinSource) {
-        io.zer0.muse.ui.theme.BubbleSkinStore(context, pluginSkinSource)
-    }
+    val bubbleSkinStore =
+        remember(context, pluginSkinSource) {
+            io.zer0.muse.ui.theme.BubbleSkinStore(context, pluginSkinSource)
+        }
     val bubbleSkin by bubbleSkinStore.selectedSkinFlow.collectAsStateWithLifecycle(initialValue = null)
     val proactiveConfig by settings.proactiveMessageConfigFlow.collectAsStateWithLifecycle(
         initialValue = io.zer0.muse.data.ProactiveMessageConfig(),
@@ -344,9 +364,10 @@ fun ChatScreen(
     val activeBrowserSessions by browserRegistry.activeSessionIds.collectAsState()
     // Agent 使用 agentSessionId，普通聊天使用 currentSessionId，避免会话串页。
     val browserSessionId = if (isAgentMode) state.agentSessionId else state.currentSessionId
-    val currentBrowserManager = remember(browserSessionId, activeBrowserSessions) {
-        browserSessionId?.let(browserRegistry::getIfActive)
-    }
+    val currentBrowserManager =
+        remember(browserSessionId, activeBrowserSessions) {
+            browserSessionId?.let(browserRegistry::getIfActive)
+        }
     // v1.0.75 fix (用户反馈): Markdown 格式工具条整条移除,不再有富文本开关
 
     // v1.0.4 (P3-4): 性能模式 — 通过 MessagePaginator 对 messages 做内存级分页,
@@ -369,12 +390,18 @@ fun ChatScreen(
     }
     var savedPaginatorScrollOffset by remember { mutableStateOf(0) }
     val visibleMessages by produceState(
-        initialValue = if (isAgentMode && !state.isAgentMode && !state.isSwitchingSession) {
-            emptyList()
-        } else {
-            messages.filterRenderableChatMessages()
-        },
-        messages, paginatorPageCount, performanceMode, isAgentMode, state.isAgentMode, state.isSwitchingSession,
+        initialValue =
+            if (isAgentMode && !state.isAgentMode && !state.isSwitchingSession) {
+                emptyList()
+            } else {
+                messages.filterRenderableChatMessages()
+            },
+        messages,
+        paginatorPageCount,
+        performanceMode,
+        isAgentMode,
+        state.isAgentMode,
+        state.isSwitchingSession,
     ) {
         // 门禁:Agent Tab 模式下但 ViewModel 还没切换到 Agent 模式时,显示空白。
         // 避免 HorizontalPager 动画期间目标页已 compose 但 setAgentMode 尚未执行时闪现旧对话内容。
@@ -408,18 +435,18 @@ fun ChatScreen(
         value = visibleIds.mapNotNull { msgById[it] }
     }
 
-
     // v1.0.74 fix (前端审计 1.1): 消息区在 LazyColumn 的起始全局索引。
     // 消息前后有条件插入的额外 item(agent_mode_hint/load_more/shimmer/subagent_task_list 等),
     // 所有"消息局部索引 ↔ 全局索引"换算必须加这个偏移,否则 isAtBottom/滚动定位全错位。
-    val messageStartIndex = run {
-        var idx = 0
-        val showAgentHint =
-            !state.weakToolHint.isNullOrEmpty() || !state.agentModeHint.isNullOrEmpty()
-        if (showAgentHint) idx++
-        if (state.isLoadingMore) idx++
-        idx
-    }
+    val messageStartIndex =
+        run {
+            var idx = 0
+            val showAgentHint =
+                !state.weakToolHint.isNullOrEmpty() || !state.agentModeHint.isNullOrEmpty()
+            if (showAgentHint) idx++
+            if (state.isLoadingMore) idx++
+            idx
+        }
 
     // 操作组聚合(渲染层):把连续的工具调用消息合成一组。
     // 组首条渲染 ToolRunCard,组内其余条不渲染 —— 消息索引不变,滚动定位/搜索高亮无需调整。
@@ -432,7 +459,7 @@ fun ChatScreen(
                     (
                         msg.toolCallInfo != null ||
                             msg.reasoning?.isNotBlank() == true
-                        )
+                    )
             }.filterIsInstance<io.zer0.muse.ui.chat.ChatDisplayItem.Grouped>()
                 .flatMap { run -> run.msgs.map { it.id.toString() to run } }
                 .toMap()
@@ -596,12 +623,13 @@ fun ChatScreen(
 
         // 等待 visibleMessages 包含目标消息
         // (超时 5s:switchSession 异步加载 + 性能模式下 visibleMessages 异步计算)
-        val targetIndex = withTimeoutOrNull(5000L) {
-            snapshotFlow { visibleMessages }
-                .filter { list -> list.any { it.id.toString() == targetId } }
-                .first()
-                .indexOfFirst { it.id.toString() == targetId }
-        }
+        val targetIndex =
+            withTimeoutOrNull(5000L) {
+                snapshotFlow { visibleMessages }
+                    .filter { list -> list.any { it.id.toString() == targetId } }
+                    .first()
+                    .indexOfFirst { it.id.toString() == targetId }
+            }
         if (targetIndex == null || targetIndex < 0) {
             // 超时未找到:仅清空 targetMessageId,不触发高亮
             // (消息可能已被删除 / 不在最近 OBSERVE_LIMIT 条内 / 不在当前会话)
@@ -643,6 +671,23 @@ fun ChatScreen(
     // 返回之后才被 snapshotFlow 消费,立即复位 isProgrammaticScroll 会把程序滚动误判为
     // 用户滚动,把 userScrolledUp 错误锁死 — 表现为"助手在发消息,列表固定在原地不动"。
     var programmaticScrollCooldownUntil by remember { mutableStateOf(0L) }
+
+    // v2.2.1: Agent 页面重新进入后,等消息与布局就绪,一次性恢复到离开前的位置。
+    // 消息异步加载/列表晚于组合创建时,仅靠 rememberLazyListState 的初始值会落错位置。
+    var agentScrollRestored by remember { mutableStateOf(false) }
+    LaunchedEffect(state.isAgentMode, state.isSwitchingSession, visibleMessages.size) {
+        if (!state.isAgentMode || agentScrollRestored || state.isSwitchingSession) return@LaunchedEffect
+        val target = state.agentListFirstVisibleItemIndex
+        if (target < 0 || visibleMessages.isEmpty()) return@LaunchedEffect
+        val total =
+            withTimeoutOrNull(2_000L) {
+                snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > 0 }
+            } ?: return@LaunchedEffect
+        agentScrollRestored = true
+        listState.scrollToItem(target.coerceIn(0, total - 1), state.agentListFirstVisibleItemScrollOffset)
+        // 不在底部时视为"用户停留处",避免新消息/流式增量又把列表拽回底部
+        userScrolledUp = listState.canScrollForward
+    }
 
     // 监听滚动结束:仅在"用户触发的滚动"结束时更新锁定状态
     LaunchedEffect(listState) {
@@ -771,26 +816,29 @@ fun ChatScreen(
     }
 
     // v0.36 性能优化:modelName 与会话级模型名无关,提到 ChatScreen 作用域避免每个 item 重复查找。
-    val modelName = remember(state.providers, state.activeProviderId, state.selectedModelId) {
-        state.providers
-            .firstOrNull { it.id == state.activeProviderId }?.models
-            ?.firstOrNull { it.id == state.selectedModelId }?.name
-    }
-    // Phase 6: 助手模型指示器 — 解析当前助手绑定的模型简称,用于顶部栏 badge
-    val assistantModelShortName = remember(state.currentAssistant, state.providers) {
-        state.currentAssistant?.modelId?.let { modelId ->
-            state.providers.flatMap { it.models }
-                .firstOrNull { it.id == modelId }?.name
-                ?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
-                ?: modelId
+    val modelName =
+        remember(state.providers, state.activeProviderId, state.selectedModelId) {
+            state.providers
+                .firstOrNull { it.id == state.activeProviderId }?.models
+                ?.firstOrNull { it.id == state.selectedModelId }?.name
         }
-    }
+    // Phase 6: 助手模型指示器 — 解析当前助手绑定的模型简称,用于顶部栏 badge
+    val assistantModelShortName =
+        remember(state.currentAssistant, state.providers) {
+            state.currentAssistant?.modelId?.let { modelId ->
+                state.providers.flatMap { it.models }
+                    .firstOrNull { it.id == modelId }?.name
+                    ?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+                    ?: modelId
+            }
+        }
     val assistantDisplayName = state.currentAssistant?.name?.takeIf { it.isNotBlank() }
-    val displayModelName = if (state.currentAssistant?.useAssistantName == true) {
-        assistantDisplayName ?: modelName
-    } else {
-        modelName
-    }
+    val displayModelName =
+        if (state.currentAssistant?.useAssistantName == true) {
+            assistantDisplayName ?: modelName
+        } else {
+            modelName
+        }
 
     // v0.51: 观察一次性 toast(模型切换提示等),非空时弹 Toast 并立即清空,避免重组重复弹
     LaunchedEffect(state.toast) {
@@ -814,34 +862,37 @@ fun ChatScreen(
 
     // SYSTEM 路径:系统语音识别 Intent launcher(无 API Key 时的 fallback)
     var systemRecording by rememberSaveable { mutableStateOf(false) }
-    val speechLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-    ) { result ->
-        systemRecording = false
-        val text = SpeechInput.parseResult(result.resultCode, result.data?.extras)
-        if (text != null) {
-            onSpeechResult(text)
+    val speechLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartActivityForResult(),
+        ) { result ->
+            systemRecording = false
+            val text = SpeechInput.parseResult(result.resultCode, result.data?.extras)
+            if (text != null) {
+                onSpeechResult(text)
+            }
         }
-    }
 
     // P6-B2: RECORD_AUDIO 运行时权限申请(API 录音路径需要,SYSTEM Intent 路径由系统处理)
-    val micPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) {
-            // 权限弹窗会打断原本的长按手势,授权成功后要求用户再次长按,避免无意中开启无限录音。
-            MuseToast.show(context.getString(R.string.chat_mic_permission_granted))
-        } else {
-            viewModel.reportError(context.getString(R.string.chat_err_mic_permission))
+    val micPermissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+        ) { granted ->
+            if (granted) {
+                // 权限弹窗会打断原本的长按手势,授权成功后要求用户再次长按,避免无意中开启无限录音。
+                MuseToast.show(context.getString(R.string.chat_mic_permission_granted))
+            } else {
+                viewModel.reportError(context.getString(R.string.chat_err_mic_permission))
+            }
         }
-    }
 
     // P5-E: 文档选择 launcher — 选完后由 ViewModel 读取并解析
-    val documentLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        uri?.let { viewModel.pickDocument(it, context) }
-    }
+    val documentLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocument(),
+        ) { uri ->
+            uri?.let { viewModel.pickDocument(it, context) }
+        }
 
     // v1.0.30: 发送后自动收起键盘
     val focusManager = LocalFocusManager.current
@@ -850,16 +901,17 @@ fun ChatScreen(
     // 照片按钮点击后走统一视觉媒体选择器;视频会被提取关键帧降级为图片发送。
     // 前端修复 (持久化-11): OCR 标记改 rememberSaveable,进程重建后选图回调仍按原意图处理
     var imagePickAsOcr by rememberSaveable { mutableStateOf(false) }
-    val visualMediaLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-    ) { uri ->
-        uri?.let {
-            when (context.contentResolver.getType(it)?.startsWith("video/")) {
-                true -> viewModel.pickVideo(it, context)
-                else -> viewModel.pickImage(it, context, imagePickAsOcr)
+    val visualMediaLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.PickVisualMedia(),
+        ) { uri ->
+            uri?.let {
+                when (context.contentResolver.getType(it)?.startsWith("video/")) {
+                    true -> viewModel.pickVideo(it, context)
+                    else -> viewModel.pickImage(it, context, imagePickAsOcr)
+                }
             }
         }
-    }
 
     // v1.0.74: 聊天背景(聊天/Agent 共用) — 设置页可自定义,背景图铺在消息层下面
     val chatBackground by org.koin.compose.koinInject<io.zer0.muse.data.SettingsRepository>()
@@ -884,115 +936,1674 @@ fun ChatScreen(
             val gradient = chatGradient
             if (gradient != null) {
                 androidx.compose.foundation.layout.Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            androidx.compose.ui.graphics.Brush.linearGradient(
-                                colors = listOf(
-                                    Color(gradient.startColorArgb.toInt()),
-                                    Color(gradient.endColorArgb.toInt()),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .background(
+                                androidx.compose.ui.graphics.Brush.linearGradient(
+                                    colors =
+                                        listOf(
+                                            Color(gradient.startColorArgb.toInt()),
+                                            Color(gradient.endColorArgb.toInt()),
+                                        ),
                                 ),
                             ),
-                        ),
                 )
             }
         }
-    MusePageScaffold(
-        // v1.0.72 fix: 内容区 inset 由页面顶栏和输入栏分别负责，避免嵌套在 HomeScreen 时重复避让。
-        topBar = {
-            // v1.24: 嵌在 Home 的 Agent Tab 隐藏自带顶部栏;独立详情页仍保留返回岛。
-            if (!isAgentMode || onBack != null) {
-                val currentSession = remember(state.sessions, state.currentSessionId, isAgentMode) {
-                    if (isAgentMode) null else state.sessions.find { it.id == state.currentSessionId }
-                }
-                val sessionTitle = if (isAgentMode) {
-                    "Agent"
-                } else {
-                    currentSession?.title
-                        ?.replace(Regex("(?i)&(?:#10|#xA);"), " ")
-                        ?.replace(Regex("(?i)<br\\s*/?>"), " ")
-                        ?.replace(Regex("\\s+"), " ")
-                        ?.trim()
-                        ?.takeIf { it.isNotBlank() }
-                        ?: "muse"
-                }
-                val assistantTitle = state.currentAssistant?.name?.takeIf { it.isNotBlank() }
-                    ?: stringResource(R.string.assistant_repo_default_name)
-                val sessionCd = stringResource(R.string.chat_session_cd, "$assistantTitle · $sessionTitle")
-
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    // 裸图标顶栏需要一层极浅渐变:消息会从顶栏下面滚过,没有它图标会压在正文上。
-                    // (旧版用三颗灰岛解决对比度,但与全局顶栏语言冲突,已改为裸图标 + 渐变。)
-                    ChatTopBarScrim(modifier = Modifier.matchParentSize())
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        // v1.0.75 fix (用户反馈): 8dp → 4dp,三岛更贴近状态栏
-                        .padding(horizontal = MusePaddings.screen, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
-                ) {
-                        // ── 左岛:返回按钮(共享圆形组件,与右侧菜单同尺寸) ──
-                        if (onBack != null) {
-                            MuseTopBarIconButton(
-                                icon = MuseIcons.arrowLeft,
-                                contentDescription = stringResource(R.string.action_back),
-                                onClick = onBack,
-                            )
-                        } else {
-                            Spacer(Modifier.width(MuseIconSizes.touchTarget))
+        MusePageScaffold(
+            // v1.0.72 fix: 内容区 inset 由页面顶栏和输入栏分别负责，避免嵌套在 HomeScreen 时重复避让。
+            topBar = {
+                // v1.24: 嵌在 Home 的 Agent Tab 隐藏自带顶部栏;独立详情页仍保留返回岛。
+                if (!isAgentMode || onBack != null) {
+                    val currentSession =
+                        remember(state.sessions, state.currentSessionId, isAgentMode) {
+                            if (isAgentMode) null else state.sessions.find { it.id == state.currentSessionId }
                         }
+                    val sessionTitle =
+                        if (isAgentMode) {
+                            "Agent"
+                        } else {
+                            currentSession?.title
+                                ?.replace(Regex("(?i)&(?:#10|#xA);"), " ")
+                                ?.replace(Regex("(?i)<br\\s*/?>"), " ")
+                                ?.replace(Regex("\\s+"), " ")
+                                ?.trim()
+                                ?.takeIf { it.isNotBlank() }
+                                ?: "muse"
+                        }
+                    val assistantTitle =
+                        state.currentAssistant?.name?.takeIf { it.isNotBlank() }
+                            ?: stringResource(R.string.assistant_repo_default_name)
+                    val sessionCd = stringResource(R.string.chat_session_cd, "$assistantTitle · $sessionTitle")
 
-                        // ── 中岛:助手标题(会话名/模型作为副标题) ──
-                        val sessionTitleInteractionSource = remember { MutableInteractionSource() }
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        // 裸图标顶栏需要一层极浅渐变:消息会从顶栏下面滚过,没有它图标会压在正文上。
+                        // (旧版用三颗灰岛解决对比度,但与全局顶栏语言冲突,已改为裸图标 + 渐变。)
+                        ChatTopBarScrim(modifier = Modifier.matchParentSize())
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .statusBarsPadding()
+                                        // v1.0.75 fix (用户反馈): 8dp → 4dp,三岛更贴近状态栏
+                                        .padding(horizontal = MusePaddings.screen, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
+                            ) {
+                                // ── 左岛:返回按钮(共享圆形组件,与右侧菜单同尺寸) ──
+                                if (onBack != null) {
+                                    MuseTopBarIconButton(
+                                        icon = MuseIcons.arrowLeft,
+                                        contentDescription = stringResource(R.string.action_back),
+                                        onClick = onBack,
+                                    )
+                                } else {
+                                    Spacer(Modifier.width(MuseIconSizes.touchTarget))
+                                }
+
+                                // ── 中岛:助手标题(会话名/模型作为副标题) ──
+                                val sessionTitleInteractionSource = remember { MutableInteractionSource() }
+                                Surface(
+                                    shape = CircleShape,
+                                    // v2.0.1: 去胶囊 — 中岛不再有可见壳，只留裸标题（用户反馈：顶部胶囊像一条栏，很奇怪）。
+                                    color = Color.Transparent,
+                                    // v1.0.75 fix (用户反馈): 44dp → 48dp,中岛加高放大,与缩小后的左右岛(40dp)拉开层级
+                                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                                ) {
+                                    Box(
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                // v1.136 T1: 点击=切换会话,长按=更换助手
+                                                .combinedClickable(
+                                                    interactionSource = sessionTitleInteractionSource,
+                                                    indication = null,
+                                                    onClick = { sheetState.showSessionSheet = true },
+                                                    onLongClick = { sheetState.showAssistantSwitchSheet = true },
+                                                )
+                                                .semantics { contentDescription = sessionCd },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center,
+                                        ) {
+                                            Text(
+                                                text = assistantTitle,
+                                                style =
+                                                    MaterialTheme.typography.titleMedium.copy(
+                                                        fontWeight = FontWeight.Bold,
+                                                    ),
+                                                color = MaterialTheme.colorScheme.onBackground,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                            // v1.0.90: 中间标题岛不再拼模型名 —— 岛宽有限，加上模型名后
+                                            // 文字被圆角切掉一截，看着像渲染坏了。副标题只留"会话名 · 陪伴时长"。
+                                            if (currentSession != null) {
+                                                val days = (System.currentTimeMillis() - currentSession.createdAt) / (24 * 60 * 60 * 1000)
+                                                val daysText =
+                                                    if (days <= 0L) {
+                                                        stringResource(R.string.chat_companion_days_zero)
+                                                    } else {
+                                                        stringResource(R.string.chat_companion_days, days.toInt())
+                                                    }
+                                                Text(
+                                                    text = "$sessionTitle · $daysText",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // ── 右岛:三点菜单(共享圆形组件,收纳"选择供应商"/"压缩上下文"等) ──
+                                var showTopMenu by remember { mutableStateOf(false) }
+                                LaunchedEffect(isStreaming) {
+                                    showTopMenu = false
+                                }
+                                Box(
+                                    modifier = Modifier.size(MuseIconSizes.touchTarget),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    MuseTopBarIconButton(
+                                        icon = MuseIcons.moreVertical,
+                                        contentDescription = stringResource(R.string.chat_top_menu_cd),
+                                        onClick = { showTopMenu = true },
+                                        enabled = !isStreaming,
+                                        tint = if (showTopMenu) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    // 无遮罩浮动菜单:每个操作独立右对齐弹出。
+                                    if (showTopMenu) {
+                                        // v1.0.90: 保持右上角三点浮层（曾改成底部面板，按反馈改回）。
+                                        MuseFloatingActionMenu(
+                                            items =
+                                                listOf(
+                                                    MuseFloatingActionItem(
+                                                        key = "assistant",
+                                                        icon = MuseIcons.chat,
+                                                        label = stringResource(R.string.chat_switch_assistant),
+                                                        enabled = !isStreaming,
+                                                        onClick = {
+                                                            showTopMenu = false
+                                                            // 复用标题长按的会话级助手切换 Sheet，
+                                                            // 不跳助手管理页，也不修改全局默认助手。
+                                                            sheetState.showAssistantSwitchSheet = true
+                                                        },
+                                                    ),
+                                                    MuseFloatingActionItem(
+                                                        key = "proactive_toggle",
+                                                        icon = MuseIcons.sparkle,
+                                                        label = stringResource(R.string.chat_proactive_toggle),
+                                                        enabled = !isStreaming,
+                                                        checked = proactiveConfig.enabled,
+                                                        onClick = {
+                                                            showTopMenu = false
+                                                            ioScope.launch {
+                                                                settings.saveProactiveMessageConfig(
+                                                                    proactiveConfig.copy(enabled = !proactiveConfig.enabled),
+                                                                )
+                                                            }
+                                                        },
+                                                    ),
+                                                    MuseFloatingActionItem(
+                                                        key = "provider",
+                                                        // UI-FIX: 原来与「主动消息」共用 AutoAwesome(闪光)，两项图标撞车，
+                                                        // 供应商/模型改用芯片图标。
+                                                        icon = MuseIcons.memoryChip,
+                                                        label = stringResource(R.string.chat_select_provider),
+                                                        enabled = !isStreaming,
+                                                        onClick = {
+                                                            showTopMenu = false
+                                                            sheetState.showModelSheet = true
+                                                        },
+                                                    ),
+                                                    MuseFloatingActionItem(
+                                                        key = "compress",
+                                                        icon = MuseIcons.gitMerge,
+                                                        label = stringResource(R.string.chat_update_compress),
+                                                        enabled = !isStreaming && !state.isCompressing && messages.size >= 2,
+                                                        onClick = {
+                                                            showTopMenu = false
+                                                            compressKeepText = ""
+                                                            compressInstruction = ""
+                                                            showCompressDialog = true
+                                                        },
+                                                    ),
+                                                    MuseFloatingActionItem(
+                                                        key = "find",
+                                                        icon = MuseIcons.search,
+                                                        label = stringResource(R.string.chat_find_in_conversation),
+                                                        enabled = messages.isNotEmpty(),
+                                                        onClick = {
+                                                            showTopMenu = false
+                                                            showInChatSearch = true
+                                                        },
+                                                    ),
+                                                    // v2.0.1: 工具调用记录（浮标改为仅生成中显示，历史入口收到菜单）
+                                                    MuseFloatingActionItem(
+                                                        key = "tool_history",
+                                                        icon = MuseIcons.wrench,
+                                                        label = stringResource(R.string.chat_tool_calls_title),
+                                                        enabled = messages.isNotEmpty(),
+                                                        onClick = {
+                                                            showTopMenu = false
+                                                            sheetState.showToolCallSheet = true
+                                                        },
+                                                    ),
+                                                    // v2.x: 委员会 — 从对话中随时召唤一组助手开临时群聊讨论
+                                                    MuseFloatingActionItem(
+                                                        key = "committee",
+                                                        icon = MuseIcons.users,
+                                                        label = stringResource(R.string.chat_committee),
+                                                        enabled = !isStreaming,
+                                                        onClick = {
+                                                            showTopMenu = false
+                                                            showCommitteeDialog = true
+                                                        },
+                                                    ),
+                                                ),
+                                            onDismiss = { showTopMenu = false },
+                                        )
+                                    }
+                                }
+                            }
+                            // v2.x: 委员会对话框 — 选成员 + 议题,启动临时群聊讨论
+                            if (showCommitteeDialog) {
+                                CommitteeDialog(
+                                    assistants = state.assistants,
+                                    onDismiss = { showCommitteeDialog = false },
+                                    onConfirm = { memberIds, topic ->
+                                        showCommitteeDialog = false
+                                        viewModel.launchCommittee(memberIds, topic)
+                                    },
+                                )
+                            }
+                            // 浏览器真正启动后，入口独立显示在标题栏下方，不再挤占助手标题岛。
+                            BrowserStatusCapsule(
+                                manager = currentBrowserManager,
+                                modifier =
+                                    Modifier
+                                        .align(Alignment.CenterHorizontally)
+                                        .padding(bottom = MusePaddings.tightGap),
+                            )
+                        }
+                    }
+                }
+            },
+            bottomBar = {
+                Column(Modifier.fillMaxWidth()) {
+                    // 工具审批卡：固定显示在输入栏上方（紧跟用户操作位置，不随消息流滚动）
+                    // CHAT-08: 多张审批卡折叠为「N 项待审批」;折叠(阅读)期间暂停倒计时,
+                    // 避免审批在用户阅读时被 30s 自动拒绝。
+                    val approvals = state.pendingToolApprovals
+                    var approvalsExpanded by rememberSaveable { mutableStateOf(false) }
+                    // 折叠期间暂停 VM 侧审批超时;无审批/单张/展开时恢复,避免暂停状态残留。
+                    LaunchedEffect(approvals.size, approvalsExpanded) {
+                        viewModel.setApprovalTimeoutPaused(approvals.size > 1 && !approvalsExpanded)
+                    }
+                    if (approvals.size == 1) {
+                        approvals.forEach { approval ->
+                            ToolApprovalCard(
+                                toolName = approval.toolName,
+                                argumentsPreview = approval.argumentsPreview,
+                                onApprove = { viewModel.approveToolCall(approval.toolCallId) },
+                                onDeny = { reason -> viewModel.denyToolCall(approval.toolCallId, reason) },
+                                onPersistPolicy = { policy ->
+                                    viewModel.persistToolPolicy(approval.toolCallId, policy)
+                                },
+                                onAllowThisSession = {
+                                    viewModel.allowToolForSession(approval.toolCallId)
+                                },
+                                referenceImageOverride = approval.referenceImageOverride,
+                                onReferenceImageChange = { dataUri ->
+                                    viewModel.setToolApprovalReferenceImage(approval.toolCallId, dataUri)
+                                },
+                            )
+                        }
+                    } else if (approvals.size > 1) {
+                        PendingApprovalsSummary(
+                            approvals = approvals,
+                            expanded = approvalsExpanded,
+                            onToggleExpanded = { approvalsExpanded = !approvalsExpanded },
+                            onApprove = { approval -> viewModel.approveToolCall(approval.toolCallId) },
+                            onDeny = { approval, reason -> viewModel.denyToolCall(approval.toolCallId, reason) },
+                            onPersistPolicy = { approval, policy ->
+                                viewModel.persistToolPolicy(approval.toolCallId, policy)
+                            },
+                            onAllowThisSession = { approval ->
+                                viewModel.allowToolForSession(approval.toolCallId)
+                            },
+                            onReferenceImageChange = { approval, dataUri ->
+                                viewModel.setToolApprovalReferenceImage(approval.toolCallId, dataUri)
+                            },
+                            countdownPaused = !approvalsExpanded,
+                        )
+                    }
+                    // v1.97: 计算工具/任务进度 — 优先用活跃 agentPlan,否则用 toolCallHistory
+                    val latestPlan = state.agentPlans.values.maxByOrNull { it.createdAt }
+                    val activePlan = latestPlan?.takeIf { it.steps.isNotEmpty() && !it.isAllSettled }
+                    val toolCallTotal = activePlan?.totalSteps ?: state.toolCallHistory.size
+                    val toolCallCompleted =
+                        activePlan?.completedSteps
+                            ?: state.toolCallHistory.count { it.isSuccess }
+                    // B2: 待发送队列条(流式中排队,逐条预览/编辑/删除/单独发送)
+                    if (state.sendQueue.isNotEmpty()) {
+                        PendingQueueBar(
+                            queue = state.sendQueue,
+                            onSend = viewModel::sendPendingSend,
+                            onEdit = viewModel::editPendingSend,
+                            onRemove = viewModel::removePendingSend,
+                            onClear = viewModel::clearPendingQueue,
+                        )
+                    }
+                    // v1.0.92: 会话待办条 — AI 通过 todo_write 维护的任务分解进度,有内容时显示
+                    SessionTodoBar(sessionId = state.currentSessionId ?: "")
+                    // 只让输入岛占用底部系统安全区,避免整块 bottomBar 被 inset 撑成白色遮罩。
+                    Box(Modifier.fillMaxWidth().museBottomBarInsets()) {
+                        // I3: 输入区独立错误边界,输入渲染数据构建失败只降级输入条
+                        RegionErrorBoundary(
+                            regionName = "input",
+                            data = { state.sendQueue },
+                        ) {
+                            RichInputBar(
+                                // v1.0.20 (Task 3): input/isStreaming 读派生值,避免其他字段变化触发 bottomBar 重组
+                                text = currentInput,
+                                assistantName = state.currentAssistant?.name?.takeIf { it.isNotBlank() } ?: "Muse",
+                                isStreaming = isStreaming,
+                                isWaitingFirstToken = isWaitingFirstToken,
+                                isDrawMode = state.isDrawMode,
+                                isWebSearchEnabled = state.webSearchEnabled,
+                                isDeepThinkingEnabled = state.deepThinkingEnabled,
+                                // v1.0.47 P5-6: 深度思考级别胶囊(激活时显示,点击循环)
+                                deepThinkingLevel = state.deepThinkingLevel,
+                                onCycleDeepThinkingLevel = viewModel::cycleDeepThinkingLevel,
+                                imageGenParams = state.imageGenParams,
+                                onImageGenParamsChange = viewModel::updateImageGenParams,
+                                // v1.0.75 fix: 格式工具条已移除,不再传 formatEnabled
+                                showExpandButton = state.chatPreferences.showExpandButton,
+                                onTextChanged = viewModel::updateInput,
+                                // v1.0.47 P5: 硬件键盘上/下箭头遍历输入历史
+                                onNavigateInputHistory = viewModel::navigateInputHistory,
+                                // v1.97: 斜杠命令拦截 — / 开头的输入走 executeSlashCommand,不发送给 LLM
+                                onSend = {
+                                    // 从 ViewModel 读取点击瞬间的值,不依赖 Composable 闭包可能捕获的旧快照。
+                                    val text = viewModel.state.value.input
+                                    if (SlashCommand.isSlashCommand(text)) {
+                                        viewModel.executeSlashCommand(text)
+                                    } else {
+                                        viewModel.send()
+                                        focusManager.clearFocus()
+                                    }
+                                },
+                                onStop = viewModel::stop,
+                                onInterject = viewModel::interject,
+                                onEnqueuePending = viewModel::enqueuePendingSend,
+                                replyingTo =
+                                    state.replyingTo?.let { r ->
+                                        // v1.0.72 fix: 引用块用最新消息对象 — 流式消息内容实时更新,
+                                        // 引用时捕获的旧对象可能 content 为空(第一条消息引用 UI 为空的根因)
+                                        messages.find { it.id == r.id } ?: r
+                                    },
+                                onClearReply = { viewModel.setReplyingTo(null) },
+                                replyQuoteOverride = state.replyQuoteOverride,
+                                onEditReply = { viewModel.setReplyQuoteOverride(it) },
+                                onPickDocument = {
+                                    runCatching {
+                                        documentLauncher.launch(
+                                            arrayOf(
+                                                "text/*",
+                                                "application/pdf",
+                                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                                "application/msword",
+                                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                                "application/vnd.ms-excel",
+                                                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                                                "application/epub+zip",
+                                            ),
+                                        )
+                                    }.onFailure { viewModel.reportError(context.getString(R.string.chat_err_open_file_picker, it.message)) }
+                                },
+                                onToggleDrawMode = viewModel::toggleDrawMode,
+                                onToggleWebSearch = viewModel::toggleWebSearch,
+                                onToggleDeepThinking = viewModel::toggleDeepThinking,
+                                // v1.24: Agent 模式在加号工具栏显示"重启上下文",普通会话不显示
+                                showRestartContext = isAgentMode,
+                                onRestartContext = viewModel::restartContext,
+                                // v1.25: 委托给助手入口
+                                assistants = state.assistants,
+                                onDelegateToAssistant = { sheetState.showDelegateSheet = DelegateSheetMode.Input },
+                                // v0.29 P1-6: 知识库 @mention 文档选择 sheet
+                                onPickKnowledge = { sheetState.showKnowledgeSheet = true },
+                                onOpenPromptTemplates = { sheetState.showPromptTemplateSheet = true },
+                                // 加号菜单 → 技能入口
+                                onOpenSkills = onOpenSkills,
+                                // v0.31: 回车键发送开关传给 InputBar
+                                enterToSend = state.chatPreferences.enterToSend,
+                                // Phase 8.5:快捷消息
+                                quickMessages = state.quickMessages,
+                                // Phase 8.6: 多模态图片输入
+                                pendingImages = state.pendingImages,
+                                onPickImage = { asOcr ->
+                                    imagePickAsOcr = asOcr
+                                    runCatching {
+                                        visualMediaLauncher.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo),
+                                        )
+                                    }.onFailure {
+                                        viewModel.reportError(
+                                            context.getString(R.string.chat_err_open_image_picker, it.message),
+                                        )
+                                    }
+                                },
+                                // v0.53: 工具菜单中最近相册图片点击直接加入待发送
+                                onPickGalleryImage = { uri ->
+                                    viewModel.pickImage(uri, context, asOcr = false)
+                                },
+                                onRemovePendingImage = viewModel::removePendingImage,
+                                // v1.136 T10: 待发送文档芯片
+                                pendingDocuments = state.pendingDocuments,
+                                onRemovePendingDocument = viewModel::removePendingDocument,
+                                onInsertQuickMessage = { qm ->
+                                    // Phase 8.5 修复: clipboard 读取切到 IO 线程,避免主线程 IPC ANR
+                                    ioScope.launch {
+                                        val clipboard =
+                                            withContext(Dispatchers.IO) {
+                                                runCatching {
+                                                    val cm =
+                                                        context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                                                            as android.content.ClipboardManager
+                                                    cm.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() ?: ""
+                                                }.getOrDefault("")
+                                            }
+                                        viewModel.insertQuickMessage(qm, clipboard)
+                                    }
+                                },
+                                // Phase 9.3 (M2): ASR 录音
+                                // v1.49: 移除 Vosk 后,两条路径:
+                                //  - API 模式(有 apiKey):长按录音 + 松开识别 + 上滑取消
+                                //  - SYSTEM 模式(无 apiKey):长按麦克风松开后弹系统语音识别 Intent
+                                isRecording = state.asrState.isRecording || systemRecording,
+                                asrStatus = state.asrState.status,
+                                asrErrorMessage = state.asrState.errorMessage,
+                                recordingAmplitudes = state.asrState.amplitudes,
+                                onStartRecording = {
+                                    if (viewModel.shouldUseApiRecording()) {
+                                        // API 路径:先检查 RECORD_AUDIO 权限,未授权则申请
+                                        val granted =
+                                            ContextCompat.checkSelfPermission(
+                                                context, Manifest.permission.RECORD_AUDIO,
+                                            ) == PackageManager.PERMISSION_GRANTED
+                                        if (granted) {
+                                            viewModel.startStreamingAsr()
+                                            true
+                                        } else {
+                                            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                            // U-17: 权限缺失时给出明确反馈,避免长按静默无响应
+                                            MuseToast.show(context.getString(R.string.chat_err_mic_permission))
+                                            false
+                                        }
+                                    } else {
+                                        // SYSTEM 路径:检查系统语音识别服务是否可用,可用则长按松开后弹 Intent
+                                        if (!SpeechInput.isAvailable(context)) {
+                                            Logger.w("ChatScreen", "系统语音服务不可用")
+                                            // U-17: 服务未就绪单独提示,与"权限缺失"区分
+                                            MuseToast.show(context.getString(R.string.chat_voice_not_ready))
+                                            false
+                                        } else {
+                                            // 返回 false:不进入"录音中"状态(系统 Intent 会接管 UI)
+                                            // 实际 launch 在松手时触发,避免长按期间反复 launch
+                                            systemRecording = true
+                                            true
+                                        }
+                                    }
+                                },
+                                onStopRecording = {
+                                    if (viewModel.shouldUseApiRecording()) {
+                                        viewModel.stopStreamingAsr()
+                                    } else {
+                                        systemRecording = false
+                                        // v1.95: 仅首次使用提示,后续直接调起系统 Intent
+                                        ioScope.launch {
+                                            val shown = settings.asrTipShownFlow.first()
+                                            if (!shown) {
+                                                sheetState.asrTipDialogShown = true
+                                                settings.saveAsrTipShown(true)
+                                            } else {
+                                                resultOf {
+                                                    speechLauncher.launch(
+                                                        SpeechInput.createIntent(context.getString(R.string.speech_speak_prompt)),
+                                                    )
+                                                }.onError { msg, _ ->
+                                                    // v1.98: 移除弹窗提示,静默处理
+                                                    Logger.w("ChatScreen", "启动语音识别失败: $msg")
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                onCancelRecording = {
+                                    if (viewModel.shouldUseApiRecording()) {
+                                        viewModel.cancelStreamingAsr()
+                                    } else {
+                                        systemRecording = false
+                                    }
+                                    // SYSTEM 路径无取消概念(尚未 launch Intent)
+                                },
+                                // 仅在实时 ASR Provider 已配置 API Key 时显示麦克风;未配置时保留发送按钮,
+                                // 避免用户点击一个必然不可用的语音入口。DASHSCOPE_FILE 仍只支持文件转录。
+                                showMic = viewModel.shouldUseApiRecording() && state.asrConfig.apiKey.isNotBlank(),
+                                // v1.97: 工具/任务进度 pill(优先用 plan 进度,否则用 toolCallHistory)
+                                toolCallCompleted = toolCallCompleted,
+                                toolCallTotal = toolCallTotal,
+                                onShowToolCalls = { sheetState.showToolCallSheet = true },
+                                // 功能2: 草稿标记
+                                hasDraft = state.hasDraft,
+                                // v1.0.29: Agent Tab 不主动呼出输入法
+                                autoFocus = !isAgentMode,
+                                // v1.0.47 P5-3: Token 估算(默认关闭,设置页开启后输入栏底部显示 Token 统计条)
+                                tokenEstimateEnabled = state.tokenEstimateEnabled,
+                                historyTokens = state.contextTokenCount,
+                                contextWindow = state.contextMaxTokens,
+                                // v1.0.47 P5-2: 长文本粘贴转文件(默认开启,粘贴超阈值文本时提示转为附件)
+                                pasteAsFileEnabled = state.pasteAsFileEnabled,
+                                pasteAsFileThreshold = state.pasteAsFileThreshold,
+                                onAddPastedTextAsDocument = viewModel::addPastedTextAsDocument,
+                            )
+                        } // I3: 输入区错误边界收尾
+                    }
+                }
+            },
+            // 背景图/渐变都由外层 Box 绘制; Scaffold 必须透明,否则默认 background 会把渐变盖住。
+            containerColor =
+                if (chatBackground.isNullOrBlank() && chatGradient == null) {
+                    MaterialTheme.colorScheme.background
+                } else {
+                    androidx.compose.ui.graphics.Color.Transparent
+                },
+        ) { innerPadding ->
+            val scrollToBottomScope = rememberCoroutineScope()
+            // P2-13: 桌面端快捷键拦截 — Ctrl+Shift+C 复制最后一条 AI 回复
+            // Enter/Shift+Enter 由 InputBar 自身处理(已在 v0.31 实现 enterToSend 逻辑),
+            // 此处不重复拦截,避免破坏既有用户设置("回车发送" / "Shift+回车发送")。
+            val copyLastReplyClipboardScope = rememberCoroutineScope()
+            val copyLastReply: () -> Unit = {
+                val lastAssistant =
+                    messages.lastOrNull {
+                        it.role == MessageRole.ASSISTANT && it.content.isNotBlank()
+                    }
+                if (lastAssistant != null) {
+                    copyLastReplyClipboardScope.launch {
+                        val clipboard =
+                            withContext(Dispatchers.IO) {
+                                context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                                    as android.content.ClipboardManager
+                            }
+                        clipboard.setPrimaryClip(
+                            android.content.ClipData.newPlainText(
+                                context.getString(R.string.app_name),
+                                lastAssistant.content,
+                            ),
+                        )
+                        MuseToast.show(context.getString(R.string.chat_copied_toast))
+                    }
+                }
+                // 无 AI 回复时静默不操作(避免引入未本地化的 toast 字符串)
+            }
+            // v1.0.72: 顶部悬浮岛高度 — 提示/横幅 overlay 让位,避免被三岛遮挡
+            val topInset = innerPadding.calculateTopPadding()
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        // v1.0.72 fix: 去掉 top/bottom 外层 padding — 悬浮控件延伸到系统栏边界。
+                        // 消息列表自身在 contentPadding 中避让输入栏,右侧导航条不再提前结束。
+                        // P2-13: 桌面端快捷键 — Ctrl+Shift+C 复制最后一条 AI 回复
+                        // 仅在物理键盘 + Expanded 窗口下生效,避免与软键盘 IME Action 冲突
+                        .onKeyEvent { event ->
+                            if (!desktopShortcutsEnabled) return@onKeyEvent false
+                            if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                            if (event.key == DesktopShortcuts.COPY_LAST_REPLY &&
+                                event.isCtrlPressed && event.isShiftPressed
+                            ) {
+                                copyLastReply()
+                                true
+                            } else {
+                                false
+                            }
+                        },
+                contentAlignment = Alignment.Center,
+            ) {
+                // B7-01: 多选操作条
+                if (state.selectionMode) {
+                    // A4: 选中消息文本 — 批量复制/导出共用同一格式
+                    val selectedText =
+                        visibleMessages
+                            .filter { it.id.toString() in state.selectedMessageIds }
+                            .joinToString("\n\n") { "${it.role}: ${it.content}" }
+                    ChatSelectionBar(
+                        count = state.selectedMessageIds.size,
+                        onSelectAll = { viewModel.selectAllMessages(visibleMessages.map { it.id.toString() }) },
+                        onCopy = {
+                            if (selectedText.isNotBlank()) {
+                                val cm =
+                                    context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                                        as android.content.ClipboardManager
+                                cm.setPrimaryClip(android.content.ClipData.newPlainText("muse-selected", selectedText))
+                            }
+                        },
+                        // 审计修复 (8.5): 删除前弹确认 — 原实现直删,误触即丢整段对话不可恢复
+                        onDelete = { showDeleteConfirm = true },
+                        onExport = {
+                            if (selectedText.isNotBlank()) {
+                                val sendIntent =
+                                    android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(android.content.Intent.EXTRA_TEXT, selectedText)
+                                    }
+                                ShareIntentHelper.startChooserSafely(context, sendIntent)
+                            }
+                        },
+                        onExit = { viewModel.setSelectionMode(false) },
+                        modifier =
+                            Modifier
+                                .align(Alignment.TopCenter)
+                                // v1.0.72: 让位悬浮三岛(不遮挡)
+                                .padding(top = topInset)
+                                .fillMaxWidth()
+                                .padding(horizontal = MusePaddings.screen, vertical = MusePaddings.contentGap)
+                                .zIndex(10f),
+                    )
+                    // 审计修复 (8.5): 多选删除确认对话框
+                    if (showDeleteConfirm) {
+                        MuseDialog(
+                            onDismissRequest = { showDeleteConfirm = false },
+                            title = stringResource(R.string.chat_delete_selected_title),
+                            content = {
+                                Text(stringResource(R.string.chat_delete_selected_message, state.selectedMessageIds.size))
+                            },
+                            confirmText = stringResource(R.string.action_delete),
+                            destructive = true,
+                            onConfirm = {
+                                showDeleteConfirm = false
+                                viewModel.deleteSelectedMessages()
+                            },
+                        )
+                    }
+                    // H10: 手动压缩参数对话框(保留条数 / 附加指令 / token 估算)
+                    if (showCompressDialog) {
+                        CompressContextDialog(
+                            defaultKeepRecent = 10,
+                            totalMessages = messages.size,
+                            estimateTokens = { keep -> messages.takeLast(keep).sumOf { it.content.length / 2 } },
+                            onDismiss = { showCompressDialog = false },
+                            onConfirm = { keep, instruction ->
+                                showCompressDialog = false
+                                viewModel.manualCompress(
+                                    updateMemoryFirst = true,
+                                    keepRecent = keep,
+                                    instruction = instruction.ifBlank { null },
+                                )
+                            },
+                        )
+                    }
+                }
+                // Phase 3 3E: 定时消息横幅
+                io.zer0.muse.ui.chat.ScheduledMessageBanner(
+                    pendingMessages = pendingMessages,
+                    onCancel = { msgId ->
+                        pendingScope.launch { pendingMessageManager.cancelMessage(msgId) }
+                    },
+                )
+                // 空状态与消息列表 Crossfade 过渡,避免硬切换
+                // v1.0.4 (P3-4): 用 visibleMessages 判空,性能模式下 visibleMessages 反映实际渲染状态
+                // v1.0.48: 修复 Agent Tab 进入时闪烁空状态 — HorizontalPager 动画期间目标页已 compose
+                //   但 setAgentMode 尚未执行(settledPage 触发),此时 visibleMessages=emptyList() 会闪现
+                //   "今天想聊点什么"引导。新增 loading 中间态:isAgentMode && !state.isAgentMode 期间
+                //   显示 loading 而非空状态,等 ViewModel 切换完成后再渲染消息或真正的空状态。
+                val isAgentTabLoading = isAgentMode && !state.isAgentMode
+                val chatScreenState =
+                    when {
+                        isAgentTabLoading -> 2 // Agent Tab 加载中
+                        visibleMessages.isEmpty() -> 1 // 真正空会话
+                        else -> 0 // 有消息
+                    }
+                Crossfade(
+                    targetState = chatScreenState,
+                    animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+                    label = "chatState",
+                    modifier = Modifier.fillMaxSize(),
+                ) { screenState ->
+                    // v1.0.72: 当前会话"不参考记忆"标志(空白引导页开关用)
+                    val currentSessionIgnoreMemory =
+                        remember(state.sessions, state.currentSessionId, state.agentSessionId) {
+                            val sid = if (state.isAgentMode) state.agentSessionId else state.currentSessionId
+                            state.sessions.firstOrNull { it.id == sid }?.ignoreMemory ?: false
+                        }
+                    if (screenState == 2) {
+                        // Agent Tab 加载中 — 显示 loading,不闪空状态引导
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            MuseLoadingState()
+                        }
+                    } else if (screenState == 1) {
+                        // 空状态引导 — 居中轻量提示 + 建议 prompt 胶囊(不遮罩,点击填入输入框)
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            EmptyChatGuide(
+                                assistant = state.currentAssistant,
+                                // v1.0.72: 此条对话不参考记忆
+                                ignoreMemory = currentSessionIgnoreMemory,
+                                onToggleIgnoreMemory = { ignore ->
+                                    viewModel.setSessionIgnoreMemory(ignore)
+                                },
+                                modifier = Modifier.padding(horizontal = MusePaddings.largeGap),
+                            )
+                        }
+                    } else {
+                        // Phase 8.10: 音量键滚动
+                        // 拦截 VOLUME_UP/DOWN → listState.scrollBy,长聊天阅读体验提升
+                        val volumeScrollScope = rememberCoroutineScope()
+                        // H-S6: latestPlan 在 LazyColumn 外缓存(remember 不能在 LazyListScope 内调用)
+                        val latestPlan =
+                            remember(state.agentPlans) {
+                                state.agentPlans.values.maxByOrNull { it.createdAt }
+                            }
+                        // v1.137: 构建 messageId → plan 映射,让每条助手消息能找到关联自己的计划卡。
+                        // 计划卡固定在创建它的消息上随消息滚动,不再"跳"到最后一条助手消息。
+                        val plansByMessageId =
+                            remember(state.agentPlans) {
+                                state.agentPlans.values
+                                    .filter { it.messageId != null }
+                                    .associateBy { it.messageId!! }
+                            }
+                        val visibleMessageIds =
+                            remember(visibleMessages) {
+                                visibleMessages.mapTo(mutableSetOf()) { it.id.toString() }
+                            }
+                        // v1.0.92 性能: 消息 → 变体分支信息 索引一次性构建 —
+                        // 旧实现每条消息在 item 内调用 branchInfoFor(整树遍历),列表总开销 O(n²),
+                        // 流式期间每帧重算,是长会话卡顿的主要来源之一。
+                        val branchInfoByMessageId =
+                            remember(conversationTree) {
+                                conversationTree.buildBranchInfoIndex()
+                            }
+                        // v1.0.92: 最后一条用户消息 id 预计算(供 item 内 O(1) 判断)
+                        val lastUserId = visibleMessages.lastOrNull { it.role == MessageRole.USER }?.id
+                        // M-UI3: 将最新计划卡关联到最近一条助手消息,随消息一起滚动
+                        val lastAssistantId = visibleMessages.lastOrNull { it.role == MessageRole.ASSISTANT }?.id
+                        // I3: 聊天区独立错误边界,消息列表渲染数据构建失败只降级该区域
+                        RegionErrorBoundary(
+                            regionName = "chat",
+                            data = { visibleMessages },
+                        ) {
+                            // P2-1: Box 包裹消息列表,Expanded 模式下居中限宽 720dp
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.TopCenter,
+                            ) {
+                                // B6-02: 全屏情绪皮肤(在消息列表背后)
+                                MoodSkinOverlay(visibleMessages.lastOrNull { it.role == MessageRole.ASSISTANT }?.moodSkin)
+                                LazyColumn(
+                                    state = listState,
+                                    modifier =
+                                        Modifier
+                                            .fillMaxSize()
+                                            .then(
+                                                if (widthClass == WindowWidthClass.Expanded) {
+                                                    Modifier.widthIn(max = 720.dp)
+                                                } else {
+                                                    Modifier
+                                                },
+                                            )
+                                            // v0.31: 音量键滚动受 chatPrefs.volumeKeyScroll 开关控制
+                                            .then(
+                                                if (state.chatPreferences.volumeKeyScroll) {
+                                                    Modifier.onVolumeKeyEvent { direction ->
+                                                        volumeScrollScope.launch {
+                                                            listState.scrollBy(direction * VOLUME_SCROLL_DISTANCE_PX)
+                                                        }
+                                                    }
+                                                } else {
+                                                    Modifier
+                                                },
+                                            ),
+                                    // v1.0.92: 消息间距不再用 spacedBy —— 它按 item 数量计间距,而操作组卡
+                                    // 会把组内其余消息渲染为空 item(保持消息索引不变),每个空 item 仍贡献
+                                    // 一份 messageGap,工具调用一多就叠出大段幽灵空白(用户实测:22 个操作
+                                    // 叠出大半屏空白)。改为普通 item 自身用底部 padding 承担 messageGap:
+                                    // 空 item 零尺寸零间距,视觉间距与原版一致(列表最后一项底部会多一份
+                                    // messageGap 的空隙,属可接受差异)。
+                                    // v1.0.72: 顶部让位给悬浮三岛;底部避让输入栏。
+                                    // 外层 Box 保持全高,让右侧消息地图延伸到输入栏上缘。
+                                    contentPadding =
+                                        PaddingValues(
+                                            top = innerPadding.calculateTopPadding(),
+                                            bottom = innerPadding.calculateBottomPadding(),
+                                        ),
+                                ) {
+                                    // v1.0.47 P6: Agent Mode 提示卡片 — 会话锁定/弱工具降级/Agent Mode 提示。
+                                    // v1.0.54: 去掉"Agent 模式已锁定会话"提示(用户反馈不需要),仅保留降级/提示。
+                                    val showAgentHint =
+                                        !state.weakToolHint.isNullOrEmpty() ||
+                                            !state.agentModeHint.isNullOrEmpty()
+                                    if (showAgentHint) {
+                                        item(key = "agent_mode_hint") {
+                                            Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
+                                                AgentModeHintCard(
+                                                    isSessionLocked = false,
+                                                    weakToolHint = state.weakToolHint,
+                                                    agentModeHint = state.agentModeHint,
+                                                    onDismissWeakToolHint = viewModel::dismissWeakToolHint,
+                                                    onDismissAgentModeHint = viewModel::dismissAgentModeHint,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    // v1.0.4 (P1): 历史加载更多顶部占位 — 上滑触发 loadMoreHistory 后,
+                                    // 在 LazyColumn 顶部插入一条 shimmer 占位条,让用户看到"正在加载"反馈。
+                                    // 加载完成后 lastHistoryLoadCount > 0,scrollToItem 跳过新插入条数保持视觉位置不跳。
+                                    if (state.isLoadingMore) {
+                                        item(key = "load_more") {
+                                            Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
+                                                HistoryLoadMorePlaceholder()
+                                            }
+                                        }
+                                    }
+                                    // F-4: /pin 置顶消息横幅(内存态,切换会话后由 switchSession 清空)
+                                    state.pinnedMessageContent?.let { pinned ->
+                                        item(key = "pinned_message_top") {
+                                            Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
+                                                PinnedMessageBanner(
+                                                    content = pinned,
+                                                    onDismiss = viewModel::clearPinnedMessage,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    itemsIndexed(
+                                        // v1.0.4 (P3-4): 性能模式下渲染 visibleMessages(最近 N 条);
+                                        // 非性能模式下 visibleMessages == messages,行为不变。
+                                        visibleMessages,
+                                        key = { _, it -> it.id },
+                                        // v1.100: contentType 让 LazyColumn 复用同类型 item 的 measure cache
+                                        contentType = { _, it -> it.role.name },
+                                    ) { index, msg ->
+                                        // 操作组聚合:组首条渲染组卡,组内其余条不渲染(视觉上被前一条吸收)。
+                                        val groupedRun = groupedRuns[msg.id.toString()]
+                                        if (groupedRun != null) {
+                                            if (groupedRun.msgs.first().id == msg.id) {
+                                                ToolRunCard(
+                                                    msgs = groupedRun.msgs,
+                                                    modifier =
+                                                        Modifier
+                                                            .padding(horizontal = MusePaddings.screen)
+                                                            .padding(bottom = MusePaddings.messageGap),
+                                                )
+                                            }
+                                            return@itemsIndexed
+                                        }
+                                        // 日期分隔线: 相邻消息跨天时插入细线 + 居中日期文字
+                                        // v1.0.4 (P3-4): prevMsg 取自 visibleMessages,与渲染顺序一致
+                                        val prevMsg = visibleMessages.getOrNull(index - 1)
+                                        val showDateSeparator =
+                                            prevMsg != null &&
+                                                !isSameDay(prevMsg.createdAt, msg.createdAt)
+                                        // v1.100: 用 derivedStateOf 收窄 state 读取范围,避免每次 messages 变化
+                                        // 都重新计算所有可见 item 的 isLast。只有最后一条消息变化时才重组。
+                                        // v1.0.4 (P3-4): isLast 基于 visibleMessages,性能模式下指"已渲染列表的最后一条"
+                                        val isLast = msg.id == visibleMessages.lastOrNull()?.id
+                                        // 最后一条用户提问：控制 user 消息底部的重roll按钮。
+                                        // 即使 AI 报错生成了失败的 assistant 消息，只要这条 user 仍是最后提问，
+                                        // 重roll就可用，用户不用删掉重发。
+                                        // v1.0.92 性能: lastUserId 预计算,避免 item 内 O(n) 尾扫。
+                                        val isLastUserMessage = msg.role == MessageRole.USER && lastUserId == msg.id
+                                        // v1.0.53: 当前消息对应的分支组信息(直接来自 ConversationTree)
+                                        // v1.0.92 性能: 改为索引查询(旧实现每条消息整树遍历,总开销 O(n²))。
+                                        val branchInfo = branchInfoByMessageId[msg.id.toString()]
+                                        // 工具执行与展开操作会更新 ChatUiState 的 Map。这里直接读取当前快照；
+                                        // 不能用 remember(msg.id) 捕获初始 state,否则新建的任务卡/展开状态
+                                        // 不会传进已存在的 LazyColumn item,页面看起来像“工具没有调用”。
+                                        val expandedState = state.messageExpandedStates[msg.id.toString()]
+                                        val taskCard = state.taskCards[msg.id.toString()]
+                                        // v1.100: isTranslating/isSpeaking 精确到 msg.id,用 derivedStateOf 收窄
+                                        val isTranslating = state.isTranslating && state.translatingMessageId == msg.id
+                                        val isSpeaking = state.isSpeaking && state.speakingMessageId == msg.id
+                                        // v1.43: 观察该消息关联的产物卡片列表
+                                        // H-S1: 用 produceState 以 msg.id 为 key,避免重组时反复重建 Flow + 反复查库
+                                        val artifacts by produceState(initialValue = emptyList<ArtifactEntity>(), msg.id) {
+                                            viewModel.observeArtifactsByMessage(msg.id.toString()).collect { value = it }
+                                        }
+                                        // v0.48: 消息分组 — 上一条同 role 且时间间隔 < 5 分钟 → 压缩头像和时间戳
+                                        // v2.0.1: 连续同角色消息(含 assistant 拆出的思考/工具轮)不再重复头像 —
+                                        // 一轮回复只显示一个头像(用户反馈"头像出现两个")。
+                                        val showAvatar =
+                                            prevMsg == null ||
+                                                prevMsg.role != msg.role ||
+                                                (msg.createdAt - prevMsg.createdAt) > MESSAGE_GROUP_INTERVAL_MS
+                                        val showTimestamp = showAvatar // 头像和时间戳同步显示
+                                        // v0.36 性能优化:缓存 item 级 lambda,避免父重组导致整个 MessageBubble 失效。
+                                        val onEdit =
+                                            remember(msg.id, msg.role) {
+                                                {
+                                                    if (msg.role == MessageRole.USER) {
+                                                        sheetState.editingUserMessage = msg
+                                                    } else {
+                                                        sheetState.editingMessage = msg
+                                                    }
+                                                }
+                                            }
+                                        val onQuote = remember(msg.id) { { viewModel.setReplyingTo(msg) } }
+                                        val onTranslate = remember(msg.id) { { lang: String -> viewModel.translateMessage(msg.id, lang) } }
+                                        val onToggleFavorite = remember(msg.id) { { viewModel.toggleFavorite(msg.id) } }
+                                        val onToggleTts = remember(msg.id) { { viewModel.toggleTts(msg.id, msg.content) } }
+                                        val onToggleTaskCardExpand =
+                                            remember(msg.id) { { viewModel.toggleTaskCardExpand(msg.id.toString()) } }
+                                        val onCancelTask = remember(msg.id) { { viewModel.stop() } }
+                                        val onRetryTaskCardStep =
+                                            remember(msg.id) {
+                                                {
+                                                        stepId: String ->
+                                                    viewModel.retryFailedStep(msg.id.toString(), stepId)
+                                                }
+                                            }
+                                        val onShareSession =
+                                            remember(viewModel, ioScope) {
+                                                { sheetState.showExportSheet = true }
+                                            }
+                                        // F-2: 跨会话转发 — 用户消息发原文,助手消息转纯文本
+                                        val onForward =
+                                            remember(msg.id) {
+                                                {
+                                                    forwardText =
+                                                        if (msg.role == MessageRole.USER) {
+                                                            msg.content
+                                                        } else {
+                                                            InternalMarkupSanitizer.stripForDisplay(msg.content)
+                                                        }
+                                                }
+                                            }
+                                        // v1.58: 从此消息分叉对话
+                                        val onFork = remember(msg.id) { { viewModel.forkSessionFromMessage(msg.id) } }
+                                        // 消息项动画统一走 museAnimateItem；流式中的最后一条消息不做插入/位移动画，
+                                        // 避免内容增量和列表布局动画同时运行造成抖动。
+                                        Column(
+                                            modifier =
+                                                museAnimateItem(enabled = !(isLast && isStreaming))
+                                                    .padding(bottom = MusePaddings.messageGap),
+                                        ) {
+                                            // 日期分隔线渲染在消息上方
+                                            if (showDateSeparator) {
+                                                DateSeparator(timestamp = msg.createdAt)
+                                            }
+                                            // v2.x: 左滑引用已移除(用户反馈误触率高) — 引用改由长按菜单进入。
+                                            MessageBubble(
+                                                msg = msg,
+                                                // v1.0.20 (Task 3): isStreaming 读派生值,避免每条消息因 input 按键重组
+                                                isStreaming = isStreaming,
+                                                isLastAssistant = isLast && msg.role == MessageRole.ASSISTANT,
+                                                // v2.x: 从搜索结果跳转时,state.highlightedMessageId 命中本消息 →
+                                                // 传 searchHighlightQuery 让 MessageBubble 高亮匹配文本;否则 null
+                                                highlightText = if (msg.id.toString() == state.highlightedMessageId) state.searchHighlightQuery else null,
+                                                isTranslating = isTranslating,
+                                                // H11: 译文消息携带源消息内容(原文对照折叠),源消息缺失时不传
+                                                translationSourceContent =
+                                                    msg.translationSourceId?.let { srcId ->
+                                                        messages.find { it.id.toString() == srcId }?.content
+                                                    },
+                                                // v2.3: debug 模式性能摘要(仅最后一条 assistant 消息)
+                                                debugInfo = if (isLast && msg.role == MessageRole.ASSISTANT) state.debugInfo else null,
+                                                onEdit = onEdit,
+                                                onQuote = onQuote,
+                                                onRegenerate = viewModel::regenerateLastAssistant,
+                                                onContinue = viewModel::continueGeneration,
+                                                selectionMode = state.selectionMode,
+                                                selected = msg.id.toString() in state.selectedMessageIds,
+                                                onToggleSelection = { viewModel.toggleMessageSelection(msg.id) },
+                                                onEnterMultiSelect = { viewModel.setSelectionMode(true) },
+                                                // E4 (H8): 表情回应(长按菜单「表情回应」→ 选择面板)
+                                                onSetReaction = { reaction -> viewModel.setReaction(msg.id, reaction) },
+                                                onTranslate = onTranslate,
+                                                onToggleFavorite = onToggleFavorite,
+                                                // 阶段 J: 复制消息内容到剪贴板(长按 → 复制)
+                                                // M-S8: clipboard 写切到 IO 线程,避免主线程 IPC
+                                                onCopyMessage = { text ->
+                                                    ioScope.launch {
+                                                        val clipboard =
+                                                            withContext(Dispatchers.IO) {
+                                                                context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                                                                    as android.content.ClipboardManager
+                                                            }
+                                                        clipboard.setPrimaryClip(
+                                                            android.content.ClipData.newPlainText("Muse Message", text),
+                                                        )
+                                                        MuseToast.show(context.getString(R.string.chat_copied_toast))
+                                                    }
+                                                },
+                                                // Phase 8.7: TTS 朗读(仅 AI 消息)
+                                                isSpeaking = isSpeaking,
+                                                onToggleTts = onToggleTts,
+                                                // Phase 8.8: 任务卡
+                                                taskCard = taskCard,
+                                                // v1.201: 委派链路(仅最后一条 AI 消息传入,避免历史消息重复显示)
+                                                delegationChain = if (isLast && msg.role == MessageRole.ASSISTANT) state.delegationChain else null,
+                                                // Phase 10.1: 任务卡交互回调
+                                                onToggleTaskCardExpand = onToggleTaskCardExpand,
+                                                onRetryTaskCardStep = onRetryTaskCardStep,
+                                                // R-UI-09: 任务卡取消按钮 -> 停止当前生成
+                                                onCancelTask = onCancelTask,
+                                                // v1.25: 长按菜单「委托给助手」
+                                                onDelegate = { sheetState.showDelegateSheet = DelegateSheetMode.Message(msg) },
+                                                // v0.29 P0-3: 分享整段对话(导出 Markdown → 系统 share sheet)
+                                                onShareSession = onShareSession,
+                                                // F-2: 跨会话转发
+                                                onForward = onForward,
+                                                onFork = onFork,
+                                                // v1.48: 长按菜单"删除消息"
+                                                onDeleteMessage = { viewModel.deleteMessage(msg.id) },
+                                                onDeleteWithFollowing = { viewModel.deleteMessageWithFollowing(msg.id) },
+                                                // v0.29 P0-4: AI 消息底部显示模型名 + token 估算
+                                                modelName = displayModelName,
+                                                // v0.31: 聊天行为偏好传给 MessageBubble
+                                                chatPrefs = state.chatPreferences,
+                                                // Phase 4: 宿主气泡皮肤(null = 既有外观,解析与回退在 MessageBubble 内)
+                                                bubbleSkin = bubbleSkin,
+                                                // v0.48: 消息分组参数 + AI 头像来源
+                                                showAvatar = showAvatar,
+                                                showUserAvatar = !isAgentMode && state.chatPreferences.showUserAvatar,
+                                                userAvatarText = accountState.userName.take(1).ifBlank { "U" },
+                                                showTimestamp = showTimestamp,
+                                                assistant = state.currentAssistant,
+                                                // v1.43: 产物卡片列表与点击查看
+                                                artifacts = artifacts,
+                                                onArtifactClick = viewModel::selectArtifact,
+                                                // v2.0.1: 图片作品条提示词（向前找最近一次 generate_image 调用；
+                                                // toolCalls 不持久化，重启后走 toolCallInfo 持久化路径）
+                                                imageGenPrompt =
+                                                    remember(msg.id, visibleMessages) {
+                                                        val genCall =
+                                                            visibleMessages.take(index + 1).asReversed()
+                                                                .firstNotNullOfOrNull { m ->
+                                                                    val fromCalls = m.toolCalls?.firstOrNull { it.name == "generate_image" }
+                                                                    val fromInfo = m.toolCallInfo?.takeIf { it.toolName == "generate_image" }
+                                                                    when {
+                                                                        fromCalls != null -> fromCalls.arguments
+                                                                        fromInfo != null -> fromInfo.arguments
+                                                                        else -> null
+                                                                    }
+                                                                }
+                                                        genCall
+                                                            ?.let { args ->
+                                                                runCatching { org.json.JSONObject(args).optString("prompt") }.getOrNull()
+                                                            }
+                                                            ?.takeIf { it.isNotBlank() }
+                                                            ?.let { if (it.length > 60) it.take(60) + "…" else it }
+                                                    },
+                                                // v1.45: mood/reasoning 展开状态由 ViewModel 集中管理
+                                                isMoodExpanded = expandedState?.isMoodExpanded,
+                                                isReasoningExpanded = expandedState?.isReasoningExpanded,
+                                                isReflectionExpanded = expandedState?.isReflectionExpanded,
+                                                onToggleMoodExpanded = { viewModel.toggleMessageMoodExpanded(msg.id.toString()) },
+                                                onToggleReasoningExpanded = { viewModel.toggleMessageReasoningExpanded(msg.id.toString()) },
+                                                onToggleReflectionExpanded = {
+                                                    viewModel.toggleMessageReflectionExpanded(
+                                                        msg.id.toString(),
+                                                    )
+                                                },
+                                                // v1.137: 计划卡按 messageId 关联到创建它的助手消息,随该消息滚动。
+                                                // 旧计划(无 messageId)回退到 lastAssistantId 兜底,保持向后兼容。
+                                                agentPlan =
+                                                    if (msg.role == MessageRole.ASSISTANT) {
+                                                        plansByMessageId[msg.id.toString()]
+                                                            ?: if (
+                                                                msg.id == lastAssistantId &&
+                                                                latestPlan?.let { it.messageId == null || it.messageId !in visibleMessageIds } == true
+                                                            ) {
+                                                                latestPlan
+                                                            } else {
+                                                                null
+                                                            }
+                                                    } else {
+                                                        null
+                                                    },
+                                                // HTML/SVG 代码块全屏预览
+                                                onHtmlPreview = onHtmlPreview,
+                                                // v1.0.92: 卡片回传 — 脚本消息发送 / 保存为工件
+                                                onCardAction = { action ->
+                                                    when (action) {
+                                                        is CardAction.Send -> viewModel.sendFromCard(action.text)
+                                                        is CardAction.Save ->
+                                                            viewModel.saveCardAsArtifact(
+                                                                messageId = msg.id.toString(),
+                                                                language = action.language,
+                                                                content = action.content,
+                                                            )
+                                                    }
+                                                },
+                                                // v1.138: 视觉辅助 UI — 分析中进度 + 已完成标签
+                                                // v1.0.16: 进度只在正在分析的那条消息上显示(messageId 匹配),避免所有 USER 消息同时显示"分析中"
+                                                // v1.0.20 (Task 3): visionProgress 读派生值,避免每条消息因 input 按键重组
+                                                visionAssistProgress =
+                                                    if (
+                                                        msg.role == MessageRole.USER &&
+                                                        visionProgress?.messageId == msg.id.toString()
+                                                    ) {
+                                                        visionProgress
+                                                    } else {
+                                                        null
+                                                    },
+                                                visionAssisted = if (msg.role == MessageRole.USER) msg.id.toString() in state.visionAssistedMessageIds else false,
+                                                // v1.0.53: 最后一条标记 + 分支切换数据
+                                                isLast = isLast,
+                                                isLastUserMessage = isLastUserMessage,
+                                                branchIndex = branchInfo?.selectIndex ?: 0,
+                                                branchCount = branchInfo?.branchCount ?: 1,
+                                                onBranchPrevious = {
+                                                    branchInfo?.let { info ->
+                                                        if (msg.role == MessageRole.USER) {
+                                                            viewModel.selectUserVariant(info.groupId, info.selectIndex - 1)
+                                                        } else {
+                                                            viewModel.selectAssistantVariant(
+                                                                info.parentGroupId ?: info.groupId,
+                                                                info.groupId,
+                                                                info.selectIndex - 1,
+                                                            )
+                                                        }
+                                                    }
+                                                },
+                                                onBranchNext = {
+                                                    branchInfo?.let { info ->
+                                                        if (msg.role == MessageRole.USER) {
+                                                            viewModel.selectUserVariant(info.groupId, info.selectIndex + 1)
+                                                        } else {
+                                                            viewModel.selectAssistantVariant(
+                                                                info.parentGroupId ?: info.groupId,
+                                                                info.groupId,
+                                                                info.selectIndex + 1,
+                                                            )
+                                                        }
+                                                    }
+                                                },
+                                                tokenStats =
+                                                    if (isLast && msg.role == MessageRole.ASSISTANT && state.tokenEstimateEnabled) {
+                                                        {
+                                                            TokenStatsBar(
+                                                                message = msg,
+                                                                historyTokens = state.contextTokenCount,
+                                                                contextWindow = state.contextMaxTokens,
+                                                                // v2.0: 有 provider 真实用量时直接展示输入/输出,否则回退到估算(~)
+                                                                promptTokens = msg.promptTokens,
+                                                                completionTokens = msg.completionTokens,
+                                                                modifier =
+                                                                    Modifier
+                                                                        .fillMaxWidth()
+                                                                        .padding(top = MusePaddings.tightGap),
+                                                            )
+                                                        }
+                                                    } else {
+                                                        null
+                                                    },
+                                            )
+                                        }
+                                    }
+                                    // 任务 2B: 等待首 token 阶段用 shimmer 骨架屏占位(替代旧 LoadingDots "思考中"文字)
+                                    // v1.0.3: 改用 isWaitingFirstToken 触发,首 token 到达后立即消失,避免"loading → 大量文字"断层
+                                    // v1.0.4: 视觉分析期间显示"正在分析图片 2/4…"
+                                    // v1.0.4 (P0): OCR 识别 / 工具调用恢复 也复用 ShimmerBubble,统一所有"短暂等待"反馈
+                                    // v1.0.20 (Task 3): isStreaming/isWaitingFirstToken/visionProgress 读派生值
+                                    val showShimmer =
+                                        state.isOcrProcessing ||
+                                            (isStreaming && isWaitingFirstToken) ||
+                                            // F-13: 工具执行阶段显示"正在执行 X…"(非阻塞进度,与 F-07 联动)
+                                            (isStreaming && state.toolProgressMessage != null)
+                                    if (showShimmer) {
+                                        // H-S5: 显式提供稳定 key
+                                        item(key = "shimmer") {
+                                            Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
+                                                // 优先级:工具恢复 > 视觉分析 > OCR 识别 > 默认"思考中"
+                                                val vp = visionProgress
+                                                val progressText =
+                                                    when {
+                                                        state.toolProgressMessage != null -> state.toolProgressMessage
+                                                        vp?.isActive == true ->
+                                                            stringResource(R.string.chat_analyzing_image, vp.index, vp.total)
+                                                        state.isOcrProcessing -> stringResource(R.string.ocr_processing_hint)
+                                                        else -> null
+                                                    }
+                                                ShimmerBubble(progressText = progressText)
+                                            }
+                                        }
+                                    }
+                                    // P5-G: 图片生成中占位卡片(比纯文字 LoadingDots 更有反馈感)
+                                    if (state.isGeneratingImage) {
+                                        // H-S5: 显式提供稳定 key
+                                        item(key = "image_placeholder") {
+                                            Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
+                                                ImageGenerationPlaceholder()
+                                            }
+                                        }
+                                    }
+                                    // v1.0.4 (P1): 视频生成中占位卡片(与图片生成对称)
+                                    if (state.isGeneratingVideo) {
+                                        item(key = "video_placeholder") {
+                                            Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
+                                                VideoGenerationPlaceholder()
+                                            }
+                                        }
+                                    }
+                                    // 工具审批卡片:待审批的工具调用显示审批/拒绝按钮
+                                    // v1.202: 只有真的有后台子 Agent 任务时才插入任务卡。
+                                    // 空卡片虽然自身 return，但外层 LazyColumn item 仍会参与间距测量，
+                                    // 会在工具调用区域下方留下无意义的大白区。
+                                    if (state.activeSubagentThreads.isNotEmpty() || state.pendingSubagentTasks.isNotEmpty()) {
+                                        item(key = "subagent_task_list") {
+                                            Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
+                                                io.zer0.muse.ui.taskcard.SubagentTaskListCard(
+                                                    activeThreads = state.activeSubagentThreads,
+                                                    pendingTasks = state.pendingSubagentTasks,
+                                                    onCancel = { taskId -> viewModel.cancelSubagentTask(taskId) },
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } // I3: 聊天区错误边界收尾
+                }
+
+                // v1.0.29: 滚动到底部按钮 — 改为 GPT 风格小圆形透明按钮,
+                // 仅在用户主动上滑(userScrolledUp)后显示,位于输入栏上方。
+                AnimatedVisibility(
+                    visible = userScrolledUp && visibleMessages.isNotEmpty(),
+                    enter = MuseMotion.verticalSlideFadeEnter(initialOffsetY = { it / 2 }),
+                    exit = MuseMotion.verticalSlideFadeExit(targetOffsetY = { it / 2 }),
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = MusePaddings.screen)
+                            .navigationBarsPadding(),
+                ) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(MuseIconSizes.touchTarget)
+                                .clickable {
+                                    userScrolledUp = false
+                                    isProgrammaticScroll.value = true
+                                    scrollToBottomScope.launch {
+                                        val msgs = visibleMessages
+                                        if (msgs.isEmpty()) return@launch
+                                        try {
+                                            // v2.x: 与自动跟随统一口径 — 向列表末端滚到不能再滚,
+                                            // 不再依赖“消息底部偏移”(长消息上方向相反)。
+                                            var snapGuard = 0
+                                            while (listState.canScrollForward && snapGuard < 100) {
+                                                listState.scrollBy(SNAP_SCROLL_STEP_PX)
+                                                snapGuard++
+                                            }
+                                        } finally {
+                                            isProgrammaticScroll.value = false
+                                            // v1.0.92: 消费紧随的程序滚动结束事件,防误锁
+                                            programmaticScrollCooldownUntil = System.currentTimeMillis() + 250L
+                                        }
+                                    }
+                                },
+                        contentAlignment = Alignment.Center,
+                    ) {
                         Surface(
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
                             shape = CircleShape,
-                            // v2.0.1: 去胶囊 — 中岛不再有可见壳，只留裸标题（用户反馈：顶部胶囊像一条栏，很奇怪）。
-                            color = Color.Transparent,
-                            // v1.0.75 fix (用户反馈): 44dp → 48dp,中岛加高放大,与缩小后的左右岛(40dp)拉开层级
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                            tonalElevation = 0.dp,
+                            shadowElevation = 0.dp,
+                            modifier = Modifier.size(36.dp),
                         ) {
                             Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    // v1.136 T1: 点击=切换会话,长按=更换助手
-                                    .combinedClickable(
-                                        interactionSource = sessionTitleInteractionSource,
-                                        indication = null,
-                                        onClick = { sheetState.showSessionSheet = true },
-                                        onLongClick = { sheetState.showAssistantSwitchSheet = true },
-                                    )
-                                    .semantics { contentDescription = sessionCd },
+                                modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center,
-                                ) {
-                                    Text(
-                                        text = assistantTitle,
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.Bold,
+                                Icon(
+                                    imageVector = MuseIcons.arrowDown,
+                                    contentDescription = stringResource(R.string.chat_scroll_to_bottom_cd),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(MuseIconSizes.iconSmall),
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 断点续传(工具中断恢复)Banner:检测到本会话有未完成的工具调用时显示
+                // 用户上次流式被中断(手动停止/进程被杀),tool_calls 队列未执行完毕。
+                // 提供两个操作:
+                //  - 恢复执行:调 viewModel.resumePendingToolCalls 依次执行 pending 工具,
+                //    结果作为 TOOL 消息回填,再触发 launchStream 让 LLM 继续
+                //  - 丢弃:调 viewModel.discardPendingToolCalls 清空 pending 记录,Banner 隐藏
+                // U-18: 顶部横幅互斥 — 错误 > 断点续传 > 压缩 > 委派,避免同锚点(TopCenter)重叠。
+                // 用组合显示条件只保留最高优先级横幅,保持原有状态字段不变。
+                val showPendingResume = state.pendingToolCallCount > 0 && !isStreaming
+                AnimatedVisibility(
+                    // v1.0.20 (Task 3): isStreaming 读派生值,避免 input 按键触发 Banner 重组
+                    visible = showPendingResume && state.errors.isEmpty(),
+                    enter = MuseMotion.expandFadeEnter(),
+                    exit = MuseMotion.expandFadeExit(),
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
+                ) {
+                    val pendingCd = stringResource(R.string.chat_pending_tools_cd)
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = MuseShapes.medium,
+                        tonalElevation = 3.dp,
+                        modifier =
+                            Modifier
+                                .padding(MusePaddings.itemGap)
+                                .semantics { contentDescription = pendingCd },
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(MusePaddings.itemGap),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
+                        ) {
+                            Icon(
+                                imageVector = MuseIcons.alertCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(MuseIconSizes.iconSmall),
+                            )
+                            Column(
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(
+                                    text =
+                                        stringResource(
+                                            R.string.chat_pending_tools_banner_title,
+                                            state.pendingToolCallCount,
                                         ),
-                                        color = MaterialTheme.colorScheme.onBackground,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                    // v1.0.90: 中间标题岛不再拼模型名 —— 岛宽有限，加上模型名后
-                                    // 文字被圆角切掉一截，看着像渲染坏了。副标题只留"会话名 · 陪伴时长"。
-                                    if (currentSession != null) {
-                                        val days = (System.currentTimeMillis() - currentSession.createdAt) / (24 * 60 * 60 * 1000)
-                                        val daysText = if (days <= 0L) {
-                                            stringResource(R.string.chat_companion_days_zero)
-                                        } else {
-                                            stringResource(R.string.chat_companion_days, days.toInt())
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    text = stringResource(R.string.chat_pending_tools_banner_subtitle),
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            MuseCapsuleButton(
+                                text = stringResource(R.string.chat_pending_tools_resume),
+                                onClick = {
+                                    state.currentSessionId?.let { viewModel.resumePendingToolCalls(it) }
+                                },
+                                variant = IosCapsuleButtonVariant.Text,
+                                fillWidth = false,
+                            )
+                            MuseCapsuleButton(
+                                text = stringResource(R.string.chat_pending_tools_discard),
+                                onClick = {
+                                    // CHAT-10: 丢弃前确认 — 未完成调用丢弃后不可恢复
+                                    showDiscardConfirm = true
+                                },
+                                variant = IosCapsuleButtonVariant.Text,
+                                fillWidth = false,
+                            )
+                        }
+                    }
+                }
+                // CHAT-10: 丢弃未完成工具调用确认对话框
+                if (showDiscardConfirm) {
+                    MuseDialog(
+                        onDismissRequest = { showDiscardConfirm = false },
+                        title = stringResource(R.string.chat_pending_tools_discard_confirm_title),
+                        content = {
+                            Text(stringResource(R.string.chat_pending_tools_discard_confirm_msg))
+                        },
+                        confirmText = stringResource(R.string.chat_pending_tools_discard),
+                        destructive = true,
+                        onConfirm = {
+                            showDiscardConfirm = false
+                            state.currentSessionId?.let { viewModel.discardPendingToolCalls(it) }
+                        },
+                    )
+                }
+
+                // v1.0.4 (P2): 压缩会话历史 Banner — /compact 期间持续显示,
+                // (原仅顶部 IconButton 替换为转圈,对话区无反馈,用户不知道压缩是否在运行)
+                AnimatedVisibility(
+                    // U-18: 压缩横幅仅在无错误且无断点续传时显示,避免与高优先级横幅重叠
+                    visible = state.isCompressing && state.errors.isEmpty() && !showPendingResume,
+                    enter = MuseMotion.expandFadeEnter(),
+                    exit = MuseMotion.expandFadeExit(),
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = MuseShapes.medium,
+                        tonalElevation = 3.dp,
+                        modifier = Modifier.padding(MusePaddings.itemGap),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(MusePaddings.itemGap),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
+                        ) {
+                            MuseSpinner(
+                                size = MuseIconSizes.iconSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            )
+                            Text(
+                                text = stringResource(R.string.chat_compressing_banner),
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                }
+
+                // v1.0.92: 子代理悬浮小窗 — 有活跃子任务时右侧贴边浮现,点击展开任务面板。
+                // 只读订阅 state 快照;唯一操作是取消任务,不影响消息流与输入。
+                SubagentFloatingWindow(
+                    activeThreads = state.activeSubagentThreads,
+                    pendingTasks = state.pendingSubagentTasks,
+                    onCancelTask = { taskId -> viewModel.cancelSubagentTask(taskId) },
+                )
+                // v1.0.4 (P2): 委派链路顶部 Banner — 当前有 RUNNING 子任务时显示进度,
+                // 避免用户必须滚到末尾才能在 TaskCard 内看到委派链路信息
+                val runningDelegateCount =
+                    state.delegationChain.count {
+                        it.status == io.zer0.muse.ui.taskcard.DelegationNodeStatus.RUNNING
+                    }
+                AnimatedVisibility(
+                    // U-18: 委派横幅让位于错误/断点续传,仅共享锚点时保持最高优先级横幅
+                    visible = runningDelegateCount > 0 && !state.isCompressing && state.errors.isEmpty() && !showPendingResume,
+                    enter = MuseMotion.expandFadeEnter(),
+                    exit = MuseMotion.expandFadeExit(),
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        shape = MuseShapes.medium,
+                        tonalElevation = 3.dp,
+                        modifier = Modifier.padding(MusePaddings.itemGap),
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(MusePaddings.itemGap),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
+                        ) {
+                            Icon(
+                                imageVector = MuseIcons.gitMerge,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(MuseIconSizes.iconSmall),
+                            )
+                            Text(
+                                text = stringResource(R.string.chat_delegation_banner, runningDelegateCount),
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                }
+
+                // v0.49: 多错误列表展示(每条带重试/关闭按钮,AnimatedVisibility 过渡)
+                // v1.131: 红色网络离线 banner 从底部移到顶部,避免遮挡输入栏
+                // U-1: 未配置模型服务常驻轻提示条 — 无 provider/无 key(isConfigured=false)时显示,
+                // 点击跳转模型设置面板;仅在无更高优先级横幅时展示,避免与错误横幅重叠。
+                AnimatedVisibility(
+                    visible =
+                        !state.isConfigured &&
+                            state.errors.isEmpty() && !showPendingResume && !state.isCompressing,
+                    enter = MuseMotion.expandFadeEnter(),
+                    exit = MuseMotion.expandFadeExit(),
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = MuseShapes.medium,
+                        tonalElevation = 1.dp,
+                        modifier =
+                            Modifier
+                                .padding(MusePaddings.itemGap)
+                                .clickable { sheetState.showModelSheet = true },
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(MusePaddings.itemGap),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
+                        ) {
+                            Icon(
+                                imageVector = MuseIcons.alertCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(MuseIconSizes.iconSmall),
+                            )
+                            Text(
+                                text = stringResource(R.string.chat_model_not_configured_hint),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = state.errors.isNotEmpty(),
+                    enter = MuseMotion.expandFadeEnter(),
+                    exit = MuseMotion.expandFadeExit(),
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(MusePaddings.itemGap),
+                        ) {
+                            state.errors.forEach { err ->
+                                // L-S4: forEach 内加 key,提供稳定标识
+                                key(err.id) {
+                                    val errorCd = stringResource(R.string.chat_error_cd, err.message)
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.errorContainer,
+                                        shape = MuseShapes.medium,
+                                        tonalElevation = 3.dp,
+                                        modifier =
+                                            Modifier.semantics {
+                                                contentDescription = errorCd
+                                            },
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(MusePaddings.itemGap),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
+                                        ) {
+                                            Text(
+                                                text = err.message,
+                                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                            // 重试:基于上一条 user 消息重新生成 assistant 回复
+                                            // M-S11: 仅网络/未知类错误显示重试按钮(API_KEY/RATE_LIMIT 重试无意义)
+                                            if (err.type == ChatErrorType.NETWORK || err.type == ChatErrorType.UNKNOWN) {
+                                                MuseCapsuleButton(
+                                                    text = stringResource(R.string.chat_retry),
+                                                    onClick = { viewModel.regenerateLastAssistant() },
+                                                    variant = IosCapsuleButtonVariant.Text,
+                                                    fillWidth = false,
+                                                )
+                                            }
+                                            MuseCapsuleButton(
+                                                text = stringResource(R.string.action_close),
+                                                onClick = { viewModel.dismissError(err.id) },
+                                                variant = IosCapsuleButtonVariant.Text,
+                                                fillWidth = false,
+                                            )
                                         }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                // v1.4: TTS 悬浮控制器(底部右下角,InputBar 上方)
+                // 仅当 TTS 正在播放/暂停时显示(Idle 时由 AnimatedVisibility 自动隐藏)
+                TtsControllerWidget(
+                    modifier =
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = MusePaddings.screen, bottom = MusePaddings.screen)
+                            .navigationBarsPadding(),
+                )
+                // A1: 会话内查找条 — 顶层悬浮(消息列表之上、顶栏三岛之下,自带背景 Surface)
+                if (showInChatSearch) {
+                    InChatFindBar(
+                        query = inChatQuery,
+                        onQueryChange = { inChatQuery = it },
+                        matchCount = findMatches.size,
+                        currentIndex = if (findMatches.isEmpty()) 0 else currentMatchIndex + 1,
+                        onPrev = { jumpToMatch(currentMatchIndex - 1) },
+                        onNext = { jumpToMatch(currentMatchIndex + 1) },
+                        onClose = {
+                            showInChatSearch = false
+                            inChatQuery = ""
+                            currentMatchIndex = 0
+                            viewModel.setTargetMessage(null, null)
+                        },
+                        modifier =
+                            Modifier
+                                .align(Alignment.TopCenter)
+                                .statusBarsPadding()
+                                // 顶栏高度约 56dp,查找条固定落在标题岛下方,不再压住三岛。
+                                .padding(
+                                    top = 56.dp,
+                                    start = MusePaddings.screen,
+                                    end = MusePaddings.screen,
+                                    bottom = 4.dp,
+                                ),
+                    )
+                }
+            } // Box
+
+            // F-2: 跨会话转发 — 弹会话选择对话框,选目标会话后追加该消息文本
+            forwardText?.let { text ->
+                val targetSessions = state.sessions.filter { it.id != state.currentSessionId }
+                MuseDialog(
+                    onDismissRequest = { forwardText = null },
+                    title = stringResource(R.string.chat_forward_dialog_title),
+                    content = {
+                        Column(verticalArrangement = Arrangement.spacedBy(MusePaddings.tightGap)) {
+                            if (targetSessions.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.chat_forward_no_session),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            } else {
+                                targetSessions.take(20).forEach { s ->
+                                    Row(
+                                        modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .clip(MuseShapes.small)
+                                                .clickable {
+                                                    forwardText = null
+                                                    ioScope.launch {
+                                                        val ok = viewModel.forwardMessageToSession(s.id, text)
+                                                        MuseToast.show(
+                                                            context.getString(
+                                                                if (ok) R.string.chat_forward_done else R.string.chat_forward_no_session,
+                                                                s.title,
+                                                            ),
+                                                        )
+                                                    }
+                                                }
+                                                .padding(MusePaddings.cardInner),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Icon(
+                                            imageVector = MuseIcons.swapHorizontal,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(MuseIconSizes.iconMedium),
+                                        )
+                                        Spacer(Modifier.width(MusePaddings.tightGap))
                                         Text(
-                                            text = "$sessionTitle · $daysText",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                            text = s.title.ifBlank { stringResource(R.string.session_repo_default_title) },
+                                            style = MaterialTheme.typography.bodyMedium,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                         )
@@ -1000,1500 +2611,36 @@ fun ChatScreen(
                                 }
                             }
                         }
+                    },
+                    onConfirm = null,
+                    dismissText = stringResource(R.string.action_close),
+                    onDismiss = { forwardText = null },
+                )
+                // A6: 消息地图 — CHAT-07: 移到 Scaffold 内容层内(最后绘制、置顶),
+                // 热区止于输入栏上方,不再压住输入岛右缘/发送键。
+                if (messages.size >= MESSAGE_MAP_MIN_MESSAGES && visibleMessages.isNotEmpty()) {
+                    MessageMapBar(
+                        messages = visibleMessages,
+                        listState = listState,
+                        messageStartIndex = messageStartIndex,
+                        modifier =
+                            Modifier
+                                .align(Alignment.CenterEnd)
+                                .statusBarsPadding()
+                                .navigationBarsPadding()
+                                .padding(end = MusePaddings.tightGap),
+                    )
+                }
+            }
 
-                        // ── 右岛:三点菜单(共享圆形组件,收纳"选择供应商"/"压缩上下文"等) ──
-                        var showTopMenu by remember { mutableStateOf(false) }
-                        LaunchedEffect(isStreaming) {
-                            showTopMenu = false
-                        }
-                        Box(
-                            modifier = Modifier.size(MuseIconSizes.touchTarget),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            MuseTopBarIconButton(
-                                icon = MuseIcons.moreVertical,
-                                contentDescription = stringResource(R.string.chat_top_menu_cd),
-                                onClick = { showTopMenu = true },
-                                enabled = !isStreaming,
-                                tint = if (showTopMenu) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            )
-                            // 无遮罩浮动菜单:每个操作独立右对齐弹出。
-                            if (showTopMenu) {
-                                // v1.0.90: 保持右上角三点浮层（曾改成底部面板，按反馈改回）。
-                                MuseFloatingActionMenu(
-                                    items = listOf(
-                                        MuseFloatingActionItem(
-                                            key = "assistant",
-                                            icon = MuseIcons.chat,
-                                            label = stringResource(R.string.chat_switch_assistant),
-                                            enabled = !isStreaming,
-                                            onClick = {
-                                                showTopMenu = false
-                                                // 复用标题长按的会话级助手切换 Sheet，
-                                                // 不跳助手管理页，也不修改全局默认助手。
-                                                sheetState.showAssistantSwitchSheet = true
-                                            },
-                                        ),
-                                        MuseFloatingActionItem(
-                                            key = "proactive_toggle",
-                                            icon = MuseIcons.sparkle,
-                                            label = stringResource(R.string.chat_proactive_toggle),
-                                            enabled = !isStreaming,
-                                            checked = proactiveConfig.enabled,
-                                            onClick = {
-                                                showTopMenu = false
-                                                ioScope.launch {
-                                                    settings.saveProactiveMessageConfig(
-                                                        proactiveConfig.copy(enabled = !proactiveConfig.enabled),
-                                                    )
-                                                }
-                                            },
-                                        ),
-                                        MuseFloatingActionItem(
-                                            key = "provider",
-
-                                            // UI-FIX: 原来与「主动消息」共用 AutoAwesome(闪光)，两项图标撞车，
-                                            // 供应商/模型改用芯片图标。
-                                            icon = MuseIcons.memoryChip,
-                                            label = stringResource(R.string.chat_select_provider),
-                                            enabled = !isStreaming,
-                                            onClick = {
-                                                showTopMenu = false
-                                                sheetState.showModelSheet = true
-                                            },
-                                        ),
-                                        MuseFloatingActionItem(
-                                            key = "compress",
-                                            icon = MuseIcons.gitMerge,
-                                            label = stringResource(R.string.chat_update_compress),
-                                            enabled = !isStreaming && !state.isCompressing && messages.size >= 2,
-                                            onClick = {
-                                                showTopMenu = false
-                                                compressKeepText = ""
-                                                compressInstruction = ""
-                                                showCompressDialog = true
-                                            },
-                                        ),
-                                        MuseFloatingActionItem(
-                                            key = "find",
-                                            icon = MuseIcons.search,
-                                            label = stringResource(R.string.chat_find_in_conversation),
-                                            enabled = messages.isNotEmpty(),
-                                            onClick = {
-                                                showTopMenu = false
-                                                showInChatSearch = true
-                                            },
-                                        ),
-                                        // v2.0.1: 工具调用记录（浮标改为仅生成中显示，历史入口收到菜单）
-                                        MuseFloatingActionItem(
-                                            key = "tool_history",
-                                            icon = MuseIcons.wrench,
-                                            label = stringResource(R.string.chat_tool_calls_title),
-                                            enabled = messages.isNotEmpty(),
-                                            onClick = {
-                                                showTopMenu = false
-                                                sheetState.showToolCallSheet = true
-                                            },
-                                        ),
-                                        // v2.x: 委员会 — 从对话中随时召唤一组助手开临时群聊讨论
-                                        MuseFloatingActionItem(
-                                            key = "committee",
-                                            icon = MuseIcons.users,
-                                            label = stringResource(R.string.chat_committee),
-                                            enabled = !isStreaming,
-                                            onClick = {
-                                                showTopMenu = false
-                                                showCommitteeDialog = true
-                                            },
-                                        ),
-                                    ),
-                                    onDismiss = { showTopMenu = false },
-                                )
-                            }
-                        }
-                    }
-                    // v2.x: 委员会对话框 — 选成员 + 议题,启动临时群聊讨论
-                    if (showCommitteeDialog) {
-                        CommitteeDialog(
-                            assistants = state.assistants,
-                            onDismiss = { showCommitteeDialog = false },
-                            onConfirm = { memberIds, topic ->
-                                showCommitteeDialog = false
-                                viewModel.launchCommittee(memberIds, topic)
-                            },
-                        )
-                    }
-                    // 浏览器真正启动后，入口独立显示在标题栏下方，不再挤占助手标题岛。
-                    BrowserStatusCapsule(
-                        manager = currentBrowserManager,
-                        modifier = Modifier
-                            .align(Alignment.CenterHorizontally)
-                            .padding(bottom = MusePaddings.tightGap),
-                    )
-                    }
-                }
-            }
-        },
-        bottomBar = {
-            Column(Modifier.fillMaxWidth()) {
-            // 工具审批卡：固定显示在输入栏上方（紧跟用户操作位置，不随消息流滚动）
-            // CHAT-08: 多张审批卡折叠为「N 项待审批」;折叠(阅读)期间暂停倒计时,
-            // 避免审批在用户阅读时被 30s 自动拒绝。
-            val approvals = state.pendingToolApprovals
-            var approvalsExpanded by rememberSaveable { mutableStateOf(false) }
-            // 折叠期间暂停 VM 侧审批超时;无审批/单张/展开时恢复,避免暂停状态残留。
-            LaunchedEffect(approvals.size, approvalsExpanded) {
-                viewModel.setApprovalTimeoutPaused(approvals.size > 1 && !approvalsExpanded)
-            }
-            if (approvals.size == 1) {
-                approvals.forEach { approval ->
-                    ToolApprovalCard(
-                        toolName = approval.toolName,
-                        argumentsPreview = approval.argumentsPreview,
-                        onApprove = { viewModel.approveToolCall(approval.toolCallId) },
-                        onDeny = { reason -> viewModel.denyToolCall(approval.toolCallId, reason) },
-                        onPersistPolicy = { policy ->
-                            viewModel.persistToolPolicy(approval.toolCallId, policy)
-                        },
-                        onAllowThisSession = {
-                            viewModel.allowToolForSession(approval.toolCallId)
-                        },
-                        referenceImageOverride = approval.referenceImageOverride,
-                        onReferenceImageChange = { dataUri ->
-                            viewModel.setToolApprovalReferenceImage(approval.toolCallId, dataUri)
-                        },
-                    )
-                }
-            } else if (approvals.size > 1) {
-                PendingApprovalsSummary(
-                    approvals = approvals,
-                    expanded = approvalsExpanded,
-                    onToggleExpanded = { approvalsExpanded = !approvalsExpanded },
-                    onApprove = { approval -> viewModel.approveToolCall(approval.toolCallId) },
-                    onDeny = { approval, reason -> viewModel.denyToolCall(approval.toolCallId, reason) },
-                    onPersistPolicy = { approval, policy ->
-                        viewModel.persistToolPolicy(approval.toolCallId, policy)
-                    },
-                    onAllowThisSession = { approval ->
-                        viewModel.allowToolForSession(approval.toolCallId)
-                    },
-                    onReferenceImageChange = { approval, dataUri ->
-                        viewModel.setToolApprovalReferenceImage(approval.toolCallId, dataUri)
-                    },
-                    countdownPaused = !approvalsExpanded,
-                )
-            }
-            // v1.97: 计算工具/任务进度 — 优先用活跃 agentPlan,否则用 toolCallHistory
-            val latestPlan = state.agentPlans.values.maxByOrNull { it.createdAt }
-            val activePlan = latestPlan?.takeIf { it.steps.isNotEmpty() && !it.isAllSettled }
-            val toolCallTotal = activePlan?.totalSteps ?: state.toolCallHistory.size
-            val toolCallCompleted = activePlan?.completedSteps
-                ?: state.toolCallHistory.count { it.isSuccess }
-            // B2: 待发送队列条(流式中排队,逐条预览/编辑/删除/单独发送)
-            if (state.sendQueue.isNotEmpty()) {
-                PendingQueueBar(
-                    queue = state.sendQueue,
-                    onSend = viewModel::sendPendingSend,
-                    onEdit = viewModel::editPendingSend,
-                    onRemove = viewModel::removePendingSend,
-                    onClear = viewModel::clearPendingQueue,
-                )
-            }
-            // v1.0.92: 会话待办条 — AI 通过 todo_write 维护的任务分解进度,有内容时显示
-            SessionTodoBar(sessionId = state.currentSessionId ?: "")
-            // 只让输入岛占用底部系统安全区,避免整块 bottomBar 被 inset 撑成白色遮罩。
-            Box(Modifier.fillMaxWidth().museBottomBarInsets()) {
-                // I3: 输入区独立错误边界,输入渲染数据构建失败只降级输入条
-                RegionErrorBoundary(
-                    regionName = "input",
-                    data = { state.sendQueue },
-                ) {
-                RichInputBar(
-                // v1.0.20 (Task 3): input/isStreaming 读派生值,避免其他字段变化触发 bottomBar 重组
-                text = currentInput,
-                assistantName = state.currentAssistant?.name?.takeIf { it.isNotBlank() } ?: "Muse",
-                isStreaming = isStreaming,
-                isWaitingFirstToken = isWaitingFirstToken,
-                isDrawMode = state.isDrawMode,
-                isWebSearchEnabled = state.webSearchEnabled,
-                isDeepThinkingEnabled = state.deepThinkingEnabled,
-                // v1.0.47 P5-6: 深度思考级别胶囊(激活时显示,点击循环)
-                deepThinkingLevel = state.deepThinkingLevel,
-                onCycleDeepThinkingLevel = viewModel::cycleDeepThinkingLevel,
-                imageGenParams = state.imageGenParams,
-                onImageGenParamsChange = viewModel::updateImageGenParams,
-                // v1.0.75 fix: 格式工具条已移除,不再传 formatEnabled
-                showExpandButton = state.chatPreferences.showExpandButton,
-                onTextChanged = viewModel::updateInput,
-                // v1.0.47 P5: 硬件键盘上/下箭头遍历输入历史
-                onNavigateInputHistory = viewModel::navigateInputHistory,
-                // v1.97: 斜杠命令拦截 — / 开头的输入走 executeSlashCommand,不发送给 LLM
-                onSend = {
-                    // 从 ViewModel 读取点击瞬间的值,不依赖 Composable 闭包可能捕获的旧快照。
-                    val text = viewModel.state.value.input
-                    if (SlashCommand.isSlashCommand(text)) {
-                        viewModel.executeSlashCommand(text)
-                    } else {
-                        viewModel.send()
-                        focusManager.clearFocus()
-                    }
-                },
-                onStop = viewModel::stop,
-                onInterject = viewModel::interject,
-                onEnqueuePending = viewModel::enqueuePendingSend,
-                replyingTo = state.replyingTo?.let { r ->
-                    // v1.0.72 fix: 引用块用最新消息对象 — 流式消息内容实时更新,
-                    // 引用时捕获的旧对象可能 content 为空(第一条消息引用 UI 为空的根因)
-                    messages.find { it.id == r.id } ?: r
-                },
-                onClearReply = { viewModel.setReplyingTo(null) },
-                replyQuoteOverride = state.replyQuoteOverride,
-                onEditReply = { viewModel.setReplyQuoteOverride(it) },
-                onPickDocument = {
-                    runCatching {
-                        documentLauncher.launch(arrayOf(
-                            "text/*",
-                            "application/pdf",
-                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            "application/msword",
-                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            "application/vnd.ms-excel",
-                            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                            "application/epub+zip",
-                        ))
-                    }.onFailure { viewModel.reportError(context.getString(R.string.chat_err_open_file_picker, it.message)) }
-                },
-                onToggleDrawMode = viewModel::toggleDrawMode,
-                onToggleWebSearch = viewModel::toggleWebSearch,
-                onToggleDeepThinking = viewModel::toggleDeepThinking,
-                // v1.24: Agent 模式在加号工具栏显示"重启上下文",普通会话不显示
-                showRestartContext = isAgentMode,
-                onRestartContext = viewModel::restartContext,
-                // v1.25: 委托给助手入口
-                assistants = state.assistants,
-                onDelegateToAssistant = { sheetState.showDelegateSheet = DelegateSheetMode.Input },
-                // v0.29 P1-6: 知识库 @mention 文档选择 sheet
-                onPickKnowledge = { sheetState.showKnowledgeSheet = true },
-                onOpenPromptTemplates = { sheetState.showPromptTemplateSheet = true },
-                // 加号菜单 → 技能入口
-                onOpenSkills = onOpenSkills,
-                // v0.31: 回车键发送开关传给 InputBar
-                enterToSend = state.chatPreferences.enterToSend,
-                // Phase 8.5:快捷消息
-                quickMessages = state.quickMessages,
-                // Phase 8.6: 多模态图片输入
-                pendingImages = state.pendingImages,
-                onPickImage = { asOcr ->
-                    imagePickAsOcr = asOcr
-                    runCatching {
-                        visualMediaLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo),
-                        )
-                    }.onFailure { viewModel.reportError(context.getString(R.string.chat_err_open_image_picker, it.message)) }
-                },
-                // v0.53: 工具菜单中最近相册图片点击直接加入待发送
-                onPickGalleryImage = { uri ->
-                    viewModel.pickImage(uri, context, asOcr = false)
-                },
-                onRemovePendingImage = viewModel::removePendingImage,
-                // v1.136 T10: 待发送文档芯片
-                pendingDocuments = state.pendingDocuments,
-                onRemovePendingDocument = viewModel::removePendingDocument,
-                onInsertQuickMessage = { qm ->
-                    // Phase 8.5 修复: clipboard 读取切到 IO 线程,避免主线程 IPC ANR
-                    ioScope.launch {
-                        val clipboard = withContext(Dispatchers.IO) {
-                            runCatching {
-                                val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
-                                    as android.content.ClipboardManager
-                                cm.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() ?: ""
-                            }.getOrDefault("")
-                        }
-                        viewModel.insertQuickMessage(qm, clipboard)
-                    }
-                },
-                // Phase 9.3 (M2): ASR 录音
-                // v1.49: 移除 Vosk 后,两条路径:
-                //  - API 模式(有 apiKey):长按录音 + 松开识别 + 上滑取消
-                //  - SYSTEM 模式(无 apiKey):长按麦克风松开后弹系统语音识别 Intent
-                isRecording = state.asrState.isRecording || systemRecording,
-                asrStatus = state.asrState.status,
-                asrErrorMessage = state.asrState.errorMessage,
-                recordingAmplitudes = state.asrState.amplitudes,
-                onStartRecording = {
-                    if (viewModel.shouldUseApiRecording()) {
-                        // API 路径:先检查 RECORD_AUDIO 权限,未授权则申请
-                        val granted = ContextCompat.checkSelfPermission(
-                            context, Manifest.permission.RECORD_AUDIO,
-                        ) == PackageManager.PERMISSION_GRANTED
-                        if (granted) {
-                            viewModel.startStreamingAsr()
-                            true
-                        } else {
-                            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                            // U-17: 权限缺失时给出明确反馈,避免长按静默无响应
-                            MuseToast.show(context.getString(R.string.chat_err_mic_permission))
-                            false
-                        }
-                    } else {
-                        // SYSTEM 路径:检查系统语音识别服务是否可用,可用则长按松开后弹 Intent
-                        if (!SpeechInput.isAvailable(context)) {
-                            Logger.w("ChatScreen", "系统语音服务不可用")
-                            // U-17: 服务未就绪单独提示,与"权限缺失"区分
-                            MuseToast.show(context.getString(R.string.chat_voice_not_ready))
-                            false
-                        } else {
-                            // 返回 false:不进入"录音中"状态(系统 Intent 会接管 UI)
-                            // 实际 launch 在松手时触发,避免长按期间反复 launch
-                            systemRecording = true
-                            true
-                        }
-                    }
-                },
-                onStopRecording = {
-                    if (viewModel.shouldUseApiRecording()) {
-                        viewModel.stopStreamingAsr()
-                    } else {
-                        systemRecording = false
-                        // v1.95: 仅首次使用提示,后续直接调起系统 Intent
-                        ioScope.launch {
-                            val shown = settings.asrTipShownFlow.first()
-                            if (!shown) {
-                                sheetState.asrTipDialogShown = true
-                                settings.saveAsrTipShown(true)
-                            } else {
-                                resultOf {
-                                    speechLauncher.launch(SpeechInput.createIntent(context.getString(R.string.speech_speak_prompt)))
-                                }.onError { msg, _ ->
-                                    // v1.98: 移除弹窗提示,静默处理
-                                    Logger.w("ChatScreen", "启动语音识别失败: $msg")
-                                }
-                            }
-                        }
-                    }
-                },
-                onCancelRecording = {
-                    if (viewModel.shouldUseApiRecording()) {
-                        viewModel.cancelStreamingAsr()
-                    } else {
-                        systemRecording = false
-                    }
-                    // SYSTEM 路径无取消概念(尚未 launch Intent)
-                },
-                // 仅在实时 ASR Provider 已配置 API Key 时显示麦克风;未配置时保留发送按钮,
-                // 避免用户点击一个必然不可用的语音入口。DASHSCOPE_FILE 仍只支持文件转录。
-                showMic = viewModel.shouldUseApiRecording() && state.asrConfig.apiKey.isNotBlank(),
-                // v1.97: 工具/任务进度 pill(优先用 plan 进度,否则用 toolCallHistory)
-                toolCallCompleted = toolCallCompleted,
-                toolCallTotal = toolCallTotal,
-                onShowToolCalls = { sheetState.showToolCallSheet = true },
-                // 功能2: 草稿标记
-                hasDraft = state.hasDraft,
-                // v1.0.29: Agent Tab 不主动呼出输入法
-                autoFocus = !isAgentMode,
-                // v1.0.47 P5-3: Token 估算(默认关闭,设置页开启后输入栏底部显示 Token 统计条)
-                tokenEstimateEnabled = state.tokenEstimateEnabled,
-                historyTokens = state.contextTokenCount,
-                contextWindow = state.contextMaxTokens,
-                // v1.0.47 P5-2: 长文本粘贴转文件(默认开启,粘贴超阈值文本时提示转为附件)
-                pasteAsFileEnabled = state.pasteAsFileEnabled,
-                pasteAsFileThreshold = state.pasteAsFileThreshold,
-                onAddPastedTextAsDocument = viewModel::addPastedTextAsDocument,
-                )
-                } // I3: 输入区错误边界收尾
-            }
-            }
-        },
-        // 背景图/渐变都由外层 Box 绘制; Scaffold 必须透明,否则默认 background 会把渐变盖住。
-        containerColor = if (chatBackground.isNullOrBlank() && chatGradient == null) {
-            MaterialTheme.colorScheme.background
-        } else {
-            androidx.compose.ui.graphics.Color.Transparent
-        },
-    ) { innerPadding ->
-        val scrollToBottomScope = rememberCoroutineScope()
-        // P2-13: 桌面端快捷键拦截 — Ctrl+Shift+C 复制最后一条 AI 回复
-        // Enter/Shift+Enter 由 InputBar 自身处理(已在 v0.31 实现 enterToSend 逻辑),
-        // 此处不重复拦截,避免破坏既有用户设置("回车发送" / "Shift+回车发送")。
-        val copyLastReplyClipboardScope = rememberCoroutineScope()
-        val copyLastReply: () -> Unit = {
-            val lastAssistant = messages.lastOrNull {
-                it.role == MessageRole.ASSISTANT && it.content.isNotBlank()
-            }
-            if (lastAssistant != null) {
-                copyLastReplyClipboardScope.launch {
-                    val clipboard = withContext(Dispatchers.IO) {
-                        context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
-                            as android.content.ClipboardManager
-                    }
-                    clipboard.setPrimaryClip(
-                        android.content.ClipData.newPlainText(
-                            context.getString(R.string.app_name),
-                            lastAssistant.content,
-                        ),
-                    )
-                    MuseToast.show(context.getString(R.string.chat_copied_toast))
-                }
-            }
-            // 无 AI 回复时静默不操作(避免引入未本地化的 toast 字符串)
-        }
-        // v1.0.72: 顶部悬浮岛高度 — 提示/横幅 overlay 让位,避免被三岛遮挡
-        val topInset = innerPadding.calculateTopPadding()
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                // v1.0.72 fix: 去掉 top/bottom 外层 padding — 悬浮控件延伸到系统栏边界。
-                // 消息列表自身在 contentPadding 中避让输入栏,右侧导航条不再提前结束。
-                // P2-13: 桌面端快捷键 — Ctrl+Shift+C 复制最后一条 AI 回复
-                // 仅在物理键盘 + Expanded 窗口下生效,避免与软键盘 IME Action 冲突
-                .onKeyEvent { event ->
-                    if (!desktopShortcutsEnabled) return@onKeyEvent false
-                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-                    if (event.key == DesktopShortcuts.COPY_LAST_REPLY &&
-                        event.isCtrlPressed && event.isShiftPressed
-                    ) {
-                        copyLastReply()
-                        true
-                    } else {
-                        false
-                    }
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            // B7-01: 多选操作条
-            if (state.selectionMode) {
-                // A4: 选中消息文本 — 批量复制/导出共用同一格式
-                val selectedText = visibleMessages
-                    .filter { it.id.toString() in state.selectedMessageIds }
-                    .joinToString("\n\n") { "${it.role}: ${it.content}" }
-                ChatSelectionBar(
-                    count = state.selectedMessageIds.size,
-                    onSelectAll = { viewModel.selectAllMessages(visibleMessages.map { it.id.toString() }) },
-                    onCopy = {
-                        if (selectedText.isNotBlank()) {
-                            val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
-                                as android.content.ClipboardManager
-                            cm.setPrimaryClip(android.content.ClipData.newPlainText("muse-selected", selectedText))
-                        }
-                    },
-                    // 审计修复 (8.5): 删除前弹确认 — 原实现直删,误触即丢整段对话不可恢复
-                    onDelete = { showDeleteConfirm = true },
-                    onExport = {
-                        if (selectedText.isNotBlank()) {
-                            val sendIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(android.content.Intent.EXTRA_TEXT, selectedText)
-                            }
-                            ShareIntentHelper.startChooserSafely(context, sendIntent)
-                        }
-                    },
-                    onExit = { viewModel.setSelectionMode(false) },
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        // v1.0.72: 让位悬浮三岛(不遮挡)
-                        .padding(top = topInset)
-                        .fillMaxWidth()
-                        .padding(horizontal = MusePaddings.screen, vertical = MusePaddings.contentGap)
-                        .zIndex(10f),
-                )
-                // 审计修复 (8.5): 多选删除确认对话框
-                if (showDeleteConfirm) {
-                    MuseDialog(
-                        onDismissRequest = { showDeleteConfirm = false },
-                        title = stringResource(R.string.chat_delete_selected_title),
-                        content = {
-                            Text(stringResource(R.string.chat_delete_selected_message, state.selectedMessageIds.size))
-                        },
-                        confirmText = stringResource(R.string.action_delete),
-                        destructive = true,
-                        onConfirm = {
-                            showDeleteConfirm = false
-                            viewModel.deleteSelectedMessages()
-                        },
-                    )
-                }
-                // H10: 手动压缩参数对话框(保留条数 / 附加指令 / token 估算)
-                if (showCompressDialog) {
-                    CompressContextDialog(
-                        defaultKeepRecent = 10,
-                        totalMessages = messages.size,
-                        estimateTokens = { keep -> messages.takeLast(keep).sumOf { it.content.length / 2 } },
-                        onDismiss = { showCompressDialog = false },
-                        onConfirm = { keep, instruction ->
-                            showCompressDialog = false
-                            viewModel.manualCompress(
-                                updateMemoryFirst = true,
-                                keepRecent = keep,
-                                instruction = instruction.ifBlank { null },
-                            )
-                        },
-                    )
-                }
-            }
-            // Phase 3 3E: 定时消息横幅
-            io.zer0.muse.ui.chat.ScheduledMessageBanner(
-                pendingMessages = pendingMessages,
-                onCancel = { msgId ->
-                    pendingScope.launch { pendingMessageManager.cancelMessage(msgId) }
-                },
+            ChatSheetHost(
+                sheetState = sheetState,
+                viewModel = viewModel,
+                knowledgeDocs = knowledgeDocs,
+                speechLauncher = speechLauncher,
+                ioScope = ioScope,
+                onOpenPromptTemplateManager = onOpenPromptTemplateManager,
             )
-            // 空状态与消息列表 Crossfade 过渡,避免硬切换
-            // v1.0.4 (P3-4): 用 visibleMessages 判空,性能模式下 visibleMessages 反映实际渲染状态
-            // v1.0.48: 修复 Agent Tab 进入时闪烁空状态 — HorizontalPager 动画期间目标页已 compose
-            //   但 setAgentMode 尚未执行(settledPage 触发),此时 visibleMessages=emptyList() 会闪现
-            //   "今天想聊点什么"引导。新增 loading 中间态:isAgentMode && !state.isAgentMode 期间
-            //   显示 loading 而非空状态,等 ViewModel 切换完成后再渲染消息或真正的空状态。
-            val isAgentTabLoading = isAgentMode && !state.isAgentMode
-            val chatScreenState = when {
-                isAgentTabLoading -> 2  // Agent Tab 加载中
-                visibleMessages.isEmpty() -> 1  // 真正空会话
-                else -> 0  // 有消息
-            }
-            Crossfade(
-                targetState = chatScreenState,
-                animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
-                label = "chatState",
-                modifier = Modifier.fillMaxSize(),
-            ) { screenState ->
-                // v1.0.72: 当前会话"不参考记忆"标志(空白引导页开关用)
-                val currentSessionIgnoreMemory = remember(state.sessions, state.currentSessionId, state.agentSessionId) {
-                    val sid = if (state.isAgentMode) state.agentSessionId else state.currentSessionId
-                    state.sessions.firstOrNull { it.id == sid }?.ignoreMemory ?: false
-                }
-                if (screenState == 2) {
-                    // Agent Tab 加载中 — 显示 loading,不闪空状态引导
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        MuseLoadingState()
-                    }
-                } else if (screenState == 1) {
-                    // 空状态引导 — 居中轻量提示 + 建议 prompt 胶囊(不遮罩,点击填入输入框)
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        EmptyChatGuide(
-                            assistant = state.currentAssistant,
-                            // v1.0.72: 此条对话不参考记忆
-                            ignoreMemory = currentSessionIgnoreMemory,
-                            onToggleIgnoreMemory = { ignore ->
-                                viewModel.setSessionIgnoreMemory(ignore)
-                            },
-                            modifier = Modifier.padding(horizontal = MusePaddings.largeGap),
-                        )
-                    }
-                } else {
-                // Phase 8.10: 音量键滚动
-                // 拦截 VOLUME_UP/DOWN → listState.scrollBy,长聊天阅读体验提升
-                val volumeScrollScope = rememberCoroutineScope()
-                // H-S6: latestPlan 在 LazyColumn 外缓存(remember 不能在 LazyListScope 内调用)
-                val latestPlan = remember(state.agentPlans) {
-                    state.agentPlans.values.maxByOrNull { it.createdAt }
-                }
-                // v1.137: 构建 messageId → plan 映射,让每条助手消息能找到关联自己的计划卡。
-                // 计划卡固定在创建它的消息上随消息滚动,不再"跳"到最后一条助手消息。
-                val plansByMessageId = remember(state.agentPlans) {
-                    state.agentPlans.values
-                        .filter { it.messageId != null }
-                        .associateBy { it.messageId!! }
-                }
-                val visibleMessageIds = remember(visibleMessages) {
-                    visibleMessages.mapTo(mutableSetOf()) { it.id.toString() }
-                }
-                // v1.0.92 性能: 消息 → 变体分支信息 索引一次性构建 —
-                // 旧实现每条消息在 item 内调用 branchInfoFor(整树遍历),列表总开销 O(n²),
-                // 流式期间每帧重算,是长会话卡顿的主要来源之一。
-                val branchInfoByMessageId = remember(conversationTree) {
-                    conversationTree.buildBranchInfoIndex()
-                }
-                // v1.0.92: 最后一条用户消息 id 预计算(供 item 内 O(1) 判断)
-                val lastUserId = visibleMessages.lastOrNull { it.role == MessageRole.USER }?.id
-                // M-UI3: 将最新计划卡关联到最近一条助手消息,随消息一起滚动
-                val lastAssistantId = visibleMessages.lastOrNull { it.role == MessageRole.ASSISTANT }?.id
-                // I3: 聊天区独立错误边界,消息列表渲染数据构建失败只降级该区域
-                RegionErrorBoundary(
-                    regionName = "chat",
-                    data = { visibleMessages },
-                ) {
-                // P2-1: Box 包裹消息列表,Expanded 模式下居中限宽 720dp
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.TopCenter,
-                ) {
-                // B6-02: 全屏情绪皮肤(在消息列表背后)
-                MoodSkinOverlay(visibleMessages.lastOrNull { it.role == MessageRole.ASSISTANT }?.moodSkin)
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(
-                            if (widthClass == WindowWidthClass.Expanded) {
-                                Modifier.widthIn(max = 720.dp)
-                            } else {
-                                Modifier
-                            }
-                        )
-                        // v0.31: 音量键滚动受 chatPrefs.volumeKeyScroll 开关控制
-                        .then(
-                            if (state.chatPreferences.volumeKeyScroll) {
-                                Modifier.onVolumeKeyEvent { direction ->
-                                    volumeScrollScope.launch {
-                                        listState.scrollBy(direction * VOLUME_SCROLL_DISTANCE_PX)
-                                    }
-                                }
-                            } else {
-                                Modifier
-                            }
-                        ),
-                    // v1.0.92: 消息间距不再用 spacedBy —— 它按 item 数量计间距,而操作组卡
-                    // 会把组内其余消息渲染为空 item(保持消息索引不变),每个空 item 仍贡献
-                    // 一份 messageGap,工具调用一多就叠出大段幽灵空白(用户实测:22 个操作
-                    // 叠出大半屏空白)。改为普通 item 自身用底部 padding 承担 messageGap:
-                    // 空 item 零尺寸零间距,视觉间距与原版一致(列表最后一项底部会多一份
-                    // messageGap 的空隙,属可接受差异)。
-                    // v1.0.72: 顶部让位给悬浮三岛;底部避让输入栏。
-                    // 外层 Box 保持全高,让右侧消息地图延伸到输入栏上缘。
-                    contentPadding = PaddingValues(
-                        top = innerPadding.calculateTopPadding(),
-                        bottom = innerPadding.calculateBottomPadding(),
-                    ),
-                ) {
-                    // v1.0.47 P6: Agent Mode 提示卡片 — 会话锁定/弱工具降级/Agent Mode 提示。
-                    // v1.0.54: 去掉"Agent 模式已锁定会话"提示(用户反馈不需要),仅保留降级/提示。
-                    val showAgentHint =
-                        !state.weakToolHint.isNullOrEmpty() ||
-                            !state.agentModeHint.isNullOrEmpty()
-                    if (showAgentHint) {
-                        item(key = "agent_mode_hint") {
-                            Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
-                                AgentModeHintCard(
-                                    isSessionLocked = false,
-                                    weakToolHint = state.weakToolHint,
-                                    agentModeHint = state.agentModeHint,
-                                    onDismissWeakToolHint = viewModel::dismissWeakToolHint,
-                                    onDismissAgentModeHint = viewModel::dismissAgentModeHint,
-                                )
-                            }
-                        }
-                    }
-                    // v1.0.4 (P1): 历史加载更多顶部占位 — 上滑触发 loadMoreHistory 后,
-                    // 在 LazyColumn 顶部插入一条 shimmer 占位条,让用户看到"正在加载"反馈。
-                    // 加载完成后 lastHistoryLoadCount > 0,scrollToItem 跳过新插入条数保持视觉位置不跳。
-                    if (state.isLoadingMore) {
-                        item(key = "load_more") {
-                            Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
-                                HistoryLoadMorePlaceholder()
-                            }
-                        }
-                    }
-                    // F-4: /pin 置顶消息横幅(内存态,切换会话后由 switchSession 清空)
-                    state.pinnedMessageContent?.let { pinned ->
-                        item(key = "pinned_message_top") {
-                            Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
-                                PinnedMessageBanner(
-                                    content = pinned,
-                                    onDismiss = viewModel::clearPinnedMessage,
-                                )
-                            }
-                        }
-                    }
-                    itemsIndexed(
-                        // v1.0.4 (P3-4): 性能模式下渲染 visibleMessages(最近 N 条);
-                        // 非性能模式下 visibleMessages == messages,行为不变。
-                        visibleMessages,
-                        key = { _, it -> it.id },
-                        // v1.100: contentType 让 LazyColumn 复用同类型 item 的 measure cache
-                        contentType = { _, it -> it.role.name },
-                    ) { index, msg ->
-                        // 操作组聚合:组首条渲染组卡,组内其余条不渲染(视觉上被前一条吸收)。
-                        val groupedRun = groupedRuns[msg.id.toString()]
-                        if (groupedRun != null) {
-                            if (groupedRun.msgs.first().id == msg.id) {
-                                ToolRunCard(
-                                    msgs = groupedRun.msgs,
-                                    modifier = Modifier
-                                        .padding(horizontal = MusePaddings.screen)
-                                        .padding(bottom = MusePaddings.messageGap),
-                                )
-                            }
-                            return@itemsIndexed
-                        }
-                        // 日期分隔线: 相邻消息跨天时插入细线 + 居中日期文字
-                        // v1.0.4 (P3-4): prevMsg 取自 visibleMessages,与渲染顺序一致
-                        val prevMsg = visibleMessages.getOrNull(index - 1)
-                        val showDateSeparator = prevMsg != null &&
-                            !isSameDay(prevMsg.createdAt, msg.createdAt)
-                        // v1.100: 用 derivedStateOf 收窄 state 读取范围,避免每次 messages 变化
-                        // 都重新计算所有可见 item 的 isLast。只有最后一条消息变化时才重组。
-                        // v1.0.4 (P3-4): isLast 基于 visibleMessages,性能模式下指"已渲染列表的最后一条"
-                        val isLast = msg.id == visibleMessages.lastOrNull()?.id
-                        // 最后一条用户提问：控制 user 消息底部的重roll按钮。
-                        // 即使 AI 报错生成了失败的 assistant 消息，只要这条 user 仍是最后提问，
-                        // 重roll就可用，用户不用删掉重发。
-                        // v1.0.92 性能: lastUserId 预计算,避免 item 内 O(n) 尾扫。
-                        val isLastUserMessage = msg.role == MessageRole.USER && lastUserId == msg.id
-                        // v1.0.53: 当前消息对应的分支组信息(直接来自 ConversationTree)
-                        // v1.0.92 性能: 改为索引查询(旧实现每条消息整树遍历,总开销 O(n²))。
-                        val branchInfo = branchInfoByMessageId[msg.id.toString()]
-                        // 工具执行与展开操作会更新 ChatUiState 的 Map。这里直接读取当前快照；
-                        // 不能用 remember(msg.id) 捕获初始 state,否则新建的任务卡/展开状态
-                        // 不会传进已存在的 LazyColumn item,页面看起来像“工具没有调用”。
-                        val expandedState = state.messageExpandedStates[msg.id.toString()]
-                        val taskCard = state.taskCards[msg.id.toString()]
-                        // v1.100: isTranslating/isSpeaking 精确到 msg.id,用 derivedStateOf 收窄
-                        val isTranslating = state.isTranslating && state.translatingMessageId == msg.id
-                        val isSpeaking = state.isSpeaking && state.speakingMessageId == msg.id
-                        // v1.43: 观察该消息关联的产物卡片列表
-                        // H-S1: 用 produceState 以 msg.id 为 key,避免重组时反复重建 Flow + 反复查库
-                        val artifacts by produceState(initialValue = emptyList<ArtifactEntity>(), msg.id) {
-                            viewModel.observeArtifactsByMessage(msg.id.toString()).collect { value = it }
-                        }
-                        // v0.48: 消息分组 — 上一条同 role 且时间间隔 < 5 分钟 → 压缩头像和时间戳
-                        // v2.0.1: 连续同角色消息(含 assistant 拆出的思考/工具轮)不再重复头像 —
-                        // 一轮回复只显示一个头像(用户反馈"头像出现两个")。
-                        val showAvatar = prevMsg == null
-                            || prevMsg.role != msg.role
-                            || (msg.createdAt - prevMsg.createdAt) > MESSAGE_GROUP_INTERVAL_MS
-                        val showTimestamp = showAvatar // 头像和时间戳同步显示
-                        // v0.36 性能优化:缓存 item 级 lambda,避免父重组导致整个 MessageBubble 失效。
-                        val onEdit = remember(msg.id, msg.role) {
-                            {
-                                if (msg.role == MessageRole.USER) {
-                                    sheetState.editingUserMessage = msg
-                                } else {
-                                    sheetState.editingMessage = msg
-                                }
-                            }
-                        }
-                        val onQuote = remember(msg.id) { { viewModel.setReplyingTo(msg) } }
-                        val onTranslate = remember(msg.id) { { lang: String -> viewModel.translateMessage(msg.id, lang) } }
-                        val onToggleFavorite = remember(msg.id) { { viewModel.toggleFavorite(msg.id) } }
-                        val onToggleTts = remember(msg.id) { { viewModel.toggleTts(msg.id, msg.content) } }
-                        val onToggleTaskCardExpand = remember(msg.id) { { viewModel.toggleTaskCardExpand(msg.id.toString()) } }
-                        val onCancelTask = remember(msg.id) { { viewModel.stop() } }
-                        val onRetryTaskCardStep = remember(msg.id) { { stepId: String -> viewModel.retryFailedStep(msg.id.toString(), stepId) } }
-                        val onShareSession = remember(viewModel, ioScope) {
-                            { sheetState.showExportSheet = true }
-                        }
-                        // F-2: 跨会话转发 — 用户消息发原文,助手消息转纯文本
-                        val onForward = remember(msg.id) {
-                            {
-                                forwardText = if (msg.role == MessageRole.USER) {
-                                    msg.content
-                                } else {
-                                    InternalMarkupSanitizer.stripForDisplay(msg.content)
-                                }
-                            }
-                        }
-                        // v1.58: 从此消息分叉对话
-                        val onFork = remember(msg.id) { { viewModel.forkSessionFromMessage(msg.id) } }
-                        // 消息项动画统一走 museAnimateItem；流式中的最后一条消息不做插入/位移动画，
-                        // 避免内容增量和列表布局动画同时运行造成抖动。
-                        Column(
-                            modifier = museAnimateItem(enabled = !(isLast && isStreaming))
-                                .padding(bottom = MusePaddings.messageGap),
-                        ) {
-                        // 日期分隔线渲染在消息上方
-                        if (showDateSeparator) {
-                            DateSeparator(timestamp = msg.createdAt)
-                        }
-                        // v2.x: 左滑引用已移除(用户反馈误触率高) — 引用改由长按菜单进入。
-                        MessageBubble(
-                            msg = msg,
-                            // v1.0.20 (Task 3): isStreaming 读派生值,避免每条消息因 input 按键重组
-                            isStreaming = isStreaming,
-                            isLastAssistant = isLast && msg.role == MessageRole.ASSISTANT,
-                            // v2.x: 从搜索结果跳转时,state.highlightedMessageId 命中本消息 →
-                            // 传 searchHighlightQuery 让 MessageBubble 高亮匹配文本;否则 null
-                            highlightText = if (msg.id.toString() == state.highlightedMessageId) state.searchHighlightQuery else null,
-                            isTranslating = isTranslating,
-                            // H11: 译文消息携带源消息内容(原文对照折叠),源消息缺失时不传
-                            translationSourceContent = msg.translationSourceId?.let { srcId ->
-                                messages.find { it.id.toString() == srcId }?.content
-                            },
-                            // v2.3: debug 模式性能摘要(仅最后一条 assistant 消息)
-                            debugInfo = if (isLast && msg.role == MessageRole.ASSISTANT) state.debugInfo else null,
-                            onEdit = onEdit,
-                            onQuote = onQuote,
-                            onRegenerate = viewModel::regenerateLastAssistant,
-                            onContinue = viewModel::continueGeneration,
-                            selectionMode = state.selectionMode,
-                            selected = msg.id.toString() in state.selectedMessageIds,
-                            onToggleSelection = { viewModel.toggleMessageSelection(msg.id) },
-                            onEnterMultiSelect = { viewModel.setSelectionMode(true) },
-                            // E4 (H8): 表情回应(长按菜单「表情回应」→ 选择面板)
-                            onSetReaction = { reaction -> viewModel.setReaction(msg.id, reaction) },
-                            onTranslate = onTranslate,
-                            onToggleFavorite = onToggleFavorite,
-                            // 阶段 J: 复制消息内容到剪贴板(长按 → 复制)
-                            // M-S8: clipboard 写切到 IO 线程,避免主线程 IPC
-                            onCopyMessage = { text ->
-                                ioScope.launch {
-                                    val clipboard = withContext(Dispatchers.IO) {
-                                        context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
-                                            as android.content.ClipboardManager
-                                    }
-                                    clipboard.setPrimaryClip(
-                                        android.content.ClipData.newPlainText("Muse Message", text)
-                                    )
-                                    MuseToast.show(context.getString(R.string.chat_copied_toast))
-                                }
-                            },
-                            // Phase 8.7: TTS 朗读(仅 AI 消息)
-                            isSpeaking = isSpeaking,
-                            onToggleTts = onToggleTts,
-                            // Phase 8.8: 任务卡
-                            taskCard = taskCard,
-                            // v1.201: 委派链路(仅最后一条 AI 消息传入,避免历史消息重复显示)
-                            delegationChain = if (isLast && msg.role == MessageRole.ASSISTANT) state.delegationChain else null,
-                            // Phase 10.1: 任务卡交互回调
-                            onToggleTaskCardExpand = onToggleTaskCardExpand,
-                            onRetryTaskCardStep = onRetryTaskCardStep,
-                            // R-UI-09: 任务卡取消按钮 -> 停止当前生成
-                            onCancelTask = onCancelTask,
-                            // v1.25: 长按菜单「委托给助手」
-                            onDelegate = { sheetState.showDelegateSheet = DelegateSheetMode.Message(msg) },
-                            // v0.29 P0-3: 分享整段对话(导出 Markdown → 系统 share sheet)
-                            onShareSession = onShareSession,
-                            // F-2: 跨会话转发
-                            onForward = onForward,
-                            onFork = onFork,
-                            // v1.48: 长按菜单"删除消息"
-                            onDeleteMessage = { viewModel.deleteMessage(msg.id) },
-                            onDeleteWithFollowing = { viewModel.deleteMessageWithFollowing(msg.id) },
-                            // v0.29 P0-4: AI 消息底部显示模型名 + token 估算
-                            modelName = displayModelName,
-                            // v0.31: 聊天行为偏好传给 MessageBubble
-                            chatPrefs = state.chatPreferences,
-                            // Phase 4: 宿主气泡皮肤(null = 既有外观,解析与回退在 MessageBubble 内)
-                            bubbleSkin = bubbleSkin,
-                            // v0.48: 消息分组参数 + AI 头像来源
-                            showAvatar = showAvatar,
-                            showUserAvatar = !isAgentMode && state.chatPreferences.showUserAvatar,
-                            userAvatarText = accountState.userName.take(1).ifBlank { "U" },
-                            showTimestamp = showTimestamp,
-                            assistant = state.currentAssistant,
-                            // v1.43: 产物卡片列表与点击查看
-                            artifacts = artifacts,
-                            onArtifactClick = viewModel::selectArtifact,
-                            // v2.0.1: 图片作品条提示词（向前找最近一次 generate_image 调用；
-                            // toolCalls 不持久化，重启后走 toolCallInfo 持久化路径）
-                            imageGenPrompt = remember(msg.id, visibleMessages) {
-                                val genCall = visibleMessages.take(index + 1).asReversed()
-                                    .firstNotNullOfOrNull { m ->
-                                        val fromCalls = m.toolCalls?.firstOrNull { it.name == "generate_image" }
-                                        val fromInfo = m.toolCallInfo?.takeIf { it.toolName == "generate_image" }
-                                        when {
-                                            fromCalls != null -> fromCalls.arguments
-                                            fromInfo != null -> fromInfo.arguments
-                                            else -> null
-                                        }
-                                    }
-                                genCall
-                                    ?.let { args ->
-                                        runCatching { org.json.JSONObject(args).optString("prompt") }.getOrNull()
-                                    }
-                                    ?.takeIf { it.isNotBlank() }
-                                    ?.let { if (it.length > 60) it.take(60) + "…" else it }
-                            },
-                            // v1.45: mood/reasoning 展开状态由 ViewModel 集中管理
-                            isMoodExpanded = expandedState?.isMoodExpanded,
-                            isReasoningExpanded = expandedState?.isReasoningExpanded,
-                            isReflectionExpanded = expandedState?.isReflectionExpanded,
-                            onToggleMoodExpanded = { viewModel.toggleMessageMoodExpanded(msg.id.toString()) },
-                            onToggleReasoningExpanded = { viewModel.toggleMessageReasoningExpanded(msg.id.toString()) },
-                            onToggleReflectionExpanded = { viewModel.toggleMessageReflectionExpanded(msg.id.toString()) },
-                            // v1.137: 计划卡按 messageId 关联到创建它的助手消息,随该消息滚动。
-                            // 旧计划(无 messageId)回退到 lastAssistantId 兜底,保持向后兼容。
-                            agentPlan = if (msg.role == MessageRole.ASSISTANT) {
-                                plansByMessageId[msg.id.toString()]
-                                    ?: if (
-                                        msg.id == lastAssistantId &&
-                                        latestPlan?.let { it.messageId == null || it.messageId !in visibleMessageIds } == true
-                                    ) {
-                                        latestPlan
-                                    } else {
-                                        null
-                                    }
-                            } else null,
-                            // HTML/SVG 代码块全屏预览
-                            onHtmlPreview = onHtmlPreview,
-                            // v1.0.92: 卡片回传 — 脚本消息发送 / 保存为工件
-                            onCardAction = { action ->
-                                when (action) {
-                                    is CardAction.Send -> viewModel.sendFromCard(action.text)
-                                    is CardAction.Save -> viewModel.saveCardAsArtifact(
-                                        messageId = msg.id.toString(),
-                                        language = action.language,
-                                        content = action.content,
-                                    )
-                                }
-                            },
-                            // v1.138: 视觉辅助 UI — 分析中进度 + 已完成标签
-                            // v1.0.16: 进度只在正在分析的那条消息上显示(messageId 匹配),避免所有 USER 消息同时显示"分析中"
-                            // v1.0.20 (Task 3): visionProgress 读派生值,避免每条消息因 input 按键重组
-                            visionAssistProgress = if (
-                                msg.role == MessageRole.USER &&
-                                visionProgress?.messageId == msg.id.toString()
-                            ) visionProgress else null,
-                            visionAssisted = if (msg.role == MessageRole.USER) msg.id.toString() in state.visionAssistedMessageIds else false,
-                            // v1.0.53: 最后一条标记 + 分支切换数据
-                            isLast = isLast,
-                            isLastUserMessage = isLastUserMessage,
-                            branchIndex = branchInfo?.selectIndex ?: 0,
-                            branchCount = branchInfo?.branchCount ?: 1,
-                            onBranchPrevious = {
-                                branchInfo?.let { info ->
-                                    if (msg.role == MessageRole.USER) {
-                                        viewModel.selectUserVariant(info.groupId, info.selectIndex - 1)
-                                    } else {
-                                        viewModel.selectAssistantVariant(info.parentGroupId ?: info.groupId, info.groupId, info.selectIndex - 1)
-                                    }
-                                }
-                            },
-                            onBranchNext = {
-                                branchInfo?.let { info ->
-                                    if (msg.role == MessageRole.USER) {
-                                        viewModel.selectUserVariant(info.groupId, info.selectIndex + 1)
-                                    } else {
-                                        viewModel.selectAssistantVariant(info.parentGroupId ?: info.groupId, info.groupId, info.selectIndex + 1)
-                                    }
-                                }
-                            },
-                            tokenStats = if (isLast && msg.role == MessageRole.ASSISTANT && state.tokenEstimateEnabled) {
-                                {
-                                    TokenStatsBar(
-                                        message = msg,
-                                        historyTokens = state.contextTokenCount,
-                                        contextWindow = state.contextMaxTokens,
-                                        // v2.0: 有 provider 真实用量时直接展示输入/输出,否则回退到估算(~)
-                                        promptTokens = msg.promptTokens,
-                                        completionTokens = msg.completionTokens,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(top = MusePaddings.tightGap),
-                                    )
-                                }
-                            } else {
-                                null
-                            },
-                        )
-                        }
-                    }
-                    // 任务 2B: 等待首 token 阶段用 shimmer 骨架屏占位(替代旧 LoadingDots "思考中"文字)
-                    // v1.0.3: 改用 isWaitingFirstToken 触发,首 token 到达后立即消失,避免"loading → 大量文字"断层
-                    // v1.0.4: 视觉分析期间显示"正在分析图片 2/4…"
-                    // v1.0.4 (P0): OCR 识别 / 工具调用恢复 也复用 ShimmerBubble,统一所有"短暂等待"反馈
-                    // v1.0.20 (Task 3): isStreaming/isWaitingFirstToken/visionProgress 读派生值
-                    val showShimmer = state.isOcrProcessing ||
-                        (isStreaming && isWaitingFirstToken) ||
-                        // F-13: 工具执行阶段显示"正在执行 X…"(非阻塞进度,与 F-07 联动)
-                        (isStreaming && state.toolProgressMessage != null)
-                    if (showShimmer) {
-                        // H-S5: 显式提供稳定 key
-                        item(key = "shimmer") {
-                            Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
-                                // 优先级:工具恢复 > 视觉分析 > OCR 识别 > 默认"思考中"
-                                val vp = visionProgress
-                                val progressText = when {
-                                    state.toolProgressMessage != null -> state.toolProgressMessage
-                                    vp?.isActive == true ->
-                                        stringResource(R.string.chat_analyzing_image, vp.index, vp.total)
-                                    state.isOcrProcessing -> stringResource(R.string.ocr_processing_hint)
-                                    else -> null
-                                }
-                                ShimmerBubble(progressText = progressText)
-                            }
-                        }
-                    }
-                    // P5-G: 图片生成中占位卡片(比纯文字 LoadingDots 更有反馈感)
-                    if (state.isGeneratingImage) {
-                        // H-S5: 显式提供稳定 key
-                        item(key = "image_placeholder") {
-                            Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
-                                ImageGenerationPlaceholder()
-                            }
-                        }
-                    }
-                    // v1.0.4 (P1): 视频生成中占位卡片(与图片生成对称)
-                    if (state.isGeneratingVideo) {
-                        item(key = "video_placeholder") {
-                            Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
-                                VideoGenerationPlaceholder()
-                            }
-                        }
-                    }
-                    // 工具审批卡片:待审批的工具调用显示审批/拒绝按钮
-                    // v1.202: 只有真的有后台子 Agent 任务时才插入任务卡。
-                    // 空卡片虽然自身 return，但外层 LazyColumn item 仍会参与间距测量，
-                    // 会在工具调用区域下方留下无意义的大白区。
-                    if (state.activeSubagentThreads.isNotEmpty() || state.pendingSubagentTasks.isNotEmpty()) {
-                        item(key = "subagent_task_list") {
-                            Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
-                                io.zer0.muse.ui.taskcard.SubagentTaskListCard(
-                                    activeThreads = state.activeSubagentThreads,
-                                    pendingTasks = state.pendingSubagentTasks,
-                                    onCancel = { taskId -> viewModel.cancelSubagentTask(taskId) },
-                                )
-                            }
-                        }
-                    }
-                }
-                }
-                }
-                } // I3: 聊天区错误边界收尾
-            }
-
-            // v1.0.29: 滚动到底部按钮 — 改为 GPT 风格小圆形透明按钮,
-            // 仅在用户主动上滑(userScrolledUp)后显示,位于输入栏上方。
-            AnimatedVisibility(
-                visible = userScrolledUp && visibleMessages.isNotEmpty(),
-                enter = MuseMotion.verticalSlideFadeEnter(initialOffsetY = { it / 2 }),
-                exit = MuseMotion.verticalSlideFadeExit(targetOffsetY = { it / 2 }),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = MusePaddings.screen)
-                    .navigationBarsPadding(),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(MuseIconSizes.touchTarget)
-                        .clickable {
-                            userScrolledUp = false
-                            isProgrammaticScroll.value = true
-                            scrollToBottomScope.launch {
-                                val msgs = visibleMessages
-                                if (msgs.isEmpty()) return@launch
-                                try {
-                                    // v2.x: 与自动跟随统一口径 — 向列表末端滚到不能再滚,
-                                    // 不再依赖“消息底部偏移”(长消息上方向相反)。
-                                    var snapGuard = 0
-                                    while (listState.canScrollForward && snapGuard < 100) {
-                                        listState.scrollBy(SNAP_SCROLL_STEP_PX)
-                                        snapGuard++
-                                    }
-                                } finally {
-                                    isProgrammaticScroll.value = false
-                                    // v1.0.92: 消费紧随的程序滚动结束事件,防误锁
-                                    programmaticScrollCooldownUntil = System.currentTimeMillis() + 250L
-                                }
-                            }
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                        shape = CircleShape,
-                        tonalElevation = 0.dp,
-                        shadowElevation = 0.dp,
-                        modifier = Modifier.size(36.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = MuseIcons.arrowDown,
-                                contentDescription = stringResource(R.string.chat_scroll_to_bottom_cd),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(MuseIconSizes.iconSmall),
-                            )
-                        }
-                    }
-                }
-            }
-
-            // 断点续传(工具中断恢复)Banner:检测到本会话有未完成的工具调用时显示
-            // 用户上次流式被中断(手动停止/进程被杀),tool_calls 队列未执行完毕。
-            // 提供两个操作:
-            //  - 恢复执行:调 viewModel.resumePendingToolCalls 依次执行 pending 工具,
-            //    结果作为 TOOL 消息回填,再触发 launchStream 让 LLM 继续
-            //  - 丢弃:调 viewModel.discardPendingToolCalls 清空 pending 记录,Banner 隐藏
-            // U-18: 顶部横幅互斥 — 错误 > 断点续传 > 压缩 > 委派,避免同锚点(TopCenter)重叠。
-            // 用组合显示条件只保留最高优先级横幅,保持原有状态字段不变。
-            val showPendingResume = state.pendingToolCallCount > 0 && !isStreaming
-            AnimatedVisibility(
-                // v1.0.20 (Task 3): isStreaming 读派生值,避免 input 按键触发 Banner 重组
-                visible = showPendingResume && state.errors.isEmpty(),
-                enter = MuseMotion.expandFadeEnter(),
-                exit = MuseMotion.expandFadeExit(),
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
-            ) {
-                val pendingCd = stringResource(R.string.chat_pending_tools_cd)
-                Surface(
-                    color = MaterialTheme.colorScheme.tertiaryContainer,
-                    shape = MuseShapes.medium,
-                    tonalElevation = 3.dp,
-                    modifier = Modifier
-                        .padding(MusePaddings.itemGap)
-                        .semantics { contentDescription = pendingCd },
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(MusePaddings.itemGap),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
-                    ) {
-                        Icon(
-                            imageVector = MuseIcons.alertCircle,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                            modifier = Modifier.size(MuseIconSizes.iconSmall),
-                        )
-                        Column(
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Text(
-                                text = stringResource(
-                                    R.string.chat_pending_tools_banner_title,
-                                    state.pendingToolCallCount,
-                                ),
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                text = stringResource(R.string.chat_pending_tools_banner_subtitle),
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                        MuseCapsuleButton(
-                            text = stringResource(R.string.chat_pending_tools_resume),
-                            onClick = {
-                                state.currentSessionId?.let { viewModel.resumePendingToolCalls(it) }
-                            },
-                            variant = IosCapsuleButtonVariant.Text,
-                            fillWidth = false,
-                        )
-                        MuseCapsuleButton(
-                            text = stringResource(R.string.chat_pending_tools_discard),
-                            onClick = {
-                                // CHAT-10: 丢弃前确认 — 未完成调用丢弃后不可恢复
-                                showDiscardConfirm = true
-                            },
-                            variant = IosCapsuleButtonVariant.Text,
-                            fillWidth = false,
-                        )
-                    }
-                }
-            }
-            // CHAT-10: 丢弃未完成工具调用确认对话框
-            if (showDiscardConfirm) {
-                MuseDialog(
-                    onDismissRequest = { showDiscardConfirm = false },
-                    title = stringResource(R.string.chat_pending_tools_discard_confirm_title),
-                    content = {
-                        Text(stringResource(R.string.chat_pending_tools_discard_confirm_msg))
-                    },
-                    confirmText = stringResource(R.string.chat_pending_tools_discard),
-                    destructive = true,
-                    onConfirm = {
-                        showDiscardConfirm = false
-                        state.currentSessionId?.let { viewModel.discardPendingToolCalls(it) }
-                    },
-                )
-            }
-
-            // v1.0.4 (P2): 压缩会话历史 Banner — /compact 期间持续显示,
-            // (原仅顶部 IconButton 替换为转圈,对话区无反馈,用户不知道压缩是否在运行)
-            AnimatedVisibility(
-                // U-18: 压缩横幅仅在无错误且无断点续传时显示,避免与高优先级横幅重叠
-                visible = state.isCompressing && state.errors.isEmpty() && !showPendingResume,
-                enter = MuseMotion.expandFadeEnter(),
-                exit = MuseMotion.expandFadeExit(),
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
-            ) {
-                Surface(
-                    color = MaterialTheme.colorScheme.tertiaryContainer,
-                    shape = MuseShapes.medium,
-                    tonalElevation = 3.dp,
-                    modifier = Modifier.padding(MusePaddings.itemGap),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(MusePaddings.itemGap),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
-                    ) {
-                        MuseSpinner(
-                            size = MuseIconSizes.iconSmall,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer,
-                        )
-                        Text(
-                            text = stringResource(R.string.chat_compressing_banner),
-                            color = MaterialTheme.colorScheme.onTertiaryContainer,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
-            }
-
-            // v1.0.92: 子代理悬浮小窗 — 有活跃子任务时右侧贴边浮现,点击展开任务面板。
-            // 只读订阅 state 快照;唯一操作是取消任务,不影响消息流与输入。
-            SubagentFloatingWindow(
-                activeThreads = state.activeSubagentThreads,
-                pendingTasks = state.pendingSubagentTasks,
-                onCancelTask = { taskId -> viewModel.cancelSubagentTask(taskId) },
-            )
-            // v1.0.4 (P2): 委派链路顶部 Banner — 当前有 RUNNING 子任务时显示进度,
-            // 避免用户必须滚到末尾才能在 TaskCard 内看到委派链路信息
-            val runningDelegateCount = state.delegationChain.count {
-                it.status == io.zer0.muse.ui.taskcard.DelegationNodeStatus.RUNNING
-            }
-            AnimatedVisibility(
-                // U-18: 委派横幅让位于错误/断点续传,仅共享锚点时保持最高优先级横幅
-                visible = runningDelegateCount > 0 && !state.isCompressing && state.errors.isEmpty() && !showPendingResume,
-                enter = MuseMotion.expandFadeEnter(),
-                exit = MuseMotion.expandFadeExit(),
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
-            ) {
-                Surface(
-                    color = MaterialTheme.colorScheme.tertiaryContainer,
-                    shape = MuseShapes.medium,
-                    tonalElevation = 3.dp,
-                    modifier = Modifier.padding(MusePaddings.itemGap),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(MusePaddings.itemGap),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
-                    ) {
-                        Icon(
-                            imageVector = MuseIcons.gitMerge,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                            modifier = Modifier.size(MuseIconSizes.iconSmall),
-                        )
-                        Text(
-                            text = stringResource(R.string.chat_delegation_banner, runningDelegateCount),
-                            color = MaterialTheme.colorScheme.onTertiaryContainer,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
-            }
-
-            // v0.49: 多错误列表展示(每条带重试/关闭按钮,AnimatedVisibility 过渡)
-            // v1.131: 红色网络离线 banner 从底部移到顶部,避免遮挡输入栏
-            // U-1: 未配置模型服务常驻轻提示条 — 无 provider/无 key(isConfigured=false)时显示,
-            // 点击跳转模型设置面板;仅在无更高优先级横幅时展示,避免与错误横幅重叠。
-            AnimatedVisibility(
-                visible = !state.isConfigured &&
-                    state.errors.isEmpty() && !showPendingResume && !state.isCompressing,
-                enter = MuseMotion.expandFadeEnter(),
-                exit = MuseMotion.expandFadeExit(),
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
-            ) {
-                Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = MuseShapes.medium,
-                    tonalElevation = 1.dp,
-                    modifier = Modifier
-                        .padding(MusePaddings.itemGap)
-                        .clickable { sheetState.showModelSheet = true },
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(MusePaddings.itemGap),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
-                    ) {
-                        Icon(
-                            imageVector = MuseIcons.alertCircle,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(MuseIconSizes.iconSmall),
-                        )
-                        Text(
-                            text = stringResource(R.string.chat_model_not_configured_hint),
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
-            }
-
-            AnimatedVisibility(
-                visible = state.errors.isNotEmpty(),
-                enter = MuseMotion.expandFadeEnter(),
-                exit = MuseMotion.expandFadeExit(),
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.padding(MusePaddings.itemGap),
-                    ) {
-                        state.errors.forEach { err ->
-                            // L-S4: forEach 内加 key,提供稳定标识
-                            key(err.id) {
-                                val errorCd = stringResource(R.string.chat_error_cd, err.message)
-                                Surface(
-                                    color = MaterialTheme.colorScheme.errorContainer,
-                                    shape = MuseShapes.medium,
-                                    tonalElevation = 3.dp,
-                                    modifier = Modifier.semantics {
-                                        contentDescription = errorCd
-                                    },
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(MusePaddings.itemGap),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
-                                    ) {
-                                        Text(
-                                            text = err.message,
-                                            color = MaterialTheme.colorScheme.onErrorContainer,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                        // 重试:基于上一条 user 消息重新生成 assistant 回复
-                                        // M-S11: 仅网络/未知类错误显示重试按钮(API_KEY/RATE_LIMIT 重试无意义)
-                                        if (err.type == ChatErrorType.NETWORK || err.type == ChatErrorType.UNKNOWN) {
-                                            MuseCapsuleButton(
-                                                text = stringResource(R.string.chat_retry),
-                                                onClick = { viewModel.regenerateLastAssistant() },
-                                                variant = IosCapsuleButtonVariant.Text,
-                                                fillWidth = false,
-                                            )
-                                        }
-                                        MuseCapsuleButton(
-                                            text = stringResource(R.string.action_close),
-                                            onClick = { viewModel.dismissError(err.id) },
-                                            variant = IosCapsuleButtonVariant.Text,
-                                            fillWidth = false,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            // v1.4: TTS 悬浮控制器(底部右下角,InputBar 上方)
-            // 仅当 TTS 正在播放/暂停时显示(Idle 时由 AnimatedVisibility 自动隐藏)
-            TtsControllerWidget(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = MusePaddings.screen, bottom = MusePaddings.screen)
-                    .navigationBarsPadding(),
-            )
-            // A1: 会话内查找条 — 顶层悬浮(消息列表之上、顶栏三岛之下,自带背景 Surface)
-            if (showInChatSearch) {
-                InChatFindBar(
-                    query = inChatQuery,
-                    onQueryChange = { inChatQuery = it },
-                    matchCount = findMatches.size,
-                    currentIndex = if (findMatches.isEmpty()) 0 else currentMatchIndex + 1,
-                    onPrev = { jumpToMatch(currentMatchIndex - 1) },
-                    onNext = { jumpToMatch(currentMatchIndex + 1) },
-                    onClose = {
-                        showInChatSearch = false
-                        inChatQuery = ""
-                        currentMatchIndex = 0
-                        viewModel.setTargetMessage(null, null)
-                    },
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .statusBarsPadding()
-                        // 顶栏高度约 56dp,查找条固定落在标题岛下方,不再压住三岛。
-                        .padding(
-                            top = 56.dp,
-                            start = MusePaddings.screen,
-                            end = MusePaddings.screen,
-                            bottom = 4.dp,
-                        ),
-                )
-            }
-        } // Box
-
-        // F-2: 跨会话转发 — 弹会话选择对话框,选目标会话后追加该消息文本
-        forwardText?.let { text ->
-            val targetSessions = state.sessions.filter { it.id != state.currentSessionId }
-            MuseDialog(
-                onDismissRequest = { forwardText = null },
-                title = stringResource(R.string.chat_forward_dialog_title),
-                content = {
-                    Column(verticalArrangement = Arrangement.spacedBy(MusePaddings.tightGap)) {
-                        if (targetSessions.isEmpty()) {
-                            Text(
-                                text = stringResource(R.string.chat_forward_no_session),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        } else {
-                            targetSessions.take(20).forEach { s ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(MuseShapes.small)
-                                        .clickable {
-                                            forwardText = null
-                                            ioScope.launch {
-                                                val ok = viewModel.forwardMessageToSession(s.id, text)
-                                                MuseToast.show(
-                                                    context.getString(
-                                                        if (ok) R.string.chat_forward_done else R.string.chat_forward_no_session,
-                                                        s.title,
-                                                    ),
-                                                )
-                                            }
-                                        }
-                                        .padding(MusePaddings.cardInner),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Icon(
-                                        imageVector = MuseIcons.swapHorizontal,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(MuseIconSizes.iconMedium),
-                                    )
-                                    Spacer(Modifier.width(MusePaddings.tightGap))
-                                    Text(
-                                        text = s.title.ifBlank { stringResource(R.string.session_repo_default_title) },
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                },
-                onConfirm = null,
-                dismissText = stringResource(R.string.action_close),
-                onDismiss = { forwardText = null },
-            )
-            // A6: 消息地图 — CHAT-07: 移到 Scaffold 内容层内(最后绘制、置顶),
-            // 热区止于输入栏上方,不再压住输入岛右缘/发送键。
-            if (messages.size >= MESSAGE_MAP_MIN_MESSAGES && visibleMessages.isNotEmpty()) {
-                MessageMapBar(
-                    messages = visibleMessages,
-                    listState = listState,
-                    messageStartIndex = messageStartIndex,
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .statusBarsPadding()
-                        .navigationBarsPadding()
-                        .padding(end = MusePaddings.tightGap),
-                )
-            }
-        }
-
-        ChatSheetHost(
-            sheetState = sheetState,
-            viewModel = viewModel,
-            knowledgeDocs = knowledgeDocs,
-            speechLauncher = speechLauncher,
-            ioScope = ioScope,
-            onOpenPromptTemplateManager = onOpenPromptTemplateManager,
-        )
         } // Scaffold
 
         // Agent Tab 嵌入 HomeScreen 时由 HomeScreen 提供顶栏,ChatScreen 自己的 topBar 被隐藏。
@@ -2501,10 +2648,11 @@ fun ChatScreen(
         if (isAgentMode && onBack == null) {
             BrowserStatusCapsule(
                 manager = currentBrowserManager,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = MusePaddings.contentGap)
-                    .zIndex(10f),
+                modifier =
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = MusePaddings.contentGap)
+                        .zIndex(10f),
             )
         }
 
@@ -2512,12 +2660,14 @@ fun ChatScreen(
         AnimatedVisibility(
             visible = showVoiceConversation,
             // v2.x: 裸 fade 换令牌(时长随系统动画缩放)
-            enter = androidx.compose.animation.fadeIn(
-                animationSpec = MuseMotion.tween(MuseAnimation.SLOW_MS),
-            ),
-            exit = androidx.compose.animation.fadeOut(
-                animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
-            ),
+            enter =
+                androidx.compose.animation.fadeIn(
+                    animationSpec = MuseMotion.tween(MuseAnimation.SLOW_MS),
+                ),
+            exit =
+                androidx.compose.animation.fadeOut(
+                    animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+                ),
         ) {
             VoiceConversationMode(
                 onClose = { showVoiceConversation = false },
@@ -2540,9 +2690,10 @@ private fun PinnedMessageBanner(
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
         shape = MuseShapes.medium,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = MusePaddings.contentGap),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = MusePaddings.contentGap),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = MusePaddings.contentGap, vertical = MusePaddings.tightGap),
@@ -2560,9 +2711,10 @@ private fun PinnedMessageBanner(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .weight(1f, fill = false)
-                    .padding(start = MusePaddings.tightGap),
+                modifier =
+                    Modifier
+                        .weight(1f, fill = false)
+                        .padding(start = MusePaddings.tightGap),
             )
             MuseCapsuleButton(
                 text = stringResource(R.string.action_close),
@@ -2578,6 +2730,7 @@ private fun PinnedMessageBanner(
  * H10: 手动压缩参数对话框 — 保留条数 / 附加指令 / 保留区 token 估算。
  * 确认后以 (keepRecent, instruction) 回调,由 ChatScreen 转发 manualCompress。
  */
+
 /** v2.x: 委员会对话框 — 从主对话召唤一组助手开临时群聊讨论,结论回灌本条会话。 */
 @Composable
 fun CommitteeDialog(

@@ -26,18 +26,18 @@ import io.zer0.muse.session.SessionExecutionRegistry
 import io.zer0.muse.session.TurnPhase
 import io.zer0.muse.ui.ChatErrorType
 import io.zer0.muse.ui.ChatStreamPhase
-import io.zer0.muse.util.ErrorMessages
-import io.zer0.muse.util.TokenEstimator
 import io.zer0.muse.ui.buildSendText
 import io.zer0.muse.ui.canContinueGeneration
 import io.zer0.muse.ui.canRegenerate
 import io.zer0.muse.ui.canStartGeneration
 import io.zer0.muse.ui.resumeFromInterrupted
+import io.zer0.muse.util.ErrorMessages
+import io.zer0.muse.util.TokenEstimator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -65,7 +65,6 @@ internal class ChatGenerationController(
     private val onCancelPendingApprovals: (String?) -> Unit,
     private val executionRegistry: SessionExecutionRegistry? = null,
 ) {
-
     // B-1: 会话删除写抑制集 — 删除会话消息时登记,令该会话全部在途流式落盘
     // (persistCurrentAssistant / persistInterruptedAssistant / 收尾 upsertMessage)
     // 跳过,防止删除后"复活"。新流式 launchStream 启动时清除,允许删除后重新生成。
@@ -130,9 +129,13 @@ internal class ChatGenerationController(
         val docs = accessor.snapshot.pendingDocuments
         // v1.136 T10: 合并待发送文档内容到消息文本(文档文本 + 用户输入)
         var text = buildSendText(rawText, docs.map { it.content })
-        val canStart = canStartGeneration(
-            text, images, accessor.snapshot.isStreaming, deps.generationState.isCreatingAgentSession
-        )
+        val canStart =
+            canStartGeneration(
+                text,
+                images,
+                accessor.snapshot.isStreaming,
+                deps.generationState.isCreatingAgentSession,
+            )
         if (!canStart) {
             return
         }
@@ -145,42 +148,45 @@ internal class ChatGenerationController(
             return
         }
         // v1.68: 引用回复必须把被引用内容拼进消息体,LLM 才能读到引用原文。
-        val replyingToLatest = accessor.snapshot.replyingTo?.let { r ->
-            deps.stateStore.messages.value.find { it.id == r.id } ?: r
-        }
-        val quoteText = accessor.snapshot.replyQuoteOverride?.takeIf { it.isNotBlank() }
-            ?: replyingToLatest?.content?.takeIf { it.isNotBlank() }
+        val replyingToLatest =
+            accessor.snapshot.replyingTo?.let { r ->
+                deps.stateStore.messages.value.find { it.id == r.id } ?: r
+            }
+        val quoteText =
+            accessor.snapshot.replyQuoteOverride?.takeIf { it.isNotBlank() }
+                ?: replyingToLatest?.content?.takeIf { it.isNotBlank() }
         if (quoteText != null) {
             text = buildQuotedContent(quoteText, text)
         }
 
         // v1.28: Agent 模式用独立的 agentSessionId,无会话时自动创建
         // v1.79 (M-CV8): 用 isCreatingAgentSession 标志防止重入,避免快速双击创建两个会话
-        val sessionId = if (accessor.snapshot.isAgentMode) {
-            accessor.snapshot.agentSessionId ?: run {
-                if (deps.generationState.isCreatingAgentSession) return
-                deps.generationState.isCreatingAgentSession = true
-                accessor.coroutineScope.launch {
-                    try {
-                        val assistantId = accessor.snapshot.currentAssistant?.id ?: "default"
-                        val id = deps.sessionRepository.createAgentSession(assistantId)
-                        accessor.update { it.copy(agentSessionId = id) }
-                        // v1.53-A1: 分页加载 Agent 会话消息(新会话为空,同时重置 hasMoreHistory)
-                        val (msgs, hasMore) = deps.messageController.loadMessagesPaged(id)
-                        deps.stateStore.messages.value = msgs
-                        accessor.update {
-                            it.copy(hasMoreHistory = hasMore, isLoadingMore = false, lastHistoryLoadCount = 0)
+        val sessionId =
+            if (accessor.snapshot.isAgentMode) {
+                accessor.snapshot.agentSessionId ?: run {
+                    if (deps.generationState.isCreatingAgentSession) return
+                    deps.generationState.isCreatingAgentSession = true
+                    accessor.coroutineScope.launch {
+                        try {
+                            val assistantId = accessor.snapshot.currentAssistant?.id ?: "default"
+                            val id = deps.sessionRepository.createAgentSession(assistantId)
+                            accessor.update { it.copy(agentSessionId = id) }
+                            // v1.53-A1: 分页加载 Agent 会话消息(新会话为空,同时重置 hasMoreHistory)
+                            val (msgs, hasMore) = deps.messageController.loadMessagesPaged(id)
+                            deps.stateStore.messages.value = msgs
+                            accessor.update {
+                                it.copy(hasMoreHistory = hasMore, isLoadingMore = false, lastHistoryLoadCount = 0)
+                            }
+                            enqueueSend(text, images, id)
+                        } finally {
+                            deps.generationState.isCreatingAgentSession = false
                         }
-                        enqueueSend(text, images, id)
-                    } finally {
-                        deps.generationState.isCreatingAgentSession = false
                     }
+                    return
                 }
-                return
+            } else {
+                accessor.snapshot.currentSessionId ?: return
             }
-        } else {
-            accessor.snapshot.currentSessionId ?: return
-        }
 
         if (accessor.snapshot.isDrawMode) {
             deps.generateImage(text, sessionId)
@@ -219,7 +225,9 @@ internal class ChatGenerationController(
                 hasSession = true,
                 hasSelectedUserVariant = tree.selectedUserNode != null && tree.selectedUserVariant != null,
             )
-        ) return
+        ) {
+            return
+        }
         val update = tree.retryLastAssistant()
         val newMsg = update.newMessage ?: return
         deps.stateStore.conversationTree.value = update.tree
@@ -230,14 +238,15 @@ internal class ChatGenerationController(
         deps.sessionMemoryCache.remove(sessionId)
         // 先完成新 assistant variant 的落库,再启动生成,避免分支数据库竞态。
         accessor.coroutineScope.launch {
-            val persisted = withContext(Dispatchers.IO) {
-                runCatching {
-                    deps.sessionRepository.upsertMessage(sessionId, newMsg)
-                    update.changedGroupId?.let { groupId ->
-                        deps.sessionRepository.updateVariantCount(groupId, newMsg.variantCount)
-                    }
-                }.onFailure { e -> Logger.e("ChatVM", "regenerate upsertMessage failed", e) }.isSuccess
-            }
+            val persisted =
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        deps.sessionRepository.upsertMessage(sessionId, newMsg)
+                        update.changedGroupId?.let { groupId ->
+                            deps.sessionRepository.updateVariantCount(groupId, newMsg.variantCount)
+                        }
+                    }.onFailure { e -> Logger.e("ChatVM", "regenerate upsertMessage failed", e) }.isSuccess
+                }
             if (persisted) {
                 launchStream(newMsg.id, sessionId, true, null)
             } else {
@@ -248,30 +257,40 @@ internal class ChatGenerationController(
 
     /** v5: 乐观更新 — 用户消息立即显示,不等待 DB 写入;随后入队由消费循环串行处理。 */
     @Suppress("LongMethod")
-    fun enqueueSend(text: String, images: List<String>, sessionId: String) {
+    fun enqueueSend(
+        text: String,
+        images: List<String>,
+        sessionId: String,
+    ) {
         // v2.1: 记录用户活动到活跃度画像,并更新对话结束类型(驱动自适应主动消息调度)
         deps.activityProfile.recordActivity()
         deps.activityProfile.setConversationEndType(
-            if (UserActivityProfile.containsEndKeyword(text)) ConversationEndType.USER_EXPLICIT_END
-            else ConversationEndType.NATURAL_FADE
+            if (UserActivityProfile.containsEndKeyword(text)) {
+                ConversationEndType.USER_EXPLICIT_END
+            } else {
+                ConversationEndType.NATURAL_FADE
+            },
         )
         // P2-4: 审计日志 — 发送消息
         deps.auditLogger.log(
             category = "user_action",
             action = "send_message",
             target = sessionId,
-            detail = mapOf(
-                "text_length" to text.length,
-                "image_count" to images.size,
-                "assistant_id" to (accessor.snapshot.currentAssistant?.id ?: "default"),
-            ),
+            detail =
+                mapOf(
+                    "text_length" to text.length,
+                    "image_count" to images.size,
+                    "assistant_id" to (accessor.snapshot.currentAssistant?.id ?: "default"),
+                ),
         )
         // v2.3: 任务模型路由只绑定到当前发送请求,不能把一次自动判断永久写成会话手动覆盖。
         // 否则先发一条“写代码”后,后续普通闲聊会一直粘在代码模型上。
-        val selectedModel = sessionId.let { deps.generationState.sessionModelOverrides[it] }
-            ?: deps.generationState.globalSelectedModelId
-        val selectedProvider = sessionId.let { deps.generationState.sessionProviderOverrides[it] }
-            ?: deps.generationState.globalActiveProviderId
+        val selectedModel =
+            sessionId.let { deps.generationState.sessionModelOverrides[it] }
+                ?: deps.generationState.globalSelectedModelId
+        val selectedProvider =
+            sessionId.let { deps.generationState.sessionProviderOverrides[it] }
+                ?: deps.generationState.globalActiveProviderId
         val routed = deps.settings.recommendTaskRoute(text, selectedModel, selectedProvider)
         if (routed != null) {
             // 仅更新当前 UI 快照给用户可见;生成结束后恢复真实的手动/全局选择。
@@ -289,23 +308,24 @@ internal class ChatGenerationController(
         val assistantMsg = UIMessage(role = MessageRole.ASSISTANT, content = "", createdAt = userMsg.createdAt + 1)
         // v1.0.15: 异步写入 outbox(保证"刚点击发送就退出"时消息不丢失)
         val outboxId = Uuid.random().toString()
-        val outboxInsertJob = accessor.coroutineScope.launch(Dispatchers.IO) {
-            withContext(NonCancellable) {
-                resultOf {
-                    deps.sessionRepository.insertOutbox(
-                        MessageOutboxEntity(
-                            id = outboxId,
-                            sessionId = sessionId,
-                            text = text,
-                            imageBase64Json = deps.idListJson.encodeToString(images),
-                            userMessageId = userMsg.id.toString(),
-                            assistantMessageId = assistantMsg.id.toString(),
-                            createdAt = System.currentTimeMillis(),
+        val outboxInsertJob =
+            accessor.coroutineScope.launch(Dispatchers.IO) {
+                withContext(NonCancellable) {
+                    resultOf {
+                        deps.sessionRepository.insertOutbox(
+                            MessageOutboxEntity(
+                                id = outboxId,
+                                sessionId = sessionId,
+                                text = text,
+                                imageBase64Json = deps.idListJson.encodeToString(images),
+                                userMessageId = userMsg.id.toString(),
+                                assistantMessageId = assistantMsg.id.toString(),
+                                createdAt = System.currentTimeMillis(),
+                            ),
                         )
-                    )
-                }.onError { _, t -> Logger.w("ChatVM", "outbox 写入失败,进程被杀可能丢失此消息", t) }
+                    }.onError { _, t -> Logger.w("ChatVM", "outbox 写入失败,进程被杀可能丢失此消息", t) }
+                }
             }
-        }
         deps.stateStore.messages.value = deps.stateStore.messages.value + userMsg + assistantMsg
         accessor.update {
             it.copy(
@@ -326,15 +346,18 @@ internal class ChatGenerationController(
                 inputHistoryIndex = null,
             )
         }
-        val sendResult = deps.generationState.sendChannel.trySend(
-            SendRequest(
-                text, images, sessionId,
-                userMessage = userMsg,
-                assistantMessageId = assistantMsg.id,
-                outboxId = outboxId,
-                taskRouteSelection = routed,
+        val sendResult =
+            deps.generationState.sendChannel.trySend(
+                SendRequest(
+                    text,
+                    images,
+                    sessionId,
+                    userMessage = userMsg,
+                    assistantMessageId = assistantMsg.id,
+                    outboxId = outboxId,
+                    taskRouteSelection = routed,
+                ),
             )
-        )
         if (sendResult.isFailure) {
             // 队列已满,回滚乐观更新 + 删除 outbox(消息未入队,outbox 无用)
             accessor.coroutineScope.launch(Dispatchers.IO) {
@@ -342,9 +365,10 @@ internal class ChatGenerationController(
                 resultOf { deps.sessionRepository.deleteOutbox(outboxId) }
             }
             accessor.update {
-                val filtered = deps.stateStore.messages.value.filterNot { msg ->
-                    msg.id == userMsg.id || msg.id == assistantMsg.id
-                }
+                val filtered =
+                    deps.stateStore.messages.value.filterNot { msg ->
+                        msg.id == userMsg.id || msg.id == assistantMsg.id
+                    }
                 deps.stateStore.messages.value = filtered
                 it.copy(isStreaming = false, isWaitingFirstToken = false)
             }
@@ -357,9 +381,10 @@ internal class ChatGenerationController(
     /** 队列消费失败时回滚某条请求的乐观更新(user/assistant 占位消息)。 */
     fun rollbackOptimisticSend(req: SendRequest) {
         if (accessor.snapshot.currentSessionId != req.sessionId) return
-        deps.stateStore.messages.value = deps.stateStore.messages.value.filterNot { message ->
-            message.id == req.userMessage.id || message.id == req.assistantMessageId
-        }
+        deps.stateStore.messages.value =
+            deps.stateStore.messages.value.filterNot { message ->
+                message.id == req.userMessage.id || message.id == req.assistantMessageId
+            }
     }
 
     /** 消费单条发送请求:会话匹配校验 → 落盘 user 消息 → 启动生成 → 清理 outbox。 */
@@ -367,20 +392,22 @@ internal class ChatGenerationController(
     suspend fun consumeSendRequest(req: SendRequest) {
         deps.generationState.outboxRecoveryQueuedIds.remove(req.outboxId)
         val state = accessor.snapshot
-        val currentSid = if (state.isAgentMode) {
-            state.agentSessionId ?: req.sessionId
-        } else {
-            state.currentSessionId ?: req.sessionId
-        }
+        val currentSid =
+            if (state.isAgentMode) {
+                state.agentSessionId ?: req.sessionId
+            } else {
+                state.currentSessionId ?: req.sessionId
+            }
         if (currentSid != req.sessionId) {
             // 会话已切换,该 req 被跳过 — 仅回滚乐观更新(占位消息),保留 outbox 给切回后的恢复流程。
             // B-14: 不清全局 isStreaming —— 旧会话请求不得隐藏当前会话的流式动画;
             // 仅当当前会话(List 当前)确无在途生成时才复位指示器。
             val currentGenerating = chatGenerationManager.activeGenerations.value.containsKey(currentSid)
             accessor.update { st ->
-                val filtered = deps.stateStore.messages.value.filterNot { msg ->
-                    msg.id == req.userMessage.id || msg.id == req.assistantMessageId
-                }
+                val filtered =
+                    deps.stateStore.messages.value.filterNot { msg ->
+                        msg.id == req.userMessage.id || msg.id == req.assistantMessageId
+                    }
                 deps.stateStore.messages.value = filtered
                 if (currentGenerating) st else st.copy(isStreaming = false, isWaitingFirstToken = false)
             }
@@ -416,13 +443,13 @@ internal class ChatGenerationController(
                 deps.addError(
                     ChatErrorType.UNKNOWN,
                     deps.appContext.getString(
-                            R.string.err_chat_msg_save_failed,
-                            if (e.message?.contains("connection is closed", ignoreCase = true) == true) {
-                                deps.appContext.getString(R.string.err_chat_db_closed)
-                            } else {
-                                e.message ?: deps.appContext.getString(R.string.err_chat_unknown)
-                            },
-                        ),
+                        R.string.err_chat_msg_save_failed,
+                        if (e.message?.contains("connection is closed", ignoreCase = true) == true) {
+                            deps.appContext.getString(R.string.err_chat_db_closed)
+                        } else {
+                            e.message ?: deps.appContext.getString(R.string.err_chat_unknown)
+                        },
+                    ),
                     true,
                 )
                 accessor.update { it.copy(isStreaming = false) }
@@ -430,6 +457,7 @@ internal class ChatGenerationController(
             }
             return
         }
+        rehydrateOptimisticPlaceholders(currentSid, req)
         val delegated = deps.maybeAutoRoute(req.text, req.assistantMessageId, currentSid)
         if (delegated) {
             restoreSelectionForSession(currentSid)
@@ -445,51 +473,117 @@ internal class ChatGenerationController(
         resultOf { deps.sessionRepository.deleteOutbox(req.outboxId) }
     }
 
+    /**
+     * v2.2.1 修复: outbox 恢复重投路径(切会话回退后重新投递)不经过 enqueueSend 的乐观插入。
+     * 若占位不在列表,流式更新会被 updateAssistant 的 detached 守卫整段跳过 ——
+     * 表现为"后端已回、前端不渲染,重试或重进会话才出现"。这里在当前会话被显示时补回占位。
+     */
+    private fun rehydrateOptimisticPlaceholders(
+        sessionId: String,
+        req: SendRequest,
+    ) {
+        val shown =
+            if (accessor.snapshot.isAgentMode) {
+                accessor.snapshot.agentSessionId
+            } else {
+                accessor.snapshot.currentSessionId
+            }
+        if (shown != sessionId) return
+        val messages = deps.stateStore.messages.value
+        val hasUser = messages.any { it.id == req.userMessage.id }
+        val hasAssistant = messages.any { it.id == req.assistantMessageId }
+        if (hasUser && hasAssistant) return
+        val additions =
+            buildList {
+                if (!hasUser) add(req.userMessage)
+                if (!hasAssistant) {
+                    add(
+                        UIMessage(
+                            id = req.assistantMessageId,
+                            role = MessageRole.ASSISTANT,
+                            content = "",
+                            createdAt = req.userMessage.createdAt + 1,
+                        ),
+                    )
+                }
+            }
+        if (additions.isEmpty()) return
+        deps.stateStore.messages.value = messages + additions
+        deps.messageController.rebuildConversationTree()
+        Logger.i(
+            "ChatVM",
+            "outbox 恢复: 补回占位消息 user=${req.userMessage.id.toString().take(8)}, " +
+                "assistant=${req.assistantMessageId.toString().take(8)}",
+        )
+    }
+
     /** 快速更新 token 计数(流式过程中每 200 字符或 1000ms 调用,避免每次重建 system prompt)。 */
     suspend fun updateContextTokenCount() {
         val msgsSnapshot = deps.stateStore.messages.value
         val sysPromptSnapshot = deps.systemPromptCache.cachedSystemPrompt
-        val tokenCount = withContext(Dispatchers.Default) {
-            runCatching { TokenEstimator.estimate(msgsSnapshot, sysPromptSnapshot) }
-                .onFailure { Logger.w("ChatVM", "TokenEstimator failed: ${it.message}") }
-                .getOrDefault(0)
-        }
+        val tokenCount =
+            withContext(Dispatchers.Default) {
+                runCatching { TokenEstimator.estimate(msgsSnapshot, sysPromptSnapshot) }
+                    .onFailure { Logger.w("ChatVM", "TokenEstimator failed: ${it.message}") }
+                    .getOrDefault(0)
+            }
         accessor.update { it.copy(contextTokenCount = tokenCount) }
     }
 
     /** 静态 system prompt 快照的失效 key(assistant/settings/工具清单/偏好等变化触发重建)。 */
-    internal fun computeStaticSnapshotKey(assistant: AssistantEntity?, memoryEnabled: Boolean): String {
+    internal fun computeStaticSnapshotKey(
+        assistant: AssistantEntity?,
+        memoryEnabled: Boolean,
+    ): String {
         val prefs = accessor.snapshot.chatPreferences
-        val registeredToolFingerprint = deps.toolRegistry.listTools()
-            .sortedBy { it.name }
-            .joinToString(";") { tool ->
-                "${tool.name}|${tool.description}|${tool.parameters}|${tool.required.sorted()}"
-            }
-            .hashCode()
+        val registeredToolFingerprint =
+            deps.toolRegistry.listTools()
+                .sortedBy { it.name }
+                .joinToString(";") { tool ->
+                    "${tool.name}|${tool.description}|${tool.parameters}|${tool.required.sorted()}"
+                }
+                .hashCode()
         val state = accessor.snapshot
         val effectiveSessionId = if (state.isAgentMode) state.agentSessionId else state.currentSessionId
-        val sessionSkillHash = state.sessions
-            .firstOrNull { it.id == effectiveSessionId }?.skillIdsJson?.hashCode() ?: 0
+        val sessionSkillHash =
+            state.sessions
+                .firstOrNull { it.id == effectiveSessionId }?.skillIdsJson?.hashCode() ?: 0
         // v1.0.72: 本会话不参考记忆标志加入缓存键
-        val sessionIgnoreMemory = state.sessions
-            .firstOrNull { it.id == effectiveSessionId }?.ignoreMemory ?: false
+        val sessionIgnoreMemory =
+            state.sessions
+                .firstOrNull { it.id == effectiveSessionId }?.ignoreMemory ?: false
         return buildString {
             append(assistant?.id ?: "null")
-            append("|"); append(assistant?.updatedAt ?: 0)
-            append("|"); append(assistant?.systemPrompt?.hashCode() ?: 0)
-            append("|"); append(assistant?.toolIdsJson?.hashCode() ?: 0)
-            append("|"); append(assistant?.mcpServerIdsJson?.hashCode() ?: 0)
-            append("|"); append(registeredToolFingerprint)
-            append("|"); append(assistant?.skillIdsJson?.hashCode() ?: 0)
-            append("|"); append(sessionSkillHash)
-            append("|"); append(assistant?.memoryEnabled ?: true)
-            append("|"); append(memoryEnabled)
-            append("|"); append(deps.settings.experienceEnabledCache)
-            append("|"); append(state.multiAgentConfig.enabled)
-            append("|"); append(prefs.showMoodBlock)
-            append("|"); append(prefs.responseStyle)
-            append("|"); append(prefs.responseTone)
-            append("|"); append(sessionIgnoreMemory)
+            append("|")
+            append(assistant?.updatedAt ?: 0)
+            append("|")
+            append(assistant?.systemPrompt?.hashCode() ?: 0)
+            append("|")
+            append(assistant?.toolIdsJson?.hashCode() ?: 0)
+            append("|")
+            append(assistant?.mcpServerIdsJson?.hashCode() ?: 0)
+            append("|")
+            append(registeredToolFingerprint)
+            append("|")
+            append(assistant?.skillIdsJson?.hashCode() ?: 0)
+            append("|")
+            append(sessionSkillHash)
+            append("|")
+            append(assistant?.memoryEnabled ?: true)
+            append("|")
+            append(memoryEnabled)
+            append("|")
+            append(deps.settings.experienceEnabledCache)
+            append("|")
+            append(state.multiAgentConfig.enabled)
+            append("|")
+            append(prefs.showMoodBlock)
+            append("|")
+            append(prefs.responseStyle)
+            append("|")
+            append(prefs.responseTone)
+            append("|")
+            append(sessionIgnoreMemory)
         }
     }
 
@@ -503,78 +597,90 @@ internal class ChatGenerationController(
             val timeReminderEnabled = assistant?.enableTimeReminder ?: true
             val effectiveMemoryEnabled = memoryEnabled && deps.settings.isMemoryEnabled()
             // v1.0.72: 本会话不参考记忆标志
-            val effSid = if (accessor.snapshot.isAgentMode) {
-                accessor.snapshot.agentSessionId
-            } else {
-                accessor.snapshot.currentSessionId
-            }
-            val sessionIgnoreMem = accessor.snapshot.sessions
-                .firstOrNull { it.id == effSid }?.ignoreMemory ?: false
+            val effSid =
+                if (accessor.snapshot.isAgentMode) {
+                    accessor.snapshot.agentSessionId
+                } else {
+                    accessor.snapshot.currentSessionId
+                }
+            val sessionIgnoreMem =
+                accessor.snapshot.sessions
+                    .firstOrNull { it.id == effSid }?.ignoreMemory ?: false
             val memoryScope = assistant?.id?.takeIf { it.isNotBlank() && it != "default" } ?: "main"
             val memorySpaceId = deps.settings.currentSpaceIdFlow.firstOrNull().orEmpty().ifBlank { "default" }
             // 复用静态 system prompt 快照,只追加动态"当前时间"。作用域/空间也属于快照身份,
             // 否则切换 Assistant 或 Space 后会复用上一份记忆 prompt。
-            val currentKey = computeStaticSnapshotKey(assistant, effectiveMemoryEnabled) +
-                "|global=$useGlobalMemory|scope=$memoryScope|space=$memorySpaceId"
-            val staticSnapshot = if (currentKey == deps.systemPromptCache.cachedStaticSnapshotKey &&
-                deps.systemPromptCache.cachedStaticSystemPrompt.isNotBlank()
-            ) {
-                deps.systemPromptCache.cachedStaticSystemPrompt
-            } else {
-                val rebuilt = resultOf {
-                    deps.systemPromptAssembler.buildStaticSnapshot(
-                        assistant = assistant,
-                        memoryEnabled = effectiveMemoryEnabled,
-                        ignoreMemory = sessionIgnoreMem,
-                        useGlobalMemory = useGlobalMemory,
-                        memoryScope = memoryScope,
-                        memorySpaceId = memorySpaceId,
-                    )
-                }.getOrNull() ?: ""
-                deps.systemPromptCache.cachedStaticSystemPrompt = rebuilt
-                deps.systemPromptCache.cachedStaticSnapshotKey = currentKey
-                rebuilt
-            }
+            val currentKey =
+                computeStaticSnapshotKey(assistant, effectiveMemoryEnabled) +
+                    "|global=$useGlobalMemory|scope=$memoryScope|space=$memorySpaceId"
+            val staticSnapshot =
+                if (currentKey == deps.systemPromptCache.cachedStaticSnapshotKey &&
+                    deps.systemPromptCache.cachedStaticSystemPrompt.isNotBlank()
+                ) {
+                    deps.systemPromptCache.cachedStaticSystemPrompt
+                } else {
+                    val rebuilt =
+                        resultOf {
+                            deps.systemPromptAssembler.buildStaticSnapshot(
+                                assistant = assistant,
+                                memoryEnabled = effectiveMemoryEnabled,
+                                ignoreMemory = sessionIgnoreMem,
+                                useGlobalMemory = useGlobalMemory,
+                                memoryScope = memoryScope,
+                                memorySpaceId = memorySpaceId,
+                            )
+                        }.getOrNull() ?: ""
+                    deps.systemPromptCache.cachedStaticSystemPrompt = rebuilt
+                    deps.systemPromptCache.cachedStaticSnapshotKey = currentKey
+                    rebuilt
+                }
             val dynamicSection = if (timeReminderEnabled) deps.systemPromptAssembler.buildDynamicSection() else ""
             // v2.x: 表情包使用指南(动态读取;库为空/开关关闭时为空串)
             val stickerGuide = resultOf { deps.systemPromptAssembler.buildStickerGuideSection() }.getOrNull().orEmpty()
-            val combinedSystemPrompt = buildString {
-                if (staticSnapshot.isNotBlank()) append(staticSnapshot)
-                if (dynamicSection.isNotBlank()) {
-                    if (isNotEmpty()) append("\n\n---\n\n")
-                    append(dynamicSection)
-                }
-                if (stickerGuide.isNotBlank()) {
-                    if (isNotEmpty()) append("\n\n---\n\n")
-                    append(stickerGuide)
-                }
-                // 相关记忆检索(仅当记忆开启且非子助手;检索失败静默跳过)。
-                if (memoryEnabled && !sessionIgnoreMem) {
-                    // buildSystemPrompt 在 applyTransformers 之前执行,此时 transformedMessages
-                    // 仍为空;使用本轮已准备好的 rawHistory,否则相关记忆永远不会注入。
-                    val lastUserInput = rawHistory.lastOrNull { it.role == MessageRole.USER }?.content
-                    if (!lastUserInput.isNullOrBlank()) {
-                        val relevant = resultOf {
-                            deps.systemPromptAssembler.buildRelevantMemorySection(
-                                currentUserInput = lastUserInput,
-                                store = null,
-                                scope = memoryScope,
-                                spaceId = memorySpaceId,
-                                assistantId = assistant?.id,
-                            )
-                        }
-                            .onError { msg, _ -> Logger.w("ChatVM", "buildRelevantMemorySection 失败: $msg") }
-                            .getOrNull() ?: ""
-                        if (relevant.isNotBlank()) {
-                            if (isNotEmpty()) append("\n\n---\n\n")
-                            append(relevant)
+            val combinedSystemPrompt =
+                buildString {
+                    if (staticSnapshot.isNotBlank()) append(staticSnapshot)
+                    if (dynamicSection.isNotBlank()) {
+                        if (isNotEmpty()) append("\n\n---\n\n")
+                        append(dynamicSection)
+                    }
+                    if (stickerGuide.isNotBlank()) {
+                        if (isNotEmpty()) append("\n\n---\n\n")
+                        append(stickerGuide)
+                    }
+                    // 相关记忆检索(仅当记忆开启且非子助手;检索失败静默跳过)。
+                    if (memoryEnabled && !sessionIgnoreMem) {
+                        // buildSystemPrompt 在 applyTransformers 之前执行,此时 transformedMessages
+                        // 仍为空;使用本轮已准备好的 rawHistory,否则相关记忆永远不会注入。
+                        val lastUserInput = rawHistory.lastOrNull { it.role == MessageRole.USER }?.content
+                        if (!lastUserInput.isNullOrBlank()) {
+                            val relevant =
+                                resultOf {
+                                    deps.systemPromptAssembler.buildRelevantMemorySection(
+                                        currentUserInput = lastUserInput,
+                                        store = null,
+                                        scope = memoryScope,
+                                        spaceId = memorySpaceId,
+                                        assistantId = assistant?.id,
+                                    )
+                                }
+                                    .onError { msg, _ -> Logger.w("ChatVM", "buildRelevantMemorySection 失败: $msg") }
+                                    .getOrNull() ?: ""
+                            if (relevant.isNotBlank()) {
+                                if (isNotEmpty()) append("\n\n---\n\n")
+                                append(relevant)
+                            }
                         }
                     }
                 }
-            }
-            systemMessages = if (combinedSystemPrompt.isBlank()) emptyList() else listOf(
-                UIMessage(role = MessageRole.SYSTEM, content = combinedSystemPrompt)
-            )
+            systemMessages =
+                if (combinedSystemPrompt.isBlank()) {
+                    emptyList()
+                } else {
+                    listOf(
+                        UIMessage(role = MessageRole.SYSTEM, content = combinedSystemPrompt),
+                    )
+                }
             deps.systemPromptCache.cachedSystemPrompt = combinedSystemPrompt
             updateContextTokenCount()
 
@@ -605,74 +711,83 @@ internal class ChatGenerationController(
                 }
             }
 
-            prefixMessages = buildList<UIMessage> {
-                addAll(systemMessages)
-                // presetMessages(预设对话)
-                assistant?.let { deps.assistantRepository.parsePresetMessages(it) }?.forEach { add(it) }
-                // v1.54: RAG 自动注入(失败不阻断主流程)。
-                val ragConfig = resultOf { deps.settings.getRagConfig() }.getOrNull() ?: io.zer0.muse.rag.RagConfig()
-                val effectiveRagConfig = assistant?.let {
-                    runCatching { deps.assistantRepository.mergeRagConfigOverride(it, ragConfig) }
-                        .onFailure { e -> Logger.w("ChatViewModel", "mergeRagConfigOverride 失败: ${e.message}") }
-                        .getOrDefault(ragConfig)
-                } ?: ragConfig
-                if (effectiveRagConfig.enabled) {
-                    val lastUser = rawHistory.lastOrNull { it.role == MessageRole.USER }
-                    val ragQuery = lastUser?.content?.takeIf { it.isNotBlank() }
-                    if (ragQuery != null) {
-                        val mentionDocIds = resultOf { deps.ragService.resolveMentionToDocIds(ragQuery) }
-                            .onError { msg, t -> Logger.w("ChatViewModel", "@mention 解析失败: $msg", t) }
-                            .getOrNull()
-                        // 助手绑定 KB 时,未显式 @mention 的查询只检索这些 KB;
-                        // 显式 mention 优先,可临时定向到用户指定的文档。
-                        val boundKnowledgeBaseIds = assistant
-                            ?.let { deps.assistantRepository.parseKnowledgeBaseIds(it) }
-                            .orEmpty()
-                        val boundDocIds = if (mentionDocIds.isNullOrEmpty()) {
-                            resultOf {
-                                deps.ragService.resolveKnowledgeBaseDocIds(boundKnowledgeBaseIds)
-                            }.onError { msg, t ->
-                                Logger.w("ChatViewModel", "助手绑定知识库展开失败: $msg", t)
-                            }.getOrNull()
-                        } else {
-                            emptyList()
-                        }
-                        val scopeDocIds = mentionDocIds.takeIf { !it.isNullOrEmpty() }
-                            ?: boundDocIds?.takeIf { it.isNotEmpty() }
-                        val injection = resultOf {
-                            deps.ragService.buildInjectionContextWithCitations(
-                                ragQuery, effectiveRagConfig, scopeDocIds,
-                            )
-                        }.onError { msg, _ ->
-                            deps.addError(
-                                ChatErrorType.NETWORK,
-                                deps.appContext.getString(R.string.err_chat_rag_failed, msg),
-                                true,
-                            )
-                        }.getOrNull()
-                        if (injection != null) {
-                            if (injection.text.isNotBlank()) {
-                                val clampedRagText = io.zer0.muse.context.ContextBudget().clampText(
-                                    io.zer0.muse.context.ContextSection.RAG_CITATION,
-                                    injection.text,
-                                )
-                                add(UIMessage(role = MessageRole.SYSTEM, content = clampedRagText))
-                            }
-                            if (injection.citations.isNotEmpty()) {
-                                pendingRagCitations = injection.citations
+            prefixMessages =
+                buildList<UIMessage> {
+                    addAll(systemMessages)
+                    // presetMessages(预设对话)
+                    assistant?.let { deps.assistantRepository.parsePresetMessages(it) }?.forEach { add(it) }
+                    // v1.54: RAG 自动注入(失败不阻断主流程)。
+                    val ragConfig = resultOf { deps.settings.getRagConfig() }.getOrNull() ?: io.zer0.muse.rag.RagConfig()
+                    val effectiveRagConfig =
+                        assistant?.let {
+                            runCatching { deps.assistantRepository.mergeRagConfigOverride(it, ragConfig) }
+                                .onFailure { e -> Logger.w("ChatViewModel", "mergeRagConfigOverride 失败: ${e.message}") }
+                                .getOrDefault(ragConfig)
+                        } ?: ragConfig
+                    if (effectiveRagConfig.enabled) {
+                        val lastUser = rawHistory.lastOrNull { it.role == MessageRole.USER }
+                        val ragQuery = lastUser?.content?.takeIf { it.isNotBlank() }
+                        if (ragQuery != null) {
+                            val mentionDocIds =
+                                resultOf { deps.ragService.resolveMentionToDocIds(ragQuery) }
+                                    .onError { msg, t -> Logger.w("ChatViewModel", "@mention 解析失败: $msg", t) }
+                                    .getOrNull()
+                            // 助手绑定 KB 时,未显式 @mention 的查询只检索这些 KB;
+                            // 显式 mention 优先,可临时定向到用户指定的文档。
+                            val boundKnowledgeBaseIds =
+                                assistant
+                                    ?.let { deps.assistantRepository.parseKnowledgeBaseIds(it) }
+                                    .orEmpty()
+                            val boundDocIds =
+                                if (mentionDocIds.isNullOrEmpty()) {
+                                    resultOf {
+                                        deps.ragService.resolveKnowledgeBaseDocIds(boundKnowledgeBaseIds)
+                                    }.onError { msg, t ->
+                                        Logger.w("ChatViewModel", "助手绑定知识库展开失败: $msg", t)
+                                    }.getOrNull()
+                                } else {
+                                    emptyList()
+                                }
+                            val scopeDocIds =
+                                mentionDocIds.takeIf { !it.isNullOrEmpty() }
+                                    ?: boundDocIds?.takeIf { it.isNotEmpty() }
+                            val injection =
+                                resultOf {
+                                    deps.ragService.buildInjectionContextWithCitations(
+                                        ragQuery, effectiveRagConfig, scopeDocIds,
+                                    )
+                                }.onError { msg, _ ->
+                                    deps.addError(
+                                        ChatErrorType.NETWORK,
+                                        deps.appContext.getString(R.string.err_chat_rag_failed, msg),
+                                        true,
+                                    )
+                                }.getOrNull()
+                            if (injection != null) {
+                                if (injection.text.isNotBlank()) {
+                                    val clampedRagText =
+                                        io.zer0.muse.context.ContextBudget().clampText(
+                                            io.zer0.muse.context.ContextSection.RAG_CITATION,
+                                            injection.text,
+                                        )
+                                    add(UIMessage(role = MessageRole.SYSTEM, content = clampedRagText))
+                                }
+                                if (injection.citations.isNotEmpty()) {
+                                    pendingRagCitations = injection.citations
+                                }
                             }
                         }
                     }
                 }
-            }
 
             // P3-10: 上下文超限兜底 — 近上限时复核本轮真实 payload(system + preset + RAG
             // + 截断后历史)的估算 token;仍达到硬上限(CONTEXT_HARD_LIMIT_RATIO)则置位拒绝
             // 发送,由 launchStream 回滚空占位并给出用户可见提示。
             if (nearContextLimit) {
-                val payloadTokens = withContext(Dispatchers.Default) {
-                    TokenEstimator.estimate(prefixMessages + truncatedHistory)
-                }
+                val payloadTokens =
+                    withContext(Dispatchers.Default) {
+                        TokenEstimator.estimate(prefixMessages + truncatedHistory)
+                    }
                 val hardMaxTokens = accessor.snapshot.contextMaxTokens
                 if (hardMaxTokens > 0 && payloadTokens >= (hardMaxTokens * CONTEXT_HARD_LIMIT_RATIO).toInt()) {
                     contextOverflowBlocked = true
@@ -704,27 +819,30 @@ internal class ChatGenerationController(
         val pending = resultOf { deps.sessionRepository.getPendingOutbox(sessionId) }.getOrNull().orEmpty()
         for (req in pending) {
             if (!deps.generationState.outboxRecoveryQueuedIds.add(req.id)) continue
-            val images = runCatching {
-                deps.idListJson.decodeFromString<List<String>>(req.imageBase64Json)
-            }.getOrDefault(emptyList())
+            val images =
+                runCatching {
+                    deps.idListJson.decodeFromString<List<String>>(req.imageBase64Json)
+                }.getOrDefault(emptyList())
             val userId = runCatching { Uuid.parse(req.userMessageId) }.getOrElse { Uuid.random() }
             val assistantId = runCatching { Uuid.parse(req.assistantMessageId) }.getOrElse { Uuid.random() }
-            val result = deps.generationState.sendChannel.trySend(
-                SendRequest(
-                    text = req.text,
-                    images = images,
-                    sessionId = req.sessionId,
-                    userMessage = UIMessage(
-                        id = userId,
-                        role = MessageRole.USER,
-                        content = req.text,
-                        imageBase64List = images,
-                        createdAt = req.createdAt,
+            val result =
+                deps.generationState.sendChannel.trySend(
+                    SendRequest(
+                        text = req.text,
+                        images = images,
+                        sessionId = req.sessionId,
+                        userMessage =
+                            UIMessage(
+                                id = userId,
+                                role = MessageRole.USER,
+                                content = req.text,
+                                imageBase64List = images,
+                                createdAt = req.createdAt,
+                            ),
+                        assistantMessageId = assistantId,
+                        outboxId = req.id,
                     ),
-                    assistantMessageId = assistantId,
-                    outboxId = req.id,
-                ),
-            )
+                )
             if (result.isFailure) {
                 deps.generationState.outboxRecoveryQueuedIds.remove(req.id)
                 Logger.w("ChatVM", "切回会话时 outbox 入队失败: ${req.id}")
@@ -742,10 +860,12 @@ internal class ChatGenerationController(
         val current = accessor.snapshot
         val displayedSessionId = if (current.isAgentMode) current.agentSessionId else current.currentSessionId
         if (displayedSessionId != sessionId) return
-        val modelId = deps.generationState.sessionModelOverrides[sessionId]
-            ?: deps.generationState.globalSelectedModelId
-        val providerId = deps.generationState.sessionProviderOverrides[sessionId]
-            ?: deps.generationState.globalActiveProviderId
+        val modelId =
+            deps.generationState.sessionModelOverrides[sessionId]
+                ?: deps.generationState.globalSelectedModelId
+        val providerId =
+            deps.generationState.sessionProviderOverrides[sessionId]
+                ?: deps.generationState.globalActiveProviderId
         accessor.update { it.copy(selectedModelId = modelId, activeProviderId = providerId) }
     }
 
@@ -792,16 +912,18 @@ internal class ChatGenerationController(
         chatGenerationManager.launchGeneration(
             sessionId = sessionId,
             assistantId = assistantId.toString(),
-            sessionTitle = accessor.snapshot.sessions.firstOrNull { it.id == sessionId }?.title
-                ?: deps.appContext.getString(R.string.chat_new_session),
+            sessionTitle =
+                accessor.snapshot.sessions.firstOrNull { it.id == sessionId }?.title
+                    ?: deps.appContext.getString(R.string.chat_new_session),
             generationId = state.generationIdentity.generationId,
         ) {
             val generationJob = kotlin.coroutines.coroutineContext[kotlinx.coroutines.Job]
-            val generationExecutionId = executionRegistry?.register(
-                identity = state.generationIdentity,
-                kind = ExecutionKind.LLM,
-                cancel = { generationJob?.cancel() },
-            )
+            val generationExecutionId =
+                executionRegistry?.register(
+                    identity = state.generationIdentity,
+                    kind = ExecutionKind.LLM,
+                    cancel = { generationJob?.cancel() },
+                )
             generationExecutionId?.let { id -> executionRegistry?.start(id) }
             // 会话选择显式覆盖助手/全局默认；生成任务捕获启动时的配置，期间切页不会串台。
             state.sessionModelOverride = deps.generationState.sessionModelOverrides[sessionId]
@@ -826,10 +948,11 @@ internal class ChatGenerationController(
             try {
                 deps.streamCoordinator.prepareHistory(state)
                 stageTimer.split("prepare")
-                val mcpServerIds = state.assistant
-                    ?.let(deps.assistantRepository::parseMcpServerIds)
-                    ?.toSet()
-                    .orEmpty()
+                val mcpServerIds =
+                    state.assistant
+                        ?.let(deps.assistantRepository::parseMcpServerIds)
+                        ?.toSet()
+                        .orEmpty()
                 if (mcpServerIds.isNotEmpty()) {
                     val ready = deps.mcpRegistry?.awaitToolsForServers(mcpServerIds) ?: true
                     if (!ready) {
@@ -846,9 +969,10 @@ internal class ChatGenerationController(
                         deps.appContext.getString(R.string.error_api_context_length),
                         true,
                     )
-                    deps.stateStore.messages.value = deps.stateStore.messages.value.filterNot { msg ->
-                        msg.id == state.currentAssistantId && msg.content.isBlank()
-                    }
+                    deps.stateStore.messages.value =
+                        deps.stateStore.messages.value.filterNot { msg ->
+                            msg.id == state.currentAssistantId && msg.content.isBlank()
+                        }
                     deps.messageController.rebuildConversationTree()
                     clearStreamingStateIfLatest(state, ChatStreamPhase.FAILED)
                     sessionManager.runtime(sessionId)?.markFinished(TurnPhase.FAILED, state.turnId)
@@ -870,22 +994,23 @@ internal class ChatGenerationController(
                 }
             } catch (ce: kotlinx.coroutines.CancellationException) {
                 generationExecutionId?.let { executionRegistry?.markCancelled(it) }
-                val partialFromBuilder = if (
-                    state.builder.isNotEmpty() || state.reasoningBuilder.isNotEmpty()
-                ) {
-                    UIMessage(
-                        id = state.currentAssistantId,
-                        role = MessageRole.ASSISTANT,
-                        content = state.unmaskPii(state.builder.toString()),
-                        reasoning = state.unmaskPii(state.reasoningBuilder.toString()).ifBlank { null },
-                    )
-                } else {
-                    withContext(NonCancellable) {
-                        runCatching {
-                            deps.sessionRepository.getMessageAsUiMessage(state.currentAssistantId.toString())
-                        }.getOrNull()
+                val partialFromBuilder =
+                    if (
+                        state.builder.isNotEmpty() || state.reasoningBuilder.isNotEmpty()
+                    ) {
+                        UIMessage(
+                            id = state.currentAssistantId,
+                            role = MessageRole.ASSISTANT,
+                            content = state.unmaskPii(state.builder.toString()),
+                            reasoning = state.unmaskPii(state.reasoningBuilder.toString()).ifBlank { null },
+                        )
+                    } else {
+                        withContext(NonCancellable) {
+                            runCatching {
+                                deps.sessionRepository.getMessageAsUiMessage(state.currentAssistantId.toString())
+                            }.getOrNull()
+                        }
                     }
-                }
                 accessor.update { it.copy(streamState = it.streamState.copy(phase = ChatStreamPhase.INTERRUPTED)) }
                 sessionManager.runtime(sessionId)?.markFinished(TurnPhase.CANCELLED, state.turnId)
                 // B-1: 会话已删除则跳过中断落盘,防止删后"复活"。
@@ -924,22 +1049,23 @@ internal class ChatGenerationController(
             } catch (t: Exception) {
                 generationExecutionId?.let { executionRegistry?.fail(it) }
                 Logger.e("ChatVM", "stream failed", t)
-                val partialFromBuilder = if (
-                    state.builder.isNotEmpty() || state.reasoningBuilder.isNotEmpty()
-                ) {
-                    UIMessage(
-                        id = state.currentAssistantId,
-                        role = MessageRole.ASSISTANT,
-                        content = state.unmaskPii(state.builder.toString()),
-                        reasoning = state.unmaskPii(state.reasoningBuilder.toString()).ifBlank { null },
-                    )
-                } else {
-                    withContext(NonCancellable) {
-                        runCatching {
-                            deps.sessionRepository.getMessageAsUiMessage(state.currentAssistantId.toString())
-                        }.getOrNull()
+                val partialFromBuilder =
+                    if (
+                        state.builder.isNotEmpty() || state.reasoningBuilder.isNotEmpty()
+                    ) {
+                        UIMessage(
+                            id = state.currentAssistantId,
+                            role = MessageRole.ASSISTANT,
+                            content = state.unmaskPii(state.builder.toString()),
+                            reasoning = state.unmaskPii(state.reasoningBuilder.toString()).ifBlank { null },
+                        )
+                    } else {
+                        withContext(NonCancellable) {
+                            runCatching {
+                                deps.sessionRepository.getMessageAsUiMessage(state.currentAssistantId.toString())
+                            }.getOrNull()
+                        }
                     }
-                }
                 // B-1: 会话已删除则跳过异常落盘,防止删后"复活"。
                 if (!isSessionWritesSuppressed(sessionId)) {
                     deps.persistInterruptedAssistant(
@@ -999,8 +1125,9 @@ internal class ChatGenerationController(
                     type = ConversationEventType.TURN_FINISHED,
                     streamId = state.streamId,
                     generationSerial = state.generationSerial,
-                    payloadJson = "{\"messageId\":\"${state.currentAssistantId}\"," +
-                        "\"contentLength\":${shadowLength},\"contentHash\":\"${sha256(shadowContent)}\"}",
+                    payloadJson =
+                        "{\"messageId\":\"${state.currentAssistantId}\"," +
+                            "\"contentLength\":$shadowLength,\"contentHash\":\"${sha256(shadowContent)}\"}",
                 ),
             )
             deps.conversationService.finishTurn(state.turnId)
@@ -1012,23 +1139,26 @@ internal class ChatGenerationController(
         resultOf {
             val ctx = state.transformContext ?: return@resultOf
             val currentAssistantId = state.currentAssistantId
-            val finalAssistant = deps.stateStore.messages.value
-                .firstOrNull { it.id == currentAssistantId } ?: return@resultOf
+            val finalAssistant =
+                deps.stateStore.messages.value
+                    .firstOrNull { it.id == currentAssistantId } ?: return@resultOf
             val transformed = deps.transformerPipeline.applyOnGenerationFinish(listOf(finalAssistant), ctx)
             val newAssistant = transformed.firstOrNull()
             if (newAssistant != null && newAssistant != finalAssistant) {
                 // P2-5: transformer 会重建 UIMessage,丢失变体身份字段(原实现依赖
                 // 恒为 null 的 _pendingVariantInfo 写回,是死路径)。这里直接在替换时
                 // 保留 finalAssistant 的变体字段,删除死路径机制。
-                val preservedAssistant = newAssistant.copy(
-                    variantGroupId = newAssistant.variantGroupId ?: finalAssistant.variantGroupId,
-                    variantIndex = if (newAssistant.variantIndex > 0) newAssistant.variantIndex else finalAssistant.variantIndex,
-                    variantCount = if (newAssistant.variantCount > 0) newAssistant.variantCount else finalAssistant.variantCount,
-                    parentGroupId = newAssistant.parentGroupId ?: finalAssistant.parentGroupId,
-                )
-                deps.stateStore.messages.value = deps.stateStore.messages.value.map {
-                    if (it.id == currentAssistantId) preservedAssistant else it
-                }
+                val preservedAssistant =
+                    newAssistant.copy(
+                        variantGroupId = newAssistant.variantGroupId ?: finalAssistant.variantGroupId,
+                        variantIndex = if (newAssistant.variantIndex > 0) newAssistant.variantIndex else finalAssistant.variantIndex,
+                        variantCount = if (newAssistant.variantCount > 0) newAssistant.variantCount else finalAssistant.variantCount,
+                        parentGroupId = newAssistant.parentGroupId ?: finalAssistant.parentGroupId,
+                    )
+                deps.stateStore.messages.value =
+                    deps.stateStore.messages.value.map {
+                        if (it.id == currentAssistantId) preservedAssistant else it
+                    }
                 resultOf {
                     if (!isSessionWritesSuppressed(sessionId)) {
                         deps.sessionRepository.upsertMessage(sessionId, preservedAssistant)
@@ -1050,19 +1180,22 @@ internal class ChatGenerationController(
                     completionTokens = usage?.completionTokens,
                     reasoningTokens = usage?.reasoningTokens,
                     cachedTokens = usage?.cachedTokens,
-                )
+                ),
             )
-            deps.stateStore.messages.value = deps.stateStore.messages.value.map {
-                if (it.id == state.currentAssistantId) {
-                    it.copy(
-                        durationMs = durationMs,
-                        promptTokens = usage?.promptTokens,
-                        completionTokens = usage?.completionTokens,
-                        reasoningTokens = usage?.reasoningTokens,
-                        cachedTokens = usage?.cachedTokens,
-                    )
-                } else it
-            }
+            deps.stateStore.messages.value =
+                deps.stateStore.messages.value.map {
+                    if (it.id == state.currentAssistantId) {
+                        it.copy(
+                            durationMs = durationMs,
+                            promptTokens = usage?.promptTokens,
+                            completionTokens = usage?.completionTokens,
+                            reasoningTokens = usage?.reasoningTokens,
+                            cachedTokens = usage?.cachedTokens,
+                        )
+                    } else {
+                        it
+                    }
+                }
         }.onError { msg, _ -> Logger.w("ChatVM", "persist A5 message metadata failed: $msg") }
 
         // 流式结束后刷新上下文 token 占用。
@@ -1078,34 +1211,36 @@ internal class ChatGenerationController(
             val elapsedSec = (elapsedMs / 1000f).coerceAtLeast(0.001f)
             val tokenRate = state.totalCharCount / elapsedSec
             val selectedModel = resultOf { deps.settings.getSelectedModel() }.getOrNull()
-            val modelName = selectedModel?.name ?: selectedModel?.id
-                ?: deps.appContext.getString(R.string.msg_info_unknown)
-            val debugInfo = buildString {
-                append(deps.appContext.getString(R.string.chat_debug_model_label))
-                append(": $modelName")
-                append(" | ")
-                append(deps.appContext.getString(R.string.chat_debug_duration_label))
-                append(": ${elapsedMs}ms")
-                if (ttftMs >= 0) {
+            val modelName =
+                selectedModel?.name ?: selectedModel?.id
+                    ?: deps.appContext.getString(R.string.msg_info_unknown)
+            val debugInfo =
+                buildString {
+                    append(deps.appContext.getString(R.string.chat_debug_model_label))
+                    append(": $modelName")
                     append(" | ")
-                    append(deps.appContext.getString(R.string.chat_debug_ttft_label))
-                    append(": ${ttftMs}ms")
+                    append(deps.appContext.getString(R.string.chat_debug_duration_label))
+                    append(": ${elapsedMs}ms")
+                    if (ttftMs >= 0) {
+                        append(" | ")
+                        append(deps.appContext.getString(R.string.chat_debug_ttft_label))
+                        append(": ${ttftMs}ms")
+                    }
+                    append(" | ")
+                    append(deps.appContext.getString(R.string.chat_debug_rate_label))
+                    append(": ${"%.1f".format(tokenRate)} tok/s")
+                    append(" | ")
+                    append(deps.appContext.getString(R.string.chat_debug_chars_label))
+                    append(": ${state.totalCharCount}")
+                    append(" | ")
+                    append(deps.appContext.getString(R.string.chat_debug_tool_calls_label))
+                    append(": ${state.totalToolCallCount}")
+                    append(" | ")
+                    append(deps.appContext.getString(R.string.chat_debug_round_label))
+                    append(": ${state.round}")
+                    // v2.0: 推给 UI 的刷新次数 — 卡顿时可与字符数对照判断节拍是否过密/稀疏
+                    append(" | uiFlush=${state.uiFlushCount}")
                 }
-                append(" | ")
-                append(deps.appContext.getString(R.string.chat_debug_rate_label))
-                append(": ${"%.1f".format(tokenRate)} tok/s")
-                append(" | ")
-                append(deps.appContext.getString(R.string.chat_debug_chars_label))
-                append(": ${state.totalCharCount}")
-                append(" | ")
-                append(deps.appContext.getString(R.string.chat_debug_tool_calls_label))
-                append(": ${state.totalToolCallCount}")
-                append(" | ")
-                append(deps.appContext.getString(R.string.chat_debug_round_label))
-                append(": ${state.round}")
-                // v2.0: 推给 UI 的刷新次数 — 卡顿时可与字符数对照判断节拍是否过密/稀疏
-                append(" | uiFlush=${state.uiFlushCount}")
-            }
             accessor.update { it.copy(debugInfo = debugInfo) }
             Logger.d("ChatVM-Debug", "launchStream done | sessionId=$sessionId | $debugInfo")
         }
@@ -1113,8 +1248,9 @@ internal class ChatGenerationController(
         // 通知:流式完成 — 发"回复完成"通知。
         resultOf {
             notificationManager.updateLiveProgress(sessionTitle, 0, false)
-            val finalText = deps.stateStore.messages.value
-                .firstOrNull { it.id == state.currentAssistantId }?.content.orEmpty()
+            val finalText =
+                deps.stateStore.messages.value
+                    .firstOrNull { it.id == state.currentAssistantId }?.content.orEmpty()
             val preview = finalText.ifBlank { deps.appContext.getString(R.string.err_chat_reply_generated) }
             val policy = deps.settings.notificationPolicyFlow.first()
             notificationManager.notifyChatCompletedWithPolicy(
@@ -1150,6 +1286,7 @@ internal class ChatGenerationController(
     companion object {
         private const val MAX_INPUT_HISTORY = 50
         private const val PRESEND_TOKEN_WARNING_RATIO = 0.9f
+
         /** P3-10: 发送 payload 硬上限比例 — 达到即拒绝发送(压缩/截断后仍超限的兜底)。 */
         private const val CONTEXT_HARD_LIMIT_RATIO = 0.98f
     }
