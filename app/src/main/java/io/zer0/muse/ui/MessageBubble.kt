@@ -486,6 +486,7 @@ internal fun MessageBubble(
                 shape = MuseShapes.medium,
                 tonalElevation = MuseElevation.none,
                 modifier = Modifier
+                    .padding(horizontal = MusePaddings.screen)
                     .widthIn(max = 360.dp)
                     .padding(bottom = 6.dp),
             ) {
@@ -554,6 +555,7 @@ internal fun MessageBubble(
                     shape = MuseShapes.medium,
                     tonalElevation = MuseElevation.low,
                     modifier = Modifier
+                        .padding(horizontal = MusePaddings.screen)
                         .widthIn(max = 360.dp)
                         .padding(bottom = 6.dp),
                 ) {
@@ -626,6 +628,7 @@ internal fun MessageBubble(
                     shape = MuseShapes.medium,
                     tonalElevation = MuseElevation.none,
                     modifier = Modifier
+                        .padding(horizontal = MusePaddings.screen)
                         .widthIn(max = 360.dp)
                         .padding(bottom = 6.dp),
                 ) {
