@@ -613,6 +613,8 @@ class ToolRegistry(
             "device_shell",
             // v2.x 终端一期:应用沙盒终端命令
             "terminal_exec",
+            // v2.2.1: GUI Agent 环(视觉驱动的多步屏幕操作,高风险)
+            "ui_agent",
             // v2.0: Root-level system tools
             "settings_get", "settings_put", "am_start", "list_packages", "logcat_tail", "input_inject",
         )

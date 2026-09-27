@@ -234,6 +234,7 @@ object ToolExposurePolicy {
                 "screen_read", "screen_current_app", "screen_back", "screen_home", "screen_tap",
                 "screen_tap_text", "screen_swipe", "screen_input", "screen_launch_app",
                 "screen_open_notifications", "screen_permission_status", "screen_wait",
+                "ui_agent",
             ),
         ),
         ToolFamily(

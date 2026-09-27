@@ -329,46 +329,8 @@ class VisionBridge(
         preparedImage: VisionImagePreprocessor.PreparedImage,
         userRequest: String = "",
     ): String {
-        // 1. 检查视觉辅助是否启用
-        val enabled = settings.visionEnabledFlow.first()
-        if (!enabled) {
-            Logger.w(TAG, "视觉分析[跳过]: 视觉辅助开关未开启")
-            throw VisionAnalysisException("视觉辅助未启用(请在设置-视觉辅助中开启总开关)")
-        }
-
-        // 2. 读取视觉模型配置
-        val visionModelId = settings.visionModelIdFlow.first()
-        val visionProviderId = settings.visionProviderIdFlow.first()
-        if (visionModelId.isNullOrBlank() || visionProviderId.isNullOrBlank()) {
-            Logger.w(TAG, "视觉分析[跳过]: modelId=$visionModelId providerId=$visionProviderId")
-            throw VisionAnalysisException("视觉模型或供应商未配置(请在设置-视觉辅助中选择)")
-        }
-
-        // 3. 解析 ProviderConfig 和 Model
-        val allProviders = settings.getAllProviders()
-        val visionProvider: ProviderConfig = allProviders.firstOrNull { it.id == visionProviderId }
-            ?: throw VisionAnalysisException("视觉供应商 $visionProviderId 未找到(可能已被删除)").also {
-                Logger.w(TAG, "视觉分析[跳过]: providerId=$visionProviderId 不在 ${allProviders.size} 个供应商中")
-            }
-
-        val rawVisionModel: Model = visionProvider.models.firstOrNull { it.id == visionModelId }
-            ?: throw VisionAnalysisException("视觉模型 $visionModelId 未找到(供应商 ${visionProvider.displayName} 共 ${visionProvider.models.size} 个模型)").also {
-                Logger.w(TAG, "视觉分析[跳过]: modelId=$visionModelId 不在供应商 ${visionProvider.displayName} 的模型列表中")
-            }
-
-        val visionModel = ModelRegistry.enhanceModel(rawVisionModel)
-        Logger.i(TAG, "视觉分析[配置]: model=${visionModel.id} supportsVision=${visionModel.supportsVisionInput()} " +
-            "inputModalities=${visionModel.inputModalities}")
-
-        if (!visionModel.supportsVisionInput()) {
-            throw VisionAnalysisException(
-                visionUnsupportedReason(
-                    providerName = visionProvider.displayName,
-                    modelId = visionModel.id,
-                    inputModalities = visionModel.inputModalities,
-                ),
-            )
-        }
+        // 1-3. 解析视觉模型与供应商(视觉辅助开关 / 模型配置 / 视觉能力三道检查)
+        val (visionModel, visionProvider) = resolveVisionModelStrict()
 
         // 4. 根据是否支持 grounding 选择提示词路径
         val useGrounding = visionModel.supportsVisionGrounding()
@@ -419,6 +381,77 @@ class VisionBridge(
             Logger.w(TAG, "视觉分析失败: ${e.message} -> $friendlyMsg", e)
             throw VisionAnalysisException(friendlyMsg, e)
         }
+    }
+
+    /**
+     * v2.2.1: 通用带图提问 —— 供 GUI Agent 环的视觉决策复用模型解析与调用链路。
+     *
+     * 与 [analyzeImage] 的差异:不做 grounding 提示词构造与描述解析,原样返回模型文本。
+     *
+     * @throws VisionAnalysisException 视觉未启用/未配置/模型不支持视觉/调用失败时抛出
+     */
+    suspend fun askWithImage(
+        prompt: String,
+        imageBase64: String,
+        timeoutMs: Long = ANALYSIS_TIMEOUT_MS,
+    ): String {
+        val (visionModel, visionProvider) = resolveVisionModelStrict()
+        val userMessage = UIMessage(
+            role = MessageRole.USER,
+            content = prompt,
+            imageBase64List = listOf(imageBase64),
+        )
+        return withTimeout(timeoutMs) {
+            retryOnNetworkError(maxRetries = MAX_RETRIES, initialDelayMs = INITIAL_RETRY_DELAY_MS) {
+                callVisionModel(userMessage, visionModel, visionProvider)
+            }
+        }.trim()
+    }
+
+    /**
+     * 视觉模型解析(开关 / 配置 / 能力三道检查)。失败抛 [VisionAnalysisException]。
+     *
+     * [analyzeImage] 与 [askWithImage] 共用;日志前缀保持"视觉分析[..]"口径。
+     */
+    private suspend fun resolveVisionModelStrict(): Pair<Model, ProviderConfig> {
+        val enabled = settings.visionEnabledFlow.first()
+        if (!enabled) {
+            Logger.w(TAG, "视觉分析[跳过]: 视觉辅助开关未开启")
+            throw VisionAnalysisException("视觉辅助未启用(请在设置-视觉辅助中开启总开关)")
+        }
+
+        val visionModelId = settings.visionModelIdFlow.first()
+        val visionProviderId = settings.visionProviderIdFlow.first()
+        if (visionModelId.isNullOrBlank() || visionProviderId.isNullOrBlank()) {
+            Logger.w(TAG, "视觉分析[跳过]: modelId=$visionModelId providerId=$visionProviderId")
+            throw VisionAnalysisException("视觉模型或供应商未配置(请在设置-视觉辅助中选择)")
+        }
+
+        val allProviders = settings.getAllProviders()
+        val visionProvider: ProviderConfig = allProviders.firstOrNull { it.id == visionProviderId }
+            ?: throw VisionAnalysisException("视觉供应商 $visionProviderId 未找到(可能已被删除)").also {
+                Logger.w(TAG, "视觉分析[跳过]: providerId=$visionProviderId 不在 ${allProviders.size} 个供应商中")
+            }
+
+        val rawVisionModel: Model = visionProvider.models.firstOrNull { it.id == visionModelId }
+            ?: throw VisionAnalysisException("视觉模型 $visionModelId 未找到(供应商 ${visionProvider.displayName} 共 ${visionProvider.models.size} 个模型)").also {
+                Logger.w(TAG, "视觉分析[跳过]: modelId=$visionModelId 不在供应商 ${visionProvider.displayName} 的模型列表中")
+            }
+
+        val visionModel = ModelRegistry.enhanceModel(rawVisionModel)
+        Logger.i(TAG, "视觉分析[配置]: model=${visionModel.id} supportsVision=${visionModel.supportsVisionInput()} " +
+            "inputModalities=${visionModel.inputModalities}")
+
+        if (!visionModel.supportsVisionInput()) {
+            throw VisionAnalysisException(
+                visionUnsupportedReason(
+                    providerName = visionProvider.displayName,
+                    modelId = visionModel.id,
+                    inputModalities = visionModel.inputModalities,
+                ),
+            )
+        }
+        return visionModel to visionProvider
     }
 
     /**

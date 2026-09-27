@@ -73,6 +73,19 @@ object AutomationInitializer {
                 Logger.w(TAG, "RootToolsRegistrar failed: ${e.message}")
             }
 
+            // v2.2.1: GUI Agent 环工具(视觉驱动多步操作;VisionBridge 由 Koin 提供,缺失则跳过注册)
+            try {
+                val visionBridge =
+                    org.koin.java.KoinJavaComponent.get<io.zer0.muse.vision.VisionBridge>(
+                        io.zer0.muse.vision.VisionBridge::class.java,
+                    )
+                io.zer0.muse.automation.agent.UiAgentTool(
+                    io.zer0.muse.automation.agent.UiAgentRunner(mgr, visionBridge),
+                ).register(toolRegistry)
+            } catch (e: Exception) {
+                Logger.w(TAG, "UiAgent tool registration failed: ${e.message}")
+            }
+
             // 异步刷新权限状态(不阻塞 App 启动)
             @Suppress("DEPRECATION")
             kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {

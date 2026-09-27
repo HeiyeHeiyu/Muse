@@ -179,6 +179,8 @@ object ToolCategories {
         "device_shell",
         // v2.x 终端一期:应用沙盒终端命令
         "terminal_exec",
+        // v2.2.1: GUI Agent 环(视觉驱动的多步屏幕操作,高风险)
+        "ui_agent",
         // UI 自动化(需无障碍权限,高风险)
         "ui_get_page_info",
         "ui_click",
