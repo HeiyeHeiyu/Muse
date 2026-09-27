@@ -24,7 +24,6 @@
   <img src="https://img.shields.io/badge/Android-8.0%2B%20(minSdk%2026)-brightgreen" alt="Min SDK">
   <img src="https://img.shields.io/badge/Kotlin-2.4-purple" alt="Kotlin">
   <img src="https://img.shields.io/badge/Compose-Material%203-ff69b4" alt="Compose">
-  <a href="https://github.com/Zer0Qing/Muse/actions/workflows/ci.yml"><img src="https://github.com/Zer0Qing/Muse/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/Zer0Qing/Muse/releases/latest"><img src="https://img.shields.io/github/v/release/Zer0Qing/Muse?include_prereleases" alt="Latest release"></a>
   <a href="https://qm.qq.com/q/905451314"><img src="https://img.shields.io/badge/QQ群-905451314-blue" alt="QQ群"></a>
   <a href="https://museai.ltd"><img src="https://img.shields.io/badge/官网-museai.ltd-blueviolet" alt="官网"></a>
