@@ -181,6 +181,7 @@ internal object ToolCallVisuals {
         "find_tools" to MuseIcons.search,
         "device_shell" to MuseIcons.terminal,
         "terminal_exec" to MuseIcons.terminal,
+        "termux_exec" to MuseIcons.terminal,
         "mcp_tool" to MuseIcons.plug,
         // 通知 / 主动消息 / 卡片
         "notify" to MuseIcons.bell,
@@ -387,6 +388,7 @@ internal object ToolCallVisuals {
         "find_tools" to R.string.tool_summary_find_tools,
         "device_shell" to R.string.tool_summary_device_shell,
         "terminal_exec" to R.string.tool_summary_terminal_exec,
+        "termux_exec" to R.string.tool_summary_termux_exec,
     )
 
     private fun prefixVerb(toolName: String): String? = when {
@@ -460,6 +462,7 @@ internal object ToolCallVisuals {
             "find_tools" -> argString(args, "query") ?: "全部工具"
             "device_shell" -> argString(args, "command")
             "terminal_exec" -> argString(args, "command")
+            "termux_exec" -> argString(args, "command")
             else -> genericTarget(args)
         }
         return raw?.let { clean(it) }.orEmpty()
@@ -601,6 +604,7 @@ internal object ToolCallVisuals {
         "find_tools" to R.string.tool_label_find_tools,
         "device_shell" to R.string.tool_label_device_shell,
         "terminal_exec" to R.string.tool_label_terminal_exec,
+        "termux_exec" to R.string.tool_label_termux_exec,
     )
 
     private fun prettify(name: String): String =

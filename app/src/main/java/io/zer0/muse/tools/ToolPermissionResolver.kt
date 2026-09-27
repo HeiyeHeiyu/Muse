@@ -321,6 +321,8 @@ object ToolPermissionResolver {
         "device_shell" to ToolRiskLevel.HIGH,
         // v2.x 终端一期:App 自身权限的沙盒终端 — 可增删应用文件,归 HIGH
         "terminal_exec" to ToolRiskLevel.HIGH,
+        // v2.2.1: Termux 通道 — 完整 Linux 环境可执行任意命令,归 HIGH
+        "termux_exec" to ToolRiskLevel.HIGH,
         // v2.2.1: GUI Agent 环 — 可连续多步操作任意 App,归 HIGH
         "ui_agent" to ToolRiskLevel.HIGH,
         // v1.x: update_skill 与 install_skill 同级 — 二者都能改写助手后续要执行的 skill 定义;
@@ -493,6 +495,8 @@ object ToolPermissionResolver {
         "device_shell",
         // v2.x 终端一期:沙盒终端可写/删应用数据,保留审批
         "terminal_exec",
+        // v2.2.1: Termux 通道能力全开,保留审批
+        "termux_exec",
         // v2.2.1: GUI Agent 环可连续操作任意 App,保留审批
         "ui_agent",
     )

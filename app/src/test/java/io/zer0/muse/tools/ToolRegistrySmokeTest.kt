@@ -302,6 +302,8 @@ class ToolRegistrySmokeTest {
             "device_shell",
             // v2.x 终端一期:应用沙盒终端命令
             "terminal_exec",
+            // v2.2.1: Termux 通道(完整 Linux 环境命令;运行时注册,Robolectric 下不执行)
+            "termux_exec",
             // v2.2.1: GUI Agent 环(视觉驱动多步操作;运行时由初始器注册,Robolectric 下不执行)
             "ui_agent",
         )

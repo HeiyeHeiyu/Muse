@@ -119,6 +119,7 @@
     <string name="tool_summary_find_tools">Искал в библиотеке инструментов</string>
     <string name="tool_summary_device_shell">Выполнил команду устройства</string>
     <string name="tool_summary_terminal_exec">Выполнил команду терминала</string>
+    <string name="tool_summary_termux_exec">Выполнил команду Termux</string>
     <string name="tool_summary_proactive_message_wish">Сохранил проактивное сообщение</string>
     <string name="tool_summary_quick_note_add">Создал быструю заметку</string>
     <string name="tool_summary_quick_note_delete">Удалил быструю заметку</string>
@@ -198,6 +199,7 @@
     <string name="tool_label_find_tools">Найти инструмент</string>
     <string name="tool_label_device_shell">Команда устройства</string>
     <string name="tool_label_terminal_exec">Команда терминала</string>
+    <string name="tool_label_termux_exec">Команда Termux</string>
     <string name="tool_label_quick_note_add">Новая заметка</string>
     <string name="tool_label_quick_note_list">Быстрые заметки</string>
     <string name="tool_label_read_file">Читать файл</string>

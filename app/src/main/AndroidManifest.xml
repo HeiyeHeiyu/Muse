@@ -55,8 +55,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    <!-- v2.2.1 Termux 通道:经由 Termux RUN_COMMAND 协议执行命令(用户在 Termux 附加权限中授予) -->
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
     <!-- Phase 5-I: 备份导出/导入(SAF 不需要权限,但读取外部文档需要) -->
     <queries>
+        <!-- v2.2.1 Termux 通道:包可见性(Android 11+ 否则看不到 Termux) -->
+        <package android:name="com.termux" />
         <intent>
             <action android:name="android.intent.action.RECOGNIZE_SPEECH" />
         </intent>

@@ -92,6 +92,10 @@ class AgentToolsRegistrar(
         toolRegistry.register(TerminalExecTool.toolDef()) { args ->
             TerminalExecTool.execute(args, java.io.File(context.filesDir, "workspace").apply { mkdirs() })
         }
+        // v2.2.1 Termux 通道:完整 Linux 环境命令执行(需用户安装 Termux 并授权;未就绪时返回配置引导)
+        toolRegistry.register(TermuxExecTool.toolDef()) { args ->
+            TermuxExecTool.execute(args, context)
+        }
 
         // 普通聊天里的“许愿”：把当前助手绑定到主动消息调度器。
         toolRegistry.registerWithContext(ProactiveWishTool.toolDef()) { args, executionContext ->
