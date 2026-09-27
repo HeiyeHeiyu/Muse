@@ -7,7 +7,8 @@
     - canPerformGestures: true 允许手势(performClick/performSwipe 依赖)
     - canTakeScreenshots: 在 onServiceConnected 中通过 serviceInfo 动态设置(API 34+)
     - notificationTimeout: 事件节流 100ms
-    - packageNames: 留空 = 监听所有应用
+    - packageNames: 不声明 = 监听所有应用。注意不能写空串——空串会被解析成“空包名”过滤器,
+      导致零事件送达(窗口缓存为空,getCurrentActivityName 恒空、rootInActiveWindow 为 null)。
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewClicked|typeViewScrolled"
@@ -16,5 +17,4 @@
     android:canRetrieveWindowContent="true"
     android:canPerformGestures="true"
     android:description="@string/accessibility_service_description"
-    android:notificationTimeout="100"
-    android:packageNames="" />
+    android:notificationTimeout="100" />
