@@ -4,13 +4,13 @@ import android.content.Context
 import io.zer0.ai.ChatService
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
-import io.zer0.muse.data.assistant.AssistantRepository
-import io.zer0.muse.data.groupchat.GroupChatRepository
-import io.zer0.muse.data.skill.SkillEntity
-import io.zer0.muse.data.plugin.PluginManager
-import io.zer0.muse.R
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.R
+import io.zer0.muse.data.assistant.AssistantRepository
+import io.zer0.muse.data.groupchat.GroupChatRepository
+import io.zer0.muse.data.plugin.PluginManager
+import io.zer0.muse.data.skill.SkillEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
@@ -125,80 +125,104 @@ class SkillExecutor(
         onProgress: (String) -> Unit = {},
         turnKey: String = "default",
         sessionId: String = "default",
-    ): String = withContext(Dispatchers.IO) {
-        val args = ToolArgsParser.parse(argumentsJson, skill.id)
-    // H-SE1: 改用 resultOf{}(正确重抛 CancellationException),避免 runCatching 吞协程取消信号
-        resultOf {
-            when (skill.implementationKotlin) {
-                "read_file" -> fileTools?.execReadFile(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "write_file" -> fileTools?.execWriteFile(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "http_get" -> searchTools?.execHttpGet(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "http_post" -> searchTools?.execHttpPost(args) ?: context.getString(R.string.skill_impl_not_configured)
-                // v0.24: 搜索与信息获取类
-                "web_search" -> { onProgress(context.getString(R.string.skill_progress_searching)); searchTools?.execWebSearch(args, turnKey) ?: context.getString(R.string.skill_impl_not_configured) }
-                "web_fetch" -> { onProgress(context.getString(R.string.skill_progress_fetching)); searchTools?.execWebFetch(args) ?: context.getString(R.string.skill_impl_not_configured) }
-                "knowledge_search" -> searchTools?.execKnowledgeSearch(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "arxiv_search" -> searchTools?.execArxivSearch(args) ?: context.getString(R.string.skill_impl_not_configured)
-                // v0.24: 自我扩展(install_skill = LLM 生成 skill 定义入库)
-                "install_skill" -> { onProgress(context.getString(R.string.skill_progress_installing)); managementTools?.installSkill(args) ?: context.getString(R.string.skill_impl_not_configured) }
-                // 助手自写插件:只产出未签名草稿,用户在插件管理里签名并启用后才可执行
-                "author_plugin" -> { onProgress(context.getString(R.string.plugin_author_progress)); pluginAuthoringTools?.authorPlugin(args) ?: context.getString(R.string.skill_impl_not_configured) }
-                // v0.46: 多 Agent 协作(委托子助手执行任务)
-                "delegate_agent" -> { onProgress(context.getString(R.string.skill_progress_delegating)); execDelegateAgent(args) }
-                // v1.55: Agent 工作流(结构化任务计划)
-                "task_plan" -> { onProgress(context.getString(R.string.skill_progress_planning)); agentTools?.execTaskPlan(args, sessionId) ?: context.getString(R.string.skill_impl_not_configured) }
-                "update_plan_step" -> agentTools?.execUpdatePlanStep(args, sessionId) ?: context.getString(R.string.skill_impl_not_configured)
-                // v1.30: 群聊工具(多 Agent 群聊中发言/跳过/读取上下文)
-                "channel_reply" -> agentTools?.execChannelReply(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "channel_pass" -> agentTools?.execChannelPass(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "channel_read_context" -> agentTools?.execChannelReadContext(args) ?: context.getString(R.string.skill_impl_not_configured)
-                // v1.0.53 Phase 5: Agent Phone(主 agent 触发群聊成员私聊)
-                "agent_phone" -> { onProgress(context.getString(R.string.skill_progress_whispering)); agentTools?.execAgentPhone(args) ?: context.getString(R.string.skill_impl_not_configured) }
-                // 文件管理类
-                "list_dir" -> fileTools?.execListDir(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "delete_file" -> fileTools?.execDeleteFile(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "file_exists" -> fileTools?.execFileExists(args) ?: context.getString(R.string.skill_impl_not_configured)
-                // 公共目录与文件传输类
-                "file_download" -> fileTools?.execFileDownload(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "read_public_file" -> fileTools?.execReadPublicFile(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "save_to_downloads" -> fileTools?.execSaveToDownloads(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "list_public_files" -> fileTools?.execListPublicFiles(args) ?: context.getString(R.string.skill_impl_not_configured)
-                // Skill 管理类
-                "list_skills" -> managementTools?.listSkills(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "uninstall_skill" -> managementTools?.uninstallSkill(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "disable_skill" -> managementTools?.disableSkill(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "enable_skill" -> managementTools?.enableSkill(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "update_skill" -> managementTools?.updateSkill(args) ?: context.getString(R.string.skill_impl_not_configured)
-                // v1.95: 表情包库工具
-                "list_stickers" -> mediaTools?.execListStickers(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "send_sticker" -> mediaTools?.execSendSticker(args) ?: context.getString(R.string.skill_impl_not_configured)
-                // 新增工具
-                "generate_image" -> { onProgress(context.getString(R.string.skill_progress_generating_image)); mediaTools?.execGenerateImage(args) ?: context.getString(R.string.skill_impl_not_configured) }
-                "translate" -> translateTools?.execTranslate(args) ?: context.getString(R.string.skill_impl_not_configured)
-                "generate_qr" -> mediaTools?.execGenerateQr(args) ?: context.getString(R.string.skill_impl_not_configured)
-                // JS 沙盒:让 LLM 能在 Skill 体系里执行 JavaScript 代码
-                // (主入口为 ToolRegistry.execute_javascript,此处为 SkillExecutor 路由分支,供 skill 调用)
-                "execute_javascript" -> mediaTools?.execExecuteJavascript(args) ?: context.getString(R.string.skill_impl_not_configured)
-                // 提示词技能:不跑任何 Kotlin 实现,只把编码的指令文本交回模型(调用参数一律忽略)
-                else -> if (SkillImporter.isPromptSkill(skill.implementationKotlin)) {
-                    managementTools?.execPromptSkill(skill) ?: context.getString(R.string.skill_impl_not_configured)
-                } else if (skill.implementationKotlin.startsWith("plugin:")) {
-                    mediaTools?.execPluginTool(skill, argumentsJson) ?: context.getString(R.string.skill_impl_not_configured)
-                } else {
-                    context.getString(R.string.skill_unknown_impl, skill.implementationKotlin)
+    ): String =
+        withContext(Dispatchers.IO) {
+            val args = ToolArgsParser.parse(argumentsJson, skill.id)
+            // H-SE1: 改用 resultOf{}(正确重抛 CancellationException),避免 runCatching 吞协程取消信号
+            resultOf {
+                when (skill.implementationKotlin) {
+                    "read_file" -> fileTools?.execReadFile(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "write_file" -> fileTools?.execWriteFile(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "http_get" -> searchTools?.execHttpGet(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "http_post" -> searchTools?.execHttpPost(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    // v0.24: 搜索与信息获取类
+                    "web_search" -> {
+                        onProgress(context.getString(R.string.skill_progress_searching))
+                        searchTools?.execWebSearch(args, turnKey) ?: context.getString(R.string.skill_impl_not_configured)
+                    }
+                    "web_fetch" -> {
+                        onProgress(context.getString(R.string.skill_progress_fetching))
+                        searchTools?.execWebFetch(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    }
+                    "knowledge_search" -> searchTools?.execKnowledgeSearch(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "arxiv_search" -> searchTools?.execArxivSearch(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    // v0.24: 自我扩展(install_skill = LLM 生成 skill 定义入库)
+                    "install_skill" -> {
+                        onProgress(context.getString(R.string.skill_progress_installing))
+                        managementTools?.installSkill(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    }
+                    // 助手自写插件:只产出未签名草稿,用户在插件管理里签名并启用后才可执行
+                    "author_plugin" -> {
+                        onProgress(context.getString(R.string.plugin_author_progress))
+                        pluginAuthoringTools?.authorPlugin(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    }
+                    // v0.46: 多 Agent 协作(委托子助手执行任务)
+                    "delegate_agent" -> {
+                        onProgress(context.getString(R.string.skill_progress_delegating))
+                        execDelegateAgent(args)
+                    }
+                    // v1.55: Agent 工作流(结构化任务计划)
+                    "task_plan" -> {
+                        onProgress(context.getString(R.string.skill_progress_planning))
+                        agentTools?.execTaskPlan(args, sessionId) ?: context.getString(R.string.skill_impl_not_configured)
+                    }
+                    "update_plan_step" -> agentTools?.execUpdatePlanStep(args, sessionId) ?: context.getString(R.string.skill_impl_not_configured)
+                    // v1.30: 群聊工具(多 Agent 群聊中发言/跳过/读取上下文)
+                    "channel_reply" -> agentTools?.execChannelReply(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "channel_pass" -> agentTools?.execChannelPass(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "channel_read_context" -> agentTools?.execChannelReadContext(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    // v1.0.53 Phase 5: Agent Phone(主 agent 触发群聊成员私聊)
+                    "agent_phone" -> {
+                        onProgress(context.getString(R.string.skill_progress_whispering))
+                        agentTools?.execAgentPhone(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    }
+                    // 文件管理类
+                    "list_dir" -> fileTools?.execListDir(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "delete_file" -> fileTools?.execDeleteFile(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "file_exists" -> fileTools?.execFileExists(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    // 公共目录与文件传输类
+                    "file_download" -> fileTools?.execFileDownload(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "read_public_file" -> fileTools?.execReadPublicFile(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "save_to_downloads" -> fileTools?.execSaveToDownloads(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "list_public_files" -> fileTools?.execListPublicFiles(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    // Skill 管理类
+                    "list_skills" -> managementTools?.listSkills(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "uninstall_skill" -> managementTools?.uninstallSkill(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "disable_skill" -> managementTools?.disableSkill(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "enable_skill" -> managementTools?.enableSkill(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "update_skill" -> managementTools?.updateSkill(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    // v1.95: 表情包库工具
+                    "list_stickers" -> mediaTools?.execListStickers(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "send_sticker" -> mediaTools?.execSendSticker(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    // 新增工具
+                    "generate_image" -> {
+                        onProgress(context.getString(R.string.skill_progress_generating_image))
+                        mediaTools?.execGenerateImage(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    }
+                    "translate" -> translateTools?.execTranslate(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    "generate_qr" -> mediaTools?.execGenerateQr(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    // JS 沙盒:让 LLM 能在 Skill 体系里执行 JavaScript 代码
+                    // (主入口为 ToolRegistry.execute_javascript,此处为 SkillExecutor 路由分支,供 skill 调用)
+                    "execute_javascript" -> mediaTools?.execExecuteJavascript(args) ?: context.getString(R.string.skill_impl_not_configured)
+                    // 提示词技能:不跑任何 Kotlin 实现,只把编码的指令文本交回模型(调用参数一律忽略)
+                    else ->
+                        if (SkillImporter.isPromptSkill(skill.implementationKotlin)) {
+                            managementTools?.execPromptSkill(skill, args) ?: context.getString(R.string.skill_impl_not_configured)
+                        } else if (skill.implementationKotlin.startsWith("plugin:")) {
+                            mediaTools?.execPluginTool(skill, argumentsJson) ?: context.getString(R.string.skill_impl_not_configured)
+                        } else {
+                            context.getString(R.string.skill_unknown_impl, skill.implementationKotlin)
+                        }
                 }
-            }
-        }.onError { msg, t ->
-            Logger.e("SkillExecutor", "skill ${skill.id} 执行失败: $msg", t)
-        }.getOrNull() ?: context.getString(R.string.skill_exec_exception)
-    }
+            }.onError { msg, t ->
+                Logger.e("SkillExecutor", "skill ${skill.id} 执行失败: $msg", t)
+            }.getOrNull() ?: context.getString(R.string.skill_exec_exception)
+        }
 
     /** v1.55: 供 ChatViewModel 读取活跃计划。 */
-    fun getActivePlans(): Map<String, io.zer0.muse.ui.taskcard.AgentPlan> =
-        agentTools?.getActivePlans().orEmpty()
+    fun getActivePlans(): Map<String, io.zer0.muse.ui.taskcard.AgentPlan> = agentTools?.getActivePlans().orEmpty()
 
-    fun getActivePlans(sessionId: String): Map<String, io.zer0.muse.ui.taskcard.AgentPlan> =
-        agentTools?.getActivePlans(sessionId).orEmpty()
+    fun getActivePlans(sessionId: String): Map<String, io.zer0.muse.ui.taskcard.AgentPlan> = agentTools?.getActivePlans(sessionId).orEmpty()
 
     /** 将历史恢复的计划回灌给当前会话的 task_plan/update_plan_step 执行器。 */
     fun restoreActivePlans(
@@ -214,19 +238,21 @@ class SkillExecutor(
 
     /** 读取应用沙盒内文件(限定 filesDir / cacheDir 子路径)。 */
     private fun validatePublicUrl(url: String): Boolean {
-        val uri = try {
-            java.net.URI(url)
-        } catch (e: Exception) {
-            return false
-        }
+        val uri =
+            try {
+                java.net.URI(url)
+            } catch (e: Exception) {
+                return false
+            }
         val host = uri.host?.lowercase() ?: return false
         if (host == "localhost") return false
         // 解析 DNS 后二次校验 IP(防 DNS rebinding):只要任一解析结果指向内网就拒绝
-        val addresses = try {
-            java.net.InetAddress.getAllByName(host)
-        } catch (e: Exception) {
-            return false
-        }
+        val addresses =
+            try {
+                java.net.InetAddress.getAllByName(host)
+            } catch (e: Exception) {
+                return false
+            }
         return addresses.all { addr ->
             // IPv4 私网/回环/链路本地等由 InetAddress 内置方法覆盖
             if (addr.isLoopbackAddress || addr.isAnyLocalAddress ||
@@ -262,11 +288,12 @@ class SkillExecutor(
                 requestId = request.requestId,
                 success = false,
                 error = "delegateAgent 未配置",
-                metadata = DelegationContract.DelegationResult.ResultMetadata(
-                    startedAt = System.currentTimeMillis(),
-                    finishedAt = System.currentTimeMillis(),
-                    durationMs = 0,
-                ),
+                metadata =
+                    DelegationContract.DelegationResult.ResultMetadata(
+                        startedAt = System.currentTimeMillis(),
+                        finishedAt = System.currentTimeMillis(),
+                        durationMs = 0,
+                    ),
             )
     }
 
@@ -296,10 +323,12 @@ class SkillExecutor(
         // 现在委托到结构化 delegateAgent,自动获得链路追踪 + 暂停点 + DM 集成 + 子 agent 工具调用。
         // 注意:execDelegateAgent 返回字符串(tool result),delegateAgent 返回 DelegationResult,
         // 这里把 result.resultText 作为字符串返回。失败时返回 result.error 让主 LLM 看到错误。
-        val assistantId = args["assistantId"]?.trim()
-            ?: return context.getString(R.string.skill_missing_param_assistant_id)
-        val task = args["task"]?.trim()
-            ?: return context.getString(R.string.skill_missing_param_task)
+        val assistantId =
+            args["assistantId"]?.trim()
+                ?: return context.getString(R.string.skill_missing_param_assistant_id)
+        val task =
+            args["task"]?.trim()
+                ?: return context.getString(R.string.skill_missing_param_task)
         if (task.isBlank()) return context.getString(R.string.skill_task_blank)
         val contextInfo = args["context"]?.trim().orEmpty()
         // timeout: 默认 60 秒;response_format: 默认 text,可选 json
@@ -307,28 +336,31 @@ class SkillExecutor(
         val responseFormat = args["response_format"]?.takeIf { it.isNotBlank() } ?: "text"
 
         // 构造上下文消息(把可选 context 作为 USER 消息的额外段落)
-        val contextMessages: List<UIMessage> = if (contextInfo.isNotBlank()) {
-            listOf(UIMessage(role = MessageRole.USER, content = "上下文:\n$contextInfo"))
-        } else {
-            emptyList()
-        }
+        val contextMessages: List<UIMessage> =
+            if (contextInfo.isNotBlank()) {
+                listOf(UIMessage(role = MessageRole.USER, content = "上下文:\n$contextInfo"))
+            } else {
+                emptyList()
+            }
 
         // 构造结构化 DelegationRequest,委托到 delegateAgent(自动走链路追踪/暂停/DM/工具调用)
         val requestId = "delegate-toolcall-${System.currentTimeMillis()}-${(100..999).random()}"
-        val request = DelegationContract.DelegationRequest(
-            requestId = requestId,
-            task = task,
-            targetType = DelegationContract.DelegationRequest.TargetType.ASSISTANT,
-            targetId = assistantId,
-            contextMessages = contextMessages,
-            timeoutSec = timeoutSec.toInt().coerceAtLeast(1),
-            responseFormat = when (responseFormat.lowercase()) {
-                "json" -> DelegationContract.DelegationRequest.ResponseFormat.JSON
-                "markdown", "md" -> DelegationContract.DelegationRequest.ResponseFormat.MARKDOWN
-                "code" -> DelegationContract.DelegationRequest.ResponseFormat.CODE
-                else -> DelegationContract.DelegationRequest.ResponseFormat.TEXT
-            },
-        )
+        val request =
+            DelegationContract.DelegationRequest(
+                requestId = requestId,
+                task = task,
+                targetType = DelegationContract.DelegationRequest.TargetType.ASSISTANT,
+                targetId = assistantId,
+                contextMessages = contextMessages,
+                timeoutSec = timeoutSec.toInt().coerceAtLeast(1),
+                responseFormat =
+                    when (responseFormat.lowercase()) {
+                        "json" -> DelegationContract.DelegationRequest.ResponseFormat.JSON
+                        "markdown", "md" -> DelegationContract.DelegationRequest.ResponseFormat.MARKDOWN
+                        "code" -> DelegationContract.DelegationRequest.ResponseFormat.CODE
+                        else -> DelegationContract.DelegationRequest.ResponseFormat.TEXT
+                    },
+            )
         val result = delegateAgent(request)
 
         // 把 DelegationResult 转成字符串(tool result)
@@ -371,920 +403,1448 @@ class SkillExecutor(
 
     /** uninstall_skill — 卸载 Skill(按 id 删除,或按 name 查找后删除)。 */
     companion object {
-
         /**
          * 预定义 skill 模板(首次启动时写入数据库)。
          * 用 SkillRepository.upsert 插入,REPLACE 策略保证幂等。
          */
-        val BUILT_IN_SKILLS: List<SkillEntity> = listOf(
-            SkillEntity(
-                id = "read_file",
-                name = "读取文件",
-                description = "读取应用沙盒内的文本文件(上限 1MB)。路径相对于 filesDir。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("path", buildJsonObject {
-                            put("type", "string")
-                            put("description", "相对于 filesDir 的文件路径,如 'notes/todo.txt'")
-                        })
-                        put("offset", buildJsonObject {
-                            put("type", "integer")
-                            put("description", "可选,起始行号(从 0 开始),默认 0")
-                        })
-                        put("length", buildJsonObject {
-                            put("type", "integer")
-                            put("description", "可选,读取行数,默认 0=全部")
-                        })
-                        put("encoding", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,文件编码,默认 utf-8(支持 utf-16)")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("path"))))
-                }.toString(),
-                requiredJson = """["path"]""",
-                implementationKotlin = "read_file",
-                category = "file",
-            ),
-            SkillEntity(
-                id = "write_file",
-                name = "写入文件",
-                description = "写入文本到应用沙盒内的文件。路径相对于 filesDir。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("path", buildJsonObject {
-                            put("type", "string")
-                            put("description", "相对于 filesDir 的文件路径")
-                        })
-                        put("content", buildJsonObject {
-                            put("type", "string")
-                            put("description", "要写入的文本内容")
-                        })
-                        put("append", buildJsonObject {
-                            put("type", "boolean")
-                            put("description", "是否追加写入(默认 false 覆盖)")
-                        })
-                        put("create_dirs", buildJsonObject {
-                            put("type", "boolean")
-                            put("description", "可选,是否自动创建父目录,默认 true")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(
-                        JsonPrimitive("path"), JsonPrimitive("content"),
-                    )))
-                }.toString(),
-                requiredJson = """["path","content"]""",
-                implementationKotlin = "write_file",
-                category = "file",
-            ),
-            SkillEntity(
-                id = "http_get",
-                name = "HTTP GET",
-                description = "发起 HTTP GET 请求并返回响应(响应体上限 1MB)。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("url", buildJsonObject {
-                            put("type", "string")
-                            put("description", "请求 URL,http:// 或 https://")
-                        })
-                        put("headers", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,请求头 JSON,如 {\"Authorization\":\"Bearer xxx\"}")
-                        })
-                        put("timeout", buildJsonObject {
-                            put("type", "integer")
-                            put("description", "可选,超时秒数,默认 30")
-                        })
-                        put("max_size", buildJsonObject {
-                            put("type", "integer")
-                            put("description", "可选,响应体大小上限(字节),默认 1048576(1MB)")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("url"))))
-                }.toString(),
-                requiredJson = """["url"]""",
-                implementationKotlin = "http_get",
-                category = "http",
-            ),
-            SkillEntity(
-                id = "http_post",
-                name = "HTTP POST",
-                description = "发起 HTTP POST 请求并返回响应(响应体上限 1MB)。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("url", buildJsonObject {
-                            put("type", "string")
-                            put("description", "请求 URL"
+        val BUILT_IN_SKILLS: List<SkillEntity> =
+            listOf(
+                SkillEntity(
+                    id = "read_file",
+                    name = "读取文件",
+                    description = "读取应用沙盒内的文本文件(上限 1MB)。路径相对于 filesDir。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "path",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "相对于 filesDir 的文件路径,如 'notes/todo.txt'")
+                                        },
+                                    )
+                                    put(
+                                        "offset",
+                                        buildJsonObject {
+                                            put("type", "integer")
+                                            put("description", "可选,起始行号(从 0 开始),默认 0")
+                                        },
+                                    )
+                                    put(
+                                        "length",
+                                        buildJsonObject {
+                                            put("type", "integer")
+                                            put("description", "可选,读取行数,默认 0=全部")
+                                        },
+                                    )
+                                    put(
+                                        "encoding",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,文件编码,默认 utf-8(支持 utf-16)")
+                                        },
+                                    )
+                                },
                             )
-                        })
-                        put("body", buildJsonObject {
-                            put("type", "string")
-                            put("description", "请求体内容")
-                        })
-                        put("content_type", buildJsonObject {
-                            put("type", "string")
-                            put("description", "Content-Type,默认 application/json")
-                        })
-                        put("headers", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,请求头 JSON")
-                        })
-                        put("timeout", buildJsonObject {
-                            put("type", "integer")
-                            put("description", "可选,超时秒数,默认 30")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(
-                        JsonPrimitive("url"), JsonPrimitive("body"),
-                    )))
-                }.toString(),
-                requiredJson = """["url","body"]""",
-                implementationKotlin = "http_post",
-                category = "http",
-            ),
-            // ── v0.24: 搜索与信息获取 ──────────────────────────────────────
-            SkillEntity(
-                id = "web_search",
-                name = "网页搜索",
-                // v1.0.75 fix (工具审查 01): 删冗余 time_period,补 date_range 使用指引
-                description = "用配置好的搜索引擎(SearXNG/Tavily)搜索网页。返回标题、URL 和摘要。当用户问到需要最新信息的问题时调用此工具。使用时机: 用户问到需要最新/实时信息的问题(价格、版本、政策、行情、天气等),或你知识不确定时。需要限定时间时传 date_range(如用户说'最近一周',传 past_week)。不要使用: 常识性问题或用户已提供足够信息时;搜索结果不全时换关键词重搜,不要编造。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("query", buildJsonObject {
-                            put("type", "string")
-                            put("description", "必填,搜索关键词。中文用户问题直接用中文关键词,可加关键限定词提高精度")
-                        })
-                        put("max_results", buildJsonObject {
-                            put("type", "integer")
-                            put("description", "可选,最大返回条数(1-10),默认 5")
-                        })
-                        put("date_range", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,限定结果时间范围,取值: past_day / past_week / past_month / past_year。用户提到'最近/最新/本周/本月'时填写,无时间要求时不填")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("query"))))
-                }.toString(),
-                requiredJson = """["query"]""",
-                implementationKotlin = "web_search",
-                category = "search",
-            ),
-            SkillEntity(
-                id = "web_fetch",
-                name = "网页抓取",
-                description = "抓取指定 URL 的网页正文(自动去除 HTML 标签,返回纯文本)。用于读取 web_search 返回的 URL 全文内容。使用时机: 读取 web_search 返回的 URL 全文,或用户给出明确 URL 时。不要使用: 无 URL 时;页面需要登录/交互时说明无法获取,不要猜测内容。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("url", buildJsonObject {
-                            put("type", "string")
-                            put("description", "要抓取的网页 URL,http:// 或 https://")
-                        })
-                        put("headers", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,请求头 JSON")
-                        })
-                        put("max_length", buildJsonObject {
-                            put("type", "integer")
-                            put("description", "可选,返回字符数上限,默认 50000")
-                        })
-                        put("truncate", buildJsonObject {
-                            put("type", "boolean")
-                            put("description", "可选,超出 max_length 是否截断,默认 true")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("url"))))
-                }.toString(),
-                requiredJson = """["url"]""",
-                implementationKotlin = "web_fetch",
-                category = "search",
-            ),
-            SkillEntity(
-                id = "knowledge_search",
-                name = "知识库搜索",
-                // v1.0.75 fix (工具审查 01): 明确与 web_search 的边界,
-                // 原"可能与已导入文档相关时优先调用"太模糊,模型先试本地再退搜索浪费轮次。
-                description = "在用户主动导入的知识库文档中语义搜索(向量检索 + 标题/内容匹配)。仅当用户知识库中可能有答案时使用(如用户导入过资料、问'我之前存的文档里怎么说的')。通用事实、实时信息、网上能查到的问题一律用 web_search,不要先用本工具试探。用户问 muse app 自身功能(如怎么用深度思考/主动消息怎么设置)时,传 include_internal=true 可检索内置功能文档。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("query", buildJsonObject {
-                            put("type", "string")
-                            put("description", "搜索关键词")
-                        })
-                        put("top_k", buildJsonObject {
-                            put("type", "integer")
-                            put("description", "可选,返回条数上限,默认 5")
-                        })
-                        put("threshold", buildJsonObject {
-                            put("type", "number")
-                            put("description", "可选,相似度阈值(0-1 小数制,非满分 100),默认 0.3。低于阈值的过滤掉")
-                        })
-                        put("include_internal", buildJsonObject {
-                            put("type", "boolean")
-                            put("description", "可选,是否包含 muse app 内置功能文档,默认 false。仅在用户问 muse app 自身功能(如'怎么用深度思考''主动消息怎么设置')时传 true")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("query"))))
-                }.toString(),
-                requiredJson = """["query"]""",
-                implementationKotlin = "knowledge_search",
-                category = "knowledge",
-            ),
-            SkillEntity(
-                id = "arxiv_search",
-                name = "arXiv 论文搜索",
-                description = "在 arXiv 搜索学术论文(计算机科学、物理、数学等)。返回论文标题、链接、发表日期和摘要。当用户问到学术研究、论文相关问题时调用。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("query", buildJsonObject {
-                            put("type", "string")
-                            put("description", "搜索关键词(英文为佳),如 'transformer attention'")
-                        })
-                        put("max_results", buildJsonObject {
-                            put("type", "integer")
-                            put("description", "可选,最大返回条数(1-10),默认 5")
-                        })
-                        put("category", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,学科分类,如 cs.AI/cs.CL")
-                        })
-                        put("date_from", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,起始日期(YYYY-MM-DD)")
-                        })
-                        put("date_to", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,结束日期(YYYY-MM-DD)")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("query"))))
-                }.toString(),
-                requiredJson = """["query"]""",
-                implementationKotlin = "arxiv_search",
-                category = "search",
-            ),
-            // ── v0.24: 自我扩展 ─────────────────────────────────────────────
-            SkillEntity(
-                id = "install_skill",
-                name = "安装 Skill",
-                description = "让助手自己生成新的 skill 定义并安装到用户设备。skill_json 参数为 .skill.json 格式的 JSON 字符串。必填字段: id, name, description, category, implementationKotlin, parametersJson。category 取值: file/http/search/knowledge/system/agent/sticker/custom。implementationKotlin 必须是内置实现之一(read_file/write_file/http_get/http_post/web_search/web_fetch/knowledge_search/arxiv_search),不支持任意代码执行。安装后用户可在设置→Skill 中查看/启停。提示词技能:implementationKotlin 传 \"prompt\",指令文本放 prompt 字段(也接受 \"prompt:<文本>\" 形式;文本受注入黑名单与 8KB 上限约束,不接收参数)。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("skill_json", buildJsonObject {
-                            put("type", "string")
-                            put("description", "skill 定义 JSON 字符串(.skill.json 格式)。示例: {\"id\":\"fetch_weather\",\"name\":\"查询天气\",\"description\":\"查询城市天气\",\"parametersJson\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"url\\\":{\\\"type\\\":\\\"string\\\"}}}\",\"implementationKotlin\":\"http_get\"}")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("skill_json"))))
-                }.toString(),
-                requiredJson = """["skill_json"]""",
-                implementationKotlin = "install_skill",
-                category = "system",
-            ),
-            SkillEntity(
-                id = "author_plugin",
-                name = "编写插件",
-                description = "让助手自己编写一个带 JS 工具实现的插件。code 是 JS 入口源码（工具实现必须是顶层 function 声明），tools 是工具声明数组（每项含 name/description/parametersJson/requiredJson/functionName），可选 capabilities 只能取 resource.read/ui/ui.mood。本工具只生成【未签名草稿】：草稿已禁用、不可执行，助手不能调用；必须由用户在「设置 → 插件管理」中审阅工具清单与代码，点击「签名并启用」后才会由本机作者密钥签名生效。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("id", buildJsonObject {
-                            put("type", "string")
-                            put("description", "插件 id:小写字母、数字、下划线、连字符,以字母或数字开头,如 'daily_summary'")
-                        })
-                        put("name", buildJsonObject {
-                            put("type", "string")
-                            put("description", "插件显示名,如 '每日总结'")
-                        })
-                        put("description", buildJsonObject {
-                            put("type", "string")
-                            put("description", "插件用途说明")
-                        })
-                        put("version", buildJsonObject {
-                            put("type", "string")
-                            put("description", "语义化版本,如 '1.0.0'")
-                        })
-                        put("code", buildJsonObject {
-                            put("type", "string")
-                            put("description", "JS 入口源码(≤256KB)。每个工具的 functionName 必须在源码里有顶层 function 声明,如 'function summarize(args) { return ...; }'")
-                        })
-                        put("tools", buildJsonObject {
-                            put("type", "array")
-                            put("description", "工具声明数组,与 manifest 的 tools 字段一致")
-                            put("items", buildJsonObject {
-                                put("type", "object")
-                                put("properties", buildJsonObject {
-                                    put("name", buildJsonObject { put("type", "string") })
-                                    put("description", buildJsonObject { put("type", "string") })
-                                    put("parametersJson", buildJsonObject { put("type", "string") })
-                                    put("requiredJson", buildJsonObject { put("type", "string") })
-                                    put("functionName", buildJsonObject { put("type", "string") })
-                                })
-                            })
-                        })
-                        put("capabilities", buildJsonObject {
-                            put("type", "array")
-                            put("description", "可选能力数组,取自白名单:resource.read / ui / ui.mood 与受控桥接能力(network / storage.read / storage.write / clipboard.read / clipboard.write / notify / device.info)，默认不声明")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(
-                        JsonPrimitive("id"), JsonPrimitive("name"), JsonPrimitive("version"),
-                        JsonPrimitive("code"), JsonPrimitive("tools"),
-                    )))
-                }.toString(),
-                requiredJson = """["id","name","version","code","tools"]""",
-                implementationKotlin = "author_plugin",
-                category = "system",
-            ),
-            // ── v0.46: 多 Agent 协作 ────────────────────────────────────────
-            SkillEntity(
-                id = "delegate_agent",
-                name = "委托子助手",
-                description = "把任务委托给指定子助手执行,用于多助手协作。传入 assistantId(助手 id)和 task(任务描述),可选 context(上下文)。子助手会用自己的人设和能力独立完成任务并返回结果。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("assistantId", buildJsonObject {
-                            put("type", "string")
-                            put("description", "子助手 id,如 default / researcher / writer 等。可在助手管理页查看")
-                        })
-                        put("task", buildJsonObject {
-                            put("type", "string")
-                            put("description", "要委托的任务描述,自然语言")
-                        })
-                        put("context", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选的补充上下文信息")
-                        })
-                        put("timeout", buildJsonObject {
-                            put("type", "integer")
-                            put("description", "可选,超时秒数,默认 60")
-                        })
-                        put("response_format", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,返回格式,text(默认)或 json")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(
-                        JsonPrimitive("assistantId"), JsonPrimitive("task"),
-                    )))
-                }.toString(),
-                requiredJson = """["assistantId","task"]""",
-                implementationKotlin = "delegate_agent",
-                category = "agent",
-            ),
-            // ── v1.30: 群聊工具 ─────────────────────────────────────────────
-            SkillEntity(
-                id = "channel_reply",
-                name = "群聊发言",
-                description = "在指定群聊中作为指定 agent 发送一条消息。传入 chatId(群聊 id)、assistantId(发言 agent id)和 body(消息正文)。消息会保存到群聊历史中,其他成员和用户可见。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("chatId", buildJsonObject {
-                            put("type", "string")
-                            put("description", "群聊 id")
-                        })
-                        put("assistantId", buildJsonObject {
-                            put("type", "string")
-                            put("description", "发言的 agent id(assistantId)")
-                        })
-                        put("body", buildJsonObject {
-                            put("type", "string")
-                            put("description", "消息正文内容")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(
-                        JsonPrimitive("chatId"), JsonPrimitive("assistantId"), JsonPrimitive("body"),
-                    )))
-                }.toString(),
-                requiredJson = """["chatId","assistantId","body"]""",
-                implementationKotlin = "channel_reply",
-                category = "agent",
-            ),
-            SkillEntity(
-                id = "channel_pass",
-                name = "群聊跳过本轮",
-                description = "在群聊轮转中跳过本轮发言(不发送消息)。传入 chatId(群聊 id)和 assistantId(agent id)。当 agent 认为当前无需自己发言时调用。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("chatId", buildJsonObject {
-                            put("type", "string")
-                            put("description", "群聊 id")
-                        })
-                        put("assistantId", buildJsonObject {
-                            put("type", "string")
-                            put("description", "跳过发言的 agent id")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(
-                        JsonPrimitive("chatId"), JsonPrimitive("assistantId"),
-                    )))
-                }.toString(),
-                requiredJson = """["chatId","assistantId"]""",
-                implementationKotlin = "channel_pass",
-                category = "agent",
-            ),
-            SkillEntity(
-                id = "channel_read_context",
-                name = "读取群聊上下文",
-                description = "读取指定群聊的最近消息作为上下文。传入 chatId(群聊 id),可选 limit(条数上限,默认 20)。返回格式化的消息列表,包含发送者名、时间和内容。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("chatId", buildJsonObject {
-                            put("type", "string")
-                            put("description", "群聊 id")
-                        })
-                        put("limit", buildJsonObject {
-                            put("type", "integer")
-                            put("description", "可选,读取条数上限(1-100),默认 20")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("chatId"))))
-                }.toString(),
-                requiredJson = """["chatId"]""",
-                implementationKotlin = "channel_read_context",
-                category = "agent",
-            ),
-            // ── v1.0.53 Phase 5: Agent Phone(主 agent 触发群聊成员私聊) ─────
-            SkillEntity(
-                id = "agent_phone",
-                name = "Agent 私聊",
-                description = "在群聊中向指定 agent 发起私聊(whisper)。传入 chatId(群聊 id)、targetAssistantId(目标 agent id)和 message(私聊内容)。私聊消息仅目标 agent 可见,不参与群聊轮转上下文,且会持久化到独立会话账本(App 重启后可续接)。调用后立即返回,目标 agent 的回复异步到达群聊消息流。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("chatId", buildJsonObject {
-                            put("type", "string")
-                            put("description", "群聊 id(用于隔离 whisper 上下文)")
-                        })
-                        put("targetAssistantId", buildJsonObject {
-                            put("type", "string")
-                            put("description", "目标 agent 的 id(assistantId)")
-                        })
-                        put("message", buildJsonObject {
-                            put("type", "string")
-                            put("description", "私聊消息正文")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(
-                        JsonPrimitive("chatId"), JsonPrimitive("targetAssistantId"), JsonPrimitive("message"),
-                    )))
-                }.toString(),
-                requiredJson = """["chatId","targetAssistantId","message"]""",
-                implementationKotlin = "agent_phone",
-                category = "agent",
-            ),
-            // ── 文件管理类 ─────────────────────────────────────────────────
-            SkillEntity(
-                id = "list_dir",
-                name = "列出目录",
-                description = "列出应用沙盒内指定目录下的文件和子目录。每行一个条目,文件夹前缀 [D],文件前缀 [F],末尾标注文件大小。路径相对于 filesDir。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("path", buildJsonObject {
-                            put("type", "string")
-                            put("description", "相对于 filesDir 的目录路径,如 'notes' 或 ''(根目录)")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("path"))))
-                }.toString(),
-                requiredJson = """["path"]""",
-                implementationKotlin = "list_dir",
-                category = "file",
-            ),
-            SkillEntity(
-                id = "delete_file",
-                name = "删除文件",
-                description = "删除应用沙盒内的文件或空目录。路径相对于 filesDir。删除非空目录会失败。支持批量删除(传 paths)。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("path", buildJsonObject {
-                            put("type", "string")
-                            put("description", "相对于 filesDir 的文件或空目录路径(单个,与 paths 二选一)")
-                        })
-                        put("paths", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,批量删除的路径列表,逗号或换行分隔,如 'a.txt,b.txt'。与 path 二选一,优先于 path")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("path"))))
-                }.toString(),
-                requiredJson = """["path"]""",
-                implementationKotlin = "delete_file",
-                category = "file",
-            ),
-            SkillEntity(
-                id = "file_exists",
-                name = "判断文件存在",
-                description = "判断应用沙盒内指定路径的文件或目录是否存在。返回 exists 或 not_exists。路径相对于 filesDir。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("path", buildJsonObject {
-                            put("type", "string")
-                            put("description", "相对于 filesDir 的路径")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("path"))))
-                }.toString(),
-                requiredJson = """["path"]""",
-                implementationKotlin = "file_exists",
-                category = "file",
-            ),
-            // ── 公共目录与文件传输 ─────────────────────────────────────────
-            SkillEntity(
-                id = "file_download",
-                name = "下载文件",
-                description = "从 URL 下载文件到应用沙盒。支持指定超时时间(默认 60 秒)。下载的文件保存在 filesDir 下指定相对路径,自动创建父目录。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("url", buildJsonObject {
-                            put("type", "string")
-                            put("description", "下载地址,http:// 或 https://")
-                        })
-                        put("path", buildJsonObject {
-                            put("type", "string")
-                            put("description", "保存到沙盒的相对路径(相对于 filesDir),如 'downloads/file.zip'")
-                        })
-                        put("timeout", buildJsonObject {
-                            put("type", "integer")
-                            put("description", "可选,超时秒数,默认 60")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(
-                        JsonPrimitive("url"), JsonPrimitive("path"),
-                    )))
-                }.toString(),
-                requiredJson = """["url","path"]""",
-                implementationKotlin = "file_download",
-                category = "file",
-            ),
-            SkillEntity(
-                id = "read_public_file",
-                name = "读取公共文件",
-                description = "通过 content:// URI 读取公共文件。可读取 list_public_files 返回的 URI(含 MediaStore URI),也可读用户分享/打开方式传入的 URI。返回文本内容(上限 1MB)。注:仅支持文本类文件,二进制文件可能乱码。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("uri", buildJsonObject {
-                            put("type", "string")
-                            put("description", "文件 URI,如 list_public_files 输出的 uri=content://media/... 或 SAF 传入的 content://...")
-                        })
-                        put("encoding", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,文件编码,默认 utf-8")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("uri"))))
-                }.toString(),
-                requiredJson = """["uri"]""",
-                implementationKotlin = "read_public_file",
-                category = "file",
-            ),
-            SkillEntity(
-                id = "save_to_downloads",
-                name = "保存到下载目录",
-                description = "保存文本内容或本地沙盒文件到系统 Download 目录。Android 10+ 通过 MediaStore 写入,Android 9 及以下直接写公共 Download 目录。传 file_path 时支持二进制文件转存(无需先 read_file 再写文本)。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("content", buildJsonObject {
-                            put("type", "string")
-                            put("description", "要保存的文本内容(与 file_path 二选一)")
-                        })
-                        put("file_path", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,沙盒内源文件路径(相对 filesDir),直接转存到 Download,支持二进制。与 content 二选一")
-                        })
-                        put("filename", buildJsonObject {
-                            put("type", "string")
-                            put("description", "文件名,如 'notes.txt'")
-                        })
-                        put("mime_type", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,MIME 类型,默认 text/plain。转存二进制时建议显式指定(如 image/png)")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(
-                        JsonPrimitive("filename"),
-                    )))
-                }.toString(),
-                requiredJson = """["filename"]""",
-                implementationKotlin = "save_to_downloads",
-                category = "file",
-            ),
-            SkillEntity(
-                id = "list_public_files",
-                name = "列出公共目录",
-                description = "列出指定公共目录(Downloads/Documents/Pictures/Music 等)的文件。通过 MediaStore 查询,返回文件名和大小。默认列 Downloads,最多 50 条,按修改时间倒序。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("directory", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,目录名,如 Downloads/Documents/Pictures/Music,默认 Downloads")
-                        })
-                        put("limit", buildJsonObject {
-                            // v1.52: 修正类型为 integer(原 string 与实际 parseIntOrNull 不匹配)
-                            put("type", "integer")
-                            put("description", "可选,最大返回条数,默认 50")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf()))
-                }.toString(),
-                requiredJson = """[]""",
-                implementationKotlin = "list_public_files",
-                category = "file",
-            ),
-            // ── Skill 管理类 ───────────────────────────────────────────────
-            SkillEntity(
-                id = "list_skills",
-                name = "列出 Skill",
-                description = "列出已安装的全部 Skill,每行格式为 'id | name | category | enabled/disabled'。可选按 category 筛选。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("category", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,按分类筛选,如 file/http/search/knowledge/system/agent/skill")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf()))
-                }.toString(),
-                requiredJson = """[]""",
-                implementationKotlin = "list_skills",
-                category = "skill",
-            ),
-            SkillEntity(
-                id = "uninstall_skill",
-                name = "卸载 Skill",
-                description = "卸载(删除)已安装的 Skill。需传入 id 或 name(至少一个),优先用 id。删除后该 Skill 不再可用。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("id", buildJsonObject {
-                            put("type", "string")
-                            put("description", "要卸载的 skill id")
-                        })
-                        put("name", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,按名称查找并卸载(id 未传时使用)")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf()))
-                }.toString(),
-                requiredJson = """[]""",
-                implementationKotlin = "uninstall_skill",
-                category = "skill",
-            ),
-            SkillEntity(
-                id = "disable_skill",
-                name = "禁用 Skill",
-                description = "禁用已安装的 Skill(不删除,只置为不可用)。后续可通过启用恢复。需传入 id。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("id", buildJsonObject {
-                            put("type", "string")
-                            put("description", "要禁用的 skill id")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("id"))))
-                }.toString(),
-                requiredJson = """["id"]""",
-                implementationKotlin = "disable_skill",
-                category = "skill",
-            ),
-            SkillEntity(
-                id = "enable_skill",
-                name = "启用 Skill",
-                description = "启用已安装的 Skill(与 disable_skill 对称)。需传入 id。内置技能允许启用;插件技能随插件启停,应到插件管理页操作,本工具会拒绝。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("id", buildJsonObject {
-                            put("type", "string")
-                            put("description", "要启用的 skill id")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("id"))))
-                }.toString(),
-                requiredJson = """["id"]""",
-                implementationKotlin = "enable_skill",
-                category = "skill",
-            ),
-            SkillEntity(
-                id = "update_skill",
-                name = "更新 Skill",
-                description = "更新用户自建 skill 的 name / description / parametersJson(JSON Schema 字符串)。提示词技能额外支持用 prompt 参数替换指令文本。只能改用户自己创建的 skill:内置保留 skill 与插件技能一律拒绝;更新内容仍走导入校验(保留 id/category 白名单/注入黑名单),更新后 id 不变且保持启用。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("id", buildJsonObject {
-                            put("type", "string")
-                            put("description", "要更新的用户 skill id")
-                        })
-                        put("name", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,新的显示名")
-                        })
-                        put("description", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,新的工具描述(模型据此决定是否调用)")
-                        })
-                        put("parametersJson", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,新的参数 JSON Schema 字符串(提示词技能忽略此参数)")
-                        })
-                        put("prompt", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,仅提示词技能:新的指令文本(上限 8KB)")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("id"))))
-                }.toString(),
-                requiredJson = """["id"]""",
-                implementationKotlin = "update_skill",
-                category = "skill",
-            ),
-            // v1.55: Agent 工作流 — 结构化任务计划
-            SkillEntity(
-                id = "task_plan",
-                name = "创建任务计划",
-                description = "面对复杂多步骤任务时,先创建一个结构化计划再逐步执行。传入计划标题和步骤列表(每步含标题和描述)。计划会在用户界面显示为可追踪的检查清单。创建后按顺序执行各步骤,每完成一步调用 update_plan_step 更新状态。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("title", buildJsonObject {
-                            put("type", "string")
-                            put("description", "计划标题,简述整体目标")
-                        })
-                        put("steps", buildJsonObject {
-                            put("type", "array")
-                            put("description", "步骤列表,按执行顺序排列")
-                            put("items", buildJsonObject {
-                                put("type", "object")
-                                put("properties", buildJsonObject {
-                                    put("title", buildJsonObject {
-                                        put("type", "string")
-                                        put("description", "步骤标题(简短)")
-                                    })
-                                    put("description", buildJsonObject {
-                                        put("type", "string")
-                                        put("description", "步骤详细描述,包括要做什么和预期结果")
-                                    })
-                                })
-                                put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("title"))))
-                            })
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("title"), JsonPrimitive("steps"))))
-                }.toString(),
-                requiredJson = """["title","steps"]""",
-                implementationKotlin = "task_plan",
-                category = "agent",
-            ),
-            SkillEntity(
-                id = "update_plan_step",
-                name = "更新计划步骤",
-                description = "更新任务计划中某个步骤的状态。传入 planId 和 stepIndex(从0开始),以及新状态(done/failed/in_progress/skipped)和可选的结果摘要。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("planId", buildJsonObject {
-                            put("type", "string")
-                            put("description", "计划 id(task_plan 返回的 planId)")
-                        })
-                        put("stepIndex", buildJsonObject {
-                            put("type", "integer")
-                            put("description", "步骤索引(从 0 开始)")
-                        })
-                        put("status", buildJsonObject {
-                            put("type", "string")
-                            put("description", "新状态:done(完成)/ failed(失败)/ in_progress(执行中)/ skipped(跳过)")
-                        })
-                        put("result", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,步骤执行结果摘要"
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("path"))))
+                        }.toString(),
+                    requiredJson = """["path"]""",
+                    implementationKotlin = "read_file",
+                    category = "file",
+                ),
+                SkillEntity(
+                    id = "write_file",
+                    name = "写入文件",
+                    description = "写入文本到应用沙盒内的文件。路径相对于 filesDir。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "path",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "相对于 filesDir 的文件路径")
+                                        },
+                                    )
+                                    put(
+                                        "content",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "要写入的文本内容")
+                                        },
+                                    )
+                                    put(
+                                        "append",
+                                        buildJsonObject {
+                                            put("type", "boolean")
+                                            put("description", "是否追加写入(默认 false 覆盖)")
+                                        },
+                                    )
+                                    put(
+                                        "create_dirs",
+                                        buildJsonObject {
+                                            put("type", "boolean")
+                                            put("description", "可选,是否自动创建父目录,默认 true")
+                                        },
+                                    )
+                                },
                             )
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("planId"), JsonPrimitive("stepIndex"), JsonPrimitive("status"))))
-                }.toString(),
-                requiredJson = """["planId","stepIndex","status"]""",
-                implementationKotlin = "update_plan_step",
-                category = "agent",
-            ),
-            // ── v1.95: 表情包库工具 ─────────────────────────────────────────
-            SkillEntity(
-                id = "list_stickers",
-                name = "列出表情包",
-                description = "列出表情包库中可用的表情包(可按分类筛选)。仅当用户已上传表情包时可用。发送前先判断对话情绪:用户生气/难过时优先筛选安慰、可爱、治愈类分类;开心/兴奋时优先筛选庆祝、搞笑类分类。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("category", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,按分类筛选表情包(如 猫猫/狗子)。不传则列出全部;建议结合对话情绪传入合适分类")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf()))
-                }.toString(),
-                requiredJson = """[]""",
-                implementationKotlin = "list_stickers",
-                category = "sticker",
-            ),
-            SkillEntity(
-                id = "send_sticker",
-                name = "发送表情包",
-                description = "向用户发送一个表情包。先用 list_stickers 查看可用表情包,再用此工具发送。选图原则:匹配对话情绪与语境,生气/难过时发安抚治愈类,开心时发庆祝搞笑类,避免在严肃话题中发过于沙雕的表情包。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("id", buildJsonObject {
-                            put("type", "string")
-                            put("description", "要发送的表情包 id(从 list_stickers 获取)")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("id"))))
-                }.toString(),
-                requiredJson = """["id"]""",
-                implementationKotlin = "send_sticker",
-                category = "sticker",
-            ),
-            // ── v1.???: 新增工具 ──────────────────────────────────────────────
-            SkillEntity(
-                id = "generate_image",
-                name = "生成图片",
-                description = "根据文字描述生成图片。调用 AI 绘图模型(需配置 OpenAI 兼容绘图供应商)。返回图片 URL。使用时机: 用户要求生成图片/海报/封面时。不要使用: 未配置绘图模型时(会失败,应告知用户去设置配置);prompt 尽量用英文描述主体/风格/构图。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("prompt", buildJsonObject {
-                            put("type", "string")
-                            put("description", "图片描述,英文效果更佳,如 'a cute cat sitting on a sofa'")
-                        })
-                        put("size", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,图片尺寸,如 1024x1024/1792x1024/1024x1792,默认 1024x1024")
-                        })
-                        put("reference_image", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,参考图 URL 或 base64(用于图生图/图片编辑);非空时调用图生图端点。注意:LLM 无法访问用户本地相册,本地参考图由用户在工具审批卡片中从相册选择后注入,LLM 调用时无需也无法填入本参数")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("prompt"))))
-                }.toString(),
-                requiredJson = """["prompt"]""",
-                implementationKotlin = "generate_image",
-                category = "image",
-            ),
-            SkillEntity(
-                id = "translate",
-                name = "翻译",
-                description = "把文本翻译成指定语言。可指定源语言(可选)和目标语言(必填)。使用 AI 模型进行高质量翻译。",
-                parametersJson = buildJsonObject {
-                    put("type", "object")
-                    put("properties", buildJsonObject {
-                        put("text", buildJsonObject {
-                            put("type", "string")
-                            put("description", "要翻译的文本内容")
-                        })
-                        put("target_language", buildJsonObject {
-                            put("type", "string")
-                            put("description", "目标语言,如 中文/English/日本語/한국어")
-                        })
-                        put("source_language", buildJsonObject {
-                            put("type", "string")
-                            put("description", "可选,源语言,如 中文/English/自動検出")
-                        })
-                    })
-                    put("required", kotlinx.serialization.json.JsonArray(listOf(
-                        JsonPrimitive("text"), JsonPrimitive("target_language"),
-                    )))
-                }.toString(),
-                requiredJson = """["text","target_language"]""",
-                implementationKotlin = "translate",
-                category = "custom",
-            ),
-            // B-07: generate_qr 内置 skill 已下线 — 与本地工具 generate_qr_code 重复且语义冲突
-            // (skill 版返回 cacheDir 文件路径,本地版渲染 data URI 到对话)。保留本地版。
-            // implementationKotlin="generate_qr" 的 dispatch 仍保留,兼容已导入该 skill 的用户。
-        )
+                            put(
+                                "required",
+                                kotlinx.serialization.json.JsonArray(
+                                    listOf(
+                                        JsonPrimitive("path"),
+                                        JsonPrimitive("content"),
+                                    ),
+                                ),
+                            )
+                        }.toString(),
+                    requiredJson = """["path","content"]""",
+                    implementationKotlin = "write_file",
+                    category = "file",
+                ),
+                SkillEntity(
+                    id = "http_get",
+                    name = "HTTP GET",
+                    description = "发起 HTTP GET 请求并返回响应(响应体上限 1MB)。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "url",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "请求 URL,http:// 或 https://")
+                                        },
+                                    )
+                                    put(
+                                        "headers",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,请求头 JSON,如 {\"Authorization\":\"Bearer xxx\"}")
+                                        },
+                                    )
+                                    put(
+                                        "timeout",
+                                        buildJsonObject {
+                                            put("type", "integer")
+                                            put("description", "可选,超时秒数,默认 30")
+                                        },
+                                    )
+                                    put(
+                                        "max_size",
+                                        buildJsonObject {
+                                            put("type", "integer")
+                                            put("description", "可选,响应体大小上限(字节),默认 1048576(1MB)")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("url"))))
+                        }.toString(),
+                    requiredJson = """["url"]""",
+                    implementationKotlin = "http_get",
+                    category = "http",
+                ),
+                SkillEntity(
+                    id = "http_post",
+                    name = "HTTP POST",
+                    description = "发起 HTTP POST 请求并返回响应(响应体上限 1MB)。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "url",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put(
+                                                "description",
+                                                "请求 URL",
+                                            )
+                                        },
+                                    )
+                                    put(
+                                        "body",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "请求体内容")
+                                        },
+                                    )
+                                    put(
+                                        "content_type",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "Content-Type,默认 application/json")
+                                        },
+                                    )
+                                    put(
+                                        "headers",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,请求头 JSON")
+                                        },
+                                    )
+                                    put(
+                                        "timeout",
+                                        buildJsonObject {
+                                            put("type", "integer")
+                                            put("description", "可选,超时秒数,默认 30")
+                                        },
+                                    )
+                                },
+                            )
+                            put(
+                                "required",
+                                kotlinx.serialization.json.JsonArray(
+                                    listOf(
+                                        JsonPrimitive("url"),
+                                        JsonPrimitive("body"),
+                                    ),
+                                ),
+                            )
+                        }.toString(),
+                    requiredJson = """["url","body"]""",
+                    implementationKotlin = "http_post",
+                    category = "http",
+                ),
+                // ── v0.24: 搜索与信息获取 ──────────────────────────────────────
+                SkillEntity(
+                    id = "web_search",
+                    name = "网页搜索",
+                    // v1.0.75 fix (工具审查 01): 删冗余 time_period,补 date_range 使用指引
+                    description = "用配置好的搜索引擎(SearXNG/Tavily)搜索网页。返回标题、URL 和摘要。当用户问到需要最新信息的问题时调用此工具。使用时机: 用户问到需要最新/实时信息的问题(价格、版本、政策、行情、天气等),或你知识不确定时。需要限定时间时传 date_range(如用户说'最近一周',传 past_week)。不要使用: 常识性问题或用户已提供足够信息时;搜索结果不全时换关键词重搜,不要编造。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "query",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "必填,搜索关键词。中文用户问题直接用中文关键词,可加关键限定词提高精度")
+                                        },
+                                    )
+                                    put(
+                                        "max_results",
+                                        buildJsonObject {
+                                            put("type", "integer")
+                                            put("description", "可选,最大返回条数(1-10),默认 5")
+                                        },
+                                    )
+                                    put(
+                                        "date_range",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put(
+                                                "description",
+                                                "可选,限定结果时间范围,取值: past_day / past_week / past_month / past_year。用户提到'最近/最新/本周/本月'时填写,无时间要求时不填",
+                                            )
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("query"))))
+                        }.toString(),
+                    requiredJson = """["query"]""",
+                    implementationKotlin = "web_search",
+                    category = "search",
+                ),
+                SkillEntity(
+                    id = "web_fetch",
+                    name = "网页抓取",
+                    description = "抓取指定 URL 的网页正文(自动去除 HTML 标签,返回纯文本)。用于读取 web_search 返回的 URL 全文内容。使用时机: 读取 web_search 返回的 URL 全文,或用户给出明确 URL 时。不要使用: 无 URL 时;页面需要登录/交互时说明无法获取,不要猜测内容。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "url",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "要抓取的网页 URL,http:// 或 https://")
+                                        },
+                                    )
+                                    put(
+                                        "headers",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,请求头 JSON")
+                                        },
+                                    )
+                                    put(
+                                        "max_length",
+                                        buildJsonObject {
+                                            put("type", "integer")
+                                            put("description", "可选,返回字符数上限,默认 50000")
+                                        },
+                                    )
+                                    put(
+                                        "truncate",
+                                        buildJsonObject {
+                                            put("type", "boolean")
+                                            put("description", "可选,超出 max_length 是否截断,默认 true")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("url"))))
+                        }.toString(),
+                    requiredJson = """["url"]""",
+                    implementationKotlin = "web_fetch",
+                    category = "search",
+                ),
+                SkillEntity(
+                    id = "knowledge_search",
+                    name = "知识库搜索",
+                    // v1.0.75 fix (工具审查 01): 明确与 web_search 的边界,
+                    // 原"可能与已导入文档相关时优先调用"太模糊,模型先试本地再退搜索浪费轮次。
+                    description = "在用户主动导入的知识库文档中语义搜索(向量检索 + 标题/内容匹配)。仅当用户知识库中可能有答案时使用(如用户导入过资料、问'我之前存的文档里怎么说的')。通用事实、实时信息、网上能查到的问题一律用 web_search,不要先用本工具试探。用户问 muse app 自身功能(如怎么用深度思考/主动消息怎么设置)时,传 include_internal=true 可检索内置功能文档。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "query",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "搜索关键词")
+                                        },
+                                    )
+                                    put(
+                                        "top_k",
+                                        buildJsonObject {
+                                            put("type", "integer")
+                                            put("description", "可选,返回条数上限,默认 5")
+                                        },
+                                    )
+                                    put(
+                                        "threshold",
+                                        buildJsonObject {
+                                            put("type", "number")
+                                            put("description", "可选,相似度阈值(0-1 小数制,非满分 100),默认 0.3。低于阈值的过滤掉")
+                                        },
+                                    )
+                                    put(
+                                        "include_internal",
+                                        buildJsonObject {
+                                            put("type", "boolean")
+                                            put(
+                                                "description",
+                                                "可选,是否包含 muse app 内置功能文档,默认 false。仅在用户问 muse app 自身功能(如'怎么用深度思考''主动消息怎么设置')时传 true",
+                                            )
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("query"))))
+                        }.toString(),
+                    requiredJson = """["query"]""",
+                    implementationKotlin = "knowledge_search",
+                    category = "knowledge",
+                ),
+                SkillEntity(
+                    id = "arxiv_search",
+                    name = "arXiv 论文搜索",
+                    description = "在 arXiv 搜索学术论文(计算机科学、物理、数学等)。返回论文标题、链接、发表日期和摘要。当用户问到学术研究、论文相关问题时调用。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "query",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "搜索关键词(英文为佳),如 'transformer attention'")
+                                        },
+                                    )
+                                    put(
+                                        "max_results",
+                                        buildJsonObject {
+                                            put("type", "integer")
+                                            put("description", "可选,最大返回条数(1-10),默认 5")
+                                        },
+                                    )
+                                    put(
+                                        "category",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,学科分类,如 cs.AI/cs.CL")
+                                        },
+                                    )
+                                    put(
+                                        "date_from",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,起始日期(YYYY-MM-DD)")
+                                        },
+                                    )
+                                    put(
+                                        "date_to",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,结束日期(YYYY-MM-DD)")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("query"))))
+                        }.toString(),
+                    requiredJson = """["query"]""",
+                    implementationKotlin = "arxiv_search",
+                    category = "search",
+                ),
+                // ── v0.24: 自我扩展 ─────────────────────────────────────────────
+                SkillEntity(
+                    id = "install_skill",
+                    name = "安装 Skill",
+                    description = "让助手自己生成新的 skill 定义并安装到用户设备。skill_json 参数为 .skill.json 格式的 JSON 字符串。必填字段: id, name, description, category, implementationKotlin, parametersJson。category 取值: file/http/search/knowledge/system/agent/sticker/custom。implementationKotlin 必须是内置实现之一(read_file/write_file/http_get/http_post/web_search/web_fetch/knowledge_search/arxiv_search),不支持任意代码执行。安装后用户可在设置→Skill 中查看/启停。提示词技能:implementationKotlin 传 \"prompt\",指令文本放 prompt 字段(也接受 \"prompt:<文本>\" 形式;文本受注入黑名单与 8KB 上限约束)。提示词技能可被调用时传可选 input 参数:指令文本中的 {{input}} 占位符会被代入,无占位符时输入追加到指令末尾。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "skill_json",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put(
+                                                "description",
+                                                "skill 定义 JSON 字符串(.skill.json 格式)。示例: {\"id\":\"fetch_weather\",\"name\":\"查询天气\",\"description\":\"查询城市天气\",\"parametersJson\":\"{\\\"type\\\":\\\"object\\\",\\\"properties\\\":{\\\"url\\\":{\\\"type\\\":\\\"string\\\"}}}\",\"implementationKotlin\":\"http_get\"}",
+                                            )
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("skill_json"))))
+                        }.toString(),
+                    requiredJson = """["skill_json"]""",
+                    implementationKotlin = "install_skill",
+                    category = "system",
+                ),
+                SkillEntity(
+                    id = "author_plugin",
+                    name = "编写插件",
+                    description = "让助手自己编写一个带 JS 工具实现的插件。code 是 JS 入口源码（工具实现必须是顶层 function 声明），tools 是工具声明数组（每项含 name/description/parametersJson/requiredJson/functionName），可选 capabilities 只能取 resource.read/ui/ui.mood。本工具只生成【未签名草稿】：草稿已禁用、不可执行，助手不能调用；必须由用户在「设置 → 插件管理」中审阅工具清单与代码，点击「签名并启用」后才会由本机作者密钥签名生效。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "id",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "插件 id:小写字母、数字、下划线、连字符,以字母或数字开头,如 'daily_summary'")
+                                        },
+                                    )
+                                    put(
+                                        "name",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "插件显示名,如 '每日总结'")
+                                        },
+                                    )
+                                    put(
+                                        "description",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "插件用途说明")
+                                        },
+                                    )
+                                    put(
+                                        "version",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "语义化版本,如 '1.0.0'")
+                                        },
+                                    )
+                                    put(
+                                        "code",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put(
+                                                "description",
+                                                "JS 入口源码(≤256KB)。每个工具的 functionName 必须在源码里有顶层 function 声明,如 'function summarize(args) { return ...; }'",
+                                            )
+                                        },
+                                    )
+                                    put(
+                                        "tools",
+                                        buildJsonObject {
+                                            put("type", "array")
+                                            put("description", "工具声明数组,与 manifest 的 tools 字段一致")
+                                            put(
+                                                "items",
+                                                buildJsonObject {
+                                                    put("type", "object")
+                                                    put(
+                                                        "properties",
+                                                        buildJsonObject {
+                                                            put("name", buildJsonObject { put("type", "string") })
+                                                            put("description", buildJsonObject { put("type", "string") })
+                                                            put("parametersJson", buildJsonObject { put("type", "string") })
+                                                            put("requiredJson", buildJsonObject { put("type", "string") })
+                                                            put("functionName", buildJsonObject { put("type", "string") })
+                                                        },
+                                                    )
+                                                },
+                                            )
+                                        },
+                                    )
+                                    put(
+                                        "capabilities",
+                                        buildJsonObject {
+                                            put("type", "array")
+                                            put(
+                                                "description",
+                                                "可选能力数组,取自白名单:resource.read / ui / ui.mood 与受控桥接能力(network / storage.read / storage.write / clipboard.read / clipboard.write / notify / device.info)，默认不声明",
+                                            )
+                                        },
+                                    )
+                                },
+                            )
+                            put(
+                                "required",
+                                kotlinx.serialization.json.JsonArray(
+                                    listOf(
+                                        JsonPrimitive("id"),
+                                        JsonPrimitive("name"),
+                                        JsonPrimitive("version"),
+                                        JsonPrimitive("code"),
+                                        JsonPrimitive("tools"),
+                                    ),
+                                ),
+                            )
+                        }.toString(),
+                    requiredJson = """["id","name","version","code","tools"]""",
+                    implementationKotlin = "author_plugin",
+                    category = "system",
+                ),
+                // ── v0.46: 多 Agent 协作 ────────────────────────────────────────
+                SkillEntity(
+                    id = "delegate_agent",
+                    name = "委托子助手",
+                    description = "把任务委托给指定子助手执行,用于多助手协作。传入 assistantId(助手 id)和 task(任务描述),可选 context(上下文)。子助手会用自己的人设和能力独立完成任务并返回结果。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "assistantId",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "子助手 id,如 default / researcher / writer 等。可在助手管理页查看")
+                                        },
+                                    )
+                                    put(
+                                        "task",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "要委托的任务描述,自然语言")
+                                        },
+                                    )
+                                    put(
+                                        "context",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选的补充上下文信息")
+                                        },
+                                    )
+                                    put(
+                                        "timeout",
+                                        buildJsonObject {
+                                            put("type", "integer")
+                                            put("description", "可选,超时秒数,默认 60")
+                                        },
+                                    )
+                                    put(
+                                        "response_format",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,返回格式,text(默认)或 json")
+                                        },
+                                    )
+                                },
+                            )
+                            put(
+                                "required",
+                                kotlinx.serialization.json.JsonArray(
+                                    listOf(
+                                        JsonPrimitive("assistantId"),
+                                        JsonPrimitive("task"),
+                                    ),
+                                ),
+                            )
+                        }.toString(),
+                    requiredJson = """["assistantId","task"]""",
+                    implementationKotlin = "delegate_agent",
+                    category = "agent",
+                ),
+                // ── v1.30: 群聊工具 ─────────────────────────────────────────────
+                SkillEntity(
+                    id = "channel_reply",
+                    name = "群聊发言",
+                    description = "在指定群聊中作为指定 agent 发送一条消息。传入 chatId(群聊 id)、assistantId(发言 agent id)和 body(消息正文)。消息会保存到群聊历史中,其他成员和用户可见。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "chatId",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "群聊 id")
+                                        },
+                                    )
+                                    put(
+                                        "assistantId",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "发言的 agent id(assistantId)")
+                                        },
+                                    )
+                                    put(
+                                        "body",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "消息正文内容")
+                                        },
+                                    )
+                                },
+                            )
+                            put(
+                                "required",
+                                kotlinx.serialization.json.JsonArray(
+                                    listOf(
+                                        JsonPrimitive("chatId"),
+                                        JsonPrimitive("assistantId"),
+                                        JsonPrimitive("body"),
+                                    ),
+                                ),
+                            )
+                        }.toString(),
+                    requiredJson = """["chatId","assistantId","body"]""",
+                    implementationKotlin = "channel_reply",
+                    category = "agent",
+                ),
+                SkillEntity(
+                    id = "channel_pass",
+                    name = "群聊跳过本轮",
+                    description = "在群聊轮转中跳过本轮发言(不发送消息)。传入 chatId(群聊 id)和 assistantId(agent id)。当 agent 认为当前无需自己发言时调用。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "chatId",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "群聊 id")
+                                        },
+                                    )
+                                    put(
+                                        "assistantId",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "跳过发言的 agent id")
+                                        },
+                                    )
+                                },
+                            )
+                            put(
+                                "required",
+                                kotlinx.serialization.json.JsonArray(
+                                    listOf(
+                                        JsonPrimitive("chatId"),
+                                        JsonPrimitive("assistantId"),
+                                    ),
+                                ),
+                            )
+                        }.toString(),
+                    requiredJson = """["chatId","assistantId"]""",
+                    implementationKotlin = "channel_pass",
+                    category = "agent",
+                ),
+                SkillEntity(
+                    id = "channel_read_context",
+                    name = "读取群聊上下文",
+                    description = "读取指定群聊的最近消息作为上下文。传入 chatId(群聊 id),可选 limit(条数上限,默认 20)。返回格式化的消息列表,包含发送者名、时间和内容。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "chatId",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "群聊 id")
+                                        },
+                                    )
+                                    put(
+                                        "limit",
+                                        buildJsonObject {
+                                            put("type", "integer")
+                                            put("description", "可选,读取条数上限(1-100),默认 20")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("chatId"))))
+                        }.toString(),
+                    requiredJson = """["chatId"]""",
+                    implementationKotlin = "channel_read_context",
+                    category = "agent",
+                ),
+                // ── v1.0.53 Phase 5: Agent Phone(主 agent 触发群聊成员私聊) ─────
+                SkillEntity(
+                    id = "agent_phone",
+                    name = "Agent 私聊",
+                    description = "在群聊中向指定 agent 发起私聊(whisper)。传入 chatId(群聊 id)、targetAssistantId(目标 agent id)和 message(私聊内容)。私聊消息仅目标 agent 可见,不参与群聊轮转上下文,且会持久化到独立会话账本(App 重启后可续接)。调用后立即返回,目标 agent 的回复异步到达群聊消息流。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "chatId",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "群聊 id(用于隔离 whisper 上下文)")
+                                        },
+                                    )
+                                    put(
+                                        "targetAssistantId",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "目标 agent 的 id(assistantId)")
+                                        },
+                                    )
+                                    put(
+                                        "message",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "私聊消息正文")
+                                        },
+                                    )
+                                },
+                            )
+                            put(
+                                "required",
+                                kotlinx.serialization.json.JsonArray(
+                                    listOf(
+                                        JsonPrimitive("chatId"),
+                                        JsonPrimitive("targetAssistantId"),
+                                        JsonPrimitive("message"),
+                                    ),
+                                ),
+                            )
+                        }.toString(),
+                    requiredJson = """["chatId","targetAssistantId","message"]""",
+                    implementationKotlin = "agent_phone",
+                    category = "agent",
+                ),
+                // ── 文件管理类 ─────────────────────────────────────────────────
+                SkillEntity(
+                    id = "list_dir",
+                    name = "列出目录",
+                    description = "列出应用沙盒内指定目录下的文件和子目录。每行一个条目,文件夹前缀 [D],文件前缀 [F],末尾标注文件大小。路径相对于 filesDir。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "path",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "相对于 filesDir 的目录路径,如 'notes' 或 ''(根目录)")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("path"))))
+                        }.toString(),
+                    requiredJson = """["path"]""",
+                    implementationKotlin = "list_dir",
+                    category = "file",
+                ),
+                SkillEntity(
+                    id = "delete_file",
+                    name = "删除文件",
+                    description = "删除应用沙盒内的文件或空目录。路径相对于 filesDir。删除非空目录会失败。支持批量删除(传 paths)。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "path",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "相对于 filesDir 的文件或空目录路径(单个,与 paths 二选一)")
+                                        },
+                                    )
+                                    put(
+                                        "paths",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,批量删除的路径列表,逗号或换行分隔,如 'a.txt,b.txt'。与 path 二选一,优先于 path")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("path"))))
+                        }.toString(),
+                    requiredJson = """["path"]""",
+                    implementationKotlin = "delete_file",
+                    category = "file",
+                ),
+                SkillEntity(
+                    id = "file_exists",
+                    name = "判断文件存在",
+                    description = "判断应用沙盒内指定路径的文件或目录是否存在。返回 exists 或 not_exists。路径相对于 filesDir。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "path",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "相对于 filesDir 的路径")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("path"))))
+                        }.toString(),
+                    requiredJson = """["path"]""",
+                    implementationKotlin = "file_exists",
+                    category = "file",
+                ),
+                // ── 公共目录与文件传输 ─────────────────────────────────────────
+                SkillEntity(
+                    id = "file_download",
+                    name = "下载文件",
+                    description = "从 URL 下载文件到应用沙盒。支持指定超时时间(默认 60 秒)。下载的文件保存在 filesDir 下指定相对路径,自动创建父目录。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "url",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "下载地址,http:// 或 https://")
+                                        },
+                                    )
+                                    put(
+                                        "path",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "保存到沙盒的相对路径(相对于 filesDir),如 'downloads/file.zip'")
+                                        },
+                                    )
+                                    put(
+                                        "timeout",
+                                        buildJsonObject {
+                                            put("type", "integer")
+                                            put("description", "可选,超时秒数,默认 60")
+                                        },
+                                    )
+                                },
+                            )
+                            put(
+                                "required",
+                                kotlinx.serialization.json.JsonArray(
+                                    listOf(
+                                        JsonPrimitive("url"),
+                                        JsonPrimitive("path"),
+                                    ),
+                                ),
+                            )
+                        }.toString(),
+                    requiredJson = """["url","path"]""",
+                    implementationKotlin = "file_download",
+                    category = "file",
+                ),
+                SkillEntity(
+                    id = "read_public_file",
+                    name = "读取公共文件",
+                    description = "通过 content:// URI 读取公共文件。可读取 list_public_files 返回的 URI(含 MediaStore URI),也可读用户分享/打开方式传入的 URI。返回文本内容(上限 1MB)。注:仅支持文本类文件,二进制文件可能乱码。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "uri",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put(
+                                                "description",
+                                                "文件 URI,如 list_public_files 输出的 uri=content://media/... 或 SAF 传入的 content://...",
+                                            )
+                                        },
+                                    )
+                                    put(
+                                        "encoding",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,文件编码,默认 utf-8")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("uri"))))
+                        }.toString(),
+                    requiredJson = """["uri"]""",
+                    implementationKotlin = "read_public_file",
+                    category = "file",
+                ),
+                SkillEntity(
+                    id = "save_to_downloads",
+                    name = "保存到下载目录",
+                    description = "保存文本内容或本地沙盒文件到系统 Download 目录。Android 10+ 通过 MediaStore 写入,Android 9 及以下直接写公共 Download 目录。传 file_path 时支持二进制文件转存(无需先 read_file 再写文本)。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "content",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "要保存的文本内容(与 file_path 二选一)")
+                                        },
+                                    )
+                                    put(
+                                        "file_path",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,沙盒内源文件路径(相对 filesDir),直接转存到 Download,支持二进制。与 content 二选一")
+                                        },
+                                    )
+                                    put(
+                                        "filename",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "文件名,如 'notes.txt'")
+                                        },
+                                    )
+                                    put(
+                                        "mime_type",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,MIME 类型,默认 text/plain。转存二进制时建议显式指定(如 image/png)")
+                                        },
+                                    )
+                                },
+                            )
+                            put(
+                                "required",
+                                kotlinx.serialization.json.JsonArray(
+                                    listOf(
+                                        JsonPrimitive("filename"),
+                                    ),
+                                ),
+                            )
+                        }.toString(),
+                    requiredJson = """["filename"]""",
+                    implementationKotlin = "save_to_downloads",
+                    category = "file",
+                ),
+                SkillEntity(
+                    id = "list_public_files",
+                    name = "列出公共目录",
+                    description = "列出指定公共目录(Downloads/Documents/Pictures/Music 等)的文件。通过 MediaStore 查询,返回文件名和大小。默认列 Downloads,最多 50 条,按修改时间倒序。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "directory",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,目录名,如 Downloads/Documents/Pictures/Music,默认 Downloads")
+                                        },
+                                    )
+                                    put(
+                                        "limit",
+                                        buildJsonObject {
+                                            // v1.52: 修正类型为 integer(原 string 与实际 parseIntOrNull 不匹配)
+                                            put("type", "integer")
+                                            put("description", "可选,最大返回条数,默认 50")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf()))
+                        }.toString(),
+                    requiredJson = """[]""",
+                    implementationKotlin = "list_public_files",
+                    category = "file",
+                ),
+                // ── Skill 管理类 ───────────────────────────────────────────────
+                SkillEntity(
+                    id = "list_skills",
+                    name = "列出 Skill",
+                    description = "列出已安装的全部 Skill,每行格式为 'id | name | category | enabled/disabled'。可选按 category 筛选。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "category",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,按分类筛选,如 file/http/search/knowledge/system/agent/skill")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf()))
+                        }.toString(),
+                    requiredJson = """[]""",
+                    implementationKotlin = "list_skills",
+                    category = "skill",
+                ),
+                SkillEntity(
+                    id = "uninstall_skill",
+                    name = "卸载 Skill",
+                    description = "卸载(删除)已安装的 Skill。需传入 id 或 name(至少一个),优先用 id。删除后该 Skill 不再可用。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "id",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "要卸载的 skill id")
+                                        },
+                                    )
+                                    put(
+                                        "name",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,按名称查找并卸载(id 未传时使用)")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf()))
+                        }.toString(),
+                    requiredJson = """[]""",
+                    implementationKotlin = "uninstall_skill",
+                    category = "skill",
+                ),
+                SkillEntity(
+                    id = "disable_skill",
+                    name = "禁用 Skill",
+                    description = "禁用已安装的 Skill(不删除,只置为不可用)。后续可通过启用恢复。需传入 id。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "id",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "要禁用的 skill id")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("id"))))
+                        }.toString(),
+                    requiredJson = """["id"]""",
+                    implementationKotlin = "disable_skill",
+                    category = "skill",
+                ),
+                SkillEntity(
+                    id = "enable_skill",
+                    name = "启用 Skill",
+                    description = "启用已安装的 Skill(与 disable_skill 对称)。需传入 id。内置技能允许启用;插件技能随插件启停,应到插件管理页操作,本工具会拒绝。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "id",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "要启用的 skill id")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("id"))))
+                        }.toString(),
+                    requiredJson = """["id"]""",
+                    implementationKotlin = "enable_skill",
+                    category = "skill",
+                ),
+                SkillEntity(
+                    id = "update_skill",
+                    name = "更新 Skill",
+                    description = "更新用户自建 skill 的 name / description / parametersJson(JSON Schema 字符串)。提示词技能额外支持用 prompt 参数替换指令文本。只能改用户自己创建的 skill:内置保留 skill 与插件技能一律拒绝;更新内容仍走导入校验(保留 id/category 白名单/注入黑名单),更新后 id 不变且保持启用。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "id",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "要更新的用户 skill id")
+                                        },
+                                    )
+                                    put(
+                                        "name",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,新的显示名")
+                                        },
+                                    )
+                                    put(
+                                        "description",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,新的工具描述(模型据此决定是否调用)")
+                                        },
+                                    )
+                                    put(
+                                        "parametersJson",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,新的参数 JSON Schema 字符串(提示词技能忽略此参数)")
+                                        },
+                                    )
+                                    put(
+                                        "prompt",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,仅提示词技能:新的指令文本(上限 8KB)")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("id"))))
+                        }.toString(),
+                    requiredJson = """["id"]""",
+                    implementationKotlin = "update_skill",
+                    category = "skill",
+                ),
+                // v1.55: Agent 工作流 — 结构化任务计划
+                SkillEntity(
+                    id = "task_plan",
+                    name = "创建任务计划",
+                    description = "面对复杂多步骤任务时,先创建一个结构化计划再逐步执行。传入计划标题和步骤列表(每步含标题和描述)。计划会在用户界面显示为可追踪的检查清单。创建后按顺序执行各步骤,每完成一步调用 update_plan_step 更新状态。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "title",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "计划标题,简述整体目标")
+                                        },
+                                    )
+                                    put(
+                                        "steps",
+                                        buildJsonObject {
+                                            put("type", "array")
+                                            put("description", "步骤列表,按执行顺序排列")
+                                            put(
+                                                "items",
+                                                buildJsonObject {
+                                                    put("type", "object")
+                                                    put(
+                                                        "properties",
+                                                        buildJsonObject {
+                                                            put(
+                                                                "title",
+                                                                buildJsonObject {
+                                                                    put("type", "string")
+                                                                    put("description", "步骤标题(简短)")
+                                                                },
+                                                            )
+                                                            put(
+                                                                "description",
+                                                                buildJsonObject {
+                                                                    put("type", "string")
+                                                                    put("description", "步骤详细描述,包括要做什么和预期结果")
+                                                                },
+                                                            )
+                                                        },
+                                                    )
+                                                    put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("title"))))
+                                                },
+                                            )
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("title"), JsonPrimitive("steps"))))
+                        }.toString(),
+                    requiredJson = """["title","steps"]""",
+                    implementationKotlin = "task_plan",
+                    category = "agent",
+                ),
+                SkillEntity(
+                    id = "update_plan_step",
+                    name = "更新计划步骤",
+                    description = "更新任务计划中某个步骤的状态。传入 planId 和 stepIndex(从0开始),以及新状态(done/failed/in_progress/skipped)和可选的结果摘要。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "planId",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "计划 id(task_plan 返回的 planId)")
+                                        },
+                                    )
+                                    put(
+                                        "stepIndex",
+                                        buildJsonObject {
+                                            put("type", "integer")
+                                            put("description", "步骤索引(从 0 开始)")
+                                        },
+                                    )
+                                    put(
+                                        "status",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "新状态:done(完成)/ failed(失败)/ in_progress(执行中)/ skipped(跳过)")
+                                        },
+                                    )
+                                    put(
+                                        "result",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put(
+                                                "description",
+                                                "可选,步骤执行结果摘要",
+                                            )
+                                        },
+                                    )
+                                },
+                            )
+                            put(
+                                "required",
+                                kotlinx.serialization.json.JsonArray(
+                                    listOf(JsonPrimitive("planId"), JsonPrimitive("stepIndex"), JsonPrimitive("status")),
+                                ),
+                            )
+                        }.toString(),
+                    requiredJson = """["planId","stepIndex","status"]""",
+                    implementationKotlin = "update_plan_step",
+                    category = "agent",
+                ),
+                // ── v1.95: 表情包库工具 ─────────────────────────────────────────
+                SkillEntity(
+                    id = "list_stickers",
+                    name = "列出表情包",
+                    description = "列出表情包库中可用的表情包(可按分类筛选)。仅当用户已上传表情包时可用。发送前先判断对话情绪:用户生气/难过时优先筛选安慰、可爱、治愈类分类;开心/兴奋时优先筛选庆祝、搞笑类分类。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "category",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,按分类筛选表情包(如 猫猫/狗子)。不传则列出全部;建议结合对话情绪传入合适分类")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf()))
+                        }.toString(),
+                    requiredJson = """[]""",
+                    implementationKotlin = "list_stickers",
+                    category = "sticker",
+                ),
+                SkillEntity(
+                    id = "send_sticker",
+                    name = "发送表情包",
+                    description = "向用户发送一个表情包。先用 list_stickers 查看可用表情包,再用此工具发送。选图原则:匹配对话情绪与语境,生气/难过时发安抚治愈类,开心时发庆祝搞笑类,避免在严肃话题中发过于沙雕的表情包。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "id",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "要发送的表情包 id(从 list_stickers 获取)")
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("id"))))
+                        }.toString(),
+                    requiredJson = """["id"]""",
+                    implementationKotlin = "send_sticker",
+                    category = "sticker",
+                ),
+                // ── v1.???: 新增工具 ──────────────────────────────────────────────
+                SkillEntity(
+                    id = "generate_image",
+                    name = "生成图片",
+                    description = "根据文字描述生成图片。调用 AI 绘图模型(需配置 OpenAI 兼容绘图供应商)。返回图片 URL。使用时机: 用户要求生成图片/海报/封面时。不要使用: 未配置绘图模型时(会失败,应告知用户去设置配置);prompt 尽量用英文描述主体/风格/构图。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "prompt",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "图片描述,英文效果更佳,如 'a cute cat sitting on a sofa'")
+                                        },
+                                    )
+                                    put(
+                                        "size",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,图片尺寸,如 1024x1024/1792x1024/1024x1792,默认 1024x1024")
+                                        },
+                                    )
+                                    put(
+                                        "reference_image",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put(
+                                                "description",
+                                                "可选,参考图 URL 或 base64(用于图生图/图片编辑);非空时调用图生图端点。注意:LLM 无法访问用户本地相册,本地参考图由用户在工具审批卡片中从相册选择后注入,LLM 调用时无需也无法填入本参数",
+                                            )
+                                        },
+                                    )
+                                },
+                            )
+                            put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("prompt"))))
+                        }.toString(),
+                    requiredJson = """["prompt"]""",
+                    implementationKotlin = "generate_image",
+                    category = "image",
+                ),
+                SkillEntity(
+                    id = "translate",
+                    name = "翻译",
+                    description = "把文本翻译成指定语言。可指定源语言(可选)和目标语言(必填)。使用 AI 模型进行高质量翻译。",
+                    parametersJson =
+                        buildJsonObject {
+                            put("type", "object")
+                            put(
+                                "properties",
+                                buildJsonObject {
+                                    put(
+                                        "text",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "要翻译的文本内容")
+                                        },
+                                    )
+                                    put(
+                                        "target_language",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "目标语言,如 中文/English/日本語/한국어")
+                                        },
+                                    )
+                                    put(
+                                        "source_language",
+                                        buildJsonObject {
+                                            put("type", "string")
+                                            put("description", "可选,源语言,如 中文/English/自動検出")
+                                        },
+                                    )
+                                },
+                            )
+                            put(
+                                "required",
+                                kotlinx.serialization.json.JsonArray(
+                                    listOf(
+                                        JsonPrimitive("text"),
+                                        JsonPrimitive("target_language"),
+                                    ),
+                                ),
+                            )
+                        }.toString(),
+                    requiredJson = """["text","target_language"]""",
+                    implementationKotlin = "translate",
+                    category = "custom",
+                ),
+                // B-07: generate_qr 内置 skill 已下线 — 与本地工具 generate_qr_code 重复且语义冲突
+                // (skill 版返回 cacheDir 文件路径,本地版渲染 data URI 到对话)。保留本地版。
+                // implementationKotlin="generate_qr" 的 dispatch 仍保留,兼容已导入该 skill 的用户。
+            )
 
         /**
          * B-32: 内置 skill 可路由实现集合 — 与 [execute] 内 when(implementationKotlin) 的
@@ -1297,20 +1857,21 @@ class SkillExecutor(
          * 注意:generate_qr 属已下线实现(B-07),从此集排除;但 dispatch 分支仍保留以兼容旧数据。
          * 此集合须与 [execute] 的 when 分支保持同步,集合仅用于测试护栏,不驱动路由。
          */
-        internal val ROUTABLE_SKILL_IMPL: Set<String> = setOf(
-            // 文件
-            "read_file", "write_file", "list_dir", "delete_file", "file_exists",
-            // HTTP/搜索/信息
-            "http_get", "http_post", "web_search", "web_fetch", "knowledge_search", "arxiv_search",
-            // 自我扩展/Agent/群聊
-            "install_skill", "author_plugin", "delegate_agent", "task_plan", "update_plan_step",
-            "channel_reply", "channel_pass", "channel_read_context", "agent_phone",
-            // 文件公共目录
-            "file_download", "read_public_file", "save_to_downloads", "list_public_files",
-            // Skill 管理
-            "list_skills", "uninstall_skill", "disable_skill", "enable_skill", "update_skill",
-            // 表情包/媒体/翻译/JS
-            "list_stickers", "send_sticker", "generate_image", "translate", "execute_javascript",
-        )
+        internal val ROUTABLE_SKILL_IMPL: Set<String> =
+            setOf(
+                // 文件
+                "read_file", "write_file", "list_dir", "delete_file", "file_exists",
+                // HTTP/搜索/信息
+                "http_get", "http_post", "web_search", "web_fetch", "knowledge_search", "arxiv_search",
+                // 自我扩展/Agent/群聊
+                "install_skill", "author_plugin", "delegate_agent", "task_plan", "update_plan_step",
+                "channel_reply", "channel_pass", "channel_read_context", "agent_phone",
+                // 文件公共目录
+                "file_download", "read_public_file", "save_to_downloads", "list_public_files",
+                // Skill 管理
+                "list_skills", "uninstall_skill", "disable_skill", "enable_skill", "update_skill",
+                // 表情包/媒体/翻译/JS
+                "list_stickers", "send_sticker", "generate_image", "translate", "execute_javascript",
+            )
     }
 }

@@ -26,7 +26,6 @@ class SkillManagementToolsImpl(
     private val context: Context,
     private val skillRepository: SkillRepository?,
 ) {
-
     suspend fun installSkill(args: Map<String, String>): String {
         val repo = skillRepository ?: return context.getString(R.string.skill_install_not_configured)
         val skillJson = args["skill_json"] ?: return context.getString(R.string.skill_missing_param_skill_json)
@@ -59,20 +58,22 @@ class SkillManagementToolsImpl(
                 context.getString(R.string.skill_no_skill_installed)
             }
         }
-        val filtered = when (category?.lowercase()) {
-            "user", "custom" -> all.filter { it.id !in builtInIds }
-            "skill" -> all
-            null -> all
-            else -> all.filter { it.category == category }
-        }
+        val filtered =
+            when (category?.lowercase()) {
+                "user", "custom" -> all.filter { it.id !in builtInIds }
+                "skill" -> all
+                null -> all
+                else -> all.filter { it.category == category }
+            }
         if (filtered.isEmpty()) {
             return context.getString(R.string.skill_no_category_skill, category)
         }
         val header = "共 ${all.size} 个 skill(内置 $builtInCount 个,用户安装 $userCount 个)"
-        val body = filtered.joinToString("\n") { s ->
-            val source = if (s.id in builtInIds) "[内置]" else "[用户]"
-            "${s.id} | ${s.name} | ${s.category} | ${if (s.enabled) "enabled" else "disabled"} $source"
-        }
+        val body =
+            filtered.joinToString("\n") { s ->
+                val source = if (s.id in builtInIds) "[内置]" else "[用户]"
+                "${s.id} | ${s.name} | ${s.category} | ${if (s.enabled) "enabled" else "disabled"} $source"
+            }
         return "$header\n$body"
     }
 
@@ -89,10 +90,11 @@ class SkillManagementToolsImpl(
         val id = args["id"]?.takeIf { it.isNotBlank() }
         val name = args["name"]?.takeIf { it.isNotBlank() }
         if (id == null && name == null) return context.getString(R.string.skill_missing_param_id_or_name)
-        val targetId = id ?: run {
-            val matched = repo.observeAll.first().find { it.name == name }
-            matched?.id ?: return context.getString(R.string.skill_skill_not_found_by_name, name)
-        }
+        val targetId =
+            id ?: run {
+                val matched = repo.observeAll.first().find { it.name == name }
+                matched?.id ?: return context.getString(R.string.skill_skill_not_found_by_name, name)
+            }
         if (targetId in SkillImporter.RESERVED_IDS) {
             return context.getString(R.string.skill_uninstall_reserved_rejected, targetId)
         }
@@ -184,24 +186,27 @@ class SkillManagementToolsImpl(
         }
 
         // 提示词技能无参数:parametersJson / requiredJson 固定为空,忽略调用方传入的 parametersJson
-        val validated = SkillImporter.validateForUpdate(
-            id = existing.id,
-            name = newName ?: existing.name,
-            description = newDescription ?: existing.description,
-            parametersJson = if (isPrompt) SkillImporter.EMPTY_PARAMETERS_JSON else newParameters ?: existing.parametersJson,
-            requiredJson = if (isPrompt) "[]" else existing.requiredJson,
-            implementationKotlin = newPrompt?.let { SkillImporter.encodePromptText(it) } ?: existing.implementationKotlin,
-            category = existing.category,
-        )
-        val parsed = when (validated) {
-            is SkillImporter.Result.Ok -> validated.skill
-            is SkillImporter.Result.Err -> return context.getString(R.string.skill_update_validate_failed, validated.reason)
-        }
-        val updated = parsed.copy(
-            createdAt = existing.createdAt,
-            updatedAt = System.currentTimeMillis(),
-            enabled = true,
-        )
+        val validated =
+            SkillImporter.validateForUpdate(
+                id = existing.id,
+                name = newName ?: existing.name,
+                description = newDescription ?: existing.description,
+                parametersJson = if (isPrompt) SkillImporter.EMPTY_PARAMETERS_JSON else newParameters ?: existing.parametersJson,
+                requiredJson = if (isPrompt) "[]" else existing.requiredJson,
+                implementationKotlin = newPrompt?.let { SkillImporter.encodePromptText(it) } ?: existing.implementationKotlin,
+                category = existing.category,
+            )
+        val parsed =
+            when (validated) {
+                is SkillImporter.Result.Ok -> validated.skill
+                is SkillImporter.Result.Err -> return context.getString(R.string.skill_update_validate_failed, validated.reason)
+            }
+        val updated =
+            parsed.copy(
+                createdAt = existing.createdAt,
+                updatedAt = System.currentTimeMillis(),
+                enabled = true,
+            )
         resultOf { repo.update(updated) }
             .onError { msg, _ -> return context.getString(R.string.skill_update_db_failed, msg) }
         return context.getString(R.string.skill_updated, updated.name, updated.id)
@@ -210,30 +215,45 @@ class SkillManagementToolsImpl(
     /**
      * 执行提示词技能:把指令文本交回模型,不执行任何 Kotlin 实现。
      *
-     * 文本带 `[技能指令]` 标注,明确区分于系统指令;调用方传入的参数一律忽略
-     * (提示词技能不接收参数,见 [SkillImporter.PROMPT_PREFIX])。
+     * 文本带 `[技能指令]` 标注,明确区分于系统指令。
+     * v2.x: 支持可选 `input` 参数 — 指令文本含 [PROMPT_INPUT_PLACEHOLDER] 时替换为输入;
+     * 无占位符时把输入追加到指令末尾;其余参数忽略。
      */
-    fun execPromptSkill(skill: SkillEntity): String {
+    fun execPromptSkill(
+        skill: SkillEntity,
+        args: Map<String, String> = emptyMap(),
+    ): String {
         val text = SkillImporter.decodePromptText(skill.implementationKotlin)?.trim()
         if (text.isNullOrEmpty()) return context.getString(R.string.skill_prompt_empty)
-        return context.getString(R.string.skill_prompt_instruction_result, skill.name, skill.id, text)
+        val input = args["input"]?.trim().orEmpty()
+        val rendered =
+            when {
+                input.isEmpty() -> text
+                text.contains(PROMPT_INPUT_PLACEHOLDER) -> text.replace(PROMPT_INPUT_PLACEHOLDER, input)
+                else -> text + "\n\n输入:\n" + input
+            }
+        return context.getString(R.string.skill_prompt_instruction_result, skill.name, skill.id, rendered)
     }
 
     private companion object {
         /** 插件技能的 implementationKotlin 前缀(与 PluginManager 的 "plugin:<pluginId>:<fn>" 约定一致)。 */
         const val PLUGIN_IMPLEMENTATION_PREFIX = "plugin:"
+
+        /** v2.x: 提示词技能输入占位符。 */
+        const val PROMPT_INPUT_PLACEHOLDER = "{{input}}"
     }
 
     private fun precheckSkillJson(jsonText: String): String? {
         val requiredFields = listOf("name", "description", "category", "implementationKotlin", "parametersJson")
         var jsonErrorMsg: String? = null
-        val raw: JsonObject? = resultOf {
-            AppJson.decodeFromString(JsonObject.serializer(), jsonText)
-        }.onError { msg, throwable ->
-            val errorKind = if (throwable is SerializationException) "格式错误" else "非预期异常"
-            jsonErrorMsg = msg
-            Logger.w("SkillManagement", "install_skill JSON 解析失败($errorKind, ${throwable?.javaClass?.simpleName}): $msg")
-        }.getOrNull()
+        val raw: JsonObject? =
+            resultOf {
+                AppJson.decodeFromString(JsonObject.serializer(), jsonText)
+            }.onError { msg, throwable ->
+                val errorKind = if (throwable is SerializationException) "格式错误" else "非预期异常"
+                jsonErrorMsg = msg
+                Logger.w("SkillManagement", "install_skill JSON 解析失败($errorKind, ${throwable?.javaClass?.simpleName}): $msg")
+            }.getOrNull()
         if (raw == null) {
             return "JSON 格式错误: ${jsonErrorMsg ?: "无法解析"}。请检查字段引号、冒号、括号是否匹配。"
         }
@@ -245,13 +265,14 @@ class SkillManagementToolsImpl(
         for (field in requiredFields) {
             val element = raw[field]
             if (element !is JsonPrimitive || !element.isString) {
-                val actualType = when (element) {
-                    is JsonPrimitive -> if (element.isString) "字符串" else "数字/布尔"
-                    is JsonObject -> "对象"
-                    is JsonArray -> "数组"
-                    is JsonNull -> "null"
-                    else -> "未知"
-                }
+                val actualType =
+                    when (element) {
+                        is JsonPrimitive -> if (element.isString) "字符串" else "数字/布尔"
+                        is JsonObject -> "对象"
+                        is JsonArray -> "数组"
+                        is JsonNull -> "null"
+                        else -> "未知"
+                    }
                 return "字段 $field 类型错误: 期望字符串,实际为 $actualType"
             }
         }
