@@ -4,8 +4,13 @@ import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
 import android.util.Base64
+import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -36,12 +41,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import io.zer0.common.Logger
 import io.zer0.muse.R
 import io.zer0.muse.terminal.TerminalSessionManager
 import io.zer0.muse.terminal.TerminalSessionStore
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.theme.MusePaddings
 import java.util.ArrayDeque
+
+private const val TAG = "TerminalScreen"
 
 /**
  * v2.x 终端一期:应用沙盒终端页。
@@ -67,6 +75,7 @@ fun TerminalScreen(onBack: () -> Unit) {
     fun pushToTerminal(bytes: ByteArray) {
         val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
         val js = "window.MuseTerm && window.MuseTerm.writeB64('$b64');"
+        Logger.d(TAG, "push ${bytes.size}B (webReady=$webReady, queued=${pendingJs.size})")
         mainHandler.post {
             val wv = webViewRef
             if (wv != null && webReady) {
@@ -78,6 +87,19 @@ fun TerminalScreen(onBack: () -> Unit) {
     }
 
     fun pushText(text: String) = pushToTerminal(text.toByteArray(Charsets.UTF_8))
+
+    // 调试探针:回读 WebView 内 xterm 真实状态(尺寸/行列/字元/写入计数/JS 错误)
+    fun runProbe(wv: WebView, tag: String) {
+        val probe = "(function(){try{var t=window.__t;var q=document.querySelector('.xterm');" +
+            "var cell=(t&&t._core&&t._core._renderService)?t._core._renderService.dimensions.css.cell:null;" +
+            "var te=document.getElementById('term');" +
+            "return 'rows='+(t?t.rows:'?')+' cols='+(t?t.cols:'?')+' ih='+window.innerHeight" +
+            "+' iw='+window.innerWidth+' termH='+(te?te.offsetHeight:'?')+' xtermH='+(q?q.offsetHeight:'?')" +
+            "+' cellW='+(cell?cell.width:'?')+' cellH='+(cell?cell.height:'?')" +
+            "+' pos='+(te?getComputedStyle(te).position:'?')+' ch='+(te?getComputedStyle(te).height:'?')" +
+            "+' writes='+(window.__writes||0)+' err='+(window.__lastErr||'none')}catch(e){return 'PROBE_ERR:'+e}})()"
+        wv.evaluateJavascript(probe) { r -> Logger.i(TAG, "probe($tag): $r") }
+    }
 
     DisposableEffect(Unit) {
         session.setListener(object : TerminalSessionManager.Listener {
@@ -166,17 +188,55 @@ fun TerminalScreen(onBack: () -> Unit) {
                     settings.domStorageEnabled = true
                     isVerticalScrollBarEnabled = false
                     setBackgroundColor(android.graphics.Color.parseColor("#101014"))
+                    // 首次布局/尺寸变化时重算终端行列(fit 在加载时可能测到 0 高度,导致 rows=1)
+                    addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+                        val changed = (right - left) != (oldRight - oldLeft) ||
+                            (bottom - top) != (oldBottom - oldTop)
+                        if (changed) {
+                            evaluateJavascript(
+                                "window.MuseTerm && window.MuseTerm.refit && window.MuseTerm.refit();",
+                                null,
+                            )
+                        }
+                    }
+                    webViewClient = object : WebViewClient() {
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            Logger.i(TAG, "WebView 加载完成: $url")
+                        }
+
+                        override fun onReceivedError(
+                            view: WebView?,
+                            request: WebResourceRequest?,
+                            error: WebResourceError?,
+                        ) {
+                            Logger.w(TAG, "WebView 加载错误: ${error?.errorCode} ${error?.description} ${request?.url}")
+                        }
+                    }
+                    webChromeClient = object : WebChromeClient() {
+                        override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+                            Logger.w(
+                                TAG,
+                                "WebView console[${consoleMessage.messageLevel()}]: ${consoleMessage.message()} " +
+                                    "@${consoleMessage.sourceId()}:${consoleMessage.lineNumber()}",
+                            )
+                            return true
+                        }
+                    }
                     addJavascriptInterface(
                         object {
                             @JavascriptInterface
                             fun onReady() {
                                 mainHandler.post {
                                     webReady = true
+                                    Logger.i(TAG, "WebView onReady 到达:pending=${pendingJs.size}")
                                     val wv = webViewRef
                                     if (wv != null) {
                                         while (pendingJs.isNotEmpty()) {
                                             wv.evaluateJavascript(pendingJs.removeFirst(), null)
                                         }
+                                        runProbe(wv, "onReady")
+                                        mainHandler.postDelayed({ webViewRef?.let { runProbe(it, "3s后") } }, 3000)
+                                        mainHandler.postDelayed({ webViewRef?.let { runProbe(it, "8s后") } }, 8000)
                                     }
                                 }
                             }
@@ -188,7 +248,7 @@ fun TerminalScreen(onBack: () -> Unit) {
                         },
                         "MuseBridge",
                     )
-                    loadUrl("file:///android_asset/terminal/terminal.html")
+                    loadUrl("file:///android_asset/terminal/terminal.html?t=" + System.currentTimeMillis())
                 }.also { webViewRef = it }
             },
             modifier = Modifier

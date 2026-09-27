@@ -6,12 +6,12 @@
 <link rel="stylesheet" href="xterm.css">
 <style>
   html, body { margin: 0; padding: 0; height: 100%; background: #101014; overflow: hidden; }
-  #term { width: 100vw; height: 100vh; }
+  #term { position: absolute; inset: 0; }
   .xterm-viewport { overscroll-behavior: none; }
 </style>
 </head>
 <body>
-<div id="term"></div>
+<div id="term" style="position:absolute;top:0;left:0;right:0;bottom:0;"></div>
 <script src="xterm.js"></script>
 <script src="addon-fit.js"></script>
 <script>
@@ -38,16 +38,46 @@
     }
     try { fit.fit(); } catch (e) {}
     postSize();
-    window.addEventListener("resize", function () { try { fit.fit(); } catch (e) {} postSize(); });
+    window.addEventListener("resize", function () { refit(); });
+    // 尺寸校准:内联像素尺寸钉死+多次重试(fit 在加载早期可能测到 0 高度 → rows=1)
+    function refit() {
+      var el = document.getElementById("term");
+      if (el) {
+        el.style.position = "absolute";
+        el.style.left = "0";
+        el.style.top = "0";
+        el.style.width = window.innerWidth + "px";
+        el.style.height = window.innerHeight + "px";
+      }
+      try { fit.fit(); } catch (e) {}
+      postSize();
+    }
+    if (window.ResizeObserver) {
+      try {
+        var ro = new ResizeObserver(function () { refit(); });
+        ro.observe(document.getElementById("term"));
+        ro.observe(document.body);
+      } catch (e) {}
+    }
+    setTimeout(refit, 300);
+    setTimeout(refit, 1000);
+    setTimeout(refit, 2500);
 
     function writeB64(b64) {
-      var bin = atob(b64);
-      var bytes = new Uint8Array(bin.length);
-      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      term.write(bytes);
+      try {
+        var bin = atob(b64);
+        var bytes = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        term.write(bytes);
+        window.__writes = (window.__writes || 0) + 1;
+      } catch (e) {
+        window.__lastErr = String(e);
+      }
     }
     function clearTerm() { term.clear(); }
-    window.MuseTerm = { writeB64: writeB64, clearTerm: clearTerm };
+    window.MuseTerm = { writeB64: writeB64, clearTerm: clearTerm, refit: refit };
+    // 调试探针:供宿主回读内部状态
+    window.__t = term;
 
     if (window.MuseBridge && window.MuseBridge.onReady) {
       window.MuseBridge.onReady();
