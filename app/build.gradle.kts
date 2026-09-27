@@ -37,15 +37,30 @@ val syncA11yProviderApk =
         onlyIf { providerApk.isFile }
     }
 
+// v2.2.1: 虚拟屏服务端 jar 打进 assets(首次使用时由 shell 身份写到 /data/local/tmp)。
+val vdServerAssetsDir = layout.buildDirectory.dir("generated/vdServer").get().asFile
+val syncVdServerJar =
+    tasks.register<Copy>("syncVdServerJar") {
+        dependsOn(":virtual-display-server:assembleDebug")
+        val serverApk =
+            rootProject.file("virtual-display-server/build/outputs/apk/debug/virtual-display-server-debug.apk")
+        from(serverApk)
+        into(File(vdServerAssetsDir, "vd"))
+        rename { "vd-server.jar" }
+        onlyIf { serverApk.isFile }
+    }
+
 tasks.named("preBuild") {
     dependsOn(syncMuseWebAssets)
     dependsOn(syncA11yProviderApk)
+    dependsOn(syncVdServerJar)
 }
 
 android {
 
     sourceSets.getByName("main").assets.srcDir(museWebAssetsDir)
     sourceSets.getByName("main").assets.srcDir(a11yProviderAssetsDir)
+    sourceSets.getByName("main").assets.srcDir(vdServerAssetsDir)
 
     namespace = "io.zer0.muse"
     compileSdk = 35
@@ -208,6 +223,8 @@ dependencies {
     implementation(project(":material3"))
     // P3-3: 无障碍服务模块 — MuseAccessibilityService + IAccessibilityProvider AIDL
     implementation(project(":accessibility"))
+    // v2.2.1: 虚拟屏契约模块 — IVirtualDisplayService AIDL + 手递手常量
+    implementation(project(":virtual-display-protocol"))
 
     // P3-3: Shizuku SDK — 以 shell 权限执行命令(三通道路由之一,无需 root)
     implementation(libs.shizuku.api)

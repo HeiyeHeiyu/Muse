@@ -3,9 +3,9 @@ package io.zer0.muse.automation
 import android.content.Context
 import io.zer0.common.Logger
 import io.zer0.muse.automation.core.AutomationManager
-import io.zer0.muse.tools.system.ShizukuAuthorizer
 import io.zer0.muse.automation.tools.AutomationTools
 import io.zer0.muse.tools.ToolRegistry
+import io.zer0.muse.tools.system.ShizukuAuthorizer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -29,7 +29,6 @@ import kotlinx.coroutines.launch
  * ```
  */
 object AutomationInitializer {
-
     private const val TAG = "AutomationInit"
 
     @Volatile
@@ -47,19 +46,24 @@ object AutomationInitializer {
      * @param context Application context
      * @param toolRegistry 全局工具注册器(AI 工具调用入口)
      */
-    fun initialize(context: Context, toolRegistry: ToolRegistry) {
+    fun initialize(
+        context: Context,
+        toolRegistry: ToolRegistry,
+    ) {
         if (_manager != null) return
         synchronized(this) {
             if (_manager != null) return
             val appContext = context.applicationContext
             // 与主 Shell 路由共用同一 ShizukuAuthorizer，避免“状态检查”和“实际执行”各走一套。
-            val authorizer = runCatching {
-                org.koin.java.KoinJavaComponent.get<ShizukuAuthorizer>(ShizukuAuthorizer::class.java)
-            }.getOrElse { ShizukuAuthorizer(appContext) }
-            val mgr = AutomationManager(
-                context = appContext,
-                shizukuAuthorizer = authorizer,
-            )
+            val authorizer =
+                runCatching {
+                    org.koin.java.KoinJavaComponent.get<ShizukuAuthorizer>(ShizukuAuthorizer::class.java)
+                }.getOrElse { ShizukuAuthorizer(appContext) }
+            val mgr =
+                AutomationManager(
+                    context = appContext,
+                    shizukuAuthorizer = authorizer,
+                )
             _manager = mgr
 
             // 注册 UI 自动化工具集
@@ -84,6 +88,18 @@ object AutomationInitializer {
                 ).register(toolRegistry)
             } catch (e: Exception) {
                 Logger.w(TAG, "UiAgent tool registration failed: ${e.message}")
+            }
+
+            // v2.2.1: 虚拟屏工具(后台隐藏屏;需要 Shizuku 通道,注册本身无副作用)
+            try {
+                val vdManager =
+                    io.zer0.muse.automation.vdisplay.VirtualDisplayServerManager(appContext, authorizer)
+                val vdClient =
+                    io.zer0.muse.automation.vdisplay.VirtualDisplayClient(appContext, vdManager)
+                io.zer0.muse.automation.vdisplay.VirtualDisplayTool(appContext, vdClient, vdManager)
+                    .register(toolRegistry)
+            } catch (e: Exception) {
+                Logger.w(TAG, "VirtualDisplay tool registration failed: ${e.message}")
             }
 
             // 异步刷新权限状态(不阻塞 App 启动)

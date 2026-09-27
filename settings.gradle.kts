@@ -40,6 +40,9 @@ include(":material3")    // Material 颜色扩展(种子色 → ColorScheme 生�
 include(":accessibility")  // 无障碍服务(UI 自动化能力底座)
 // v2.2.1: 无障碍独立 Provider APK —— 主应用更新/重装不打断无障碍服务
 include(":accessibility-provider")
+// v2.2.1: 虚拟屏(shell uid 独立进程) —— 契约模块 + 服务端模块
+include(":virtual-display-protocol")
+include(":virtual-display-server")
 // include(":search")       // 搜索功能 SDK(Exa/Tavily/Zhipu/Bing 等)        — Phase 5
 // include(":speech")       // 语音 TTS/ASR                                   — Phase 5
 // include(":document")     // 文档解析(PDF/DOCX/PPTX/EPUB)                  — Phase 5

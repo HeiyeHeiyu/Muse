@@ -234,6 +234,15 @@
                 android:resource="@xml/muse_launcher_widget_info" />
         </receiver>
 
+        <!-- v2.2.1 虚拟屏:shell 服务端 Binder 手递手(服务端经 AMS 定向广播到本包) -->
+        <receiver
+            android:name=".automation.vdisplay.VirtualDisplayBinderReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.zer0.muse.vdproto.BINDER" />
+            </intent-filter>
+        </receiver>
+
         <!-- v0.32: 开机自启动 receiver(autoLaunch 设置开关控制 enabled 状态) -->
         <receiver
             android:name=".boot.BootReceiver"

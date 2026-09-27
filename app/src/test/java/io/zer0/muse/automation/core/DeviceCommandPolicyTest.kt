@@ -5,7 +5,6 @@ import org.junit.Test
 
 /** v2.x 自动化一期:device_shell 命令白名单策略。 */
 class DeviceCommandPolicyTest {
-
     private fun valid(cmd: String) = DeviceCommandPolicy.validate(cmd) is DeviceCommandPolicy.Check.Valid
 
     private fun invalid(cmd: String) = DeviceCommandPolicy.validate(cmd) is DeviceCommandPolicy.Check.Invalid
@@ -48,5 +47,23 @@ class DeviceCommandPolicyTest {
         assertTrue(invalid("input scream 1 2"))
         assertTrue(invalid("am destroy com.x"))
         assertTrue(invalid(""))
+    }
+
+    @Test
+    fun `input with display target passes`() {
+        assertTrue(valid("input -d 21 tap 540 1200"))
+        assertTrue(valid("input -d 21 swipe 540 1500 540 500 300"))
+        assertTrue(valid("input --display 7 keyevent 3"))
+        assertTrue(valid("input -d 21 text hello"))
+    }
+
+    @Test
+    fun `input flag abuse is rejected`() {
+        assertTrue(invalid("input -d"))
+        assertTrue(invalid("input -d abc tap 1 1"))
+        assertTrue(invalid("input -d 21"))
+        assertTrue(invalid("input -x 3 tap 1 1"))
+        assertTrue(invalid("input -d 21 scream 1 1"))
+        assertTrue(invalid("input --display 21 -d 3 tap 1 1"))
     }
 }
