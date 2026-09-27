@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.core.text.HtmlCompat
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.io.MemoryUsageSetting
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDDocumentInformation
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline
@@ -16,7 +17,9 @@ import okhttp3.OkHttpClient
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.IOException
+import java.io.Writer
 import java.nio.charset.Charset
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
@@ -54,6 +57,9 @@ class DocumentParser(
 
         /** 云端上传大小上限(50MB),防止超大文件 OOM。 */
         private const val MAX_UPLOAD_BYTES = 50L * 1024 * 1024
+
+        /** v2.2.1: PDFBox 主内存预算(32MB),超出部分外溢到临时文件,防大 PDF 解析把堆打满。 */
+        private const val PDF_MAIN_MEMORY_BUDGET_BYTES = 32L * (1 shl 20)
     }
 
     /** PDFBox 需要一次性 init(加载字体资源)。 */
@@ -287,7 +293,7 @@ class DocumentParser(
     private fun readPdf(uri: Uri, context: Context): String {
         ensurePdfBoxInited(context)
         context.contentResolver.openInputStream(uri)?.use { input ->
-            PDDocument.load(input).use { doc ->
+            PDDocument.load(input, pdfMemorySetting(context)).use { doc ->
                 val total = doc.numberOfPages
                 val maxPages = 200
                 val end = minOf(total, maxPages)
@@ -300,29 +306,46 @@ class DocumentParser(
                 stripper.paragraphEnd = "\n\n"
                 stripper.wordSeparator = " "
 
+                // v2.2.1: 逐页抽取改为“带上限的 Writer” —— PDFBox 的 getText 内部是无上限
+                // StringWriter,病态/超大 PDF 的单页文本可膨胀到百 MB 级直接 OOM(2026-09-27
+                // 用户反馈:知识库导入 PDF 崩溃)。上限口径与既有 chars*2≈bytes 一致。
+                val charBudget = MAX_TEXT_BYTES / 2
                 val pageTexts = mutableListOf<String>()
+                var usedChars = 0
+                var truncatedByLimit = false
                 for (i in 1..end) {
+                    val remaining = charBudget - usedChars
+                    if (remaining <= 0) {
+                        truncatedByLimit = true
+                        break
+                    }
                     stripper.startPage = i
                     stripper.endPage = i
-                    val pageText = runCatching { stripper.getText(doc) }
-                        .getOrNull() ?: continue
+                    val writer = CappedStringWriter(remaining)
+                    val pageResult = runCatching { stripper.writeText(doc, writer) }
+                    val pageText = writer.toString()
+                    if (writer.hitLimit) {
+                        // 命中上限:保留已抽取部分,停止后续页
+                        if (pageText.isNotBlank()) pageTexts.add(pageText)
+                        truncatedByLimit = true
+                        break
+                    }
+                    if (pageResult.isFailure) continue
+                    usedChars += pageText.length
                     pageTexts.add(pageText)
                 }
 
                 // Step 2: 页眉/页脚过滤(跨页重复的首/尾行)
                 val cleanedTexts = filterHeadersFooters(pageTexts)
 
-                // Step 3: 合并正文 + 截断
+                // Step 3: 合并正文(抽取阶段已按 charBudget 收紧,此处仅拼接)
                 val sb = StringBuilder()
-                cleanedTexts.forEach { pageText ->
-                    sb.append(pageText)
-                    if (sb.length * 2 > MAX_TEXT_BYTES) {
-                        sb.appendLine()
-                        sb.appendLine("[… PDF 内容过长,已截断 …]")
-                        return@forEach
-                    }
+                cleanedTexts.forEach { pageText -> sb.append(pageText) }
+                if (truncatedByLimit) {
+                    sb.appendLine()
+                    sb.appendLine("[… PDF 内容过长,已截断 …]")
                 }
-                // L-DP8: 删除冗余条件(sb.length 已由上面 forEach 截断控制,此处仅判断页数)
+                // L-DP8: 页数提示与截断标记互不影响
                 if (total > maxPages) {
                     sb.appendLine()
                     sb.appendLine("[… PDF 共 $total 页,仅提取前 $maxPages 页 …]")
@@ -491,6 +514,58 @@ class DocumentParser(
                 }
         }
     }
+
+    /**
+     * v2.2.1: PDF 解析内存策略 —— 主内存预算 32MB,超出部分自动外溢到应用缓存目录的临时文件。
+     *
+     * 大 PDF(含大量图片/字体)默认全量驻留主内存,解析阶段可直接把堆打满;改为"内有限+
+     * 磁盘兜底"后,解析内存与文件体积解耦。
+     */
+    private fun pdfMemorySetting(context: Context): MemoryUsageSetting =
+        MemoryUsageSetting.setupMixed(PDF_MAIN_MEMORY_BUDGET_BYTES)
+            .setTempDir(File(context.cacheDir, "pdfbox-tmp").apply { mkdirs() })
+
+    /**
+     * v2.2.1: 带上限的字符串 Writer(防 PDF 文本抽取无上限增长)。
+     *
+     * PDFBox 的 [PDFTextStripper.getText] 内部使用无上限 StringWriter,病态/超大 PDF 的
+     * 单页文本可膨胀到百 MB 级并触发 OOM;改用 [PDFTextStripper.writeText] + 本 Writer,
+     * 超过 [limit] 字符即抛 [TextLimitExceededException],由调用方截断收尾,数组不再扩容。
+     */
+    private class CappedStringWriter(private val limit: Int) : Writer() {
+        private val sb = StringBuilder()
+        var hitLimit = false
+            private set
+
+        override fun write(cbuf: CharArray, off: Int, len: Int) {
+            if (hitLimit) throw TextLimitExceededException()
+            val room = limit - sb.length
+            if (len >= room) {
+                if (room > 0) sb.append(cbuf, off, room)
+                hitLimit = true
+                throw TextLimitExceededException()
+            }
+            sb.append(cbuf, off, len)
+        }
+
+        override fun write(c: Int) {
+            if (hitLimit) throw TextLimitExceededException()
+            if (sb.length >= limit) {
+                hitLimit = true
+                throw TextLimitExceededException()
+            }
+            sb.append(c.toChar())
+        }
+
+        override fun flush() = Unit
+
+        override fun close() = Unit
+
+        override fun toString(): String = sb.toString()
+    }
+
+    /** 抽取上限命中标记:仅用于中断 PDFBox 的写入循环,不向上暴露。 */
+    private class TextLimitExceededException : IOException("PDF text extraction exceeded the configured limit")
 
     /**
      * Phase 8.6: DOCX 文本提取(自实现 OOXML 解析)。
