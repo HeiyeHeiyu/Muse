@@ -32,9 +32,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import io.zer0.common.Logger
+import io.zer0.muse.R
 import io.zer0.muse.automation.AutomationInitializer
 import io.zer0.muse.automation.executors.RootRequestFailure
-import io.zer0.muse.R
+import io.zer0.muse.tools.system.AccessibilityProviderInstaller
+import io.zer0.muse.tools.system.AndroidPermissionLevel
+import io.zer0.muse.tools.system.RootAuthorizer
+import io.zer0.muse.tools.system.ShizukuAuthorizer
+import io.zer0.muse.tools.system.ShizukuInstaller
 import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
@@ -42,12 +47,7 @@ import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.surface.MusePageScaffold
 import io.zer0.muse.ui.common.surface.MuseSurface
-import io.zer0.muse.tools.system.AccessibilityProviderInstaller
-import io.zer0.muse.tools.system.AndroidPermissionLevel
-import io.zer0.muse.tools.system.RootAuthorizer
-import io.zer0.muse.tools.system.ShizukuAuthorizer
 import io.zer0.muse.ui.theme.statusColors
-import io.zer0.muse.tools.system.ShizukuInstaller
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -63,9 +63,7 @@ import org.koin.compose.koinInject
  * 页面展示当前权限等级 + 各通道状态 + 操作按钮(启用/安装/授权)。
  */
 @Composable
-fun PermissionWizardScreen(
-    onBack: () -> Unit,
-) {
+fun PermissionWizardScreen(onBack: () -> Unit) {
     val a11yInstaller: AccessibilityProviderInstaller = koinInject()
     val shizukuInstaller: ShizukuInstaller = koinInject()
     val shizukuAuthorizer: ShizukuAuthorizer = koinInject()
@@ -92,6 +90,10 @@ fun PermissionWizardScreen(
     var termuxPermitted by remember { mutableStateOf(false) }
     var termuxProbe by remember { mutableStateOf<Boolean?>(null) }
 
+    // v2.2.1: 无障碍独立 Provider(可选增强;不参与"三通道权限等级"判定)
+    var providerInstalled by remember { mutableStateOf(false) }
+    var providerBundled by remember { mutableStateOf(false) }
+
     // 刷新状态
     suspend fun refresh() {
         try {
@@ -105,11 +107,15 @@ fun PermissionWizardScreen(
             // v2.2.1: Termux 通道静态检测 + 已就绪时轻量探测(验证 allow-external-apps)
             termuxInstalled = termuxChannel.isInstalled()
             termuxPermitted = termuxChannel.hasPermission()
-            termuxProbe = if (termuxInstalled && termuxPermitted) {
-                termuxChannel.probe() is io.zer0.muse.terminal.TermuxChannel.Availability.Ready
-            } else {
-                null
-            }
+            termuxProbe =
+                if (termuxInstalled && termuxPermitted) {
+                    termuxChannel.probe() is io.zer0.muse.terminal.TermuxChannel.Availability.Ready
+                } else {
+                    null
+                }
+            // v2.2.1: 独立 Provider 静态检测(装没装;APK 是否随包附带决定是否展示安装入口)
+            providerInstalled = a11yInstaller.isProviderInstalled()
+            providerBundled = a11yInstaller.isProviderApkBundled()
         } catch (e: CancellationException) {
             throw e
         } catch (e: SecurityException) {
@@ -129,11 +135,12 @@ fun PermissionWizardScreen(
         }
     }
 
-    val currentLevel = AndroidPermissionLevel.highestOf(
-        AndroidPermissionLevel.ACCESSIBILITY to a11yEnabled,
-        AndroidPermissionLevel.SHIZUKU to (shizukuAvailable && shizukuAuthorized),
-        AndroidPermissionLevel.ROOT to (rootAvailable || suiAvailable),
-    )
+    val currentLevel =
+        AndroidPermissionLevel.highestOf(
+            AndroidPermissionLevel.ACCESSIBILITY to a11yEnabled,
+            AndroidPermissionLevel.SHIZUKU to (shizukuAvailable && shizukuAuthorized),
+            AndroidPermissionLevel.ROOT to (rootAvailable || suiAvailable),
+        )
 
     MusePageScaffold(
         topBar = {
@@ -145,11 +152,12 @@ fun PermissionWizardScreen(
         },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // 当前权限等级总览
@@ -161,12 +169,13 @@ fun PermissionWizardScreen(
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Spacer(Modifier.height(8.dp))
-                    val levelText = when (currentLevel) {
-                        AndroidPermissionLevel.NONE -> stringResource(R.string.permission_level_none)
-                        AndroidPermissionLevel.ACCESSIBILITY -> stringResource(R.string.permission_level_accessibility)
-                        AndroidPermissionLevel.SHIZUKU -> stringResource(R.string.permission_level_shizuku)
-                        AndroidPermissionLevel.ROOT -> stringResource(R.string.permission_level_root)
-                    }
+                    val levelText =
+                        when (currentLevel) {
+                            AndroidPermissionLevel.NONE -> stringResource(R.string.permission_level_none)
+                            AndroidPermissionLevel.ACCESSIBILITY -> stringResource(R.string.permission_level_accessibility)
+                            AndroidPermissionLevel.SHIZUKU -> stringResource(R.string.permission_level_shizuku)
+                            AndroidPermissionLevel.ROOT -> stringResource(R.string.permission_level_root)
+                        }
                     Text(text = levelText, style = MaterialTheme.typography.headlineSmall)
                     Spacer(Modifier.height(8.dp))
                     Text(
@@ -189,6 +198,22 @@ fun PermissionWizardScreen(
                 },
                 onRefresh = { refreshAsync() },
             )
+
+            // 通道 1.5(v2.2.1): 无障碍独立 Provider — 可选增强:主应用更新不打断无障碍授权
+            if (providerBundled || providerInstalled) {
+                A11yProviderCard(
+                    installed = providerInstalled,
+                    bundled = providerBundled,
+                    onInstall = {
+                        val launched = a11yInstaller.installProvider()
+                        if (!launched) {
+                            MuseToast.show(context.getString(R.string.permission_a11y_provider_install_failed))
+                        }
+                        refreshAsync()
+                    },
+                    onRefresh = { refreshAsync() },
+                )
+            }
 
             // 通道 2: Shizuku
             ShizukuChannelCard(
@@ -226,12 +251,13 @@ fun PermissionWizardScreen(
                                 MuseToast.show(context.getString(R.string.automation_root_granted))
                             } else {
                                 val failure = result.failure ?: RootRequestFailure.ERROR
-                                val msgRes = when (failure) {
-                                    RootRequestFailure.NO_SU_BINARY -> R.string.automation_root_no_su
-                                    RootRequestFailure.TIMEOUT -> R.string.automation_root_timeout
-                                    RootRequestFailure.DENIED -> R.string.automation_root_denied
-                                    RootRequestFailure.ERROR -> R.string.automation_root_failed
-                                }
+                                val msgRes =
+                                    when (failure) {
+                                        RootRequestFailure.NO_SU_BINARY -> R.string.automation_root_no_su
+                                        RootRequestFailure.TIMEOUT -> R.string.automation_root_timeout
+                                        RootRequestFailure.DENIED -> R.string.automation_root_denied
+                                        RootRequestFailure.ERROR -> R.string.automation_root_failed
+                                    }
                                 MuseToast.show(context.getString(msgRes))
                             }
                             refresh()
@@ -351,8 +377,12 @@ private fun ChannelCard(
             Text(
                 text = if (enabled) enabledText else disabledText,
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (enabled) MaterialTheme.colorScheme.onSurfaceVariant
-                    else MaterialTheme.colorScheme.error,
+                color =
+                    if (enabled) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
             )
             if (actionText.isNotBlank()) {
                 Spacer(Modifier.height(12.dp))
@@ -403,18 +433,30 @@ private fun ShizukuChannelCard(
             // 分步状态展示
             StatusLine(
                 done = installed,
-                text = if (installed) stringResource(R.string.shizuku_apk_installed)
-                    else stringResource(R.string.shizuku_apk_not_installed),
+                text =
+                    if (installed) {
+                        stringResource(R.string.shizuku_apk_installed)
+                    } else {
+                        stringResource(R.string.shizuku_apk_not_installed)
+                    },
             )
             StatusLine(
                 done = available,
-                text = if (available) stringResource(R.string.shizuku_service_running)
-                    else stringResource(R.string.shizuku_service_not_running),
+                text =
+                    if (available) {
+                        stringResource(R.string.shizuku_service_running)
+                    } else {
+                        stringResource(R.string.shizuku_service_not_running)
+                    },
             )
             StatusLine(
                 done = authorized,
-                text = if (authorized) stringResource(R.string.shizuku_status_authorized)
-                    else stringResource(R.string.shizuku_status_unauthorized_long),
+                text =
+                    if (authorized) {
+                        stringResource(R.string.shizuku_status_authorized)
+                    } else {
+                        stringResource(R.string.shizuku_status_unauthorized_long)
+                    },
             )
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -481,21 +523,30 @@ private fun TermuxChannelCard(
             Spacer(Modifier.height(8.dp))
             StatusLine(
                 done = installed,
-                text = if (installed) stringResource(R.string.permission_termux_apk_installed)
-                    else stringResource(R.string.permission_termux_apk_not_installed),
+                text =
+                    if (installed) {
+                        stringResource(R.string.permission_termux_apk_installed)
+                    } else {
+                        stringResource(R.string.permission_termux_apk_not_installed)
+                    },
             )
             StatusLine(
                 done = permitted,
-                text = if (permitted) stringResource(R.string.permission_termux_permission_ok)
-                    else stringResource(R.string.permission_termux_permission_missing),
+                text =
+                    if (permitted) {
+                        stringResource(R.string.permission_termux_permission_ok)
+                    } else {
+                        stringResource(R.string.permission_termux_permission_missing)
+                    },
             )
             StatusLine(
                 done = probeOk == true,
-                text = when (probeOk) {
-                    true -> stringResource(R.string.permission_termux_probe_ok)
-                    false -> stringResource(R.string.permission_termux_probe_failed)
-                    null -> stringResource(R.string.permission_termux_probe_unchecked)
-                },
+                text =
+                    when (probeOk) {
+                        true -> stringResource(R.string.permission_termux_probe_ok)
+                        false -> stringResource(R.string.permission_termux_probe_failed)
+                        null -> stringResource(R.string.permission_termux_probe_unchecked)
+                    },
             )
             if (installed && permitted && probeOk != true) {
                 Spacer(Modifier.height(8.dp))
@@ -544,7 +595,77 @@ private fun TermuxChannelCard(
 }
 
 @Composable
-private fun StatusLine(done: Boolean, text: String) {
+private fun A11yProviderCard(
+    installed: Boolean,
+    bundled: Boolean,
+    onInstall: () -> Unit,
+    onRefresh: () -> Unit,
+) {
+    MuseSurface(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = stringResource(R.string.permission_a11y_provider_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                // 可选增强:未安装时用中性色,避免与"未授权的必需通道"混淆
+                Icon(
+                    imageVector = if (installed) MuseIcons.circleCheck else MuseIcons.alertTriangle,
+                    contentDescription = null,
+                    tint =
+                        if (installed) {
+                            MaterialTheme.statusColors.success
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text =
+                    if (installed) {
+                        stringResource(R.string.permission_a11y_provider_installed)
+                    } else {
+                        stringResource(R.string.permission_a11y_provider_not_installed)
+                    },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.permission_a11y_provider_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (!installed && bundled) {
+                    MuseCapsuleButton(
+                        text = stringResource(R.string.permission_a11y_provider_install_btn),
+                        onClick = onInstall,
+                        fillWidth = false,
+                    )
+                }
+                MuseCapsuleButton(
+                    text = stringResource(R.string.permission_refresh_status),
+                    onClick = onRefresh,
+                    variant = IosCapsuleButtonVariant.Secondary,
+                    fillWidth = false,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusLine(
+    done: Boolean,
+    text: String,
+) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
         Icon(
             imageVector = if (done) MuseIcons.circleCheck else MuseIcons.alertTriangle,
@@ -557,11 +678,14 @@ private fun StatusLine(done: Boolean, text: String) {
         Text(
             text = text,
             style = MaterialTheme.typography.bodySmall,
-            color = if (done) MaterialTheme.colorScheme.onSurfaceVariant
-                else MaterialTheme.colorScheme.error,
+            color =
+                if (done) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
         )
     }
 }
 
-private fun buildGlobalActionsHelp(context: Context): String =
-    context.getString(R.string.permission_action_id_help)
+private fun buildGlobalActionsHelp(context: Context): String = context.getString(R.string.permission_action_id_help)

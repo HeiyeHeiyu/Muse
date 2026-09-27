@@ -1016,4 +1016,11 @@
     <string name="channel_conversation_role_assistant">助手</string>
     <string name="channel_conversation_role_user">对方</string>
     <string name="channel_conversation_turn_line">%1$s：%2$s</string>
+    <!-- v2.2.1: 无障碍独立 Provider(可选增强) -->
+    <string name="permission_a11y_provider_title">独立无障碍 Provider</string>
+    <string name="permission_a11y_provider_installed">独立版已安装(主应用更新不掉线)</string>
+    <string name="permission_a11y_provider_not_installed">未安装(可选)</string>
+    <string name="permission_a11y_provider_desc">安装独立版后,主应用更新或重装不会打断无障碍授权。不安装不影响使用。</string>
+    <string name="permission_a11y_provider_install_btn">安装独立版</string>
+    <string name="permission_a11y_provider_install_failed">无法拉起安装器</string>
 </resources>

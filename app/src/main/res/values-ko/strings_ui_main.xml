@@ -902,4 +902,11 @@
     <string name="channel_conversation_role_assistant">어시스턴트</string>
     <string name="channel_conversation_role_user">상대방</string>
     <string name="channel_conversation_turn_line">%1$s: %2$s</string>
+    <!-- v2.2.1: 독립 접근성 프로바이더(선택적 개선) -->
+    <string name="permission_a11y_provider_title">독립 접근성 프로바이더</string>
+    <string name="permission_a11y_provider_installed">독립 버전 설치됨(앱 업데이트에도 유지)</string>
+    <string name="permission_a11y_provider_not_installed">미설치(선택)</string>
+    <string name="permission_a11y_provider_desc">독립 버전을 설치하면 메인 앱을 업데이트하거나 재설치해도 접근성 권한이 유지됩니다. 선택 사항입니다.</string>
+    <string name="permission_a11y_provider_install_btn">독립 버전 설치</string>
+    <string name="permission_a11y_provider_install_failed">설치 프로그램을 열 수 없습니다</string>
 </resources>

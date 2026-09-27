@@ -23,13 +23,29 @@ val syncMuseWebAssets =
         onlyIf { webDist.isDirectory }
     }
 
+// v2.2.1: 无障碍独立 Provider APK 打进 assets(权限向导「安装独立版」用)。
+// TODO(release): 出正式包时改为打包已签名的 release 变体 Provider(需与主应用同 keystore;debug 阶段用 debug 变体)。
+val a11yProviderAssetsDir = layout.buildDirectory.dir("generated/a11yProvider").get().asFile
+val syncA11yProviderApk =
+    tasks.register<Copy>("syncA11yProviderApk") {
+        dependsOn(":accessibility-provider:assembleDebug")
+        val providerApk =
+            rootProject.file("accessibility-provider/build/outputs/apk/debug/accessibility-provider-debug.apk")
+        from(providerApk)
+        into(a11yProviderAssetsDir.resolve("a11y"))
+        rename { "accessibility-provider.apk" }
+        onlyIf { providerApk.isFile }
+    }
+
 tasks.named("preBuild") {
     dependsOn(syncMuseWebAssets)
+    dependsOn(syncA11yProviderApk)
 }
 
 android {
 
     sourceSets.getByName("main").assets.srcDir(museWebAssetsDir)
+    sourceSets.getByName("main").assets.srcDir(a11yProviderAssetsDir)
 
     namespace = "io.zer0.muse"
     compileSdk = 35

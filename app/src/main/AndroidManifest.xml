@@ -59,6 +59,8 @@
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
     <!-- v2.2.1 无障碍独立 Provider:绑定其 AIDL 桥接服务(签名级权限,仅同签名应用可绑定) -->
     <uses-permission android:name="io.zer0.muse.permission.A11Y_BRIDGE" />
+    <!-- v2.2.1 无障碍独立 Provider:应用内拉起 APK 安装器(安装引导,由系统安装器完成确认) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Phase 5-I: 备份导出/导入(SAF 不需要权限,但读取外部文档需要) -->
     <queries>
         <!-- v2.2.1 Termux 通道:包可见性(Android 11+ 否则看不到 Termux) -->

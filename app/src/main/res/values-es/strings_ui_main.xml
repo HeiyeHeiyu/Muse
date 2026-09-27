@@ -903,5 +903,12 @@
     <string name="channel_conversation_role_assistant">Asistente</string>
     <string name="channel_conversation_role_user">Contacto</string>
     <string name="channel_conversation_turn_line">%1$s: %2$s</string>
+    <!-- v2.2.1: proveedor de accesibilidad independiente (mejora opcional) -->
+    <string name="permission_a11y_provider_title">Proveedor de accesibilidad independiente</string>
+    <string name="permission_a11y_provider_installed">Versión independiente instalada (sobrevive a las actualizaciones)</string>
+    <string name="permission_a11y_provider_not_installed">No instalada (opcional)</string>
+    <string name="permission_a11y_provider_desc">Instalar la versión independiente mantiene el permiso de accesibilidad al actualizar o reinstalar la app principal. Opcional.</string>
+    <string name="permission_a11y_provider_install_btn">Instalar versión independiente</string>
+    <string name="permission_a11y_provider_install_failed">No se pudo abrir el instalador</string>
 </resources>
 

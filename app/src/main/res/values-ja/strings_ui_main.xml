@@ -903,5 +903,12 @@
     <string name="channel_conversation_role_assistant">アシスタント</string>
     <string name="channel_conversation_role_user">相手</string>
     <string name="channel_conversation_turn_line">%1$s: %2$s</string>
+    <!-- v2.2.1: 独立アクセシビリティプロバイダー(任意の機能強化) -->
+    <string name="permission_a11y_provider_title">独立アクセシビリティプロバイダー</string>
+    <string name="permission_a11y_provider_installed">独立版をインストール済み(アプリ更新でも維持)</string>
+    <string name="permission_a11y_provider_not_installed">未インストール(任意)</string>
+    <string name="permission_a11y_provider_desc">独立版をインストールすると、メインアプリの更新・再インストール後もアクセシビリティ権限が維持されます。インストールは任意です。</string>
+    <string name="permission_a11y_provider_install_btn">独立版をインストール</string>
+    <string name="permission_a11y_provider_install_failed">インストーラーを開けませんでした</string>
 </resources>
 

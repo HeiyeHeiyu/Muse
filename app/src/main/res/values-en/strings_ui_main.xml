@@ -1009,5 +1009,12 @@
     <string name="channel_conversation_role_assistant">Assistant</string>
     <string name="channel_conversation_role_user">Contact</string>
     <string name="channel_conversation_turn_line">%1$s: %2$s</string>
+    <!-- v2.2.1: standalone accessibility provider (optional enhancement) -->
+    <string name="permission_a11y_provider_title">Standalone accessibility provider</string>
+    <string name="permission_a11y_provider_installed">Standalone version installed (survives app updates)</string>
+    <string name="permission_a11y_provider_not_installed">Not installed (optional)</string>
+    <string name="permission_a11y_provider_desc">Installing the standalone version keeps the accessibility grant alive when the main app is updated or reinstalled. Optional.</string>
+    <string name="permission_a11y_provider_install_btn">Install standalone version</string>
+    <string name="permission_a11y_provider_install_failed">Could not open the installer</string>
 </resources>
 

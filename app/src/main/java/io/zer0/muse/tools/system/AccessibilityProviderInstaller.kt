@@ -1,7 +1,10 @@
 package io.zer0.muse.tools.system
 
 import android.content.Context
+import android.content.Intent
+import androidx.core.content.FileProvider
 import io.zer0.common.Logger
+import java.io.File
 
 /**
  * P3-3: 无障碍服务安装器(引导启用)。
@@ -22,6 +25,9 @@ class AccessibilityProviderInstaller(private val context: Context) {
 
     companion object {
         private const val TAG = "A11yInstaller"
+
+        /** 内置 Provider APK 在 assets 中的路径(app 构建时由 syncA11yProviderApk 拷贝)。 */
+        private const val PROVIDER_ASSET_PATH = "a11y/accessibility-provider.apk"
     }
 
     /** 服务模块已编译进 APK,无需单独安装。 */
@@ -29,6 +35,40 @@ class AccessibilityProviderInstaller(private val context: Context) {
 
     /** v2.2.1: 独立 Provider APK 是否已安装。 */
     fun isProviderInstalled(): Boolean = client.isProviderInstalled()
+
+    /** v2.2.1: 独立 Provider APK 是否随包附带(assets 中存在)。 */
+    fun isProviderApkBundled(): Boolean =
+        runCatching {
+            context.assets.open(PROVIDER_ASSET_PATH).close()
+            true
+        }.getOrDefault(false)
+
+    /**
+     * v2.2.1: 解出内置 Provider APK 并拉起系统安装器。
+     *
+     * 安装器由系统呈现,用户确认后完成安装(需 manifest 声明 REQUEST_INSTALL_PACKAGES)。
+     * @return true 表示已成功拉起安装器;false 表示 APK 缺失或系统拒绝
+     */
+    fun installProvider(): Boolean {
+        return try {
+            val apkFile = File(context.cacheDir, "a11y/accessibility-provider.apk")
+            apkFile.parentFile?.mkdirs()
+            context.assets.open(PROVIDER_ASSET_PATH).use { input ->
+                apkFile.outputStream().use { output -> input.copyTo(output) }
+            }
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apkFile)
+            val intent =
+                Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            true
+        } catch (e: Exception) {
+            // 必要容错:assets 缺失/FileProvider 未配置/系统拒绝拉起,均需反馈给 UI
+            Logger.e(TAG, "拉起 Provider 安装器失败: ${e.message}", e)
+            false
+        }
+    }
 
     /** 无障碍服务是否已启用。 */
     fun isEnabled(): Boolean = client.isEnabled()

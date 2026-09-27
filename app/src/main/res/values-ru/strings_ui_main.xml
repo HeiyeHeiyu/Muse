@@ -857,5 +857,12 @@
     <string name="channel_conversation_role_assistant">Ассистент</string>
     <string name="channel_conversation_role_user">Собеседник</string>
     <string name="channel_conversation_turn_line">%1$s: %2$s</string>
+    <!-- v2.2.1: отдельный провайдер доступности (необязательное улучшение) -->
+    <string name="permission_a11y_provider_title">Отдельный провайдер доступности</string>
+    <string name="permission_a11y_provider_installed">Отдельная версия установлена (переживает обновления)</string>
+    <string name="permission_a11y_provider_not_installed">Не установлена (необязательно)</string>
+    <string name="permission_a11y_provider_desc">После установки отдельной версии разрешение специальных возможностей сохраняется при обновлении или переустановке основного приложения. Необязательно.</string>
+    <string name="permission_a11y_provider_install_btn">Установить отдельную версию</string>
+    <string name="permission_a11y_provider_install_failed">Не удалось открыть установщик</string>
 </resources>
 
