@@ -909,4 +909,7 @@
     <string name="permission_a11y_provider_desc">독립 버전을 설치하면 메인 앱을 업데이트하거나 재설치해도 접근성 권한이 유지됩니다. 선택 사항입니다.</string>
     <string name="permission_a11y_provider_install_btn">독립 버전 설치</string>
     <string name="permission_a11y_provider_install_failed">설치 프로그램을 열 수 없습니다</string>
+    <!-- v2.2.1: 微信 QR 연결 — 네트워크 오류 / 자동 갱신 안내 -->
+    <string name="channel_weclaw_status_unstable">네트워크 오류, 재시도 중…</string>
+    <string name="channel_weclaw_status_refreshed">QR 코드가 만료되어 자동 갱신했습니다. 다시 스캔해 주세요</string>
 </resources>

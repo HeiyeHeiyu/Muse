@@ -910,5 +910,8 @@
     <string name="permission_a11y_provider_desc">Instalar a versão independente mantém a permissão de acessibilidade ao atualizar ou reinstalar o app principal. Opcional.</string>
     <string name="permission_a11y_provider_install_btn">Instalar versão independente</string>
     <string name="permission_a11y_provider_install_failed">Não foi possível abrir o instalador</string>
+    <!-- v2.2.1: vínculo por QR do WeChat — erro de rede / atualização automática -->
+    <string name="channel_weclaw_status_unstable">Erro de rede, tentando novamente…</string>
+    <string name="channel_weclaw_status_refreshed">O QR code expirou e foi atualizado — escaneie novamente</string>
 </resources>
 

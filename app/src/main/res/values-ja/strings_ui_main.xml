@@ -910,5 +910,8 @@
     <string name="permission_a11y_provider_desc">独立版をインストールすると、メインアプリの更新・再インストール後もアクセシビリティ権限が維持されます。インストールは任意です。</string>
     <string name="permission_a11y_provider_install_btn">独立版をインストール</string>
     <string name="permission_a11y_provider_install_failed">インストーラーを開けませんでした</string>
+    <!-- v2.2.1: WeChat QR連携 — 通信エラー / 自動更新のヒント -->
+    <string name="channel_weclaw_status_unstable">ネットワークエラー、再試行中…</string>
+    <string name="channel_weclaw_status_refreshed">QRコードが期限切れのため自動更新しました。もう一度スキャンしてください</string>
 </resources>
 

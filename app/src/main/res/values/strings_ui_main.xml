@@ -1023,4 +1023,7 @@
     <string name="permission_a11y_provider_desc">安装独立版后,主应用更新或重装不会打断无障碍授权。不安装不影响使用。</string>
     <string name="permission_a11y_provider_install_btn">安装独立版</string>
     <string name="permission_a11y_provider_install_failed">无法拉起安装器</string>
+    <!-- v2.2.1: 微信扫码 — 轮询异常/自动刷新提示 -->
+    <string name="channel_weclaw_status_unstable">网络异常,正在重试…</string>
+    <string name="channel_weclaw_status_refreshed">二维码已过期,已自动刷新,请重新扫描</string>
 </resources>

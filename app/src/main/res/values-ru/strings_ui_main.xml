@@ -864,5 +864,8 @@
     <string name="permission_a11y_provider_desc">После установки отдельной версии разрешение специальных возможностей сохраняется при обновлении или переустановке основного приложения. Необязательно.</string>
     <string name="permission_a11y_provider_install_btn">Установить отдельную версию</string>
     <string name="permission_a11y_provider_install_failed">Не удалось открыть установщик</string>
+    <!-- v2.2.1: привязка по QR WeChat — ошибка сети / автообновление -->
+    <string name="channel_weclaw_status_unstable">Ошибка сети, повторная попытка…</string>
+    <string name="channel_weclaw_status_refreshed">QR-код истёк и был обновлён — отсканируйте заново</string>
 </resources>
 

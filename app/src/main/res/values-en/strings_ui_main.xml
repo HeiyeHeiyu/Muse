@@ -1016,5 +1016,8 @@
     <string name="permission_a11y_provider_desc">Installing the standalone version keeps the accessibility grant alive when the main app is updated or reinstalled. Optional.</string>
     <string name="permission_a11y_provider_install_btn">Install standalone version</string>
     <string name="permission_a11y_provider_install_failed">Could not open the installer</string>
+    <!-- v2.2.1: WeChat QR bind — polling failure / auto-refresh hints -->
+    <string name="channel_weclaw_status_unstable">Network error, retrying…</string>
+    <string name="channel_weclaw_status_refreshed">QR code expired and was refreshed — please scan again</string>
 </resources>
 
