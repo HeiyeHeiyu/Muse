@@ -9,45 +9,44 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
+import io.zer0.ai.ProviderConfigStore
 import io.zer0.ai.core.Model
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ProviderSpecMerger
 import io.zer0.ai.registry.ModelRegistry
-import io.zer0.ai.ProviderConfigStore
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.R
 import io.zer0.muse.asr.AsrConfig
-import io.zer0.muse.data.routing.UtilityModelBinding
 import io.zer0.muse.backup.CloudBackupConfig
 import io.zer0.muse.data.audit.AuditLogger
 import io.zer0.muse.data.preset.ModelCatalogStore
 import io.zer0.muse.data.preset.PresetProviders
 import io.zer0.muse.data.preset.SiliconFlowFreeModels
+import io.zer0.muse.data.prompttemplate.PromptTemplate
+import io.zer0.muse.data.routing.UtilityModelBinding
 import io.zer0.muse.rag.RagConfig
 import io.zer0.muse.tools.SessionPermissionMode
+import io.zer0.muse.ui.theme.CustomTheme
 import io.zer0.muse.web.WebSearchConfig
 import io.zer0.muse.web.WebServerConfig
-import io.zer0.muse.data.prompttemplate.PromptTemplate
-import io.zer0.muse.ui.theme.CustomTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
-import io.zer0.muse.R
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import java.util.concurrent.atomic.AtomicBoolean
-
 
 /** 最近一次成功生成的每日助手总结,供首页问候语复用。 */
 data class DailySummarySnapshot(
@@ -81,20 +80,26 @@ class SettingsRepository(
 ) : ProviderConfigStore {
     /** P2-2: 外观/主题子仓库(共用 muse_settings DataStore)。 */
     val appearance = AppearanceSettingsStore(appContext)
+
     /** P2-2: 应用级设置子仓库(语言等)。 */
     val appSettings = AppSettingsStore(appContext)
+
     /** P2-2: 安全/行为开关子仓库。 */
     val security = SecuritySettingsStore(appContext)
+
     /** P2-2: 聊天行为设置子仓库。 */
     val chatSettings = ChatSettingsStore(appContext)
 
     private val store get() = appContext.museSettingsDataStore
     private val cacheScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val memoryEnabledCache = AtomicBoolean(true)
+
     // M-SR5: 防止 migrateLegacyProviderIfNeeded 在并发首调时重复执行(读旧 JSON + addProvider + remove 之间存在竞态)
     private val migrationDone = AtomicBoolean(false)
+
     /** v1.0.51: 防止 memory backfill 迁移在并发首调时重复执行(读标志位 + 跑 backfill + 写标志位之间存在竞态)。 */
     private val memoryBackfillMigrationDone = AtomicBoolean(false)
+
     /** v2.x: 防止辅助模型旧键绑定迁移重复执行。 */
     private val utilityBindingMigrationDone = AtomicBoolean(false)
 
@@ -103,8 +108,6 @@ class SettingsRepository(
      * lazy 初始化,供 [providersFlow] 合并 spec 默认模型 + 用户 overlay。
      */
     private val presetProviders by lazy { PresetProviders(appContext) }
-
-
 
     /**
      * v0.32: 当前 MemoryConfig 的内存缓存(供 MemoryTicker 的 getConfig 闭包同步读取)。
@@ -157,6 +160,7 @@ class SettingsRepository(
     @Volatile
     var stickerEnabledCache: Boolean = false
         private set
+
     @Volatile
     var stickerSendProbabilityCache: Int = 30
         private set
@@ -190,7 +194,6 @@ class SettingsRepository(
     @Volatile
     var anrDetectionCache: Boolean = true
         private set
-
 
     /**
      * v1.39: 当前 ProxyConfig 的内存缓存,供 AppKoinModule 创建 OkHttpClient 时零阻塞读取。
@@ -229,135 +232,171 @@ class SettingsRepository(
 
     // ── Flows (必须在 init 块之前声明,Kotlin 按声明顺序初始化;
     // 否则 init 里启动的协程异步访问 providersFlow 时会是 null) ──
-    val providersFlow: Flow<List<ProviderConfig>> = store.data.map { prefs ->
-        // v1.53-A2: 读取后解密 apiKey(旧明文数据透传,加密数据解密)
-        val raw = prefs[KEY_PROVIDERS]?.let { json -> decodeProviders(json) } ?: emptyList()
-        // v1.0.7: 三层合并 — specId 非空时,把 spec 默认模型列表与用户 overlay 合并
-        // 对齐 既有实现 BUILTIN_PLUGINS + Provider Catalog overlay 合并机制
-        raw.map { config ->
-            val isLegacyFreeProvider = config.allowMissingApiKey &&
-                config.baseUrl.contains("siliconflow.cn", ignoreCase = true) &&
-                (config.displayName.contains("免费", ignoreCase = true) ||
-                    config.displayName.contains("free", ignoreCase = true)) &&
-                config.models.any { it.id in io.zer0.ai.core.FreeModelConfig.FREE_MODEL_IDS }
-            val internalized = if (
-                config.id == SiliconFlowFreeModels.PROVIDER_ID ||
-                isLegacyFreeProvider
-            ) {
-                config.copy(hiddenFromSettings = true)
-            } else {
-                config
+    val providersFlow: Flow<List<ProviderConfig>> =
+        store.data.map { prefs ->
+            // v1.53-A2: 读取后解密 apiKey(旧明文数据透传,加密数据解密)
+            val raw = prefs[KEY_PROVIDERS]?.let { json -> decodeProviders(json) } ?: emptyList()
+            // v1.0.7: 三层合并 — specId 非空时,把 spec 默认模型列表与用户 overlay 合并
+            // 对齐 既有实现 BUILTIN_PLUGINS + Provider Catalog overlay 合并机制
+            raw.map { config ->
+                val isLegacyFreeProvider =
+                    config.allowMissingApiKey &&
+                        config.baseUrl.contains("siliconflow.cn", ignoreCase = true) &&
+                        (
+                            config.displayName.contains("免费", ignoreCase = true) ||
+                                config.displayName.contains("free", ignoreCase = true)
+                        ) &&
+                        config.models.any { it.id in io.zer0.ai.core.FreeModelConfig.FREE_MODEL_IDS }
+                val internalized =
+                    if (
+                        config.id == SiliconFlowFreeModels.PROVIDER_ID ||
+                        isLegacyFreeProvider
+                    ) {
+                        config.copy(hiddenFromSettings = true)
+                    } else {
+                        config
+                    }
+                val enriched = enrichWithSpecDefaults(internalized)
+                // 与 Hana 的 models.json projection 对齐：用户模型目录先合并进 Provider，
+                // 再由统一能力注册表增强，保证设置页、模型选择器和实际请求看到同一份元数据。
+                val catalogProviderId = enriched.specId ?: enriched.id.removePrefix("preset_")
+                val projectedModels =
+                    modelCatalogStore?.mergeIntoModels(
+                        providerId = catalogProviderId,
+                        models = enriched.models,
+                        runtimeProviderId = enriched.id,
+                    ) ?: enriched.models
+                enriched.copy(models = projectedModels.map(ModelRegistry::enhanceModel))
             }
-            val enriched = enrichWithSpecDefaults(internalized)
-            // 与 Hana 的 models.json projection 对齐：用户模型目录先合并进 Provider，
-            // 再由统一能力注册表增强，保证设置页、模型选择器和实际请求看到同一份元数据。
-            val catalogProviderId = enriched.specId ?: enriched.id.removePrefix("preset_")
-            val projectedModels = modelCatalogStore?.mergeIntoModels(
-                providerId = catalogProviderId,
-                models = enriched.models,
-                runtimeProviderId = enriched.id,
-            ) ?: enriched.models
-            enriched.copy(models = projectedModels.map(ModelRegistry::enhanceModel))
+        }.catch {
+            // M-SR3: 上游异常(DataStore IO / 解密失败)不应让 Flow 永久失效,回退空列表并记日志
+            Logger.w("SettingsRepository", "providersFlow 异常,回退空列表", it)
+            emit(emptyList())
         }
-    }.catch {
-        // M-SR3: 上游异常(DataStore IO / 解密失败)不应让 Flow 永久失效,回退空列表并记日志
-        Logger.w("SettingsRepository", "providersFlow 异常,回退空列表", it)
-        emit(emptyList())
-    }
     val activeProviderIdFlow: Flow<String?> = store.data.map { prefs -> prefs[KEY_ACTIVE_PROVIDER_ID] }
-    val providerConfigFlow: Flow<ProviderConfig?> = store.data.map { activeProviderFromPrefs(it) }
-        .catch {
-            // M-SR3: 上游异常回退 null,避免 UI 持续崩溃
-            Logger.w("SettingsRepository", "providerConfigFlow 异常,回退 null", it)
-            emit(null)
-        }
+    val providerConfigFlow: Flow<ProviderConfig?> =
+        store.data.map { activeProviderFromPrefs(it) }
+            .catch {
+                // M-SR3: 上游异常回退 null,避免 UI 持续崩溃
+                Logger.w("SettingsRepository", "providerConfigFlow 异常,回退 null", it)
+                emit(null)
+            }
     val selectedModelIdFlow: Flow<String?> = store.data.map { prefs -> prefs[KEY_SELECTED_MODEL] }
+
     /** 当前会话的模型覆盖，键为 sessionId；不参与全局默认模型设置。 */
     private val sessionModelOverrideSerializer = MapSerializer(String.serializer(), String.serializer())
-    val sessionModelOverridesFlow: Flow<Map<String, String>> = store.data.map { prefs ->
-        decodePrefsOrNull(
-            prefs[KEY_SESSION_MODEL_OVERRIDES],
-            sessionModelOverrideSerializer,
-            "SessionModelOverrides",
-        ) ?: emptyMap()
-    }
+    val sessionModelOverridesFlow: Flow<Map<String, String>> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(
+                prefs[KEY_SESSION_MODEL_OVERRIDES],
+                sessionModelOverrideSerializer,
+                "SessionModelOverrides",
+            ) ?: emptyMap()
+        }
+
     /** 当前会话的 Provider 覆盖，和模型覆盖一起保证聊天页切换不污染全局默认。 */
-    val sessionProviderOverridesFlow: Flow<Map<String, String>> = store.data.map { prefs ->
-        decodePrefsOrNull(
-            prefs[KEY_SESSION_PROVIDER_OVERRIDES],
-            sessionModelOverrideSerializer,
-            "SessionProviderOverrides",
-        ) ?: emptyMap()
-    }
+    val sessionProviderOverridesFlow: Flow<Map<String, String>> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(
+                prefs[KEY_SESSION_PROVIDER_OVERRIDES],
+                sessionModelOverrideSerializer,
+                "SessionProviderOverrides",
+            ) ?: emptyMap()
+        }
+
     /** v1.60-A: 工具模型 id(用于工具调用轮次的轻量模型,null 表示沿用主对话模型)。 */
     val toolModelIdFlow: Flow<String?> = store.data.map { prefs -> prefs[KEY_TOOL_MODEL_ID] }
+
     /**
      * v2.0: 子代理模型 id(后台子 agent 使用的轻量模型,null 表示沿用主对话模型)。
      * 子 agent 多为多步工具检索类任务,配便宜小模型可显著降本。
      */
     val subagentModelIdFlow: Flow<String?> = store.data.map { prefs -> prefs[KEY_SUBAGENT_MODEL_ID] }
+
     /**
      * v2.x: 小工具模型绑定(辅助任务档位路由,带 provider;优先于旧 [toolModelIdFlow])。
      * 用于标题生成、轻量分类、意图路由、封面 prompt、渠道摘要等短任务。
      */
-    val utilityModelBindingFlow: Flow<UtilityModelBinding?> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_UTILITY_MODEL_BINDING], UtilityModelBinding.serializer(), "UtilityModelBinding")
-    }
+    val utilityModelBindingFlow: Flow<UtilityModelBinding?> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_UTILITY_MODEL_BINDING], UtilityModelBinding.serializer(), "UtilityModelBinding")
+        }
+
     /** v2.x: 大工具模型绑定(压缩/记忆提取/活动摘要/任务拆解/子代理;留空级联复用 [utilityModelBindingFlow])。 */
-    val utilityLargeModelBindingFlow: Flow<UtilityModelBinding?> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_UTILITY_LARGE_MODEL_BINDING], UtilityModelBinding.serializer(), "UtilityLargeModelBinding")
-    }
+    val utilityLargeModelBindingFlow: Flow<UtilityModelBinding?> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_UTILITY_LARGE_MODEL_BINDING], UtilityModelBinding.serializer(), "UtilityLargeModelBinding")
+        }
+
     /**
      * 压缩模型 id(用于 ConversationCompressor 的分块并行摘要压缩)。
      * null 表示沿用当前主对话模型([selectedModelIdFlow] / 激活 Provider 首个模型)。
      * 用户可在此设置一个便宜的模型(如 SiliconFlow 免费模型)专做摘要压缩,避免主模型阻塞。
      */
     val compressModelIdFlow: Flow<String?> = store.data.map { prefs -> prefs[KEY_COMPRESS_MODEL_ID] }
+
     /**
      * v1.0.52: 自定义压缩 prompt(用户可覆盖默认压缩指令)。
      * null 或空串表示用 ConversationCompressor 内置默认 prompt。
      * 用户可在设置中覆盖,实现自定义压缩风格(如更简短/更详细/特定格式)。
      */
     val customCompressPromptFlow: Flow<String?> = store.data.map { prefs -> prefs[KEY_CUSTOM_COMPRESS_PROMPT] }
+
     /**
      * v1.0.52: 自定义对话命名 prompt(用户可覆盖默认命名指令)。
      * null 或空串表示用 ChatViewModel.autoTitleSession 内置默认 prompt。
      * 用户可在设置中覆盖,实现自定义命名风格(如英文标题/带日期/带前缀)。
      */
     val customTitlePromptFlow: Flow<String?> = store.data.map { prefs -> prefs[KEY_CUSTOM_TITLE_PROMPT] }
+
     /** v1.0.47: Token 估算开关(默认关闭,用户显式开启以避免性能开销)。 */
     val tokenEstimateEnabledFlow: Flow<Boolean> get() = chatSettings.tokenEstimateEnabledFlow
+
     /** v1.0.47 P5-2: 长文本粘贴转文件开关(默认开启,粘贴超阈值文本时提示转为 txt 附件)。 */
     val pasteAsFileEnabledFlow: Flow<Boolean> get() = chatSettings.pasteAsFileEnabledFlow
+
     /** v1.0.47 P5-2: 长文本粘贴转文件阈值(字符数,超过则提示转文件)。 */
     val pasteAsFileThresholdFlow: Flow<Int> get() = chatSettings.pasteAsFileThresholdFlow
+
     /** P1-4: 楼层式上下文限制开关(以 USER 消息为楼层,保留最近 N 层完整对话)。 */
     val floorLimiterEnabledFlow: Flow<Boolean> get() = chatSettings.floorLimiterEnabledFlow
+
     /** P1-4: 楼层式上下文限制楼层数(8/16/32,默认 16)。 */
     val floorLimitFlow: Flow<Int> get() = chatSettings.floorLimitFlow
+
+    /** v2.x: 工具轮次上限(0=无限制;1..N 为用户设定值)。 */
+    val toolLoopMaxRoundsFlow: Flow<Int> get() = chatSettings.toolLoopMaxRoundsFlow
+
     /** C3: 最近浏览会话 id 列表(最近优先,去重置顶,最多 10 条,误退可快速找回)。 */
     val recentSessionsFlow: Flow<List<String>> get() = chatSettings.recentSessionsFlow
     val memoryEnabledFlow: Flow<Boolean> = store.data.map { prefs -> prefs[KEY_MEMORY_ENABLED] ?: true }
+
     /** v1.0.51: 存量记忆迁移是否已完成(升级后首次启动补跑历史 session 摘要)。 */
     val memoryBackfillMigrationDoneFlow: Flow<Boolean> = store.data.map { prefs -> prefs[KEY_MEMORY_MIGRATION_V1_0_51_DONE] ?: false }
+
     /**
      * v1.0.52 P2-2: 当前选中的记忆空间 id(默认 "default")。
      * 用户在记忆页切换 Space 时写入,MemoryViewModel 读取后按 spaceId 过滤事实列表。
      */
     val currentSpaceIdFlow: Flow<String> = store.data.map { prefs -> prefs[KEY_CURRENT_SPACE_ID] ?: "default" }
     val themeModeFlow: Flow<String> get() = appearance.themeModeFlow
+
     /** H5: 高对比主题开关(增强前景/背景对比,面向弱视用户)。 */
     val highContrastFlow: Flow<Boolean> get() = appearance.highContrastFlow
+
     /** v1.60-C: 应用界面语言(system=跟随系统 / zh=中文 / en=英文 / ja=日语 / ko=韩语 / ru=俄语)。 */
     val languageFlow: Flow<String> get() = appSettings.languageFlow
     val themeIdFlow: Flow<String> get() = appearance.themeIdFlow
+
     /** 深色模式独立主题 id(空字符串表示跟随亮色主题的暗色版)。 */
     val darkThemeIdFlow: Flow<String> get() = appearance.darkThemeIdFlow
+
     /** 主题定时切换配置。 */
     val themeScheduleFlow: Flow<ThemeScheduleConfig> get() = appearance.themeScheduleFlow
 
     /** v1.65: Material You 动态取色开关(Android 12+)。 */
     val dynamicColorFlow: Flow<Boolean> get() = appearance.dynamicColorFlow
+
     /**
      * v1.97 gap7: 用户自定义主题列表 — 基于种子色生成 ColorScheme。
      *
@@ -367,137 +406,166 @@ class SettingsRepository(
     val customThemesFlow: Flow<List<CustomTheme>> get() = appearance.customThemesFlow
 
     val fontSizeScaleFlow: Flow<String> get() = appearance.fontSizeScaleFlow
+
     /** E2: 自定义正文字体文件路径(filesDir/fonts/ 下);null 表示系统默认。 */
     val customFontPathFlow: Flow<String?> get() = appearance.customFontPathFlow
+
     /** v1.95: 启动默认页(0=任务, 1=Agent, 2=群聊)。 */
     val defaultHomePageFlow: Flow<Int> get() = appearance.defaultHomePageFlow
     val onboardingShownFlow: Flow<Boolean> get() = appearance.onboardingShownFlow
+
     // v1.95: 系统语音识别首次提示是否已展示(仅首次使用时弹提示,后续直接调起 Intent)
     val asrTipShownFlow: Flow<Boolean> get() = appearance.asrTipShownFlow
+
     // v1.95: 表情包库开关(默认关闭);开启后模型可在回复时发送表情包
     val stickerEnabledFlow: Flow<Boolean> = store.data.map { prefs -> prefs[KEY_STICKER_ENABLED] ?: false }
+
     // v1.95: 表情包发送概率(0-100,默认 30);模型每次回复时有此概率调用 send_sticker
     val stickerSendProbabilityFlow: Flow<Int> = store.data.map { prefs -> prefs[KEY_STICKER_SEND_PROBABILITY] ?: 30 }
+
     // v2.x: 表情包发送频率档位(occasionally/normal/frequent,默认 normal);标记链路 system prompt 注入用
-    val stickerFrequencyFlow: Flow<String> = store.data.map { prefs ->
-        prefs[KEY_STICKER_FREQUENCY] ?: STICKER_FREQ_NORMAL
-    }
+    val stickerFrequencyFlow: Flow<String> =
+        store.data.map { prefs ->
+            prefs[KEY_STICKER_FREQUENCY] ?: STICKER_FREQ_NORMAL
+        }
+
     // v2.x: 会话内存缓存上限(高级,默认 5;2..12)
     val sessionCacheSizeFlow: Flow<Int> = store.data.map { prefs -> prefs[KEY_SESSION_CACHE_SIZE] ?: 5 }
+
     // v1.135: 调用 WebSearchConfig.decrypted() 统一解密 apiKey + apiKeys,并同步旧版单 key 到 apiKeys 映射
-    val webSearchConfigFlow: Flow<WebSearchConfig> = store.data.map { prefs ->
-        val config = decodePrefsOrNull(
-            prefs[KEY_WEB_SEARCH_CONFIG],
-            WebSearchConfig.serializer(),
-            "WebSearchConfig",
-        )?.decrypted() ?: WebSearchConfig()
-        // 策略迁移：
-        //  v1 时代旧配置无版本号,可能保存旧默认预算 2;
-        //  v2(本次):预算放开 —— 历史上默认被夹在 5(且 Koin 侧 coerceIn(1,5)),
-        //   导致模型“搜不上”。未到 v2 的配置一律提升到新默认 50(用户可再调)。
-        if (config.policyVersion < 2) {
-            config.copy(maxSearchesPerTurn = 50, policyVersion = 2)
-        } else {
-            config
+    val webSearchConfigFlow: Flow<WebSearchConfig> =
+        store.data.map { prefs ->
+            val config =
+                decodePrefsOrNull(
+                    prefs[KEY_WEB_SEARCH_CONFIG],
+                    WebSearchConfig.serializer(),
+                    "WebSearchConfig",
+                )?.decrypted() ?: WebSearchConfig()
+            // 策略迁移：
+            //  v1 时代旧配置无版本号,可能保存旧默认预算 2;
+            //  v2(本次):预算放开 —— 历史上默认被夹在 5(且 Koin 侧 coerceIn(1,5)),
+            //   导致模型“搜不上”。未到 v2 的配置一律提升到新默认 50(用户可再调)。
+            if (config.policyVersion < 2) {
+                config.copy(maxSearchesPerTurn = 50, policyVersion = 2)
+            } else {
+                config
+            }
+        }.catch {
+            // M-SR3: 解密/解析异常回退默认值,避免 Flow 永久失效
+            Logger.w("SettingsRepository", "webSearchConfigFlow 异常,回退默认值", it)
+            emit(WebSearchConfig())
         }
-    }.catch {
-        // M-SR3: 解密/解析异常回退默认值,避免 Flow 永久失效
-        Logger.w("SettingsRepository", "webSearchConfigFlow 异常,回退默认值", it)
-        emit(WebSearchConfig())
-    }
+
     // H-SR2: CloudBackupConfig 含 s3SecretKey / webdavPassword 等敏感凭据,读写均走 SecureKeyStore
-    val cloudBackupConfigFlow: Flow<CloudBackupConfig> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_CLOUD_BACKUP_CONFIG], CloudBackupConfig.serializer(), "CloudBackupConfig")
-            ?.decrypted()
-            ?: CloudBackupConfig()
-    }.catch {
-        Logger.w("SettingsRepository", "cloudBackupConfigFlow 异常,回退默认值", it)
-        emit(CloudBackupConfig())
-    }
+    val cloudBackupConfigFlow: Flow<CloudBackupConfig> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_CLOUD_BACKUP_CONFIG], CloudBackupConfig.serializer(), "CloudBackupConfig")
+                ?.decrypted()
+                ?: CloudBackupConfig()
+        }.catch {
+            Logger.w("SettingsRepository", "cloudBackupConfigFlow 异常,回退默认值", it)
+            emit(CloudBackupConfig())
+        }
 
     // ── v1.132: 云备份细粒度配置流(供 CloudBackupPage 表单双向绑定) ──
     // H8: WebServerConfig 含 password/pin 敏感凭据,读写均走 SecureKeyStore
-    val webServerConfigFlow: Flow<WebServerConfig> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_WEB_SERVER_CONFIG], WebServerConfig.serializer(), "WebServerConfig")
-            ?.decrypted()
-            ?: WebServerConfig()
-    }
-    val asrConfigFlow: Flow<AsrConfig> = store.data.map { prefs -> decodePrefsOrNull(prefs[KEY_ASR_CONFIG], AsrConfig.serializer(), "AsrConfig")?.let { c -> c.copy(apiKey = SecureKeyStore.decrypt(c.apiKey)) } ?: AsrConfig() }
-        .catch {
-            Logger.w("SettingsRepository", "asrConfigFlow 异常,回退默认值", it)
-            emit(AsrConfig())
+    val webServerConfigFlow: Flow<WebServerConfig> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_WEB_SERVER_CONFIG], WebServerConfig.serializer(), "WebServerConfig")
+                ?.decrypted()
+                ?: WebServerConfig()
         }
+    val asrConfigFlow: Flow<AsrConfig> =
+        store.data.map {
+                prefs ->
+            decodePrefsOrNull(prefs[KEY_ASR_CONFIG], AsrConfig.serializer(), "AsrConfig")?.let {
+                    c ->
+                c.copy(apiKey = SecureKeyStore.decrypt(c.apiKey))
+            } ?: AsrConfig()
+        }
+            .catch {
+                Logger.w("SettingsRepository", "asrConfigFlow 异常,回退默认值", it)
+                emit(AsrConfig())
+            }
 
     /** v1.54: RAG 配置(embedding 来源 + 检索参数)。 */
-    val ragConfigFlow: Flow<RagConfig> = store.data.map { prefs ->
-        val config = decodePrefsOrNull(prefs[KEY_RAG_CONFIG], RagConfig.serializer(), "RagConfig") ?: RagConfig()
-        // v1.0.53: 迁移 — 旧用户 RagConfig 缺 embeddingSource 字段,反序列化后默认为 LOCAL_KEYWORD。
-        // 若用户曾显式配置过云端 embedding(cloudProviderId 或 cloudModel 非空),说明他们已在用云端,
-        // 保留原 CLOUD 设置避免破坏可用配置;否则采用新默认值 LOCAL_KEYWORD(避免 embedding 报错)。
-        if (config.embeddingSource == RagConfig.EmbeddingSource.LOCAL_KEYWORD &&
-            (config.cloudProviderId.isNotBlank() || config.cloudModel.isNotBlank())
-        ) {
-            config.copy(embeddingSource = RagConfig.EmbeddingSource.CLOUD)
-        } else {
-            config
+    val ragConfigFlow: Flow<RagConfig> =
+        store.data.map { prefs ->
+            val config = decodePrefsOrNull(prefs[KEY_RAG_CONFIG], RagConfig.serializer(), "RagConfig") ?: RagConfig()
+            // v1.0.53: 迁移 — 旧用户 RagConfig 缺 embeddingSource 字段,反序列化后默认为 LOCAL_KEYWORD。
+            // 若用户曾显式配置过云端 embedding(cloudProviderId 或 cloudModel 非空),说明他们已在用云端,
+            // 保留原 CLOUD 设置避免破坏可用配置;否则采用新默认值 LOCAL_KEYWORD(避免 embedding 报错)。
+            if (config.embeddingSource == RagConfig.EmbeddingSource.LOCAL_KEYWORD &&
+                (config.cloudProviderId.isNotBlank() || config.cloudModel.isNotBlank())
+            ) {
+                config.copy(embeddingSource = RagConfig.EmbeddingSource.CLOUD)
+            } else {
+                config
+            }
         }
-    }
+
     // H-SR2: MCP 静态 token 与飞书 App ID/App Secret 均走 SecureKeyStore。
-    val mcpServersFlow: Flow<List<io.zer0.muse.mcp.McpServerConfig>> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_MCP_SERVERS], ListSerializer(io.zer0.muse.mcp.McpServerConfig.serializer()), "McpServers")
-            ?.map { it.decrypted() }
-            ?: emptyList()
-    }.catch {
-        Logger.w("SettingsRepository", "mcpServersFlow 异常,回退空列表", it)
-        emit(emptyList())
-    }
+    val mcpServersFlow: Flow<List<io.zer0.muse.mcp.McpServerConfig>> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_MCP_SERVERS], ListSerializer(io.zer0.muse.mcp.McpServerConfig.serializer()), "McpServers")
+                ?.map { it.decrypted() }
+                ?: emptyList()
+        }.catch {
+            Logger.w("SettingsRepository", "mcpServersFlow 异常,回退空列表", it)
+            emit(emptyList())
+        }
 
     /** v1.58: Prompt 模板列表(首次读取返回内置模板,用户修改后整体持久化)。 */
-    val promptTemplatesFlow: Flow<List<PromptTemplate>> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_PROMPT_TEMPLATES], ListSerializer(PromptTemplate.serializer()), "PromptTemplates") ?: PromptTemplate.getBuiltInPromptTemplates(appContext)
-    }
+    val promptTemplatesFlow: Flow<List<PromptTemplate>> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_PROMPT_TEMPLATES], ListSerializer(PromptTemplate.serializer()), "PromptTemplates") ?: PromptTemplate.getBuiltInPromptTemplates(appContext)
+        }
 
     // v0.30-a: 用户画像(6 步工作流第 1 步的用户画像 section 用)
-    val userProfileFlow: Flow<UserProfile> = store.data.map { prefs ->
-        val profile = decodePrefsOrNull(prefs[KEY_USER_PROFILE], UserProfile.serializer(), "UserProfile") ?: UserProfile()
-        // B0-09: 合并旧账户键,保证首次升级后旧昵称/头像不丢
-        profile.copy(
-            userNickName = profile.userNickName ?: prefs[KEY_ACCOUNT_USER_NAME],
-            avatarUri = prefs[KEY_ACCOUNT_AVATAR_URI] ?: profile.avatarUri,
-        )
-    }
+    val userProfileFlow: Flow<UserProfile> =
+        store.data.map { prefs ->
+            val profile = decodePrefsOrNull(prefs[KEY_USER_PROFILE], UserProfile.serializer(), "UserProfile") ?: UserProfile()
+            // B0-09: 合并旧账户键,保证首次升级后旧昵称/头像不丢
+            profile.copy(
+                userNickName = profile.userNickName ?: prefs[KEY_ACCOUNT_USER_NAME],
+                avatarUri = prefs[KEY_ACCOUNT_AVATAR_URI] ?: profile.avatarUri,
+            )
+        }
 
     // v0.31: 聊天行为偏好(打包存储,一次序列化)
     // v0.31: 聊天行为偏好(打包存储,一次序列化)
     val chatPreferencesFlow: Flow<ChatPreferences> get() = chatSettings.chatPreferencesFlow
 
     // v0.32: 记忆系统高级配置
-    val memoryConfigFlow: Flow<io.zer0.memory.ticker.MemoryConfig> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_MEMORY_CONFIG], io.zer0.memory.ticker.MemoryConfig.serializer(), "MemoryConfig") ?: io.zer0.memory.ticker.MemoryConfig()
-    }
+    val memoryConfigFlow: Flow<io.zer0.memory.ticker.MemoryConfig> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_MEMORY_CONFIG], io.zer0.memory.ticker.MemoryConfig.serializer(), "MemoryConfig") ?: io.zer0.memory.ticker.MemoryConfig()
+        }
 
     // v0.32: 通知策略(never / when_unfocused / always)
     val notificationPolicyFlow: Flow<String> get() = security.notificationPolicyFlow
 
     // v0.32: 经验库开关(默认关闭)
-    val experienceEnabledFlow: Flow<Boolean> = store.data.map { prefs ->
-        prefs[KEY_EXPERIENCE_ENABLED] ?: false
-    }
+    val experienceEnabledFlow: Flow<Boolean> =
+        store.data.map { prefs ->
+            prefs[KEY_EXPERIENCE_ENABLED] ?: false
+        }
 
     // PII Guard:发送消息给 LLM 前自动遮蔽敏感信息(身份证/手机/邮箱等),默认开启。
 
     // v1.0.63: 新任务默认助手(每次开启新任务时绑定)
-    val defaultAssistantIdFlow: Flow<String> = store.data.map { prefs ->
-        prefs[KEY_DEFAULT_ASSISTANT_ID] ?: "default"
-    }
+    val defaultAssistantIdFlow: Flow<String> =
+        store.data.map { prefs ->
+            prefs[KEY_DEFAULT_ASSISTANT_ID] ?: "default"
+        }
 
-    val piiGuardEnabledFlow: Flow<Boolean> = store.data.map { prefs ->
-        prefs[KEY_PII_GUARD_ENABLED] ?: true
-    }
+    val piiGuardEnabledFlow: Flow<Boolean> =
+        store.data.map { prefs ->
+            prefs[KEY_PII_GUARD_ENABLED] ?: true
+        }
 
     // ANR 检测开关(默认 true),供 AnrWatcher 运行时同步读取。
     val anrDetectionFlow: Flow<Boolean> get() = security.anrDetectionFlow
-
 
     // v0.32: 保持唤醒(默认关闭)
     val keepAwakeFlow: Flow<Boolean> get() = security.keepAwakeFlow
@@ -506,118 +574,138 @@ class SettingsRepository(
     val autoLaunchFlow: Flow<Boolean> get() = security.autoLaunchFlow
 
     // v0.32: 实验性功能开关(打包存储)
-    val experimentsFlow: Flow<ExperimentsConfig> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_EXPERIMENTS], ExperimentsConfig.serializer(), "ExperimentsConfig") ?: ExperimentsConfig()
-    }
+    val experimentsFlow: Flow<ExperimentsConfig> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_EXPERIMENTS], ExperimentsConfig.serializer(), "ExperimentsConfig") ?: ExperimentsConfig()
+        }
 
     // v0.32: 分享模板配置
-    val shareTemplateFlow: Flow<ShareTemplateConfig> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_SHARE_TEMPLATE], ShareTemplateConfig.serializer(), "ShareTemplateConfig") ?: ShareTemplateConfig()
-    }
+    val shareTemplateFlow: Flow<ShareTemplateConfig> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_SHARE_TEMPLATE], ShareTemplateConfig.serializer(), "ShareTemplateConfig") ?: ShareTemplateConfig()
+        }
 
     // v0.32: 媒体配置(语音录制/音频输出)
     // P0-2: MediaConfig 含 ttsApiKey,读出后解密(旧版明文由 decrypt 透传兼容)
-    val mediaConfigFlow: Flow<MediaConfig> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_MEDIA_CONFIG], MediaConfig.serializer(), "MediaConfig")?.decrypted() ?: MediaConfig()
-    }
+    val mediaConfigFlow: Flow<MediaConfig> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_MEDIA_CONFIG], MediaConfig.serializer(), "MediaConfig")?.decrypted() ?: MediaConfig()
+        }
 
     // 全局网络代理配置
     // H-SR2: ProxyConfig.password 是敏感凭据,通过 ProxyConfig.decrypted() 在读出后解密
     // (旧版明文 password 由 decrypt 透传兼容),写入时由 saveProxyConfig 调 encrypted() 加密
-    val proxyConfigFlow: Flow<ProxyConfig> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_PROXY_CONFIG], ProxyConfig.serializer(), "ProxyConfig")?.let { c -> c.decrypted() } ?: ProxyConfig()
-    }.catch {
-        Logger.w("SettingsRepository", "proxyConfigFlow 异常,回退默认值(无代理)", it)
-        emit(ProxyConfig())
-    }
+    val proxyConfigFlow: Flow<ProxyConfig> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_PROXY_CONFIG], ProxyConfig.serializer(), "ProxyConfig")?.let { c -> c.decrypted() } ?: ProxyConfig()
+        }.catch {
+            Logger.w("SettingsRepository", "proxyConfigFlow 异常,回退默认值(无代理)", it)
+            emit(ProxyConfig())
+        }
 
     // 主动消息配置(助手像真人一样定时主动给用户发消息)
-    val proactiveMessageConfigFlow: Flow<ProactiveMessageConfig> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_PROACTIVE_MESSAGE], ProactiveMessageConfig.serializer(), "ProactiveMessageConfig") ?: ProactiveMessageConfig()
-    }
+    val proactiveMessageConfigFlow: Flow<ProactiveMessageConfig> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_PROACTIVE_MESSAGE], ProactiveMessageConfig.serializer(), "ProactiveMessageConfig") ?: ProactiveMessageConfig()
+        }
 
     // v0.34: 图片生成默认参数配置(尺寸/质量/风格/数量)
-    val imageGenConfigFlow: Flow<ImageGenConfig> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_IMAGE_GEN_CONFIG], ImageGenConfig.serializer(), "ImageGenConfig") ?: ImageGenConfig()
-    }
+    val imageGenConfigFlow: Flow<ImageGenConfig> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_IMAGE_GEN_CONFIG], ImageGenConfig.serializer(), "ImageGenConfig") ?: ImageGenConfig()
+        }
 
     /** 视频生成默认参数配置流(用户在设置页配置)。 */
-    val videoGenConfigFlow: Flow<VideoGenConfig> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_VIDEO_GEN_CONFIG], VideoGenConfig.serializer(), "VideoGenConfig") ?: VideoGenConfig()
-    }
+    val videoGenConfigFlow: Flow<VideoGenConfig> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_VIDEO_GEN_CONFIG], VideoGenConfig.serializer(), "VideoGenConfig") ?: VideoGenConfig()
+        }
 
     // v1.25: 多 Agent 协作配置(团队列表与总开关)
     // v1.201: 合并独立 DataStore key(multi_agent_review_model / multi_agent_llm_review_enabled)
     //         到 MultiAgentConfig —— 这两个字段为 @Transient,不随 JSON 序列化,
     //         由独立 key 单独读写,避免 updateMultiAgentConfig 与独立 save 方法双写竞态。
-    val multiAgentConfigFlow: Flow<MultiAgentConfig> = store.data.map { prefs ->
-        val base = decodePrefsOrNull(prefs[KEY_MULTI_AGENT_CONFIG], MultiAgentConfig.serializer(), "MultiAgentConfig") ?: MultiAgentConfig()
-        base.copy(
-            reviewModelId = prefs[KEY_MULTI_AGENT_REVIEW_MODEL],
-            llmReviewEnabled = prefs[KEY_MULTI_AGENT_LLM_REVIEW_ENABLED] ?: false,
-        )
-    }
+    val multiAgentConfigFlow: Flow<MultiAgentConfig> =
+        store.data.map { prefs ->
+            val base = decodePrefsOrNull(prefs[KEY_MULTI_AGENT_CONFIG], MultiAgentConfig.serializer(), "MultiAgentConfig") ?: MultiAgentConfig()
+            base.copy(
+                reviewModelId = prefs[KEY_MULTI_AGENT_REVIEW_MODEL],
+                llmReviewEnabled = prefs[KEY_MULTI_AGENT_LLM_REVIEW_ENABLED] ?: false,
+            )
+        }
 
     // v1.25: 视觉辅助开关(默认关闭)
     val visionEnabledFlow: Flow<Boolean> = store.data.map { prefs -> prefs[KEY_VISION_ENABLED] ?: false }
 
     // v1.25: 视觉辅助使用的模型 ID
     val visionModelIdFlow: Flow<String?> = store.data.map { prefs -> prefs[KEY_VISION_MODEL_ID] }
+
     // v1.25: 视觉辅助使用的供应商 ID
     val visionProviderIdFlow: Flow<String?> = store.data.map { prefs -> prefs[KEY_VISION_PROVIDER_ID] }
 
     // ── Account state ──
-    val accountStateFlow: Flow<AccountState> = store.data.map { prefs ->
-        val storedProfile = decodePrefsOrNull(
-            prefs[KEY_USER_PROFILE],
-            UserProfile.serializer(),
-            "UserProfile(accountState)",
-        )
-        AccountState(
-            isLoggedIn = prefs[KEY_ACCOUNT_LOGGED_IN] ?: false,
-            userName = prefs[KEY_ACCOUNT_USER_NAME] ?: "",
-            loginAt = prefs[KEY_ACCOUNT_LOGIN_AT] ?: 0L,
-            loginMethod = prefs[KEY_ACCOUNT_LOGIN_METHOD] ?: "",
-            isGuestMode = prefs[KEY_ACCOUNT_GUEST_MODE] ?: false,
-            // 专用账户键是头像主来源;画像 JSON 作为旧数据/异常写回后的恢复兜底。
-            avatarUri = prefs[KEY_ACCOUNT_AVATAR_URI] ?: storedProfile?.avatarUri,
-        )
-    }
+    val accountStateFlow: Flow<AccountState> =
+        store.data.map { prefs ->
+            val storedProfile =
+                decodePrefsOrNull(
+                    prefs[KEY_USER_PROFILE],
+                    UserProfile.serializer(),
+                    "UserProfile(accountState)",
+                )
+            AccountState(
+                isLoggedIn = prefs[KEY_ACCOUNT_LOGGED_IN] ?: false,
+                userName = prefs[KEY_ACCOUNT_USER_NAME] ?: "",
+                loginAt = prefs[KEY_ACCOUNT_LOGIN_AT] ?: 0L,
+                loginMethod = prefs[KEY_ACCOUNT_LOGIN_METHOD] ?: "",
+                isGuestMode = prefs[KEY_ACCOUNT_GUEST_MODE] ?: false,
+                // 专用账户键是头像主来源;画像 JSON 作为旧数据/异常写回后的恢复兜底。
+                avatarUri = prefs[KEY_ACCOUNT_AVATAR_URI] ?: storedProfile?.avatarUri,
+            )
+        }
+
     /** 是否已登录(本地标记)。 */
 
     // v2.3: 任务路由配置 Flow + 缓存(必须在 init 块之前声明,否则 init 中协程访问到 null)
-    val taskRoutingConfigFlow: Flow<TaskRoutingConfig> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_TASK_ROUTING_CONFIG], TaskRoutingConfig.serializer(), "TaskRoutingConfig")
-            ?: TaskRoutingConfig()
-    }
+    val taskRoutingConfigFlow: Flow<TaskRoutingConfig> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_TASK_ROUTING_CONFIG], TaskRoutingConfig.serializer(), "TaskRoutingConfig")
+                ?: TaskRoutingConfig()
+        }
+
     @Volatile
     var taskRoutingConfigCache: TaskRoutingConfig = TaskRoutingConfig()
         private set
 
     // ── v1.133: 应用更新检查配置 ───────────────────────────────────
     /** 上次更新检查时间戳(毫秒)。0L 表示从未检查过。 */
-    val lastUpdateCheckTimeFlow: Flow<Long> = store.data.map { prefs ->
-        prefs[KEY_LAST_UPDATE_CHECK_TIME] ?: 0L
-    }
+    val lastUpdateCheckTimeFlow: Flow<Long> =
+        store.data.map { prefs ->
+            prefs[KEY_LAST_UPDATE_CHECK_TIME] ?: 0L
+        }
+
     /**
      * 最新版本信息 JSON 缓存(序列化的 UpdateChecker.ReleaseInfo)。
      * null 表示当前无新版本(或未检查)。UI Banner 订阅此流来决定是否展示。
      */
-    val latestReleaseInfoFlow: Flow<String?> = store.data.map { prefs ->
-        prefs[KEY_LATEST_RELEASE_INFO]
-    }
+    val latestReleaseInfoFlow: Flow<String?> =
+        store.data.map { prefs ->
+            prefs[KEY_LATEST_RELEASE_INFO]
+        }
+
     /** 是否启用自动更新检查(默认 true;用户在设置中可关闭)。 */
-    val updateCheckEnabledFlow: Flow<Boolean> = store.data.map { prefs ->
-        prefs[KEY_UPDATE_CHECK_ENABLED] ?: true
-    }
+    val updateCheckEnabledFlow: Flow<Boolean> =
+        store.data.map { prefs ->
+            prefs[KEY_UPDATE_CHECK_ENABLED] ?: true
+        }
 
     /**
      * v1.0.72: 用户主动忽略的更新版本号(tagName,如 "v1.0.71")。
      * Banner 对该版本不再展示,直到更新到该版本后由 UpdateNotifier 清空缓存。
      */
-    val ignoredUpdateVersionFlow: Flow<String?> = store.data.map { prefs ->
-        prefs[KEY_IGNORED_UPDATE_VERSION]
-    }
+    val ignoredUpdateVersionFlow: Flow<String?> =
+        store.data.map { prefs ->
+            prefs[KEY_IGNORED_UPDATE_VERSION]
+        }
 
     /** v1.0.72: 保存用户忽略的更新版本号。 */
     suspend fun saveIgnoredUpdateVersion(version: String?) {
@@ -630,10 +718,11 @@ class SettingsRepository(
      * v1.0.72: 每日总结推送开关(默认关闭)。
      * 每天 09:00、12:00、21:00、00:00 生成当天/前一天对话小结;关闭时仍保留首页总结生成。
      */
-    val dailySummaryEnabledFlow: Flow<Boolean> = store.data.map { prefs ->
-        // v1.0.74: 默认改为关闭 — 新用户不应被定时通知打扰
-        prefs[KEY_DAILY_SUMMARY_ENABLED] ?: false
-    }
+    val dailySummaryEnabledFlow: Flow<Boolean> =
+        store.data.map { prefs ->
+            // v1.0.74: 默认改为关闭 — 新用户不应被定时通知打扰
+            prefs[KEY_DAILY_SUMMARY_ENABLED] ?: false
+        }
 
     /** v1.0.72: 保存每日总结推送开关。 */
     suspend fun saveDailySummaryEnabled(enabled: Boolean) {
@@ -645,23 +734,25 @@ class SettingsRepository(
      * 未配置时回退默认时段 [DEFAULT_DAILY_SUMMARY_SLOTS](09/12/21/00),保证旧用户升级后行为不变。
      * Worker 在执行时按此时段判断当前时点是否触发。
      */
-    val dailySummarySlotsFlow: Flow<List<Int>> = store.data.map { prefs ->
-        prefs[KEY_DAILY_SUMMARY_SLOTS]
-            ?.split(",")
-            ?.mapNotNull { it.trim().toIntOrNull() }
-            ?.filter { it in 0..23 }
-            ?.distinct()
-            ?.sorted()
-            ?: DEFAULT_DAILY_SUMMARY_SLOTS
-    }
+    val dailySummarySlotsFlow: Flow<List<Int>> =
+        store.data.map { prefs ->
+            prefs[KEY_DAILY_SUMMARY_SLOTS]
+                ?.split(",")
+                ?.mapNotNull { it.trim().toIntOrNull() }
+                ?.filter { it in 0..23 }
+                ?.distinct()
+                ?.sorted()
+                ?: DEFAULT_DAILY_SUMMARY_SLOTS
+        }
 
     /** v1.xxx: 保存每日总结时段(自动去重、排序并过滤非法小时;为空时回退默认)。 */
     suspend fun saveDailySummarySlots(slots: List<Int>) {
-        val normalized = slots
-            .mapNotNull { it }
-            .filter { it in 0..23 }
-            .distinct()
-            .sorted()
+        val normalized =
+            slots
+                .mapNotNull { it }
+                .filter { it in 0..23 }
+                .distinct()
+                .sorted()
         store.edit {
             if (normalized.isEmpty()) {
                 // 用户清空输入视为恢复默认,避免出现"全部时段被禁用"的无人值守状态
@@ -678,15 +769,16 @@ class SettingsRepository(
      * Worker 即使因为应用正在前台而跳过通知,也会先写入这里,
      * 让首页问候语仍然可以展示总结内容。
      */
-    val dailySummaryFlow: Flow<DailySummarySnapshot?> = store.data.map { prefs ->
-        val date = prefs[KEY_DAILY_SUMMARY_DATE]
-        val text = prefs[KEY_DAILY_SUMMARY_TEXT]?.trim()
-        if (date.isNullOrBlank() || text.isNullOrBlank()) {
-            null
-        } else {
-            DailySummarySnapshot(date = date, text = text)
+    val dailySummaryFlow: Flow<DailySummarySnapshot?> =
+        store.data.map { prefs ->
+            val date = prefs[KEY_DAILY_SUMMARY_DATE]
+            val text = prefs[KEY_DAILY_SUMMARY_TEXT]?.trim()
+            if (date.isNullOrBlank() || text.isNullOrBlank()) {
+                null
+            } else {
+                DailySummarySnapshot(date = date, text = text)
+            }
         }
-    }
 
     /**
      * 抢占一个每日总结时点。
@@ -724,8 +816,9 @@ class SettingsRepository(
             prefs[KEY_DAILY_SUMMARY_COMPLETED_SLOTS] =
                 if (keys.size > DAILY_SUMMARY_SLOT_HISTORY_LIMIT) {
                     keys.toList().sorted().takeLast(DAILY_SUMMARY_SLOT_HISTORY_LIMIT).toSet()
+                } else {
+                    keys
                 }
-                else keys
         }
     }
 
@@ -756,7 +849,10 @@ class SettingsRepository(
     }
 
     /** 保存每日总结,单独存日期和正文,避免正文中的分隔符破坏解析。 */
-    suspend fun saveDailySummary(date: String, summary: String) {
+    suspend fun saveDailySummary(
+        date: String,
+        summary: String,
+    ) {
         val cleanDate = date.trim()
         val cleanSummary = summary.trim().take(200)
         if (cleanDate.isBlank() || cleanSummary.isBlank()) return
@@ -770,9 +866,10 @@ class SettingsRepository(
      * v1.0.72: AI 朋友圈每日动态条数(0-10,默认 2;0 = 关闭)。
      * 用户自由选择频率,调度器按条数把一天切段投放。
      */
-    val dailyMomentCountFlow: Flow<Int> = store.data.map { prefs ->
-        prefs[KEY_DAILY_MOMENT_COUNT] ?: 2
-    }
+    val dailyMomentCountFlow: Flow<Int> =
+        store.data.map { prefs ->
+            prefs[KEY_DAILY_MOMENT_COUNT] ?: 2
+        }
 
     /** v1.0.72: 保存朋友圈每日条数。 */
     suspend fun saveDailyMomentCount(count: Int) {
@@ -780,15 +877,17 @@ class SettingsRepository(
     }
 
     // ── v1.xxx: 后台调度总控(周期 Worker 全局暂停/恢复) ─────────────────
+
     /**
      * 后台调度总控开关(默认开启)。
      * 关闭后各 WorkManager 周期 Worker(定时任务/主动消息/自动备份/统计/云备份)在
      * doWork 入口检查该值,关闭则跳过执行体直接返回 success。周期调度本身仍保留,
      * 重新打开后立即恢复执行(与"跳过执行体"而非"取消任务"的语义一致)。
      */
-    val scheduleWorkEnabledFlow: Flow<Boolean> = store.data.map { prefs ->
-        prefs[KEY_SCHEDULE_WORK_ENABLED] ?: true
-    }
+    val scheduleWorkEnabledFlow: Flow<Boolean> =
+        store.data.map { prefs ->
+            prefs[KEY_SCHEDULE_WORK_ENABLED] ?: true
+        }
 
     /** v1.xxx: 保存后台调度总控开关。 */
     suspend fun saveScheduleWorkEnabled(enabled: Boolean) {
@@ -796,10 +895,12 @@ class SettingsRepository(
     }
 
     // ── v1.0.74: 深夜自主行动(时段外写日记不推送) ─────────────────
+
     /** 深夜自主行动开关(默认开启:时段外巡检自动写日记,不推送)。 */
-    val nightPatrolEnabledFlow: Flow<Boolean> = store.data.map { prefs ->
-        prefs[KEY_NIGHT_PATROL_ENABLED] ?: true
-    }
+    val nightPatrolEnabledFlow: Flow<Boolean> =
+        store.data.map { prefs ->
+            prefs[KEY_NIGHT_PATROL_ENABLED] ?: true
+        }
 
     /** v1.0.74: 保存深夜自主行动开关。 */
     suspend fun saveNightPatrolEnabled(enabled: Boolean) {
@@ -809,10 +910,12 @@ class SettingsRepository(
     // ── v1.0.74: 小手机总开关(控制首页小手机图标显隐) ─────────────────
     // v1.0.86: 默认关闭 — 用户反馈"安装应用后小手机默认打开",改为新装不默认启用;
     // 已手动开启的用户保留选择(其 key 已持久化 true)。
+
     /** 小手机功能开关(默认关闭)。 */
-    val miniPhoneEnabledFlow: Flow<Boolean> = store.data.map { prefs ->
-        prefs[KEY_MINIPHONE_ENABLED] ?: false
-    }
+    val miniPhoneEnabledFlow: Flow<Boolean> =
+        store.data.map { prefs ->
+            prefs[KEY_MINIPHONE_ENABLED] ?: false
+        }
 
     /** v1.0.74: 保存小手机开关。 */
     suspend fun saveMiniPhoneEnabled(enabled: Boolean) {
@@ -820,9 +923,10 @@ class SettingsRepository(
     }
 
     /** 快速记录胶囊总开关(默认关闭,用户去设置开启后才显示侧滑把手)。 */
-    val quickCaptureEnabledFlow: Flow<Boolean> = store.data.map { prefs ->
-        prefs[KEY_QUICK_CAPTURE_ENABLED] ?: false
-    }
+    val quickCaptureEnabledFlow: Flow<Boolean> =
+        store.data.map { prefs ->
+            prefs[KEY_QUICK_CAPTURE_ENABLED] ?: false
+        }
 
     /** 保存快速记录胶囊总开关。 */
     suspend fun saveQuickCaptureEnabled(enabled: Boolean) {
@@ -835,13 +939,14 @@ class SettingsRepository(
      * 未完成一次性默认值迁移前强制返回 false,避免旧版本曾写入 true
      * 的用户在升级后瞬间重新启动系统悬浮窗。
      */
-    val quickCaptureOverlayEnabledFlow: Flow<Boolean> = store.data.map { prefs ->
-        if (prefs[KEY_QUICK_CAPTURE_OVERLAY_DEFAULT_MIGRATED] == true) {
-            prefs[KEY_QUICK_CAPTURE_OVERLAY_ENABLED] ?: DEFAULT_QUICK_CAPTURE_OVERLAY_ENABLED
-        } else {
-            DEFAULT_QUICK_CAPTURE_OVERLAY_ENABLED
+    val quickCaptureOverlayEnabledFlow: Flow<Boolean> =
+        store.data.map { prefs ->
+            if (prefs[KEY_QUICK_CAPTURE_OVERLAY_DEFAULT_MIGRATED] == true) {
+                prefs[KEY_QUICK_CAPTURE_OVERLAY_ENABLED] ?: DEFAULT_QUICK_CAPTURE_OVERLAY_ENABLED
+            } else {
+                DEFAULT_QUICK_CAPTURE_OVERLAY_ENABLED
+            }
         }
-    }
 
     /** 保存系统悬浮窗快速记录开关。 */
     suspend fun saveQuickCaptureOverlayEnabled(enabled: Boolean) {
@@ -870,10 +975,11 @@ class SettingsRepository(
      *
      * 保存比例而不是像素,避免换屏幕分辨率、横竖屏或 MuMu 窗口尺寸后位置跳回中间。
      */
-    val quickCaptureOverlayVerticalPositionFractionFlow: Flow<Float> = store.data.map { prefs ->
-        (prefs[KEY_QUICK_CAPTURE_OVERLAY_VERTICAL_POSITION] ?: DEFAULT_QUICK_CAPTURE_OVERLAY_VERTICAL_POSITION)
-            .coerceIn(0f, 1f)
-    }
+    val quickCaptureOverlayVerticalPositionFractionFlow: Flow<Float> =
+        store.data.map { prefs ->
+            (prefs[KEY_QUICK_CAPTURE_OVERLAY_VERTICAL_POSITION] ?: DEFAULT_QUICK_CAPTURE_OVERLAY_VERTICAL_POSITION)
+                .coerceIn(0f, 1f)
+        }
 
     /** 保存系统悬浮窗侧边条的垂直位置。 */
     suspend fun saveQuickCaptureOverlayVerticalPositionFraction(position: Float) {
@@ -883,9 +989,10 @@ class SettingsRepository(
     }
 
     /** 小手机隐藏的桌面应用 id 集合,空集合表示全部显示。 */
-    val miniPhoneHiddenAppsFlow: Flow<Set<String>> = store.data.map { prefs ->
-        prefs[KEY_MINIPHONE_HIDDEN_APPS] ?: emptySet()
-    }
+    val miniPhoneHiddenAppsFlow: Flow<Set<String>> =
+        store.data.map { prefs ->
+            prefs[KEY_MINIPHONE_HIDDEN_APPS] ?: emptySet()
+        }
 
     /** 保存小手机隐藏的桌面应用 id 集合。 */
     suspend fun saveMiniPhoneHiddenApps(hiddenApps: Set<String>) {
@@ -893,12 +1000,13 @@ class SettingsRepository(
     }
 
     /** 小手机桌面应用顺序,空列表表示使用内置默认顺序。 */
-    val miniPhoneAppOrderFlow: Flow<List<String>> = store.data.map { prefs ->
-        prefs[KEY_MINIPHONE_APP_ORDER]
-            ?.split("|")
-            ?.filter { it.isNotBlank() }
-            ?: emptyList()
-    }
+    val miniPhoneAppOrderFlow: Flow<List<String>> =
+        store.data.map { prefs ->
+            prefs[KEY_MINIPHONE_APP_ORDER]
+                ?.split("|")
+                ?.filter { it.isNotBlank() }
+                ?: emptyList()
+        }
 
     /** 保存小手机桌面应用顺序。 */
     suspend fun saveMiniPhoneAppOrder(order: List<String>) {
@@ -912,14 +1020,16 @@ class SettingsRepository(
     }
 
     /** AI 相册中被用户隐藏的图片 id。 */
-    val miniAlbumHiddenImageIdsFlow: Flow<Set<String>> = store.data.map { prefs ->
-        prefs[KEY_MINI_ALBUM_HIDDEN_IMAGE_IDS] ?: emptySet()
-    }
+    val miniAlbumHiddenImageIdsFlow: Flow<Set<String>> =
+        store.data.map { prefs ->
+            prefs[KEY_MINI_ALBUM_HIDDEN_IMAGE_IDS] ?: emptySet()
+        }
 
     /** AI 相册中被用户收藏的图片 id。 */
-    val miniAlbumFavoriteImageIdsFlow: Flow<Set<String>> = store.data.map { prefs ->
-        prefs[KEY_MINI_ALBUM_FAVORITE_IMAGE_IDS] ?: emptySet()
-    }
+    val miniAlbumFavoriteImageIdsFlow: Flow<Set<String>> =
+        store.data.map { prefs ->
+            prefs[KEY_MINI_ALBUM_FAVORITE_IMAGE_IDS] ?: emptySet()
+        }
 
     /** 切换 AI 相册图片收藏状态。 */
     suspend fun toggleMiniAlbumFavoriteImage(imageId: String) {
@@ -947,10 +1057,12 @@ class SettingsRepository(
     }
 
     // ── v1.0.74: 聊天背景(聊天/Agent/群聊共用) ──────────────────────
+
     /** 聊天背景图(data URI 或 URL;null = 默认背景色)。 */
-    val chatBackgroundFlow: Flow<String?> = store.data.map { prefs ->
-        prefs[KEY_CHAT_BACKGROUND]
-    }
+    val chatBackgroundFlow: Flow<String?> =
+        store.data.map { prefs ->
+            prefs[KEY_CHAT_BACKGROUND]
+        }
 
     /** v1.0.74: 保存聊天背景图。 */
     suspend fun saveChatBackground(uri: String?) {
@@ -960,14 +1072,16 @@ class SettingsRepository(
     }
 
     // ── E3: 聊天动态渐变背景(背景图优先;两者皆无时用主题默认背景色) ──
+
     /** 聊天渐变背景(双色线性渐变;null = 不使用)。 */
-    val chatGradientFlow: Flow<ChatGradient?> = store.data.map { prefs ->
-        prefs[KEY_CHAT_GRADIENT]?.let { raw ->
-            runCatching { AppJson.decodeFromString(ChatGradient.serializer(), raw) }
-                .onFailure { android.util.Log.w("SettingsRepository", "ChatGradient 解析失败", it) }
-                .getOrNull()
+    val chatGradientFlow: Flow<ChatGradient?> =
+        store.data.map { prefs ->
+            prefs[KEY_CHAT_GRADIENT]?.let { raw ->
+                runCatching { AppJson.decodeFromString(ChatGradient.serializer(), raw) }
+                    .onFailure { android.util.Log.w("SettingsRepository", "ChatGradient 解析失败", it) }
+                    .getOrNull()
+            }
         }
-    }
 
     /** E3: 保存/清除聊天渐变背景(null 清除)。 */
     suspend fun saveChatGradient(gradient: ChatGradient?) {
@@ -981,10 +1095,12 @@ class SettingsRepository(
     }
 
     // ── v1.0.73: 朋友圈封面背景 ──────────────────────────────────────
+
     /** 朋友圈封面背景图(data URI 或 URL;null = 默认渐变)。 */
-    val momentsCoverImageFlow: Flow<String?> = store.data.map { prefs ->
-        prefs[KEY_MOMENTS_COVER_IMAGE]
-    }
+    val momentsCoverImageFlow: Flow<String?> =
+        store.data.map { prefs ->
+            prefs[KEY_MOMENTS_COVER_IMAGE]
+        }
 
     /**
      * v1.0.73: 保存朋友圈封面背景图。
@@ -999,10 +1115,12 @@ class SettingsRepository(
         }
 
     // ── v1.0.73: 小手机桌面壁纸 ─────────────────────────────────────
+
     /** 小手机桌面壁纸(data URI 或 URL;null = 默认渐变)。 */
-    val miniPhoneWallpaperFlow: Flow<String?> = store.data.map { prefs ->
-        prefs[KEY_MINIPHONE_WALLPAPER]
-    }
+    val miniPhoneWallpaperFlow: Flow<String?> =
+        store.data.map { prefs ->
+            prefs[KEY_MINIPHONE_WALLPAPER]
+        }
 
     /** v1.0.73: 保存小手机桌面壁纸。 */
     suspend fun saveMiniPhoneWallpaper(uri: String?): String? =
@@ -1022,37 +1140,41 @@ class SettingsRepository(
         uri: String?,
         persist: suspend (String?) -> Unit,
     ): String? {
-        val resolved = if (uri.isNullOrBlank()) {
-            null
-        } else if (uri.startsWith("data:", ignoreCase = true)) {
-            val bytes = decodeDataUri(uri) ?: return null
-            val file = java.io.File(java.io.File(appContext.filesDir, dirName), "$slot.img")
-            withContext(Dispatchers.IO) {
-                file.parentFile?.mkdirs()
-                file.writeBytes(bytes)
+        val resolved =
+            if (uri.isNullOrBlank()) {
+                null
+            } else if (uri.startsWith("data:", ignoreCase = true)) {
+                val bytes = decodeDataUri(uri) ?: return null
+                val file = java.io.File(java.io.File(appContext.filesDir, dirName), "$slot.img")
+                withContext(Dispatchers.IO) {
+                    file.parentFile?.mkdirs()
+                    file.writeBytes(bytes)
+                }
+                file.absolutePath
+            } else {
+                // URL 或既有路径:原样存储
+                uri
             }
-            file.absolutePath
-        } else {
-            // URL 或既有路径:原样存储
-            uri
-        }
         persist(resolved)
         return resolved
     }
 
     /** P3-7: 解析 data:<mime>;base64,<payload> → 字节;失败返回 null。 */
-    private fun decodeDataUri(uri: String): ByteArray? = runCatching {
-        val comma = uri.indexOf(',')
-        if (comma <= 0) return@runCatching null
-        val base64 = uri.substring(comma + 1)
-        android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
-    }.getOrNull()
+    private fun decodeDataUri(uri: String): ByteArray? =
+        runCatching {
+            val comma = uri.indexOf(',')
+            if (comma <= 0) return@runCatching null
+            val base64 = uri.substring(comma + 1)
+            android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
+        }.getOrNull()
 
     // ── v1.0.73: 朋友圈未读状态 ─────────────────────────────────────
+
     /** 朋友圈列表最后浏览时间(未读红点 = 新动态计数)。 */
-    val momentsLastReadAtFlow: Flow<Long> = store.data.map { prefs ->
-        prefs[KEY_MOMENTS_LAST_READ_AT] ?: 0L
-    }
+    val momentsLastReadAtFlow: Flow<Long> =
+        store.data.map { prefs ->
+            prefs[KEY_MOMENTS_LAST_READ_AT] ?: 0L
+        }
 
     /** v1.0.73: 记录朋友圈浏览时间。 */
     suspend fun markMomentsRead() {
@@ -1060,9 +1182,10 @@ class SettingsRepository(
     }
 
     /** 消息中心最后浏览时间(未读消息 = 新赞/评计数)。 */
-    val momentMessagesLastReadAtFlow: Flow<Long> = store.data.map { prefs ->
-        prefs[KEY_MOMENT_MESSAGES_LAST_READ_AT] ?: 0L
-    }
+    val momentMessagesLastReadAtFlow: Flow<Long> =
+        store.data.map { prefs ->
+            prefs[KEY_MOMENT_MESSAGES_LAST_READ_AT] ?: 0L
+        }
 
     /** v1.0.73: 记录消息中心浏览时间。 */
     suspend fun markMomentMessagesRead() {
@@ -1070,9 +1193,10 @@ class SettingsRepository(
     }
 
     /** 用户收藏的朋友圈动态 id 集合。 */
-    val momentFavoriteIdsFlow: Flow<Set<String>> = store.data.map { prefs ->
-        prefs[KEY_MOMENT_FAVORITE_IDS] ?: emptySet()
-    }
+    val momentFavoriteIdsFlow: Flow<Set<String>> =
+        store.data.map { prefs ->
+            prefs[KEY_MOMENT_FAVORITE_IDS] ?: emptySet()
+        }
 
     /** 保存用户收藏的朋友圈动态 id 集合。 */
     suspend fun saveMomentFavoriteIds(ids: Set<String>) {
@@ -1080,18 +1204,24 @@ class SettingsRepository(
     }
 
     // ── v2.0+: 崩溃上报配置(默认全部关闭,隐私优先) ───────────────────────
+
     /** 上报方式:"email" / "webhook"(默认 "email")。 */
-    val crashReportMethodFlow: Flow<String> = store.data.map { prefs ->
-        prefs[KEY_CRASH_REPORT_METHOD] ?: "email"
-    }
+    val crashReportMethodFlow: Flow<String> =
+        store.data.map { prefs ->
+            prefs[KEY_CRASH_REPORT_METHOD] ?: "email"
+        }
+
     /** 邮件上报收件人地址(默认空 — 用户必须配置后才生效)。 */
-    val crashReportEmailFlow: Flow<String> = store.data.map { prefs ->
-        prefs[KEY_CRASH_REPORT_EMAIL] ?: ""
-    }
+    val crashReportEmailFlow: Flow<String> =
+        store.data.map { prefs ->
+            prefs[KEY_CRASH_REPORT_EMAIL] ?: ""
+        }
+
     /** Webhook 上报 URL(默认空 — 用户必须配置后才生效)。 */
-    val crashReportWebhookUrlFlow: Flow<String> = store.data.map { prefs ->
-        prefs[KEY_CRASH_REPORT_WEBHOOK_URL] ?: ""
-    }
+    val crashReportWebhookUrlFlow: Flow<String> =
+        store.data.map { prefs ->
+            prefs[KEY_CRASH_REPORT_WEBHOOK_URL] ?: ""
+        }
 
     /** 保存上次更新检查时间戳。 */
     suspend fun saveLastUpdateCheckTime(timestamp: Long) {
@@ -1114,6 +1244,7 @@ class SettingsRepository(
     }
 
     // ── v1.0.20: 全局默认会话权限模式(工具批准开关) ───────────────────────────
+
     /**
      * 全局默认会话权限模式 — 控制工具调用是否需要用户审批。
      *
@@ -1125,11 +1256,12 @@ class SettingsRepository(
      * 用户在"设置 → 聊天 → 工具调用批准"中切换。
      * 新建会话时由 [io.zer0.muse.data.session.SessionRepository] 读取此值作为会话初始模式。
      */
-    val defaultSessionPermissionModeFlow: Flow<SessionPermissionMode> = store.data.map { prefs ->
-        prefs[KEY_DEFAULT_SESSION_PERMISSION_MODE]?.let { name ->
-            runCatching { SessionPermissionMode.valueOf(name) }.getOrNull()
-        } ?: SessionPermissionMode.ASK
-    }
+    val defaultSessionPermissionModeFlow: Flow<SessionPermissionMode> =
+        store.data.map { prefs ->
+            prefs[KEY_DEFAULT_SESSION_PERMISSION_MODE]?.let { name ->
+                runCatching { SessionPermissionMode.valueOf(name) }.getOrNull()
+            } ?: SessionPermissionMode.ASK
+        }
 
     /** 保存全局默认会话权限模式。 */
     suspend fun setDefaultSessionPermissionMode(mode: SessionPermissionMode) {
@@ -1137,14 +1269,17 @@ class SettingsRepository(
     }
 
     // ── v2.0+: 崩溃上报配置保存方法 ───────────────────────────────────
+
     /** 保存上报方式("email" / "webhook")。 */
     suspend fun saveCrashReportMethod(method: String) {
         store.edit { it[KEY_CRASH_REPORT_METHOD] = method }
     }
+
     /** 保存邮件上报收件人地址。 */
     suspend fun saveCrashReportEmail(email: String) {
         store.edit { it[KEY_CRASH_REPORT_EMAIL] = email }
     }
+
     /** 保存 Webhook 上报 URL。 */
     suspend fun saveCrashReportWebhookUrl(url: String) {
         store.edit { it[KEY_CRASH_REPORT_WEBHOOK_URL] = url }
@@ -1210,8 +1345,9 @@ class SettingsRepository(
                 val providers = providersFlow.first()
                 val hasFree = providers.any { it.id == SiliconFlowFreeModels.PROVIDER_ID }
                 if (!hasFree) {
-                    val freePreset = presetProviders.byId(SiliconFlowFreeModels.PROVIDER_ID)
-                        ?: return@launch
+                    val freePreset =
+                        presetProviders.byId(SiliconFlowFreeModels.PROVIDER_ID)
+                            ?: return@launch
                     val wasEmpty = providers.isEmpty()
                     // 使用原子 addProviderIfAbsent 防止与引导流程并发写入导致重复供应商
                     if (addProviderIfAbsent(freePreset)) {
@@ -1233,15 +1369,28 @@ class SettingsRepository(
         // v2.3: 订阅任务路由配置到内存缓存(taskRoutingConfigFlow 已在 init 前声明,安全)
         cacheScope.launch { taskRoutingConfigFlow.collect { taskRoutingConfigCache = it } }
     }
-    suspend fun mockLogin(userName: String, method: String = "phone") {
-        store.edit { prefs -> prefs[KEY_ACCOUNT_LOGGED_IN] = true; prefs[KEY_ACCOUNT_USER_NAME] = userName.ifBlank { appContext.getString(R.string.settings_repo_default_user_name) }; prefs[KEY_ACCOUNT_LOGIN_AT] = System.currentTimeMillis(); prefs[KEY_ACCOUNT_LOGIN_METHOD] = method; prefs[KEY_ACCOUNT_GUEST_MODE] = false }
+
+    suspend fun mockLogin(
+        userName: String,
+        method: String = "phone",
+    ) {
+        store.edit {
+                prefs ->
+            prefs[KEY_ACCOUNT_LOGGED_IN] = true
+            prefs[KEY_ACCOUNT_USER_NAME] = userName.ifBlank { appContext.getString(R.string.settings_repo_default_user_name) }
+            prefs[KEY_ACCOUNT_LOGIN_AT] = System.currentTimeMillis()
+            prefs[KEY_ACCOUNT_LOGIN_METHOD] = method
+            prefs[KEY_ACCOUNT_GUEST_MODE] = false
+        }
     }
+
     /** 进入游客(离线体验)模式 — 跳过登录直接进入主界面。 */
     suspend fun enterGuestMode() {
         // 保留引导页/个人资料里已填写的昵称,只有完全没填时才回退为“游客”
         val profile = getUserProfile()
-        val displayName = profile.userNickName?.takeIf { it.isNotBlank() }
-            ?: appContext.getString(R.string.settings_repo_guest_name)
+        val displayName =
+            profile.userNickName?.takeIf { it.isNotBlank() }
+                ?: appContext.getString(R.string.settings_repo_guest_name)
         store.edit { prefs ->
             prefs[KEY_ACCOUNT_GUEST_MODE] = true
             prefs[KEY_ACCOUNT_LOGGED_IN] = false
@@ -1250,19 +1399,31 @@ class SettingsRepository(
             prefs[KEY_ACCOUNT_LOGIN_METHOD] = "guest"
         }
     }
-    suspend fun logout() {
-        store.edit { prefs -> prefs[KEY_ACCOUNT_LOGGED_IN] = false; prefs[KEY_ACCOUNT_USER_NAME] = ""; prefs[KEY_ACCOUNT_LOGIN_AT] = 0L; prefs[KEY_ACCOUNT_LOGIN_METHOD] = ""; prefs[KEY_ACCOUNT_GUEST_MODE] = false }
-    }
 
+    suspend fun logout() {
+        store.edit {
+                prefs ->
+            prefs[KEY_ACCOUNT_LOGGED_IN] = false
+            prefs[KEY_ACCOUNT_USER_NAME] = ""
+            prefs[KEY_ACCOUNT_LOGIN_AT] = 0L
+            prefs[KEY_ACCOUNT_LOGIN_METHOD] = ""
+            prefs[KEY_ACCOUNT_GUEST_MODE] = false
+        }
+    }
 
     // ── Model profiles ──
     // 以 JSON 存储 Map<modelId, ModelProfile>,避免旧版 `;`/`,` 分隔格式在 avatarUrl 含分隔符时截断。
     private val modelProfileSerializer = MapSerializer(String.serializer(), ModelProfile.serializer())
 
-    val modelProfilesFlow: Flow<Map<String, ModelProfile>> = store.data.map { prefs ->
-        decodePrefsOrNull(prefs[KEY_MODEL_PROFILES], modelProfileSerializer, "ModelProfiles") ?: emptyMap()
-    }
-    suspend fun saveModelProfile(modelId: String, profile: ModelProfile) {
+    val modelProfilesFlow: Flow<Map<String, ModelProfile>> =
+        store.data.map { prefs ->
+            decodePrefsOrNull(prefs[KEY_MODEL_PROFILES], modelProfileSerializer, "ModelProfiles") ?: emptyMap()
+        }
+
+    suspend fun saveModelProfile(
+        modelId: String,
+        profile: ModelProfile,
+    ) {
         store.edit {
             val current = decodePrefsOrNull(it[KEY_MODEL_PROFILES], modelProfileSerializer, "ModelProfiles(save)") ?: emptyMap()
             val updated = current.toMutableMap().apply { put(modelId, profile) }
@@ -1271,20 +1432,36 @@ class SettingsRepository(
     }
 
     fun isMemoryEnabled(): Boolean = memoryEnabledCache.get()
-    suspend fun saveMemoryEnabled(enabled: Boolean) { store.edit { it[KEY_MEMORY_ENABLED] = enabled } }
+
+    suspend fun saveMemoryEnabled(enabled: Boolean) {
+        store.edit { it[KEY_MEMORY_ENABLED] = enabled }
+    }
+
     /** v1.0.51: 存量记忆迁移并发守卫 — compareAndSet 保证只跑一次,即使两个协程同时读到 false。 */
     fun tryStartMemoryBackfillMigration(): Boolean = memoryBackfillMigrationDone.compareAndSet(false, true)
-    suspend fun saveMemoryBackfillMigrationDone(done: Boolean) { store.edit { it[KEY_MEMORY_MIGRATION_V1_0_51_DONE] = done } }
+
+    suspend fun saveMemoryBackfillMigrationDone(done: Boolean) {
+        store.edit { it[KEY_MEMORY_MIGRATION_V1_0_51_DONE] = done }
+    }
+
     /** v1.0.52 P2-2: 保存当前选中的记忆空间 id。 */
-    suspend fun saveCurrentSpaceId(spaceId: String) { store.edit { it[KEY_CURRENT_SPACE_ID] = spaceId } }
+    suspend fun saveCurrentSpaceId(spaceId: String) {
+        store.edit { it[KEY_CURRENT_SPACE_ID] = spaceId }
+    }
+
     suspend fun saveThemeMode(mode: String) = appearance.saveThemeMode(mode)
+
     /** H5: 保存高对比主题开关。 */
     suspend fun saveHighContrast(enabled: Boolean) = appearance.saveHighContrast(enabled)
+
     suspend fun saveThemeId(id: String) = appearance.saveThemeId(id)
+
     /** 保存深色模式独立主题 id(空字符串表示跟随亮色主题的暗色版)。 */
     suspend fun saveDarkThemeId(id: String) = appearance.saveDarkThemeId(id)
+
     /** 保存主题定时切换配置。 */
     suspend fun saveThemeSchedule(config: ThemeScheduleConfig) = appearance.saveThemeSchedule(config)
+
     /** v1.65: 保存动态取色开关。 */
     suspend fun saveDynamicColor(enabled: Boolean) = appearance.saveDynamicColor(enabled)
     /**
@@ -1292,6 +1469,7 @@ class SettingsRepository(
      *
      * @param themes 完整的自定义主题列表;空列表表示清空所有自定义主题
      */
+
     /**
      * v1.97 gap7: 新增或更新单个自定义主题(按 id 去重)。
      *
@@ -1302,6 +1480,7 @@ class SettingsRepository(
      * (与 [saveModelProfile] / [addProvider] / [updateMultiAgentConfig] 同模式)。
      */
     suspend fun upsertCustomTheme(theme: CustomTheme) = appearance.upsertCustomTheme(theme)
+
     /**
      * v1.97 gap7: 按 id 删除自定义主题。
      *
@@ -1312,20 +1491,26 @@ class SettingsRepository(
      * (与 [deleteProvider] / [saveModelProfile] 同模式)。
      */
     suspend fun deleteCustomTheme(id: String) = appearance.deleteCustomTheme(id)
+
     suspend fun saveFontSizeScale(scale: String) = appearance.saveFontSizeScale(scale)
+
     /** E2: 保存/清除自定义正文字体路径(null 清除,恢复系统默认)。 */
     suspend fun setCustomFontPath(path: String?) = appearance.saveCustomFontPath(path)
+
     /** v1.95: 保存启动默认页(0=任务, 1=Agent, 2=群聊)。 */
     suspend fun saveDefaultHomePage(page: Int) = appearance.saveDefaultHomePage(page)
+
     // v1.135: 调用 WebSearchConfig.encrypted() 统一加密 apiKey + apiKeys
     suspend fun saveWebSearchConfig(config: WebSearchConfig) {
         store.edit {
-            it[KEY_WEB_SEARCH_CONFIG] = AppJson.encodeToString(
-                WebSearchConfig.serializer(),
-                config.encrypted(),
-            )
+            it[KEY_WEB_SEARCH_CONFIG] =
+                AppJson.encodeToString(
+                    WebSearchConfig.serializer(),
+                    config.encrypted(),
+                )
         }
     }
+
     // H-SR2: CloudBackupConfig 含 s3SecretKey / webdavPassword 敏感凭据,写入前加密(空值原样保留)
     suspend fun saveCloudBackupConfig(config: CloudBackupConfig) {
         // B-9/P0-1: backupPasswordSet 只在密码非空时置 true(用户新设密码);密码为空时保留既有标志。
@@ -1336,18 +1521,28 @@ class SettingsRepository(
         val encrypted = withFlag.encrypted()
         store.edit { it[KEY_CLOUD_BACKUP_CONFIG] = AppJson.encodeToString(CloudBackupConfig.serializer(), encrypted) }
     }
+
     // H8: WebServerConfig 含 password/pin 敏感凭据,写入前加密
     suspend fun saveWebServerConfig(config: WebServerConfig) {
         val encrypted = config.encrypted()
         store.edit { it[KEY_WEB_SERVER_CONFIG] = AppJson.encodeToString(WebServerConfig.serializer(), encrypted) }
     }
-    suspend fun saveAsrConfig(config: AsrConfig) { store.edit { it[KEY_ASR_CONFIG] = AppJson.encodeToString(AsrConfig.serializer(), config.copy(apiKey = SecureKeyStore.encrypt(config.apiKey))) } }
+
+    suspend fun saveAsrConfig(config: AsrConfig) {
+        store.edit {
+            it[KEY_ASR_CONFIG] = AppJson.encodeToString(AsrConfig.serializer(), config.copy(apiKey = SecureKeyStore.encrypt(config.apiKey)))
+        }
+    }
 
     /** v1.54: RAG 配置读写。 */
     suspend fun getRagConfig(): RagConfig = ragConfigFlow.first()
-    suspend fun saveRagConfig(config: RagConfig) { store.edit { it[KEY_RAG_CONFIG] = AppJson.encodeToString(RagConfig.serializer(), config) } }
+
+    suspend fun saveRagConfig(config: RagConfig) {
+        store.edit { it[KEY_RAG_CONFIG] = AppJson.encodeToString(RagConfig.serializer(), config) }
+    }
 
     // ── F-33: 最近一次索引所用的 embedding 配置标识 ──
+
     /**
      * F-33: 最近一次成功索引所用 embedding 配置 key(由 [io.zer0.muse.rag.RagConfig.embeddingModelKey] 生成)。
      * null 表示从未索引过;与当前 [ragConfigFlow] 计算出的 key 不一致时,知识库页提示"建议重新索引"。
@@ -1360,13 +1555,15 @@ class SettingsRepository(
             if (key.isNullOrBlank()) it.remove(KEY_LAST_EMBEDDING_MODEL) else it[KEY_LAST_EMBEDDING_MODEL] = key
         }
     }
+
     // H-SR2: MCP 静态 token 与飞书 App ID/App Secret 写入前加密。
     suspend fun saveMcpServers(servers: List<io.zer0.muse.mcp.McpServerConfig>) {
         store.edit {
-            it[KEY_MCP_SERVERS] = AppJson.encodeToString(
-                ListSerializer(io.zer0.muse.mcp.McpServerConfig.serializer()),
-                servers.map { server -> server.encrypted() },
-            )
+            it[KEY_MCP_SERVERS] =
+                AppJson.encodeToString(
+                    ListSerializer(io.zer0.muse.mcp.McpServerConfig.serializer()),
+                    servers.map { server -> server.encrypted() },
+                )
         }
     }
 
@@ -1377,6 +1574,7 @@ class SettingsRepository(
 
     // v0.30-a: 用户画像读写(SystemPromptAssembler 用)
     suspend fun getUserProfile(): UserProfile = userProfileFlow.first()
+
     suspend fun saveUserProfile(profile: UserProfile) {
         store.edit { prefs ->
             prefs[KEY_USER_PROFILE] = AppJson.encodeToString(UserProfile.serializer(), profile)
@@ -1405,24 +1603,33 @@ class SettingsRepository(
     // v0.31: 聊天行为偏好读写
     // v0.31: 聊天行为偏好读写
     suspend fun getChatPreferences(): ChatPreferences = chatSettings.getChatPreferences()
+
     suspend fun saveChatPreferences(prefs: ChatPreferences) = chatSettings.saveChatPreferences(prefs)
 
     // v0.32: 记忆系统高级配置
     suspend fun getMemoryConfig(): io.zer0.memory.ticker.MemoryConfig = memoryConfigFlow.first()
-    suspend fun saveMemoryConfig(config: io.zer0.memory.ticker.MemoryConfig) { store.edit { it[KEY_MEMORY_CONFIG] = AppJson.encodeToString(io.zer0.memory.ticker.MemoryConfig.serializer(), config) } }
+
+    suspend fun saveMemoryConfig(config: io.zer0.memory.ticker.MemoryConfig) {
+        store.edit { it[KEY_MEMORY_CONFIG] = AppJson.encodeToString(io.zer0.memory.ticker.MemoryConfig.serializer(), config) }
+    }
 
     // v0.32: 通知策略
     suspend fun saveNotificationPolicy(policy: String) = security.saveNotificationPolicy(policy)
 
     // v0.32: 经验库开关
-    suspend fun saveExperienceEnabled(enabled: Boolean) { store.edit { it[KEY_EXPERIENCE_ENABLED] = enabled } }
+    suspend fun saveExperienceEnabled(enabled: Boolean) {
+        store.edit { it[KEY_EXPERIENCE_ENABLED] = enabled }
+    }
 
     // v1.0.63: 新任务默认助手
-    suspend fun saveDefaultAssistantId(assistantId: String) { store.edit { it[KEY_DEFAULT_ASSISTANT_ID] = assistantId } }
-
+    suspend fun saveDefaultAssistantId(assistantId: String) {
+        store.edit { it[KEY_DEFAULT_ASSISTANT_ID] = assistantId }
+    }
 
     // PII Guard 开关(默认开启)
-    suspend fun savePiiGuardEnabled(enabled: Boolean) { store.edit { it[KEY_PII_GUARD_ENABLED] = enabled } }
+    suspend fun savePiiGuardEnabled(enabled: Boolean) {
+        store.edit { it[KEY_PII_GUARD_ENABLED] = enabled }
+    }
 
     // ANR 检测开关
     suspend fun saveAnrDetection(enabled: Boolean) = security.saveAnrDetection(enabled)
@@ -1436,38 +1643,61 @@ class SettingsRepository(
     suspend fun saveAutoLaunch(enabled: Boolean) = security.saveAutoLaunch(enabled)
 
     // v0.32: 实验性功能
-    suspend fun saveExperiments(config: ExperimentsConfig) { store.edit { it[KEY_EXPERIMENTS] = AppJson.encodeToString(ExperimentsConfig.serializer(), config) } }
+    suspend fun saveExperiments(config: ExperimentsConfig) {
+        store.edit { it[KEY_EXPERIMENTS] = AppJson.encodeToString(ExperimentsConfig.serializer(), config) }
+    }
 
     // v0.32: 分享模板
-    suspend fun saveShareTemplate(config: ShareTemplateConfig) { store.edit { it[KEY_SHARE_TEMPLATE] = AppJson.encodeToString(ShareTemplateConfig.serializer(), config) } }
+    suspend fun saveShareTemplate(config: ShareTemplateConfig) {
+        store.edit { it[KEY_SHARE_TEMPLATE] = AppJson.encodeToString(ShareTemplateConfig.serializer(), config) }
+    }
 
     // v0.32: 媒体配置
     // P0-2: MediaConfig 含 ttsApiKey 敏感凭据,写入前加密(与 WebSearchConfig 同模式)
-    suspend fun saveMediaConfig(config: MediaConfig) { store.edit { it[KEY_MEDIA_CONFIG] = AppJson.encodeToString(MediaConfig.serializer(), config.encrypted()) } }
+    suspend fun saveMediaConfig(config: MediaConfig) {
+        store.edit { it[KEY_MEDIA_CONFIG] = AppJson.encodeToString(MediaConfig.serializer(), config.encrypted()) }
+    }
 
     // 全局网络代理配置读写
     // H-SR2: 写入前用 ProxyConfig.encrypted() 加密 password(空密码原样保留)
-    suspend fun saveProxyConfig(config: ProxyConfig) { store.edit { it[KEY_PROXY_CONFIG] = AppJson.encodeToString(ProxyConfig.serializer(), config.encrypted()) } }
+    suspend fun saveProxyConfig(config: ProxyConfig) {
+        store.edit { it[KEY_PROXY_CONFIG] = AppJson.encodeToString(ProxyConfig.serializer(), config.encrypted()) }
+    }
 
     // 主动消息配置读写
-    suspend fun saveProactiveMessageConfig(config: ProactiveMessageConfig) { store.edit { it[KEY_PROACTIVE_MESSAGE] = AppJson.encodeToString(ProactiveMessageConfig.serializer(), config) } }
+    suspend fun saveProactiveMessageConfig(config: ProactiveMessageConfig) {
+        store.edit { it[KEY_PROACTIVE_MESSAGE] = AppJson.encodeToString(ProactiveMessageConfig.serializer(), config) }
+    }
 
     // v0.34: 图片生成默认参数配置读写
-    suspend fun saveImageGenConfig(config: ImageGenConfig) { store.edit { it[KEY_IMAGE_GEN_CONFIG] = AppJson.encodeToString(ImageGenConfig.serializer(), config) } }
+    suspend fun saveImageGenConfig(config: ImageGenConfig) {
+        store.edit { it[KEY_IMAGE_GEN_CONFIG] = AppJson.encodeToString(ImageGenConfig.serializer(), config) }
+    }
 
     /** 保存视频生成默认参数配置。 */
-    suspend fun saveVideoGenConfig(config: VideoGenConfig) { store.edit { it[KEY_VIDEO_GEN_CONFIG] = AppJson.encodeToString(VideoGenConfig.serializer(), config) } }
+    suspend fun saveVideoGenConfig(config: VideoGenConfig) {
+        store.edit { it[KEY_VIDEO_GEN_CONFIG] = AppJson.encodeToString(VideoGenConfig.serializer(), config) }
+    }
 
     // v1.25: 多 Agent 协作配置读写
-    suspend fun saveMultiAgentConfig(config: MultiAgentConfig) { store.edit { it[KEY_MULTI_AGENT_CONFIG] = AppJson.encodeToString(MultiAgentConfig.serializer(), config) } }
+    suspend fun saveMultiAgentConfig(config: MultiAgentConfig) {
+        store.edit { it[KEY_MULTI_AGENT_CONFIG] = AppJson.encodeToString(MultiAgentConfig.serializer(), config) }
+    }
 
     // v1.25: 视觉辅助开关
-    suspend fun saveVisionEnabled(enabled: Boolean) { store.edit { it[KEY_VISION_ENABLED] = enabled } }
+    suspend fun saveVisionEnabled(enabled: Boolean) {
+        store.edit { it[KEY_VISION_ENABLED] = enabled }
+    }
 
     // v1.25: 视觉辅助模型 ID
-    suspend fun saveVisionModelId(modelId: String?) { store.edit { if (modelId != null) it[KEY_VISION_MODEL_ID] = modelId else it.remove(KEY_VISION_MODEL_ID) } }
+    suspend fun saveVisionModelId(modelId: String?) {
+        store.edit { if (modelId != null) it[KEY_VISION_MODEL_ID] = modelId else it.remove(KEY_VISION_MODEL_ID) }
+    }
+
     // v1.25: 视觉辅助供应商 ID
-    suspend fun saveVisionProviderId(providerId: String?) { store.edit { if (providerId != null) it[KEY_VISION_PROVIDER_ID] = providerId else it.remove(KEY_VISION_PROVIDER_ID) } }
+    suspend fun saveVisionProviderId(providerId: String?) {
+        store.edit { if (providerId != null) it[KEY_VISION_PROVIDER_ID] = providerId else it.remove(KEY_VISION_PROVIDER_ID) }
+    }
 
     /**
      * M3: 原子更新多 Agent 配置,避免读-改-写竞态。
@@ -1500,30 +1730,68 @@ class SettingsRepository(
         store.edit { it[KEY_MULTI_AGENT_LLM_REVIEW_ENABLED] = enabled }
     }
 
-    suspend fun saveMcpToken(serverId: String, token: io.zer0.muse.mcp.McpTokenInfo) { store.edit { it[stringPreferencesKey("mcp_token_$serverId")] = AppJson.encodeToString(io.zer0.muse.mcp.McpTokenInfo.serializer(), token.copy(accessToken = SecureKeyStore.encrypt(token.accessToken), refreshToken = SecureKeyStore.encrypt(token.refreshToken))) } }
-    suspend fun getMcpToken(serverId: String): io.zer0.muse.mcp.McpTokenInfo? {
-        return decodePrefsOrNull(store.data.first()[stringPreferencesKey("mcp_token_$serverId")], io.zer0.muse.mcp.McpTokenInfo.serializer(), "McpToken($serverId)")?.let { t -> t.copy(accessToken = SecureKeyStore.decrypt(t.accessToken), refreshToken = SecureKeyStore.decrypt(t.refreshToken)) }
+    suspend fun saveMcpToken(
+        serverId: String,
+        token: io.zer0.muse.mcp.McpTokenInfo,
+    ) {
+        store.edit {
+            it[stringPreferencesKey("mcp_token_$serverId")] = AppJson.encodeToString(io.zer0.muse.mcp.McpTokenInfo.serializer(), token.copy(accessToken = SecureKeyStore.encrypt(token.accessToken), refreshToken = SecureKeyStore.encrypt(token.refreshToken)))
+        }
     }
-    suspend fun clearMcpToken(serverId: String) { store.edit { it.remove(stringPreferencesKey("mcp_token_$serverId")) } }
-    suspend fun saveOnboardingShown() { store.edit { it[KEY_ONBOARDING_SHOWN] = true } }
+
+    suspend fun getMcpToken(serverId: String): io.zer0.muse.mcp.McpTokenInfo? {
+        return decodePrefsOrNull(
+            store.data.first()[stringPreferencesKey("mcp_token_$serverId")],
+            io.zer0.muse.mcp.McpTokenInfo.serializer(),
+            "McpToken($serverId)",
+        )?.let {
+                t ->
+            t.copy(accessToken = SecureKeyStore.decrypt(t.accessToken), refreshToken = SecureKeyStore.decrypt(t.refreshToken))
+        }
+    }
+
+    suspend fun clearMcpToken(serverId: String) {
+        store.edit { it.remove(stringPreferencesKey("mcp_token_$serverId")) }
+    }
+
+    suspend fun saveOnboardingShown() {
+        store.edit { it[KEY_ONBOARDING_SHOWN] = true }
+    }
+
     // v1.95: 保存系统语音识别首次提示是否已展示
     suspend fun saveAsrTipShown(shown: Boolean) = appearance.saveAsrTipShown(shown)
+
     // v1.95: 保存表情包库开关
-    suspend fun saveStickerEnabled(enabled: Boolean) { store.edit { it[KEY_STICKER_ENABLED] = enabled } }
+    suspend fun saveStickerEnabled(enabled: Boolean) {
+        store.edit { it[KEY_STICKER_ENABLED] = enabled }
+    }
+
     // v1.95: 保存表情包发送概率(0-100,超出范围会自动收束)
-    suspend fun saveStickerSendProbability(prob: Int) { store.edit { it[KEY_STICKER_SEND_PROBABILITY] = prob.coerceIn(0, 100) } }
+    suspend fun saveStickerSendProbability(prob: Int) {
+        store.edit { it[KEY_STICKER_SEND_PROBABILITY] = prob.coerceIn(0, 100) }
+    }
+
     // v2.x: 保存表情包发送频率档位(occasionally/normal/frequent;其他值收束为 normal)
     suspend fun saveStickerFrequency(frequency: String) {
-        val normalized = when (frequency) {
-            STICKER_FREQ_OCCASIONALLY, STICKER_FREQ_FREQUENT -> frequency
-            else -> STICKER_FREQ_NORMAL
-        }
+        val normalized =
+            when (frequency) {
+                STICKER_FREQ_OCCASIONALLY, STICKER_FREQ_FREQUENT -> frequency
+                else -> STICKER_FREQ_NORMAL
+            }
         store.edit { it[KEY_STICKER_FREQUENCY] = normalized }
     }
+
     // v2.x: 保存会话内存缓存上限(2..12 收束)
-    suspend fun saveSessionCacheSize(size: Int) { store.edit { it[KEY_SESSION_CACHE_SIZE] = size.coerceIn(2, 12) } }
+    suspend fun saveSessionCacheSize(size: Int) {
+        store.edit { it[KEY_SESSION_CACHE_SIZE] = size.coerceIn(2, 12) }
+    }
+
     suspend fun addProvider(config: ProviderConfig) {
-        store.edit { prefs -> val list = decodePrefsOrNull(prefs[KEY_PROVIDERS], ListSerializer(ProviderConfig.serializer()), "Providers(add)") ?: emptyList(); prefs[KEY_PROVIDERS] = encodeProviders(list + config) }
+        store.edit {
+                prefs ->
+            val list = decodePrefsOrNull(prefs[KEY_PROVIDERS], ListSerializer(ProviderConfig.serializer()), "Providers(add)") ?: emptyList()
+            prefs[KEY_PROVIDERS] = encodeProviders(list + config)
+        }
         auditLogger.log(
             category = "user_action",
             action = "add_provider",
@@ -1539,19 +1807,22 @@ class SettingsRepository(
      */
     suspend fun upsertProvider(config: ProviderConfig) {
         store.edit { prefs ->
-            val list = decodePrefsOrNull(
-                prefs[KEY_PROVIDERS],
-                ListSerializer(ProviderConfig.serializer()),
-                "Providers(upsert)",
-            ) ?: emptyList()
-            val updated = if (list.any { it.id == config.id }) {
-                list.map { if (it.id == config.id) config else it }
-            } else {
-                list + config
-            }
+            val list =
+                decodePrefsOrNull(
+                    prefs[KEY_PROVIDERS],
+                    ListSerializer(ProviderConfig.serializer()),
+                    "Providers(upsert)",
+                ) ?: emptyList()
+            val updated =
+                if (list.any { it.id == config.id }) {
+                    list.map { if (it.id == config.id) config else it }
+                } else {
+                    list + config
+                }
             prefs[KEY_PROVIDERS] = encodeProviders(updated)
         }
     }
+
     /**
      * v1.0.18: 原子「不存在才添加」— 同 id 已存在则跳过,避免自动注入与引导页保存竞态产生重复。
      *
@@ -1571,8 +1842,13 @@ class SettingsRepository(
         }
         return added
     }
+
     suspend fun updateProvider(config: ProviderConfig) {
-        store.edit { prefs -> val list = decodePrefsOrNull(prefs[KEY_PROVIDERS], ListSerializer(ProviderConfig.serializer()), "Providers(update)") ?: emptyList(); prefs[KEY_PROVIDERS] = encodeProviders(list.map { if (it.id == config.id) config else it }) }
+        store.edit {
+                prefs ->
+            val list = decodePrefsOrNull(prefs[KEY_PROVIDERS], ListSerializer(ProviderConfig.serializer()), "Providers(update)") ?: emptyList()
+            prefs[KEY_PROVIDERS] = encodeProviders(list.map { if (it.id == config.id) config else it })
+        }
         // v1.132: 失效模型列表缓存(baseUrl/apiKey 可能已变更)
         io.zer0.ai.core.ModelListCache.invalidate(config.id)
         // P2-4: 审计日志 — 修改 Provider(含密钥/端点)
@@ -1583,60 +1859,70 @@ class SettingsRepository(
             detail = mapOf("display_name" to config.displayName),
         )
     }
+
     suspend fun deleteProvider(id: String) {
         require(id.isNotBlank()) { "provider id must not be blank" }
         store.edit { prefs ->
-            val providers = decodePrefsOrNull(
-                prefs[KEY_PROVIDERS],
-                ListSerializer(ProviderConfig.serializer()),
-                "Providers(delete)",
-            ) ?: emptyList()
-            val result = cleanupProviderReferences(
-                providers = providers,
-                deletedProviderId = id,
-                activeProviderId = prefs[KEY_ACTIVE_PROVIDER_ID],
-                selectedModelId = prefs[KEY_SELECTED_MODEL],
-                toolModelId = prefs[KEY_TOOL_MODEL_ID],
-                subagentModelId = prefs[KEY_SUBAGENT_MODEL_ID],
-                compressModelId = prefs[KEY_COMPRESS_MODEL_ID],
-                visionModelId = prefs[KEY_VISION_MODEL_ID],
-                visionProviderId = prefs[KEY_VISION_PROVIDER_ID],
-                utilityModelBinding = decodePrefsOrNull(
-                    prefs[KEY_UTILITY_MODEL_BINDING],
-                    UtilityModelBinding.serializer(),
-                    "UtilityModelBinding(deleteProvider)",
-                ),
-                utilityLargeModelBinding = decodePrefsOrNull(
-                    prefs[KEY_UTILITY_LARGE_MODEL_BINDING],
-                    UtilityModelBinding.serializer(),
-                    "UtilityLargeModelBinding(deleteProvider)",
-                ),
-                sessionModelOverrides = decodePrefsOrNull(
-                    prefs[KEY_SESSION_MODEL_OVERRIDES],
-                    sessionModelOverrideSerializer,
-                    "SessionModelOverrides(deleteProvider)",
-                ) ?: emptyMap(),
-                sessionProviderOverrides = decodePrefsOrNull(
-                    prefs[KEY_SESSION_PROVIDER_OVERRIDES],
-                    sessionModelOverrideSerializer,
-                    "SessionProviderOverrides(deleteProvider)",
-                ) ?: emptyMap(),
-                imageGenConfig = decodePrefsOrNull(
-                    prefs[KEY_IMAGE_GEN_CONFIG],
-                    ImageGenConfig.serializer(),
-                    "ImageGenConfig(deleteProvider)",
-                ) ?: ImageGenConfig(),
-                videoGenConfig = decodePrefsOrNull(
-                    prefs[KEY_VIDEO_GEN_CONFIG],
-                    VideoGenConfig.serializer(),
-                    "VideoGenConfig(deleteProvider)",
-                ) ?: VideoGenConfig(),
-                taskRoutingConfig = decodePrefsOrNull(
-                    prefs[KEY_TASK_ROUTING_CONFIG],
-                    TaskRoutingConfig.serializer(),
-                    "TaskRoutingConfig(deleteProvider)",
-                ) ?: TaskRoutingConfig(),
-            )
+            val providers =
+                decodePrefsOrNull(
+                    prefs[KEY_PROVIDERS],
+                    ListSerializer(ProviderConfig.serializer()),
+                    "Providers(delete)",
+                ) ?: emptyList()
+            val result =
+                cleanupProviderReferences(
+                    providers = providers,
+                    deletedProviderId = id,
+                    activeProviderId = prefs[KEY_ACTIVE_PROVIDER_ID],
+                    selectedModelId = prefs[KEY_SELECTED_MODEL],
+                    toolModelId = prefs[KEY_TOOL_MODEL_ID],
+                    subagentModelId = prefs[KEY_SUBAGENT_MODEL_ID],
+                    compressModelId = prefs[KEY_COMPRESS_MODEL_ID],
+                    visionModelId = prefs[KEY_VISION_MODEL_ID],
+                    visionProviderId = prefs[KEY_VISION_PROVIDER_ID],
+                    utilityModelBinding =
+                        decodePrefsOrNull(
+                            prefs[KEY_UTILITY_MODEL_BINDING],
+                            UtilityModelBinding.serializer(),
+                            "UtilityModelBinding(deleteProvider)",
+                        ),
+                    utilityLargeModelBinding =
+                        decodePrefsOrNull(
+                            prefs[KEY_UTILITY_LARGE_MODEL_BINDING],
+                            UtilityModelBinding.serializer(),
+                            "UtilityLargeModelBinding(deleteProvider)",
+                        ),
+                    sessionModelOverrides =
+                        decodePrefsOrNull(
+                            prefs[KEY_SESSION_MODEL_OVERRIDES],
+                            sessionModelOverrideSerializer,
+                            "SessionModelOverrides(deleteProvider)",
+                        ) ?: emptyMap(),
+                    sessionProviderOverrides =
+                        decodePrefsOrNull(
+                            prefs[KEY_SESSION_PROVIDER_OVERRIDES],
+                            sessionModelOverrideSerializer,
+                            "SessionProviderOverrides(deleteProvider)",
+                        ) ?: emptyMap(),
+                    imageGenConfig =
+                        decodePrefsOrNull(
+                            prefs[KEY_IMAGE_GEN_CONFIG],
+                            ImageGenConfig.serializer(),
+                            "ImageGenConfig(deleteProvider)",
+                        ) ?: ImageGenConfig(),
+                    videoGenConfig =
+                        decodePrefsOrNull(
+                            prefs[KEY_VIDEO_GEN_CONFIG],
+                            VideoGenConfig.serializer(),
+                            "VideoGenConfig(deleteProvider)",
+                        ) ?: VideoGenConfig(),
+                    taskRoutingConfig =
+                        decodePrefsOrNull(
+                            prefs[KEY_TASK_ROUTING_CONFIG],
+                            TaskRoutingConfig.serializer(),
+                            "TaskRoutingConfig(deleteProvider)",
+                        ) ?: TaskRoutingConfig(),
+                )
             prefs[KEY_PROVIDERS] = encodeProviders(result.providers)
             writeNullablePreference(prefs, KEY_ACTIVE_PROVIDER_ID, result.activeProviderId)
             writeNullablePreference(prefs, KEY_SELECTED_MODEL, result.selectedModelId)
@@ -1658,18 +1944,21 @@ class SettingsRepository(
             }
             writeMapPreference(prefs, KEY_SESSION_MODEL_OVERRIDES, result.sessionModelOverrides)
             writeMapPreference(prefs, KEY_SESSION_PROVIDER_OVERRIDES, result.sessionProviderOverrides)
-            prefs[KEY_IMAGE_GEN_CONFIG] = AppJson.encodeToString(
-                ImageGenConfig.serializer(),
-                result.imageGenConfig,
-            )
-            prefs[KEY_VIDEO_GEN_CONFIG] = AppJson.encodeToString(
-                VideoGenConfig.serializer(),
-                result.videoGenConfig,
-            )
-            prefs[KEY_TASK_ROUTING_CONFIG] = AppJson.encodeToString(
-                TaskRoutingConfig.serializer(),
-                result.taskRoutingConfig,
-            )
+            prefs[KEY_IMAGE_GEN_CONFIG] =
+                AppJson.encodeToString(
+                    ImageGenConfig.serializer(),
+                    result.imageGenConfig,
+                )
+            prefs[KEY_VIDEO_GEN_CONFIG] =
+                AppJson.encodeToString(
+                    VideoGenConfig.serializer(),
+                    result.videoGenConfig,
+                )
+            prefs[KEY_TASK_ROUTING_CONFIG] =
+                AppJson.encodeToString(
+                    TaskRoutingConfig.serializer(),
+                    result.taskRoutingConfig,
+                )
         }
         // v1.132: 失效模型列表缓存
         io.zer0.ai.core.ModelListCache.invalidate(id)
@@ -1680,16 +1969,31 @@ class SettingsRepository(
             target = id,
         )
     }
-    suspend fun setActiveProvider(id: String) { store.edit { it[KEY_ACTIVE_PROVIDER_ID] = id } }
-    suspend fun saveSelectedModel(modelId: String?) { store.edit { if (modelId != null) it[KEY_SELECTED_MODEL] = modelId else it.remove(KEY_SELECTED_MODEL) } }
+
+    suspend fun setActiveProvider(id: String) {
+        store.edit { it[KEY_ACTIVE_PROVIDER_ID] = id }
+    }
+
+    suspend fun saveSelectedModel(modelId: String?) {
+        store.edit { if (modelId != null) it[KEY_SELECTED_MODEL] = modelId else it.remove(KEY_SELECTED_MODEL) }
+    }
+
     /** 保存单个会话的模型覆盖；传 null 清除覆盖并回退全局默认模型。 */
-    suspend fun saveSessionModelOverride(sessionId: String, modelId: String?) {
+    suspend fun saveSessionModelOverride(
+        sessionId: String,
+        modelId: String?,
+    ) {
         saveSessionOverride(KEY_SESSION_MODEL_OVERRIDES, "SessionModelOverrides(save)", sessionId, modelId)
     }
+
     /** 保存单个会话的 Provider 覆盖；传 null 清除覆盖并回退全局默认 Provider。 */
-    suspend fun saveSessionProviderOverride(sessionId: String, providerId: String?) {
+    suspend fun saveSessionProviderOverride(
+        sessionId: String,
+        providerId: String?,
+    ) {
         saveSessionOverride(KEY_SESSION_PROVIDER_OVERRIDES, "SessionProviderOverrides(save)", sessionId, providerId)
     }
+
     private fun writeNullablePreference(
         prefs: androidx.datastore.preferences.core.MutablePreferences,
         key: Preferences.Key<String>,
@@ -1703,8 +2007,11 @@ class SettingsRepository(
         key: Preferences.Key<String>,
         value: Map<String, String>,
     ) {
-        if (value.isEmpty()) prefs.remove(key)
-        else prefs[key] = AppJson.encodeToString(sessionModelOverrideSerializer, value)
+        if (value.isEmpty()) {
+            prefs.remove(key)
+        } else {
+            prefs[key] = AppJson.encodeToString(sessionModelOverrideSerializer, value)
+        }
     }
 
     private suspend fun saveSessionOverride(
@@ -1714,52 +2021,92 @@ class SettingsRepository(
         value: String?,
     ) {
         store.edit { prefs ->
-            val overrides = decodePrefsOrNull(prefs[key], sessionModelOverrideSerializer, keyName)
-                ?.toMutableMap() ?: mutableMapOf()
+            val overrides =
+                decodePrefsOrNull(prefs[key], sessionModelOverrideSerializer, keyName)
+                    ?.toMutableMap() ?: mutableMapOf()
             if (value.isNullOrBlank()) overrides.remove(sessionId) else overrides[sessionId] = value
-            if (overrides.isEmpty()) prefs.remove(key)
-            else prefs[key] = AppJson.encodeToString(sessionModelOverrideSerializer, overrides)
+            if (overrides.isEmpty()) {
+                prefs.remove(key)
+            } else {
+                prefs[key] = AppJson.encodeToString(sessionModelOverrideSerializer, overrides)
+            }
         }
     }
+
     /** v1.60-A: 保存工具模型 id(null 表示清除,沿用主对话模型)。 */
-    suspend fun saveToolModel(modelId: String?) { store.edit { if (modelId != null) it[KEY_TOOL_MODEL_ID] = modelId else it.remove(KEY_TOOL_MODEL_ID) } }
+    suspend fun saveToolModel(modelId: String?) {
+        store.edit { if (modelId != null) it[KEY_TOOL_MODEL_ID] = modelId else it.remove(KEY_TOOL_MODEL_ID) }
+    }
+
     /** v2.0: 保存子代理模型 id(null 表示清除,沿用主对话模型)。 */
-    suspend fun saveSubagentModel(modelId: String?) { store.edit { if (modelId != null) it[KEY_SUBAGENT_MODEL_ID] = modelId else it.remove(KEY_SUBAGENT_MODEL_ID) } }
+    suspend fun saveSubagentModel(modelId: String?) {
+        store.edit { if (modelId != null) it[KEY_SUBAGENT_MODEL_ID] = modelId else it.remove(KEY_SUBAGENT_MODEL_ID) }
+    }
+
     /** v2.x: 保存小工具模型绑定(null 表示清除,沿用主对话模型)。 */
     suspend fun saveUtilityModelBinding(binding: UtilityModelBinding?) {
         store.edit { prefs ->
-            if (binding != null) prefs[KEY_UTILITY_MODEL_BINDING] = AppJson.encodeToString(UtilityModelBinding.serializer(), binding)
-            else prefs.remove(KEY_UTILITY_MODEL_BINDING)
+            if (binding != null) {
+                prefs[KEY_UTILITY_MODEL_BINDING] = AppJson.encodeToString(UtilityModelBinding.serializer(), binding)
+            } else {
+                prefs.remove(KEY_UTILITY_MODEL_BINDING)
+            }
         }
     }
+
     /** v2.x: 保存大工具模型绑定(null 表示清除,级联复用小工具模型)。 */
     suspend fun saveUtilityLargeModelBinding(binding: UtilityModelBinding?) {
         store.edit { prefs ->
-            if (binding != null) prefs[KEY_UTILITY_LARGE_MODEL_BINDING] = AppJson.encodeToString(UtilityModelBinding.serializer(), binding)
-            else prefs.remove(KEY_UTILITY_LARGE_MODEL_BINDING)
+            if (binding != null) {
+                prefs[KEY_UTILITY_LARGE_MODEL_BINDING] = AppJson.encodeToString(UtilityModelBinding.serializer(), binding)
+            } else {
+                prefs.remove(KEY_UTILITY_LARGE_MODEL_BINDING)
+            }
         }
     }
+
     /**
      * 保存压缩模型 id(null 表示清除,沿用主对话模型)。
      * 供 ConversationCompressor 使用,建议设置为便宜模型(如 SiliconFlow 免费模型)。
      */
-    suspend fun saveCompressModel(modelId: String?) { store.edit { if (modelId != null) it[KEY_COMPRESS_MODEL_ID] = modelId else it.remove(KEY_COMPRESS_MODEL_ID) } }
+    suspend fun saveCompressModel(modelId: String?) {
+        store.edit { if (modelId != null) it[KEY_COMPRESS_MODEL_ID] = modelId else it.remove(KEY_COMPRESS_MODEL_ID) }
+    }
+
     /** v1.0.52: 保存自定义压缩 prompt(null 或空串表示恢复默认)。 */
-    suspend fun saveCustomCompressPrompt(prompt: String?) { store.edit { if (!prompt.isNullOrBlank()) it[KEY_CUSTOM_COMPRESS_PROMPT] = prompt else it.remove(KEY_CUSTOM_COMPRESS_PROMPT) } }
+    suspend fun saveCustomCompressPrompt(prompt: String?) {
+        store.edit { if (!prompt.isNullOrBlank()) it[KEY_CUSTOM_COMPRESS_PROMPT] = prompt else it.remove(KEY_CUSTOM_COMPRESS_PROMPT) }
+    }
+
     /** v1.0.52: 保存自定义对话命名 prompt(null 或空串表示恢复默认)。 */
-    suspend fun saveCustomTitlePrompt(prompt: String?) { store.edit { if (!prompt.isNullOrBlank()) it[KEY_CUSTOM_TITLE_PROMPT] = prompt else it.remove(KEY_CUSTOM_TITLE_PROMPT) } }
+    suspend fun saveCustomTitlePrompt(prompt: String?) {
+        store.edit { if (!prompt.isNullOrBlank()) it[KEY_CUSTOM_TITLE_PROMPT] = prompt else it.remove(KEY_CUSTOM_TITLE_PROMPT) }
+    }
+
     /** v1.0.47: 保存 Token 估算开关。 */
     suspend fun saveTokenEstimateEnabled(enabled: Boolean) = chatSettings.saveTokenEstimateEnabled(enabled)
+
     /** v1.0.47 P5-2: 保存长文本粘贴转文件开关。 */
     suspend fun savePasteAsFileEnabled(enabled: Boolean) = chatSettings.savePasteAsFileEnabled(enabled)
+
     /** v1.0.47 P5-2: 保存长文本粘贴转文件阈值(字符数)。 */
     suspend fun savePasteAsFileThreshold(threshold: Int) = chatSettings.savePasteAsFileThreshold(threshold)
+
     /** P1-4: 保存楼层式上下文限制开关。 */
     suspend fun saveFloorLimiterEnabled(enabled: Boolean) = chatSettings.saveFloorLimiterEnabled(enabled)
+
     /** P1-4: 保存楼层式上下文限制楼层数。 */
     suspend fun saveFloorLimit(limit: Int) = chatSettings.saveFloorLimit(limit)
+
+    /** v2.x: 工具轮次上限(0=无限制)。 */
+    suspend fun saveToolLoopMaxRounds(limit: Int) = chatSettings.saveToolLoopMaxRounds(limit)
+
+    /** v2.x: 读取工具轮次上限(0=无限制),工具循环构建前调用。 */
+    suspend fun getToolLoopMaxRounds(): Int = toolLoopMaxRoundsFlow.first()
+
     /** C3: 记录一次会话浏览(去重置顶,超容量裁剪,供"最近浏览"快速找回)。 */
     suspend fun recordSessionViewed(sessionId: String) = chatSettings.recordSessionViewed(sessionId)
+
     /**
      * v1.60-C: 保存应用界面语言(system / zh / en)。
      *
@@ -1783,7 +2130,10 @@ class SettingsRepository(
     fun getLanguageSync(): String = appSettings.getLanguageSync()
 
     /** 功能2: 保存指定会话的输入草稿(空文本时删除 key)。 */
-    suspend fun saveChatDraft(sessionId: String, draft: String) {
+    suspend fun saveChatDraft(
+        sessionId: String,
+        draft: String,
+    ) {
         store.edit { prefs ->
             val drafts = decodePrefsOrNull(prefs[KEY_CHAT_DRAFTS], MapSerializer(String.serializer(), String.serializer()), "ChatDrafts")?.toMutableMap() ?: mutableMapOf()
             if (draft.isBlank()) {
@@ -1857,12 +2207,14 @@ class SettingsRepository(
     /**
      * 按 ID 查找已配置的供应商。
      */
-    suspend fun getProviderById(id: String): ProviderConfig? =
-        providersFlow.first().firstOrNull { it.id == id }
+    suspend fun getProviderById(id: String): ProviderConfig? = providersFlow.first().firstOrNull { it.id == id }
 
     suspend fun markOnboardingShown() = appearance.markOnboardingShown()
 
-    override suspend fun get(): ProviderConfig? = providersFlow.first()?.firstOrNull { it.id == activeProviderIdFlow.first() } ?: providersFlow.first()?.firstOrNull()
+    override suspend fun get(): ProviderConfig? =
+        providersFlow.first()?.firstOrNull {
+            it.id == activeProviderIdFlow.first()
+        } ?: providersFlow.first()?.firstOrNull()
 
     /**
      * v2.2.1: [ProviderConfigStore] 首选回退 — 后台任务用"当前选中模型"而非激活 Provider 首个模型。
@@ -1905,6 +2257,7 @@ class SettingsRepository(
         val needLarge = prefs[KEY_UTILITY_LARGE_MODEL_BINDING] == null && !legacySubagent.isNullOrBlank()
         if (!needSmall && !needLarge) return
         val providers = providersFlow.first()
+
         fun bind(modelId: String?): UtilityModelBinding? {
             if (modelId.isNullOrBlank()) return null
             val owner = providers.firstOrNull { p -> p.models.any { it.id == modelId } } ?: return null
@@ -2065,23 +2418,31 @@ class SettingsRepository(
         private val KEY_SESSION_MODEL_OVERRIDES = stringPreferencesKey("session_model_overrides_json")
         private val KEY_SESSION_PROVIDER_OVERRIDES = stringPreferencesKey("session_provider_overrides_json")
         private val KEY_TOOL_MODEL_ID = stringPreferencesKey("tool_model_id")
+
         /** v2.0: 子代理模型 id(后台子 agent 使用的轻量模型)。 */
         private val KEY_SUBAGENT_MODEL_ID = stringPreferencesKey("subagent_model_id")
+
         /** v2.x: 小工具模型绑定(JSON {providerId, modelId};优先于旧 tool_model_id)。 */
         private val KEY_UTILITY_MODEL_BINDING = stringPreferencesKey("utility_model_binding")
+
         /** v2.x: 大工具模型绑定(JSON {providerId, modelId};优先于旧 subagent_model_id)。 */
         private val KEY_UTILITY_LARGE_MODEL_BINDING = stringPreferencesKey("utility_large_model_binding")
+
         /** 压缩模型 id(独立便宜模型,供 ConversationCompressor 使用)。 */
         private val KEY_COMPRESS_MODEL_ID = stringPreferencesKey("compress_model_id")
+
         /** v1.0.52: 自定义压缩 prompt(用户可覆盖默认压缩指令,null 表示用默认)。 */
         private val KEY_CUSTOM_COMPRESS_PROMPT = stringPreferencesKey("custom_compress_prompt")
+
         /** v1.0.52: 自定义对话命名 prompt(用户可覆盖默认命名指令,null 表示用默认)。 */
         private val KEY_CUSTOM_TITLE_PROMPT = stringPreferencesKey("custom_title_prompt")
         /** v1.0.47: Token 估算开关。 */
         /** P1-4: 楼层式上下文限制 */
         private val KEY_MEMORY_ENABLED = booleanPreferencesKey("memory_enabled")
+
         /** v1.0.51: 一次性存量记忆迁移标志位 — 升级后首次启动补跑历史 session 的 rollingSummary。 */
         private val KEY_MEMORY_MIGRATION_V1_0_51_DONE = booleanPreferencesKey("memory_migration_v1_0_51_done")
+
         /** v1.0.52 P2-2: 当前选中的记忆空间 id(默认 "default")。 */
         private val KEY_CURRENT_SPACE_ID = stringPreferencesKey("current_space_id")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
@@ -2089,20 +2450,27 @@ class SettingsRepository(
         private val KEY_DARK_THEME_ID = stringPreferencesKey("dark_theme_id")
         private val KEY_THEME_SCHEDULE = stringPreferencesKey("theme_schedule_json")
         private val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
+
         /** v1.97 gap7: 自定义主题列表 JSON(数组序列化,空数组=未创建)。 */
         private val KEY_CUSTOM_THEMES = stringPreferencesKey("custom_themes_json")
         private val KEY_FONT_SIZE_SCALE = stringPreferencesKey("font_size_scale")
+
         /** v1.95: 启动默认页(0=任务, 1=Agent, 2=群聊)。 */
         private val KEY_DEFAULT_HOME_PAGE = intPreferencesKey("default_home_page")
         private val KEY_ONBOARDING_SHOWN = booleanPreferencesKey("onboarding_shown")
+
         // v1.95: 系统语音识别首次提示是否已展示
         private val KEY_ASR_TIP_SHOWN = booleanPreferencesKey("asr_tip_shown")
+
         // v1.95: 表情包库开关(默认关闭)
         private val KEY_STICKER_ENABLED = booleanPreferencesKey("sticker_enabled")
+
         // v1.95: 表情包发送概率(0-100,默认 30)
         private val KEY_STICKER_SEND_PROBABILITY = intPreferencesKey("sticker_send_probability")
+
         // v2.x: 表情包发送频率档位(occasionally/normal/frequent,默认 normal)
         private val KEY_STICKER_FREQUENCY = stringPreferencesKey("sticker_frequency")
+
         // v2.x: 会话内存缓存上限(2..12,默认 5)
         private val KEY_SESSION_CACHE_SIZE = intPreferencesKey("session_cache_size")
         private val KEY_WEB_SEARCH_CONFIG = stringPreferencesKey("web_search_config_json")
@@ -2125,15 +2493,18 @@ class SettingsRepository(
         private val KEY_ACCOUNT_LOGIN_AT = longPreferencesKey("account_login_at")
         private val KEY_ACCOUNT_LOGIN_METHOD = stringPreferencesKey("account_login_method")
         private val KEY_ACCOUNT_GUEST_MODE = booleanPreferencesKey("account_guest_mode")
-    private val KEY_ACCOUNT_AVATAR_URI = stringPreferencesKey("account_avatar_uri")
+        private val KEY_ACCOUNT_AVATAR_URI = stringPreferencesKey("account_avatar_uri")
         private val KEY_MODEL_PROFILES = stringPreferencesKey("model_profiles_json")
+
         // v0.30-a: 用户画像
         private val KEY_USER_PROFILE = stringPreferencesKey("user_profile_json")
+
         // v0.31: 聊天行为偏好
         // v0.32: 记忆系统高级配置
         private val KEY_MEMORY_CONFIG = stringPreferencesKey("memory_config_json")
         private val KEY_EXPERIENCE_ENABLED = booleanPreferencesKey("experience_enabled")
         private val KEY_DEFAULT_ASSISTANT_ID = stringPreferencesKey("default_assistant_id")
+
         // PII Guard 开关(默认开启)
         private val KEY_PII_GUARD_ENABLED = booleanPreferencesKey("pii_guard_enabled")
         /** ANR 检测开关(默认 true)。 */
@@ -2145,82 +2516,108 @@ class SettingsRepository(
         private val KEY_PROXY_CONFIG = stringPreferencesKey("proxy_config_v1")
         private val KEY_PROACTIVE_MESSAGE = stringPreferencesKey("proactive_message_json")
         private val KEY_IMAGE_GEN_CONFIG = stringPreferencesKey("image_gen_config_json")
+
         /** 视频生成默认参数配置。 */
         private val KEY_VIDEO_GEN_CONFIG = stringPreferencesKey("video_gen_config_json")
+
         /** v1.25: 多 Agent 协作配置（团队列表与总开关）。 */
         private val KEY_MULTI_AGENT_CONFIG = stringPreferencesKey("multi_agent_config_json")
+
         /** v1.201: LLM 综合评审使用的模型 id(独立 key,不随 MultiAgentConfig JSON 序列化)。 */
         private val KEY_MULTI_AGENT_REVIEW_MODEL = stringPreferencesKey("multi_agent_review_model")
+
         /** v1.201: 全局 LLM 综合评审开关(独立 key,不随 MultiAgentConfig JSON 序列化)。 */
         private val KEY_MULTI_AGENT_LLM_REVIEW_ENABLED = booleanPreferencesKey("multi_agent_llm_review_enabled")
+
         /** v1.25: 视觉辅助开关（让纯文本模型通过视觉模型"看到"图片）。 */
         private val KEY_VISION_ENABLED = booleanPreferencesKey("vision_enabled")
 
         /** P2-12: 富文本输入开关(开启后 InputBar 替换为 RichInputBar)。 */
         /** v1.25: 视觉辅助使用的模型 ID。 */
         private val KEY_VISION_MODEL_ID = stringPreferencesKey("vision_model_id")
+
         /** v1.25: 视觉辅助使用的供应商 ID。 */
         private val KEY_VISION_PROVIDER_ID = stringPreferencesKey("vision_provider_id")
+
         /** v1.54: RAG 配置(embedding 来源 + 检索参数)。 */
         private val KEY_RAG_CONFIG = stringPreferencesKey("rag_config_json")
+
         /** F-33: 最近一次成功索引所用的 embedding 配置 key。 */
         private val KEY_LAST_EMBEDDING_MODEL = stringPreferencesKey("last_embedding_model_key")
         private val KEY_CHAT_DRAFTS = stringPreferencesKey("chat_drafts_json")
+
         // v2.3: 连接测试缓存 JSON(providerId → result,带 TTL)
         private val KEY_CONNECTION_TEST_CACHE = stringPreferencesKey("connection_test_cache_json")
+
         // v2.3: 任务模型路由配置
         private val KEY_TASK_ROUTING_CONFIG = stringPreferencesKey("task_routing_config_json")
+
         // v1.133: GitHub Release 更新检查相关键
         private val KEY_LAST_UPDATE_CHECK_TIME = longPreferencesKey("last_update_check_time")
         private val KEY_LATEST_RELEASE_INFO = stringPreferencesKey("latest_release_info_json")
         private val KEY_UPDATE_CHECK_ENABLED = booleanPreferencesKey("update_check_enabled")
+
         // v1.0.72: 用户主动忽略的更新版本号(tagName),该版本不再弹 Banner
         private val KEY_IGNORED_UPDATE_VERSION = stringPreferencesKey("ignored_update_version")
+
         // v1.0.72: 每日总结推送开关(默认关闭)
         private val KEY_DAILY_SUMMARY_ENABLED = booleanPreferencesKey("daily_summary_enabled")
+
         /** v1.xxx: 每日总结时段(24 小时制整点小时,逗号分隔;未配置回退默认时段)。 */
         private val KEY_DAILY_SUMMARY_SLOTS = stringPreferencesKey("daily_summary_slots")
+
         /** v1.xxx: 后台调度总控开关(默认开启;关闭后各周期 Worker 跳过执行体)。 */
         private val KEY_SCHEDULE_WORK_ENABLED = booleanPreferencesKey("schedule_work_enabled")
+
         // v1.x: 最近一次每日总结,供首页问候语展示
         private val KEY_DAILY_SUMMARY_DATE = stringPreferencesKey("daily_summary_date")
         private val KEY_DAILY_SUMMARY_TEXT = stringPreferencesKey("daily_summary_text")
+
         // 每日总结已抢占时点，格式为 yyyy-MM-dd#HHmm；用于进程内与 WorkManager 去重。
         private val KEY_DAILY_SUMMARY_CLAIMED_SLOTS = stringSetPreferencesKey("daily_summary_claimed_slots")
+
         // 已成功保存的时点，与 claimed 分离，进程在生成中途退出后允许前台重试。
         private val KEY_DAILY_SUMMARY_COMPLETED_SLOTS = stringSetPreferencesKey("daily_summary_completed_slots")
         private const val DAILY_SUMMARY_SLOT_HISTORY_LIMIT = 16
+
         /** v1.xxx: 每日总结默认时段(09/12/21/00),与历史硬编码行为保持一致。 */
         val DEFAULT_DAILY_SUMMARY_SLOTS: List<Int> = listOf(0, 9, 12, 21)
+
         // v1.0.72: AI 朋友圈每日动态条数(0-10,默认 2)
         private val KEY_DAILY_MOMENT_COUNT = intPreferencesKey("daily_moment_count")
-    private val KEY_MOMENTS_COVER_IMAGE = stringPreferencesKey("moments_cover_image")
-    private val KEY_MINIPHONE_WALLPAPER = stringPreferencesKey("miniphone_wallpaper")
-    // P3-7: 封面/壁纸落文件时的固定文件名槽位(filesDir/moments/)
-    private const val COVER_IMAGE_SLOT = "cover"
-    private const val WALLPAPER_SLOT = "wallpaper"
-    private val KEY_MOMENTS_LAST_READ_AT = longPreferencesKey("moments_last_read_at")
-    private val KEY_MOMENT_MESSAGES_LAST_READ_AT = longPreferencesKey("moment_messages_last_read_at")
+        private val KEY_MOMENTS_COVER_IMAGE = stringPreferencesKey("moments_cover_image")
+        private val KEY_MINIPHONE_WALLPAPER = stringPreferencesKey("miniphone_wallpaper")
+
+        // P3-7: 封面/壁纸落文件时的固定文件名槽位(filesDir/moments/)
+        private const val COVER_IMAGE_SLOT = "cover"
+        private const val WALLPAPER_SLOT = "wallpaper"
+        private val KEY_MOMENTS_LAST_READ_AT = longPreferencesKey("moments_last_read_at")
+        private val KEY_MOMENT_MESSAGES_LAST_READ_AT = longPreferencesKey("moment_messages_last_read_at")
         private val KEY_MOMENT_FAVORITE_IDS = stringSetPreferencesKey("moment_favorite_ids")
-    private val KEY_CHAT_BACKGROUND = stringPreferencesKey("chat_background")
-    private val KEY_CHAT_GRADIENT = stringPreferencesKey("chat_gradient_json")
-    private val KEY_MINIPHONE_ENABLED = booleanPreferencesKey("miniphone_enabled")
+        private val KEY_CHAT_BACKGROUND = stringPreferencesKey("chat_background")
+        private val KEY_CHAT_GRADIENT = stringPreferencesKey("chat_gradient_json")
+        private val KEY_MINIPHONE_ENABLED = booleanPreferencesKey("miniphone_enabled")
         private val KEY_MINIPHONE_HIDDEN_APPS = stringSetPreferencesKey("miniphone_hidden_apps")
-    private val KEY_MINIPHONE_APP_ORDER = stringPreferencesKey("miniphone_app_order")
+        private val KEY_MINIPHONE_APP_ORDER = stringPreferencesKey("miniphone_app_order")
         private val KEY_MINI_ALBUM_HIDDEN_IMAGE_IDS = stringSetPreferencesKey("mini_album_hidden_image_ids")
         private val KEY_MINI_ALBUM_FAVORITE_IMAGE_IDS = stringSetPreferencesKey("mini_album_favorite_image_ids")
-    private val KEY_NIGHT_PATROL_ENABLED = booleanPreferencesKey("night_patrol_enabled")
+        private val KEY_NIGHT_PATROL_ENABLED = booleanPreferencesKey("night_patrol_enabled")
+
         // v1.0.20: 全局默认会话权限模式(TRUSTED / ASK / STRICT,默认 ASK)
         private val KEY_DEFAULT_SESSION_PERMISSION_MODE = stringPreferencesKey("default_session_permission_mode")
+
         // v2.0+: 崩溃上报配置键(默认全部关闭,隐私优先)
         private val KEY_CRASH_REPORT_METHOD = stringPreferencesKey("crash_report_method")
         private val KEY_CRASH_REPORT_EMAIL = stringPreferencesKey("crash_report_email")
         private val KEY_CRASH_REPORT_WEBHOOK_URL = stringPreferencesKey("crash_report_webhook_url")
+
         // R-UI-02: 会话焦点恢复 — 用户当前查看的会话与正在生成的会话分离持久化
         private val KEY_VIEWED_SESSION_ID = stringPreferencesKey("viewed_session_id")
         private val KEY_GENERATING_SESSION_ID = stringPreferencesKey("generating_session_id")
+
         // v1.x: 问候语个性化提醒通知 — 上次通知日期(YYYY-MM-DD),每天最多一次
         private val KEY_LAST_GREETING_NOTIFY_DATE = stringPreferencesKey("last_greeting_notify_date")
+
         // v1.x: 问候语 LLM 生成结果缓存(格式 "date|hint",当天命中不重复调 LLM)
         private val KEY_GREETING_HINT_CACHE = stringPreferencesKey("greeting_hint_cache")
     }
@@ -2250,25 +2647,33 @@ class SettingsRepository(
     }
 
     /** 保存连接测试缓存。 */
-    suspend fun saveConnectionTestCache(providerId: String, result: String, isSuccess: Boolean) {
+    suspend fun saveConnectionTestCache(
+        providerId: String,
+        result: String,
+        isSuccess: Boolean,
+    ) {
         val entry = ConnectionTestCacheEntry(result = result, isSuccess = isSuccess)
         connectionTestCache = connectionTestCache + (providerId to entry)
-        store.edit { it[KEY_CONNECTION_TEST_CACHE] = AppJson.encodeToString(
-            MapSerializer(String.serializer(), ConnectionTestCacheEntry.serializer()),
-            connectionTestCache,
-        ) }
+        store.edit {
+            it[KEY_CONNECTION_TEST_CACHE] =
+                AppJson.encodeToString(
+                    MapSerializer(String.serializer(), ConnectionTestCacheEntry.serializer()),
+                    connectionTestCache,
+                )
+        }
     }
 
     /** 恢复缓存(init 时调用)。 */
     private suspend fun restoreConnectionTestCache() {
         val cached = store.data.first()[KEY_CONNECTION_TEST_CACHE]
         if (cached != null) {
-            connectionTestCache = runCatching {
-                AppJson.decodeFromString(
-                    MapSerializer(String.serializer(), ConnectionTestCacheEntry.serializer()),
-                    cached,
-                )
-            }.getOrDefault(emptyMap())
+            connectionTestCache =
+                runCatching {
+                    AppJson.decodeFromString(
+                        MapSerializer(String.serializer(), ConnectionTestCacheEntry.serializer()),
+                        cached,
+                    )
+                }.getOrDefault(emptyMap())
         }
     }
 
@@ -2332,7 +2737,10 @@ class SettingsRepository(
     }
 
     /** 根据任务类型推荐模型 id(路由开启时返回绑定模型,否则 null)。非 suspend,基于内存缓存。 */
-    fun recommendModelForTask(input: String, fallbackModelId: String?): String? {
+    fun recommendModelForTask(
+        input: String,
+        fallbackModelId: String?,
+    ): String? {
         return recommendTaskRoute(input, fallbackModelId, null)?.modelId ?: fallbackModelId
     }
 
@@ -2348,13 +2756,14 @@ class SettingsRepository(
         val config = taskRoutingConfigCache
         if (!config.enabled) return null
         val type = detectTaskType(input)
-        val selection = when (type) {
-            TaskType.CHAT -> TaskRouteSelection(config.chatModelId, config.chatProviderId)
-            TaskType.REASONING -> TaskRouteSelection(config.reasoningModelId, config.reasoningProviderId)
-            TaskType.CODE -> TaskRouteSelection(config.codeModelId, config.codeProviderId)
-            TaskType.CREATIVE -> TaskRouteSelection(config.creativeModelId, config.creativeProviderId)
-            TaskType.ANALYSIS -> TaskRouteSelection(config.analysisModelId, config.analysisProviderId)
-        }
+        val selection =
+            when (type) {
+                TaskType.CHAT -> TaskRouteSelection(config.chatModelId, config.chatProviderId)
+                TaskType.REASONING -> TaskRouteSelection(config.reasoningModelId, config.reasoningProviderId)
+                TaskType.CODE -> TaskRouteSelection(config.codeModelId, config.codeProviderId)
+                TaskType.CREATIVE -> TaskRouteSelection(config.creativeModelId, config.creativeProviderId)
+                TaskType.ANALYSIS -> TaskRouteSelection(config.analysisModelId, config.analysisProviderId)
+            }
         if (selection.modelId.isNullOrBlank() && selection.providerId.isNullOrBlank()) return null
         return TaskRouteSelection(
             modelId = selection.modelId ?: fallbackModelId,
@@ -2367,4 +2776,3 @@ class SettingsRepository(
 const val STICKER_FREQ_OCCASIONALLY = "occasionally"
 const val STICKER_FREQ_NORMAL = "normal"
 const val STICKER_FREQ_FREQUENT = "frequent"
-

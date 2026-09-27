@@ -463,6 +463,9 @@
     <!-- 前端修复 (i18n-3.x): 楼层式上下文限制 i18n(临时复制中文,后续补译) -->
     <string name="settings_chat_floor_limiter">Ограничение контекста по этажам</string>
     <string name="settings_chat_floor_limiter_subtitle">Считает сообщения пользователя этажами, сохраняет последние N полных этажей, чтобы не обрезать диалог посередине</string>
+    <string name="settings_chat_tool_rounds">Лимит раундов инструментов</string>
+    <string name="settings_chat_tool_rounds_subtitle">Максимум раундов вызовов инструментов за ход; Без ограничений позволяет завершать длинные задачи (защита от циклов сохраняется)</string>
+    <string name="settings_chat_tool_rounds_unlimited">Без ограничений</string>
     <string name="settings_chat_floor_count">%1$d этажей</string>
     <string name="settings_chat_floor_keep">Сколько этажей сохранять</string>
     <string name="settings_chat_floor_keep_subtitle">Старые сообщения сверх этого числа этажей обрезаются</string>

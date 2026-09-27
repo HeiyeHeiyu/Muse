@@ -7,7 +7,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,27 +23,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseChip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import io.zer0.muse.ui.common.form.MuseSlider
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,11 +62,16 @@ import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.sticker.StickerItem
 import io.zer0.muse.data.sticker.StickerLibraryRepository
 import io.zer0.muse.tools.SessionPermissionMode
+import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseSlider
+import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.media.FullScreenMediaViewer
 import io.zer0.muse.ui.common.settings.ChevronRight
-import io.zer0.muse.ui.common.feedback.MuseDialog
-import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
@@ -84,11 +83,12 @@ import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
 import org.koin.compose.koinInject
+import androidx.compose.foundation.lazy.items as lazyItems
 
 /**
  * v0.31: 聊天二级设置页 — 给用户更多控制权。
@@ -144,6 +144,8 @@ fun ChatSettingsPage(
         .collectAsStateWithLifecycle(initialValue = false)
     val floorLimit by settings.floorLimitFlow
         .collectAsStateWithLifecycle(initialValue = 16)
+    val toolLoopMaxRounds by settings.toolLoopMaxRoundsFlow
+        .collectAsStateWithLifecycle(initialValue = 0)
 
     SettingsSubPageScaffold(title = stringResource(R.string.settings_chat_title), onBack = onBack) {
         // ── v1.0.20: 工具调用批准(置顶,用户最关心的安全开关)──
@@ -151,16 +153,18 @@ fun ChatSettingsPage(
         item {
             SettingsGroup {
                 // 三档会话权限模式分段选择
-                val modeOptions = listOf(
-                    stringResource(R.string.settings_chat_tool_approval_trusted),
-                    stringResource(R.string.settings_chat_tool_approval_ask),
-                    stringResource(R.string.settings_chat_tool_approval_strict),
-                )
-                val modeIndex = when (permissionMode) {
-                    SessionPermissionMode.TRUSTED -> 0
-                    SessionPermissionMode.ASK -> 1
-                    SessionPermissionMode.STRICT -> 2
-                }
+                val modeOptions =
+                    listOf(
+                        stringResource(R.string.settings_chat_tool_approval_trusted),
+                        stringResource(R.string.settings_chat_tool_approval_ask),
+                        stringResource(R.string.settings_chat_tool_approval_strict),
+                    )
+                val modeIndex =
+                    when (permissionMode) {
+                        SessionPermissionMode.TRUSTED -> 0
+                        SessionPermissionMode.ASK -> 1
+                        SessionPermissionMode.STRICT -> 2
+                    }
                 SettingsSegmentedRow(
                     icon = MuseIcons.shieldCheck,
                     title = stringResource(R.string.settings_chat_tool_approval_title),
@@ -168,11 +172,12 @@ fun ChatSettingsPage(
                     options = modeOptions,
                     selectedIndex = modeIndex,
                     onSelectedChange = { idx ->
-                        val newMode = when (idx) {
-                            0 -> SessionPermissionMode.TRUSTED
-                            2 -> SessionPermissionMode.STRICT
-                            else -> SessionPermissionMode.ASK
-                        }
+                        val newMode =
+                            when (idx) {
+                                0 -> SessionPermissionMode.TRUSTED
+                                2 -> SessionPermissionMode.STRICT
+                                else -> SessionPermissionMode.ASK
+                            }
                         scope.launch { settings.setDefaultSessionPermissionMode(newMode) }
                     },
                 )
@@ -186,15 +191,17 @@ fun ChatSettingsPage(
                 ) { ChevronRight() }
                 SettingsGroupDivider()
                 // 当前模式说明(动态显示)
-                val modeDescRes = when (permissionMode) {
-                    SessionPermissionMode.TRUSTED -> R.string.settings_chat_tool_approval_trusted_desc
-                    SessionPermissionMode.ASK -> R.string.settings_chat_tool_approval_ask_desc
-                    SessionPermissionMode.STRICT -> R.string.settings_chat_tool_approval_strict_desc
-                }
+                val modeDescRes =
+                    when (permissionMode) {
+                        SessionPermissionMode.TRUSTED -> R.string.settings_chat_tool_approval_trusted_desc
+                        SessionPermissionMode.ASK -> R.string.settings_chat_tool_approval_ask_desc
+                        SessionPermissionMode.STRICT -> R.string.settings_chat_tool_approval_strict_desc
+                    }
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(MusePaddings.cardInner),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(MusePaddings.cardInner),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -220,64 +227,70 @@ fun ChatSettingsPage(
             val chatBackground by settings.chatBackgroundFlow.collectAsStateWithLifecycle(initialValue = null)
             val bgScope = rememberCoroutineScope()
             val bgContext = LocalContext.current
-            val bgLauncher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.PickVisualMedia(),
-            ) { uri ->
-                uri?.let { picked ->
-                    bgScope.launch {
-                        // 审计修复 (6.5): 背景图改为存文件路径,DataStore 只存路径字符串。
-                        // 原实现把 ~500KB base64 写进 DataStore Preferences,每次 edit 全量重写,
-                        // 设置文件膨胀、冷启动变慢、ANR 风险。文件存 filesDir,体积可控。
-                        val savedPath = withContext(Dispatchers.IO) {
-                            runCatching {
-                                val bytes = bgContext.contentResolver.openInputStream(picked)?.use { it.readBytes() }
-                                    ?: return@runCatching null
-                                val bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                    ?: return@runCatching null
-                                val maxSide = 1920
-                                val scale = minOf(1f, maxSide.toFloat() / maxOf(bmp.width, bmp.height))
-                                val scaled = if (scale < 1f) {
-                                    android.graphics.Bitmap.createScaledBitmap(
-                                        bmp,
-                                        (bmp.width * scale).toInt(),
-                                        (bmp.height * scale).toInt(),
-                                        true,
-                                    )
-                                } else {
-                                    bmp
+            val bgLauncher =
+                rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.PickVisualMedia(),
+                ) { uri ->
+                    uri?.let { picked ->
+                        bgScope.launch {
+                            // 审计修复 (6.5): 背景图改为存文件路径,DataStore 只存路径字符串。
+                            // 原实现把 ~500KB base64 写进 DataStore Preferences,每次 edit 全量重写,
+                            // 设置文件膨胀、冷启动变慢、ANR 风险。文件存 filesDir,体积可控。
+                            val savedPath =
+                                withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        val bytes =
+                                            bgContext.contentResolver.openInputStream(picked)?.use { it.readBytes() }
+                                                ?: return@runCatching null
+                                        val bmp =
+                                            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                                ?: return@runCatching null
+                                        val maxSide = 1920
+                                        val scale = minOf(1f, maxSide.toFloat() / maxOf(bmp.width, bmp.height))
+                                        val scaled =
+                                            if (scale < 1f) {
+                                                android.graphics.Bitmap.createScaledBitmap(
+                                                    bmp,
+                                                    (bmp.width * scale).toInt(),
+                                                    (bmp.height * scale).toInt(),
+                                                    true,
+                                                )
+                                            } else {
+                                                bmp
+                                            }
+                                        val out = java.io.ByteArrayOutputStream()
+                                        scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, out)
+                                        if (scaled !== bmp) scaled.recycle()
+                                        bmp.recycle()
+                                        val target = java.io.File(bgContext.filesDir, "chat_background.jpg")
+                                        java.io.FileOutputStream(target).use { fos ->
+                                            fos.write(out.toByteArray())
+                                        }
+                                        out.close()
+                                        // 兼容旧值:已存 base64 的继续用,新值存路径(以 file:// 开头区分)
+                                        "file://" + target.absolutePath
+                                    }.getOrNull()
                                 }
-                                val out = java.io.ByteArrayOutputStream()
-                                scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, out)
-                                if (scaled !== bmp) scaled.recycle()
-                                bmp.recycle()
-                                val target = java.io.File(bgContext.filesDir, "chat_background.jpg")
-                                java.io.FileOutputStream(target).use { fos ->
-                                    fos.write(out.toByteArray())
-                                }
-                                out.close()
-                                // 兼容旧值:已存 base64 的继续用,新值存路径(以 file:// 开头区分)
-                                "file://" + target.absolutePath
-                            }.getOrNull()
-                        }
-                        if (savedPath != null) {
-                            settings.saveChatBackground(savedPath)
-                            // v1.0.74 fix: 此前成功/失败均无反馈,用户以为坏了
-                            MuseToast.show(bgContext.getString(R.string.settings_chat_background_saved))
-                        } else {
-                            MuseToast.show(bgContext.getString(R.string.settings_chat_background_failed))
+                            if (savedPath != null) {
+                                settings.saveChatBackground(savedPath)
+                                // v1.0.74 fix: 此前成功/失败均无反馈,用户以为坏了
+                                MuseToast.show(bgContext.getString(R.string.settings_chat_background_saved))
+                            } else {
+                                MuseToast.show(bgContext.getString(R.string.settings_chat_background_failed))
+                            }
                         }
                     }
                 }
-            }
             SettingsGroup {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 56.dp)
-                        .clickable {
-                            bgLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 56.dp)
+                            .clickable {
+                                bgLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -302,24 +315,27 @@ fun ChatSettingsPage(
                     if (chatBackground != null) {
                         Text(
                             text = stringResource(R.string.action_clear),
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Medium,
-                            ),
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(14.dp))
-                                .clickable {
-                                    bgScope.launch { settings.saveChatBackground(null) }
-                                }
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            style =
+                                MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Medium,
+                                ),
+                            modifier =
+                                Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .clickable {
+                                        bgScope.launch { settings.saveChatBackground(null) }
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
                         )
                     } else {
                         Text(
                             text = stringResource(R.string.settings_chat_background_choose),
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Medium,
-                            ),
+                            style =
+                                MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Medium,
+                                ),
                         )
                     }
                 }
@@ -331,10 +347,11 @@ fun ChatSettingsPage(
             val gradScope = rememberCoroutineScope()
             SettingsGroup {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 56.dp)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 56.dp)
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -359,49 +376,54 @@ fun ChatSettingsPage(
                     if (chatGradient != null) {
                         Text(
                             text = stringResource(R.string.action_clear),
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Medium,
-                            ),
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(14.dp))
-                                .clickable {
-                                    gradScope.launch { settings.saveChatGradient(null) }
-                                }
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            style =
+                                MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Medium,
+                                ),
+                            modifier =
+                                Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .clickable {
+                                        gradScope.launch { settings.saveChatGradient(null) }
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
                         )
                     }
                 }
                 SettingsGroupDivider()
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     PRESET_CHAT_GRADIENTS.forEach { (start, end) ->
                         val selected = chatGradient?.startColorArgb == start && chatGradient?.endColorArgb == end
                         Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(Color(start.toInt()), Color(end.toInt())),
-                                    ),
-                                )
-                                .border(
-                                    width = if (selected) 2.dp else 1.dp,
-                                    color = if (selected) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.outlineVariant
+                            modifier =
+                                Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(Color(start.toInt()), Color(end.toInt())),
+                                        ),
+                                    )
+                                    .border(
+                                        width = if (selected) 2.dp else 1.dp,
+                                        color =
+                                            if (selected) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.outlineVariant
+                                            },
+                                        shape = RoundedCornerShape(10.dp),
+                                    )
+                                    .clickable {
+                                        gradScope.launch { settings.saveChatGradient(ChatGradient(start, end)) }
                                     },
-                                    shape = RoundedCornerShape(10.dp),
-                                )
-                                .clickable {
-                                    gradScope.launch { settings.saveChatGradient(ChatGradient(start, end)) }
-                                },
                         )
                     }
                 }
@@ -469,15 +491,17 @@ fun ChatSettingsPage(
                 )
                 SettingsGroupDivider()
                 // F-41: 消息气泡圆角 — 四档(方形/圆角/大圆角/胶囊)
-                val radiusOptions = listOf(
-                    stringResource(R.string.settings_bubble_radius_none),
-                    stringResource(R.string.settings_bubble_radius_small),
-                    stringResource(R.string.settings_bubble_radius_large),
-                    stringResource(R.string.settings_bubble_radius_pill),
-                )
+                val radiusOptions =
+                    listOf(
+                        stringResource(R.string.settings_bubble_radius_none),
+                        stringResource(R.string.settings_bubble_radius_small),
+                        stringResource(R.string.settings_bubble_radius_large),
+                        stringResource(R.string.settings_bubble_radius_pill),
+                    )
                 val radiusValues = listOf(0, 8, 20, 28)
-                val selectedRadiusIndex = radiusValues.indexOf(prefs.bubbleRadius)
-                    .coerceIn(0, radiusValues.lastIndex)
+                val selectedRadiusIndex =
+                    radiusValues.indexOf(prefs.bubbleRadius)
+                        .coerceIn(0, radiusValues.lastIndex)
                 SettingsSegmentedRow(
                     icon = MuseIcons.square,
                     title = stringResource(R.string.settings_bubble_radius_title),
@@ -509,9 +533,10 @@ fun ChatSettingsPage(
                     }
                 }
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(MusePaddings.cardInner),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(MusePaddings.cardInner),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -558,9 +583,10 @@ fun ChatSettingsPage(
                     }
                 }
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(MusePaddings.cardInner),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(MusePaddings.cardInner),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -601,9 +627,10 @@ fun ChatSettingsPage(
             SettingsGroup {
                 // 温度滑块:0-2,步长 0.1
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(MusePaddings.cardInner),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(MusePaddings.cardInner),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -653,21 +680,25 @@ fun ChatSettingsPage(
                             value = temperatureDraft,
                             onValueChange = { v -> temperatureDraft = v },
                             valueRange = 0f..2f,
-                            steps = 19,  // 步长 0.1,0-2 共 21 个点,steps = 21 - 2
+                            steps = 19, // 步长 0.1,0-2 共 21 个点,steps = 21 - 2
                             modifier = Modifier.padding(top = 4.dp),
                         )
                     }
                 }
                 SettingsGroupDivider()
                 // 风格选择:concise/balanced/detailed
-                val styleOptions = listOf(
-                    stringResource(R.string.settings_chat_style_concise),
-                    stringResource(R.string.settings_chat_style_balanced),
-                    stringResource(R.string.settings_chat_style_detailed),
-                )
-                val selectedStyleIndex = when (prefs.responseStyle) {
-                    "concise" -> 0; "detailed" -> 2; else -> 1
-                }
+                val styleOptions =
+                    listOf(
+                        stringResource(R.string.settings_chat_style_concise),
+                        stringResource(R.string.settings_chat_style_balanced),
+                        stringResource(R.string.settings_chat_style_detailed),
+                    )
+                val selectedStyleIndex =
+                    when (prefs.responseStyle) {
+                        "concise" -> 0
+                        "detailed" -> 2
+                        else -> 1
+                    }
                 SettingsSegmentedRow(
                     icon = MuseIcons.atom,
                     title = stringResource(R.string.settings_chat_style),
@@ -675,21 +706,32 @@ fun ChatSettingsPage(
                     options = styleOptions,
                     selectedIndex = selectedStyleIndex,
                     onSelectedChange = { idx ->
-                        val value = when (idx) { 0 -> "concise"; 2 -> "detailed"; else -> "balanced" }
+                        val value =
+                            when (idx) {
+                                0 -> "concise"
+                                2 -> "detailed"
+                                else -> "balanced"
+                            }
                         update { it.copy(responseStyle = value) }
                     },
                 )
                 SettingsGroupDivider()
                 // 语气选择:neutral/friendly/formal/humorous
-                val toneOptions = listOf(
-                    stringResource(R.string.settings_chat_tone_neutral),
-                    stringResource(R.string.settings_chat_tone_friendly),
-                    stringResource(R.string.settings_chat_tone_formal),
-                    stringResource(R.string.settings_chat_tone_humorous),
-                )
-                val selectedToneIndex = when (prefs.responseTone) {
-                    "neutral" -> 0; "friendly" -> 1; "formal" -> 2; "humorous" -> 3; else -> 0
-                }
+                val toneOptions =
+                    listOf(
+                        stringResource(R.string.settings_chat_tone_neutral),
+                        stringResource(R.string.settings_chat_tone_friendly),
+                        stringResource(R.string.settings_chat_tone_formal),
+                        stringResource(R.string.settings_chat_tone_humorous),
+                    )
+                val selectedToneIndex =
+                    when (prefs.responseTone) {
+                        "neutral" -> 0
+                        "friendly" -> 1
+                        "formal" -> 2
+                        "humorous" -> 3
+                        else -> 0
+                    }
                 SettingsSegmentedRow(
                     icon = MuseIcons.switch,
                     title = stringResource(R.string.settings_chat_tone),
@@ -697,10 +739,14 @@ fun ChatSettingsPage(
                     options = toneOptions,
                     selectedIndex = selectedToneIndex,
                     onSelectedChange = { idx ->
-                        val value = when (idx) {
-                            0 -> "neutral"; 1 -> "friendly"; 2 -> "formal"; 3 -> "humorous"
-                            else -> "neutral"
-                        }
+                        val value =
+                            when (idx) {
+                                0 -> "neutral"
+                                1 -> "friendly"
+                                2 -> "formal"
+                                3 -> "humorous"
+                                else -> "neutral"
+                            }
                         update { it.copy(responseTone = value) }
                     },
                 )
@@ -872,19 +918,25 @@ fun ChatSettingsPage(
                 if (pasteAsFileEnabled) {
                     SettingsGroupDivider()
                     val thresholdOptions = listOf("1000", "2000", "5000")
-                    val thresholdIndex = when (pasteAsFileThreshold) {
-                        1000 -> 0
-                        5000 -> 2
-                        else -> 1
-                    }
+                    val thresholdIndex =
+                        when (pasteAsFileThreshold) {
+                            1000 -> 0
+                            5000 -> 2
+                            else -> 1
+                        }
                     SettingsSegmentedRow(
-                    icon = MuseIcons.clipboard,
+                        icon = MuseIcons.clipboard,
                         title = stringResource(R.string.settings_chat_paste_as_file_threshold),
                         subtitle = stringResource(R.string.settings_chat_paste_as_file_threshold_subtitle, pasteAsFileThreshold),
                         options = thresholdOptions,
                         selectedIndex = thresholdIndex,
                         onSelectedChange = { idx ->
-                            val threshold = when (idx) { 0 -> 1000; 2 -> 5000; else -> 2000 }
+                            val threshold =
+                                when (idx) {
+                                    0 -> 1000
+                                    2 -> 5000
+                                    else -> 2000
+                                }
                             scope.launch { settings.savePasteAsFileThreshold(threshold) }
                         },
                     )
@@ -916,16 +968,18 @@ fun ChatSettingsPage(
                 )
                 if (floorLimiterEnabled) {
                     SettingsGroupDivider()
-                    val floorOptions = listOf(
-                        stringResource(R.string.settings_chat_floor_count, 8),
-                        stringResource(R.string.settings_chat_floor_count, 16),
-                        stringResource(R.string.settings_chat_floor_count, 32),
-                    )
-                    val floorIndex = when (floorLimit) {
-                        8 -> 0
-                        32 -> 2
-                        else -> 1
-                    }
+                    val floorOptions =
+                        listOf(
+                            stringResource(R.string.settings_chat_floor_count, 8),
+                            stringResource(R.string.settings_chat_floor_count, 16),
+                            stringResource(R.string.settings_chat_floor_count, 32),
+                        )
+                    val floorIndex =
+                        when (floorLimit) {
+                            8 -> 0
+                            32 -> 2
+                            else -> 1
+                        }
                     SettingsSegmentedRow(
                         icon = MuseIcons.arrowsVertical,
                         title = stringResource(R.string.settings_chat_floor_keep),
@@ -933,15 +987,53 @@ fun ChatSettingsPage(
                         options = floorOptions,
                         selectedIndex = floorIndex,
                         onSelectedChange = { idx ->
-                            val limit = when (idx) {
-                                0 -> 8
-                                2 -> 32
-                                else -> 16
-                            }
+                            val limit =
+                                when (idx) {
+                                    0 -> 8
+                                    2 -> 32
+                                    else -> 16
+                                }
                             scope.launch { settings.saveFloorLimit(limit) }
                         },
                     )
                 }
+            }
+        }
+        // v2.x: 工具轮次上限(默认无限制) — Agent Loop 放开后长任务不再被轮次卡断;
+        // 卡死/重复调用/连续失败等循环保护仍独立生效。
+        item {
+            SettingsGroup {
+                val roundOptions =
+                    listOf(
+                        stringResource(R.string.settings_chat_tool_rounds_unlimited),
+                        "100",
+                        "50",
+                        "25",
+                    )
+                val roundIndex =
+                    when (toolLoopMaxRounds) {
+                        100 -> 1
+                        50 -> 2
+                        25 -> 3
+                        else -> 0
+                    }
+                SettingsSegmentedRow(
+                    icon = MuseIcons.refresh,
+                    title = stringResource(R.string.settings_chat_tool_rounds),
+                    subtitle = stringResource(R.string.settings_chat_tool_rounds_subtitle),
+                    options = roundOptions,
+                    selectedIndex = roundIndex,
+                    onSelectedChange = { idx ->
+                        val limit =
+                            when (idx) {
+                                1 -> 100
+                                2 -> 50
+                                3 -> 25
+                                else -> 0
+                            }
+                        scope.launch { settings.saveToolLoopMaxRounds(limit) }
+                    },
+                )
             }
         }
         // ── 记忆 ──
@@ -1015,15 +1107,17 @@ private fun NotificationPolicyRow(
     val replyNotificationCd = stringResource(R.string.settings_memory_reply_notification_cd)
     val replyNotificationTitle = stringResource(R.string.settings_memory_reply_notification)
     val replyNotificationSubtitle = stringResource(R.string.settings_memory_reply_notification_subtitle)
-    val policies = listOf(
-        "never" to R.string.settings_memory_policy_never,
-        "when_unfocused" to R.string.settings_memory_policy_when_unfocused,
-        "always" to R.string.settings_memory_policy_always,
-    )
+    val policies =
+        listOf(
+            "never" to R.string.settings_memory_policy_never,
+            "when_unfocused" to R.string.settings_memory_policy_when_unfocused,
+            "always" to R.string.settings_memory_policy_always,
+        )
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Icon(
@@ -1046,9 +1140,10 @@ private fun NotificationPolicyRow(
             }
         }
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             policies.forEach { (value, labelRes) ->
@@ -1063,13 +1158,14 @@ private fun NotificationPolicyRow(
 }
 
 /** 把温度值转成可读提示的资源 ID(0=确定 1=平衡 2=创造性)。 */
-private fun temperatureHint(value: Float): Int = when {
-    value <= 0.3f -> R.string.settings_chat_temp_hint_certain
-    value <= 0.7f -> R.string.settings_chat_temp_hint_balanced_low
-    value <= 1.2f -> R.string.settings_chat_temp_hint_balanced
-    value <= 1.6f -> R.string.settings_chat_temp_hint_creative_low
-    else -> R.string.settings_chat_temp_hint_creative
-}
+private fun temperatureHint(value: Float): Int =
+    when {
+        value <= 0.3f -> R.string.settings_chat_temp_hint_certain
+        value <= 0.7f -> R.string.settings_chat_temp_hint_balanced_low
+        value <= 1.2f -> R.string.settings_chat_temp_hint_balanced
+        value <= 1.6f -> R.string.settings_chat_temp_hint_creative_low
+        else -> R.string.settings_chat_temp_hint_creative
+    }
 
 /** 解析压缩模型的显示名称(未绑定回退默认文本)。 */
 
@@ -1088,9 +1184,10 @@ private fun SessionCacheSizeRow(
 ) {
     val current by settings.sessionCacheSizeFlow.collectAsStateWithLifecycle(initialValue = 5)
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(MusePaddings.cardInner),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(MusePaddings.cardInner),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -1191,31 +1288,35 @@ private fun StickerLibrarySection(
     var importingSticker by remember { mutableStateOf(false) }
     var stickerImportProgress by remember { mutableStateOf<Float?>(null) }
     var stickerImportText by remember { mutableStateOf("") }
-    val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        importingSticker = true
-        stickerImportProgress = null
-        stickerImportText = ""
-        scope.launch {
-            stickerRepo.importUri(uri) { phase, done, total ->
-                stickerImportProgress = if (total != null && total > 0) {
-                    (done.toFloat() / total).coerceIn(0f, 1f)
-                } else null
-                stickerImportText = if (total != null && total > 0) "$phase $done/$total" else context.getString(R.string.settings_sticker_import_progress, phase, done)
-            }
-                .onSuccess { count ->
-                    MuseToast.show(context.getString(R.string.settings_sticker_imported, count))
-                    refreshTrigger++
-                }
-                .onError { msg, _ ->
-                    MuseToast.show(context.getString(R.string.settings_sticker_import_failed, msg), 3500)
-                }
-            importingSticker = false
+    val importLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocument(),
+        ) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            importingSticker = true
             stickerImportProgress = null
+            stickerImportText = ""
+            scope.launch {
+                stickerRepo.importUri(uri) { phase, done, total ->
+                    stickerImportProgress =
+                        if (total != null && total > 0) {
+                            (done.toFloat() / total).coerceIn(0f, 1f)
+                        } else {
+                            null
+                        }
+                    stickerImportText = if (total != null && total > 0) "$phase $done/$total" else context.getString(R.string.settings_sticker_import_progress, phase, done)
+                }
+                    .onSuccess { count ->
+                        MuseToast.show(context.getString(R.string.settings_sticker_imported, count))
+                        refreshTrigger++
+                    }
+                    .onError { msg, _ ->
+                        MuseToast.show(context.getString(R.string.settings_sticker_import_failed, msg), 3500)
+                    }
+                importingSticker = false
+                stickerImportProgress = null
+            }
         }
-    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1233,9 +1334,10 @@ private fun StickerLibrarySection(
             SettingsGroupDivider()
             // v2.x: 发送频率档位(标记链路;替代旧概率滑块)
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(MusePaddings.cardInner),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(MusePaddings.cardInner),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -1293,9 +1395,10 @@ private fun StickerLibrarySection(
             // v1.0.54: 导入进度文本(进度条不随真实进度,用户反馈只保留文本)
             if (importingSticker) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
                     if (stickerImportText.isNotBlank()) {
                         Text(
@@ -1310,13 +1413,15 @@ private fun StickerLibrarySection(
             if (stickers.isNotEmpty()) {
                 SettingsGroupDivider()
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     MuseCapsuleButton(
-                        text = if (batchDeleteMode) {
+                        text =
+                            if (batchDeleteMode) {
                                 stringResource(R.string.settings_sticker_batch_done)
                             } else {
                                 stringResource(R.string.settings_sticker_batch_delete)
@@ -1344,9 +1449,10 @@ private fun StickerLibrarySection(
         // 分类数量来自导入内容，必须有界；否则会把下方预览网格推出可视区域。
         if (stickers.isNotEmpty()) {
             LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp, max = 56.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp, max = 56.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(horizontal = 2.dp),
             ) {
@@ -1371,9 +1477,10 @@ private fun StickerLibrarySection(
         if (stickers.isEmpty()) {
             // 空态:灰色图标 + 标题 + 副标题
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 32.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1404,9 +1511,10 @@ private fun StickerLibrarySection(
             val gridColumns = GridCells.Adaptive(80.dp)
             LazyVerticalGrid(
                 columns = gridColumns,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 360.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 360.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(vertical = 4.dp),
@@ -1418,35 +1526,40 @@ private fun StickerLibrarySection(
                     val file = stickerRepo.getStickerFileByPath(item.relativePath)
                     val isSelected = selectedIds[item.id] == true
                     Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .clip(MuseShapes.medium)
-                            .background(
-                                if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            )
-                            .combinedClickable(
-                                onClick = {
-                                    if (batchDeleteMode) {
-                                        selectedIds[item.id] = !isSelected
+                        modifier =
+                            Modifier
+                                .size(80.dp)
+                                .clip(MuseShapes.medium)
+                                .background(
+                                    if (isSelected) {
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                                     } else {
-                                        // v1.0.52: 非批量模式点击预览大图
-                                        previewItem = item
-                                    }
-                                },
-                                onLongClick = {
-                                    if (!batchDeleteMode) pendingDelete = item
-                                },
-                            ),
+                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    },
+                                )
+                                .combinedClickable(
+                                    onClick = {
+                                        if (batchDeleteMode) {
+                                            selectedIds[item.id] = !isSelected
+                                        } else {
+                                            // v1.0.52: 非批量模式点击预览大图
+                                            previewItem = item
+                                        }
+                                    },
+                                    onLongClick = {
+                                        if (!batchDeleteMode) pendingDelete = item
+                                    },
+                                ),
                         contentAlignment = Alignment.Center,
                     ) {
                         AsyncImage(
-                            model = coil.request.ImageRequest.Builder(context)
-                                .data(file)
-                                // v1.112 (F5): 限制解码尺寸为 80dp,避免大图全分辨率解码浪费内存
-                                .size(160)
-                                .crossfade(false)
-                                .build(),
+                            model =
+                                coil.request.ImageRequest.Builder(context)
+                                    .data(file)
+                                    // v1.112 (F5): 限制解码尺寸为 80dp,避免大图全分辨率解码浪费内存
+                                    .size(160)
+                                    .crossfade(false)
+                                    .build(),
                             contentDescription = item.fileName,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize(),
@@ -1454,9 +1567,10 @@ private fun StickerLibrarySection(
                         // v1.112 (F1-F2): 批量删除模式下的选中蒙层
                         if (batchDeleteMode && isSelected) {
                             Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                                modifier =
+                                    Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
@@ -1476,18 +1590,20 @@ private fun StickerLibrarySection(
                     onClick = { showBatchDeleteConfirm = true },
                     color = MaterialTheme.colorScheme.error,
                     shape = MuseShapes.pill,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
                 ) {
                     Text(
                         text = stringResource(R.string.settings_sticker_delete_selected, selectedIds.count { it.value }),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onError,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 12.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
                     )
                 }
             }
@@ -1577,11 +1693,12 @@ private fun StickerLibrarySection(
  * E3: 聊天渐变背景预设(双色线性渐变,ARGB Long 色值)。
  * 仅色块展示,名称不展示(避免引入 6 组 ×7 语言的翻译成本)。
  */
-private val PRESET_CHAT_GRADIENTS: List<Pair<Long, Long>> = listOf(
-    0xFFE3F2FDL to 0xFF90CAF9L, // 晨蓝
-    0xFF1A2980L to 0xFF26D0CEL, // 深海
-    0xFF0F2027L to 0xFF2C5364L, // 夜航
-    0xFFFCEABBL to 0xFFF8B500L, // 暖金
-    0xFF43C6ACL to 0xFF191654L, // 松石
-    0xFF800000L to 0xFFE8B298L, // 晚霞
-)
+private val PRESET_CHAT_GRADIENTS: List<Pair<Long, Long>> =
+    listOf(
+        0xFFE3F2FDL to 0xFF90CAF9L, // 晨蓝
+        0xFF1A2980L to 0xFF26D0CEL, // 深海
+        0xFF0F2027L to 0xFF2C5364L, // 夜航
+        0xFFFCEABBL to 0xFFF8B500L, // 暖金
+        0xFF43C6ACL to 0xFF191654L, // 松石
+        0xFF800000L to 0xFFE8B298L, // 晚霞
+    )

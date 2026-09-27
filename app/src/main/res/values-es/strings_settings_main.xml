@@ -463,6 +463,9 @@
     <!-- 前端修复 (i18n-3.x): 楼层式上下文限制 i18n(临时复制中文,后续补译) -->
     <string name="settings_chat_floor_limiter">Límite de contexto por niveles</string>
     <string name="settings_chat_floor_limiter_subtitle">Trata los mensajes del usuario como niveles, conserva los últimos N niveles completos para evitar cortar a mitad de conversación</string>
+    <string name="settings_chat_tool_rounds">Límite de rondas de herramientas</string>
+    <string name="settings_chat_tool_rounds_subtitle">Rondas máximas de llamadas a herramientas por turno; Ilimitado permite completar tareas largas sin interrupciones (las protecciones contra bucles siguen activas)</string>
+    <string name="settings_chat_tool_rounds_unlimited">Ilimitado</string>
     <string name="settings_chat_floor_count">%1$d niveles</string>
     <string name="settings_chat_floor_keep">Niveles a conservar</string>
     <string name="settings_chat_floor_keep_subtitle">Los mensajes antiguos que superen este número de niveles se truncan</string>

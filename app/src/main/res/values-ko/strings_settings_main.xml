@@ -463,6 +463,9 @@
     <!-- 前端修复 (i18n-3.x): 楼层式上下文限制 i18n(临时复制中文,后续补译) -->
     <string name="settings_chat_floor_limiter">층 기반 컨텍스트 제한</string>
     <string name="settings_chat_floor_limiter_subtitle">사용자 메시지를 층으로 간주하고 최근 N층 전체를 유지하여 대화 중간에 잘리는 것을 방지</string>
+    <string name="settings_chat_tool_rounds">도구 라운드 상한</string>
+    <string name="settings_chat_tool_rounds_subtitle">턴당 도구 호출 라운드 상한. 무제한이면 긴 작업이 중단되지 않습니다(루프 보호는 계속 적용)</string>
+    <string name="settings_chat_tool_rounds_unlimited">무제한</string>
     <string name="settings_chat_floor_count">%1$d층</string>
     <string name="settings_chat_floor_keep">유지할 층 수</string>
     <string name="settings_chat_floor_keep_subtitle">이 층수를 초과하는 이전 메시지는 잘립니다</string>

@@ -18,31 +18,44 @@ import kotlinx.serialization.builtins.serializer
  * 承载 Token 估算、粘贴转文件、楼层上下文限制、富文本输入、聊天偏好 JSON。
  */
 class ChatSettingsStore(private val context: Context) {
-
     private val store get() = context.museSettingsDataStore
 
-    val tokenEstimateEnabledFlow: Flow<Boolean> = store.data.map { prefs ->
-        prefs[KEY_TOKEN_ESTIMATE_ENABLED] ?: false
-    }
-    val pasteAsFileEnabledFlow: Flow<Boolean> = store.data.map { prefs ->
-        prefs[KEY_PASTE_AS_FILE_ENABLED] ?: true
-    }
-    val pasteAsFileThresholdFlow: Flow<Int> = store.data.map { prefs ->
-        prefs[KEY_PASTE_AS_FILE_THRESHOLD] ?: 2000
-    }
-    val floorLimiterEnabledFlow: Flow<Boolean> = store.data.map { prefs ->
-        prefs[KEY_FLOOR_LIMITER_ENABLED] ?: false
-    }
-    val floorLimitFlow: Flow<Int> = store.data.map { prefs ->
-        prefs[KEY_FLOOR_LIMIT] ?: 16
-    }
-    val chatPreferencesFlow: Flow<ChatPreferences> = store.data.map { prefs ->
-        decodeChatPreferences(prefs[KEY_CHAT_PREFERENCES])
-    }
+    val tokenEstimateEnabledFlow: Flow<Boolean> =
+        store.data.map { prefs ->
+            prefs[KEY_TOKEN_ESTIMATE_ENABLED] ?: false
+        }
+    val pasteAsFileEnabledFlow: Flow<Boolean> =
+        store.data.map { prefs ->
+            prefs[KEY_PASTE_AS_FILE_ENABLED] ?: true
+        }
+    val pasteAsFileThresholdFlow: Flow<Int> =
+        store.data.map { prefs ->
+            prefs[KEY_PASTE_AS_FILE_THRESHOLD] ?: 2000
+        }
+    val floorLimiterEnabledFlow: Flow<Boolean> =
+        store.data.map { prefs ->
+            prefs[KEY_FLOOR_LIMITER_ENABLED] ?: false
+        }
+    val floorLimitFlow: Flow<Int> =
+        store.data.map { prefs ->
+            prefs[KEY_FLOOR_LIMIT] ?: 16
+        }
+
+    /** v2.x: 工具轮次上限(0=无限制;默认无限制,长任务不再被轮次卡断)。 */
+    val toolLoopMaxRoundsFlow: Flow<Int> =
+        store.data.map { prefs ->
+            prefs[KEY_TOOL_LOOP_MAX_ROUNDS] ?: 0
+        }
+    val chatPreferencesFlow: Flow<ChatPreferences> =
+        store.data.map { prefs ->
+            decodeChatPreferences(prefs[KEY_CHAT_PREFERENCES])
+        }
+
     /** C3: 最近浏览会话 id 列表(最近优先,去重置顶,最多 [RECENT_SESSIONS_CAP] 条)。 */
-    val recentSessionsFlow: Flow<List<String>> = store.data.map { prefs ->
-        decodeRecentSessions(prefs[KEY_RECENT_SESSIONS])
-    }
+    val recentSessionsFlow: Flow<List<String>> =
+        store.data.map { prefs ->
+            decodeRecentSessions(prefs[KEY_RECENT_SESSIONS])
+        }
 
     suspend fun getChatPreferences(): ChatPreferences = chatPreferencesFlow.first()
 
@@ -68,6 +81,11 @@ class ChatSettingsStore(private val context: Context) {
 
     suspend fun saveFloorLimit(limit: Int) {
         store.edit { it[KEY_FLOOR_LIMIT] = limit }
+    }
+
+    /** v2.x: 保存工具轮次上限(0=无限制)。 */
+    suspend fun saveToolLoopMaxRounds(limit: Int) {
+        store.edit { it[KEY_TOOL_LOOP_MAX_ROUNDS] = limit }
     }
 
     /**
@@ -106,6 +124,7 @@ class ChatSettingsStore(private val context: Context) {
         private val KEY_PASTE_AS_FILE_THRESHOLD = intPreferencesKey("paste_as_file_threshold")
         private val KEY_FLOOR_LIMITER_ENABLED = booleanPreferencesKey("floor_limiter_enabled")
         private val KEY_FLOOR_LIMIT = intPreferencesKey("floor_limit")
+        private val KEY_TOOL_LOOP_MAX_ROUNDS = intPreferencesKey("tool_loop_max_rounds")
         private val KEY_CHAT_PREFERENCES = stringPreferencesKey("chat_preferences_json")
     }
 }

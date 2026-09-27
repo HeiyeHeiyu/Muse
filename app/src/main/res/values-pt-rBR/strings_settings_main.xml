@@ -463,6 +463,9 @@
     <!-- 前端修复 (i18n-3.x): 楼层式上下文限制 i18n(临时复制中文,后续补译) -->
     <string name="settings_chat_floor_limiter">Limite de contexto por andares</string>
     <string name="settings_chat_floor_limiter_subtitle">Trata mensagens do usuário como andares, mantém os últimos N andares completos para evitar cortar no meio da conversa</string>
+    <string name="settings_chat_tool_rounds">Limite de rodadas de ferramentas</string>
+    <string name="settings_chat_tool_rounds_subtitle">Máximo de rodadas de chamadas de ferramentas por turno; Ilimitado permite concluir tarefas longas (as proteções contra loops continuam ativas)</string>
+    <string name="settings_chat_tool_rounds_unlimited">Ilimitado</string>
     <string name="settings_chat_floor_count">%1$d andares</string>
     <string name="settings_chat_floor_keep">Andares a manter</string>
     <string name="settings_chat_floor_keep_subtitle">Mensagens antigas além dessa contagem de andares são truncadas</string>

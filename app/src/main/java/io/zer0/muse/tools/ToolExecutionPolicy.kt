@@ -25,7 +25,6 @@ class ToolExecutionPolicy(
     /** 初始最大轮次;与 ToolOrchestrator.DEFAULT_MAX_TOOL_ROUNDS(10)对齐。 */
     initialMaxRounds: Int = 10,
 ) {
-
     /** 动态最大轮次(task_plan 产生后可扩容)。运行期由 [updateMaxRounds] 维护。 */
     var maxRounds: Int = initialMaxRounds
         private set
@@ -38,14 +37,19 @@ class ToolExecutionPolicy(
     enum class StopReason {
         /** 达到最大轮数(原 maxRounds 语义,兜底防线)。 */
         MAX_ROUNDS,
+
         /** 单 turn 累计工具调用次数超限。 */
         MAX_TOTAL_CALLS,
+
         /** 连续失败次数超限(与既有早停一致)。 */
         CONSECUTIVE_FAILURES,
+
         /** turn 总耗时超限。 */
         TIME_BUDGET_EXHAUSTED,
+
         /** 同一 (工具名+参数) 连续重复调用超限(调用风暴指纹)。 */
         REPEATED_IDENTICAL_CALL,
+
         /** P2-7: 单 turn 工具输出累计字符超限(结果回填风暴)。 */
         MAX_TOTAL_OUTPUT_CHARS,
     }
@@ -60,6 +64,7 @@ class ToolExecutionPolicy(
 
     private var totalCalls = 0
     private var consecutiveFailures = 0
+
     /** turn 起始时间戳(测试据此构造相对 nowMs)。 */
     val startedAtMs = System.currentTimeMillis()
     private var lastFingerprint: String? = null
@@ -103,8 +108,7 @@ class ToolExecutionPolicy(
     val consecutiveFailuresCount: Int get() = consecutiveFailures
 
     /** 连续失败是否已达早停阈值(替代散落在 ToolOrchestrator 的 shouldAbortToolLoop)。 */
-    fun shouldAbortOnConsecutiveFailures(): Boolean =
-        consecutiveFailures >= limits.maxConsecutiveFailures
+    fun shouldAbortOnConsecutiveFailures(): Boolean = consecutiveFailures >= limits.maxConsecutiveFailures
 
     // 轮级无进展检测(替代 ToolOrchestrator.noProgressRounds + previousToolCallSignature):
     // 连续 maxNoProgressRounds 轮 LLM 返回相同 tool_call 签名时判定卡死。
@@ -140,30 +144,36 @@ class ToolExecutionPolicy(
      * @param toolName 工具名
      * @param argumentsJson 工具参数原文(指纹原料,不做解析)
      */
-    fun beforeExecute(toolName: String, argumentsJson: String): Decision {
+    fun beforeExecute(
+        toolName: String,
+        argumentsJson: String,
+    ): Decision {
         val fingerprint = fingerprint(toolName, argumentsJson)
         val repeatCount = if (fingerprint == lastFingerprint) lastFingerprintRepeatCount else 0
         val elapsedMs = System.currentTimeMillis() - startedAtMs
         val budgetMs = limits.totalBudgetMs
-        val violation = listOf(
-            blocked(StopReason.MAX_TOTAL_CALLS, "totalCalls=$totalCalls max=${limits.maxTotalCalls}")
-                .takeIf { totalCalls >= limits.maxTotalCalls },
-            blocked(StopReason.CONSECUTIVE_FAILURES, "consecutiveFailures=$consecutiveFailures")
-                .takeIf { consecutiveFailures >= limits.maxConsecutiveFailures },
-            blocked(
-                StopReason.REPEATED_IDENTICAL_CALL,
-                // M3.3: 指纹只入日志,不回显完整参数(避免大参数/敏感参数刷屏)
-                "tool=$toolName fingerprint=$fingerprint repeats=$repeatCount",
-            ).takeIf { repeatCount + 1 > limits.maxConsecutiveIdenticalCalls },
-            blocked(StopReason.TIME_BUDGET_EXHAUSTED, "elapsedMs=$elapsedMs budget=$budgetMs")
-                .takeIf { budgetMs != null && elapsedMs > budgetMs },
-        ).firstOrNull { it != null }
+        val violation =
+            listOf(
+                blocked(StopReason.MAX_TOTAL_CALLS, "totalCalls=$totalCalls max=${limits.maxTotalCalls}")
+                    .takeIf { totalCalls >= limits.maxTotalCalls },
+                blocked(StopReason.CONSECUTIVE_FAILURES, "consecutiveFailures=$consecutiveFailures")
+                    .takeIf { consecutiveFailures >= limits.maxConsecutiveFailures },
+                blocked(
+                    StopReason.REPEATED_IDENTICAL_CALL,
+                    // M3.3: 指纹只入日志,不回显完整参数(避免大参数/敏感参数刷屏)
+                    "tool=$toolName fingerprint=$fingerprint repeats=$repeatCount",
+                ).takeIf { repeatCount + 1 > limits.maxConsecutiveIdenticalCalls },
+                blocked(StopReason.TIME_BUDGET_EXHAUSTED, "elapsedMs=$elapsedMs budget=$budgetMs")
+                    .takeIf { budgetMs != null && elapsedMs > budgetMs },
+            ).firstOrNull { it != null }
         return violation ?: Decision(allowed = true)
     }
 
     /** 预算命中决策的便捷构造。 */
-    private fun blocked(reason: StopReason, detail: String): Decision =
-        Decision(allowed = false, reason = reason, detail = detail)
+    private fun blocked(
+        reason: StopReason,
+        detail: String,
+    ): Decision = Decision(allowed = false, reason = reason, detail = detail)
 
     /**
      * 调用落账:更新计数、失败连击与重复指纹。
@@ -172,7 +182,11 @@ class ToolExecutionPolicy(
      * @param argumentsJson 参数原文(与 beforeExecute 一致)
      * @param success 工具是否执行成功(审批拒绝/预算拦截不算失败,不计入)
      */
-    fun afterExecute(toolName: String, argumentsJson: String, success: Boolean) {
+    fun afterExecute(
+        toolName: String,
+        argumentsJson: String,
+        success: Boolean,
+    ) {
         totalCalls++
         if (success) {
             consecutiveFailures = 0
@@ -241,9 +255,13 @@ class ToolExecutionPolicy(
      * 参数原文不解析 —— 指纹稳定性由"同一模型重复发出相同调用"保证,
      * 键序差异视为不同调用(保守,不误伤合法重试)。
      */
-    internal fun fingerprint(toolName: String, argumentsJson: String): String {
-        val digest = java.security.MessageDigest.getInstance("SHA-256")
-            .digest((toolName + "\u0000" + argumentsJson).toByteArray())
+    internal fun fingerprint(
+        toolName: String,
+        argumentsJson: String,
+    ): String {
+        val digest =
+            java.security.MessageDigest.getInstance("SHA-256")
+                .digest((toolName + "\u0000" + argumentsJson).toByteArray())
         // 每个字节按无符号处理:%02x 直接格式化 Byte 会把负字节符号扩展成
         // "ffffffXX"(8 字符),再被 take(16) 截断后指纹熵塌缩到 ~8bit,导致
         // 不同工具调用被误判为"重复相同调用"。先 toInt() and 0xff 再格式化。
@@ -257,8 +275,12 @@ class ToolExecutionPolicy(
  * 总调用数/重复指纹/输出截断取宽松默认,时间预算默认关闭。
  */
 data class ToolExecutionLimits(
-    /** 单 turn 累计工具调用上限(含成功与失败,不含审批拒绝)。 */
-    val maxTotalCalls: Int = 60,
+    /**
+     * 单 turn 累计工具调用上限(含成功与失败,不含审批拒绝)。
+     * v2.x: 轮次上限放开后本项成为主要安全网之一,默认从 60 上调到 300;
+     * 真死循环由重复指纹/无进展/连续失败三重检测提前拦截。
+     */
+    val maxTotalCalls: Int = 300,
     /** 连续失败早停阈值(与 ToolOrchestrator.MAX_CONSECUTIVE_TOOL_FAILURES 对齐)。 */
     val maxConsecutiveFailures: Int = 3,
     /** 同一 (工具名+参数) 连续重复调用上限;第 N+1 次被拦截。 */

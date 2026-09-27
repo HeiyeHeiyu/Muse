@@ -1310,7 +1310,7 @@ class ChatViewModel(
         /** v1.78 (#32): 手动压缩保留最近消息条数上限(自适应 min(此值, size-1))。 */
         private const val MANUAL_COMPRESS_KEEP_RECENT = 10
 
-        /** v1.79 (L-CV1): 工具调用最大轮次(防死循环安全网)。 */
+        /** v1.79 (L-CV1): 工具轮次上限读取失败时的回退值(正常路径由设置决定,0=无限制)。 */
         private const val MAX_TOOL_ROUNDS = 25
 
         /**
@@ -5462,6 +5462,11 @@ class ChatViewModel(
                 }
             }
 
+        // v2.x: 工具轮次上限来自设置(0=无限制);读取失败回退固定值,不阻断对话。
+        val toolRoundLimit =
+            (resultOf { settings.getToolLoopMaxRounds() }.getOrNull() ?: MAX_TOOL_ROUNDS)
+                .takeIf { it > 0 } ?: 0
+
         val toolLoopResult =
             toolOrchestrator.runLoop(
                 params =
@@ -5471,7 +5476,7 @@ class ChatViewModel(
                         traceId = state.traceId,
                         initialAssistantId = state.currentAssistantId,
                         baseHistorySize = baseHistorySize,
-                        maxRounds = MAX_TOOL_ROUNDS,
+                        maxRounds = toolRoundLimit,
                         tools = tools,
                         skillMap = state.skillMap,
                         routeSnapshot = state.routeSnapshot,
