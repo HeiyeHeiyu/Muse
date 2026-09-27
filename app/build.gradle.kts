@@ -129,15 +129,18 @@ android {
         //         产物交付体系/模型目录工具能力修复/设置搜索浮层/UI 与本地化打磨。
         // v2.2.0: 群聊会议系统/工具瘦身(分层收窄·描述裁剪·find_tools 按需检索)/
         //         助手自管(记忆写入删除、插件卸载启停)/首次引导与首屏重做/图标系统 v1。
+        // v2.2.1: 终端(自写 PTY 双引擎·xterm 终端页·Termux 通道)/无障碍独立 Provider APK
+        //         (主应用更新不掉线·双路绑定)/虚拟屏 v1(shell 独立服务端·单帧截图·input -d)/
+        //         自动化增强(GUI Agent 环·工具失败反馈·命令策略)/主动消息链路与微信扫码修复。
         versionCode = (project.findProperty("versionCode") as? String)
             ?.takeIf { it.isNotBlank() }
             ?.toIntOrNull()
             ?: System.getenv("VERSION_CODE")?.takeIf { it.isNotBlank() }?.toIntOrNull()
-            ?: 220
+            ?: 221
         versionName = (project.findProperty("versionName") as? String)
             ?.takeIf { it.isNotBlank() }
             ?: System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }
-            ?: "2.2.0"
+            ?: "2.2.1"
     }
 
     signingConfigs {
@@ -411,7 +414,7 @@ gradle.taskGraph.whenReady {
     if (hasReleaseTask && !skipKeystoreCheck && !keystorePropertiesFile.exists()) {
         throw GradleException("正式构建缺少 keystore.properties：请先配置 release 签名，禁止回退 debug 签名。")
     }
-    // 版本号硬约束：正式构建必须显式注入 versionName/versionCode，避免误用过期默认版本；当前默认线为 220/2.2.0。
+    // 版本号硬约束：正式构建必须显式注入 versionName/versionCode，避免误用过期默认版本；当前默认线为 221/2.2.1。
     // 本地临时验证可传 -PreleaseSkipVersionCheck=true 跳过。
     val skipVersionCheck = project.findProperty("releaseSkipVersionCheck") == "true"
     val hasVersionName = project.hasProperty("versionName") || !System.getenv("VERSION_NAME").isNullOrBlank()
