@@ -4,6 +4,8 @@ import android.content.Context
 import io.zer0.common.Logger
 import io.zer0.muse.automation.core.AutomationManager
 import io.zer0.muse.automation.tools.AutomationTools
+import io.zer0.muse.terminal.TermuxChannel
+import io.zer0.muse.tools.ToolPermissionStatus
 import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.tools.system.ShizukuAuthorizer
 import kotlinx.coroutines.Dispatchers
@@ -65,6 +67,16 @@ object AutomationInitializer {
                     shizukuAuthorizer = authorizer,
                 )
             _manager = mgr
+
+            // v2.x: 工具权限分层 — 注入运行环境授权状态提供器(find_tools 状态展示 + 执行前预检)
+            toolRegistry.permissionStatusProvider = {
+                val state = mgr.permissionState.value
+                ToolPermissionStatus(
+                    accessibility = state.accessibilityEnabled,
+                    shellTier = state.shellEnabled || state.rootEnabled,
+                    termux = TermuxChannel.get(appContext).availability() is TermuxChannel.Availability.Ready,
+                )
+            }
 
             // 注册 UI 自动化工具集
             val tools = AutomationTools(mgr)

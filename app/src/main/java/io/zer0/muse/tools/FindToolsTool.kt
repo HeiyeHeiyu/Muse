@@ -13,7 +13,6 @@ package io.zer0.muse.tools
  * 只读检索:不执行任何工具、不改权限;装载只是让工具"可见",审批照旧。
  */
 object FindToolsTool {
-
     /** 工具名常量(供白名单特例等引用)。 */
     const val TOOL_NAME = "find_tools"
 
@@ -21,20 +20,25 @@ object FindToolsTool {
     private const val DESCRIPTION_SNIPPET = 140
     private const val LIST_DESCRIPTION_SNIPPET = 80
 
-    fun toolDef() = ToolRegistry.ToolDef(
-        name = TOOL_NAME,
-        description = "Search the full tool library, or get a complete capability list. " +
-            "With keywords: matching tools become available from your next call in this session. " +
-            "With an empty query: returns the full tool list — an overview of every capability you have. " +
-            "Use this when you need a tool that is not in your current list, or when asked what you can do.",
-        parameters = mapOf(
-            "query" to "Optional. Keywords describing the capability you need. " +
-                "Leave empty to get the full tool list (capability overview).",
-        ),
-        required = emptySet(),
-        category = "built-in",
-        riskLevel = ToolRiskLevel.SAFE,
-    )
+    fun toolDef() =
+        ToolRegistry.ToolDef(
+            name = TOOL_NAME,
+            description =
+                "Search the full tool library, or get a complete capability list. " +
+                    "With keywords: matching tools become available from your next call in this session. " +
+                    "With an empty query: returns the full tool list with a channel-status summary. " +
+                    "Entries marked * need extra system authorization (Shizuku/Root, Accessibility or Termux); " +
+                    "when a required channel is not ready, calling the tool fails fast with a clear error. " +
+                    "Use this when you need a tool that is not in your current list, or when asked what you can do.",
+            parameters =
+                mapOf(
+                    "query" to "Optional. Keywords describing the capability you need. " +
+                        "Leave empty to get the full tool list (capability overview).",
+                ),
+            required = emptySet(),
+            category = "built-in",
+            riskLevel = ToolRiskLevel.SAFE,
+        )
 
     /**
      * 纯函数检索:按名称/描述关键词匹配,名称命中权重更高;名称命中优先排序。
@@ -48,9 +52,10 @@ object FindToolsTool {
     ): List<ToolRegistry.ToolDef> {
         val raw = query.trim().lowercase()
         if (raw.isEmpty()) return emptyList()
-        val terms = raw.split(Regex("[\\s,，、;；]+"))
-            .filter { it.length >= 2 }
-            .ifEmpty { listOf(raw) }
+        val terms =
+            raw.split(Regex("[\\s,，、;；]+"))
+                .filter { it.length >= 2 }
+                .ifEmpty { listOf(raw) }
         return tools
             .asSequence()
             .filter { it.name != excludeName }
@@ -76,20 +81,33 @@ object FindToolsTool {
      *
      * 清单只是"目录",不装载任何工具;模型看到目标后用关键词再查一次才装载,
      * 避免一次总览把所有工具面重新撑回全量。
+     *
+     * v2.x: 需额外授权的工具名带 * 标记;传入 [status] 时附运行通道状态行。
      */
-    fun fullList(tools: List<ToolRegistry.ToolDef>, excludeName: String = TOOL_NAME): String {
+    fun fullList(
+        tools: List<ToolRegistry.ToolDef>,
+        excludeName: String = TOOL_NAME,
+        status: ToolPermissionStatus? = null,
+    ): String {
         val visible = tools.filter { it.name != excludeName }
         if (visible.isEmpty()) return "No tools registered."
         val grouped = visible.groupBy { ToolCategories.categoryOf(it.name) }
         val sb = StringBuilder()
         sb.appendLine("Full tool capability list (${visible.size} tools total):")
-        val sections = listOf(
-            ToolCategory.CORE to "core 核心",
-            ToolCategory.STANDARD to "standard 常用",
-            ToolCategory.OPTIONAL to "optional 可选",
-            ToolCategory.GLOBAL to "global 高级(需授权/审批)",
-            null to "extension 扩展(插件/MCP/技能)",
-        )
+        if (visible.any { ToolCategories.permissionOf(it.name).isNotEmpty() }) {
+            sb.appendLine(
+                "* = needs extra system authorization (Shizuku/Root, Accessibility or Termux). " +
+                    "Unready channels fail fast with a clear error instead of a misleading success.",
+            )
+        }
+        val sections =
+            listOf(
+                ToolCategory.CORE to "core 核心",
+                ToolCategory.STANDARD to "standard 常用",
+                ToolCategory.OPTIONAL to "optional 可选",
+                ToolCategory.GLOBAL to "global 高级(需授权/审批)",
+                null to "extension 扩展(插件/MCP/技能)",
+            )
         sections.forEach { (category, label) ->
             val items = grouped[category].orEmpty().sortedBy { it.name }
             if (items.isEmpty()) return@forEach
@@ -97,8 +115,15 @@ object FindToolsTool {
             sb.appendLine("【$label】${items.size}")
             items.forEach { def ->
                 val snippet = def.description.replace('\n', ' ').take(LIST_DESCRIPTION_SNIPPET)
-                sb.appendLine("- ${def.name}: $snippet")
+                sb.appendLine("- ${markName(def.name)}: $snippet")
             }
+        }
+        if (status != null) {
+            sb.appendLine()
+            sb.appendLine(
+                "Channel status now — Accessibility=${readyLabel(status.accessibility)}, " +
+                    "Shizuku/Root=${readyLabel(status.shellTier)}, Termux=${readyLabel(status.termux)}",
+            )
         }
         sb.appendLine()
         sb.appendLine(
@@ -106,6 +131,26 @@ object FindToolsTool {
                 "命中的工具从下一轮起可直接调用。应用层面的功能总览可用 knowledge_search(include_internal=true) 查询。",
         )
         return sb.toString().trimEnd()
+    }
+
+    /** 需额外授权的工具名加 * 标记(与 fullList 图例对应)。 */
+    private fun markName(name: String): String = if (ToolCategories.permissionOf(name).isEmpty()) name else "$name*"
+
+    private fun readyLabel(ready: Boolean): String = if (ready) "READY" else "NOT READY"
+
+    /** 检索结果里的权限注记(含当前就绪状态,便于提前判断)。 */
+    private fun permissionHint(
+        name: String,
+        status: ToolPermissionStatus?,
+    ): String {
+        val required = ToolCategories.permissionOf(name)
+        if (required.isEmpty()) return ""
+        val needs = required.joinToString(" or ") { it.enLabel() }
+        return when (status?.satisfiedAny(required)) {
+            true -> " [needs $needs; ready]"
+            false -> " [needs $needs; NOT READY]"
+            null -> " [needs $needs]"
+        }
     }
 
     /**
@@ -118,8 +163,9 @@ object FindToolsTool {
     ): String {
         val query = args["query"]?.trim().orEmpty()
         val allTools = toolRegistry.listTools()
+        val status = toolRegistry.permissionStatusProvider?.invoke()
         if (query.isEmpty()) {
-            return fullList(allTools)
+            return fullList(allTools, status = status)
         }
         val matches = search(query, allTools)
         if (matches.isEmpty()) {
@@ -132,7 +178,7 @@ object FindToolsTool {
             appendLine("Matched ${matches.size} tool(s), now available from your next call in this session:")
             matches.forEach { def ->
                 val snippet = def.description.replace('\n', ' ').take(DESCRIPTION_SNIPPET)
-                appendLine("- ${def.name}: $snippet")
+                appendLine("- ${def.name}${permissionHint(def.name, status)}: $snippet")
             }
         }.trimEnd()
     }
