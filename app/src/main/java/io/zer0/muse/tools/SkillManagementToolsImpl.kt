@@ -216,8 +216,8 @@ class SkillManagementToolsImpl(
      * 执行提示词技能:把指令文本交回模型,不执行任何 Kotlin 实现。
      *
      * 文本带 `[技能指令]` 标注,明确区分于系统指令。
-     * v2.x: 支持可选 `input` 参数 — 指令文本含 [PROMPT_INPUT_PLACEHOLDER] 时替换为输入;
-     * 无占位符时把输入追加到指令末尾;其余参数忽略。
+     * v2.x: 支持可选 `input` 参数 — 指令文本含 [PROMPT_INPUT_PLACEHOLDER](或 [PROMPT_ARGS_PLACEHOLDER])时
+     * 替换为输入;无占位符时把输入追加到指令末尾;其余参数忽略。
      */
     fun execPromptSkill(
         skill: SkillEntity,
@@ -226,10 +226,12 @@ class SkillManagementToolsImpl(
         val text = SkillImporter.decodePromptText(skill.implementationKotlin)?.trim()
         if (text.isNullOrEmpty()) return context.getString(R.string.skill_prompt_empty)
         val input = args["input"]?.trim().orEmpty()
+        val hasPlaceholder = text.contains(PROMPT_INPUT_PLACEHOLDER) || text.contains(PROMPT_ARGS_PLACEHOLDER)
         val rendered =
             when {
                 input.isEmpty() -> text
-                text.contains(PROMPT_INPUT_PLACEHOLDER) -> text.replace(PROMPT_INPUT_PLACEHOLDER, input)
+                hasPlaceholder ->
+                    text.replace(PROMPT_INPUT_PLACEHOLDER, input).replace(PROMPT_ARGS_PLACEHOLDER, input)
                 else -> text + "\n\n输入:\n" + input
             }
         return context.getString(R.string.skill_prompt_instruction_result, skill.name, skill.id, rendered)
@@ -241,6 +243,9 @@ class SkillManagementToolsImpl(
 
         /** v2.x: 提示词技能输入占位符。 */
         const val PROMPT_INPUT_PLACEHOLDER = "{{input}}"
+
+        /** v2.x: 提示词技能输入占位符(别名,习惯写法)。 */
+        const val PROMPT_ARGS_PLACEHOLDER = "{{args}}"
     }
 
     private fun precheckSkillJson(jsonText: String): String? {

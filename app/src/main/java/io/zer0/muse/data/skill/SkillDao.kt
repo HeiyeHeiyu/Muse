@@ -43,6 +43,28 @@ interface SkillDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun seedIfAbsent(entity: SkillEntity)
 
+    /**
+     * v2.x: 刷新内置技能的定义字段,保留 enabled 等用户状态。
+     *
+     * 背景: seedIfAbsent(IGNORE) 永不刷新已存在行 → 老库的内置技能 schema
+     * 停留在首次安装版本(如模型侧看不到内置技能后续新增的参数)。
+     * 内置技能不允许被用户编辑定义,故覆盖定义字段无用户数据损失。
+     */
+    @Query(
+        "UPDATE skills SET name = :name, description = :description, parametersJson = :parametersJson, " +
+            "requiredJson = :requiredJson, category = :category, implementationKotlin = :implementationKotlin " +
+            "WHERE id = :id",
+    )
+    suspend fun refreshBuiltInDefinition(
+        id: String,
+        name: String,
+        description: String,
+        parametersJson: String,
+        requiredJson: String,
+        category: String,
+        implementationKotlin: String,
+    )
+
     @Update
     suspend fun update(entity: SkillEntity)
 
@@ -50,7 +72,11 @@ interface SkillDao {
     suspend fun delete(id: String)
 
     @Query("UPDATE skills SET enabled = :enabled, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun setEnabled(id: String, enabled: Boolean, updatedAt: Long)
+    suspend fun setEnabled(
+        id: String,
+        enabled: Boolean,
+        updatedAt: Long,
+    )
 
     @Query("SELECT * FROM skills")
     suspend fun getAll(): List<SkillEntity>

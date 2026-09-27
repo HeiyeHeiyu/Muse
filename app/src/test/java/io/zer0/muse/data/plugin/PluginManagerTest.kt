@@ -657,6 +657,28 @@ class PluginManagerTest {
             rows.putIfAbsent(entity.id, entity)
         }
 
+        override suspend fun refreshBuiltInDefinition(
+            id: String,
+            name: String,
+            description: String,
+            parametersJson: String,
+            requiredJson: String,
+            category: String,
+            implementationKotlin: String,
+        ) {
+            rows[id]?.let {
+                rows[id] =
+                    it.copy(
+                        name = name,
+                        description = description,
+                        parametersJson = parametersJson,
+                        requiredJson = requiredJson,
+                        category = category,
+                        implementationKotlin = implementationKotlin,
+                    )
+            }
+        }
+
         override suspend fun update(entity: SkillEntity) {
             rows[entity.id] = entity
         }

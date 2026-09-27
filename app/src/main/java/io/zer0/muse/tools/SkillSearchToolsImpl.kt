@@ -488,13 +488,21 @@ class SkillSearchToolsImpl(
         val scored =
             visibleResults.map { doc ->
                 // v1.97: 改进评分 — 标题完全匹配=1.0,标题包含=0.8,内容多次命中提升分数
+                // v2.x: 连续化评分 — 旧评分离散为 {0.5,0.6,0.7,0.8,1.0},凡内容命中必 ≥0.5,
+                // 导致 threshold ≤0.5 时结果集完全相同(实测反馈"传 0.5 和默认 0.3 没区别")。
+                // 现按命中密度平滑映射:标题精确=1.0 / 标题包含=0.85 / 内容命中 0.3~0.8 连续区间。
                 val titleMatch = doc.title.contains(query, ignoreCase = true)
                 val contentMatches = doc.content.split(query, ignoreCase = true).size - 1
                 val score =
                     when {
                         doc.title.equals(query, ignoreCase = true) -> 1.0f
-                        titleMatch -> 0.8f
-                        contentMatches > 0 -> (0.4f + minOf(contentMatches * 0.1f, 0.3f)).coerceAtMost(0.7f)
+                        titleMatch -> 0.85f
+                        contentMatches > 0 -> {
+                            // 每 500 字符一个命中视为"密集";saturating 映射防长文多次命中压过标题命中
+                            val density = contentMatches * 500f / doc.content.length.coerceAtLeast(200)
+                            val saturated = density / (density + 1f)
+                            (0.3f + 0.5f * saturated).coerceAtMost(0.8f)
+                        }
                         else -> 0.0f
                     }
                 doc to score

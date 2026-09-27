@@ -405,7 +405,8 @@ class SkillExecutor(
     companion object {
         /**
          * 预定义 skill 模板(首次启动时写入数据库)。
-         * 用 SkillRepository.upsert 插入,REPLACE 策略保证幂等。
+         * v2.x: 启动 seed 走 SkillRepository.seedOrRefreshBuiltIn —
+         * 缺失则插入,已存在仅刷新定义字段(保留用户启停状态)。
          */
         val BUILT_IN_SKILLS: List<SkillEntity> =
             listOf(

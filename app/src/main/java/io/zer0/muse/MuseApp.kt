@@ -6,6 +6,13 @@ import android.content.Context
 import android.os.Build
 import android.os.PowerManager
 import android.os.StrictMode
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.GifDecoder
@@ -13,9 +20,6 @@ import coil.decode.ImageDecoderDecoder
 import coil.decode.SvgDecoder
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.ProcessLifecycleOwner
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.memory.ticker.MemoryTicker
@@ -35,23 +39,19 @@ import io.zer0.muse.ui.speech.TtsManager
 import io.zer0.muse.util.GlobalCoroutineExceptionHandler
 import io.zer0.muse.web.WebSearchService
 import io.zer0.muse.web.WebServer
-import androidx.work.Constraints
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
-import kotlin.coroutines.coroutineContext
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.coroutines.coroutineContext
 
 /**
  * 应用入口。初始化 Koin,装载全部模块,启动 memory ticker。
@@ -63,12 +63,13 @@ import java.util.concurrent.atomic.AtomicBoolean
  *   (coil-svg / coil-gif 依赖需配合 ImageLoader.components 注册才生效)。
  */
 class MuseApp : Application(), ImageLoaderFactory {
-
     private val memoryTicker: MemoryTicker by inject()
     private val memoryBackfillMigration: io.zer0.muse.data.MemoryBackfillMigration by inject()
+
     // v1.0.52 P2-2: 记忆空间仓库,启动时确保默认 Space 存在
     private val memorySpaceRepository: io.zer0.memory.space.MemorySpaceRepository by inject()
     private val subagentThreadStore: io.zer0.muse.data.subagent.SubagentThreadStore by inject()
+
     // v1.0.74: AI 日记本 — 启动时后台预生成今天的日记(打开日记页秒开,不再转圈)
     private val diaryRepository: io.zer0.muse.data.diary.DiaryRepository by inject()
     private val diaryGenerator: io.zer0.muse.data.diary.DiaryGenerator by inject()
@@ -87,30 +88,40 @@ class MuseApp : Application(), ImageLoaderFactory {
     private val feishuReceiver: io.zer0.muse.channel.FeishuReceiver by inject()
     private val proactiveMessageRunner: io.zer0.muse.schedule.ProactiveMessageRunner by inject()
     private val modelCatalogRepository: io.zer0.muse.data.catalog.ModelCatalogRepository by inject()
+
     /** B14-4: 本地模型目录（内置 + 用户 + 远端三层）—— 远端层默认关闭，仅当装配处传入 URL 时才拉取。 */
     private val modelCatalogStore: io.zer0.muse.data.preset.ModelCatalogStore by inject()
+
     // v1.98: 云备份自动定时上传调度器
     private val cloudBackupScheduler: io.zer0.muse.schedule.CloudBackupScheduler by inject()
     private val ttsManager: TtsManager by inject()
     private val webSearchService: WebSearchService by inject()
+
     /** v1.133: GitHub Release 更新通知器(应用启动后异步检查)。 */
     private val updateNotifier: io.zer0.muse.update.UpdateNotifier by inject()
+
     /** P2-4: 审计日志记录器(启动时清理过期日志)。 */
     private val auditLogger: io.zer0.muse.data.audit.AuditLogger by inject()
+
     /** v1.92: ChatViewModel 为 single 单例,onCleared 永不调用,需在 ON_STOP 时手动释放资源。 */
     private val chatViewModel: ChatViewModel by inject()
+
     /** P1-1: Hook 注册表 — 在应用生命周期事件中调用 AppLifecycleHook。 */
     private val hookRegistry: io.zer0.muse.hook.HookRegistry by inject()
+
     /** P1-2: Worldbook 仓库 — 启动时注册 WorldBookHook。 */
     private val worldBookRepository: io.zer0.muse.worldbook.WorldBookRepository by inject()
+
     /** v1.0.12: RAG 服务 — 启动时异步加载持久化的 HNSW 索引(若已落盘)。 */
     private val ragService: io.zer0.muse.rag.RagService by inject()
+
     /**
      * v1.0.47: 系统提示组装器 — 启动时异步预热 buildStaticSnapshot,
      * 让 DataStore(chatPreferences/userProfile) + buildToolManifestSection 子缓存提前加载,
      * 把用户首次进会话的 system prompt 构建从 ~690ms 降到 ~200ms。
      */
     private val systemPromptAssembler: io.zer0.muse.transformer.SystemPromptAssembler by inject()
+
     /** v1.0.17: 快速记录 Room 迁移 — 注入旧 JSON 存储 + Room DAO,启动时一次性迁移。 */
     private val quickNoteStore: QuickNoteStore by inject()
     private val quickNoteDao: QuickNoteDao by inject()
@@ -121,20 +132,27 @@ class MuseApp : Application(), ImageLoaderFactory {
     // B5-02: 启动时恢复被强杀中断的群聊生成账本
     private val groupChatScheduler: io.zer0.muse.schedule.GroupChatScheduler by inject()
     private val chatGenerationManager: io.zer0.muse.schedule.ChatGenerationManager by inject()
+
     /** 备份恢复账本；启动时检查上次是否停在跨存储恢复中间。 */
     private val restoreJournal: io.zer0.muse.backup.RestoreJournal by inject()
+
     /** 恢复服务；启动时优先回滚未完成的跨存储恢复。 */
     private val backupService: io.zer0.muse.backup.BackupService by inject()
+
     // 工具注册器启动引导:强制实例化全部 lazy single,让 100+ 工具可用
     private val toolRegistrarBootstrapper: io.zer0.muse.tools.ToolRegistrarBootstrapper by inject()
+
     // MCP 注册表必须在应用启动时实例化,否则只打开过 MCP 设置页的进程才会连接 server,
     // 主聊天页首次进入时看不到动态注册的 mcp_* 工具。
     private val mcpRegistry: io.zer0.muse.mcp.McpRegistry by inject()
+
     /** 应用级 scope:启动一次性任务用,独立于 Koin 注册的 IO scope。 */
     // v0.53: 加 GlobalCoroutineExceptionHandler,防止协程内未捕获异常导致应用崩溃(企业级容错)
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO + GlobalCoroutineExceptionHandler)
+
     /** 同一进程只触发一次 app_resume 巡检，避免 HomeScreen 重组重复调用决策 LLM。 */
     private val resumePatrolTriggered = AtomicBoolean(false)
+
     /** v0.32: keepAwake 设置开启时持有的 PARTIAL_WAKE_LOCK,null 表示未持有。 */
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -179,12 +197,13 @@ class MuseApp : Application(), ImageLoaderFactory {
         // 更糟的是 GlobalContext 可能处于未注册状态,后续 MainActivity by inject() 会
         // 崩溃 "KoinApplication has not been started" — 那是二次崩溃,真正原因被掩盖。
         // 这里捕获后标记 Safe Mode,下次启动 MainActivity 会走 SafeModeScreen 路径。
-        val koinResult = resultOf {
-            startKoin {
-                androidContext(this@MuseApp)
-                modules(allKoinModules)
+        val koinResult =
+            resultOf {
+                startKoin {
+                    androidContext(this@MuseApp)
+                    modules(allKoinModules)
+                }
             }
-        }
         if (koinResult.getOrNull() == null) {
             koinResult.onError { msg, t ->
                 Logger.e("MuseApp", "startKoin 失败 — 标记 Safe Mode 并跳过服务初始化: $msg", t)
@@ -206,7 +225,10 @@ class MuseApp : Application(), ImageLoaderFactory {
         toolRegistrarBootstrapper
         // v1.0.80: 初始化 UI 自动化模块(三层权限: 无障碍/Shell/Root)
         try {
-            val toolRegistry = org.koin.java.KoinJavaComponent.get<io.zer0.muse.tools.ToolRegistry>(io.zer0.muse.tools.ToolRegistry::class.java)
+            val toolRegistry =
+                org.koin.java.KoinJavaComponent.get<io.zer0.muse.tools.ToolRegistry>(
+                    io.zer0.muse.tools.ToolRegistry::class.java,
+                )
             io.zer0.muse.automation.AutomationInitializer.initialize(this, toolRegistry)
         } catch (e: Exception) {
             Logger.w("MuseApp", "AutomationInitializer failed: ${e.message}")
@@ -308,7 +330,7 @@ class MuseApp : Application(), ImageLoaderFactory {
         appScope.launch {
             resultOf { groupChatScheduler.recoverInterruptedGenerations() }
                 .onError { msg, t -> Logger.w("MuseApp", "恢复群聊账本失败: $msg", t) }
-        }        // v1.92: ChatViewModel 为 single 单例,onCleared 永不调用。
+        } // v1.92: ChatViewModel 为 single 单例,onCleared 永不调用。
         // 注册 ProcessLifecycleOwner 观察者,在 ON_STOP 时释放 TTS/ASR 资源并停止 memory ticker,
         // 在 ON_START 时重启 memory ticker。
         // P2-23: 启动期强制实例化 ChatViewModel — 其 init 会注册媒体工具
@@ -317,55 +339,57 @@ class MuseApp : Application(), ImageLoaderFactory {
         // 无 UI 的场景)不触发 → 媒体工具缺失。启动即解析保证所有入口可用。
         runCatching { chatViewModel.toString() }
             .onFailure { t -> Logger.w("MuseApp", "ChatViewModel Early-init 失败: ${t.message}", t) }
-        ProcessLifecycleOwner.get().lifecycle.addObserver(LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_STOP -> {
-                    Logger.i("MuseApp", "Process ON_STOP: 释放 ChatViewModel 资源 + 停止 MemoryTicker")
-                    // v1.0.29: 切后台时如果正在生成,启动前台服务保活。必须同步执行。
-                    resultOf { chatViewModel.onAppBackground() }
-                        .onError { msg, t -> Logger.w("MuseApp", "chatViewModel.onAppBackground 失败: $msg", t) }
-                    // ChatGenerationManager 在任务登记时立即启动前台服务；这里不再重复启动。
-                    // 这样单聊、群聊以及工具计划都由同一个 activeGenerations 快照保活。
-                    resultOf { chatViewModel.releaseForBackground() }
-                        .onError { msg, t -> Logger.w("MuseApp", "chatViewModel.release 失败: $msg", t) }
-                    // v1.0.30: memoryTicker.stop 含 30s 超时等待，移入协程
-                    appScope.launch {
-                        resultOf { memoryTicker.stop() }
-                            .onError { msg, t -> Logger.w("MuseApp", "memoryTicker.stop 失败: $msg", t) }
-                        // P1-1: AppLifecycleHook.onAppBackground
-                        resultOf { hookRegistry.executeNoResult(io.zer0.muse.hook.AppLifecycleHook::class) { it.onAppBackground() } }
-                            .onError { msg, t -> Logger.w("MuseApp", "AppLifecycleHook.onAppBackground 失败: $msg", t) }
-                    }
-                }
-                Lifecycle.Event.ON_START -> {
-                    // 生成任务可能仍在执行，不能因为页面回到前台就停止保活服务。
-                    // ChatGenerationService 会在 activeGenerations 变空后自行退出。
-                    resultOf { chatViewModel.onAppForeground() }
-                        .onError { msg, t -> Logger.w("MuseApp", "chatViewModel.onAppForeground 失败: $msg", t) }
-                    // 回前台时重启 memory ticker
-                    resultOf { memoryTicker.start() }
-                        .onError { msg, t -> Logger.w("MuseApp", "memoryTicker.start 失败: $msg", t) }
-                    if (resumePatrolTriggered.compareAndSet(false, true)) {
+        ProcessLifecycleOwner.get().lifecycle.addObserver(
+            LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_STOP -> {
+                        Logger.i("MuseApp", "Process ON_STOP: 释放 ChatViewModel 资源 + 停止 MemoryTicker")
+                        // v1.0.29: 切后台时如果正在生成,启动前台服务保活。必须同步执行。
+                        resultOf { chatViewModel.onAppBackground() }
+                            .onError { msg, t -> Logger.w("MuseApp", "chatViewModel.onAppBackground 失败: $msg", t) }
+                        // ChatGenerationManager 在任务登记时立即启动前台服务；这里不再重复启动。
+                        // 这样单聊、群聊以及工具计划都由同一个 activeGenerations 快照保活。
+                        resultOf { chatViewModel.releaseForBackground() }
+                            .onError { msg, t -> Logger.w("MuseApp", "chatViewModel.release 失败: $msg", t) }
+                        // v1.0.30: memoryTicker.stop 含 30s 超时等待，移入协程
                         appScope.launch {
-                            resultOf {
-                                proactiveMessageRunner.triggerByEvent(
-                                    io.zer0.muse.schedule.ProactiveMessageRunner.TRIGGER_SOURCE_RESUME,
-                                )
-                            }.onError { msg, t -> Logger.w("MuseApp", "app_resume 主动消息巡检失败: $msg", t) }
+                            resultOf { memoryTicker.stop() }
+                                .onError { msg, t -> Logger.w("MuseApp", "memoryTicker.stop 失败: $msg", t) }
+                            // P1-1: AppLifecycleHook.onAppBackground
+                            resultOf { hookRegistry.executeNoResult(io.zer0.muse.hook.AppLifecycleHook::class) { it.onAppBackground() } }
+                                .onError { msg, t -> Logger.w("MuseApp", "AppLifecycleHook.onAppBackground 失败: $msg", t) }
                         }
                     }
-                    // v1.0.16: 回前台清理 OkHttp 空闲连接，移入协程
-                    appScope.launch {
-                        resultOf { io.zer0.ai.core.ProviderHttpSupport.evictIdleConnections() }
-                            .onError { msg, t -> Logger.w("MuseApp", "evictIdleConnections 失败: $msg", t) }
-                        // P1-1: AppLifecycleHook.onAppForeground
-                        resultOf { hookRegistry.executeNoResult(io.zer0.muse.hook.AppLifecycleHook::class) { it.onAppForeground() } }
-                            .onError { msg, t -> Logger.w("MuseApp", "AppLifecycleHook.onAppForeground 失败: $msg", t) }
+                    Lifecycle.Event.ON_START -> {
+                        // 生成任务可能仍在执行，不能因为页面回到前台就停止保活服务。
+                        // ChatGenerationService 会在 activeGenerations 变空后自行退出。
+                        resultOf { chatViewModel.onAppForeground() }
+                            .onError { msg, t -> Logger.w("MuseApp", "chatViewModel.onAppForeground 失败: $msg", t) }
+                        // 回前台时重启 memory ticker
+                        resultOf { memoryTicker.start() }
+                            .onError { msg, t -> Logger.w("MuseApp", "memoryTicker.start 失败: $msg", t) }
+                        if (resumePatrolTriggered.compareAndSet(false, true)) {
+                            appScope.launch {
+                                resultOf {
+                                    proactiveMessageRunner.triggerByEvent(
+                                        io.zer0.muse.schedule.ProactiveMessageRunner.TRIGGER_SOURCE_RESUME,
+                                    )
+                                }.onError { msg, t -> Logger.w("MuseApp", "app_resume 主动消息巡检失败: $msg", t) }
+                            }
+                        }
+                        // v1.0.16: 回前台清理 OkHttp 空闲连接，移入协程
+                        appScope.launch {
+                            resultOf { io.zer0.ai.core.ProviderHttpSupport.evictIdleConnections() }
+                                .onError { msg, t -> Logger.w("MuseApp", "evictIdleConnections 失败: $msg", t) }
+                            // P1-1: AppLifecycleHook.onAppForeground
+                            resultOf { hookRegistry.executeNoResult(io.zer0.muse.hook.AppLifecycleHook::class) { it.onAppForeground() } }
+                                .onError { msg, t -> Logger.w("MuseApp", "AppLifecycleHook.onAppForeground 失败: $msg", t) }
+                        }
                     }
+                    else -> {}
                 }
-                else -> {}
-            }
-        })
+            },
+        )
         // Phase 8.2: 确保默认 Assistant 存在(fire-and-forget,失败不阻塞启动)
         appScope.launch {
             resultOf { assistantRepository.ensureDefaultExists() }
@@ -379,12 +403,13 @@ class MuseApp : Application(), ImageLoaderFactory {
                 hookRegistry.register(io.zer0.muse.worldbook.WorldBookHook(worldBookRepository))
             }.onError { msg, t -> Logger.w("MuseApp", "WorldBookHook 注册失败: $msg", t) }
         }
-        // Phase 8.8: 初始化内置 Skills(幂等 seed,仅在主键缺失时插入)
-        // P0-11: 改用 seedIfAbsent(IGNORE)而非 upsert(REPLACE)——
-        // 旧实现每次启动用 seed 的 enabled 覆盖已存在行,用户手动关闭的内置技能会被静默重新启用。
+        // Phase 8.8: 初始化内置 Skills(缺失则插入;已存在仅刷新定义字段,保留用户启停)
+        // P0-11: 不用 upsert(REPLACE)——避免用 seed 的 enabled 覆盖用户关闭的选择。
+        // v2.x: 改 seedOrRefreshBuiltIn——纯 IGNORE 会导致老库 schema 永不更新
+        // (模型看不到内置技能新增/变更的参数,如 knowledge_search.threshold)。
         appScope.launch {
             resultOf {
-                SkillExecutor.BUILT_IN_SKILLS.forEach { skillRepository.seedBuiltInIfAbsent(it) }
+                SkillExecutor.BUILT_IN_SKILLS.forEach { skillRepository.seedOrRefreshBuiltIn(it) }
             }.onError { msg, t -> Logger.w("MuseApp", "内置 Skills 初始化失败", t) }
         }
         // v0.43: seed 内置开发文档到知识库(用稳定 id,升级时内容更新但不重复;fileType="devdoc" 用于 UI 过滤)
@@ -458,9 +483,11 @@ class MuseApp : Application(), ImageLoaderFactory {
         // KEEP 策略:已存在则保留旧 schedule(避免重复注册)
         // 不设 setExpedited / 网络约束:符合"省电"目标,无网时 executeTask 内部已记录 failed
         resultOf {
-            val request = PeriodicWorkRequestBuilder<io.zer0.muse.schedule.ScheduledTaskWorker>(
-                15, TimeUnit.MINUTES,
-            ).setConstraints(Constraints.Builder().build()).build()
+            val request =
+                PeriodicWorkRequestBuilder<io.zer0.muse.schedule.ScheduledTaskWorker>(
+                    15,
+                    TimeUnit.MINUTES,
+                ).setConstraints(Constraints.Builder().build()).build()
             WorkManager.getInstance(this).enqueueUniquePeriodicWork(
                 io.zer0.muse.schedule.ScheduledTaskWorker.UNIQUE_WORK_NAME,
                 ExistingPeriodicWorkPolicy.KEEP,
@@ -494,9 +521,11 @@ class MuseApp : Application(), ImageLoaderFactory {
         // B-40: 朋友圈 WorkManager 兜底 — App 被杀后由系统每 15 分钟拉起一次检查生成动态
         // KEEP 策略:已存在则保留旧 schedule(避免重复注册);进程内 Runner 存活时 Worker 会自动跳过
         resultOf {
-            val request = androidx.work.PeriodicWorkRequestBuilder<io.zer0.muse.schedule.MomentWorker>(
-                15, TimeUnit.MINUTES,
-            ).setConstraints(Constraints.Builder().build()).build()
+            val request =
+                androidx.work.PeriodicWorkRequestBuilder<io.zer0.muse.schedule.MomentWorker>(
+                    15,
+                    TimeUnit.MINUTES,
+                ).setConstraints(Constraints.Builder().build()).build()
             WorkManager.getInstance(this).enqueueUniquePeriodicWork(
                 io.zer0.muse.schedule.MomentWorker.UNIQUE_WORK_NAME,
                 ExistingPeriodicWorkPolicy.KEEP,
@@ -507,9 +536,11 @@ class MuseApp : Application(), ImageLoaderFactory {
         // KEEP 策略:已存在则保留旧 schedule(避免重复注册);与 ScheduledTaskWorker 兜底对齐
         // P2-2: Worker 路径带冷启动防打扰(长时间未触发时仅更新 lastTriggeredAt,不立即发送)
         resultOf {
-            val request = PeriodicWorkRequestBuilder<io.zer0.muse.schedule.ProactiveMessageWorker>(
-                15, TimeUnit.MINUTES,
-            ).setConstraints(Constraints.Builder().build()).build()
+            val request =
+                PeriodicWorkRequestBuilder<io.zer0.muse.schedule.ProactiveMessageWorker>(
+                    15,
+                    TimeUnit.MINUTES,
+                ).setConstraints(Constraints.Builder().build()).build()
             WorkManager.getInstance(this).enqueueUniquePeriodicWork(
                 io.zer0.muse.schedule.ProactiveMessageWorker.UNIQUE_WORK_NAME,
                 ExistingPeriodicWorkPolicy.KEEP,
@@ -541,9 +572,11 @@ class MuseApp : Application(), ImageLoaderFactory {
         // v1.134 P1-1: 自动本地备份 Worker — 每日 1 次 WAL checkpoint + 复制 muse.db 到 backups/
         // 接入原 v1.107 孤儿组件 AutoBackupHelper,App 被杀后由 WorkManager 拉起
         resultOf {
-            val request = PeriodicWorkRequestBuilder<io.zer0.muse.schedule.AutoBackupWorker>(
-                1, TimeUnit.DAYS,
-            ).build()
+            val request =
+                PeriodicWorkRequestBuilder<io.zer0.muse.schedule.AutoBackupWorker>(
+                    1,
+                    TimeUnit.DAYS,
+                ).build()
             WorkManager.getInstance(this).enqueueUniquePeriodicWork(
                 io.zer0.muse.schedule.AutoBackupWorker.UNIQUE_WORK_NAME,
                 ExistingPeriodicWorkPolicy.KEEP,
@@ -553,9 +586,11 @@ class MuseApp : Application(), ImageLoaderFactory {
         // v1.134 P1-2: 统计缓存刷新 Worker — 每日 1 次全量刷新 stats_cache 表
         // 接入原 v1.107 孤儿组件 StatsCacheManager,避免统计页每次打开都全表 GROUP BY
         resultOf {
-            val request = PeriodicWorkRequestBuilder<io.zer0.muse.schedule.StatsCacheWorker>(
-                1, TimeUnit.DAYS,
-            ).build()
+            val request =
+                PeriodicWorkRequestBuilder<io.zer0.muse.schedule.StatsCacheWorker>(
+                    1,
+                    TimeUnit.DAYS,
+                ).build()
             WorkManager.getInstance(this).enqueueUniquePeriodicWork(
                 io.zer0.muse.schedule.StatsCacheWorker.UNIQUE_WORK_NAME,
                 ExistingPeriodicWorkPolicy.KEEP,
@@ -652,11 +687,12 @@ class MuseApp : Application(), ImageLoaderFactory {
                     val wakeUpMin = currentSchedule.wakeUpHour * 60 + currentSchedule.wakeUpMinute
                     val sleepMin = currentSchedule.sleepHour * 60 + currentSchedule.sleepMinute
 
-                    val desiredMode = if (sleepMin > wakeUpMin) {
-                        if (currentMinute in wakeUpMin until sleepMin) "light" else "dark"
-                    } else {
-                        if (currentMinute >= sleepMin || currentMinute < wakeUpMin) "dark" else "light"
-                    }
+                    val desiredMode =
+                        if (sleepMin > wakeUpMin) {
+                            if (currentMinute in wakeUpMin until sleepMin) "light" else "dark"
+                        } else {
+                            if (currentMinute >= sleepMin || currentMinute < wakeUpMin) "dark" else "light"
+                        }
 
                     val currentMode = settings.themeModeFlow.first()
                     if (currentMode != desiredMode && (desiredMode == "light" || desiredMode == "dark")) {
@@ -665,7 +701,7 @@ class MuseApp : Application(), ImageLoaderFactory {
                     }
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e  // 协程取消,正常退出
+                throw e // 协程取消,正常退出
             } catch (e: Exception) {
                 Logger.w("MuseApp", "ThemeScheduler tick error: ${e.message}")
             }
@@ -709,11 +745,12 @@ class MuseApp : Application(), ImageLoaderFactory {
         if (activeGeneration && !isLowBattery()) {
             if (wakeLock?.isHeld == true) return
             val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return
-            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Muse:KeepAwake").also {
-                it.setReferenceCounted(false)
-                // 长任务（视频生成/RAG索引）可能超过10分钟，设30分钟兜底
-                it.acquire(30 * 60 * 1000L)
-            }
+            wakeLock =
+                pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Muse:KeepAwake").also {
+                    it.setReferenceCounted(false)
+                    // 长任务（视频生成/RAG索引）可能超过10分钟，设30分钟兜底
+                    it.acquire(30 * 60 * 1000L)
+                }
             Logger.i("MuseApp", "keepAwake: WAKE_LOCK acquired")
         } else {
             wakeLock?.let { if (it.isHeld) resultOf { it.release() } }
@@ -740,11 +777,12 @@ class MuseApp : Application(), ImageLoaderFactory {
      */
     private fun updateBootReceiverEnabled(autoLaunch: Boolean) {
         val component = ComponentName(this, BootReceiver::class.java)
-        val newState = if (autoLaunch) {
-            android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-        } else {
-            android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-        }
+        val newState =
+            if (autoLaunch) {
+                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            } else {
+                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+            }
         // M1: 统一用 resultOf{} 替代 runCatching{}(项目 Result 约定)
         resultOf {
             packageManager.setComponentEnabledSetting(
@@ -785,11 +823,12 @@ class MuseApp : Application(), ImageLoaderFactory {
                 // H7: assets.open() 返回的 InputStream 必须用 use{} 包裹,及时释放资源
                 val content = assets.open("devdocs/$name").use { it.bufferedReader().readText() }
                 // title 取首个 "# 标题" 行,去掉 "# " 前缀;找不到则用文件名(第一行是 devdoc 注释,跳过)
-                val title = content.lineSequence().firstOrNull { it.startsWith("#") }
-                    ?.removePrefix("#")
-                    ?.trim()
-                    ?.ifBlank { name.substringBeforeLast(".") }
-                    ?: name.substringBeforeLast(".")
+                val title =
+                    content.lineSequence().firstOrNull { it.startsWith("#") }
+                        ?.removePrefix("#")
+                        ?.trim()
+                        ?.ifBlank { name.substringBeforeLast(".") }
+                        ?: name.substringBeforeLast(".")
                 val id = "devdoc-" + name.substringBeforeLast(".")
                 knowledgeDocDao.upsert(
                     KnowledgeDocEntity(
@@ -848,34 +887,35 @@ class MuseApp : Application(), ImageLoaderFactory {
      * - GIF: 用于动图表情 / 动态贴纸(minSdk 26 ≥ api19,GifDecoder 可用;
      *   api28+ 系统会自动走 ImageDecoderDecoder,性能更优)
      */
-    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
-        .components {
-            add(SvgDecoder.Factory())
-            // v1.112 (F3): GIF 动图解码器 — 根据API级别选择最优实现。
-            // - API 28+ (Android 9+):用 ImageDecoderDecoder(基于 ImageDecoder API),
-            //   性能更好,内存占用更低,且 Movie 在部分 OEM ROM(OPPO/MIUI 高版本)上渲染异常,
-            //   导致 GIF 只显示第一帧变静态图。
-            // - API < 28:用 GifDecoder(基于 Movie),兼容旧设备。
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                add(ImageDecoderDecoder.Factory())
-            } else {
-                add(GifDecoder.Factory())
+    override fun newImageLoader(): ImageLoader =
+        ImageLoader.Builder(this)
+            .components {
+                add(SvgDecoder.Factory())
+                // v1.112 (F3): GIF 动图解码器 — 根据API级别选择最优实现。
+                // - API 28+ (Android 9+):用 ImageDecoderDecoder(基于 ImageDecoder API),
+                //   性能更好,内存占用更低,且 Movie 在部分 OEM ROM(OPPO/MIUI 高版本)上渲染异常,
+                //   导致 GIF 只显示第一帧变静态图。
+                // - API < 28:用 GifDecoder(基于 Movie),兼容旧设备。
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    add(ImageDecoderDecoder.Factory())
+                } else {
+                    add(GifDecoder.Factory())
+                }
             }
-        }
-        // v0.36 性能优化:限制内存缓存为可用内存 25%,避免大图OOM;添加磁盘缓存减少重复下载。
-        .memoryCache {
-            MemoryCache.Builder(this)
-                .maxSizePercent(0.25)
-                .build()
-        }
-        .diskCache {
-            DiskCache.Builder()
-                .directory(this.cacheDir.resolve("image_cache"))
-                .maxSizeBytes(256L * 1024 * 1024) // 256 MB
-                .build()
-        }
-        .crossfade(true)
-        .build()
+            // v0.36 性能优化:限制内存缓存为可用内存 25%,避免大图OOM;添加磁盘缓存减少重复下载。
+            .memoryCache {
+                MemoryCache.Builder(this)
+                    .maxSizePercent(0.25)
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(this.cacheDir.resolve("image_cache"))
+                    .maxSizeBytes(256L * 1024 * 1024) // 256 MB
+                    .build()
+            }
+            .crossfade(true)
+            .build()
 
     companion object {
         /** v1.0.17: 快速记录迁移标志的 SharedPreferences key(文件 muse_migration)。 */

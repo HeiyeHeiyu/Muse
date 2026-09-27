@@ -22,13 +22,40 @@ class SkillRepository(private val dao: SkillDao) {
      */
     suspend fun seedBuiltInIfAbsent(entity: SkillEntity) = dao.seedIfAbsent(entity)
 
+    /**
+     * v2.x: 内置技能启动 seed — 缺失则插入,已存在则仅刷新定义字段
+     * (name/description/parametersJson/requiredJson/category/implementationKotlin),
+     * 保留 enabled 等用户状态。
+     *
+     * 修复两个历史问题:
+     *  - 纯 seedIfAbsent 永不刷新 → 老库 schema 停在首装版本(模型看不到新增/变更的参数);
+     *  - upsert(REPLACE) 会把用户关闭的技能重新启用(P0-11 已避免,本方法延续该保证)。
+     */
+    suspend fun seedOrRefreshBuiltIn(entity: SkillEntity) {
+        if (dao.getById(entity.id) == null) {
+            dao.seedIfAbsent(entity)
+        } else {
+            dao.refreshBuiltInDefinition(
+                id = entity.id,
+                name = entity.name,
+                description = entity.description,
+                parametersJson = entity.parametersJson,
+                requiredJson = entity.requiredJson,
+                category = entity.category,
+                implementationKotlin = entity.implementationKotlin,
+            )
+        }
+    }
+
     suspend fun update(entity: SkillEntity) = dao.update(entity)
 
     suspend fun delete(id: String) = dao.delete(id)
 
     /** 切换 Skill 启用状态(同时刷新 updatedAt)。 */
-    suspend fun setEnabled(id: String, enabled: Boolean) =
-        dao.setEnabled(id, enabled, System.currentTimeMillis())
+    suspend fun setEnabled(
+        id: String,
+        enabled: Boolean,
+    ) = dao.setEnabled(id, enabled, System.currentTimeMillis())
 
     /**
      * 按 id 列表过滤启用的 Skills。
