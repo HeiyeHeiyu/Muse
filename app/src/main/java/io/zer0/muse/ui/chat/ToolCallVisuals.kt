@@ -453,6 +453,7 @@ internal object ToolCallVisuals {
             "pin_memory", "unpin_memory" -> argString(args, "query") ?: result.take(30)
             "save_memory" -> argString(args, "content") ?: result.take(30)
             "delete_memory" -> argString(args, "match") ?: argString(args, "id") ?: result.take(30)
+            "find_tools" -> argString(args, "query") ?: "全部工具"
             else -> genericTarget(args)
         }
         return raw?.let { clean(it) }.orEmpty()

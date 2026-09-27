@@ -63,4 +63,22 @@ class FindToolsToolTest {
         SessionToolLoadRegistry.clear("s1")
         assertTrue(SessionToolLoadRegistry.loadedFor("s1").isEmpty())
     }
+
+    @Test
+    fun `empty query renders full capability list grouped by category`() {
+        val tools = listOf(
+            def("calculator", "简单计算器"),
+            def("web_search", "联网搜索"),
+            def("generate_image", "生成图片"),
+            def("workspace_write", "写入工作区"),
+            def("mcp_x__do", "外部工具"),
+            def("find_tools", "search the tool library"),
+        )
+        val list = FindToolsTool.fullList(tools)
+        assertTrue("应包含总数说明", list.contains("5 tools total"))
+        assertTrue("核心工具应出现", "calculator" in list)
+        assertTrue("可选工具应出现", "generate_image" in list)
+        assertTrue("扩展分组应出现", "extension" in list)
+        assertTrue("自身不应出现在清单里", "find_tools:" !in list)
+    }
 }
