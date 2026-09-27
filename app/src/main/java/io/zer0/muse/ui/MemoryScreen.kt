@@ -24,8 +24,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -46,21 +46,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.zer0.memory.fact.MemoryLegacyReset
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.feedback.MuseToast
-import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseAnchoredMenu
 import io.zer0.muse.ui.common.form.MuseBottomSheet
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseEmptyState
-import io.zer0.muse.ui.common.state.MuseErrorStateBox
 import io.zer0.muse.ui.common.media.WindowWidthClass
 import io.zer0.muse.ui.common.media.rememberWindowWidthClass
+import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
+import io.zer0.muse.ui.common.state.MuseEmptyState
+import io.zer0.muse.ui.common.state.MuseErrorStateBox
 import io.zer0.muse.ui.common.surface.MuseListItem
 import io.zer0.muse.ui.memory.MemoryGraphView
 import io.zer0.muse.ui.memory.MemoryGraphViewModel
@@ -74,10 +75,10 @@ import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
-import java.time.Instant
-import java.time.ZoneId
 import kotlinx.coroutines.delay
 import org.koin.androidx.compose.koinViewModel
+import java.time.Instant
+import java.time.ZoneId
 
 /**
  * 记忆观测站。
@@ -115,6 +116,16 @@ fun MemoryScreen(
     }
     val context = androidx.compose.ui.platform.LocalContext.current
     val widthClass = rememberWindowWidthClass()
+    // v2.2.1: 记忆库归档/恢复提示 — 版本守卫缺陷曾把真库误归档;修复后带回一次性恢复结果
+    LaunchedEffect(Unit) {
+        val recovered = MemoryLegacyReset.consumeRecovered(context)
+        val hadArchive = MemoryLegacyReset.consume(context)
+        when {
+            recovered != null && recovered > 0 ->
+                MuseToast.show(context.getString(R.string.memory_archive_recovered, recovered))
+            hadArchive -> MuseToast.show(context.getString(R.string.memory_archive_rebuilt_hint))
+        }
+    }
     var tab by remember { mutableIntStateOf(0) } // 0=记忆流 1=事实库 2=星座
     var query by remember { mutableStateOf("") }
     var editItem by remember { mutableStateOf<MemoryItem?>(null) }
@@ -171,9 +182,10 @@ fun MemoryScreen(
             contentAlignment = Alignment.TopCenter,
         ) {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(if (widthClass == WindowWidthClass.Expanded) Modifier.widthIn(max = 760.dp) else Modifier),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .then(if (widthClass == WindowWidthClass.Expanded) Modifier.widthIn(max = 760.dp) else Modifier),
                 contentPadding = PaddingValues(bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -182,10 +194,12 @@ fun MemoryScreen(
                         factCount = state.factCount,
                         organizing = organizing,
                         stage = organizeStage,
-                        scopeLabel = scopes.firstOrNull { it.id == selectedScope }?.displayName
-                            ?: stringResource(R.string.memory_center_scope_all),
-                        spaceLabel = spaces.firstOrNull { it.id == selectedSpace }?.name
-                            ?: stringResource(R.string.memory_center_space_default),
+                        scopeLabel =
+                            scopes.firstOrNull { it.id == selectedScope }?.displayName
+                                ?: stringResource(R.string.memory_center_scope_all),
+                        spaceLabel =
+                            spaces.firstOrNull { it.id == selectedSpace }?.name
+                                ?: stringResource(R.string.memory_center_space_default),
                         onOrganize = viewModel::organizeMemory,
                         onOpenFilter = { showFilter = true },
                     )
@@ -197,53 +211,57 @@ fun MemoryScreen(
                 if (memoryError != null) {
                     item(key = "memory_error") {
                         MuseErrorStateBox(
-                            message = memoryError.lineSequence().firstOrNull { it.isNotBlank() }?.take(240)
-                                ?: stringResource(R.string.memory_graph_load_failed),
+                            message =
+                                memoryError.lineSequence().firstOrNull { it.isNotBlank() }?.take(240)
+                                    ?: stringResource(R.string.memory_graph_load_failed),
                             onRetry = { viewModel.loadAll() },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 320.dp),
                         )
                     }
                 } else {
                     when (tab) {
-                        0 -> memoryStreamItems(
-                            state = state,
-                            timelineMode = streamTimelineMode,
-                            timelineFilter = timelineFilter,
-                            onTimelineFilter = { timelineFilter = it },
-                            onToggleTimeline = { streamTimelineMode = !streamTimelineMode },
-                            onOpenFacts = { tab = 1 },
-                            onHistory = {
-                                viewModel.loadFactRevisions(it.id, it.scope)
-                                revisionTarget = it
-                            },
-                            onEdit = { editItem = it },
-                            onDelete = { deleteTarget = it },
-                            onPin = { viewModel.toggleFactPinned(it.id, it.scope) },
-                            onImportance = { importanceItem = it },
-                        )
-                        1 -> memoryFactsItems(
-                            state = state,
-                            query = query,
-                            onQuery = { query = it },
-                            onAdd = { showAddFact = true },
-                            onHistory = {
-                                viewModel.loadFactRevisions(it.id, it.scope)
-                                revisionTarget = it
-                            },
-                            onEdit = { editItem = it },
-                            onDelete = { deleteTarget = it },
-                            onPin = { viewModel.toggleFactPinned(it.id, it.scope) },
-                            onImportance = { importanceItem = it },
-                            onDismissContradiction = viewModel::dismissContradiction,
-                        )
-                        else -> item(key = "memory_constellation") {
-                            MemoryConstellationTab(
-                                scope = selectedScope,
-                                spaceId = selectedSpace,
-                                factCount = state.factCount,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 560.dp),
+                        0 ->
+                            memoryStreamItems(
+                                state = state,
+                                timelineMode = streamTimelineMode,
+                                timelineFilter = timelineFilter,
+                                onTimelineFilter = { timelineFilter = it },
+                                onToggleTimeline = { streamTimelineMode = !streamTimelineMode },
+                                onOpenFacts = { tab = 1 },
+                                onHistory = {
+                                    viewModel.loadFactRevisions(it.id, it.scope)
+                                    revisionTarget = it
+                                },
+                                onEdit = { editItem = it },
+                                onDelete = { deleteTarget = it },
+                                onPin = { viewModel.toggleFactPinned(it.id, it.scope) },
+                                onImportance = { importanceItem = it },
                             )
-                        }
+                        1 ->
+                            memoryFactsItems(
+                                state = state,
+                                query = query,
+                                onQuery = { query = it },
+                                onAdd = { showAddFact = true },
+                                onHistory = {
+                                    viewModel.loadFactRevisions(it.id, it.scope)
+                                    revisionTarget = it
+                                },
+                                onEdit = { editItem = it },
+                                onDelete = { deleteTarget = it },
+                                onPin = { viewModel.toggleFactPinned(it.id, it.scope) },
+                                onImportance = { importanceItem = it },
+                                onDismissContradiction = viewModel::dismissContradiction,
+                            )
+                        else ->
+                            item(key = "memory_constellation") {
+                                MemoryConstellationTab(
+                                    scope = selectedScope,
+                                    spaceId = selectedSpace,
+                                    factCount = state.factCount,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 560.dp),
+                                )
+                            }
                     }
                 }
             }
@@ -310,10 +328,11 @@ fun MemoryScreen(
                 // U-11: "作用域/记忆空间"为技术化筛选,整体收进可展开的"高级筛选"折叠区(默认收起)
                 var advancedFilterExpanded by remember { mutableStateOf(false) }
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { advancedFilterExpanded = !advancedFilterExpanded }
-                        .padding(vertical = 6.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { advancedFilterExpanded = !advancedFilterExpanded }
+                            .padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
@@ -332,14 +351,16 @@ fun MemoryScreen(
                 AnimatedVisibility(
                     visible = advancedFilterExpanded,
                     // v2.x: 补令牌 spec(原为默认 spec)
-                    enter = fadeIn(animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS)) +
-                        expandVertically(
-                            animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
-                        ),
-                    exit = fadeOut(animationSpec = MuseMotion.tween(MuseAnimation.FAST_MS)) +
-                        shrinkVertically(
-                            animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS),
-                        ),
+                    enter =
+                        fadeIn(animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS)) +
+                            expandVertically(
+                                animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+                            ),
+                    exit =
+                        fadeOut(animationSpec = MuseMotion.tween(MuseAnimation.FAST_MS)) +
+                            shrinkVertically(
+                                animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS),
+                            ),
                 ) {
                     Column {
                         Text(
@@ -352,7 +373,10 @@ fun MemoryScreen(
                             MemoryFilterRow(
                                 label = option.displayName,
                                 selected = option.id == selectedScope,
-                                onClick = { viewModel.selectScope(option.id); showFilter = false },
+                                onClick = {
+                                    viewModel.selectScope(option.id)
+                                    showFilter = false
+                                },
                             )
                         }
                         Text(
@@ -365,7 +389,10 @@ fun MemoryScreen(
                             MemoryFilterRow(
                                 label = space.name,
                                 selected = space.id == selectedSpace,
-                                onClick = { viewModel.selectSpace(space.id); showFilter = false },
+                                onClick = {
+                                    viewModel.selectSpace(space.id)
+                                    showFilter = false
+                                },
                             )
                         }
                     }
@@ -380,13 +407,24 @@ fun MemoryScreen(
                 MemoryFilterRow(
                     label = stringResource(R.string.memory_center_filter_importance_all),
                     selected = importanceFilter == null,
-                    onClick = { viewModel.selectImportanceFilter(null); showFilter = false },
+                    onClick = {
+                        viewModel.selectImportanceFilter(null)
+                        showFilter = false
+                    },
                 )
-                listOf(0 to R.string.memory_importance_normal, 1 to R.string.memory_importance_important, 2 to R.string.memory_importance_critical).forEach { (level, labelRes) ->
+                listOf(
+                    0 to R.string.memory_importance_normal,
+                    1 to R.string.memory_importance_important,
+                    2 to R.string.memory_importance_critical,
+                ).forEach {
+                        (level, labelRes) ->
                     MemoryFilterRow(
                         label = stringResource(labelRes),
                         selected = importanceFilter == level,
-                        onClick = { viewModel.selectImportanceFilter(level); showFilter = false },
+                        onClick = {
+                            viewModel.selectImportanceFilter(level)
+                            showFilter = false
+                        },
                     )
                 }
                 // F-7: 时间范围筛选
@@ -396,17 +434,21 @@ fun MemoryScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp),
                 )
-                val timeOptions = listOf(
-                    null to R.string.memory_center_filter_time_all,
-                    MemoryTimeRange.LAST_7 to R.string.memory_center_filter_time_7,
-                    MemoryTimeRange.LAST_30 to R.string.memory_center_filter_time_30,
-                    MemoryTimeRange.LAST_90 to R.string.memory_center_filter_time_90,
-                )
+                val timeOptions =
+                    listOf(
+                        null to R.string.memory_center_filter_time_all,
+                        MemoryTimeRange.LAST_7 to R.string.memory_center_filter_time_7,
+                        MemoryTimeRange.LAST_30 to R.string.memory_center_filter_time_30,
+                        MemoryTimeRange.LAST_90 to R.string.memory_center_filter_time_90,
+                    )
                 timeOptions.forEach { (range, labelRes) ->
                     MemoryFilterRow(
                         label = stringResource(labelRes),
                         selected = (timeRangeFilter == null && range == null) || (timeRangeFilter != null && timeRangeFilter == range),
-                        onClick = { viewModel.selectTimeRangeFilter(range); showFilter = false },
+                        onClick = {
+                            viewModel.selectTimeRangeFilter(range)
+                            showFilter = false
+                        },
                     )
                 }
                 Spacer(Modifier.height(12.dp))
@@ -421,11 +463,12 @@ private fun MemoryCapsuleTabs(
     onSelect: (Int) -> Unit,
 ) {
     // P1-3: 恢复记忆星座 tab(真实星座图,经 MemoryGraphViewModel 加载)
-    val tabs = listOf(
-        stringResource(R.string.memory_center_tab_stream),
-        stringResource(R.string.memory_tab_facts),
-        stringResource(R.string.memory_center_tab_constellation),
-    )
+    val tabs =
+        listOf(
+            stringResource(R.string.memory_center_tab_stream),
+            stringResource(R.string.memory_tab_facts),
+            stringResource(R.string.memory_center_tab_constellation),
+        )
     io.zer0.muse.ui.common.form.MuseCapsuleTab(
         tabs = tabs,
         selectedIndex = selected,
@@ -488,12 +531,13 @@ private fun MemoryOverviewCard(
                 }
             }
             MuseCapsuleButton(
-                text = when (stage) {
-                    "prepare" -> stringResource(R.string.memory_organize_stage_prepare)
-                    "compile" -> stringResource(R.string.memory_organize_stage_compile)
-                    "dedup" -> stringResource(R.string.memory_organize_stage_dedup)
-                    else -> stringResource(R.string.memory_organize_action)
-                },
+                text =
+                    when (stage) {
+                        "prepare" -> stringResource(R.string.memory_organize_stage_prepare)
+                        "compile" -> stringResource(R.string.memory_organize_stage_compile)
+                        "dedup" -> stringResource(R.string.memory_organize_stage_dedup)
+                        else -> stringResource(R.string.memory_organize_action)
+                    },
                 onClick = onOrganize,
                 enabled = !organizing,
                 loading = organizing,
@@ -526,14 +570,15 @@ private fun LazyListScope.memoryStreamItems(
     if (pinned.isNotEmpty()) {
         item(key = "memory_stream_pinned") {
             PinnedMemorySection(
-                pinnedEntries = pinned.map { item ->
-                    io.zer0.memory.pin.PinnedMemoryStore.PinnedEntry(
-                        id = item.id,
-                        content = item.content,
-                        createdAt = item.createdAt ?: item.time.orEmpty(),
-                        updatedAt = item.pinnedAt ?: item.createdAt ?: item.time.orEmpty(),
-                    )
-                },
+                pinnedEntries =
+                    pinned.map { item ->
+                        io.zer0.memory.pin.PinnedMemoryStore.PinnedEntry(
+                            id = item.id,
+                            content = item.content,
+                            createdAt = item.createdAt ?: item.time.orEmpty(),
+                            updatedAt = item.pinnedAt ?: item.createdAt ?: item.time.orEmpty(),
+                        )
+                    },
                 onRemove = { id -> items.firstOrNull { it.id == id }?.let(onPin) },
             )
         }
@@ -579,18 +624,23 @@ private fun LazyListScope.memoryStreamItems(
         item(key = "memory_stream_timeline_filters") {
             MemoryTimelineFilterRow(selected = timelineFilter, onSelect = onTimelineFilter)
         }
-        val grouped = items.groupBy { item ->
-            try {
-                val instant = Instant.parse(item.createdAt ?: item.time.orEmpty())
-                val dt = instant.atZone(ZoneId.systemDefault())
-                "${dt.year}-${dt.monthValue.toString().padStart(2, '0')}"
-            } catch (_: Exception) {
-                "Unknown"
-            }
-        }.toSortedMap(compareByDescending { it })
+        val grouped =
+            items.groupBy { item ->
+                try {
+                    val instant = Instant.parse(item.createdAt ?: item.time.orEmpty())
+                    val dt = instant.atZone(ZoneId.systemDefault())
+                    "${dt.year}-${dt.monthValue.toString().padStart(2, '0')}"
+                } catch (_: Exception) {
+                    "Unknown"
+                }
+            }.toSortedMap(compareByDescending { it })
         grouped.forEach { (month, monthItems) ->
-            val filtered = if (timelineFilter == "all") monthItems
-            else monthItems.filter { it.source == timelineFilter }
+            val filtered =
+                if (timelineFilter == "all") {
+                    monthItems
+                } else {
+                    monthItems.filter { it.source == timelineFilter }
+                }
             if (filtered.isNotEmpty()) {
                 item(key = "timeline_month_$month") {
                     MonthHeader(month = month)
@@ -599,14 +649,15 @@ private fun LazyListScope.memoryStreamItems(
                     // v2.x: 动效补齐 — 时间轴拍平条目统一入场动画(与列表模式同规格)
                     Box(museAnimateItem()) {
                         TimelineEventCard(
-                            item = TimelineItem(
-                                id = item.id,
-                                content = item.content,
-                                source = item.source,
-                                importance = item.importance,
-                                createdAt = item.createdAt ?: item.time,
-                                tags = item.tags,
-                            ),
+                            item =
+                                TimelineItem(
+                                    id = item.id,
+                                    content = item.content,
+                                    source = item.source,
+                                    importance = item.importance,
+                                    createdAt = item.createdAt ?: item.time,
+                                    tags = item.tags,
+                                ),
                         )
                     }
                 }
@@ -692,9 +743,10 @@ private fun LazyListScope.memoryFactsItems(
     if (state.contradictions.isNotEmpty() && query.isBlank()) {
         item(key = "memory_contradictions") {
             androidx.compose.material3.ElevatedCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = MusePaddings.screen, vertical = 4.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = MusePaddings.screen, vertical = 4.dp),
             ) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
@@ -763,48 +815,52 @@ private fun LazyListScope.memoryFactsItems(
             modifier = Modifier.padding(horizontal = MusePaddings.screen),
         )
     }
-        if (state.isLoading) {
-            item(key = "memory_facts_loading") {
-                Box(Modifier.fillMaxWidth().heightIn(min = 320.dp), contentAlignment = Alignment.Center) {
+    if (state.isLoading) {
+        item(key = "memory_facts_loading") {
+            Box(Modifier.fillMaxWidth().heightIn(min = 320.dp), contentAlignment = Alignment.Center) {
                 io.zer0.muse.ui.common.state.MuseLoadingState()
-                }
             }
-        } else if (items.isEmpty()) {
-            item(key = "memory_facts_empty") {
-                Box(Modifier.fillMaxWidth().heightIn(min = 320.dp).padding(24.dp), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            text = if (query.isBlank()) stringResource(R.string.memory_center_empty_subtitle)
-                            else stringResource(R.string.memory_screen_empty_content),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                        )
-                        MuseCapsuleButton(
-                            text = stringResource(R.string.memory_add_fact),
-                            onClick = onAdd,
-                            variant = IosCapsuleButtonVariant.Secondary,
-                            leadingIcon = MuseIcons.plus,
-                            fillWidth = false,
-                        )
-                    }
-                }
-            }
-        } else {
-            items(items, key = { "lib_${it.id}" }) { item ->
-                // v2.x: 动效补齐 — 事实库列表条目入场/位移过渡
-                Box(modifier = museAnimateItem().padding(horizontal = MusePaddings.screen)) {
-                    MemoryFactRow(
-                        item = item,
-                        onEdit = { onEdit(item) },
-                        onDelete = { onDelete(item) },
-                        onHistory = { onHistory(item) },
-                        onPin = { onPin(item) },
-                        onImportance = { onImportance(item) },
+        }
+    } else if (items.isEmpty()) {
+        item(key = "memory_facts_empty") {
+            Box(Modifier.fillMaxWidth().heightIn(min = 320.dp).padding(24.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text =
+                            if (query.isBlank()) {
+                                stringResource(R.string.memory_center_empty_subtitle)
+                            } else {
+                                stringResource(R.string.memory_screen_empty_content)
+                            },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                    MuseCapsuleButton(
+                        text = stringResource(R.string.memory_add_fact),
+                        onClick = onAdd,
+                        variant = IosCapsuleButtonVariant.Secondary,
+                        leadingIcon = MuseIcons.plus,
+                        fillWidth = false,
                     )
                 }
             }
         }
+    } else {
+        items(items, key = { "lib_${it.id}" }) { item ->
+            // v2.x: 动效补齐 — 事实库列表条目入场/位移过渡
+            Box(modifier = museAnimateItem().padding(horizontal = MusePaddings.screen)) {
+                MemoryFactRow(
+                    item = item,
+                    onEdit = { onEdit(item) },
+                    onDelete = { onDelete(item) },
+                    onHistory = { onHistory(item) },
+                    onPin = { onPin(item) },
+                    onImportance = { onImportance(item) },
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -825,18 +881,20 @@ private fun MemoryConstellationTab(
             modifier = Modifier.padding(bottom = 8.dp),
         )
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .clip(MuseShapes.extraLarge),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .clip(MuseShapes.extraLarge),
         ) {
             // v2.x: 动效补齐 — 加载/空态/图谱三态切换走 Crossfade(NORMAL_MS, 同 ChatScreen 规格)。
             // 切换记忆空间(spaceId)或作用域(scope)时星座重新加载,也会经此过渡淡入淡出。
-            val constellationState = when {
-                graphState.isLoading -> 0
-                graphState.nodes.isEmpty() -> 1
-                else -> 2
-            }
+            val constellationState =
+                when {
+                    graphState.isLoading -> 0
+                    graphState.nodes.isEmpty() -> 1
+                    else -> 2
+                }
             Crossfade(
                 targetState = constellationState,
                 animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
@@ -844,9 +902,10 @@ private fun MemoryConstellationTab(
                 modifier = Modifier.fillMaxSize(),
             ) { kind ->
                 when (kind) {
-                    0 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        io.zer0.muse.ui.common.state.MuseLoadingState()
-                    }
+                    0 ->
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            io.zer0.muse.ui.common.state.MuseLoadingState()
+                        }
                     1 -> {
                         // v2.0: 空态改为贴顶居中 — 星座容器高 560dp 起,超过首屏高度时
                         // 垂直居中点会落在屏幕外,文案被底部截断(实测第二行不可见)。
@@ -855,10 +914,14 @@ private fun MemoryConstellationTab(
                             contentAlignment = Alignment.TopCenter,
                         ) {
                             Text(
-                                text = stringResource(
-                                    if (factCount == 0) R.string.memory_center_constellation_empty
-                                    else R.string.memory_center_filter_empty,
-                                ),
+                                text =
+                                    stringResource(
+                                        if (factCount == 0) {
+                                            R.string.memory_center_constellation_empty
+                                        } else {
+                                            R.string.memory_center_filter_empty
+                                        },
+                                    ),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
@@ -892,22 +955,56 @@ private fun MemoryFactRow(
         // 对齐 CardGroup 的既有方向(背景用纯 surface、取消阴影)。
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // v2.2.1: 长记忆点击展开 — 点标题/正文或「展开/收起」即可查看全文
+            var expanded by remember(item.id) { mutableStateOf(false) }
+            val titleText = item.title.ifBlank { item.content }
+            val bodyText = item.content.takeIf { item.title != item.content }
+            val canExpand =
+                titleText.length > EXPAND_TEXT_THRESHOLD || titleText.contains('\n') ||
+                    bodyText?.let { it.length > EXPAND_TEXT_THRESHOLD || it.contains('\n') } == true
+            val toggleExpand = { if (canExpand) expanded = !expanded }
+
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = item.title.ifBlank { item.content },
+                    text = titleText,
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Medium),
-                    maxLines = 2,
+                    maxLines = if (expanded) Int.MAX_VALUE else 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .clickable(enabled = canExpand) { toggleExpand() },
                 )
                 if (item.pinnedAt != null) Text("•", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp))
             }
-            if (item.title != item.content) {
-                Text(item.content, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            bodyText?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = if (expanded) Int.MAX_VALUE else 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.clickable(enabled = canExpand) { toggleExpand() },
+                )
+            }
+            if (canExpand) {
+                Text(
+                    text = stringResource(if (expanded) R.string.memory_screen_collapse else R.string.memory_screen_expand),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier =
+                        Modifier
+                            .clickable { toggleExpand() }
+                            .padding(vertical = 2.dp),
+                )
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item.category?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
-                item.time?.takeIf { it.isNotBlank() }?.let { Text(it.take(10), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
+                item.category?.takeIf {
+                    it.isNotBlank()
+                }?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
+                item.time?.takeIf {
+                    it.isNotBlank()
+                }?.let { Text(it.take(10), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
                 // F-9: 来源会话可追溯
                 item.sessionId?.takeIf { it.isNotBlank() }?.let { sid ->
                     Text(
@@ -934,38 +1031,60 @@ private fun MemoryFactRow(
                         expanded = showMore,
                         onDismissRequest = { showMore = false },
                     ) {
-
                         onImportance?.let {
                             MuseListItem(
-                                onClick = { showMore = false; it() },
+                                onClick = {
+                                    showMore = false
+                                    it()
+                                },
                                 headlineContent = { Text(stringResource(R.string.memory_menu_importance)) },
                             )
                         }
                         onPin?.let {
                             MuseListItem(
-                                onClick = { showMore = false; it() },
-                                headlineContent = { Text(stringResource(if (item.pinnedAt != null) R.string.memory_menu_unpin else R.string.memory_menu_pin)) },
+                                onClick = {
+                                    showMore = false
+                                    it()
+                                },
+                                headlineContent = {
+                                    Text(
+                                        stringResource(if (item.pinnedAt != null) R.string.memory_menu_unpin else R.string.memory_menu_pin),
+                                    )
+                                },
                             )
                         }
                         onEdit?.let {
                             MuseListItem(
-                                onClick = { showMore = false; it() },
+                                onClick = {
+                                    showMore = false
+                                    it()
+                                },
                                 headlineContent = { Text(stringResource(R.string.memory_menu_edit)) },
                             )
                         }
                         onHistory?.let {
                             MuseListItem(
-                                onClick = { showMore = false; it() },
+                                onClick = {
+                                    showMore = false
+                                    it()
+                                },
                                 headlineContent = { Text(stringResource(R.string.memory_menu_history)) },
                             )
                         }
                         onDelete?.let {
                             MuseListItem(
-                                onClick = { showMore = false; it() },
-                                headlineContent = { Text(stringResource(R.string.memory_menu_delete), color = MaterialTheme.colorScheme.error) },
+                                onClick = {
+                                    showMore = false
+                                    it()
+                                },
+                                headlineContent = {
+                                    Text(
+                                        stringResource(R.string.memory_menu_delete),
+                                        color = MaterialTheme.colorScheme.error,
+                                    )
+                                },
                             )
                         }
-                    
                     }
                 }
             }
@@ -975,6 +1094,9 @@ private fun MemoryFactRow(
 
 // F-9: 来源会话 id 展示的最大长度(避免长 id 撑爆行布局)。
 private const val MEMORY_FACT_ROW_SESSION_ID_MAX = 10
+
+/** v2.2.1: 记忆条目"可展开"判定阈值(字符数);超过或含换行即提供全文展开。 */
+private const val EXPAND_TEXT_THRESHOLD = 80
 
 @Composable
 private fun MemoryFilterRow(
@@ -1007,4 +1129,3 @@ private fun MemoryFilterRow(
         }
     }
 }
-

@@ -207,4 +207,7 @@
     <string name="memory_stream_mode_list">列表</string>
     <string name="memory_stream_mode_timeline">时间轴</string>
     <string name="memory_graph_reset_view">复位视图</string>
+    <!-- v2.2.1: 记忆库归档/恢复提示 -->
+    <string name="memory_archive_rebuilt_hint">检测到记忆库曾因版本变更被归档重建,历史记忆未完整保留</string>
+    <string name="memory_archive_recovered">已从版本变更归档中恢复 %1$d 条记忆</string>
 </resources>

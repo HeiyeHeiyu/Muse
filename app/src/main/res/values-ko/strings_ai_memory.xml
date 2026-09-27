@@ -205,4 +205,7 @@
     <string name="memory_stream_mode_timeline">타임라인</string>
     <string name="memory_unpin_failed">고정 해제에 실패했습니다. 다시 시도하세요.</string>
     <string name="memory_graph_reset_view">보기 초기화</string>
+    <!-- v2.2.1: 기억 라이브러리 아카이브/복구 안내 -->
+    <string name="memory_archive_rebuilt_hint">버전 변경으로 기억 라이브러리가 아카이브·재구축되었습니다. 일부 기록이 보존되지 않았을 수 있습니다</string>
+    <string name="memory_archive_recovered">버전 변경 아카이브에서 기억 %1$d건을 복구했습니다</string>
 </resources>

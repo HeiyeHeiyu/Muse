@@ -205,4 +205,7 @@
     <string name="memory_stream_mode_timeline">Línea de tiempo</string>
     <string name="memory_unpin_failed">Error al quitar la fijación. Inténtalo de nuevo.</string>
     <string name="memory_graph_reset_view">Restablecer vista</string>
+    <!-- v2.2.1: avisos de archivo/recuperación de la biblioteca de memoria -->
+    <string name="memory_archive_rebuilt_hint">La biblioteca de memoria se archivó y reconstruyó por un cambio de versión; parte del historial podría no haberse conservado</string>
+    <string name="memory_archive_recovered">Se recuperaron %1$d memorias del archivo por cambio de versión</string>
 </resources>

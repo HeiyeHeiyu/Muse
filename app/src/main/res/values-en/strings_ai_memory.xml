@@ -210,4 +210,7 @@
     <string name="memory_stream_mode_timeline">Timeline</string>
     <string name="memory_unpin_failed">Failed to unpin; please retry</string>
     <string name="memory_graph_reset_view">Reset view</string>
+    <!-- v2.2.1: memory library archive / recovery hints -->
+    <string name="memory_archive_rebuilt_hint">The memory library was archived and rebuilt due to a version change; some history may not have been kept</string>
+    <string name="memory_archive_recovered">Recovered %1$d memories from the version-change archive</string>
 </resources>

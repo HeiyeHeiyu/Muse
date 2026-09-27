@@ -205,4 +205,7 @@
     <string name="memory_stream_mode_timeline">Linha do tempo</string>
     <string name="memory_unpin_failed">Falha ao desafixar. Tente novamente.</string>
     <string name="memory_graph_reset_view">Redefinir vista</string>
+    <!-- v2.2.1: avisos de arquivo/recuperação da biblioteca de memória -->
+    <string name="memory_archive_rebuilt_hint">A biblioteca de memória foi arquivada e reconstruída devido a uma mudança de versão; parte do histórico pode não ter sido mantida</string>
+    <string name="memory_archive_recovered">Recuperadas %1$d memórias do arquivo de mudança de versão</string>
 </resources>

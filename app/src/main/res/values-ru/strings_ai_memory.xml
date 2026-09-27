@@ -205,4 +205,7 @@
     <string name="memory_stream_mode_timeline">Хронология</string>
     <string name="memory_unpin_failed">Не удалось открепить. Попробуйте снова.</string>
     <string name="memory_graph_reset_view">Сбросить вид</string>
+    <!-- v2.2.1: подсказки об архивации/восстановлении библиотеки памяти -->
+    <string name="memory_archive_rebuilt_hint">Библиотека памяти была заархивирована и пересоздана из-за смены версии; часть истории могла не сохраниться</string>
+    <string name="memory_archive_recovered">Восстановлено %1$d воспоминаний из архива смены версии</string>
 </resources>

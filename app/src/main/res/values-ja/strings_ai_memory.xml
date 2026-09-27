@@ -205,4 +205,7 @@
     <string name="memory_stream_mode_timeline">タイムライン</string>
     <string name="memory_unpin_failed">ピン留めの解除に失敗しました。もう一度お試しください。</string>
     <string name="memory_graph_reset_view">ビューをリセット</string>
+    <!-- v2.2.1: 記憶ライブラリのアーカイブ/復元のヒント -->
+    <string name="memory_archive_rebuilt_hint">バージョン変更により記憶ライブラリがアーカイブ・再構築されました。一部の履歴が保持されていない可能性があります</string>
+    <string name="memory_archive_recovered">バージョン変更のアーカイブから %1$d 件の記憶を復元しました</string>
 </resources>
