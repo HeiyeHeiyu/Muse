@@ -7,6 +7,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import io.zer0.common.Logger
 import io.zer0.memory.ai.MemoryLinkEntity
 import io.zer0.memory.space.MemorySpaceEntity
 import java.io.File
@@ -40,15 +41,24 @@ import java.time.format.DateTimeFormatter
  *  - FTS4 自 SQLite 3.7.4(2010)内置,Android 自带 SQLite 均支持,兼容性可靠。
  *  - 中文检索由应用层 [FactFtsManager.toNgram] 预处理为 2-gram,不依赖内置 tokenizer。
  */
+
+/**
+ * 当前 facts 库 schema 版本。
+ *
+ * 必须与 [FactDb] 的 @Database 版本、迁移链末端(当前 MIGRATION_13_14)三者一致;
+ * 版本守卫 [FactDb.archiveUnknownVersionDatabase] 也引用本常量。
+ * 历史缺陷正是守卫写死旧值(13)导致 v14 真库被误判为"未知高版本"反复归档清空。
+ */
+internal const val FACT_DB_VERSION = 14
+
 @Database(
     entities = [FactEntity::class, FactFtsEntity::class, MemorySpaceEntity::class, MemoryLinkEntity::class, FactRevisionEntity::class],
-    version = 14,
+    version = FACT_DB_VERSION,
     // v1.78 (H4): 开启 schema 导出,未来 v4+ 升级时编写 Migration 替代 destructive
     // 历史 v1→v2→v3 的 destructive migration 已无法补救,从 v3 开始留基线
     exportSchema = true,
 )
 abstract class FactDb : RoomDatabase() {
-
     abstract fun factDao(): FactDao
 
     /** v13 (T4-1): 事实修订记录 DAO。 */
@@ -64,26 +74,28 @@ abstract class FactDb : RoomDatabase() {
          * v3→v4 迁移: 新增 importance 列(默认 0=普通)+ 索引。
          * ALTER TABLE ADD COLUMN 是 SQLite 原生 DDL,Android 16 无 execSQL DML 限制。
          */
-        val MIGRATION_3_4 = object : Migration(3, 4) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE facts ADD COLUMN importance INTEGER NOT NULL DEFAULT 0")
-                db.execSQL("CREATE INDEX IF NOT EXISTS idx_facts_importance ON facts(importance)")
+        val MIGRATION_3_4 =
+            object : Migration(3, 4) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE facts ADD COLUMN importance INTEGER NOT NULL DEFAULT 0")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS idx_facts_importance ON facts(importance)")
+                }
             }
-        }
 
         /**
          * v4→v5 迁移: 新增结构化事实字段(category / confidence / source / expires_at / last_confirmed_at)。
          */
-        val MIGRATION_4_5 = object : Migration(4, 5) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE facts ADD COLUMN category TEXT NOT NULL DEFAULT 'general'")
-                db.execSQL("ALTER TABLE facts ADD COLUMN confidence REAL NOT NULL DEFAULT 1.0")
-                db.execSQL("ALTER TABLE facts ADD COLUMN source TEXT NOT NULL DEFAULT 'inferred'")
-                db.execSQL("ALTER TABLE facts ADD COLUMN expires_at TEXT")
-                db.execSQL("ALTER TABLE facts ADD COLUMN last_confirmed_at TEXT")
-                db.execSQL("CREATE INDEX IF NOT EXISTS idx_facts_category ON facts(category)")
+        val MIGRATION_4_5 =
+            object : Migration(4, 5) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE facts ADD COLUMN category TEXT NOT NULL DEFAULT 'general'")
+                    db.execSQL("ALTER TABLE facts ADD COLUMN confidence REAL NOT NULL DEFAULT 1.0")
+                    db.execSQL("ALTER TABLE facts ADD COLUMN source TEXT NOT NULL DEFAULT 'inferred'")
+                    db.execSQL("ALTER TABLE facts ADD COLUMN expires_at TEXT")
+                    db.execSQL("ALTER TABLE facts ADD COLUMN last_confirmed_at TEXT")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS idx_facts_category ON facts(category)")
+                }
             }
-        }
 
         /**
          * v5→v6 迁移: 新增 facts_fts FTS4 虚拟表 + 级联删除触发器。
@@ -95,16 +107,17 @@ abstract class FactDb : RoomDatabase() {
          * - 不在迁移里 INSERT SELECT: SQL 无法调用 Kotlin ngram 函数,直接塞原文会导致
          *   索引/查询不一致(MATCH 不到)。rebuild 必须在 Kotlin 层做。
          */
-        val MIGRATION_5_6 = object : Migration(5, 6) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    "CREATE VIRTUAL TABLE IF NOT EXISTS `facts_fts` USING FTS4(" +
-                        "`fact_id` INTEGER, `content_ngram` TEXT" +
-                        ")"
-                )
-                createFtsCleanupTrigger(db)
+        val MIGRATION_5_6 =
+            object : Migration(5, 6) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE VIRTUAL TABLE IF NOT EXISTS `facts_fts` USING FTS4(" +
+                            "`fact_id` INTEGER, `content_ngram` TEXT" +
+                            ")",
+                    )
+                    createFtsCleanupTrigger(db)
+                }
             }
-        }
 
         /**
          * v6: 创建 facts 表级联清理 facts_fts 的触发器。
@@ -113,7 +126,7 @@ abstract class FactDb : RoomDatabase() {
         private fun createFtsCleanupTrigger(db: SupportSQLiteDatabase) {
             db.execSQL(
                 "CREATE TRIGGER IF NOT EXISTS facts_after_delete AFTER DELETE ON facts " +
-                    "BEGIN DELETE FROM facts_fts WHERE fact_id = old.id; END;"
+                    "BEGIN DELETE FROM facts_fts WHERE fact_id = old.id; END;",
             )
         }
 
@@ -121,11 +134,12 @@ abstract class FactDb : RoomDatabase() {
          * v6→v7 迁移: 新增 last_hit_at 列,用于命中加成衰减时钟。
          * 历史数据默认保持 NULL(未命中状态),后续命中后写入当前时间。
          */
-        val MIGRATION_6_7 = object : Migration(6, 7) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE facts ADD COLUMN last_hit_at TEXT DEFAULT NULL")
+        val MIGRATION_6_7 =
+            object : Migration(6, 7) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE facts ADD COLUMN last_hit_at TEXT DEFAULT NULL")
+                }
             }
-        }
 
         /**
          * v7→v8 迁移: 新增 scope 列(记忆作用域,默认 "main")+ 索引。
@@ -138,12 +152,13 @@ abstract class FactDb : RoomDatabase() {
          * 索引名 index_facts_scope 与 @Index 注解默认命名一致
          * (Room 自动生成 `index_<table>_<column>`)。
          */
-        val MIGRATION_7_8 = object : Migration(7, 8) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE facts ADD COLUMN scope TEXT NOT NULL DEFAULT 'main'")
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_facts_scope ON facts(scope)")
+        val MIGRATION_7_8 =
+            object : Migration(7, 8) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE facts ADD COLUMN scope TEXT NOT NULL DEFAULT 'main'")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS index_facts_scope ON facts(scope)")
+                }
             }
-        }
 
         /**
          * v8→v9 迁移: P2-2 多 Space 记忆隔离。
@@ -158,37 +173,38 @@ abstract class FactDb : RoomDatabase() {
          *    否则 Room schema 校验失败(包括列顺序、类型、默认值、索引名)。
          *  - 索引名 idx_memory_spaces_sort 与 @Index(name = "idx_memory_spaces_sort") 对齐。
          */
-        val MIGRATION_8_9 = object : Migration(8, 9) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                // 1. facts 表新增 space_id 列
-                db.execSQL("ALTER TABLE facts ADD COLUMN space_id TEXT NOT NULL DEFAULT 'default'")
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_facts_space_id ON facts(space_id)")
+        val MIGRATION_8_9 =
+            object : Migration(8, 9) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    // 1. facts 表新增 space_id 列
+                    db.execSQL("ALTER TABLE facts ADD COLUMN space_id TEXT NOT NULL DEFAULT 'default'")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS index_facts_space_id ON facts(space_id)")
 
-                // 2. 创建 memory_spaces 表
-                db.execSQL(
-                    """
-                    CREATE TABLE IF NOT EXISTS memory_spaces (
-                        id TEXT NOT NULL PRIMARY KEY,
-                        name TEXT NOT NULL,
-                        icon TEXT,
-                        description TEXT NOT NULL DEFAULT '',
-                        created_at TEXT NOT NULL,
-                        sort_index INTEGER NOT NULL DEFAULT 0
+                    // 2. 创建 memory_spaces 表
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS memory_spaces (
+                            id TEXT NOT NULL PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            icon TEXT,
+                            description TEXT NOT NULL DEFAULT '',
+                            created_at TEXT NOT NULL,
+                            sort_index INTEGER NOT NULL DEFAULT 0
+                        )
+                        """.trimIndent(),
                     )
-                    """.trimIndent()
-                )
-                db.execSQL("CREATE INDEX IF NOT EXISTS idx_memory_spaces_sort ON memory_spaces(sort_index)")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS idx_memory_spaces_sort ON memory_spaces(sort_index)")
 
-                // 3. 插入默认 Space(用 INSERT OR IGNORE 防止重复)
-                val defaultCreatedAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                db.execSQL(
-                    """
-                    INSERT OR IGNORE INTO memory_spaces (id, name, icon, description, created_at, sort_index)
-                    VALUES ('default', '默认', 'bookmark', '', '$defaultCreatedAt', 0)
-                    """.trimIndent()
-                )
+                    // 3. 插入默认 Space(用 INSERT OR IGNORE 防止重复)
+                    val defaultCreatedAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                    db.execSQL(
+                        """
+                        INSERT OR IGNORE INTO memory_spaces (id, name, icon, description, created_at, sort_index)
+                        VALUES ('default', '默认', 'bookmark', '', '$defaultCreatedAt', 0)
+                        """.trimIndent(),
+                    )
+                }
             }
-        }
 
         /**
          * v9→v10 迁移: P2-3 记忆知识图谱。
@@ -205,39 +221,41 @@ abstract class FactDb : RoomDatabase() {
          *  - 索引名 idx_memory_links_* 与 @Index(name = ...) 对齐。
          *  - 历史数据无 memory_links 记录,迁移仅建空表。
          */
-        val MIGRATION_9_10 = object : Migration(9, 10) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    """
-                    CREATE TABLE IF NOT EXISTS memory_links (
-                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-                        source_fact_id INTEGER NOT NULL,
-                        target_fact_id INTEGER NOT NULL,
-                        source_title TEXT NOT NULL,
-                        target_title TEXT NOT NULL,
-                        link_type TEXT NOT NULL DEFAULT 'related_to',
-                        weight REAL NOT NULL DEFAULT 0.5,
-                        space_id TEXT NOT NULL DEFAULT 'default',
-                        scope TEXT NOT NULL DEFAULT 'main',
-                        created_at TEXT NOT NULL
+        val MIGRATION_9_10 =
+            object : Migration(9, 10) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS memory_links (
+                            id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                            source_fact_id INTEGER NOT NULL,
+                            target_fact_id INTEGER NOT NULL,
+                            source_title TEXT NOT NULL,
+                            target_title TEXT NOT NULL,
+                            link_type TEXT NOT NULL DEFAULT 'related_to',
+                            weight REAL NOT NULL DEFAULT 0.5,
+                            space_id TEXT NOT NULL DEFAULT 'default',
+                            scope TEXT NOT NULL DEFAULT 'main',
+                            created_at TEXT NOT NULL
+                        )
+                        """.trimIndent(),
                     )
-                    """.trimIndent()
-                )
-                db.execSQL("CREATE INDEX IF NOT EXISTS idx_memory_links_source ON memory_links(source_fact_id)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS idx_memory_links_target ON memory_links(target_fact_id)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS idx_memory_links_space ON memory_links(space_id)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS idx_memory_links_scope ON memory_links(scope)")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS idx_memory_links_source ON memory_links(source_fact_id)")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS idx_memory_links_target ON memory_links(target_fact_id)")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS idx_memory_links_space ON memory_links(space_id)")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS idx_memory_links_scope ON memory_links(scope)")
+                }
             }
-        }
 
         /**
          * B4-05: v10→v11 迁移 — facts 表加 pinned_at 列(手动置顶记忆)。
          */
-        val MIGRATION_10_11 = object : Migration(10, 11) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE facts ADD COLUMN pinned_at TEXT DEFAULT NULL")
+        val MIGRATION_10_11 =
+            object : Migration(10, 11) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE facts ADD COLUMN pinned_at TEXT DEFAULT NULL")
+                }
             }
-        }
 
         /**
          * v11→v12 迁移 — facts 表加 entity_key 列(实体归一化键)。
@@ -246,72 +264,72 @@ abstract class FactDb : RoomDatabase() {
          * - 新列可空,历史数据保持 NULL,由反思任务在整理时按实体名回填。
          * - 索引 idx_facts_entity_key 加速写入时查重(同实体键候选扫描)。
          */
-        val MIGRATION_11_12 = object : Migration(11, 12) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE facts ADD COLUMN entity_key TEXT")
-                db.execSQL("CREATE INDEX IF NOT EXISTS idx_facts_entity_key ON facts(entity_key)")
+        val MIGRATION_11_12 =
+            object : Migration(11, 12) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE facts ADD COLUMN entity_key TEXT")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS idx_facts_entity_key ON facts(entity_key)")
+                }
             }
-        }
 
         /**
          * v12→v13 迁移 — 新建 fact_revisions 表(关键记忆修订记录)。
          * 仅建空表,历史无修订数据。表结构必须与 [FactRevisionEntity] 对齐。
          */
-        val MIGRATION_12_13 = object : Migration(12, 13) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    """
-                    CREATE TABLE IF NOT EXISTS fact_revisions (
-                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-                        fact_id INTEGER NOT NULL,
-                        old_content TEXT NOT NULL,
-                        new_content TEXT NOT NULL,
-                        changed_at TEXT NOT NULL,
-                        reason TEXT NOT NULL
+        val MIGRATION_12_13 =
+            object : Migration(12, 13) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS fact_revisions (
+                            id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                            fact_id INTEGER NOT NULL,
+                            old_content TEXT NOT NULL,
+                            new_content TEXT NOT NULL,
+                            changed_at TEXT NOT NULL,
+                            reason TEXT NOT NULL
+                        )
+                        """.trimIndent(),
                     )
-                    """.trimIndent()
-                )
-                db.execSQL("CREATE INDEX IF NOT EXISTS idx_fact_revisions_fact_id ON fact_revisions(fact_id)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS idx_fact_revisions_changed_at ON fact_revisions(changed_at)")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS idx_fact_revisions_fact_id ON fact_revisions(fact_id)")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS idx_fact_revisions_changed_at ON fact_revisions(changed_at)")
+                }
             }
-        }
 
         /**
          * v13→v14 迁移 — 新增 hit_count 列（检索命中累计次数）。
          * NOT NULL + DEFAULT 0 必须与 [FactEntity] 声明一致，否则 Room schema 校验失败。
          */
-        val MIGRATION_13_14 = object : Migration(13, 14) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE facts ADD COLUMN hit_count INTEGER NOT NULL DEFAULT 0")
+        val MIGRATION_13_14 =
+            object : Migration(13, 14) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE facts ADD COLUMN hit_count INTEGER NOT NULL DEFAULT 0")
+                }
             }
-        }
+
         /**
          * R-DB-03: 归档早期 v1/v2 或损坏的 facts 数据库。
          * 归档为 <name>.bak 后由 Room 重建空库,避免打开时崩溃。
          */
-        private fun archiveLegacyOrCorruptDatabase(context: Context, name: String) {
+        private fun archiveLegacyOrCorruptDatabase(
+            context: Context,
+            name: String,
+        ) {
             val file = context.getDatabasePath(name)
             if (!file.exists()) return
 
-            val legacyOrCorrupt = try {
-                val db = SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
-                val version = db.version
-                db.close()
-                version < 3
-            } catch (_: Exception) {
-                true
-            }
+            val legacyOrCorrupt =
+                try {
+                    val db = SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY)
+                    val version = db.version
+                    db.close()
+                    version < 3
+                } catch (_: Exception) {
+                    true
+                }
             if (!legacyOrCorrupt) return
 
-            val bak = nextBackupFile(file, "$name.bak")
-            val renamed = runCatching { file.renameTo(bak) }.getOrDefault(false)
-            check(renamed) {
-                "无法安全归档旧记忆库，已保留原文件: ${file.absolutePath}"
-            }
-            listOf(file, File(file.parentFile, "$name-wal"), File(file.parentFile, "$name-shm")).forEach {
-                runCatching { if (it.exists()) it.delete() }
-            }
-            MemoryLegacyReset.mark(context, name)
+            archiveDatabaseFiles(context, file, nextBackupFile(file, "$name.bak"), name)
         }
 
         /**
@@ -320,30 +338,155 @@ abstract class FactDb : RoomDatabase() {
          * 这里在 Room 打开前检查版本: 高于迁移链覆盖(高版本降级)或版本异常时,
          * 先重命名 .bak 保留数据,Room 再重建空库,数据可恢复。
          */
-        private fun archiveUnknownVersionDatabase(context: Context, name: String) {
+        private fun archiveUnknownVersionDatabase(
+            context: Context,
+            name: String,
+        ) {
             val file = context.getDatabasePath(name)
             if (!file.exists()) return
-            val version = try {
-                SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { it.version }
-            } catch (_: Exception) {
-                return // 损坏库交给 archiveLegacyOrCorruptDatabase 处理
-            }
-            if (version <= 13) return // 迁移链覆盖范围内(3..13)
-            val bak = nextBackupFile(file, "$name.pre-destructive.bak")
+            val version =
+                try {
+                    SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { it.version }
+                } catch (_: Exception) {
+                    return // 损坏库交给 archiveLegacyOrCorruptDatabase 处理
+                }
+            // 迁移链覆盖范围内(3..FACT_DB_VERSION)一律不归档。
+            // 历史缺陷: 此处曾写死 13,数据库升到 14 后把当前版本真库误判为
+            // "未知高版本",每次启动归档重建 → 事实记忆不保留(83 个空 .bak 即其痕迹)。
+            if (version <= FACT_DB_VERSION) return
+            archiveDatabaseFiles(context, file, nextBackupFile(file, "$name.pre-destructive.bak"), name)
+        }
+
+        /**
+         * 归档数据库文件(main + wal + shm)。
+         *
+         * 归档前尽力 `wal_checkpoint(TRUNCATE)` 把 WAL 内数据并入主库;checkpoint 失败或
+         * 打不开时,将 -wal/-shm 一并改名随备份保留,避免历史"只保主文件、WAL 数据被删"
+         * 的静默数据丢失。归档后标记 [MemoryLegacyReset] 供 UI 提示。
+         */
+        private fun archiveDatabaseFiles(
+            context: Context,
+            file: File,
+            bak: File,
+            name: String,
+        ) {
+            val checkpointed =
+                try {
+                    SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READWRITE).use { db ->
+                        db.rawQuery("PRAGMA wal_checkpoint(TRUNCATE)", null).use { it.moveToFirst() }
+                    }
+                    true
+                } catch (_: Exception) {
+                    false
+                }
             val renamed = runCatching { file.renameTo(bak) }.getOrDefault(false)
             check(renamed) {
-                "无法安全归档未知版本记忆库，已保留原文件: ${file.absolutePath}"
+                "无法安全归档记忆库，已保留原文件: ${file.absolutePath}"
             }
-            listOf(
-                file,
-                File(file.parentFile, "$name-wal"),
-                File(file.parentFile, "$name-shm"),
-            ).forEach { runCatching { if (it.exists()) it.delete() } }
+            val parent = file.parentFile
+            listOf("wal", "shm").forEach { suffix ->
+                runCatching {
+                    val aux = File(parent, "${file.name}-$suffix")
+                    if (!aux.exists()) return@runCatching
+                    if (checkpointed) {
+                        aux.delete()
+                    } else {
+                        aux.renameTo(File(parent, "${bak.name}-$suffix"))
+                    }
+                }
+            }
             MemoryLegacyReset.mark(context, name)
         }
 
+        /**
+         * v2.2.1 数据救援: 从历史误归档的备份中恢复事实记忆。
+         *
+         * 触发条件(全部满足才执行,且每库只尝试一次):
+         *  1) 存在未消费的归档事件标记(排除从未发生过误归档的设备);
+         *  2) 主库缺失或 facts 行数为 0(排除仍在正常使用的库);
+         *  3) 存在可打开、版本不超过 [FACT_DB_VERSION]、facts 行数 > 0 的
+         *     `*.pre-destructive.bak*` 备份(取行数最多者)。
+         * 恢复前把当前空库另存为 `*.replaced-by-recovery.bak`,不覆盖任何现有数据。
+         *
+         * @return 恢复的事实条数;未执行/未找到时为 null
+         */
+        private fun recoverFromMisarchivedBackup(
+            context: Context,
+            name: String,
+        ): Int? {
+            if (MemoryLegacyReset.isRecoveryAttempted(context, name)) return null
+            if (!MemoryLegacyReset.hasPending(context)) return null
+
+            val main = context.getDatabasePath(name)
+            val mainEmpty = !main.exists() || countFacts(main) == 0
+            if (!mainEmpty) {
+                MemoryLegacyReset.markRecoveryAttempted(context, name)
+                return null
+            }
+
+            val parent = main.parentFile ?: return null
+            val candidates = parent.listFiles { f -> f.name.startsWith("$name.pre-destructive.bak") }.orEmpty()
+            var best: File? = null
+            var bestCount = 0
+            for (candidate in candidates) {
+                val version = readVersion(candidate) ?: continue
+                if (version > FACT_DB_VERSION) continue
+                val count = countFacts(candidate)
+                if (count > bestCount) {
+                    best = candidate
+                    bestCount = count
+                }
+            }
+            val source = best
+            if (source == null || bestCount == 0) {
+                MemoryLegacyReset.markRecoveryAttempted(context, name)
+                return null
+            }
+
+            // 当前空库另存后再迁回备份(不覆盖、可回退)
+            if (main.exists()) {
+                runCatching { main.renameTo(File(parent, "$name.replaced-by-recovery.bak")) }
+                listOf("-wal", "-shm").forEach { suffix ->
+                    runCatching { File(parent, "$name$suffix").takeIf { it.exists() }?.delete() }
+                }
+            }
+            val restored = runCatching { source.renameTo(main) }.getOrDefault(false)
+            if (!restored) {
+                Logger.w("FactDb", "从归档恢复失败(rename 被拒),保留备份: ${source.absolutePath}")
+                MemoryLegacyReset.markRecoveryAttempted(context, name)
+                return null
+            }
+            MemoryLegacyReset.markRecoveryAttempted(context, name)
+            MemoryLegacyReset.noteRecovered(context, bestCount)
+            Logger.i("FactDb", "已从归档恢复事实记忆: $bestCount 条(来源 ${source.name})")
+            return bestCount
+        }
+
+        /** 读取数据库文件中 facts 表行数;不可读时返回 0。 */
+        private fun countFacts(file: File): Int =
+            try {
+                SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+                    db.rawQuery("SELECT COUNT(*) FROM facts", null).use { cursor ->
+                        if (cursor.moveToFirst()) cursor.getInt(0) else 0
+                    }
+                }
+            } catch (_: Exception) {
+                0
+            }
+
+        /** 读取数据库 user_version;不可读时返回 null。 */
+        private fun readVersion(file: File): Int? =
+            try {
+                SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { it.version }
+            } catch (_: Exception) {
+                null
+            }
+
         /** 为归档选择不覆盖已有备份的目标路径。 */
-        private fun nextBackupFile(file: File, preferredName: String): File {
+        private fun nextBackupFile(
+            file: File,
+            preferredName: String,
+        ): File {
             val parent = file.parentFile ?: error("数据库文件缺少父目录: ${file.absolutePath}")
             val preferred = File(parent, preferredName)
             if (!preferred.exists()) return preferred
@@ -356,31 +499,39 @@ abstract class FactDb : RoomDatabase() {
         }
 
         /** 单例数据库实例。全局唯一,内存数据库失败时回退。 */
-        fun create(context: Context, name: String = "facts.db"): FactDb {
+        fun create(
+            context: Context,
+            name: String = "facts.db",
+        ): FactDb {
             archiveLegacyOrCorruptDatabase(context, name)
             archiveUnknownVersionDatabase(context, name)
+            // v2.2.1: 版本守卫缺陷修复后,顺带把被误归档的历史真库迁回(仅一次)
+            recoverFromMisarchivedBackup(context, name)
             return Room.databaseBuilder(context, FactDb::class.java, name)
                 .addMigrations(
                     MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
                     MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
                     MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14,
                 )
-                .addCallback(object : Callback() {
-                    override fun onCreate(db: SupportSQLiteDatabase) {
-                        super.onCreate(db)
-                        createFtsCleanupTrigger(db)
-                        // v9: 全新安装时插入默认 Space(与 MIGRATION_8_9 行为对齐)
-                        val defaultCreatedAt = LocalDateTime.now()
-                            .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                        db.execSQL(
-                            """
-                            INSERT OR IGNORE INTO memory_spaces
-                                (id, name, icon, description, created_at, sort_index)
-                            VALUES ('default', '默认', 'bookmark', '', '$defaultCreatedAt', 0)
-                            """.trimIndent()
-                        )
-                    }
-                })
+                .addCallback(
+                    object : Callback() {
+                        override fun onCreate(db: SupportSQLiteDatabase) {
+                            super.onCreate(db)
+                            createFtsCleanupTrigger(db)
+                            // v9: 全新安装时插入默认 Space(与 MIGRATION_8_9 行为对齐)
+                            val defaultCreatedAt =
+                                LocalDateTime.now()
+                                    .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                            db.execSQL(
+                                """
+                                INSERT OR IGNORE INTO memory_spaces
+                                    (id, name, icon, description, created_at, sort_index)
+                                VALUES ('default', '默认', 'bookmark', '', '$defaultCreatedAt', 0)
+                                """.trimIndent(),
+                            )
+                        }
+                    },
+                )
                 // 禁止 destructive migration：无法安全迁移时保留原库并交给恢复流程处理。
                 .build()
         }
