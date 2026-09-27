@@ -25,6 +25,9 @@ Thumbs.db
 !/docs/回归资产清单.md
 !/docs/rebuild/
 !/docs/rebuild/**
+!/docs/assets/
+!/docs/assets/readme/
+!/docs/assets/readme/**
 
 # 贡献/安全/计划文档（项目代码不包含这些）
 CONTRIBUTING.md
@@ -58,6 +61,10 @@ releases/**/*.apk
 
 # F-05: 发布 manifest 为构建产物(每次构建生成,不入库)
 release/
+
+# README 预览产物(gen_preview.py 随时重新生成,不入库)
+docs/assets/readme/preview.html
+docs/assets/readme/preview-*.png
 
 # CMake 构建产物(终端二期原生构建)
 .cxx/
