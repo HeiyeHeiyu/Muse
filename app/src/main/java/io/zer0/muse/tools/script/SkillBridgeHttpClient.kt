@@ -3,8 +3,10 @@ package io.zer0.muse.tools.script
 import okhttp3.ConnectionPool
 import okhttp3.Dns
 import okhttp3.Interceptor
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import java.io.IOException
 import java.net.Inet6Address
@@ -119,6 +121,36 @@ internal class SkillBridgeHttpClient(
             }
         }
         throw IOException("重定向超过 $maxRedirects 跳上限")
+    }
+
+    /**
+     * Execute a POST without following redirects (fail-closed on 3xx).
+     *
+     * Size, DNS, proxy, and route policy are identical to [get]; redirects are reported as errors
+     * so a POST body is never silently replayed to a different origin.
+     */
+    fun post(
+        startUrl: String,
+        body: String,
+        contentType: String,
+        maxSize: Int,
+    ): Result {
+        val request = try {
+            Request.Builder()
+                .url(startUrl)
+                .post(body.toByteArray(Charsets.UTF_8).toRequestBody(contentType.toMediaType()))
+                .build()
+        } catch (e: IllegalArgumentException) {
+            throw IOException("URL 无法解析: $startUrl", e)
+        }
+        executePinned(request).use { response ->
+            if (response.code in 300..399) {
+                val location = response.header("Location")?.trim().orEmpty()
+                val hint = if (location.isNotEmpty()) ", Location: $location" else ""
+                throw IOException("http_post 不支持重定向(${response.code}$hint);请直接使用最终地址")
+            }
+            return Result(status = response.code, body = readLimitedBody(response, maxSize))
+        }
     }
 
     /**

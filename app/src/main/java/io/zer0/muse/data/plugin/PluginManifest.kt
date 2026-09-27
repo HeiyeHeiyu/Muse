@@ -93,7 +93,8 @@ data class PluginManifest(
     val trust: String = "sandboxed",
     /** 是否在 UI 隐藏。 */
     val hidden: Boolean = false,
-    /** 声明的能力 (resource.read / resource.write / network / ui / ui.mood)。 */
+    /** 声明的能力 (resource.read / network / storage.read / storage.write / clipboard.read /
+     *  clipboard.write / notify / device.info / ui / ui.mood / ui.skin)。 */
     val capabilities: List<String> = emptyList(),
     /** 声明的权限(与 capabilities 对齐,额外用于恶意清单校验)。 */
     val permissions: List<String> = emptyList(),

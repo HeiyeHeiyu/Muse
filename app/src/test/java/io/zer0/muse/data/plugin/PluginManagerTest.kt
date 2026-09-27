@@ -241,10 +241,10 @@ class PluginManagerTest {
     }
 
     @Test
-    fun install_rejectsNetworkAndResourceWriteCapabilities() = runBlocking {
+    fun install_rejectsCapabilitiesOutsideWhitelist() = runBlocking {
         val skillRepo = skillRepoMock()
         val manager = PluginManager(context, skillRepo)
-        for (capability in listOf("network", "resource.write")) {
+        for (capability in listOf("resource.write", "system.exec")) {
             val zip = zip(
                 manifest = """
                     {

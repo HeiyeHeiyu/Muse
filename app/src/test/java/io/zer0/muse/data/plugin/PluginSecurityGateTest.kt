@@ -31,12 +31,29 @@ class PluginSecurityGateTest {
     @Test
     fun review_rejectsCapabilitiesNotAllowedForExternalPlugins() {
         val decision = PluginSecurityGate.review(
-            packageOf(capabilities = listOf("network")),
+            packageOf(capabilities = listOf("system.exec")),
         )
 
         assertFalse(decision.allowed)
         assertFalse(decision.requiresConfirmation)
         assertTrue(decision.reason?.contains("不允许的能力") == true)
+    }
+
+    @Test
+    fun review_acceptsBridgeCapabilitiesForExternalPlugins() {
+        val bridgeCaps = listOf(
+            "network",
+            "storage.read",
+            "storage.write",
+            "clipboard.read",
+            "clipboard.write",
+            "notify",
+            "device.info",
+        )
+        val decision = PluginSecurityGate.review(packageOf(capabilities = bridgeCaps))
+
+        assertTrue("桥接能力应被接受: ${decision.reason}", decision.allowed)
+        assertEquals(bridgeCaps, decision.preview.capabilities)
     }
 
     @Test

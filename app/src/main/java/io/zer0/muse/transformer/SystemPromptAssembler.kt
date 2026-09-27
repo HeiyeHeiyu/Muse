@@ -1163,7 +1163,7 @@ class SystemPromptAssembler(
         // v1.0.82 (S-1): 技能创建引导 — 用户想自定义工具/技能时,模型应主动用 install_skill 完成,
         // 不要只给步骤。格式与白名单实现见 knowledge_search 的 skill_system_guide。
         sb.appendLine("- 用户想自定义工具/技能时,主动提出并直接用 install_skill 帮他创建(格式见 knowledge_search 查 skill_system_guide),不要只给步骤让用户自己做。")
-        sb.appendLine("- 技能实现只能复用白名单基础能力(read_file/write_file/http/web/knowledge),这是安全设计,不要承诺任意代码执行。")
+        sb.appendLine("- 技能/插件的脚本只能通过「声明式能力→受控桥接」使用能力(网络、插件沙盒目录文件、剪贴板、通知、设备信息;按 manifest 声明逐项放行),不支持任意代码执行或系统级访问,不要承诺越界能力。")
         sb.appendLine("- 白名单能力不够用时,可以用 author_plugin 写出**插件草稿**(自带 JS 工具函数):草稿是禁用且未签名的,必须提醒用户到「设置 → 插件管理」审阅并点「签名并启用」才会生效,不要声称已经装上。")
         sb.appendLine(
             "- 用户想给助手加装现成插件时,先用 plugin_market_search 检索插件市场,再用 " +

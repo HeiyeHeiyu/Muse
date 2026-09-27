@@ -23,13 +23,27 @@ import java.util.Base64
  */
 object PluginSecurityGate {
 
-    /** 外部插件允许声明的最小能力集合。 */
+    /**
+     * 外部插件允许声明的能力集合。
+     *
+     * v2.2.1 大沙盒:在原有声明式能力之外,放开"受控桥接"能力 —— 网络、插件沙盒目录文件
+     * 读写、剪贴板、通知、设备信息。能力名与 [io.zer0.muse.tools.script.SkillBridge] 的
+     * 动作映射一一对应,安装预览会逐项展示；文件动作被锁定在插件自己的沙盒目录内。
+     */
     val allowedCapabilities: Set<String> = setOf(
         "resource.read",
         "ui",
         "ui.mood",
         // Phase 4: 声明式气泡皮肤包(只分发 JSON,不执行 JS)。
         "ui.skin",
+        // v2.2.1: 受控桥接能力(与 SkillBridge 动作映射一致)
+        "network",
+        "storage.read",
+        "storage.write",
+        "clipboard.read",
+        "clipboard.write",
+        "notify",
+        "device.info",
     )
 
     /** 声明式 UI 皮肤插件类型;该类插件允许无 tools、且不得携带可执行 JS。 */

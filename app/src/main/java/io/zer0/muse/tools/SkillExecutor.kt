@@ -692,7 +692,7 @@ class SkillExecutor(
                         })
                         put("capabilities", buildJsonObject {
                             put("type", "array")
-                            put("description", "可选能力数组,只能是 resource.read / ui / ui.mood 的子集,默认不声明")
+                            put("description", "可选能力数组,取自白名单:resource.read / ui / ui.mood 与受控桥接能力(network / storage.read / storage.write / clipboard.read / clipboard.write / notify / device.info)，默认不声明")
                         })
                     })
                     put("required", kotlinx.serialization.json.JsonArray(listOf(

@@ -80,7 +80,7 @@ class PluginAuthoringTest {
             "工具名重复" to request(
                 tools = listOf(tool(name = "hello", functionName = "hello"), tool(name = "hello", functionName = "hello")),
             ),
-            "能力超白名单" to request(capabilities = listOf("network")),
+            "能力超白名单" to request(capabilities = listOf("system.exec")),
         )
 
         cases.forEach { (label, request) ->

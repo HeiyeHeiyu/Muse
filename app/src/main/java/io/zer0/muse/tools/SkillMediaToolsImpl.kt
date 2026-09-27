@@ -154,15 +154,26 @@ class SkillMediaToolsImpl(
         return when (val result = WebViewSkillEngine().callFunction(verified.entryCode, functionName, argsJson, scopeKey = pluginId, pluginConfigJson = configJson)) {
             is SkillEngineResult.Success -> {
                 val value = result.valueJson
-                // F-17: 脚本可返回 {__bridge__:true, action:"http_get"/"echo"} 由 Kotlin 审计后执行
-                // 外部插件的 manifest 不允许 network 能力，因此桥接层也必须按声明收紧，
-                // 防止脚本返回 __bridge__ 对象绕过清单能力白名单。
-                val allowedBridgeActions = if ("network" in verified.capabilities) {
-                    setOf("echo", "http_get")
-                } else {
-                    setOf("echo")
+                // F-17 + v2.2.1 大沙盒:脚本可返回 {__bridge__:true, action:...} 由 Kotlin 审计后执行。
+                // 桥接层严格按 manifest 声明能力放行(见 PluginSecurityGate.allowedCapabilities),
+                // 防止脚本返回 __bridge__ 对象绕过清单能力白名单；文件动作被锁定在插件自己的
+                // 沙盒目录(workspace/plugins/<pluginId>)内。
+                val caps = verified.capabilities
+                val allowedBridgeActions = buildSet {
+                    add("echo")
+                    if ("network" in caps) { add("http_get"); add("http_post") }
+                    if ("storage.read" in caps) { add("fs_list"); add("fs_read") }
+                    if ("storage.write" in caps) { add("fs_write"); add("fs_delete") }
+                    if ("clipboard.read" in caps) add("clipboard_read")
+                    if ("clipboard.write" in caps) add("clipboard_write")
+                    if ("notify" in caps) add("notify")
+                    if ("device.info" in caps) add("device_info")
                 }
-                when (val bridge = SkillBridge.tryHandle(value, allowedBridgeActions)) {
+                val bridgeHost = SkillBridge.Host(
+                    context = context,
+                    fsRoot = java.io.File(context.filesDir, "workspace/plugins/$pluginId"),
+                )
+                when (val bridge = SkillBridge.tryHandle(value, allowedBridgeActions, bridgeHost)) {
                     is SkillBridge.HandleResult.NotBridge -> {
                         runCatching {
                             AppJson.decodeFromString<String>(value)
