@@ -600,6 +600,11 @@ class ProactiveMessageRunner(
             )
             Logger.i(TAG, "[测试] Proactive message sent via notification, scenario=${decision.scenario}, reason=${decision.reason}")
             lastCycleOutcome = "测试消息已发送,请查看通知栏"
+            // v2.2.1: 测试发送成功 = 链路可用 — 清零失败退避(指数封顶 16x≈32h),
+            // 避免修复配置后仍被历史失败的长退避压着不恢复
+            runCatching {
+                settings.saveProactiveMessageConfig(config.copy(lastFailedAt = 0, consecutiveFailures = 0))
+            }.onFailure { e -> Logger.w(TAG, "测试发送后清零退避失败: ${e.message}", e) }
             return@withLock
         }
 
