@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-gen_preview.py — 把 README_new.md 渲染成 GitHub 风格预览页(本地审阅用)。
+gen_preview.py — 把仓库根 README.md 渲染成 GitHub 风格预览页(本地审阅用)。
 
 - 支持本项目 README 用到的构造: 标题 / 段落 / 列表 / 表格 / 代码块 / 引用 /
   GitHub 警告块([!WARNING] / [!NOTE]) / 原生 HTML 透传(<p> <details> <img> 等)
@@ -57,7 +57,7 @@ def rewrite_paths(text: str) -> str:
     text = text.replace('src="screenshots/', f'src="{depth}/screenshots/')
     text = text.replace('src="art/', f'src="{depth}/art/')
     text = text.replace('href="README_EN.md', f'href="{depth}/README_EN.md')
-    text = text.replace('href="软件功能.md', f'href="{depth}/软件功能.md')
+    text = text.replace('href="用户手册.md', f'href="{depth}/用户手册.md')
     text = text.replace('href="CONTRIBUTING.md', f'href="{depth}/CONTRIBUTING.md')
     text = text.replace('href="SECURITY.md', f'href="{depth}/SECURITY.md')
     text = text.replace('href="UI组件库维护规范.md', f'href="{depth}/UI组件库维护规范.md')

@@ -94,7 +94,7 @@ Download the latest APK from the [Releases page](https://github.com/Zer0Qing/Mus
 2. **Start chatting** — go back to the home screen and send your first message. Memory starts accumulating from that moment; switch models or sessions and it still remembers you.
 3. **Unlock system-level abilities (optional)** — to let it act on your phone, open **Settings → Permission Wizard** and enable the Accessibility / Shizuku / Root / Termux channels you need. Every step has built-in detection and test entry points.
 
-> A complete usage guide (including all the gestures and hidden operations) is available in the [user manual (Chinese)](软件功能.md) and in-app under **Settings → Tutorial**.
+> A complete usage guide (including all the gestures and hidden operations) is available in the [user manual (Chinese)](用户手册.md) and in-app under **Settings → Tutorial**.
 
 ## Why Muse
 
@@ -120,7 +120,7 @@ short     key facts          compression        dedup/merge     long-term memory
 | Root | Full system control, access other apps' data | Rooted device |
 | Termux | Full Linux environment (apt / pip / gcc / ffmpeg) | Install Termux and authorize |
 
-- Currently **137 registered tools**, exposed in tiers by default; long-tail capabilities are loaded on demand via `find_tools`
+- Currently **141 registered tools**, exposed in tiers by default; long-tail capabilities are loaded on demand via `find_tools`
 - Every tool declares its required authorization and readiness (READY / NOT READY); unready calls **fail fast before execution** with clear guidance
 - Built-in terminal (custom PTY + xterm), background **virtual display**, vision-driven **GUI Agent**, browser automation
 - Safety boundaries: command allowlist, risk-based approval (Trusted / Ask / Strict), hard timeouts, workspace sandbox
@@ -128,9 +128,9 @@ short     key facts          compression        dedup/merge     long-term memory
 ### 3. Personality & team — it has an inner life, and a life
 
 - **Mood, in four dimensions**: Vibe / Sparks / Reflections / Will before every reply, collapsed by default — expand to see what it was thinking
-- **Three-layer persona**: identity / relationship / style layers, configurable independently, with `{{user_name}}` / `{{char}}` template variables
+- **Three-layer persona**: persona / relationship / style layers, with `{{user_name}}` / `{{char}}` template variables
 - **Multi-agent**: delegate with `@assistant-name`, task cards visualize each step, sub-agents run in floating windows, assistants have a private DM inbox
-- **Group meetings**: summary cards / votes / observers / a director bar / quick templates — a proper multi-assistant meeting
+- **Group meetings**: summary cards / votes / observers / quick templates / meeting controls (pause, skip) — a proper multi-assistant meeting
 - **Milestones**: first message, day 7 / 30 / 100, message 100 / 1000 — all remembered for you
 
 ## Features
@@ -173,9 +173,9 @@ short     key facts          compression        dedup/merge     long-term memory
 </details>
 
 <details>
-<summary><b>Tools & Automation</b> — 137 tools / permission tiers / approvals & budgets / four channels / terminal / virtual display / GUI Agent</summary>
+<summary><b>Tools & Automation</b> — 141 tools / permission tiers / approvals & budgets / four channels / terminal / virtual display / GUI Agent</summary>
 
-- **Tool system**: 137 registered tools, exposed in tiers (core / standard / optional / advanced); only common tools are sent by default to keep context lean, while long-tail capabilities load on demand via `find_tools` (loaded tools stay available for the session); a tool capability index is embedded in the system prompt.
+- **Tool system**: 141 registered tools, exposed in tiers (core / standard / optional / advanced); only common tools are sent by default to keep context lean, while long-tail capabilities load on demand via `find_tools` (loaded tools stay available for the session); a tool capability index is embedded in the system prompt.
 - **Permission tiers**: every tool that needs Shizuku / Root, Accessibility or Termux declares its dependencies and readiness (READY / NOT READY); unready calls fail fast with a structured `permission_required` error and authorization guidance.
 - **Approvals**: risk levels (safe / normal / high) combined with three modes (Trusted / Ask / Strict); "allow for this session" and per-tool policies; high-risk actions always ask first.
 - **Execution engine**: read-only tools run with bounded parallelism (max 3); blocking tools run on a dedicated thread pool with hard timeouts; oversized outputs are written to disk with previews and `read_file` references in context; a unified success judge; automatic early stop on repeated failures with honest reasons; tool rounds are unlimited by default (a cap is configurable), with circuit breakers for repeated identical calls, no-progress rounds and total call counts.
@@ -237,7 +237,6 @@ short     key facts          compression        dedup/merge     long-term memory
 <summary><b>Security & Privacy</b> — local-first / encryption / PII masking / sandbox boundaries</summary>
 
 - **Local-first**: conversations, memories and knowledge bases live in a local Room database; no telemetry, no analytics, no data collection; no sign-up, no login; network features are off by default.
-- **App lock**: PIN / biometric unlock with exponential backoff; Deep Links are intercepted while locked.
 - **PII masking**: phone numbers, ID numbers and bank cards are masked into placeholders before requests leave the device and unmasked in replies — real values never reach the provider.
 - **Encryption**: sensitive configuration in Android Keystore (AES-256-GCM); backup passwords with PBKDF2 + AES-256-GCM.
 - **Link protection**: confirmation dialog before opening links; model output is sanitized before WebView rendering (no iframe / form / pseudo-protocols).
