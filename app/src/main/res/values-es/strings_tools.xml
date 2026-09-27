@@ -118,6 +118,7 @@
     <string name="tool_summary_plugin_market_set_enabled">Cambió el estado de un plugin</string>
     <string name="tool_summary_find_tools">Buscó en la biblioteca de herramientas</string>
     <string name="tool_summary_device_shell">Ejecutó un comando del dispositivo</string>
+    <string name="tool_summary_terminal_exec">Ejecutó un comando de terminal</string>
     <string name="tool_summary_proactive_message_wish">Guardó un mensaje proactivo</string>
     <string name="tool_summary_quick_note_add">Creó una nota rápida</string>
     <string name="tool_summary_quick_note_delete">Eliminó una nota rápida</string>
@@ -196,6 +197,7 @@
     <string name="tool_label_plugin_market_set_enabled">Activar/desactivar plugin</string>
     <string name="tool_label_find_tools">Buscar herramientas</string>
     <string name="tool_label_device_shell">Comando del dispositivo</string>
+    <string name="tool_label_terminal_exec">Comando de terminal</string>
     <string name="tool_label_quick_note_add">Nueva nota rápida</string>
     <string name="tool_label_quick_note_list">Notas rápidas</string>
     <string name="tool_label_read_file">Leer archivo</string>

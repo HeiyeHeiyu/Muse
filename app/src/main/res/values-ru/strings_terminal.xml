@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="terminal_title">Терминал</string>
+    <string name="terminal_input_hint">Введите команду…</string>
+    <string name="terminal_back_cd">Назад</string>
+    <string name="terminal_clear_cd">Очистить</string>
+    <string name="terminal_restart_cd">Перезапустить сеанс</string>
+    <string name="terminal_send_cd">Отправить</string>
+</resources>

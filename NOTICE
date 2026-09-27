@@ -62,3 +62,4 @@ the Muse codebase beyond static/dynamic linking):
   - CameraX (Apache 2.0)               https://developer.android.com/jetpack/androidx/releases/camera
   - WorkManager (Apache 2.0)           https://developer.android.com/jetpack/androidx/releases/work
   - Tabler Icons / Compose Icons (MIT) https://github.com/DevSrSouza/compose-icons
+  - xterm.js (MIT)                     https://xtermjs.org/

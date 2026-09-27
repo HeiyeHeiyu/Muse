@@ -233,6 +233,7 @@ fun SettingsScreen(
     val toolsTitle = stringResource(R.string.settings_screen_tools)
     val toolsDesc = stringResource(R.string.settings_screen_tools_desc)
     val automationTitle = stringResource(io.zer0.muse.R.string.automation_settings_title)
+    val terminalEntryTitle = stringResource(io.zer0.muse.R.string.terminal_title)
     val automationSubtitle = stringResource(io.zer0.muse.R.string.automation_settings_subtitle)
     val quickNotesTitle = stringResource(R.string.settings_screen_quick_notes)
     val miniPhoneTitle = stringResource(R.string.settings_miniphone_title)
@@ -338,6 +339,8 @@ fun SettingsScreen(
                 SettingsEntry(automationTitle, listOf("UI自动化", "自动操作", "屏幕读取", "手势", "zidonghua", "zidongcaozuo", "pingmu", "shoushi"), MuseRoutes.SETTINGS_AUTOMATION, groupTools, MuseIcons.computer) { onNavigate(io.zer0.muse.ui.navigation.SettingsAutomationRoute) },
                 // ST-05: 权限配置向导 — 补入口(此前路由已注册但无任何入口)
                 SettingsEntry(permissionWizardTitle, listOf("权限", "向导", "无障碍", "Shizuku", "Root", "quanxian", "xiangdao", "wuzhangai", "qx", "xd", "wza"), MuseRoutes.SETTINGS_PERMISSION_WIZARD, groupTools, MuseIcons.shieldCheck) { onNavigate(SettingsPermissionWizardRoute) },
+                // v2.x 终端一期:应用沙盒终端
+                SettingsEntry(terminalEntryTitle, listOf("终端", "命令行", "shell", "terminal", "zhongduan", "minglinghang"), MuseRoutes.TERMINAL, groupTools, MuseIcons.terminal) { onNavigate(io.zer0.muse.ui.navigation.TerminalRoute) },
 
                 // AI 模型与能力(从原「助手与 Agent」拆分)
                 SettingsEntry(providerTitle, listOf("供应商", "模型", "provider", "API", "密钥", "gongyingshang", "moxing", "miyao", "gys", "mx", "my", "绘图", "Agnes", "DALL-E", "绘图供应商"), MuseRoutes.SETTINGS_MODEL, groupModels, MuseIcons.provider, onOpenModelSettings),

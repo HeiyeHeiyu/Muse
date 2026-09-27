@@ -109,6 +109,8 @@ data object LicensesRoute
 @Serializable
 data object DebugRoute
 @Serializable
+data object TerminalRoute
+@Serializable
 data object ComponentGalleryRoute
 @Serializable
 data object AuditLogRoute

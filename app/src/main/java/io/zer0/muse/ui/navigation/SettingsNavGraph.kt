@@ -5,6 +5,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import io.zer0.muse.ui.DebugScreen
+import io.zer0.muse.ui.terminal.TerminalScreen
 import io.zer0.muse.ui.SettingsScreen
 import io.zer0.muse.ui.WorkspaceScreen
 import io.zer0.muse.ui.account.AccountScreen
@@ -418,6 +419,15 @@ fun NavGraphBuilder.settingsNavGraph(
         popExitTransition = { MuseTransitions.horizontalPushPopExit() },
     ) {
         DebugScreen(
+            onBack = { navController.popBackStack() },
+        )
+    }
+    // v2.x 终端一期 — 从设置 → 工具 → 终端 进入,应用沙盒内的交互式 shell
+    composable<TerminalRoute>(
+        enterTransition = { MuseTransitions.horizontalPushEnter() },
+        popExitTransition = { MuseTransitions.horizontalPushPopExit() },
+    ) {
+        TerminalScreen(
             onBack = { navController.popBackStack() },
         )
     }

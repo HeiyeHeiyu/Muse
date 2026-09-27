@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="terminal_title">终端</string>
+    <string name="terminal_input_hint">输入命令…</string>
+    <string name="terminal_back_cd">返回</string>
+    <string name="terminal_clear_cd">清屏</string>
+    <string name="terminal_restart_cd">重启会话</string>
+    <string name="terminal_send_cd">发送</string>
+</resources>

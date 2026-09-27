@@ -611,6 +611,8 @@ class ToolRegistry(
             "plugin_market_uninstall", "plugin_market_set_enabled",
             // v2.x 自动化一期:设备命令行通道(Shizuku/Root 分层执行)
             "device_shell",
+            // v2.x 终端一期:应用沙盒终端命令
+            "terminal_exec",
             // v2.0: Root-level system tools
             "settings_get", "settings_put", "am_start", "list_packages", "logcat_tail", "input_inject",
         )

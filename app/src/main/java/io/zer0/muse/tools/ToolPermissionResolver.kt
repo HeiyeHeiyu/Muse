@@ -319,6 +319,8 @@ object ToolPermissionResolver {
         "plugin_market_set_enabled" to ToolRiskLevel.HIGH,
         // v2.x 自动化一期:设备命令行通道 — 可 tap/启动/改设置,归 HIGH
         "device_shell" to ToolRiskLevel.HIGH,
+        // v2.x 终端一期:App 自身权限的沙盒终端 — 可增删应用文件,归 HIGH
+        "terminal_exec" to ToolRiskLevel.HIGH,
         // v1.x: update_skill 与 install_skill 同级 — 二者都能改写助手后续要执行的 skill 定义;
         // 内容仍经 SkillImporter 白名单/注入黑名单校验,且只允许修改用户自建 skill
         "update_skill" to ToolRiskLevel.HIGH,
@@ -487,5 +489,7 @@ object ToolPermissionResolver {
         "plugin_market_set_enabled",
         // v2.x 自动化一期:设备命令可操纵任意 App/系统设置,完全放权模式也保留审批
         "device_shell",
+        // v2.x 终端一期:沙盒终端可写/删应用数据,保留审批
+        "terminal_exec",
     )
 }

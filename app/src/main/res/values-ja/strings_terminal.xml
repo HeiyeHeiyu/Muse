@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="terminal_title">ターミナル</string>
+    <string name="terminal_input_hint">コマンドを入力…</string>
+    <string name="terminal_back_cd">戻る</string>
+    <string name="terminal_clear_cd">クリア</string>
+    <string name="terminal_restart_cd">セッションを再起動</string>
+    <string name="terminal_send_cd">送信</string>
+</resources>

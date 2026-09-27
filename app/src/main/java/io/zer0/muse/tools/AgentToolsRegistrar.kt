@@ -88,6 +88,11 @@ class AgentToolsRegistrar(
             FindToolsTool.execute(args, toolRegistry, executionContext)
         }
 
+        // v2.x 终端一期:应用沙盒终端命令(工作目录 = 应用工作区)
+        toolRegistry.register(TerminalExecTool.toolDef()) { args ->
+            TerminalExecTool.execute(args, java.io.File(context.filesDir, "workspace").apply { mkdirs() })
+        }
+
         // 普通聊天里的“许愿”：把当前助手绑定到主动消息调度器。
         toolRegistry.registerWithContext(ProactiveWishTool.toolDef()) { args, executionContext ->
             ProactiveWishTool.execute(args, settings, executionContext)

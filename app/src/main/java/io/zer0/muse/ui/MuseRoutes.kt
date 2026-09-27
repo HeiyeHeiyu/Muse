@@ -206,6 +206,9 @@ object MuseRoutes {
     /** v1.0.80: UI 自动化权限设置(三层梯度: 无障碍/Shell/Root)。 */
     const val SETTINGS_AUTOMATION = "settings_automation"
 
+    /** v2.x 终端一期:应用沙盒终端页(设置 → 工具 → 终端进入)。 */
+    const val TERMINAL = "terminal"
+
     /**
      * v1.30: 构造群聊详情页路由(带 chatId 参数)。
      *

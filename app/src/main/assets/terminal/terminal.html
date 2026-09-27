@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="stylesheet" href="xterm.css">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #101014; overflow: hidden; }
+  #term { width: 100vw; height: 100vh; }
+  .xterm-viewport { overscroll-behavior: none; }
+</style>
+</head>
+<body>
+<div id="term"></div>
+<script src="xterm.js"></script>
+<script src="addon-fit.js"></script>
+<script>
+  (function () {
+    var term = new Terminal({
+      fontFamily: "Menlo, Consolas, monospace",
+      fontSize: 13,
+      cursorBlink: true,
+      scrollback: 5000,
+      convertEol: false,
+      theme: {
+        background: "#101014",
+        foreground: "#e8e8ea",
+        cursor: "#7ee787"
+      }
+    });
+    var fit = new FitAddon.FitAddon();
+    term.loadAddon(fit);
+    term.open(document.getElementById("term"));
+    try { fit.fit(); } catch (e) {}
+    window.addEventListener("resize", function () { try { fit.fit(); } catch (e) {} });
+
+    function writeB64(b64) {
+      var bin = atob(b64);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      term.write(bytes);
+    }
+    function clearTerm() { term.clear(); }
+    window.MuseTerm = { writeB64: writeB64, clearTerm: clearTerm };
+
+    if (window.MuseBridge && window.MuseBridge.onReady) {
+      window.MuseBridge.onReady();
+    }
+  })();
+</script>
+</body>
+</html>

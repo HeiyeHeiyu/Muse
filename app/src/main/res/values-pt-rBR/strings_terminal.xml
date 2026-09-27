@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="terminal_title">Terminal</string>
+    <string name="terminal_input_hint">Digite um comando…</string>
+    <string name="terminal_back_cd">Voltar</string>
+    <string name="terminal_clear_cd">Limpar</string>
+    <string name="terminal_restart_cd">Reiniciar sessão</string>
+    <string name="terminal_send_cd">Enviar</string>
+</resources>
