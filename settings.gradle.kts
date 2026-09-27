@@ -37,7 +37,9 @@ include(":common")       // 通用工具与扩展
 include(":material3")    // Material 颜色扩展(种子色 → ColorScheme 生成器)
 // P3-3: 无障碍服务独立模块 — MuseAccessibilityService + AIDL 接口,
 // 作为 library 被 :app 依赖,服务直接编译进主 APK(同应用 bindService,无需跨 APK 安装)
-include(":accessibility") // 无障碍服务(UI 自动化能力底座)
+include(":accessibility")  // 无障碍服务(UI 自动化能力底座)
+// v2.2.1: 无障碍独立 Provider APK —— 主应用更新/重装不打断无障碍服务
+include(":accessibility-provider")
 // include(":search")       // 搜索功能 SDK(Exa/Tavily/Zhipu/Bing 等)        — Phase 5
 // include(":speech")       // 语音 TTS/ASR                                   — Phase 5
 // include(":document")     // 文档解析(PDF/DOCX/PPTX/EPUB)                  — Phase 5

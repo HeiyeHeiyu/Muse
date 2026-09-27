@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    v2.2.1: 无障碍独立 Provider APK。
+
+    设计目标: 把无障碍服务从主应用拆出来独立分发 —— 主应用更新/重装/被杀时,
+    无障碍服务(系统托管的组件)不受影响,UI 自动化能力不掉线。
+
+    组成:
+     1. A11yProviderAccessibilityService — 无障碍服务本体(继承 :accessibility 共享实现),
+        由系统绑定,在系统设置中显示为独立的"Muse UI 自动化"授权项;
+     2. A11yBridgeService — AIDL 桥接服务,把同进程的服务实例通过
+        IAccessibilityProvider 暴露给同签名的 Muse 主应用(signature 级权限护栏)。
+
+    注意: 主应用的旧授权项(MuseAccessibilityService@主应用)与本 APK 的授权项并存,
+    迁移期双路绑定由主应用侧负责(provider 优先、应用内服务兜底)。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 签名级护栏:仅同签名的 Muse 主应用可绑定桥接服务 -->
+    <permission
+        android:name="io.zer0.muse.permission.A11Y_BRIDGE"
+        android:protectionLevel="signature" />
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/a11y_provider_app_name"
+        android:supportsRtl="true">
+
+        <!-- 无障碍服务:由系统绑定(exported=true + BIND_ACCESSIBILITY_SERVICE) -->
+        <service
+            android:name=".A11yProviderAccessibilityService"
+            android:exported="true"
+            android:label="@string/a11y_provider_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- AIDL 桥接服务:同签名主应用绑定 -->
+        <service
+            android:name=".A11yBridgeService"
+            android:exported="true"
+            android:permission="io.zer0.muse.permission.A11Y_BRIDGE" />
+    </application>
+
+</manifest>

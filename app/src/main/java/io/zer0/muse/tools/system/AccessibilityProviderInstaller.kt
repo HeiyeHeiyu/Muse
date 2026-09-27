@@ -6,17 +6,18 @@ import io.zer0.common.Logger
 /**
  * P3-3: 无障碍服务安装器(引导启用)。
  *
- * 既有实现 方案为内置 APK 安装,但 Muse 采用 library 模块集成(服务已编译进主 APK),
- * 因此「安装」实质是引导用户到系统设置启用无障碍服务。
+ * 现状(v2.2.1):
+ *  - 应用内服务已编译进主 APK,「安装」实质是引导用户到系统设置启用;
+ *  - 另有无障碍独立 Provider APK(io.zer0.muse.a11y),安装后其授权项独立于主应用生命周期。
  *
  * 职责:
- *  1. [isInstalled]: 服务 APK 已就绪(library 模块,恒为 true)
- *  2. [isEnabled]: 服务是否已在系统设置启用(委托 [AccessibilityClient.isEnabled])
- *  3. [openSettings]: 跳转系统无障碍设置页
- *  4. [ensureEnabled]: 检查并引导启用,返回当前状态供 UI 展示
+ *  1. [isInstalled]: 应用内服务就绪(library 模块,恒为 true)
+ *  2. [isProviderInstalled]: 独立 Provider APK 是否已安装(未装时仍可用应用内服务)
+ *  3. [isEnabled]: 服务是否已在系统设置启用(委托 [AccessibilityClient.isEnabled],涵盖两份授权记录)
+ *  4. [openSettings]: 跳转系统无障碍设置页
+ *  5. [ensureEnabled]: 检查并引导启用,返回当前状态供 UI 展示
  */
 class AccessibilityProviderInstaller(private val context: Context) {
-
     private val client = AccessibilityClient(context)
 
     companion object {
@@ -25,6 +26,9 @@ class AccessibilityProviderInstaller(private val context: Context) {
 
     /** 服务模块已编译进 APK,无需单独安装。 */
     fun isInstalled(): Boolean = true
+
+    /** v2.2.1: 独立 Provider APK 是否已安装。 */
+    fun isProviderInstalled(): Boolean = client.isProviderInstalled()
 
     /** 无障碍服务是否已启用。 */
     fun isEnabled(): Boolean = client.isEnabled()
@@ -59,6 +63,7 @@ class AccessibilityProviderInstaller(private val context: Context) {
     sealed class EnsureResult {
         /** 服务已启用,可直接使用。 */
         object Enabled : EnsureResult()
+
         /** 服务未启用,需引导用户前往系统设置。 */
         object NeedsEnable : EnsureResult()
     }

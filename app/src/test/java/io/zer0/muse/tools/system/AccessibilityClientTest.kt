@@ -5,7 +5,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AccessibilityClientTest {
-
     private val packageName = "io.zer0.muse"
     private val serviceClass = "io.zer0.muse.automation.executors.MuseAccessibilityService"
 
@@ -29,14 +28,51 @@ class AccessibilityClientTest {
 
     @Test
     fun ignores_other_services_and_malformed_entries() {
-        val raw = listOf(
-            "com.example.other/.OtherService",
-            "malformed-entry",
-            "$packageName/.automation.executors.OtherService",
-        ).joinToString(":")
+        val raw =
+            listOf(
+                "com.example.other/.OtherService",
+                "malformed-entry",
+                "$packageName/.automation.executors.OtherService",
+            ).joinToString(":")
 
         assertFalse(
             AccessibilityClient.containsEnabledService(raw, packageName, serviceClass),
+        )
+    }
+
+    @Test
+    fun accepts_standalone_provider_service_entries() {
+        val providerPkg = AccessibilityClient.PROVIDER_PACKAGE
+        val providerClass = AccessibilityClient.PROVIDER_SERVICE_CLASS
+        assertTrue(
+            AccessibilityClient.containsEnabledService(
+                "$providerPkg/$providerClass",
+                providerPkg,
+                providerClass,
+            ),
+        )
+        assertTrue(
+            AccessibilityClient.containsEnabledService(
+                "$providerPkg/.A11yProviderAccessibilityService",
+                providerPkg,
+                providerClass,
+            ),
+        )
+    }
+
+    @Test
+    fun provider_and_in_app_records_are_matched_independently() {
+        val providerPkg = AccessibilityClient.PROVIDER_PACKAGE
+        val providerClass = AccessibilityClient.PROVIDER_SERVICE_CLASS
+        val both = "$packageName/$serviceClass:$providerPkg/$providerClass"
+
+        assertTrue(AccessibilityClient.containsEnabledService(both, packageName, serviceClass))
+        assertTrue(AccessibilityClient.containsEnabledService(both, providerPkg, providerClass))
+        assertFalse(
+            AccessibilityClient.containsEnabledService(both, providerPkg, serviceClass),
+        )
+        assertFalse(
+            AccessibilityClient.containsEnabledService(both, packageName, providerClass),
         )
     }
 

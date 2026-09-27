@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="a11y_provider_app_name">Muse Accessibility Provider</string>
+    <string name="a11y_provider_service_label">Muse UI automation (standalone)</string>
+</resources>
