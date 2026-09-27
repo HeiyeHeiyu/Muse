@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -22,6 +23,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
@@ -279,7 +282,7 @@ fun ChannelSettingsScreen(
     }
 }
 
-/** 单条渠道行:名称/平台目标 + 对话入口 + 启停开关 + 编辑/删除。 */
+/** 单条渠道卡片:名称/平台目标 + 启停开关(首行);操作按钮独立一行,避免长名称/长 ID 挤压变形。 */
 @Composable
 private fun ChannelRow(
     config: ChannelConfig,
@@ -288,59 +291,87 @@ private fun ChannelRow(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Row(
+    val platformLabel = stringResource(channelPlatformNameRes(config.platform))
+    Column(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .padding(MusePaddings.cardInner),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        val platformLabel = stringResource(channelPlatformNameRes(config.platform))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = config.name.ifBlank { platformLabel },
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-            )
-            Text(
-                text = "$platformLabel · ${config.targetId.ifBlank { "-" }}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.outline,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = config.name.ifBlank { platformLabel },
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "$platformLabel · ${shortTargetId(config.targetId)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            MuseSwitch(
+                checked = config.enabled,
+                onCheckedChange = onToggle,
             )
         }
-        Text(
-            text = stringResource(R.string.channel_open_chat),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier =
-                Modifier
-                    .clickable(onClick = onOpenChat)
-                    .padding(horizontal = 4.dp, vertical = 2.dp),
-        )
-        Text(
-            text = stringResource(R.string.channel_edit),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier =
-                Modifier
-                    .clickable(onClick = onEdit)
-                    .padding(horizontal = 4.dp, vertical = 2.dp),
-        )
-        Text(
-            text = stringResource(R.string.skill_delete),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.error,
-            modifier =
-                Modifier
-                    .clickable(onClick = onDelete)
-                    .padding(horizontal = 4.dp, vertical = 2.dp),
-        )
-        MuseSwitch(
-            checked = config.enabled,
-            onCheckedChange = onToggle,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.End),
+        ) {
+            ChannelActionText(
+                text = stringResource(R.string.channel_open_chat),
+                color = MaterialTheme.colorScheme.primary,
+                onClick = onOpenChat,
+            )
+            ChannelActionText(
+                text = stringResource(R.string.channel_edit),
+                color = MaterialTheme.colorScheme.primary,
+                onClick = onEdit,
+            )
+            ChannelActionText(
+                text = stringResource(R.string.skill_delete),
+                color = MaterialTheme.colorScheme.error,
+                onClick = onDelete,
+            )
+        }
     }
+}
+
+/** 渠道操作按钮文本(带内边距的可点区域,独立一行排列)。 */
+@Composable
+private fun ChannelActionText(
+    text: String,
+    color: Color,
+    onClick: () -> Unit,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = color,
+        modifier =
+            Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .clickable(onClick = onClick)
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+    )
+}
+
+/** 目标 ID 过长时中段省略(首 8 + … + 尾 6),避免长 ID 在窄屏上折行成竖排。 */
+private fun shortTargetId(raw: String): String {
+    val id = raw.ifBlank { "-" }
+    if (id.length <= 18) return id
+    return id.take(8) + "…" + id.takeLast(6)
 }
 
 /** 添加/编辑渠道对话框（v2.0.1: 按平台定制接入字段，对齐 Hana Bridge 模型）。 */
