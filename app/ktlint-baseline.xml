@@ -9869,12 +9869,16 @@
         <error line="339" column="26" source="standard:statement-wrapping" />
     </file>
     <file name="src/main/java/io/zer0/muse/tools/FindToolsTool.kt">
-        <error line="13" column="1" source="standard:no-empty-first-line-in-class-body" />
-        <error line="20" column="21" source="standard:multiline-expression-wrapping" />
-        <error line="20" column="21" source="standard:function-signature" />
-        <error line="22" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="25" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="45" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="16" column="1" source="standard:no-empty-first-line-in-class-body" />
+        <error line="24" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="24" column="21" source="standard:function-signature" />
+        <error line="26" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="30" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="51" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="80" column="18" source="standard:function-signature" />
+        <error line="80" column="53" source="standard:function-signature" />
+        <error line="80" column="84" source="standard:function-signature" />
+        <error line="86" column="24" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="src/main/java/io/zer0/muse/tools/JsSandbox.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -24020,14 +24024,14 @@
         <error line="419" column="64" source="standard:function-signature" />
         <error line="419" column="78" source="standard:function-signature" />
         <error line="421" column="28" source="standard:multiline-expression-wrapping" />
-        <error line="463" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="476" column="27" source="standard:function-signature" />
-        <error line="476" column="46" source="standard:function-signature" />
-        <error line="476" column="57" source="standard:function-signature" />
-        <error line="510" column="47" source="standard:multiline-expression-wrapping" />
-        <error line="551" column="46" source="standard:multiline-expression-wrapping" />
-        <error line="597" column="49" source="standard:function-signature" />
-        <error line="601" column="1" source="standard:no-consecutive-blank-lines" />
+        <error line="464" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="477" column="27" source="standard:function-signature" />
+        <error line="477" column="46" source="standard:function-signature" />
+        <error line="477" column="57" source="standard:function-signature" />
+        <error line="511" column="47" source="standard:multiline-expression-wrapping" />
+        <error line="552" column="46" source="standard:multiline-expression-wrapping" />
+        <error line="598" column="49" source="standard:function-signature" />
+        <error line="602" column="1" source="standard:no-consecutive-blank-lines" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/chat/ToolResultRenderer.kt">
         <error line="40" column="14" source="standard:function-naming" />
@@ -35800,6 +35804,7 @@
         <error line="9" column="51" source="standard:multiline-expression-wrapping" />
         <error line="9" column="51" source="standard:function-signature" />
         <error line="16" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="69" column="21" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="src/test/java/io/zer0/muse/tools/MediaGenToolsRegistrarTest.kt">
         <error line="6" column="1" source="standard:no-unused-imports" />
