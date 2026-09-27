@@ -12,7 +12,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,6 +31,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,9 +47,14 @@ import io.zer0.muse.terminal.TerminalSessionManager
 import io.zer0.muse.terminal.TerminalSessionStore
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.theme.MusePaddings
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.ArrayDeque
 
 private const val TAG = "TerminalScreen"
+
+/** 终页诊断探针开关:黑屏之谜已收敛,默认关闭;排查时置 true 重新启用。 */
+private const val TERMINAL_PROBES_ENABLED = false
 
 /**
  * v2.x 终端一期:应用沙盒终端页。
@@ -65,6 +70,7 @@ fun TerminalScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val session = remember { TerminalSessionStore.get(context) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
+    val scope = rememberCoroutineScope()
 
     var input by remember { mutableStateOf("") }
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
@@ -89,28 +95,36 @@ fun TerminalScreen(onBack: () -> Unit) {
     fun pushText(text: String) = pushToTerminal(text.toByteArray(Charsets.UTF_8))
 
     // 调试探针:回读 WebView 内 xterm 真实状态(尺寸/行列/字元/写入计数/JS 错误)
-    fun runProbe(wv: WebView, tag: String) {
-        val probe = "(function(){try{var t=window.__t;var q=document.querySelector('.xterm');" +
-            "var cell=(t&&t._core&&t._core._renderService)?t._core._renderService.dimensions.css.cell:null;" +
-            "var te=document.getElementById('term');" +
-            "return 'rows='+(t?t.rows:'?')+' cols='+(t?t.cols:'?')+' ih='+window.innerHeight" +
-            "+' iw='+window.innerWidth+' termH='+(te?te.offsetHeight:'?')+' xtermH='+(q?q.offsetHeight:'?')" +
-            "+' cellW='+(cell?cell.width:'?')+' cellH='+(cell?cell.height:'?')" +
-            "+' pos='+(te?getComputedStyle(te).position:'?')+' ch='+(te?getComputedStyle(te).height:'?')" +
-            "+' writes='+(window.__writes||0)+' err='+(window.__lastErr||'none')}catch(e){return 'PROBE_ERR:'+e}})()"
+    fun runProbe(
+        wv: WebView,
+        tag: String,
+    ) {
+        val probe =
+            "(function(){try{var t=window.__t;var q=document.querySelector('.xterm');" +
+                "var cell=(t&&t._core&&t._core._renderService)?t._core._renderService.dimensions.css.cell:null;" +
+                "var te=document.getElementById('term');" +
+                "return 'rows='+(t?t.rows:'?')+' cols='+(t?t.cols:'?')+' ih='+window.innerHeight" +
+                "+' iw='+window.innerWidth+' termH='+(te?te.offsetHeight:'?')+' xtermH='+(q?q.offsetHeight:'?')" +
+                "+' cellW='+(cell?cell.width:'?')+' cellH='+(cell?cell.height:'?')" +
+                "+' pos='+(te?getComputedStyle(te).position:'?')+' ch='+(te?getComputedStyle(te).height:'?')" +
+                "+' writes='+(window.__writes||0)+' err='+(window.__lastErr||'none')}catch(e){return 'PROBE_ERR:'+e}})()"
         wv.evaluateJavascript(probe) { r -> Logger.i(TAG, "probe($tag): $r") }
     }
 
     DisposableEffect(Unit) {
-        session.setListener(object : TerminalSessionManager.Listener {
-            override fun onOutput(bytes: ByteArray) = pushToTerminal(bytes)
+        session.setListener(
+            object : TerminalSessionManager.Listener {
+                override fun onOutput(bytes: ByteArray) = pushToTerminal(bytes)
 
-            override fun onExit(code: Int) {
-                pushText("\r\n[会话进程已退出 code=$code,点右上角重启]\r\n")
-            }
-        })
-        session.ensureStarted()
+                override fun onExit(code: Int) {
+                    pushText("\r\n[会话进程已退出 code=$code,点右上角重启]\r\n")
+                }
+            },
+        )
+        // v2.2.1: ensureStarted 含进程启动/文件 IO,移到 IO 线程执行(消除 StrictMode 主线程告警)
+        val startJob = scope.launch(Dispatchers.IO) { session.ensureStarted() }
         onDispose {
+            startJob.cancel()
             session.setListener(null)
             // 会话保留(进程级单例),仅回收 WebView,避免泄漏;下次进入重载缓冲
             webViewRef?.destroy()
@@ -121,10 +135,11 @@ fun TerminalScreen(onBack: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize().imePadding()) {
         // ── 顶栏 ─────────────────────────────────────────────
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(horizontal = MusePaddings.tightGap, vertical = MusePaddings.tightGap),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = MusePaddings.tightGap, vertical = MusePaddings.tightGap),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
@@ -190,8 +205,9 @@ fun TerminalScreen(onBack: () -> Unit) {
                     setBackgroundColor(android.graphics.Color.parseColor("#101014"))
                     // 首次布局/尺寸变化时重算终端行列(fit 在加载时可能测到 0 高度,导致 rows=1)
                     addOnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
-                        val changed = (right - left) != (oldRight - oldLeft) ||
-                            (bottom - top) != (oldBottom - oldTop)
+                        val changed =
+                            (right - left) != (oldRight - oldLeft) ||
+                                (bottom - top) != (oldBottom - oldTop)
                         if (changed) {
                             evaluateJavascript(
                                 "window.MuseTerm && window.MuseTerm.refit && window.MuseTerm.refit();",
@@ -199,29 +215,34 @@ fun TerminalScreen(onBack: () -> Unit) {
                             )
                         }
                     }
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageFinished(view: WebView?, url: String?) {
-                            Logger.i(TAG, "WebView 加载完成: $url")
-                        }
+                    webViewClient =
+                        object : WebViewClient() {
+                            override fun onPageFinished(
+                                view: WebView?,
+                                url: String?,
+                            ) {
+                                Logger.i(TAG, "WebView 加载完成: $url")
+                            }
 
-                        override fun onReceivedError(
-                            view: WebView?,
-                            request: WebResourceRequest?,
-                            error: WebResourceError?,
-                        ) {
-                            Logger.w(TAG, "WebView 加载错误: ${error?.errorCode} ${error?.description} ${request?.url}")
+                            override fun onReceivedError(
+                                view: WebView?,
+                                request: WebResourceRequest?,
+                                error: WebResourceError?,
+                            ) {
+                                Logger.w(TAG, "WebView 加载错误: ${error?.errorCode} ${error?.description} ${request?.url}")
+                            }
                         }
-                    }
-                    webChromeClient = object : WebChromeClient() {
-                        override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
-                            Logger.w(
-                                TAG,
-                                "WebView console[${consoleMessage.messageLevel()}]: ${consoleMessage.message()} " +
-                                    "@${consoleMessage.sourceId()}:${consoleMessage.lineNumber()}",
-                            )
-                            return true
+                    webChromeClient =
+                        object : WebChromeClient() {
+                            override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+                                Logger.w(
+                                    TAG,
+                                    "WebView console[${consoleMessage.messageLevel()}]: ${consoleMessage.message()} " +
+                                        "@${consoleMessage.sourceId()}:${consoleMessage.lineNumber()}",
+                                )
+                                return true
+                            }
                         }
-                    }
                     addJavascriptInterface(
                         object {
                             @JavascriptInterface
@@ -234,15 +255,20 @@ fun TerminalScreen(onBack: () -> Unit) {
                                         while (pendingJs.isNotEmpty()) {
                                             wv.evaluateJavascript(pendingJs.removeFirst(), null)
                                         }
-                                        runProbe(wv, "onReady")
-                                        mainHandler.postDelayed({ webViewRef?.let { runProbe(it, "3s后") } }, 3000)
-                                        mainHandler.postDelayed({ webViewRef?.let { runProbe(it, "8s后") } }, 8000)
+                                        if (TERMINAL_PROBES_ENABLED) {
+                                            runProbe(wv, "onReady")
+                                            mainHandler.postDelayed({ webViewRef?.let { runProbe(it, "3s后") } }, 3000)
+                                            mainHandler.postDelayed({ webViewRef?.let { runProbe(it, "8s后") } }, 8000)
+                                        }
                                     }
                                 }
                             }
 
                             @JavascriptInterface
-                            fun onResize(rows: Int, cols: Int) {
+                            fun onResize(
+                                rows: Int,
+                                cols: Int,
+                            ) {
                                 session.resize(rows, cols)
                             }
                         },
@@ -251,18 +277,20 @@ fun TerminalScreen(onBack: () -> Unit) {
                     loadUrl("file:///android_asset/terminal/terminal.html?t=" + System.currentTimeMillis())
                 }.also { webViewRef = it }
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
         )
 
         // ── 输入行 ───────────────────────────────────────────
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface)
-                .padding(horizontal = MusePaddings.screen)
-                .padding(vertical = 6.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = MusePaddings.screen)
+                    .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
