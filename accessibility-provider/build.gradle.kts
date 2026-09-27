@@ -1,7 +1,15 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.ktlint)
 }
+
+// v2.2.1: release 变体与主应用共用 keystore.properties —— 签名级权限
+// io.zer0.muse.permission.A11Y_BRIDGE 要求主应用与 Provider 同签名,必须同一把钥匙。
+// (storeFile 相对路径按模块目录解析;本模块与 app 同为根目录直系子模块,解析结果一致。)
+val keystorePropertiesFile = rootProject.file("keystore.properties")
 
 android {
     namespace = "io.zer0.muse.a11y"
@@ -15,9 +23,23 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                val props = Properties()
+                props.load(FileInputStream(keystorePropertiesFile))
+                storeFile = file(props["storeFile"] as String)
+                storePassword = props["storePassword"] as String
+                keyAlias = props["keyAlias"] as String
+                keyPassword = props["keyPassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

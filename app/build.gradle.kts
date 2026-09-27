@@ -23,21 +23,59 @@ val syncMuseWebAssets =
         onlyIf { webDist.isDirectory }
     }
 
-// v2.2.1: 无障碍独立 Provider APK 打进 assets(权限向导「安装独立版」用)。
-// TODO(release): 出正式包时改为打包已签名的 release 变体 Provider(需与主应用同 keystore;debug 阶段用 debug 变体)。
-val a11yProviderAssetsDir = layout.buildDirectory.dir("generated/a11yProvider").get().asFile
-val syncA11yProviderApk =
-    tasks.register<Copy>("syncA11yProviderApk") {
-        dependsOn(":accessibility-provider:assembleDebug")
-        val providerApk =
-            rootProject.file("accessibility-provider/build/outputs/apk/debug/accessibility-provider-debug.apk")
-        from(providerApk)
-        into(a11yProviderAssetsDir.resolve("a11y"))
-        rename { "accessibility-provider.apk" }
-        onlyIf { providerApk.isFile }
+// v2.2.1: 无障碍独立 Provider APK 随包资产 — 按变体各取各的签名产物
+// (debug 主应用 ↔ debug Provider;release 主应用 ↔ release Provider,同一把 keystore)。
+// 签名级权限 A11Y_BRIDGE 要求主应用与 Provider 同签名,故 release 不允许回退 debug 变体。
+abstract class SyncA11yProviderApkTask : DefaultTask() {
+    @get:InputFile
+    abstract val sourceApk: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun sync() {
+        val targetDir = outputDir.get().asFile.resolve("a11y").apply { mkdirs() }
+        sourceApk.get().asFile.copyTo(targetDir.resolve("accessibility-provider.apk"), overwrite = true)
     }
+}
+
+androidComponents {
+    onVariants { variant ->
+        val isRelease = variant.buildType == "release"
+        val providerApk =
+            rootProject.file(
+                if (isRelease) {
+                    "accessibility-provider/build/outputs/apk/release/accessibility-provider-release.apk"
+                } else {
+                    "accessibility-provider/build/outputs/apk/debug/accessibility-provider-debug.apk"
+                },
+            )
+        val syncTask =
+            tasks.register<SyncA11yProviderApkTask>(
+                "syncA11yProviderApk" + variant.name.replaceFirstChar { it.uppercase() },
+            ) {
+                dependsOn(
+                    if (isRelease) {
+                        ":accessibility-provider:assembleRelease"
+                    } else {
+                        ":accessibility-provider:assembleDebug"
+                    },
+                )
+                doFirst {
+                    check(providerApk.isFile) {
+                        "未找到 Provider APK:${providerApk.path}" +
+                            "(release 需要 keystore.properties 先产出已签名的 Provider)"
+                    }
+                }
+                sourceApk.set(providerApk)
+            }
+        variant.sources.assets?.addGeneratedSourceDirectory(syncTask, SyncA11yProviderApkTask::outputDir)
+    }
+}
 
 // v2.2.1: 虚拟屏服务端 jar 打进 assets(首次使用时由 shell 身份写到 /data/local/tmp)。
+// 注:server 从不安装、不参与签名校验,debug/release 主应用共用 debug 变体产物即可。
 val vdServerAssetsDir = layout.buildDirectory.dir("generated/vdServer").get().asFile
 val syncVdServerJar =
     tasks.register<Copy>("syncVdServerJar") {
@@ -52,14 +90,12 @@ val syncVdServerJar =
 
 tasks.named("preBuild") {
     dependsOn(syncMuseWebAssets)
-    dependsOn(syncA11yProviderApk)
     dependsOn(syncVdServerJar)
 }
 
 android {
 
     sourceSets.getByName("main").assets.srcDir(museWebAssetsDir)
-    sourceSets.getByName("main").assets.srcDir(a11yProviderAssetsDir)
     sourceSets.getByName("main").assets.srcDir(vdServerAssetsDir)
 
     namespace = "io.zer0.muse"
