@@ -20,3 +20,28 @@
 - 消息渠道卡片重新排版：长名称与长账号不再挤成一团。
 - 闹钟 / 倒计时修复：补齐系统权限声明，此前会被系统拦截；失败时给出明确反馈。
 - 长记忆条目支持点击展开查看全文。
+
+---
+
+# Muse v2.3.0 (English)
+
+A reliability-focused release centered on long tasks: multi-step tasks are no longer interrupted midway, and after long conversations or heavy tool use the assistant still remembers what you talked about — plus a serious fix for memory being wiped on restart. Upgrading is strongly recommended.
+
+## Important Fixes
+
+- **Memory is no longer lost**: fixed an issue where fact memories could be wiped after a restart; data previously cleaned up will be automatically recovered on upgrade if it exists in your device backups. From now on, memories will no longer disappear across restarts.
+- **No more "amnesia" on long tasks**: after running many consecutive tool steps, the assistant still remembers the earlier conversation and can continue from where it left off.
+- **Occasional long waits fixed**: added a timeout safeguard to background processing such as history compression, eliminating rare cases of "messages taking a very long time to appear".
+
+## New Capabilities
+
+- **Tool rounds uncapped**: rounds are unlimited by default (you can still cap them under Settings → Chat), so complex tasks can complete in one go; loop protections remain active.
+- **Transparent tool permissions**: tools requiring Shizuku / Root, Accessibility, or Termux now show their readiness status, and fail fast with a clear message when unauthorized — instead of mysteriously failing halfway.
+- **Prompt skills accept input**: custom prompt skills can now receive input text and substitute it into their instructions.
+- **More controllable knowledge search**: the search result threshold now truly takes effect, with diagnostics included when nothing matches.
+
+## Experience Improvements
+
+- **Channel cards redesigned**: long names and long account IDs no longer get squeezed into a mess.
+- **Alarm / timer fixes**: added the missing system permission declaration (previously blocked by the system); failures now give clear feedback.
+- **Long memory entries can be tapped to expand** and read in full.
