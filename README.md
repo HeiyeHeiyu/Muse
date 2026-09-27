@@ -18,7 +18,7 @@
 <p align="center">
   <a href="https://qm.qq.com/q/905451314"><img src="https://img.shields.io/badge/QQ群-905451314-0366CC?style=for-the-badge&logo=qq&logoColor=white" alt="QQ群"></a>
   <a href="https://museai.ltd"><img src="https://img.shields.io/badge/官网-museai.ltd-blueviolet?style=for-the-badge" alt="官网"></a>
-  <a href="https://github.com/Zer0Qing/Muse/releases/latest"><img src="https://img.shields.io/badge/Download-APK-brightgreen?style=for-the-badge&logo=android" alt="Download"></a>
+  <a href="https://museai.ltd/download/"><img src="https://img.shields.io/badge/Download-APK-brightgreen?style=for-the-badge&logo=android" alt="Download"></a>
 </p>
 
 <p align="center">
@@ -81,7 +81,7 @@ Muse 是一个运行在 Android 上的开源 AI 伴侣：**通过四层记忆系
 | 较老的手机 | `armeabi-v7a` | 兼容老机型 |
 | 不确定 | `universal` | 通用包，全兼容 |
 
-从 [Releases 页面](https://github.com/Zer0Qing/Muse/releases/latest) 或官网 [museai.ltd](https://museai.ltd) 下载最新 APK，覆盖安装即可，数据不丢。
+最新 APK 从官网下载页 [museai.ltd/download](https://museai.ltd/download/) 下载（国内直连，推荐）；也可以前往 [GitHub Releases](https://github.com/Zer0Qing/Muse/releases/latest) 获取。覆盖安装即可，数据不丢。
 
 > [!WARNING]
 > 请仅从官方 Releases 页面或官网下载安装包。未知渠道的安装包可能被修改，造成数据和设备安全风险。

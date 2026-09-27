@@ -18,7 +18,7 @@
 <p align="center">
   <a href="https://qm.qq.com/q/905451314"><img src="https://img.shields.io/badge/QQ群-905451314-0366CC?style=for-the-badge&logo=qq&logoColor=white" alt="QQ Group"></a>
   <a href="https://museai.ltd"><img src="https://img.shields.io/badge/官网-museai.ltd-blueviolet?style=for-the-badge" alt="Website"></a>
-  <a href="https://github.com/Zer0Qing/Muse/releases/latest"><img src="https://img.shields.io/badge/Download-APK-brightgreen?style=for-the-badge&logo=android" alt="Download"></a>
+  <a href="https://museai.ltd/download/"><img src="https://img.shields.io/badge/Download-APK-brightgreen?style=for-the-badge&logo=android" alt="Download"></a>
 </p>
 
 <p align="center">
@@ -80,7 +80,7 @@ Everything is built to continue your conversation — not to start over.
 | Older phones | `armeabi-v7a` | For older devices |
 | Not sure | `universal` | Works everywhere |
 
-Download the latest APK from the [Releases page](https://github.com/Zer0Qing/Muse/releases/latest) or the official website [museai.ltd](https://museai.ltd). Install over the top — your data stays intact.
+Download the latest APK from the official download page [museai.ltd/download](https://museai.ltd/download/) (fast direct downloads in China); it's also available on [GitHub Releases](https://github.com/Zer0Qing/Muse/releases/latest). Install over the top — your data stays intact.
 
 > [!WARNING]
 > Only download from the official Releases page or the official website. Packages from unknown sources may be tampered with, risking your data and device.
