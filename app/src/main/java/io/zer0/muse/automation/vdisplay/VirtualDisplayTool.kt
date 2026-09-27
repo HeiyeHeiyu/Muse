@@ -26,7 +26,7 @@ class VirtualDisplayTool(
                         "action=ensure 创建或复用虚拟屏(返回 displayId);action=open 在虚拟屏里打开应用(需 package);" +
                         "action=shot 截取虚拟屏画面(保存为 JPEG 文件,返回路径);action=close 销毁虚拟屏;" +
                         "action=status 查询状态。在虚拟屏里点按/滑动/按键:用 device_shell 执行 " +
-                        "`input -d <displayId> tap/swipe/keyevent ...`。需要 Shizuku 权限通道(设置→权限向导)。",
+                        "`input -d <displayId> tap/swipe/keyevent ...`。需要 Shizuku 或 Root 权限通道(设置→权限向导)。",
                 parameters =
                     mapOf(
                         "action" to "必填:ensure | open | shot | close | status",
@@ -106,7 +106,7 @@ class VirtualDisplayTool(
         val proxy = manager.existingLiveProxy()
         val channel = manager.channelState()
         return buildString {
-            appendLine("Shizuku 通道:$channel")
+            appendLine("权限通道:$channel")
             appendLine("服务端:${if (proxy != null) "在线" else "未运行(首次调用自动启动)"}")
             append("虚拟屏:${if (manager.lastDisplayId >= 0) "displayId=${manager.lastDisplayId}" else "未创建"}")
         }

@@ -61,7 +61,7 @@ class VirtualDisplayClient(
             // 回退:本应用 shell 通道(Shizuku/root)
             val resolved = manager.exec("cmd package resolve-activity --brief $packageName")
             val component =
-                resolved.stdout
+                resolved.output
                     .lineSequence()
                     .map { it.trim() }
                     .lastOrNull { it.contains('/') }

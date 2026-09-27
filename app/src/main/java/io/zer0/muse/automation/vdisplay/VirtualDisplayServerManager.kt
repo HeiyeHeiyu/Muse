@@ -2,7 +2,8 @@ package io.zer0.muse.automation.vdisplay
 
 import android.content.Context
 import io.zer0.common.Logger
-import io.zer0.muse.tools.system.ShizukuAuthorizer
+import io.zer0.muse.automation.core.AutomationManager
+import io.zer0.muse.automation.executors.ShellExecutor
 import io.zer0.muse.vdproto.IVirtualDisplayService
 import io.zer0.muse.vdproto.VdContract
 import kotlinx.coroutines.Dispatchers
@@ -13,26 +14,32 @@ import kotlinx.coroutines.withContext
  * v2.2.1 虚拟屏:服务端生命周期管理(部署 / 启动 / 等待 binder / 复用)。
  *
  * 启动链路(参考拆解笔记 v1 最小集):
- *  1. assets 里的 vd-server.jar 分块 base64 写入 /data/local/tmp( shell 身份,保属主);
+ *  1. assets 里的 vd-server.jar 分块 base64 写入 /data/local/tmp(shell/root 身份,保属主);
  *  2. pkill 旧实例 → `CLASSPATH=<jar> app_process / io.zer0.muse.vdserver.Main <hostPkg> &`;
  *  3. 轮询注册表等 binder 手递手(10s);服务端 15s 空闲自杀,后续调用自动重启。
  *
- * 权限门:v1 走 Shizuku(DEBUGGER) 通道;root 通道需要 setuid(2000)+setcon 启动器,
- * 留作后续(TODO)。
+ * 权限门(v2.2.1 起双档):复用自动化通道 [AutomationManager.execTiered] —— Shizuku 优先、
+ * Root 兜底。设备实证:shell uid 与 root(adb) 两种身份下,建屏/截图/屏内启动全链均通过。
  */
 class VirtualDisplayServerManager(
     private val context: Context,
-    private val shizuku: ShizukuAuthorizer,
+    private val shell: AutomationManager,
 ) {
     /** 最近一次 ensure 成功的 displayId(工具跨调用复用)。 */
     @Volatile
     var lastDisplayId: Int = -1
 
-    /** 权限通道是否可用(未授权时给出可读原因)。 */
-    fun channelState(): String {
-        if (!shizuku.isAvailable()) return "Shizuku 服务未运行"
-        if (!shizuku.checkPermission()) return "Shizuku 未授权(请到权限向导授权)"
-        return "ready"
+    /** 权限通道状态:返回 "ready(Shizuku)" / "ready(Root)" / 不可用原因。 */
+    suspend fun channelState(): String {
+        var state = shell.permissionState.value
+        if (!state.shellEnabled && !state.rootEnabled) {
+            state = shell.refreshPermissions()
+        }
+        return when {
+            state.shellEnabled -> "ready(Shizuku)"
+            state.rootEnabled -> "ready(Root)"
+            else -> "需要 Shizuku 或 Root 权限通道(设置→权限向导授权)"
+        }
     }
 
     /** 确保服务端在线,返回代理;失败携带可读原因。 */
@@ -40,9 +47,14 @@ class VirtualDisplayServerManager(
         withContext(Dispatchers.IO) {
             existingLiveProxy()?.let { return@withContext Result.success(it) }
 
-            if (!shizuku.checkReady()) {
+            var state = shell.permissionState.value
+            if (!state.shellEnabled && !state.rootEnabled) {
+                // 缓存可能过期(刚授权/撤销),探一次再决定
+                state = shell.refreshPermissions()
+            }
+            if (!state.shellEnabled && !state.rootEnabled) {
                 return@withContext Result.failure(
-                    IllegalStateException("虚拟屏需要 Shizuku 权限通道(${channelState()})"),
+                    IllegalStateException("虚拟屏需要 Shizuku 或 Root 权限通道(设置→权限向导授权)"),
                 )
             }
             if (!deployJar()) {
@@ -53,7 +65,7 @@ class VirtualDisplayServerManager(
             exec("pkill -f ${VdContract.SERVER_KILL_PATTERN}")
             val launch = exec(launchCommand())
             if (launch.exitCode != 0) {
-                Logger.w(TAG, "服务端启动命令退出码 ${launch.exitCode}: ${launch.stderr.take(200)}")
+                Logger.w(TAG, "服务端启动命令退出码 ${launch.exitCode}: ${launch.output.take(200)}")
             }
 
             val proxy =
@@ -81,8 +93,10 @@ class VirtualDisplayServerManager(
         }
     }
 
-    /** 以 shell 身份执行一条命令(部署/启动/输入注入共用)。 */
-    suspend fun exec(command: String): ShizukuAuthorizer.ShizukuExecResult = shizuku.execute(command)
+    /** 以当前可用档位(Shizuku 优先、Root 兜底)执行一条命令(部署/启动共用)。 */
+    suspend fun exec(command: String): ShellExecutor.ExecDetail =
+        shell.execTiered(command)?.second
+            ?: ShellExecutor.ExecDetail(-1, "无可用的 shell 权限通道")
 
     // ── 内部 ────────────────────────────────────────────────────────────────
 
@@ -97,7 +111,7 @@ class VirtualDisplayServerManager(
 
         // 已部署且大小一致 → 跳过重复写入
         val stat = exec("stat -c %s ${VdContract.SERVER_JAR_PATH}")
-        if (stat.exitCode == 0 && stat.stdout.trim() == bytes.size.toString()) {
+        if (stat.exitCode == 0 && stat.output.trim() == bytes.size.toString()) {
             return true
         }
 
@@ -109,16 +123,16 @@ class VirtualDisplayServerManager(
             val redirect = if (append) ">>" else ">"
             val result = exec("echo -n $chunk | base64 -d $redirect ${VdContract.SERVER_JAR_PATH}")
             if (result.exitCode != 0) {
-                Logger.w(TAG, "jar 分块写入失败: ${result.stderr.take(200)}")
+                Logger.w(TAG, "jar 分块写入失败: ${result.output.take(200)}")
                 return false
             }
             append = true
             offset += DEPLOY_CHUNK_CHARS
         }
         val verify = exec("stat -c %s ${VdContract.SERVER_JAR_PATH}")
-        val ok = verify.exitCode == 0 && verify.stdout.trim() == bytes.size.toString()
+        val ok = verify.exitCode == 0 && verify.output.trim() == bytes.size.toString()
         if (!ok) {
-            Logger.w(TAG, "jar 写入校验失败: ${verify.stdout.trim()} != ${bytes.size}")
+            Logger.w(TAG, "jar 写入校验失败: ${verify.output.trim()} != ${bytes.size}")
         }
         return ok
     }

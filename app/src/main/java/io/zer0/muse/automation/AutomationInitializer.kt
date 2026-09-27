@@ -90,10 +90,10 @@ object AutomationInitializer {
                 Logger.w(TAG, "UiAgent tool registration failed: ${e.message}")
             }
 
-            // v2.2.1: 虚拟屏工具(后台隐藏屏;需要 Shizuku 通道,注册本身无副作用)
+            // v2.2.1: 虚拟屏工具(后台隐藏屏;Shizuku 或 Root 通道,注册本身无副作用)
             try {
                 val vdManager =
-                    io.zer0.muse.automation.vdisplay.VirtualDisplayServerManager(appContext, authorizer)
+                    io.zer0.muse.automation.vdisplay.VirtualDisplayServerManager(appContext, mgr)
                 val vdClient =
                     io.zer0.muse.automation.vdisplay.VirtualDisplayClient(appContext, vdManager)
                 io.zer0.muse.automation.vdisplay.VirtualDisplayTool(appContext, vdClient, vdManager)
