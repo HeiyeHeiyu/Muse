@@ -609,6 +609,8 @@ class ToolRegistry(
             // v2.x: 插件市场自管(检索/安装/卸载/启停 — 已注册工具,补进白名单让默认助手可达)
             "plugin_market_search", "plugin_market_install",
             "plugin_market_uninstall", "plugin_market_set_enabled",
+            // v2.x 自动化一期:设备命令行通道(Shizuku/Root 分层执行)
+            "device_shell",
             // v2.0: Root-level system tools
             "settings_get", "settings_put", "am_start", "list_packages", "logcat_tail", "input_inject",
         )

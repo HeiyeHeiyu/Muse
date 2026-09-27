@@ -317,6 +317,8 @@ object ToolPermissionResolver {
         // v2.x: 插件生命周期变更(卸载/启停) — 与安装同口径,归 HIGH
         "plugin_market_uninstall" to ToolRiskLevel.HIGH,
         "plugin_market_set_enabled" to ToolRiskLevel.HIGH,
+        // v2.x 自动化一期:设备命令行通道 — 可 tap/启动/改设置,归 HIGH
+        "device_shell" to ToolRiskLevel.HIGH,
         // v1.x: update_skill 与 install_skill 同级 — 二者都能改写助手后续要执行的 skill 定义;
         // 内容仍经 SkillImporter 白名单/注入黑名单校验,且只允许修改用户自建 skill
         "update_skill" to ToolRiskLevel.HIGH,
@@ -483,5 +485,7 @@ object ToolPermissionResolver {
         // v2.x: 卸载/启停同属插件生命周期变更,保留审批
         "plugin_market_uninstall",
         "plugin_market_set_enabled",
+        // v2.x 自动化一期:设备命令可操纵任意 App/系统设置,完全放权模式也保留审批
+        "device_shell",
     )
 }

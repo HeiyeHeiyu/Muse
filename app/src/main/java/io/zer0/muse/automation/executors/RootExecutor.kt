@@ -347,6 +347,76 @@ class RootExecutor(
         }
     }
 
+    // ── v2.x 自动化一期:命令构造器(供分层执行 Shizuku→Root 复用;null = 参数非法) ──
+
+    /** `settings get <ns> <name>`;name 支持 "namespace:name",默认 secure。 */
+    internal fun buildSettingsGet(name: String): String? {
+        val idx = name.indexOf(':')
+        val nsPart = if (idx >= 0) name.substring(0, idx) else "secure"
+        val keyPart = if (idx >= 0) name.substring(idx + 1) else name
+        val safeNs = validateSettingsNamespace(nsPart) ?: return null
+        val safeName = validateSettingsName(keyPart) ?: return null
+        return "settings get $safeNs$safeName"
+    }
+
+    /** `settings put <ns> <name> "<value>"`(值仅保留可打印 ASCII 并转义)。 */
+    internal fun buildSettingsPut(namespace: String, name: String, value: String): String? {
+        val safeNs = validateSettingsNamespace(namespace) ?: return null
+        val safeName = validateSettingsName(name) ?: return null
+        val safeValue = value.filter { it.code in 32..126 }
+        return "settings put $safeNs$safeName \"${escapeDoubleQuoted(safeValue)}\""
+    }
+
+    /** `svc <wifi|data> enable|disable`;不支持的服务返回 null。 */
+    internal fun buildSvcToggle(service: String, enabled: Boolean): String? {
+        val svc = service.trim().lowercase()
+        if (svc != "wifi" && svc != "data") return null
+        return "svc $svc ${if (enabled) "enable" else "disable"}"
+    }
+
+    /** `am start -n pkg/cls [--es k v ...]`;非法参数返回 null。 */
+    internal fun buildAmStart(packageName: String, className: String? = null, extras: String? = null): String? {
+        if (!validatePackageName(packageName)) return null
+        val safeClass = className?.trim()?.takeIf { it.isNotBlank() }?.let { cls ->
+            val normalized = if (cls.startsWith(".")) "$packageName$cls" else cls
+            if (!COMPONENT_NAME_REGEX.matches(normalized)) return null
+            normalized
+        }
+        val safeExtras = extras?.takeIf { it.isNotBlank() }?.let { e ->
+            e.split("|").mapNotNull { pair ->
+                val eq = pair.indexOf('=')
+                if (eq <= 0) return@mapNotNull null
+                val key = pair.substring(0, eq).trim()
+                val rawValue = pair.substring(eq + 1)
+                if (key.isBlank() || rawValue.isBlank() || !EXTRA_KEY_REGEX.matches(key)) return@mapNotNull null
+                "--es $key \"${escapeDoubleQuoted(rawValue)}\""
+            }.joinToString(" ").takeIf { it.isNotEmpty() }
+        }
+        return buildString {
+            append("am start -n $packageName")
+            if (safeClass != null) append("/$safeClass")
+            if (safeExtras != null) append(" $safeExtras")
+        }
+    }
+
+    /** `pm list packages [filter]`;非法 filter 返回 null。 */
+    internal fun buildListPackages(filter: String? = null): String? {
+        val safeFilter = filter?.trim()?.takeIf { it.isNotEmpty() }?.let {
+            if (!PACKAGE_FILTER_REGEX.matches(it)) return null
+            it
+        }
+        return "pm list packages" + (safeFilter?.let { " $it" } ?: "")
+    }
+
+    /** `logcat -d -t <lines>`。 */
+    internal fun buildLogcatTail(lines: Int): String = "logcat -d -t $lines"
+
+    /** `input text "<escaped>"`;空文本返回 null。 */
+    internal fun buildInputInject(text: String): String? {
+        if (text.isBlank()) return null
+        return "input text \"${escapeDoubleQuoted(text)}\""
+    }
+
     /** H-SEC: escape a value embedded inside a double-quoted shell string. */
     private fun escapeDoubleQuoted(value: String): String = buildString(value.length + 8) {
         value.forEach { ch ->

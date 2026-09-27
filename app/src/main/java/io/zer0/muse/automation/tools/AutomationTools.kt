@@ -321,6 +321,45 @@ class AutomationTools(
                 }
             }
         }
+
+        // ── 设备命令通道（自动化一期）─────────────────────────
+
+        registry.register(
+            ToolRegistry.ToolDef(
+                name = "device_shell",
+                description = "执行单条设备命令（命令行操控手机），需要 Shizuku 或 Root 授权。" +
+                    "支持：input(tap/swipe/text/keyevent/roll/draganddrop/press)、am(start/broadcast/force-stop/startservice/kill)、" +
+                    "pm(list/path/dump/enable/disable/grant/revoke/clear)、settings(get/put/delete/list)、svc(power/wifi/data/bluetooth)、" +
+                    "wm(size/density)、dumpsys、uiautomator dump、screencap、screendump、content(query/insert/update/delete)、cmd、getprop、date。" +
+                    "不支持管道/重定向/多命令拼接——每次写一条完整命令。与 screen_* 工具互补：screen_* 是高层动作，本工具是命令行自由度。",
+                parameters = mapOf(
+                    "command" to "必填。单条设备命令，如 input tap 540 1200 / input swipe 540 1500 540 500 300 / " +
+                        "am start -n com.tencent.mm/.ui.LauncherUI / settings get secure location_mode / uiautomator dump",
+                ),
+                required = setOf("command"),
+                riskLevel = ToolRiskLevel.HIGH,
+            ),
+        ) { args ->
+            val command = args["command"]?.trim().orEmpty()
+            when (val check = io.zer0.muse.automation.core.DeviceCommandPolicy.validate(command)) {
+                is io.zer0.muse.automation.core.DeviceCommandPolicy.Check.Invalid ->
+                    "命令被拒绝: ${check.reason}"
+                io.zer0.muse.automation.core.DeviceCommandPolicy.Check.Valid -> {
+                    val result = manager.execTiered(command)
+                        ?: return@register "设备命令通道不可用：需要 Shizuku 或 Root 授权（设置 → 权限配置向导），当前两档均未就绪"
+                    val (tier, detail) = result
+                    buildString {
+                        append("[").append(tier).append("] exit=").append(detail.exitCode).append('\n')
+                        if (detail.output.isNotBlank()) {
+                            append(detail.output.take(20_000))
+                            if (detail.output.length > 20_000) append("\n… (输出已截断)")
+                        } else {
+                            append("(无输出)")
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /** 初始化时刷新权限状态。 */

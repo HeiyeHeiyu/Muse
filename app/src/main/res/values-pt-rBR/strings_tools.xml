@@ -117,6 +117,7 @@
     <string name="tool_summary_plugin_market_uninstall">Desinstalou um plugin</string>
     <string name="tool_summary_plugin_market_set_enabled">Alternou o estado de um plugin</string>
     <string name="tool_summary_find_tools">Pesquisou na biblioteca de ferramentas</string>
+    <string name="tool_summary_device_shell">Executou um comando do dispositivo</string>
     <string name="tool_summary_proactive_message_wish">Salvou uma mensagem proativa</string>
     <string name="tool_summary_quick_note_add">Criou uma nota rápida</string>
     <string name="tool_summary_quick_note_delete">Excluiu uma nota rápida</string>
@@ -194,6 +195,7 @@
     <string name="tool_label_plugin_market_uninstall">Desinstalar plugin</string>
     <string name="tool_label_plugin_market_set_enabled">Ativar/desativar plugin</string>
     <string name="tool_label_find_tools">Buscar ferramentas</string>
+    <string name="tool_label_device_shell">Comando do dispositivo</string>
     <string name="tool_label_quick_note_add">Nova nota rápida</string>
     <string name="tool_label_quick_note_list">Notas rápidas</string>
     <string name="tool_label_read_file">Ler arquivo</string>

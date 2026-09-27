@@ -66,9 +66,9 @@ object AutomationInitializer {
             val tools = AutomationTools(mgr)
             tools.register(toolRegistry)
 
-            // 注册 Root 级别工具(仅当 root 可用时才真正执行,注册本身无副作用)
+            // 注册 Root 级别工具(分层执行:Shizuku 优先、Root 兜底,注册本身无副作用)
             try {
-                io.zer0.muse.tools.RootToolsRegistrar(toolRegistry, mgr.root)
+                io.zer0.muse.tools.RootToolsRegistrar(toolRegistry, mgr, appContext)
             } catch (e: Exception) {
                 Logger.w(TAG, "RootToolsRegistrar failed: ${e.message}")
             }

@@ -175,6 +175,8 @@ object ToolCategories {
         // v2.x: 卸载/启停插件
         "plugin_market_uninstall",
         "plugin_market_set_enabled",
+        // v2.x 自动化一期:设备命令行通道(Shizuku/Root 分层执行)
+        "device_shell",
         // UI 自动化(需无障碍权限,高风险)
         "ui_get_page_info",
         "ui_click",

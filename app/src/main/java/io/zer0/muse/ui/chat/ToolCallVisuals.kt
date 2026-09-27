@@ -179,6 +179,7 @@ internal object ToolCallVisuals {
         "plugin_market_uninstall" to MuseIcons.trash,
         "plugin_market_set_enabled" to MuseIcons.power,
         "find_tools" to MuseIcons.search,
+        "device_shell" to MuseIcons.terminal,
         "mcp_tool" to MuseIcons.plug,
         // 通知 / 主动消息 / 卡片
         "notify" to MuseIcons.bell,
@@ -383,6 +384,7 @@ internal object ToolCallVisuals {
         "plugin_market_uninstall" to R.string.tool_summary_plugin_market_uninstall,
         "plugin_market_set_enabled" to R.string.tool_summary_plugin_market_set_enabled,
         "find_tools" to R.string.tool_summary_find_tools,
+        "device_shell" to R.string.tool_summary_device_shell,
     )
 
     private fun prefixVerb(toolName: String): String? = when {
@@ -454,6 +456,7 @@ internal object ToolCallVisuals {
             "save_memory" -> argString(args, "content") ?: result.take(30)
             "delete_memory" -> argString(args, "match") ?: argString(args, "id") ?: result.take(30)
             "find_tools" -> argString(args, "query") ?: "全部工具"
+            "device_shell" -> argString(args, "command")
             else -> genericTarget(args)
         }
         return raw?.let { clean(it) }.orEmpty()
@@ -593,6 +596,7 @@ internal object ToolCallVisuals {
         "plugin_market_uninstall" to R.string.tool_label_plugin_market_uninstall,
         "plugin_market_set_enabled" to R.string.tool_label_plugin_market_set_enabled,
         "find_tools" to R.string.tool_label_find_tools,
+        "device_shell" to R.string.tool_label_device_shell,
     )
 
     private fun prettify(name: String): String =

@@ -176,6 +176,9 @@ open class ShellExecutor(
         fun getOrDefault(default: String) = if (isSuccess()) stdout else default
     }
 
+    /** v2.x: 带退出码的详细执行结果(输出为 stdout+stderr 合并,供 device_shell 反馈使用)。 */
+    data class ExecDetail(val exitCode: Int, val output: String)
+
     /** 执行 shell 命令,返回 stdout 字符串。 */
     suspend fun exec(command: String): Result<String> = withContext(Dispatchers.IO) {
         if (shizukuAuthorizer != null) {
@@ -201,6 +204,38 @@ open class ShellExecutor(
             }
             output
         }.onFailure { Logger.w(TAG, "exec error: ${it.message}") }
+    }
+
+    /**
+     * v2.x 自动化一期:带退出码的详细执行 —— 供 [io.zer0.muse.automation.core.AutomationManager.execTiered]
+     * 与 device_shell 使用。Shizuku 模式保留 stdout/stderr 分块;本地( su )模式合并输出流。
+     */
+    suspend fun execDetailed(command: String): ExecDetail = withContext(Dispatchers.IO) {
+        if (shizukuAuthorizer != null) {
+            if (!shizukuAuthorizer.checkPermission()) {
+                return@withContext ExecDetail(-1, "Shizuku 未授权")
+            }
+            val result = shizukuAuthorizer.execute(command)
+            val merged = buildString {
+                append(result.stdout)
+                if (result.stderr.isNotBlank()) {
+                    if (isNotEmpty()) append('\n')
+                    append("[stderr]\n").append(result.stderr)
+                }
+            }
+            return@withContext ExecDetail(result.exitCode, merged)
+        }
+        runCatching {
+            val proc = ProcessBuilder(shellPrefix + listOf("-c", command))
+                .redirectErrorStream(true)
+                .start()
+            val output = proc.inputStream.bufferedReader().use { it.readText() }
+            val exit = proc.waitFor()
+            ExecDetail(exit, output)
+        }.getOrElse { e ->
+            Logger.w(TAG, "execDetailed error: ${e.message}")
+            ExecDetail(-1, e.message ?: "执行失败")
+        }
     }
 
     private suspend fun execBinary(command: String): Result<ByteArray> = withContext(Dispatchers.IO) {

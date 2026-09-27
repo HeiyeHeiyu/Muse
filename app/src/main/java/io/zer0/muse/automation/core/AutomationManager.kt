@@ -106,6 +106,24 @@ class AutomationManager(
 
     // ── 统一动作接口 ────────────────────────────────────────
 
+    /**
+     * v2.x 自动化一期:设备命令统一执行 —— Shizuku 优先,Root 兜底。
+     *
+     * @return 档位名("Shizuku"/"Root")与详细结果;两档均不可用时返回 null。
+     */
+    suspend fun execTiered(command: String): Pair<String, io.zer0.muse.automation.executors.ShellExecutor.ExecDetail>? {
+        var state = permissionState.value
+        if (!state.shellEnabled && !state.rootEnabled) {
+            // 缓存可能过期(刚授权/撤销),探一次再决定
+            state = refreshPermissions()
+        }
+        return when {
+            state.shellEnabled -> "Shizuku" to shell.execDetailed(command)
+            state.rootEnabled -> "Root" to root.execDetailed(command)
+            else -> null
+        }
+    }
+
     /** 截屏:优先已授权的 Shizuku Shell，再降级 Root(无障碍不支持截屏)。 */
     suspend fun screenshot(): ByteArray? = mutex.withLock {
         shell.screenshot() ?: root.screenshot()

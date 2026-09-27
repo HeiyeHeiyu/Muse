@@ -298,6 +298,8 @@ class ToolRegistrySmokeTest {
             "save_memory", "delete_memory", "find_tools",
             "plugin_market_search", "plugin_market_install",
             "plugin_market_uninstall", "plugin_market_set_enabled",
+            // v2.x 自动化一期:设备命令行通道(分层执行,无授权时拒绝)
+            "device_shell",
         )
     }
 }
