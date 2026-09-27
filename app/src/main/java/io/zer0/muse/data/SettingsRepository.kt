@@ -1864,6 +1864,11 @@ class SettingsRepository(
 
     override suspend fun get(): ProviderConfig? = providersFlow.first()?.firstOrNull { it.id == activeProviderIdFlow.first() } ?: providersFlow.first()?.firstOrNull()
 
+    /**
+     * v2.2.1: [ProviderConfigStore] 首选回退 — 后台任务用"当前选中模型"而非激活 Provider 首个模型。
+     */
+    override suspend fun getPreferredModel(): Model? = getSelectedModel()
+
     /** v1.54: 全部 Provider 列表(用于 embedding provider 选择)。 */
     override suspend fun getAllProviders(): List<ProviderConfig> = providersFlow.first()
 

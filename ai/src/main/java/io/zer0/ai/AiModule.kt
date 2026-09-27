@@ -243,7 +243,10 @@ class ChatService(
     ): Pair<Provider, ChatRequest> {
         val config = providerConfig ?: configStore.get()
             ?: error(ErrorCode.NO_PROVIDER_CONFIGURED.toMessage())
-        val resolvedModel = model ?: config.models.firstOrNull()
+        // v2.2.1: 首选回退改为 store 声明的"用户当前选中模型"(默认实现 null 保持旧行为)。
+        // 原先直接取 config.models.firstOrNull():当激活 Provider 首个模型不可用/非对话模型时,
+        // 所有未传 model 的后台任务(主动消息/日记/日报/翻译等)都会静默跑错模型。
+        val resolvedModel = model ?: configStore.getPreferredModel() ?: config.models.firstOrNull()
             ?: error(ErrorCode.NO_MODEL_SELECTED.toMessage())
         // Phase 2C:通过 ModelRegistry 自动适配模型能力
         val enhancedModel = ModelRegistry.enhanceModel(resolvedModel)
@@ -296,4 +299,13 @@ interface ProviderConfigStore {
 
     /** v1.54: 全部已配置的 Provider 列表(用于 embedding provider 选择)。默认空列表。 */
     suspend fun getAllProviders(): List<ProviderConfig> = emptyList()
+
+    /**
+     * v2.2.1: 后台任务未显式指定模型时的首选回退(通常返回"用户当前选中的模型")。
+     *
+     * [ChatService.buildProviderRequest] 的模型三级链条:
+     * 调用方显式传入 → [getPreferredModel] → 激活 Provider 首个模型。
+     * 默认实现返回 null 保持旧行为(仅影响未覆写的测试替身)。
+     */
+    suspend fun getPreferredModel(): Model? = null
 }

@@ -795,8 +795,9 @@ fun AgentSettingsPage(
                                 testSending = true
                                 scope.launch {
                                     try {
-                                        proactiveRunner.triggerTestSend()
-                                        android.widget.Toast.makeText(context, context.getString(R.string.settings_agent_test_sent), android.widget.Toast.LENGTH_SHORT).show()
+                                        // v2.2.1: 如实展示结果(含失败原因),替代固定的"已发送"文案
+                                        val outcome = proactiveRunner.triggerTestSend()
+                                        android.widget.Toast.makeText(context, outcome, android.widget.Toast.LENGTH_LONG).show()
                                     } catch (e: Exception) {
                                         if (e is kotlin.coroutines.cancellation.CancellationException) throw e
                                         Logger.w("AgentSettingsPage", "测试主动消息失败: ${e.message}")

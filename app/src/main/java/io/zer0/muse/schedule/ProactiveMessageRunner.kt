@@ -7,6 +7,8 @@ import io.zer0.ai.core.UIMessage
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.data.SettingsRepository
+import io.zer0.muse.data.routing.UtilityModelRouter
+import io.zer0.muse.data.routing.UtilityTier
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.emotion.MoodParser
@@ -100,6 +102,14 @@ class ProactiveMessageRunner(
     // 问题6.1: appScope 60s 轮询与 WorkManager 15 分钟兜底可能并发触发 checkAndTrigger,
     // 用 Mutex 保证同一时刻只有一个 checkAndTrigger 在执行,避免重复发主动消息。
     private val triggerMutex = Mutex()
+
+    // v2.2.1: 辅助模型分档路由 — 主动消息的决策/生成改走用户配置的「小工具/大工具」档
+    // (未绑定时 resolve 返回 null,回退主链路模型解析:选中模型 → 激活 Provider 首个模型)。
+    private val utilityRouter = UtilityModelRouter(settings)
+
+    // v2.2.1: 最近一轮巡检的结果文案 — 供"测试主动消息"按钮如实反馈(失败原因不再被"已发送"文案掩盖)。
+    @Volatile
+    private var lastCycleOutcome: String? = null
 
     // 问题6.2: 当日已发送主动消息计数(持久化到 SharedPreferences),MAX_DAILY_MESSAGES 校验依赖此值。
     private val prefs = context.getSharedPreferences("proactive_msg", android.content.Context.MODE_PRIVATE)
@@ -224,12 +234,16 @@ class ProactiveMessageRunner(
      *  - 不受 sendProbability 概率限制
      *
      * 调用方:设置页"测试主动消息"按钮。
+     *
+     * @return 面向用户的结果文案:成功为发送确认,失败/跳过为具体原因(供 Toast 如实展示)
      */
-    suspend fun triggerTestSend() {
+    suspend fun triggerTestSend(): String {
         // v1.0.80: 去掉外层 triggerMutex.withLock — executeProactiveCycle 内部已加锁,
         // Mutex 非重入,这里再包一层会导致第二次 withLock 永久挂起(死锁),
         // 测试按钮卡在"生成中"且日志无任何输出(用户反馈:点了测试没反应)。
+        lastCycleOutcome = null
         executeProactiveCycle(triggerSource = TRIGGER_SOURCE_TEST, forceSend = true)
+        return lastCycleOutcome ?: "未执行(未命中任何分支,请查看日志)"
     }
 
     /**
@@ -258,6 +272,13 @@ class ProactiveMessageRunner(
         val config = settings.proactiveMessageConfigFlow.first()
         // v1.0.72: 测试模式不受总开关限制(用户主动测试即使开关关闭也能触发)
         if (!config.enabled && !forceSend) return@withLock
+
+        // v2.2.1: 测试发送前置自检 — 通知权限被关时明确告知(Android 13+ 通知被拒会静默不弹,用户无从排查)
+        if (forceSend && !androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+            Logger.w(TAG, "测试发送中止: 通知权限未开启")
+            lastCycleOutcome = "失败:通知权限未开启,请到系统设置允许 Muse 发送通知"
+            return@withLock
+        }
 
         // v1.0.72: 测试模式跳过时间窗口检查(用户主动测试不应被时段挡住)
         if (!forceSend) {
@@ -363,7 +384,10 @@ class ProactiveMessageRunner(
         val assistant = assistants.firstOrNull { it.id == config.agentId.takeIf { id -> id.isNotBlank() } }
             ?: assistants.firstOrNull { it.id == "default" }
             ?: assistants.firstOrNull()
-            ?: return@withLock
+            ?: run {
+                lastCycleOutcome = "失败:没有可用助手"
+                return@withLock
+            }
 
         // 取会话作为"当前会话"
         val sessions = sessionRepository.observeSessions().first()
@@ -379,7 +403,10 @@ class ProactiveMessageRunner(
                 ?: sessions.firstOrNull()
         } else {
             preferredViewedSession ?: sessions.firstOrNull()
-        } ?: return@withLock
+        } ?: run {
+            lastCycleOutcome = "失败:没有可用会话"
+            return@withLock
+        }
 
         // B8-01: 会话级排期优先 — 会话已删除时根本不会出现在列表,排期随行清理
         val sessionNext = targetSession.proactiveNextTriggerAt
@@ -388,9 +415,15 @@ class ProactiveMessageRunner(
             return@withLock
         }
 
+        // v2.2.1: 辅助模型分档 — 决策归「小工具」、生成归「大工具」(级联小工具;未绑定返回 null 回退主链路)
+        val decisionRoute = runCatching { utilityRouter.resolve(UtilityTier.SMALL) }.getOrNull()
+        val contentRoute = runCatching { utilityRouter.resolve(UtilityTier.LARGE) }.getOrNull()
+
         // B8-01: 模型不可用时跳过并重新排期,避免后台白耗 token
-        if (settings.getSelectedModel() == null) {
+        // v2.2.1: 辅助档位已绑定任一时,主模型缺失不再视为不可用(该档本身就是可用后备链路)。
+        if (settings.getSelectedModel() == null && decisionRoute == null && contentRoute == null) {
             Logger.w(TAG, "主动消息跳过: 当前没有可用模型")
+            lastCycleOutcome = "失败:没有可用模型(请检查主对话模型或辅助模型设置)"
             saveProactiveSchedule(config, now, baseIntervalMs, targetSession.id)
             return@withLock
         }
@@ -470,6 +503,9 @@ class ProactiveMessageRunner(
                 GenerationGate.withPermit {
                     chatService.completeText(
                         messages = decisionPrompt,
+                        // v2.2.1: 决策归小工具档(未绑定 null → 主链路模型解析)
+                        model = decisionRoute?.second,
+                        providerConfig = decisionRoute?.first,
                         // v2.0 5.9: 决策阶段用 temperature × 0.5(决策需要确定性)
                         temperature = (config.temperature * 0.5f).coerceIn(0f, 2f),
                         maxTokens = DECISION_MAX_TOKENS,
@@ -480,7 +516,9 @@ class ProactiveMessageRunner(
             Logger.w(TAG, "主动消息决策 LLM 调用失败: ${t?.message ?: msg}")
         }.getOrNull()
         if (decisionCompletion == null) {
+            val routeName = decisionRoute?.second?.id ?: "主链路模型"
             Logger.w(TAG, "主动消息决策 LLM 调用超时(${LLM_TIMEOUT_MS / 1000}s),跳过")
+            lastCycleOutcome = "失败:决策阶段超时或调用失败($routeName;上限 ${LLM_TIMEOUT_MS / 1000}s)"
             // A-08: 记录失败时间,退避一个 interval 再重试(否则 guaranteedSend 每分钟重试)
             // B-12: 递增连续失败计数,退避随次数指数增长
             settings.saveProactiveMessageConfig(
@@ -520,6 +558,9 @@ class ProactiveMessageRunner(
                 GenerationGate.withPermit {
                     chatService.completeText(
                         messages = contentPrompt,
+                        // v2.2.1: 生成归大工具档(留空自动级联小工具;全未绑定 → 主链路模型解析)
+                        model = contentRoute?.second,
+                        providerConfig = contentRoute?.first,
                         // v2.0 5.9: 生成阶段用配置的 temperature
                         temperature = config.temperature,
                         maxTokens = CONTENT_MAX_TOKENS,
@@ -530,7 +571,9 @@ class ProactiveMessageRunner(
             Logger.w(TAG, "主动消息生成 LLM 调用失败: ${t?.message ?: msg}")
         }.getOrNull()
         if (contentCompletion == null) {
+            val routeName = contentRoute?.second?.id ?: "主链路模型"
             Logger.w(TAG, "主动消息生成 LLM 调用超时(${LLM_TIMEOUT_MS / 1000}s),跳过")
+            lastCycleOutcome = "失败:生成阶段超时或调用失败($routeName;上限 ${LLM_TIMEOUT_MS / 1000}s)"
             // A-08: 记录失败时间,退避一个 interval 再重试
             // B-12: 递增连续失败计数,退避随次数指数增长
             settings.saveProactiveMessageConfig(
@@ -544,6 +587,7 @@ class ProactiveMessageRunner(
         if (proactiveContent.isBlank()) {
             saveProactiveSchedule(config, now, baseIntervalMs, targetSession.id)
             Logger.i(TAG, "Proactive message skipped (empty content), reason=${decision.reason}")
+            lastCycleOutcome = "失败:模型返回空内容(可能被推理/思考占满输出)"
             return@withLock
         }
 
@@ -555,6 +599,7 @@ class ProactiveMessageRunner(
                 MuseNotificationTarget.Session(targetSession.id),
             )
             Logger.i(TAG, "[测试] Proactive message sent via notification, scenario=${decision.scenario}, reason=${decision.reason}")
+            lastCycleOutcome = "测试消息已发送,请查看通知栏"
             return@withLock
         }
 
