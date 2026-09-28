@@ -30,16 +30,33 @@ data class KnowledgeBaseEntity(
     @ColumnInfo(defaultValue = "") val description: String = "",
     @ColumnInfo(name = "created_at", defaultValue = "0") val createdAt: Long = System.currentTimeMillis(),
     @ColumnInfo(name = "updated_at", defaultValue = "0") val updatedAt: Long = System.currentTimeMillis(),
-    /** 该 KB 下的文档数(冗余字段,Repository 双写维护,避免 GROUP BY)。 */
+    /**
+     * 该 KB 下的文档数 — 读取时由子查询实时计算(不再依赖双写维护,
+     * 避免导入/删除路径漏更新导致列表显示旧值)。写入列仅作旧库迁移兼容。
+     */
     @ColumnInfo(name = "doc_count", defaultValue = "0") val docCount: Int = 0,
 )
 
 @Dao
 interface KnowledgeBaseDao {
-    @Query("SELECT * FROM knowledge_bases ORDER BY updated_at DESC")
+    @Query(
+        """
+        SELECT id, name, description, created_at, updated_at,
+           (SELECT COUNT(*) FROM knowledge_docs d WHERE d.kb_id = knowledge_bases.id AND d.is_internal = 0)
+           AS doc_count
+        FROM knowledge_bases ORDER BY updated_at DESC
+        """,
+    )
     fun observeAll(): Flow<List<KnowledgeBaseEntity>>
 
-    @Query("SELECT * FROM knowledge_bases ORDER BY updated_at DESC")
+    @Query(
+        """
+        SELECT id, name, description, created_at, updated_at,
+           (SELECT COUNT(*) FROM knowledge_docs d WHERE d.kb_id = knowledge_bases.id AND d.is_internal = 0)
+           AS doc_count
+        FROM knowledge_bases ORDER BY updated_at DESC
+        """,
+    )
     suspend fun getAll(): List<KnowledgeBaseEntity>
 
     @Query("SELECT * FROM knowledge_bases WHERE id = :id")
