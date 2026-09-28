@@ -348,6 +348,8 @@ internal class ChatSessionController(
         enabled: Boolean,
         requestedSessionId: String? = null,
     ) {
+        // v2.x: 切换序号 — 过期(被更新的切换取代)的异步加载结果在提交前丢弃,防止串会话
+        val switchToken = SessionSwitchGuard.begin()
         if (accessor.snapshot.isStreaming) bridge.detachStreaming()
         sessionDeps.onStopTts()
         sessionDeps.onDisposeAsr()
@@ -380,6 +382,12 @@ internal class ChatSessionController(
                             sessionDeps.settings.defaultSessionPermissionModeFlow.first(),
                         )
                     val (messages, hasMore) = sessionDeps.messageController.loadMessagesPaged(sessionId)
+                    if (SessionSwitchGuard.isStale(switchToken)) {
+                        // 已被更新的切换取代:释放本次 acquire,丢弃加载结果
+                        sessionDeps.sessionManager.release(sessionId)
+                        Logger.i("ChatVM", "setAgentMode(true) 结果过期,丢弃: $sessionId")
+                        return@launch
+                    }
                     val assistantId = sessionRepository.getAssistantId(sessionId)
                     val assistant =
                         sessionDeps.assistantRepository.getById(assistantId)
@@ -439,6 +447,10 @@ internal class ChatSessionController(
                 } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                     throw e
                 } catch (e: Exception) {
+                    if (SessionSwitchGuard.isStale(switchToken)) {
+                        Logger.i("ChatVM", "setAgentMode(true) 过期失败分支,忽略")
+                        return@launch
+                    }
                     // v2.0 修复: 切换失败时不能静默死掉(否则 Agent Tab 永远转圈)。
                     // 回落安全态: 尽力创建兑底会话,保证界面可用且可切回。
                     Logger.e("ChatVM", "setAgentMode 失败,回落安全状态", e)
@@ -457,8 +469,10 @@ internal class ChatSessionController(
                         )
                     }
                 } finally {
-                    // 任何路径都不残留"切换中"加载态
-                    accessor.update { it.copy(isSwitchingSession = false) }
+                    // 任何路径都不残留"切换中"加载态;过期任务不得清除新切换的加载态
+                    if (!SessionSwitchGuard.isStale(switchToken)) {
+                        accessor.update { it.copy(isSwitchingSession = false) }
+                    }
                 }
             }
         } else {
@@ -482,6 +496,12 @@ internal class ChatSessionController(
                 sessionDeps.sessionManager.acquire(sid)
                 accessor.coroutineScope.launch {
                     val (messages, hasMore) = sessionDeps.messageController.loadMessagesPaged(sid)
+                    if (SessionSwitchGuard.isStale(switchToken)) {
+                        // 已被更新的切换取代:释放本次 acquire,丢弃加载结果
+                        sessionDeps.sessionManager.release(sid)
+                        Logger.i("ChatVM", "setAgentMode(false) 结果过期,丢弃: $sid")
+                        return@launch
+                    }
                     val permissionMode =
                         sessionDeps.sessionPermissionStore.getMode(
                             sid,
@@ -508,6 +528,7 @@ internal class ChatSessionController(
                             lastHistoryLoadCount = 0,
                             agentPlans = restoredAgentPlans,
                             sessionPermissionMode = permissionMode,
+                            isSwitchingSession = false,
                             listFirstVisibleItemIndex = messages.lastIndex.coerceAtLeast(0),
                             listFirstVisibleItemScrollOffset = 0,
                         )
@@ -523,6 +544,8 @@ internal class ChatSessionController(
     /** 切换到指定会话:清理 → 释放/获取引用 → 加载消息/计划/权限 → 恢复审批/outbox。 */
     @Suppress("LongMethod", "CyclomaticComplexMethod", "NestedBlockDepth", "ComplexCondition")
     fun switchSession(sessionId: String) {
+        // v2.x: 切换序号 — 过期(被更新的切换取代)的异步加载结果在提交前丢弃,防止串会话
+        val switchToken = SessionSwitchGuard.begin()
         if (accessor.snapshot.isStreaming) bridge.detachStreaming()
         sessionDeps.onStopTts()
         sessionDeps.onDisposeAsr()
@@ -565,6 +588,12 @@ internal class ChatSessionController(
         accessor.coroutineScope.launch {
             // F-15: DeepLink 目标校验 — 会话不存在时回退会话列表
             val exists = resultOf { sessionRepository.getSessionById(sessionId) }.getOrNull() != null
+            if (SessionSwitchGuard.isStale(switchToken)) {
+                // 已被更新的切换取代:释放本次 acquire,丢弃加载结果
+                sessionDeps.sessionManager.release(sessionId)
+                Logger.i("ChatVM", "switchSession 结果过期,丢弃: $sessionId")
+                return@launch
+            }
             if (!exists) {
                 Logger.w("ChatVM", "switchSession 目标会话不存在,回退会话列表: $sessionId")
                 accessor.update {

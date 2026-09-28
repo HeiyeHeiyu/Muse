@@ -6323,6 +6323,8 @@ class ChatViewModel(
     fun switchAgentAssistant(assistantId: String) {
         if (!_state.value.isAgentMode) return
         val targetId = assistantId.ifBlank { "default" }
+        // v2.x: 切换序号 — 过期(被更新的切换取代)的异步加载结果在提交前丢弃,防止串会话
+        val switchToken = io.zer0.muse.ui.chat.SessionSwitchGuard.begin()
         // 停止所有后台生成 + 脱离 UI 流式 + 停 TTS/ASR,与 switchSession 一致
         chatGenerationManager.stop()
         runCatching { io.zer0.muse.schedule.ChatGenerationService.stop(appContext) }
@@ -6354,6 +6356,12 @@ class ChatViewModel(
             sessionManager.acquire(sessionId)
             // 预加载消息(直接查 DB,不读缓存),一次性更新状态
             val (messages, hasMore) = messageController.loadMessagesPaged(sessionId)
+            if (io.zer0.muse.ui.chat.SessionSwitchGuard.isStale(switchToken)) {
+                // 已被更新的切换取代:释放本次 acquire,丢弃加载结果
+                sessionManager.release(sessionId)
+                Logger.i("ChatVM", "switchAgentAssistant 结果过期,丢弃: $sessionId")
+                return@launch
+            }
             val permissionMode =
                 sessionPermissionStore.getMode(
                     sessionId,
