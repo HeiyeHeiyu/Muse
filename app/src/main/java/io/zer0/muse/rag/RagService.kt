@@ -12,9 +12,11 @@ import io.zer0.muse.data.knowledge.KnowledgeChunkFtsRow
 import io.zer0.muse.data.knowledge.KnowledgeChunkFtsSelfHealer
 import io.zer0.muse.data.knowledge.KnowledgeDocDao
 import io.zer0.muse.util.TokenEstimator
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -401,6 +403,10 @@ class RagService(
 
     /**
      * 索引文档:分块 + embedding + 存储 + FTS 同步。
+     *
+     * v2.x: 分块/HNSW 写入等 CPU 与磁盘操作在 [Dispatchers.Default] 执行,
+     * 避免大文件导入在调用方线程(主线程)上阻塞界面。
+     *
      * @return 分块数
      */
     suspend fun indexDocument(
@@ -408,8 +414,8 @@ class RagService(
         content: String,
         ragConfig: RagConfig,
         onProgress: (current: Int, total: Int) -> Unit = { _, _ -> },
-    ): Int {
-        if (content.isBlank()) return 0
+    ): Int = withContext(Dispatchers.Default) {
+        if (content.isBlank()) return@withContext 0
         val perfTimer = Perf.start("rag-index-$docId")
 
         // 1. 分块(v1.133:支持 markdownAware / chunkByToken)
@@ -420,7 +426,7 @@ class RagService(
             chunkByToken = ragConfig.chunkByToken,
         )
         val chunks = chunker.split(content)
-        if (chunks.isEmpty()) return 0
+        if (chunks.isEmpty()) return@withContext 0
         Logger.d("RagService", "文档 $docId 分块 ${chunks.size} 块(markdownAware=${ragConfig.markdownAware}, chunkByToken=${ragConfig.chunkByToken})")
         perfTimer.split("chunk")
 
@@ -500,11 +506,13 @@ class RagService(
 
         Logger.d("RagService", "文档 $docId 索引完成:${entities.size} 块,维度 ${embeddings.firstOrNull()?.size ?: 0}")
         perfTimer.end()
-        return entities.size
+        return@withContext entities.size
     }
 
     /**
      * v2.x: 流式索引文档 — 分块/embedding/存储全程流式,内存占用 O(窗口) 而非 O(全文)。
+     *
+     * v2.x: 滑窗切分与 HNSW 批量写入在 [Dispatchers.Default] 执行,避免大文件导入阻塞主线程。
      *
      * 与 [indexDocument] 语义对齐(先清旧块再写新块 / 维度校验 / FTS 同步),差异在文本入口:
      * 文本以 [textPieces] 分片流式喂入,不需要把全文一次性载入内存,支持任意大小文件导入。
@@ -527,7 +535,7 @@ class RagService(
         ragConfig: RagConfig,
         windowChars: Int = STREAM_WINDOW_CHARS,
         onProgress: (indexedChunks: Int) -> Unit = {},
-    ): Int {
+    ): Int = withContext(Dispatchers.Default) {
         val perfTimer = Perf.start("rag-index-stream-$docId")
         val effectiveWindow = windowChars.coerceAtLeast(1024)
         val chunker = TextChunker(
@@ -656,7 +664,7 @@ class RagService(
         }
         perfTimer.end()
         Logger.d("RagService", "文档 $docId 流式索引完成:$totalIndexed 块")
-        return totalIndexed
+        return@withContext totalIndexed
     }
 
     /**
