@@ -85,6 +85,12 @@ public final class FakeContext extends ContextWrapper {
 
     @Override
     public android.content.AttributionSource getAttributionSource() {
+        // v2.3.2: AttributionSource 是 API 31 才有的类型;低版本直接返回 null,
+        // 不再依赖"new 一个不存在的类抛 NoClassDefFoundError 再 catch"来控制流程
+        // (行为不变:原来在 <31 上同样是走 catch 返回 null,但那时 lint 会报 NewApi)。
+        if (android.os.Build.VERSION.SDK_INT < 31) {
+            return null;
+        }
         try {
             android.content.AttributionSource.Builder builder =
                     new android.content.AttributionSource.Builder(SHELL_UID);

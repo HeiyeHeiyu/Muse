@@ -1000,7 +1000,7 @@ internal fun MessageBubble(
                     } else if (isLongFormBubble) {
                         // v2.x: 长文"不进卡" — 无底色/无描边/无圆角/无宽度上限,全宽直排
                         Modifier.padding(
-                            PaddingValues(horizontal = 0.dp, vertical = MusePaddings.contentGap),
+                            PaddingValues(horizontal = 0.dp, vertical = MusePaddings.contentGap), // inset-guard: allow
                         )
                     } else {
                         Modifier

@@ -35,6 +35,29 @@ DYNAMIC_DECL = re.compile(r"fun\s+(migrate(\d+)To(\d+))\b")
 ADD_MIG_TOKEN = re.compile(r"\b(?:MIGRATION_(\d+)_(\d+)|migrate(\d+)To(\d+))\b")
 TEST_REF = re.compile(r"MuseDb\.(?:MIGRATION_(\d+)_(\d+)|migrate(\d+)To(\d+))")
 VERSION_RE = re.compile(r"version\s*=\s*(\d+)")
+# `version = SOME_CONST` 形式(如 FactDb 的 FACT_DB_VERSION)与其常量声明
+CONST_VERSION_RE = re.compile(r"version\s*=\s*([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def resolve_current_version(db_text: str) -> int | None:
+    """解析数据库当前 version,支持字面量与常量两种写法。
+
+    - 字面量:`version = 105`
+    - 常量:  `version = FACT_DB_VERSION` → 回溯 `const val FACT_DB_VERSION = 14`
+
+    早期只匹配字面量,FactDb 改用常量后会被误报"无法解析当前 version"(口径问题,非链断)。
+    """
+    literal = VERSION_RE.search(db_text)
+    if literal:
+        return int(literal.group(1))
+    ref = CONST_VERSION_RE.search(db_text)
+    if not ref:
+        return None
+    decl = re.search(
+        rf"const\s+val\s+{re.escape(ref.group(1))}\s*=\s*(\d+)",
+        db_text,
+    )
+    return int(decl.group(1)) if decl else None
 
 
 def name_to_pair(name: str) -> tuple[int, int] | None:
@@ -88,11 +111,10 @@ def check_extra_db_static_chain(db_path: Path, db_name: str, min_version: int, f
         fail(f"{db_name}: 未找到 {db_path}", failures)
         return
     db_text = db_path.read_text(encoding="utf-8")
-    version_match = VERSION_RE.search(db_text)
-    if not version_match:
+    current_version = resolve_current_version(db_text)
+    if current_version is None:
         fail(f"{db_name}: 无法解析当前 version", failures)
         return
-    current_version = int(version_match.group(1))
     declared_static = {
         (int(a), int(b)): name for name, a, b in STATIC_DECL.findall(db_text)
     }
@@ -141,11 +163,10 @@ def main() -> int:
         return 1
     db_text = db_path.read_text(encoding="utf-8")
 
-    version_match = VERSION_RE.search(db_text)
-    if not version_match:
+    current_version = resolve_current_version(db_text)
+    if current_version is None:
         print("FATAL: 无法从 MuseDb.kt 解析当前 version")
         return 1
-    current_version = int(version_match.group(1))
 
     declared_static = {
         (int(a), int(b)): name for name, a, b in STATIC_DECL.findall(db_text)

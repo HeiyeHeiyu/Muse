@@ -20,6 +20,12 @@ public final class Workarounds {
         mendActivityThread();
     }
 
+    /**
+     * v2.3.2: 本方法**故意**访问 framework 私有成员 —— 这正是兼容修补的意义(见类注释),
+     * 且每一步都独立 try/catch(字段/构造缺失即跳过,绝不让服务端启动失败)。
+     * 相关的 lint 检查(BlockedPrivateApi / SoonBlockedPrivateApi)在模块 build.gradle.kts 里
+     * 按模块豁免并写明原因,而不是在此逐处压制。
+     */
     private static void mendActivityThread() {
         try {
             Class<?> activityThreadClass = Class.forName("android.app.ActivityThread");

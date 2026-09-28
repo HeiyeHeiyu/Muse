@@ -33,6 +33,15 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    lint {
+        // v2.3.2: 本模块的存在意义就是"补 framework"(见文件头注释)—— app_process 进程没有经过
+        // zygote 的常规初始化,只能靠反射把 ActivityThread / DisplayManager 等私有状态补进去。
+        // 因此按模块豁免这两条"私有 API"检查;豁免范围仅限这两条,其余 lint 规则照常生效,
+        // 这样将来真正误用私有 API 的**新增**代码仍会被其他规则拦住。
+        // (逐处 @SuppressLint 的写法会打地鼠:当前已有 5 个文件在做同类反射。)
+        disable += setOf("BlockedPrivateApi", "SoonBlockedPrivateApi")
+    }
 }
 
 dependencies {

@@ -25,6 +25,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Windows 中文控制台默认 GBK,而本脚本会打印 ⚠/✓/✗(不在 GBK 字符集内),
+# 直接输出会抛 UnicodeEncodeError。统一切到 UTF-8。
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:  # noqa: BLE001 - 环境不支持时不应影响检查本身
+    pass
+
 # 项目根目录
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 

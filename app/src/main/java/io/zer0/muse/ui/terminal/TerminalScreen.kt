@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,6 +45,7 @@ import io.zer0.muse.R
 import io.zer0.muse.terminal.TerminalSessionManager
 import io.zer0.muse.terminal.TerminalSessionStore
 import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.navigation.MuseTopBarIconButton
 import io.zer0.muse.ui.theme.MusePaddings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -142,13 +142,13 @@ fun TerminalScreen(onBack: () -> Unit) {
                     .padding(horizontal = MusePaddings.tightGap, vertical = MusePaddings.tightGap),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = MuseIcons.arrowLeft,
-                    contentDescription = stringResource(R.string.terminal_back_cd),
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
-            }
+            MuseTopBarIconButton(
+                icon = MuseIcons.arrowLeft,
+                contentDescription = stringResource(R.string.terminal_back_cd),
+                onClick = onBack,
+                tint = MaterialTheme.colorScheme.onSurface,
+                solid = false,
+            )
             Icon(
                 imageVector = MuseIcons.terminal,
                 contentDescription = null,
@@ -164,33 +164,33 @@ fun TerminalScreen(onBack: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            IconButton(onClick = {
-                webViewRef?.evaluateJavascript("window.MuseTerm && window.MuseTerm.clearTerm();", null)
-            }) {
-                Icon(
-                    imageVector = MuseIcons.trash,
-                    contentDescription = stringResource(R.string.terminal_clear_cd),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            IconButton(onClick = {
-                session.restart()
-                pushText("\r\n" + context.getString(R.string.terminal_session_restarted) + "\r\n")
-            }) {
-                Icon(
-                    imageVector = MuseIcons.refresh,
-                    contentDescription = stringResource(R.string.terminal_restart_cd),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            MuseTopBarIconButton(
+                icon = MuseIcons.trash,
+                contentDescription = stringResource(R.string.terminal_clear_cd),
+                onClick = {
+                    webViewRef?.evaluateJavascript("window.MuseTerm && window.MuseTerm.clearTerm();", null)
+                },
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                solid = false,
+            )
+            MuseTopBarIconButton(
+                icon = MuseIcons.refresh,
+                contentDescription = stringResource(R.string.terminal_restart_cd),
+                onClick = {
+                    session.restart()
+                    pushText("\r\n" + context.getString(R.string.terminal_session_restarted) + "\r\n")
+                },
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                solid = false,
+            )
             if (session.isPty) {
-                IconButton(onClick = { session.sendInterrupt() }) {
-                    Icon(
-                        imageVector = MuseIcons.power,
-                        contentDescription = stringResource(R.string.terminal_interrupt_cd),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                MuseTopBarIconButton(
+                    icon = MuseIcons.power,
+                    contentDescription = stringResource(R.string.terminal_interrupt_cd),
+                    onClick = { session.sendInterrupt() },
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    solid = false,
+                )
             }
         }
 
@@ -319,21 +319,21 @@ fun TerminalScreen(onBack: () -> Unit) {
                     inner()
                 },
             )
-            IconButton(onClick = {
-                val cmd = input.trimEnd()
-                if (cmd.isNotBlank()) {
-                    // PTY 下由终端自身回显输入与提示符;管道引擎本地回显
-                    if (!session.isPty) pushText("❯ $cmd\r\n")
-                    session.write(cmd + "\n")
-                }
-                input = ""
-            }) {
-                Icon(
-                    imageVector = MuseIcons.send,
-                    contentDescription = stringResource(R.string.terminal_send_cd),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
+            MuseTopBarIconButton(
+                icon = MuseIcons.send,
+                contentDescription = stringResource(R.string.terminal_send_cd),
+                onClick = {
+                    val cmd = input.trimEnd()
+                    if (cmd.isNotBlank()) {
+                        // PTY 下由终端自身回显输入与提示符;管道引擎本地回显
+                        if (!session.isPty) pushText("❯ $cmd\r\n")
+                        session.write(cmd + "\n")
+                    }
+                    input = ""
+                },
+                tint = MaterialTheme.colorScheme.primary,
+                solid = false,
+            )
         }
     }
 }

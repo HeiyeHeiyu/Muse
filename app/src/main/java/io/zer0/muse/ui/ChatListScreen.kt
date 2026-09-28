@@ -71,7 +71,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import io.zer0.muse.R
 import io.zer0.muse.transformer.InternalMarkupSanitizer
@@ -668,7 +667,13 @@ private fun RecallBar(
             .padding(horizontal = MusePaddings.screen, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = "💬", fontSize = 14.sp)
+        // v2.3.2: 撤回预览的图标标记走 muse-icons + 尺寸令牌(原为 emoji + 硬编码 14.sp)
+        Icon(
+            imageVector = MuseIcons.chat,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.size(MuseIconSizes.iconTiny),
+        )
         Spacer(Modifier.width(10.dp))
         Text(
             text = stringResource(R.string.chat_list_recall_format, name, preview.take(18)),

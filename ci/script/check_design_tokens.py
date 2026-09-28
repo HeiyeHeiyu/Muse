@@ -37,6 +37,11 @@ UI_DIR = PROJECT_ROOT / "app" / "src" / "main" / "java" / "io" / "zer0" / "muse"
 # 豁免:主题定义目录,颜色字面量的唯一合法位置
 EXEMPT_DIRS = {"theme"}
 
+# 豁免:生成物 —— ui/common/icons/ 下由 muse-icons 管线(to-compose.py)产出的文件,
+# 内含图标路径色值(硬编码是生成结果,手改会被下次生成覆盖),不该被"设计令牌"规则拦截。
+GENERATED_ICON_DIR = ("common", "icons")
+GENERATED_MARK = "自动生成"
+
 BASELINE_PATH = PROJECT_ROOT / "ci" / "baseline" / "design_tokens_baseline.txt"
 
 # 规则定义
@@ -72,12 +77,18 @@ class Violation:
 
 
 def is_exempt(path: Path) -> bool:
-    """theme/ 目录下的文件是颜色定义区,豁免检查。"""
+    """theme/ 目录(颜色定义区)与 muse-icons 生成物豁免检查。"""
     try:
         rel = path.relative_to(UI_DIR)
     except ValueError:
         return False
-    return rel.parts[0] in EXEMPT_DIRS
+    if rel.parts[0] in EXEMPT_DIRS:
+        return True
+    if tuple(rel.parts[:2]) == GENERATED_ICON_DIR:
+        head = path.read_text(encoding="utf-8", errors="ignore")[:800]
+        if GENERATED_MARK in head:
+            return True
+    return False
 
 
 def strip_comments(code: str, in_block: bool) -> tuple[str, bool]:

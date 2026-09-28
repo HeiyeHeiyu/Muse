@@ -16,6 +16,11 @@ $python = if (Get-Command python3 -ErrorAction SilentlyContinue) { 'python3' } e
 $gradle = if ($IsWindows -and (Test-Path './gradlew.bat')) { './gradlew.bat' } else { './gradlew' }
 $skipReleaseGuards = @('-PreleaseSkipVersionCheck=true', '-PreleaseSkipKeystoreCheck=true')
 
+# Windows 中文控制台默认 GBK:部分脚本会打印 ⚠/✓/✗(不在 GBK 字符集内),
+# 未设该项时 python 直接抛 UnicodeEncodeError 让整条 lane 失败
+# (2026-09-29 实测:check_repo_hygiene.py / check_localizations.py 会中招)。统一强制 UTF-8。
+$env:PYTHONIOENCODING = 'utf-8'
+
 function Invoke-Checked {
     param(
         [Parameter(Mandatory = $true)]
