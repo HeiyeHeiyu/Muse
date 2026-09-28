@@ -26,13 +26,11 @@ import io.zer0.muse.transformer.MoodSkinParser
 import io.zer0.muse.transformer.TransformContext
 import io.zer0.muse.transformer.TransformerPipeline
 import io.zer0.muse.ui.ChatErrorType
-import io.zer0.muse.ui.CompactionState
 import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.util.MusePatterns
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.jsonObject
 import kotlin.uuid.Uuid
@@ -913,29 +911,9 @@ class ChatStreamCoordinator(
                                 WarmupHistory.compressCharBudgetFor(accessor.snapshot.contextMaxTokens),
                         ),
                 )
-            // v1.0.47 P1: 流式 Compaction UI — 消息数超过阈值时显示"正在压缩上下文"状态
-            val compressThreshold = if (experiments.longMemoryCompression) 10 else 20
-            val totalMsgCount = prefixMessages.size + truncatedHistory.size
-            if (totalMsgCount > compressThreshold) {
-                accessor.update { it.copy(compactionState = CompactionState.Compacting(totalMsgCount)) }
-            }
-            // v2.3.2: 管道异常/协程取消时不能把"正在压缩"状态留在状态里
-            // (此前只有成功路径才会复位,取消一次就永久卡在 Compacting)
-            transformedMessages =
-                try {
-                    transformerPipeline.execute(prefixMessages + truncatedHistory, context)
-                } catch (t: Throwable) {
-                    if (totalMsgCount > compressThreshold) {
-                        accessor.update { curr ->
-                            if (curr.compactionState is CompactionState.Compacting) {
-                                curr.copy(compactionState = null)
-                            } else {
-                                curr
-                            }
-                        }
-                    }
-                    throw t
-                }
+            // v2.3.2: 原「流式 Compaction UI」整块删除 —— 复核确认 CompactionState 有 3 处写入、
+            // **0 处读取**(UI 从未接入),属死代码;删掉后"取消/异常时卡在 Compacting"的隐患一并消失。
+            transformedMessages = transformerPipeline.execute(prefixMessages + truncatedHistory, context)
 
             // P1-1: 调用 PromptFinalizeHook — 在管道执行后、发送给 LLM 前做最终修改
             // 典型用途: 楼层式上下文限制(P1-4)、Worldbook 关键词触发注入(P1-2)
@@ -956,22 +934,6 @@ class ChatStreamCoordinator(
                         hook.beforeFinalizePrompt(event)
                     }
                 transformedMessages = finalizeResult.preparedHistory
-            }
-            // v1.0.47 P1: 压缩完成 — 更新状态为 Compacted(显示短暂提示)或清除
-            if (totalMsgCount > compressThreshold) {
-                val compressedCount = totalMsgCount - (if (experiments.longMemoryCompression) 8 else 15)
-                accessor.update { it.copy(compactionState = CompactionState.Compacted(compressedCount.coerceAtLeast(0))) }
-                // 3 秒后清除 Compacted 状态
-                accessor.coroutineScope.launch {
-                    kotlinx.coroutines.delay(3000)
-                    accessor.update { curr ->
-                        if (curr.compactionState is CompactionState.Compacted) {
-                            curr.copy(compactionState = null)
-                        } else {
-                            curr
-                        }
-                    }
-                }
             }
             // v1.x: 三钩子接入 — 保存 context,供后续 applyVisualTransform / applyOnGenerationFinish 复用
             transformContext = context

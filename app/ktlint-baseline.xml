@@ -3418,23 +3418,19 @@
         <error line="635" column="26" source="standard:function-signature" />
         <error line="635" column="50" source="standard:function-signature" />
         <error line="635" column="74" source="standard:function-signature" />
-        <error line="655" column="42" source="standard:multiline-expression-wrapping" />
-        <error line="655" column="42" source="standard:function-signature" />
-        <error line="664" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="671" column="26" source="standard:if-else-bracing" />
-        <error line="671" column="26" source="standard:multiline-if-else" />
-        <error line="671" column="26" source="standard:if-else-wrapping" />
-        <error line="679" column="30" source="standard:function-signature" />
-        <error line="679" column="54" source="standard:function-signature" />
-        <error line="679" column="81" source="standard:function-signature" />
-        <error line="681" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="686" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="693" column="25" source="standard:multiline-expression-wrapping" />
-        <error line="694" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="698" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="703" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="705" column="35" source="standard:multiline-expression-wrapping" />
-        <error line="710" column="27" source="standard:multiline-expression-wrapping" />
+        <error line="651" column="42" source="standard:multiline-expression-wrapping" />
+        <error line="651" column="42" source="standard:function-signature" />
+        <error line="683" column="30" source="standard:function-signature" />
+        <error line="683" column="54" source="standard:function-signature" />
+        <error line="683" column="81" source="standard:function-signature" />
+        <error line="685" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="690" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="697" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="698" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="702" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="707" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="709" column="35" source="standard:multiline-expression-wrapping" />
+        <error line="714" column="27" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="src/main/java/io/zer0/muse/data/chat/ConversationTreeSnapshotStore.kt">
         <error line="19" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -18316,11 +18312,11 @@
         <error line="41" column="90" source="standard:function-signature" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/chat/ChatStreamCoordinator.kt">
-        <error line="44" column="1" source="standard:no-consecutive-comments" />
-        <error line="58" column="1" source="standard:no-consecutive-comments" />
-        <error line="97" column="17" source="standard:property-naming" />
-        <error line="195" column="1" source="standard:max-line-length" />
-        <error line="575" column="1" source="standard:max-line-length" />
+        <error line="42" column="1" source="standard:no-consecutive-comments" />
+        <error line="56" column="1" source="standard:no-consecutive-comments" />
+        <error line="95" column="17" source="standard:property-naming" />
+        <error line="193" column="1" source="standard:max-line-length" />
+        <error line="573" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/chat/ChatTaskCardCoordinator.kt">
         <error line="40" column="29" source="standard:function-signature" />

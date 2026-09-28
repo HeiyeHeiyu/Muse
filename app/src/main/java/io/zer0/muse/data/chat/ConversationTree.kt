@@ -648,32 +648,36 @@ fun mergeRebuildMessages(tree: ConversationTree, current: List<UIMessage>): List
 
 /** 会话消息唯一的内存排序规则，必须与 MessageDao/MessageProjector 保持一致。 */
 fun orderConversationMessages(messages: List<UIMessage>): List<UIMessage> {
-    // 旧导入/旧快照可能完全没有 seq。此时 createdAt 也可能不可信，
-    // 不能无条件重排，数据库传入顺序才是唯一可用顺序。
-    if (messages.none { it.commitSeq > 0L || it.seq > 0L }) return messages
-
     fun UIMessage.stableOrder(): Long? = when {
         commitSeq > 0L -> commitSeq
         seq > 0L -> seq
         else -> null
     }
 
-    return messages.sortedWith { left, right ->
-        val leftOrder = left.stableOrder()
-        val rightOrder = right.stableOrder()
-        val result = when {
-            leftOrder != null && rightOrder != null -> leftOrder.compareTo(rightOrder)
-            leftOrder == null && rightOrder == null -> 0
-            // 新旧数据混合时，不能把所有 seq=0 的旧消息统一塞到一端；
-            // 用原始 createdAt 把无序旧消息/尚未落库的新消息放回正确时间段。
-            else -> left.createdAt.compareTo(right.createdAt)
-        }
-        if (result != 0) result
-        else {
-            val created = left.createdAt.compareTo(right.createdAt)
-            if (created != 0) created else left.id.toString().compareTo(right.id.toString())
-        }
+    // 旧导入/旧快照可能完全没有 seq。此时 createdAt 也可能不可信，
+    // 不能无条件重排，数据库传入顺序才是唯一可用顺序。
+    if (messages.none { it.stableOrder() != null }) return messages
+
+    // v2.3.2: 改成"先给每条消息算一个键,再单键排序" —— 原实现逐对比较,对"一边有序一边无序"
+    // 的一对退回 createdAt,三个消息就能成环(实测 A(seq=10,createdAt=3000)、B(seq=0,createdAt=1000)、
+    // C(seq=20,createdAt=100) 会同时得出 A>C、A<B、B<C),TimSort 下可能抛
+    // "Comparison method violates its general contract!" 或给出不稳定顺序。
+    // 标尺:有序消息按 seq 排名占偶数位(seq 优先,与既有一致);
+    //       无序消息按"createdAt 早于它的有序消息条数"占奇数位(仍按时间插回正确时间段)。
+    // 键在排序前一次算好,因此比较器是严格全序(传递、反对称、自反),不再依赖比较顺序。
+    val ordered = messages.filter { it.stableOrder() != null }.sortedBy { it.stableOrder() }
+    val unordered = messages.filter { it.stableOrder() == null }
+    val keys = HashMap<String, Long>(messages.size)
+    ordered.forEachIndexed { index, message -> keys[message.id.toString()] = index * 2L }
+    val orderedTimes = ordered.map { it.createdAt }.sorted()
+    unordered.forEach { message ->
+        val found = orderedTimes.binarySearch { it.compareTo(message.createdAt) }
+        val earlierCount = if (found >= 0) found else -(found + 1)
+        keys[message.id.toString()] = earlierCount * 2L - 1
     }
+    return messages.sortedWith(
+        compareBy({ keys[it.id.toString()] ?: Long.MAX_VALUE }, { it.createdAt }, { it.id.toString() }),
+    )
 }
 
 private fun restoreSelection(tree: ConversationTree, previous: ConversationTree?): ConversationTree {
