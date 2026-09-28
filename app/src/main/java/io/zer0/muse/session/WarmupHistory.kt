@@ -40,6 +40,16 @@ object WarmupHistory {
         }
 
     /**
+     * v2.3.2: 触发上下文压缩的字符预算(与 [budgetTokensFor] 同一口径:窗口的 [BUDGET_RATIO])。
+     *
+     * 动机:压缩阈值原先只看"条数"(默认 20 条 / 实验档 10 条),而长消息会话(每条几千字)
+     * 在 20 条时早已超出模型窗口 —— 触发太晚,压缩还没来得及生效请求就先超限了。
+     * 中文约 1 字符 ≈ 1 token,故预算直接以字符数计,与预热的 token 预算共用一个比例,
+     * 避免"阈值按条数、预热按 token、硬上限按 payload"三套口径互不核算。
+     */
+    fun compressCharBudgetFor(contextMaxTokens: Int): Int = budgetTokensFor(contextMaxTokens)
+
+    /**
      * 从最新往旧累计 token,超出预算则截断。
      *
      * 至少保留最后一条(即便其单独超出预算,兜底避免空历史);

@@ -2283,16 +2283,16 @@
         <error line="292" column="39" source="standard:function-signature" />
         <error line="292" column="62" source="standard:function-signature" />
         <error line="292" column="74" source="standard:function-signature" />
-        <error line="301" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="305" column="39" source="standard:multiline-expression-wrapping" />
-        <error line="310" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="320" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="353" column="37" source="standard:multiline-expression-wrapping" />
-        <error line="369" column="32" source="standard:multiline-expression-wrapping" />
-        <error line="382" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="386" column="27" source="standard:multiline-expression-wrapping" />
-        <error line="387" column="30" source="standard:multiline-expression-wrapping" />
-        <error line="402" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="300" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="304" column="39" source="standard:multiline-expression-wrapping" />
+        <error line="309" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="319" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="357" column="37" source="standard:multiline-expression-wrapping" />
+        <error line="373" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="386" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="390" column="27" source="standard:multiline-expression-wrapping" />
+        <error line="391" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="406" column="21" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="src/main/java/io/zer0/muse/channel/ChannelConversationStore.kt">
         <error line="25" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -2307,19 +2307,15 @@
         <error line="117" column="41" source="standard:function-signature" />
         <error line="117" column="53" source="standard:function-signature" />
         <error line="117" column="71" source="standard:function-signature" />
-        <error line="122" column="17" source="standard:function-signature" />
-        <error line="122" column="36" source="standard:function-signature" />
-        <error line="122" column="50" source="standard:function-signature" />
-        <error line="122" column="76" source="standard:function-signature" />
-        <error line="131" column="15" source="standard:function-signature" />
-        <error line="131" column="34" source="standard:function-signature" />
-        <error line="131" column="46" source="standard:function-signature" />
-        <error line="139" column="31" source="standard:function-signature" />
-        <error line="139" column="50" source="standard:function-signature" />
-        <error line="139" column="64" source="standard:function-signature" />
-        <error line="139" column="78" source="standard:function-signature" />
-        <error line="139" column="97" source="standard:function-signature" />
-        <error line="144" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="181" column="15" source="standard:function-signature" />
+        <error line="181" column="34" source="standard:function-signature" />
+        <error line="181" column="46" source="standard:function-signature" />
+        <error line="189" column="31" source="standard:function-signature" />
+        <error line="189" column="50" source="standard:function-signature" />
+        <error line="189" column="64" source="standard:function-signature" />
+        <error line="189" column="78" source="standard:function-signature" />
+        <error line="189" column="97" source="standard:function-signature" />
+        <error line="194" column="21" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="src/main/java/io/zer0/muse/channel/ChannelInbox.kt">
         <error line="22" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -8726,9 +8722,9 @@
         <error line="165" column="56" source="standard:function-signature" />
     </file>
     <file name="src/main/java/io/zer0/muse/session/WarmupHistory.kt">
-        <error line="70" column="58" source="standard:multiline-expression-wrapping" />
-        <error line="70" column="58" source="standard:function-signature" />
-        <error line="72" column="19" source="standard:multiline-expression-wrapping" />
+        <error line="80" column="58" source="standard:multiline-expression-wrapping" />
+        <error line="80" column="58" source="standard:function-signature" />
+        <error line="82" column="19" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="src/main/java/io/zer0/muse/terminal/Pty.kt">
         <error line="12" column="1" source="standard:no-empty-first-line-in-class-body" />
@@ -11063,20 +11059,17 @@
         <error line="54" column="9" source="standard:spacing-between-declarations-with-comments" />
         <error line="56" column="9" source="standard:spacing-between-declarations-with-comments" />
         <error line="58" column="9" source="standard:spacing-between-declarations-with-comments" />
-        <error line="73" column="26" source="standard:function-signature" />
-        <error line="73" column="55" source="standard:function-signature" />
-        <error line="73" column="82" source="standard:function-signature" />
-        <error line="82" column="28" source="standard:multiline-expression-wrapping" />
-        <error line="115" column="31" source="standard:function-signature" />
-        <error line="115" column="58" source="standard:function-signature" />
-        <error line="115" column="72" source="standard:function-signature" />
-        <error line="141" column="39" source="standard:function-signature" />
-        <error line="141" column="63" source="standard:function-signature" />
-        <error line="141" column="91" source="standard:function-signature" />
-        <error line="144" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="163" column="28" source="standard:multiline-expression-wrapping" />
-        <error line="175" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="183" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="93" column="36" source="standard:function-signature" />
+        <error line="93" column="63" source="standard:function-signature" />
+        <error line="93" column="84" source="standard:function-signature" />
+        <error line="125" column="26" source="standard:function-signature" />
+        <error line="125" column="55" source="standard:function-signature" />
+        <error line="125" column="82" source="standard:function-signature" />
+        <error line="143" column="28" source="standard:multiline-expression-wrapping" />
+        <error line="194" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="213" column="28" source="standard:multiline-expression-wrapping" />
+        <error line="225" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="233" column="30" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="src/main/java/io/zer0/muse/transformer/InternalMarkupSanitizer.kt">
         <error line="11" column="39" source="standard:multiline-expression-wrapping" />

@@ -66,4 +66,13 @@ class WarmupHistoryTest {
         val full = WarmupHistory.briefingMessage(truncated = false)
         assertFalse(full.content.contains("保留最近部分"))
     }
+
+    @Test
+    fun `压缩字符预算与预热 token 预算同一口径`() {
+        // v2.3.2: 压缩触发口径与预热共用 BUDGET_RATIO / 兜底值,避免三套预算互不核算
+        assertEquals(WarmupHistory.budgetTokensFor(8_000), WarmupHistory.compressCharBudgetFor(8_000))
+        assertEquals(4_800, WarmupHistory.compressCharBudgetFor(8_000))
+        assertEquals(WarmupHistory.FALLBACK_BUDGET_TOKENS, WarmupHistory.compressCharBudgetFor(0))
+        assertEquals(WarmupHistory.FALLBACK_BUDGET_TOKENS, WarmupHistory.compressCharBudgetFor(-5))
+    }
 }

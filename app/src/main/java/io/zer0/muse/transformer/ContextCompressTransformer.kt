@@ -32,19 +32,22 @@ internal fun retainMessagesInOriginalOrder(
  * 当消息历史超过阈值时,把前面的旧消息压缩成一条 SYSTEM 摘要,
  * 保留最近 N 条原样,避免上下文过长导致 token 爆炸。
  *
- * 行为:
- *  - messages.size <= threshold(默认 20) → 不压缩
+ * 行为(v2.3.2: 条数与字符预算**双口径**触发,见下):
+ *  - messages.size <= threshold(默认 20)**且** 总字符数 <= compress_char_budget(缺省不限)→ 不压缩
  *  - 超过阈值:
  *    1. 跳过头部连续的 SYSTEM 消息(system prompt / RAG / webSearch / lorebook 等动态注入的 prefix)
  *    2. 取 prefix 之后到 recent 之前的部分作为待压缩(跳过已压缩的摘要消息)
  *    3. 调用 LLM 生成摘要
  *    4. 替换为一条 SYSTEM 消息("[COMPRESSED] 历史对话摘要\n\n...")
  *    5. 保留最后 keepRecent 条原样
+ *    6. v2.3.2: 结果若未比原文更短(工具密集/可压缩区间过短时摘要可能更长)→ 保留原文
  *
  * 由 [context.extra] 控制参数:
  *  - "compress_enabled" (Boolean, 默认 false): 是否启用压缩
  *  - "compress_threshold" (Int, 默认 20): 触发压缩的消息数阈值
  *  - "compress_keep_recent" (Int, 默认 15): 压缩后保留的最近消息数
+ *  - "compress_char_budget" (Int, 默认 0=不限): 触发压缩的字符预算(调用方按模型上下文窗口给出;
+ *    长消息会话靠它提前触发 —— 只按条数判断时"20 条"可能早已超出窗口)
  *
  * 注意: 此 Transformer 会调用 LLM(网络请求),耗时较长。
  *       失败时降级为"截断"(丢弃旧消息,插入标记 SYSTEM 消息告知模型历史被截断)。
@@ -71,21 +74,31 @@ class ContextCompressTransformer(
         val keepRecent = (context.extra("compress_keep_recent") as? Int) ?: DEFAULT_KEEP_RECENT
         // H10: 手动压缩附加指令(对话框输入),优先于设置级自定义 prompt,空/缺省时用默认
         val instruction = context.extra("compress_instruction") as? String
+        // v2.3.2: 字符预算(0/缺省 = 只看条数)。调用方按模型上下文窗口给出,
+        // 解决"阈值按条数、预热按 token、硬上限按 payload"三套口径互不核算的问题。
+        val charBudget = (context.extra("compress_char_budget") as? Int) ?: 0
+        val totalChars = messages.sumOf { it.content.length }
 
         // L-COMP6: threshold < keepRecent 时配置语义失效,告警
         if (threshold < keepRecent) {
             Logger.w(name, "compress_threshold($threshold) < compress_keep_recent($keepRecent), 压缩可能无法正常触发")
         }
 
-        if (messages.size <= threshold) return messages
+        val overCount = messages.size > threshold
+        val overBudget = charBudget > 0 && totalChars > charBudget
+        if (!overCount && !overBudget) return messages
 
-        // M-COMP3: 压缩水位线 — 已存在压缩摘要时,要求 size > threshold + threshold/2 才再次压缩,
-        // 避免压缩触发频率失控
+        // M-COMP3: 压缩水位线 — 已存在压缩摘要时,要求再涨半个阈值才再次压缩,避免触发频率失控
+        // v2.3.2: 水位线同样按双口径判定(条数 / 字符预算各留半档余量)
         val hasCompressed =
             messages.any {
                 it.role == MessageRole.SYSTEM && it.content.startsWith(COMPRESSED_MARKER)
             }
-        if (hasCompressed && messages.size <= threshold + threshold / 2) return messages
+        if (hasCompressed) {
+            val stillOverCount = messages.size > threshold + threshold / 2
+            val stillOverBudget = charBudget > 0 && totalChars > charBudget + charBudget / 2
+            if (!stillOverCount && !stillOverBudget) return messages
+        }
 
         // v1.116 (C1-5): 跳过头部连续的 SYSTEM 消息(system prompt / RAG / webSearch / lorebook 等动态注入的 prefix),
         // 避免压缩这些不可恢复的上下文。一旦遇到第一个非 SYSTEM 消息(用户对话起点),才开始可压缩区间。
@@ -161,7 +174,16 @@ class ContextCompressTransformer(
                 role = MessageRole.SYSTEM,
                 content = "$COMPRESSED_MARKER 历史对话摘要\n\n$summary",
             )
-        return prefix + listOf(summaryMsg) + adjustedRecent
+        val compacted = prefix + listOf(summaryMsg) + adjustedRecent
+        // v2.3.2: 净收益校验 —— 工具密集会话(大量保留项)或可压缩区间过短时,摘要可能比被替换掉的
+        // 原文还长:压缩不但没省上下文,还白花一次 LLM 调用。按字符数比较(便宜的代理指标,
+        // 避免在管道里跑 BPE 编码),没变小就保留原文。
+        val afterChars = compacted.sumOf { it.content.length }
+        if (afterChars >= totalChars) {
+            Logger.i(name, "compress 无净收益($totalChars → $afterChars 字符),保留原文不压缩")
+            return messages
+        }
+        return compacted
     }
 
     /** M-COMP4: 降级标记消息 — 告知模型历史被截断(而非静默丢弃全部历史)。 */

@@ -57,6 +57,58 @@ class ConversationCompressor(
         private const val MAX_MSG_CHARS = 1500
         /** v1.0.51: 并行压缩块数上限 — 避免长对话切出大量块时并发轰炸 API。 */
         private const val MAX_CONCURRENT_CHUNKS = 3
+
+        /** v2.3.2: 未知上下文窗口时的保守默认值(token)。 */
+        private const val DEFAULT_CONTEXT_WINDOW_TOKENS = 32_000
+
+        /** v2.3.2: 单块 prompt 字符预算的下限与上限。 */
+        private const val MIN_CHUNK_CHARS = 6_000
+        private const val MAX_CHUNK_CHARS = 48_000
+
+        /** v2.3.2: 输入预算占模型上下文窗口的比例(其余留给摘要输出与指令)。 */
+        private const val CHUNK_BUDGET_RATIO = 0.4
+
+        /**
+         * v2.3.2: 单块压缩 prompt 的字符预算。
+         *
+         * 原实现只按条数切块(最多 256 条 × 单条 1500 字符 ≈ **38.4 万字符**),
+         * 长会话一旦触发压缩就必然超出压缩模型窗口(表现为 400 报错或摘要被截断)。
+         * 现按模型上下文窗口的 [CHUNK_BUDGET_RATIO] 估算(中文约 1 字符 ≈ 1 token),
+         * 窗口未知时用 [DEFAULT_CONTEXT_WINDOW_TOKENS] 保守兜底。
+         */
+        internal fun chunkBudgetChars(contextWindowTokens: Int?): Int {
+            val window = contextWindowTokens?.takeIf { it > 0 } ?: DEFAULT_CONTEXT_WINDOW_TOKENS
+            return (window * CHUNK_BUDGET_RATIO).toInt().coerceIn(MIN_CHUNK_CHARS, MAX_CHUNK_CHARS)
+        }
+
+        /**
+         * 把消息列表切分为多块:**条数([CHUNK_SIZE])与字符预算([maxCharsPerChunk])双重约束**。
+         *
+         * v2.3.2: 原实现只按条数切块,单块最多 256×1500 ≈ 38.4 万字符,长会话必然超压缩模型窗口;
+         * 现按累计字符切分(单条按 [MAX_MSG_CHARS] 截断后再计费,与真正送进 prompt 的长度一致)。
+         * 单条消息本身超过预算时单独成块(无法再切,长度已由 [MAX_MSG_CHARS] 兜底)。
+         *
+         * @param maxCharsPerChunk 单块字符预算(由 [chunkBudgetChars] 按模型窗口算出)
+         */
+        internal fun chunkMessages(messages: List<UIMessage>, maxCharsPerChunk: Int): List<List<UIMessage>> {
+            if (messages.isEmpty()) return emptyList()
+            val result = mutableListOf<List<UIMessage>>()
+            var current = mutableListOf<UIMessage>()
+            var currentChars = 0
+            messages.forEach { msg ->
+                val chars = minOf(msg.content.length, MAX_MSG_CHARS)
+                val shouldSplit = current.size >= CHUNK_SIZE || currentChars + chars > maxCharsPerChunk
+                if (current.isNotEmpty() && shouldSplit) {
+                    result.add(current)
+                    current = mutableListOf()
+                    currentChars = 0
+                }
+                current.add(msg)
+                currentChars += chars
+            }
+            if (current.isNotEmpty()) result.add(current)
+            return result
+        }
     }
 
     /** v1.0.51: 并发限制信号量,与 DeepMemoryProcessor/MemoryTicker 对齐(上限 3)。 */
@@ -73,9 +125,18 @@ class ConversationCompressor(
     suspend fun compress(toCompress: List<UIMessage>, instruction: String? = null): List<String>? {
         if (toCompress.isEmpty()) return emptyList()
 
-        // 分块(每块最多 CHUNK_SIZE 条)
-        val chunks = chunkMessages(toCompress, CHUNK_SIZE)
-        Logger.i(TAG, "compress: ${toCompress.size} 条消息分为 ${chunks.size} 块并行压缩")
+        // v2.3.2: 解析一次模型(原先每块各解析一次),并据此计算单块字符预算 ——
+        // 避免长会话切出 38 万字符的巨块直接超压缩模型窗口。
+        val (providerConfig, model) = resolveCompressModel()
+        val budgetChars = chunkBudgetChars(model?.contextWindow)
+
+        // 分块(条数上限 + 字符预算双重约束)
+        val chunks = chunkMessages(toCompress, budgetChars)
+        Logger.i(
+            TAG,
+            "compress: ${toCompress.size} 条消息分为 ${chunks.size} 块并行压缩" +
+                "(单块预算 $budgetChars 字符, 窗口 ${model?.contextWindow ?: "未知"})",
+        )
 
         // v1.0.52: 读取用户自定义压缩 prompt(null/空串表示用默认)
         // H10: 本次附加指令优先,否则回退设置级自定义 prompt
@@ -92,7 +153,7 @@ class ConversationCompressor(
         val results =
             coroutineScope {
                 chunks.map { chunk ->
-                    async { chunkSemaphore.withPermit { compressChunk(chunk, customPrompt) } }
+                    async { chunkSemaphore.withPermit { compressChunk(chunk, customPrompt, model, providerConfig) } }
                 }.let { deferredList ->
                     deferredList.map { it.await() }
                 }
@@ -109,22 +170,6 @@ class ConversationCompressor(
     }
 
     /**
-     * 把消息列表按 [chunkSize] 切分为多块。
-     * size <= chunkSize 时返回单块(与原任务实现一致,不做二分递归以保持简单)。
-     */
-    private fun chunkMessages(messages: List<UIMessage>, chunkSize: Int): List<List<UIMessage>> {
-        if (messages.isEmpty()) return emptyList()
-        if (messages.size <= chunkSize) return listOf(messages)
-        val result = mutableListOf<List<UIMessage>>()
-        var i = 0
-        while (i < messages.size) {
-            result.add(messages.subList(i, minOf(i + chunkSize, messages.size)))
-            i += chunkSize
-        }
-        return result
-    }
-
-    /**
      * 压缩单块消息为摘要文本。
      *
      * v2.3.2: 失败返回 **null**(不再返回"摘要生成失败"占位文本)。占位文本会被上层
@@ -136,11 +181,16 @@ class ConversationCompressor(
      *
      * @param chunk 待压缩的消息块
      * @param customPrompt 用户自定义压缩指令(null/空串表示用默认结构化指令)
+     * @param model 压缩模型(v2.3.2: 由 [compress] 统一解析一次后传入,不再每块各解析一次)
+     * @param providerConfig 与 [model] 配套的 Provider 绑定
      * @return 摘要文本;失败或摘要为空时返回 null
      */
-    private suspend fun compressChunk(chunk: List<UIMessage>, customPrompt: String? = null): String? {
-        val (providerConfig, model) = resolveCompressModel()
-
+    private suspend fun compressChunk(
+        chunk: List<UIMessage>,
+        customPrompt: String? = null,
+        model: Model? = null,
+        providerConfig: ProviderConfig? = null,
+    ): String? {
         val prompt = buildString {
             if (!customPrompt.isNullOrBlank()) {
                 // v1.0.52: 用户自定义压缩指令

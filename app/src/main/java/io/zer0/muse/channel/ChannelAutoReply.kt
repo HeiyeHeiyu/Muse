@@ -295,7 +295,6 @@ class ChannelAutoReply(
         val drainCount = conversation.turns.size - KEEP_TURNS
         if (drainCount <= 0) return
         val toCompress = conversation.turns.take(drainCount)
-        val remaining = conversation.turns.drop(drainCount)
         val assistant = resolveAssistant(config)
         // v2.x: 摘要压缩优先走辅助模型路由「小工具」档(留空回退助手的模型解析)
         val routed = runCatching {
@@ -327,16 +326,21 @@ class ChannelAutoReply(
             )
         }?.text?.let { io.zer0.muse.transformer.stripThinkTags(it).trim() } ?: return
         if (summary.isBlank()) return
-        ChannelConversationStore.replace(
-            config.id,
-            from,
-            conversation.copy(
+        // v2.3.2: 条件回写 —— 压缩期间新到的轮次必须保留(原实现整份覆盖会把它们丢掉),
+        // 摘要已被另一次压缩更新时本次结果作废。
+        val applied =
+            ChannelConversationStore.applyCompression(
+                channelId = config.id,
+                from = from,
+                snapshotSummary = conversation.summary,
+                drainedTurns = toCompress,
                 summary = summary.take(SUMMARY_MAX_CHARS),
-                turns = remaining,
-                updatedAt = System.currentTimeMillis(),
-            ),
-        )
-        Logger.i(TAG, "上下文已压缩(${config.id} ← $from): ${toCompress.size} 轮并入摘要")
+            )
+        if (applied) {
+            Logger.i(TAG, "上下文已压缩(${config.id} ← $from): ${toCompress.size} 轮并入摘要")
+        } else {
+            Logger.i(TAG, "压缩结果未写入(${config.id} ← $from): 对话已被更新,留待下次重试")
+        }
     }
 
     /**

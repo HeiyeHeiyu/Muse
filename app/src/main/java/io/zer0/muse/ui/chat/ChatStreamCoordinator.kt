@@ -907,6 +907,10 @@ class ChatStreamCoordinator(
                             // longMemoryCompression 模式下 threshold=10,keep_recent 必须小于 threshold。
                             "compress_threshold" to if (experiments.longMemoryCompression) 10 else 20,
                             "compress_keep_recent" to if (experiments.longMemoryCompression) 8 else 15,
+                            // v2.3.2: 字符预算(与预热同一口径:窗口的 60%)—— 长消息会话不能只靠条数判断
+                            // (20 条长消息可能早已超窗口);中文约 1 字符 ≈ 1 token,故用字符数当预算单位
+                            "compress_char_budget" to
+                                WarmupHistory.compressCharBudgetFor(accessor.snapshot.contextMaxTokens),
                         ),
                 )
             // v1.0.47 P1: 流式 Compaction UI — 消息数超过阈值时显示"正在压缩上下文"状态

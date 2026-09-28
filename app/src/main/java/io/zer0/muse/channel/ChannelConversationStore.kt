@@ -117,13 +117,63 @@ object ChannelConversationStore {
     fun conversation(channelId: String, from: String): Conversation? =
         _conversations.value[key(channelId, from)]
 
-    /** 覆盖写入(压缩后回写摘要 + 剩余轮次)。 */
+    /**
+     * v2.3.2: 压缩结果**条件回写** —— 取代原来的 `replace()` 盲覆盖。
+     *
+     * 原实现的问题:`maybeCompress` 是"读快照 → 调 LLM(最长数十秒)→ 整份覆盖回写",
+     * 期间 [append] 进来的新轮次会被整份覆盖直接丢掉(用户刚说的话从渠道上下文里消失,
+     * 表现为机器人"忘了上一句")。
+     *
+     * 本方法的语义:
+     *  - 仅当对话摘要仍是压缩前读到的那份([snapshotSummary])才写入 —— 否则说明另一次压缩
+     *    已抢先更新摘要,本次结果作废(下次触发时重试);
+     *  - 仅摘除 [drainedTurns] 这一段(按边界轮次身份校验),压缩期间新 append 的轮次原样保留;
+     *  - 边界轮次对不上(列表被 clear/裁剪重建)时放弃写入,宁可下轮重压也不误删新轮次。
+     *
+     * @return true = 已写入;false = 放弃(调用方仅记日志)
+     */
     @Synchronized
-    fun replace(channelId: String, from: String, conversation: Conversation) {
+    fun applyCompression(
+        channelId: String,
+        from: String,
+        snapshotSummary: String,
+        drainedTurns: List<Turn>,
+        summary: String,
+    ): Boolean {
         val key = key(channelId, from)
-        val map = _conversations.value + (key to conversation)
-        _conversations.value = map
-        persist(map)
+        val current = _conversations.value[key]
+        val applicable = compressionApplicable(current, snapshotSummary, drainedTurns)
+        if (applicable && current != null) {
+            val updated =
+                current.copy(
+                    summary = summary,
+                    turns = current.turns.drop(drainedTurns.size),
+                    updatedAt = System.currentTimeMillis(),
+                )
+            _conversations.value = _conversations.value + (key to updated)
+            persist(_conversations.value)
+        }
+        return applicable
+    }
+
+    /**
+     * 压缩结果是否仍可写回。三条前提(任一不满足即放弃,宁可下轮重压也不误删新轮次):
+     *  1. 对话还在;
+     *  2. 摘要仍是压缩前读到的那份 —— 否则说明另一次压缩已抢先写入;
+     *  3. 边界轮次仍是同一条(时间戳 + 文本)—— 否则列表被 clear/裁剪重建过。
+     */
+    private fun compressionApplicable(
+        current: Conversation?,
+        snapshotSummary: String,
+        drainedTurns: List<Turn>,
+    ): Boolean {
+        val boundary = drainedTurns.lastOrNull()
+        val currentBoundary = current?.turns?.getOrNull(drainedTurns.size - 1)
+        val sameSummary = current != null && current.summary == snapshotSummary
+        val sameBoundary =
+            boundary != null && currentBoundary != null &&
+                currentBoundary.at == boundary.at && currentBoundary.text == boundary.text
+        return sameSummary && sameBoundary
     }
 
     /** 清空单个对话。 */
