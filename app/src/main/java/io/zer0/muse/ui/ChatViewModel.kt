@@ -2964,20 +2964,19 @@ class ChatViewModel(
                     Logger.w("ChatVM", "Auto-compress transform failed: $msg")
                 }.getOrNull() ?: currentMessages
             if (compressed.size < currentMessages.size) {
+                // v2.3.2: 会话守卫 — 压缩是耗时 LLM 调用,期间用户可能已切走会话;
+                // 过期结果绝不能写进当前会话(否则 A 会话的摘要会盖到 B 会话的消息列表上,
+                // 界面出现"另一个会话的内容",继续发送还会把 A 的上下文送给模型)。
+                if (_state.value.currentSessionId != sessionId) {
+                    Logger.i("ChatVM", "Auto-compress 结果已过期(会话已切换),丢弃: $sessionId")
+                    return@launch
+                }
                 // v1.80 (H-CVM2): 压缩在后台 IO 异步执行,期间用户可能已发送新消息。
                 // 不能用 compressed 直接覆盖整个 messages 列表(会丢失新增消息)。
                 // 仅替换被压缩的旧区间(currentMessages),保留之后新增的消息。
-                _state.update { state ->
-                    val newAppended =
-                        if (_messages.value.size >= currentMessages.size) {
-                            _messages.value.drop(currentMessages.size)
-                        } else {
-                            // 消息被截断/删除,直接用压缩结果
-                            emptyList()
-                        }
-                    _messages.value = compressed + newAppended
-                    state
-                }
+                // v2.3.2: 改为对 _messages 做**原子 update** —— 原实现把赋值放在
+                // _state.update{} 变换体内并在其中二次读取 _messages,一旦 CAS 重放就会切片错位。
+                _messages.update { current -> compressed + current.drop(currentMessages.size) }
                 updateContextTokenCount()
                 Logger.i("ChatVM", "Auto-compress triggered: ratio=${"%.2f".format(ratio)}, ${currentMessages.size} → ${compressed.size} 条")
             }
@@ -3057,20 +3056,19 @@ class ChatViewModel(
                     }.getOrNull() ?: currentMessages // 失败时保留原消息
                 // 3. 替换内存中的 messages(不持久化,DB 保留完整历史)
                 if (compressed.size < currentMessages.size) {
+                    // v2.3.2: 会话守卫 — 同 triggerAutoCompress,压缩期间切走会话则丢弃过期结果
+                    // (isCompressing 由外层 finally 复位,这里直接返回即可)
+                    if (_state.value.currentSessionId != sessionId) {
+                        Logger.i("ChatVM", "manualCompress 结果已过期(会话已切换),丢弃: $sessionId")
+                        return@launch
+                    }
                     // v1.117: 修复消息丢失竞态 — 压缩是 suspend LLM 调用,耗时数秒,
                     // 期间用户可能继续发送新消息(已 append 到 _messages.value)。
                     // 直接用旧快照的 compressed 覆盖会丢弃这些新消息。
-                    // 对齐 triggerAutoCompress(line 940-948)的修复:保留压缩期间新增的消息。
-                    _state.update { state ->
-                        val newAppended =
-                            if (_messages.value.size > currentMessages.size) {
-                                _messages.value.drop(currentMessages.size)
-                            } else {
-                                emptyList()
-                            }
-                        _messages.value = compressed + newAppended
-                        state
-                    }
+                    // 对齐 triggerAutoCompress 的修复:保留压缩期间新增的消息。
+                    // v2.3.2: 改为对 _messages 做原子 update(原写法在 _state.update 变换体内
+                    // 二次读取 _messages,CAS 重放时会切片错位)。
+                    _messages.update { current -> compressed + current.drop(currentMessages.size) }
                     val compressSummary = "manualCompress: ${currentMessages.size} -> ${compressed.size} msgs"
                     Logger.i(
                         "ChatVM",

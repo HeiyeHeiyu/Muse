@@ -147,6 +147,14 @@ class ContextCompressTransformer(
                 return prefix + listOf(fallbackMessage()) + adjustedRecent
             }
 
+        // v2.3.2: 摘要生成失败(压缩器整体返回 null)→ **保留原文**,不做任何替换。
+        // 历史本身还在,失败的只是"摘要"这一步;用占位文本换掉原文才是真正的失忆。
+        // (transform 的输入已由上游按 contextSize / token 预算裁剪,保留原文不会无界膨胀。)
+        if (summary == null) {
+            Logger.w(name, "compress 全部块失败, 本轮保留原文不压缩")
+            return messages
+        }
+
         // M-COMP3: 压缩摘要加 [COMPRESSED] 前缀标记,下次压缩时识别并跳过
         val summaryMsg =
             UIMessage(
@@ -223,7 +231,8 @@ class ContextCompressTransformer(
     /**
      * 委托 [compressor] 完成分块并行压缩,把多块摘要合并为单条文本。
      *
-     * - 单块失败时 [compressor] 返回占位文本(不抛异常),不影响其他块
+     * - v2.3.2: 压缩器**任一块失败**时整体返回 null,由 [transform] 走"保留原文"降级
+     *   (不再把"摘要生成失败"占位当成合法摘要 —— 那会让模型自以为见过一段它没见过的历史)
      * - 多块摘要用 "[对话摘要 i/N]" 分段标记合并为一条 SYSTEM 消息
      *   (与 [ContextCompressTransformer] 原"单条 SYSTEM 摘要"语义保持一致,
      *    避免下游 transformer / 持久化逻辑感知分块)
@@ -231,8 +240,8 @@ class ContextCompressTransformer(
     private suspend fun compressWithCompressor(
         oldMessages: List<UIMessage>,
         instruction: String? = null,
-    ): String {
-        val summaries = compressor!!.compress(oldMessages, instruction)
+    ): String? {
+        val summaries = compressor!!.compress(oldMessages, instruction) ?: return null
         return when {
             summaries.isEmpty() -> "历史对话已压缩(摘要为空)"
             summaries.size == 1 -> summaries.first()

@@ -32,10 +32,11 @@ import kotlinx.coroutines.sync.withPermit
  *  - 本类只负责"分块并行 + 独立模型"的摘要生成
  *  - [ContextCompressTransformer] 在 transform 中委托本类完成实际压缩
  *
- * 降级策略:
- *  - 单块压缩失败 → 该块回退为"摘要生成失败"占位文本,不阻断其他块
- *  - 全部失败 → 调用方([ContextCompressTransformer])走原有降级逻辑(截断 / 标记)
- *  - completeText 失败时回退 streamChat(与 [ContextCompressTransformer] 原实现一致)
+ * 降级策略(v2.3.2 起):
+ *  - 单块压缩失败/摘要为空 → [compressChunk] 返回 null(不再返回"摘要生成失败"占位文本)
+ *  - **任一块失败 → [compress] 整体返回 null**,由调用方 [ContextCompressTransformer] 保留原文、
+ *    本轮不做压缩(宁可上下文长一点,也不能让模型把占位当成它见过的历史)
+ *  - completeText 失败时仍回退 streamChat(与 [ContextCompressTransformer] 原实现一致)
  */
 class ConversationCompressor(
     private val chatService: ChatService,
@@ -66,9 +67,10 @@ class ConversationCompressor(
      *
      * @param toCompress 待压缩的消息列表(调用方已完成 prefix 跳过 / 优先级保留等过滤)
      * @param instruction 本次压缩附加指令(优先于设置级 customCompressPrompt,用于手动压缩对话框)
-     * @return 摘要文本列表(每块对应一条摘要),调用方据此构造摘要消息
+     * @return 摘要文本列表(每块对应一条摘要);**任一块失败时返回 null**,
+     *         调用方据此走降级分支(保留原文),而不是把失败占位当成合法摘要
      */
-    suspend fun compress(toCompress: List<UIMessage>, instruction: String? = null): List<String> {
+    suspend fun compress(toCompress: List<UIMessage>, instruction: String? = null): List<String>? {
         if (toCompress.isEmpty()) return emptyList()
 
         // 分块(每块最多 CHUNK_SIZE 条)
@@ -87,12 +89,22 @@ class ConversationCompressor(
         }
 
         // 并行压缩每块(v1.0.51: 用 Semaphore 限制并发,避免大量块同时调 LLM 轰炸 API)
-        return coroutineScope {
-            chunks.map { chunk ->
-                async { chunkSemaphore.withPermit { compressChunk(chunk, customPrompt) } }
-            }.let { deferredList ->
-                deferredList.map { it.await() }
+        val results =
+            coroutineScope {
+                chunks.map { chunk ->
+                    async { chunkSemaphore.withPermit { compressChunk(chunk, customPrompt) } }
+                }.let { deferredList ->
+                    deferredList.map { it.await() }
+                }
             }
+        // v2.3.2: 任一块失败(返回 null)即整体判失败 —— 宁可本轮不做压缩,
+        // 也不能让模型把"摘要生成失败"占位当成它已经见过的历史摘要(那是静默失忆)。
+        val failed = results.count { it == null }
+        return if (failed > 0) {
+            Logger.w(TAG, "compress: $failed/${results.size} 块摘要失败, 整体降级(返回 null)")
+            null
+        } else {
+            results.filterNotNull()
         }
     }
 
@@ -114,15 +126,19 @@ class ConversationCompressor(
 
     /**
      * 压缩单块消息为摘要文本。
-     * 失败时返回占位文本(不抛异常),保证并行流程不因单块失败而中断。
+     *
+     * v2.3.2: 失败返回 **null**(不再返回"摘要生成失败"占位文本)。占位文本会被上层
+     * 当成合法摘要插进请求,让模型自以为见过一段它从未见过的历史;返回 null 由 [compress]
+     * 汇总为整体失败,调用方据此保留原文。除协程取消外仍不抛异常,保证并行流程不因单块失败而中断。
      *
      * v1.0.52: 支持 [customPrompt] 参数 — 用户可在设置中覆盖默认压缩指令。
      * 非空时用用户自定义指令替代默认的结构化指令,对话历史仍以相同格式追加。
      *
      * @param chunk 待压缩的消息块
      * @param customPrompt 用户自定义压缩指令(null/空串表示用默认结构化指令)
+     * @return 摘要文本;失败或摘要为空时返回 null
      */
-    private suspend fun compressChunk(chunk: List<UIMessage>, customPrompt: String? = null): String {
+    private suspend fun compressChunk(chunk: List<UIMessage>, customPrompt: String? = null): String? {
         val (providerConfig, model) = resolveCompressModel()
 
         val prompt = buildString {
@@ -191,14 +207,15 @@ class ConversationCompressor(
                 io.zer0.ai.core.ChatCompletion(text = sb.toString())
             }
             // v1.0.74 fix: 剥离 <think> 推理标签,防止思考内容混入压缩摘要
+            // v2.3.2: 空摘要同样按失败处理(返回 null),不再用"摘要为空"占位冒充摘要
             completion.text.let { io.zer0.muse.transformer.stripThinkTags(it) }
-                .ifBlank { "历史对话已压缩(摘要为空)" }
+                .takeIf { it.isNotBlank() }
         } catch (e: kotlinx.coroutines.CancellationException) {
             // 不吞协程取消,直接传播
             throw e
         } catch (t: Throwable) {
-            Logger.e(TAG, "compressChunk failed, fallback to placeholder", t)
-            "摘要生成失败: ${t.message?.take(80)}"
+            Logger.e(TAG, "compressChunk failed (返回 null,由调用方降级)", t)
+            null
         }
     }
 

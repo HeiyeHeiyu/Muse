@@ -899,7 +899,10 @@ class ChatStreamCoordinator(
                             "debug_mode" to experiments.debugMode,
                             // v0.25: 长上下文压缩 — 默认启用,20 条触发,保留最近 15 条
                             // v0.32 实验性 longMemoryCompression:阈值从 20 降到 10,更早触发摘要压缩
-                            "compress_enabled" to true,
+                            // v2.3.2: 预热轮跳过压缩 — 预热的设计目的就是"全量历史优先"(见 WarmupHistory),
+                            // 首轮再压缩会把刚装载的历史摘要掉,重新引入"导入会话首轮近乎失忆"的老问题,
+                            // 且白等一次压缩调用(最多 20s 首字延迟)。
+                            "compress_enabled" to !warmupActive,
                             // v1.138: 修复 compress_threshold < compress_keep_recent 导致压缩无法触发。
                             // longMemoryCompression 模式下 threshold=10,keep_recent 必须小于 threshold。
                             "compress_threshold" to if (experiments.longMemoryCompression) 10 else 20,
@@ -912,7 +915,23 @@ class ChatStreamCoordinator(
             if (totalMsgCount > compressThreshold) {
                 accessor.update { it.copy(compactionState = CompactionState.Compacting(totalMsgCount)) }
             }
-            transformedMessages = transformerPipeline.execute(prefixMessages + truncatedHistory, context)
+            // v2.3.2: 管道异常/协程取消时不能把"正在压缩"状态留在状态里
+            // (此前只有成功路径才会复位,取消一次就永久卡在 Compacting)
+            transformedMessages =
+                try {
+                    transformerPipeline.execute(prefixMessages + truncatedHistory, context)
+                } catch (t: Throwable) {
+                    if (totalMsgCount > compressThreshold) {
+                        accessor.update { curr ->
+                            if (curr.compactionState is CompactionState.Compacting) {
+                                curr.copy(compactionState = null)
+                            } else {
+                                curr
+                            }
+                        }
+                    }
+                    throw t
+                }
 
             // P1-1: 调用 PromptFinalizeHook — 在管道执行后、发送给 LLM 前做最终修改
             // 典型用途: 楼层式上下文限制(P1-4)、Worldbook 关键词触发注入(P1-2)
