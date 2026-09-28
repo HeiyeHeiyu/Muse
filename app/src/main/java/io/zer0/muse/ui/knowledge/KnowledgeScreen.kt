@@ -262,6 +262,12 @@ fun KnowledgeScreen(
                     }
                     else -> {
                         // txt/md/csv/json 等纯文本
+                        // v2.3.1: 压缩包/二进制守卫 — 与管理页(F-31)统一口径。此前主页面无守卫,
+                        // 二进制会被当文本读入 → 乱码写库并建立向量索引(静默污染检索,2026-09 反馈)
+                        if (ZipImportPolicy.isArchiveFile(lowerName) || looksBinary(uri, context)) {
+                            MuseToast.show(context.getString(R.string.knowledge_import_unsupported))
+                            return@launch
+                        }
                         // v1.73: 用 use{} 确保 InputStream/BufferedReader 关闭,避免 FD 泄漏
                         withContext(Dispatchers.IO) {
                             context.contentResolver.openInputStream(uri)?.use { input ->

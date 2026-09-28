@@ -171,10 +171,11 @@ fun KnowledgeBaseManagePage(
                     lowerName.endsWith(".jpeg") || lowerName.endsWith(".bmp") || lowerName.endsWith(".webp")
                 // v2.x: 非 zip 压缩包/二进制文件拒绝导入 — zip 已走上方解压导入;
                 // 其余压缩包/二进制被当文本会切出数万块拖垮索引内存(2026-09-28 用户反馈)
-                val archiveExts = listOf(".rar", ".7z", ".tar", ".gz", ".tgz", ".bz2", ".xz")
-                val isArchive = archiveExts.any { lowerName.endsWith(it) }
+                // v2.3.1: 判定规则与主知识库页统一收敛到 ZipImportPolicy.isArchiveFile + looksBinary
                 val isTextCandidate = !isParsedDoc && !isImage
-                if (isArchive || (isTextCandidate && looksBinary(uri, context))) {
+                if (ZipImportPolicy.isArchiveFile(lowerName) ||
+                    (isTextCandidate && looksBinary(uri, context))
+                ) {
                     MuseToast.show(context.getString(R.string.knowledge_import_unsupported))
                     return@launch
                 }
@@ -1020,7 +1021,11 @@ private suspend fun importZipTextEntry(
                 }
             }
         }
-        if (truncated) emit("\n\n[… 文件过大,已截断 …]")
+        // v2.3.1: 截断标记走字符串资源(复用 chat_doc_truncated 的 7 语言译文),
+        // 此前硬编码中文被 check_hardcoded_cjk 判为本批新增债
+        if (truncated) {
+            emit(deps.context.getString(R.string.chat_doc_truncated, ZipImportPolicy.MAX_TEXT_CHARS))
+        }
     }.flowOn(Dispatchers.IO)
     val chunks = try {
         deps.ragService.indexDocumentStreamed(docId, textFlow, deps.settings.getRagConfig())
@@ -1129,24 +1134,6 @@ private suspend fun importZipParsedEntry(
         resultOf { tempFile.delete() }
     }
 }
-
-/**
- * v2.x: 嗅探文件头部是否含 NUL 字节(二进制特征),防止压缩包/可执行文件被当文本索引。
- * 读取失败时按「非二进制」处理,不阻断正常导入。
- */
-private suspend fun looksBinary(
-    uri: android.net.Uri,
-    context: android.content.Context,
-): Boolean =
-    withContext(Dispatchers.IO) {
-        runCatching {
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                val head = ByteArray(512)
-                val n = input.read(head)
-                n > 0 && (0 until n).any { head[it] == 0.toByte() }
-            } ?: false
-        }.getOrDefault(false)
-    }
 
 /**
  * v2.x: 文档预览最大字符数 — doc.content 只保留前 N 字符作预览展示;

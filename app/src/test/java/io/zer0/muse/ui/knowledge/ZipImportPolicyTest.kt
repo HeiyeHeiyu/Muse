@@ -42,6 +42,18 @@ class ZipImportPolicyTest {
     }
 
     @Test
+    fun `archive guard rejects archives but keeps zip for bundle import`() {
+        assertTrue(ZipImportPolicy.isArchiveFile("a.rar"))
+        assertTrue(ZipImportPolicy.isArchiveFile("备份.TAR"))
+        assertTrue(ZipImportPolicy.isArchiveFile("dir/包.7z"))
+        assertTrue(ZipImportPolicy.isArchiveFile("x.tgz"))
+        // zip 不在拒绝清单内 —— 它走解压导入(单文件导入的 zip 分支)
+        assertFalse(ZipImportPolicy.isArchiveFile("bundle.zip"))
+        assertFalse(ZipImportPolicy.isArchiveFile("普通文档.txt"))
+        assertFalse(ZipImportPolicy.isArchiveFile("无扩展名"))
+    }
+
+    @Test
     fun `file type helpers match single file import convention`() {
         assertEquals("md", ZipImportPolicy.textFileType("a.MD"))
         assertEquals("txt", ZipImportPolicy.textFileType("a.txt"))

@@ -6,6 +6,9 @@ internal enum class ZipEntryKind { TEXT, PARSED, SKIP }
 /**
  * v2.x: ZIP 压缩包导入策略 — 白名单分类、junk 过滤、上限与临时文件命名。
  *
+ * v2.3.1: 追加单文件导入的压缩包拒绝判定([isArchiveFile]),供主知识库页与知识库管理页共用;
+ * 需要 ContentResolver 的二进制嗅探见 ImportGuards.kt。
+ *
  * 纯逻辑(无 Android 依赖),独立成文件便于单测;解压/落盘/索引流程
  * 见 KnowledgeBaseManagePage 的 importZipBundle。
  */
@@ -27,6 +30,12 @@ internal object ZipImportPolicy {
 
     /** 解析类白名单(pdf/docx/doc/epub/pptx)。 */
     private val PARSED_EXTS = setOf("pdf", "docx", "doc", "epub", "pptx")
+
+    /** v2.3.1: 单文件导入拒绝的压缩包扩展名(zip 不在内 —— 它走解压导入)。 */
+    private val ARCHIVE_EXTS = setOf("rar", "7z", "tar", "gz", "tgz", "bz2", "xz")
+
+    /** v2.3.1: 该文件名是否为不应被当文本导入的压缩包(zip 除外)。 */
+    fun isArchiveFile(name: String): Boolean = extensionOf(name) in ARCHIVE_EXTS
 
     fun extensionOf(name: String): String = name.substringAfterLast('.', "").lowercase()
 
