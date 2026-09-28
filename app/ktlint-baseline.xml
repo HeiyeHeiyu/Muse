@@ -3415,22 +3415,19 @@
         <error line="626" column="35" source="standard:function-signature" />
         <error line="626" column="62" source="standard:function-signature" />
         <error line="626" column="87" source="standard:function-signature" />
-        <error line="635" column="26" source="standard:function-signature" />
-        <error line="635" column="50" source="standard:function-signature" />
-        <error line="635" column="74" source="standard:function-signature" />
-        <error line="651" column="42" source="standard:multiline-expression-wrapping" />
-        <error line="651" column="42" source="standard:function-signature" />
-        <error line="683" column="30" source="standard:function-signature" />
-        <error line="683" column="54" source="standard:function-signature" />
-        <error line="683" column="81" source="standard:function-signature" />
-        <error line="685" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="690" column="29" source="standard:multiline-expression-wrapping" />
-        <error line="697" column="25" source="standard:multiline-expression-wrapping" />
-        <error line="698" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="702" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="707" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="709" column="35" source="standard:multiline-expression-wrapping" />
-        <error line="714" column="27" source="standard:multiline-expression-wrapping" />
+        <error line="662" column="42" source="standard:multiline-expression-wrapping" />
+        <error line="662" column="42" source="standard:function-signature" />
+        <error line="694" column="30" source="standard:function-signature" />
+        <error line="694" column="54" source="standard:function-signature" />
+        <error line="694" column="81" source="standard:function-signature" />
+        <error line="696" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="701" column="29" source="standard:multiline-expression-wrapping" />
+        <error line="708" column="25" source="standard:multiline-expression-wrapping" />
+        <error line="709" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="713" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="718" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="720" column="35" source="standard:multiline-expression-wrapping" />
+        <error line="725" column="27" source="standard:multiline-expression-wrapping" />
     </file>
     <file name="src/main/java/io/zer0/muse/data/chat/ConversationTreeSnapshotStore.kt">
         <error line="19" column="1" source="standard:no-empty-first-line-in-class-body" />

@@ -134,39 +134,21 @@ class ContextCompressTransformer(
         // Phase 8.5 修复: keepRecent >= messages.size 时 toCompress 为空,跳过避免发无意义 LLM 请求
         if (adjustedToCompress.isEmpty()) return messages
 
-        val summary =
-            try {
-                // v2.x: 压缩调用加超时护栏 — 压缩模型偶发长时间无响应会拖慢整轮生成(实测有 ~30s 首字延迟),
-                // 超时后走降级标记路径,不再无限等待。
-                withTimeout(COMPRESS_TIMEOUT_MS) {
-                    if (compressor != null) {
-                        // 优先走分块并行 + 独立便宜模型(既有实现 ChatService.compressConversation)
-                        compressWithCompressor(adjustedToCompress, instruction)
-                    } else {
-                        // 回退:原同步单次 LLM 压缩
-                        compressMessages(adjustedToCompress, instruction)
-                    }
-                }
-            } catch (timeout: TimeoutCancellationException) {
-                // 超时属于压缩失败的一种:降级为截断标记,不中断主流程
-                Logger.w(name, "compress timeout after ${COMPRESS_TIMEOUT_MS}ms, fallback to marker")
-                return prefix + listOf(fallbackMessage()) + adjustedRecent
-            } catch (e: CancellationException) {
-                // H-COMP1: 不吞 CancellationException,直接重抛(协程取消必须传播)
-                throw e
-            } catch (t: Throwable) {
-                Logger.e(name, "compress failed, fallback to truncation", t)
-                // M-COMP4: 降级时插入 SYSTEM 标记消息,告知模型历史被截断(而非静默丢弃全部历史)
-                return prefix + listOf(fallbackMessage()) + adjustedRecent
-            }
-
+        // v2.3.2: 取摘要的三种结局统一由 [resolveSummary] 给出(它内部优先复用进程内水位线 —— 见 C 的说明,
+        // 超时/异常的降级路径也收敛在那里);这里只负责按结局拼装结果。
+        val outcome = resolveSummary(adjustedToCompress, instruction, context.sessionId)
+        // 超时/异常 → 降级为截断标记(M-COMP4: 告知模型历史被截断,而非静默丢弃全部历史)
+        if (outcome is SummaryOutcome.DegradeToMarker) {
+            return prefix + listOf(fallbackMessage()) + adjustedRecent
+        }
         // v2.3.2: 摘要生成失败(压缩器整体返回 null)→ **保留原文**,不做任何替换。
         // 历史本身还在,失败的只是"摘要"这一步;用占位文本换掉原文才是真正的失忆。
         // (transform 的输入已由上游按 contextSize / token 预算裁剪,保留原文不会无界膨胀。)
-        if (summary == null) {
+        if (outcome !is SummaryOutcome.Ok) {
             Logger.w(name, "compress 全部块失败, 本轮保留原文不压缩")
             return messages
         }
+        val summary = outcome.summary
 
         // M-COMP3: 压缩摘要加 [COMPRESSED] 前缀标记,下次压缩时识别并跳过
         val summaryMsg =
@@ -183,7 +165,75 @@ class ContextCompressTransformer(
             Logger.i(name, "compress 无净收益($totalChars → $afterChars 字符),保留原文不压缩")
             return messages
         }
+        // v2.3.2 (C/D): 摘要**确实被采用**时才记水位线 —— 记录哪些消息已被它覆盖。
+        // 记在这里而不是更早,是为了避免"净收益校验否决了这次压缩、原文仍在上下文里,
+        // 却把原文标成已摘要"从而在对话树重建时被误过滤(丢历史)。
+        CompressionSummaryStore.remember(
+            sessionId = context.sessionId,
+            coveredIds = adjustedToCompress.map { it.id.toString() }.toSet(),
+            summary = summary,
+        )
         return compacted
+    }
+
+    /** 取摘要的结局(v2.3.2: 把原先散落在 transform 里的 return 收敛成显式类型,便于控制函数长度)。 */
+    private sealed interface SummaryOutcome {
+        /** 拿到摘要(可能来自缓存水位线,也可能是新生成的)。 */
+        data class Ok(val summary: String) : SummaryOutcome
+
+        /** 超时/异常 → 调用方插入"历史暂不可用"截断标记。 */
+        object DegradeToMarker : SummaryOutcome
+
+        /** 压缩器整体失败 → 调用方保留原文,本轮不压缩。 */
+        object KeepOriginal : SummaryOutcome
+    }
+
+    /**
+     * 取本次压缩的摘要。
+     *
+     * v2.3.2 (C): 先查进程内水位线 —— 会话切回 / 从 DB 重载后,同一段历史其实已经被摘要过,
+     * 直接复用即可,省掉一次 LLM 调用(以及最长 20s 的首字延迟)。
+     * 仅当本次待压缩区间**全部**落在缓存覆盖范围内才复用;部分覆盖会丢历史,交给压缩器重做。
+     *
+     * 超时/异常的降级路径与"压缩器整体失败"的区分也从这里统一给出(见 [SummaryOutcome])。
+     */
+    private suspend fun resolveSummary(
+        toCompress: List<UIMessage>,
+        instruction: String?,
+        sessionId: String?,
+    ): SummaryOutcome {
+        val cached = reusableSummary(CompressionSummaryStore.entry(sessionId), toCompress)
+        if (cached != null) {
+            Logger.i(name, "复用缓存摘要(${toCompress.size} 条),跳过压缩调用")
+            return SummaryOutcome.Ok(cached)
+        }
+        val generated =
+            try {
+                // v2.x: 压缩调用加超时护栏 — 压缩模型偶发长时间无响应会拖慢整轮生成(实测有 ~30s 首字延迟),
+                // 超时后走降级标记路径,不再无限等待。
+                val text =
+                    withTimeout(COMPRESS_TIMEOUT_MS) {
+                        if (compressor != null) {
+                            // 优先走分块并行 + 独立便宜模型(既有实现 ChatService.compressConversation)
+                            compressWithCompressor(toCompress, instruction)
+                        } else {
+                            // 回退:原同步单次 LLM 压缩
+                            compressMessages(toCompress, instruction)
+                        }
+                    }
+                text?.let { SummaryOutcome.Ok(it) } ?: SummaryOutcome.KeepOriginal
+            } catch (timeout: TimeoutCancellationException) {
+                // 超时属于压缩失败的一种:降级为截断标记,不中断主流程
+                Logger.w(name, "compress timeout after ${COMPRESS_TIMEOUT_MS}ms, fallback to marker")
+                SummaryOutcome.DegradeToMarker
+            } catch (e: CancellationException) {
+                // H-COMP1: 不吞 CancellationException,直接重抛(协程取消必须传播)
+                throw e
+            } catch (t: Throwable) {
+                Logger.e(name, "compress failed, fallback to truncation", t)
+                SummaryOutcome.DegradeToMarker
+            }
+        return generated
     }
 
     /** M-COMP4: 降级标记消息 — 告知模型历史被截断(而非静默丢弃全部历史)。 */

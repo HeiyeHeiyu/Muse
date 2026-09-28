@@ -177,7 +177,10 @@ class ChatMessageController(
                 ConversationTree()
             }
         // 旧树 flat 保留全部重试/编辑分支,current 保留最新内容与新追加消息,二者按 id 合并。
-        val messages = mergeRebuildMessages(currentTree, accessor.messagesSnapshot)
+        // v2.3.2 (D): 已被摘要覆盖的原文不再从旧树合并回来(否则"摘要 + 原文"共存 → token 双计)。
+        val summarizedIds =
+            io.zer0.muse.transformer.CompressionSummaryStore.entry(sessionId)?.coveredIds.orEmpty()
+        val messages = mergeRebuildMessages(currentTree, accessor.messagesSnapshot, summarizedIds)
         if (messages.isEmpty()) {
             treeState.value = ConversationTree()
             treeSessionId = sessionId

@@ -631,12 +631,23 @@ data class ConversationTree(
     }
 }
 
-/** 重建树时合并旧树全部分支与当前扁平显示，保证新消息不丢、旧重试/编辑分支保留。 */
-fun mergeRebuildMessages(tree: ConversationTree, current: List<UIMessage>): List<UIMessage> {
+/**
+ * 重建树时合并旧树全部分支与当前扁平显示，保证新消息不丢、旧重试/编辑分支保留。
+ *
+ * @param summarizedIds v2.3.2 (D): 已被上下文摘要覆盖的消息 id —— 这些原文不再从旧树合并回来，
+ *        否则"摘要 + 原文"会同时留在上下文里(token 双计)，压缩等于白做。
+ *        (调用方从 `io.zer0.muse.transformer.CompressionSummaryStore` 取;缺省空集 = 旧行为。)
+ */
+fun mergeRebuildMessages(
+    tree: ConversationTree,
+    current: List<UIMessage>,
+    summarizedIds: Set<String> = emptySet(),
+): List<UIMessage> {
     // Snapshot 只保存分支选择。SnapshotStore 为了还原树形结构会构造 createdAt=0、
     // content 为空、随机 id 的虚拟用户节点；这些节点绝不能混入真实消息，否则会被
     // 排到列表最前面，表现为“旧消息跑到最前面”。
-    val persistedTreeMessages = tree.allFlatMessages.filter { it.createdAt > 0L }
+    val persistedTreeMessages =
+        tree.allFlatMessages.filter { it.createdAt > 0L && it.id.toString() !in summarizedIds }
     if (persistedTreeMessages.isEmpty()) return orderConversationMessages(current)
     val merged = linkedMapOf<String, UIMessage>()
     // 旧树只负责补充当前列表缺失的分支；同一 id 的内容必须由当前列表胜出。

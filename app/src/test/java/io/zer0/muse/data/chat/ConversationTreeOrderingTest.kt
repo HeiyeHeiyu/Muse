@@ -127,4 +127,41 @@ class ConversationTreeOrderingTest {
             orderConversationMessages(listOf(m2, legacy, m1)).map { it.id },
         )
     }
+
+    @Test
+    fun `已摘要的原文不再从旧树合并回来`() {
+        val user =
+            UIMessage(
+                id = Uuid.random(),
+                role = MessageRole.USER,
+                content = "老问题",
+                createdAt = 1L,
+                seq = 1L,
+            )
+        val assistant =
+            UIMessage(
+                id = Uuid.random(),
+                role = MessageRole.ASSISTANT,
+                content = "老回答",
+                createdAt = 2L,
+                seq = 2L,
+                parentGroupId = user.id.toString(),
+                variantGroupId = "assistant-group",
+            )
+        val tree = ConversationTree.build(listOf(user, assistant))
+
+        // 旧行为(不传已摘要集合):旧树原文会被合并回来
+        assertEquals("旧行为下原文应被合并回来", 2, mergeRebuildMessages(tree, emptyList()).size)
+        // 已被摘要覆盖的原文不得复活,否则"摘要 + 原文"共存导致 token 双计
+        val filtered =
+            mergeRebuildMessages(
+                tree,
+                emptyList(),
+                setOf(user.id.toString(), assistant.id.toString()),
+            )
+        assertEquals("已摘要的原文不得复活", 0, filtered.size)
+        // 只覆盖一部分时,未被覆盖的那条仍要保留
+        val partial = mergeRebuildMessages(tree, emptyList(), setOf(user.id.toString()))
+        assertEquals("未覆盖的消息仍需合并回来", listOf(assistant.id), partial.map { it.id })
+    }
 }
