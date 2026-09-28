@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import io.zer0.common.Logger
 import io.zer0.common.Perf
 import io.zer0.common.resultOf
@@ -12,18 +13,22 @@ import io.zer0.muse.data.audit.AuditLogger
 import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
-import java.lang.ref.WeakReference
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * ANR(应用无响应)检测器。
  *
- * 检测机制:
+ * 检测机制(v2.3.2 起,判定细节见 [AnrDetector]):
  *  - 独立守护线程 "AnrWatcher" 每 [CHECK_INTERVAL_MS] 向主线程 Handler 投递一个 Ping
- *  - Ping 在主线程被执行时更新 [lastPongTime](主线程响应即认为未阻塞)
- *  - 若主线程阻塞,[lastPongTime] 长时间不更新,超过 [ANR_TIMEOUT_MS] 即判定 ANR
+ *  - Ping 在主线程执行时把 [pongCount] 加一;**判定只看这个计数有没有前进**
+ *    (不再用"距上次响应的时间戳"做减法:看门狗线程自身被挂起或饿死时,那种算法会把
+ *    那段时间错算成主线程阻塞 —— 这是 2026-09-27~29 五份 anr_*.txt 误报的直接原因)
+ *  - 主线程连续 [ANR_TIMEOUT_MS] 未执行 Ping 即判定 ANR
+ *  - 本轮实际耗时远超预期间隔时(overshoot > [SUSPEND_TOLERANCE_MS]),说明看门狗自己都没能
+ *    按时醒来(进程被冻结/深度 Doze)→ 视为"本轮无法判定",重置基线而不报 ANR
  *
  * ANR 时采集:
  *  - 全部线程堆栈(主线程 + 所有其他线程)
@@ -36,9 +41,11 @@ import java.util.Locale
  *
  * 安全设计(避免自身导致 ANR):
  *  - 独立守护线程,不依赖主线程 Looper,自身不会阻塞主线程
- *  - 主线程 Handler 用 [WeakReference] 持有,避免泄漏
+ *  - 主线程 Handler 用**强引用**持有:它只持有 Looper/MessageQueue,不持有 Context/Activity,
+ *    不会泄漏;早期版本用 WeakReference 持有会被 GC 回收,导致 post 静默失效、永久误判
+ *    (原因与证据见 [mainHandler] 注释)
  *  - 检测线程优先级 [Thread.MIN_PRIORITY],减少对正常调度的影响
- *  - ANR 后用 [anrInProgress] 标志位去重,避免日志风暴
+ *  - ANR 后由 [AnrDetector] 去重,避免日志风暴
  *  - 循环内全部 try-catch,任何异常都不能让检测线程意外退出
  *
  * 可配置开关:[SettingsRepository.anrDetectionCache](默认 true),通过 [SettingsRepository] 同步缓存读取,
@@ -53,16 +60,19 @@ class AnrWatcher(
     private val settings: SettingsRepository,
     private val auditLogger: AuditLogger? = null,
 ) {
-    // 主线程 Handler(弱引用,避免持有 Context 导致泄漏;主线程 Looper 随进程生命周期,实际不会被回收)
-    private val mainHandlerRef = WeakReference(Handler(Looper.getMainLooper()))
+    // 主线程 Handler。
+    //
+    // v2.3.2 修复:此前用 WeakReference 持有它,而该 Handler 没有任何强引用
+    // (原注释"主线程 Looper 随进程生命周期,实际不会被回收"混淆了 Looper 与 Handler ——
+    //  进程级的是 Looper,Handler 只是个普通对象),两次 ping 之间消息队列里没有指向它的
+    // Message 时就会被 GC 回收;之后 post 静默失效、响应时间戳永久冻结,每个进程误报一次 ANR。
+    // Handler 只持有 Looper/MessageQueue,不持有 Context/Activity,强引用不会泄漏。
+    private val mainHandler = Handler(Looper.getMainLooper())
 
-    // 最近一次主线程响应 Pong 的时间戳(由 Ping 在主线程执行时更新)
-    @Volatile
-    private var lastPongTime: Long = System.currentTimeMillis()
-
-    // 是否已处于 ANR 状态(用于去重,避免持续阻塞期间重复触发日志)
-    @Volatile
-    private var anrInProgress: Boolean = false
+    // 主线程已执行的 ping 次数(单调递增)。
+    // v2.3.2: 判定改为"计数有没有前进",不再用"距上次响应的时间戳"做减法 ——
+    // 后者在看门狗线程自身被挂起/饿死时会把那段时间错算成主线程阻塞。
+    private val pongCount = AtomicLong(0)
 
     // 运行标志(stop 时置 false,通知检测线程退出)
     @Volatile
@@ -71,8 +81,8 @@ class AnrWatcher(
     // 守护线程引用(stop 时 interrupt + join)
     private var watcherThread: Thread? = null
 
-    // Ping:投递到主线程,执行时更新 lastPongTime(主线程能调度到此 Runnable 即说明未阻塞)
-    private val ping = Runnable { lastPongTime = System.currentTimeMillis() }
+    // Ping:投递到主线程,能被执行即说明主线程未阻塞(计数由 [AnrDetector] 比对)
+    private val ping = Runnable { pongCount.incrementAndGet() }
 
     /**
      * 启动 ANR 检测。
@@ -111,11 +121,20 @@ class AnrWatcher(
     }
 
     /**
-     * 检测循环:每 [CHECK_INTERVAL_MS] 投递 Ping 并判定是否 ANR。
+     * 检测循环:每 [CHECK_INTERVAL_MS] 投递 Ping 并按 [AnrDetector] 的结论判定是否 ANR。
+     *
+     * v2.3.2: 判定输入改为(ticket 计数, 本轮实际耗时),不再用时间戳做减法 ——
+     * 详见 [AnrDetector] 与 [mainHandler] 注释。
      *
      * 循环内全部 try-catch,任何异常都不能让检测线程意外退出(否则 ANR 检测静默失效)。
      */
     private fun watchLoop() {
+        val detector =
+            AnrDetector(
+                timeoutMs = ANR_TIMEOUT_MS,
+                expectedIntervalMs = CHECK_INTERVAL_MS,
+                suspendToleranceMs = SUSPEND_TOLERANCE_MS,
+            )
         while (running) {
             try {
                 // 双重检查开关:支持运行时通过设置切换
@@ -123,29 +142,17 @@ class AnrWatcher(
                     Thread.sleep(CHECK_INTERVAL_MS)
                     continue
                 }
-                // 投递 Ping 到主线程(非阻塞,立即返回)
-                mainHandlerRef.get()?.post(ping)
+                // 投递 Ping 到主线程(非阻塞,立即返回)。post 失败说明主线程消息队列不可用,
+                // 本轮不做判定(否则会把"ping 根本没投出去"误算成主线程无响应)。
+                val postedAt = SystemClock.elapsedRealtime()
+                val posted = mainHandler.post(ping)
+                if (!posted) {
+                    Logger.w(TAG, "Ping 投递失败(主线程消息队列不可用),本轮跳过判定")
+                }
                 // 等待一个检测周期
                 Thread.sleep(CHECK_INTERVAL_MS)
-                // 判定是否 ANR:主线程超过 ANR_TIMEOUT_MS 未响应 Pong
-                val now = System.currentTimeMillis()
-                val silenceMs = now - lastPongTime
-                if (silenceMs >= ANR_TIMEOUT_MS) {
-                    // 进入 ANR 状态(去重:同一阻塞期间只记录一次)
-                    if (!anrInProgress) {
-                        anrInProgress = true
-                        // v1.0.53: 后台不报 ANR — App 在后台时主线程被系统冻结/Doze,
-                        // 长时间不响应是正常行为,此前导致大量假 ANR(最高 741 秒)。
-                        // 只有应用在前台(RESUMED)时才写入 ANR 日志。
-                        if (isAppInForeground()) {
-                            onAnrDetected(silenceMs)
-                        } else {
-                            Logger.d(TAG, "主线程无响应 ${silenceMs}ms(应用在后台,不记 ANR)")
-                        }
-                    }
-                } else {
-                    // 主线程已恢复响应,重置标志位(下次阻塞可再次触发)
-                    anrInProgress = false
+                if (posted) {
+                    handleDecision(detector.onCheck(SystemClock.elapsedRealtime(), postedAt, pongCount.get()))
                 }
             } catch (e: InterruptedException) {
                 // stop() 触发的中断,正常退出循环
@@ -161,6 +168,29 @@ class AnrWatcher(
                     break
                 }
             }
+        }
+    }
+
+    /**
+     * 处理一轮检测结论(v2.3.2: 从 [watchLoop] 抽出来,避免循环内分支过多触发复杂度门禁)。
+     *
+     * [AnrDetector.Decision.Blocked] 时按 v1.0.53 的口径决定是否落盘:
+     * App 在后台时主线程被系统冻结/Doze,长时间不响应属正常行为,不记 ANR
+     * (冻结期间"回前台首轮"的误报另由 [AnrDetector] 的挂起判定拦掉)。
+     */
+    private fun handleDecision(decision: AnrDetector.Decision) {
+        when (decision) {
+            is AnrDetector.Decision.Blocked -> {
+                if (isAppInForeground()) {
+                    onAnrDetected(decision.silenceMs)
+                } else {
+                    Logger.d(TAG, "主线程无响应 ${decision.silenceMs}ms(应用在后台,不记 ANR)")
+                }
+            }
+            AnrDetector.Decision.Suspended -> {
+                Logger.d(TAG, "检测线程本轮被挂起(进程冻结/Doze),已重置 ANR 基线")
+            }
+            AnrDetector.Decision.Suppressed, AnrDetector.Decision.Healthy -> Unit
         }
     }
 
@@ -224,6 +254,13 @@ class AnrWatcher(
             pw.println("===== muse ANR log =====")
             pw.println("Time: ${Date(anrTime)}")
             pw.println("Silence: ${silenceMs}ms (主线程无响应时长)")
+            // v2.3.2: 记录判定口径,便于事后判断报告可信度(旧报告的 5~133s "Silence" 多为
+            // 进程冻结期间的误报,见 AnrDetector 注释)
+            pw.println(
+                "Detector: ticket(v2.3.2) interval=${CHECK_INTERVAL_MS}ms " +
+                    "timeout=${ANR_TIMEOUT_MS}ms suspendTolerance=${SUSPEND_TOLERANCE_MS}ms",
+            )
+            pw.println("Note: 冻结/Doze 导致的挂起不计入 Silence;下方栈为判定时刻的采样")
             pw.println()
             pw.println("----- Device Info -----")
             pw.println("Brand: ${Build.BRAND}")
@@ -284,12 +321,20 @@ class AnrWatcher(
     companion object {
         private const val TAG = "AnrWatcher"
         private const val THREAD_NAME = "AnrWatcher"
+
         // 检测间隔:主线程 Ping 投递周期(2s)
         private const val CHECK_INTERVAL_MS = 2_000L
+
         // ANR 判定阈值:主线程无响应超过此时长即判定 ANR(5s)
         private const val ANR_TIMEOUT_MS = 5_000L
+
+        // v2.3.2: 挂起容差 — 本轮实际耗时超出检测间隔这么多,即认为看门狗自身被挂起
+        // (进程冻结/深度 Doze),本轮不做判定并重置基线,避免把冻结时长误报成 ANR
+        private const val SUSPEND_TOLERANCE_MS = 3_000L
+
         // ANR 日志文件名时间戳格式
         private const val TIME_FMT = "yyyyMMdd-HHmmss"
+
         // 保留最近 ANR 日志份数(与 MuseCrashHandler.MAX_CRASH_LOGS 对齐)
         private const val MAX_ANR_LOGS = 5
     }
