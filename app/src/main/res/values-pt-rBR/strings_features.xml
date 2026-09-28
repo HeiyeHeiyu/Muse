@@ -315,6 +315,10 @@
     <string name="knowledge_chunking">Segmentação e construção de índice vetorial…</string>
     <string name="knowledge_generating_vector">Gerando vetores %1$d/%2$d…</string>
     <string name="knowledge_import_unsupported">Arquivos compactados ou binários ainda não são compatíveis — descompacte e importe os documentos</string>
+    <string name="knowledge_zip_extracting">Extraindo e importando…</string>
+    <string name="knowledge_zip_progress">Extraindo e importando… (%1$d importados)</string>
+    <string name="knowledge_zip_done">Base de conhecimento %1$s criada: %2$d documentos importados, %3$d ignorados</string>
+    <string name="knowledge_zip_empty">Nenhum documento importável encontrado no arquivo</string>
     <string name="knowledge_import_empty">Falha na importação: o conteúdo do arquivo está vazio</string>
     <!-- v1.0.47 P7-3: File size friendly prompt -->
     <string name="knowledge_file_too_large_title">Arquivo muito grande</string>

@@ -1,3 +1,6 @@
+// v2.x: 本文件含 zip 导入助手簇(与页面导入流程强耦合,拆分另议),函数数超 detekt 阈值属设计取舍
+@file:Suppress("TooManyFunctions")
+
 package io.zer0.muse.ui.knowledge
 
 import androidx.compose.animation.Crossfade
@@ -138,6 +141,23 @@ fun KnowledgeBaseManagePage(
                     } ?: uri.lastPathSegment?.substringAfterLast('/')?.substringAfterLast('%')
                 } ?: "doc-$now"
                 val lowerName = fileName.lowercase()
+                // v2.x: ZIP 压缩包 — 自动解压,以压缩包名新建知识库并逐个导入其中文档
+                if (lowerName.endsWith(".zip")) {
+                    importZipBundle(
+                        zipUri = uri,
+                        zipName = fileName,
+                        deps = ZipImportDeps(
+                            context = context,
+                            kbDao = kbDao,
+                            docDao = docDao,
+                            ragService = ragService,
+                            settings = settings,
+                            documentParser = documentParser,
+                            onProgress = { importProgress = it },
+                        ),
+                    )
+                    return@launch
+                }
                 val fileType = when {
                     lowerName.endsWith(".md") || lowerName.endsWith(".markdown") -> "md"
                     lowerName.endsWith(".pdf") -> "pdf"
@@ -149,9 +169,9 @@ fun KnowledgeBaseManagePage(
                     lowerName.endsWith(".epub") || lowerName.endsWith(".pptx")
                 val isImage = lowerName.endsWith(".png") || lowerName.endsWith(".jpg") ||
                     lowerName.endsWith(".jpeg") || lowerName.endsWith(".bmp") || lowerName.endsWith(".webp")
-                // v2.x: 压缩包/二进制文件拒绝导入 — 此前 .zip 等会落入「文本流式」分支,
-                // 二进制被 UTF-8 解码成乱码,可切出数万块拖垮索引内存(2026-09-28 用户反馈:44MB zip 导入闪退)
-                val archiveExts = listOf(".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".bz2", ".xz")
+                // v2.x: 非 zip 压缩包/二进制文件拒绝导入 — zip 已走上方解压导入;
+                // 其余压缩包/二进制被当文本会切出数万块拖垮索引内存(2026-09-28 用户反馈)
+                val archiveExts = listOf(".rar", ".7z", ".tar", ".gz", ".tgz", ".bz2", ".xz")
                 val isArchive = archiveExts.any { lowerName.endsWith(it) }
                 val isTextCandidate = !isParsedDoc && !isImage
                 if (isArchive || (isTextCandidate && looksBinary(uri, context))) {
@@ -800,6 +820,314 @@ private fun KbEditDialog(
         onConfirm = { onConfirm(name, desc) },
         onDismiss = onDismiss,
     )
+}
+
+/** v2.x: zip 解压导入的依赖集合(纯依赖注入聚合点,设计如此,与既有注册器同口径)。 */
+@Suppress("LongParameterList")
+private class ZipImportDeps(
+    val context: android.content.Context,
+    val kbDao: KnowledgeBaseDao,
+    val docDao: KnowledgeDocDao,
+    val ragService: RagService,
+    val settings: SettingsRepository,
+    val documentParser: io.zer0.muse.doc.DocumentParser,
+    val onProgress: (String) -> Unit,
+)
+
+/** v2.x: zip 条目处理结果(junk 不计数,其余计入统计)。 */
+private enum class ZipEntryOutcome { IGNORED, IMPORTED, SKIPPED, FAILED }
+
+/** v2.x: 单个 zip 条目的处理结果与消耗量(字符/字节近似口径)。 */
+private data class ZipEntryResult(val outcome: ZipEntryOutcome, val units: Long)
+
+/**
+ * v2.x: ZIP 压缩包导入 — 解压后以压缩包名新建知识库,逐个导入其中文档。
+ *
+ * - 白名单分类、junk 过滤与各项上限见 [ZipImportPolicy];目录/隐藏文件忽略,
+ *   不支持的条目计入"跳过",单条失败不中断整体
+ * - 文本条目直接流式索引(不落盘);解析类条目临时落盘单个文件,用完即删
+ * - 压缩包为空或全部失败时回收新建知识库,避免留下空壳
+ */
+private suspend fun importZipBundle(
+    zipUri: android.net.Uri,
+    zipName: String,
+    deps: ZipImportDeps,
+) {
+    val kbName = zipName.substringBeforeLast('.').take(60).ifBlank { zipName.take(60) }
+    val baseTime = System.currentTimeMillis()
+    val kbId = "kb-$baseTime"
+    deps.kbDao.upsert(
+        KnowledgeBaseEntity(
+            id = kbId,
+            name = kbName,
+            description = zipName,
+            createdAt = baseTime,
+            updatedAt = baseTime,
+        ),
+    )
+    deps.onProgress(deps.context.getString(R.string.knowledge_zip_extracting))
+    val result = try {
+        withContext(Dispatchers.IO) {
+            val raw = deps.context.contentResolver.openInputStream(zipUri) ?: error("cannot open zip: $zipUri")
+            // 条目名按 GBK 兜底解码:中文 Windows 打的 zip 多数未置 UTF-8 标志位
+            java.util.zip.ZipInputStream(raw, java.nio.charset.Charset.forName("GBK")).use { zis ->
+                scanZipEntries(zis, kbId, zipName, deps)
+            }
+        }
+    } catch (e: Exception) {
+        // 含协程取消:回收空壳库后原样上抛
+        resultOf { deps.kbDao.delete(kbId) }
+        throw e
+    }
+    if (result.imported <= 0) {
+        resultOf { deps.kbDao.delete(kbId) }
+        MuseToast.show(deps.context.getString(R.string.knowledge_zip_empty))
+    } else {
+        MuseToast.show(
+            deps.context.getString(
+                R.string.knowledge_zip_done,
+                kbName,
+                result.imported,
+                result.skipped + result.failed,
+            ),
+        )
+    }
+}
+
+/** v2.x: zip 扫描统计(导入/跳过/失败)。 */
+private data class ZipScanResult(val imported: Int, val skipped: Int, val failed: Int)
+
+/** v2.x: 条目数/总量是否超过导入上限。 */
+private fun overLimit(
+    count: Int,
+    units: Long,
+): Boolean =
+    count >= ZipImportPolicy.MAX_ENTRIES || units >= ZipImportPolicy.MAX_TOTAL_BYTES
+
+/** v2.x: 遍历 zip 条目流并逐条导入;单条失败不中断,返回统计。 */
+private suspend fun scanZipEntries(
+    zis: java.util.zip.ZipInputStream,
+    kbId: String,
+    zipName: String,
+    deps: ZipImportDeps,
+): ZipScanResult {
+    var imported = 0
+    var skipped = 0
+    var failed = 0
+    var entry = zis.nextEntry
+    var count = 0
+    var totalUnits = 0L
+    while (entry != null && !overLimit(count, totalUnits)) {
+        count++
+        val entryName = entry.name
+        val result = try {
+            processZipEntry(zis, entryName, kbId, zipName, deps)
+        } catch (ce: kotlinx.coroutines.CancellationException) {
+            throw ce
+        } catch (e: Exception) {
+            io.zer0.common.Logger.w("KnowledgeBaseManagePage", "zip 条目导入失败: $entryName", e)
+            ZipEntryResult(ZipEntryOutcome.FAILED, 0L)
+        }
+        totalUnits += result.units
+        when (result.outcome) {
+            ZipEntryOutcome.IMPORTED -> {
+                imported++
+                deps.onProgress(deps.context.getString(R.string.knowledge_zip_progress, imported))
+            }
+            ZipEntryOutcome.SKIPPED -> skipped++
+            ZipEntryOutcome.FAILED -> failed++
+            ZipEntryOutcome.IGNORED -> {}
+        }
+        zis.closeEntry()
+        entry = try {
+            zis.nextEntry
+        } catch (e: java.util.zip.ZipException) {
+            io.zer0.common.Logger.w("KnowledgeBaseManagePage", "zip 流异常,停止读取: ${e.message}")
+            null
+        }
+    }
+    return ZipScanResult(imported, skipped, failed)
+}
+
+/** v2.x: 处理单个 zip 条目 — 分类后分流到文本/解析导入;异常由调用方兜底。 */
+private suspend fun processZipEntry(
+    zis: java.util.zip.ZipInputStream,
+    entryName: String,
+    kbId: String,
+    zipName: String,
+    deps: ZipImportDeps,
+): ZipEntryResult {
+    if (ZipImportPolicy.isJunk(entryName)) return ZipEntryResult(ZipEntryOutcome.IGNORED, 0L)
+    return when (ZipImportPolicy.classify(entryName)) {
+        ZipEntryKind.TEXT ->
+            ZipEntryResult(
+                ZipEntryOutcome.IMPORTED,
+                importZipTextEntry(zis, entryName, kbId, zipName, deps),
+            )
+        ZipEntryKind.PARSED ->
+            ZipEntryResult(
+                ZipEntryOutcome.IMPORTED,
+                importZipParsedEntry(zis, entryName, kbId, zipName, deps),
+            )
+        ZipEntryKind.SKIP -> ZipEntryResult(ZipEntryOutcome.SKIPPED, 0L)
+    }
+}
+
+/** v2.x: 导入 zip 内单个文本条目(流式直接索引,不落盘)。返回消耗字符数。 */
+private suspend fun importZipTextEntry(
+    zis: java.util.zip.ZipInputStream,
+    entryName: String,
+    kbId: String,
+    zipName: String,
+    deps: ZipImportDeps,
+): Long {
+    val title = entryName.substringAfterLast('/')
+    val docId = "doc-${System.currentTimeMillis()}-${entryName.hashCode()}"
+    val now = System.currentTimeMillis()
+    deps.docDao.upsert(
+        KnowledgeDocEntity(
+            id = docId,
+            title = title,
+            content = "",
+            filePath = "zip://$zipName/$entryName",
+            fileType = ZipImportPolicy.textFileType(title),
+            createdAt = now,
+            updatedAt = now,
+            kbId = kbId,
+        ),
+    )
+    val preview = StringBuilder()
+    var seenChars = 0L
+    var truncated = false
+    val textFlow = flow {
+        val reader = zis.reader(Charsets.UTF_8)
+        val buf = CharArray(64 * 1024)
+        var done = false
+        while (!done) {
+            val n = reader.read(buf)
+            if (n < 0) {
+                done = true
+            } else {
+                if (seenChars < CONTENT_CHAR_LIMIT) {
+                    val take = minOf((CONTENT_CHAR_LIMIT - seenChars).toInt(), n)
+                    preview.append(buf, 0, take)
+                }
+                seenChars += n
+                emit(String(buf, 0, n))
+                if (seenChars >= ZipImportPolicy.MAX_TEXT_CHARS) {
+                    truncated = true
+                    done = true
+                }
+            }
+        }
+        if (truncated) emit("\n\n[… 文件过大,已截断 …]")
+    }.flowOn(Dispatchers.IO)
+    val chunks = try {
+        deps.ragService.indexDocumentStreamed(docId, textFlow, deps.settings.getRagConfig())
+    } catch (ce: kotlinx.coroutines.CancellationException) {
+        resultOf { deps.ragService.deleteDocument(docId) }
+        throw ce
+    } catch (e: Exception) {
+        resultOf { deps.ragService.deleteDocument(docId) }
+        throw e
+    }
+    if (chunks <= 0) {
+        resultOf { deps.ragService.deleteDocument(docId) }
+        error("empty content: $title")
+    }
+    deps.docDao.upsert(
+        (deps.docDao.getById(docId) ?: error("doc missing: $docId")).copy(
+            content = preview.toString(),
+            chunkCount = chunks,
+            updatedAt = System.currentTimeMillis(),
+        ),
+    )
+    return seenChars
+}
+
+/** v2.x: 把当前 zip 条目完整写入临时文件;超过上限立即抛错。返回写入字节数。 */
+private fun copyZipEntryToFile(
+    zis: java.util.zip.ZipInputStream,
+    target: java.io.File,
+    capBytes: Long,
+): Long {
+    var used = 0L
+    java.io.FileOutputStream(target).use { out ->
+        val buf = ByteArray(64 * 1024)
+        while (true) {
+            val n = zis.read(buf)
+            if (n < 0) break
+            used += n
+            if (used > capBytes) error("zip entry too large")
+            out.write(buf, 0, n)
+        }
+    }
+    return used
+}
+
+/** v2.x: 导入 zip 内单个解析类条目(临时落盘→解析→索引→删临时文件)。返回消耗字节数。 */
+private suspend fun importZipParsedEntry(
+    zis: java.util.zip.ZipInputStream,
+    entryName: String,
+    kbId: String,
+    zipName: String,
+    deps: ZipImportDeps,
+): Long {
+    val title = entryName.substringAfterLast('/')
+    val tempDir = java.io.File(deps.context.cacheDir, "zip_import").apply { mkdirs() }
+    val tempFile = java.io.File(tempDir, ZipImportPolicy.sanitizeTempName(entryName))
+    try {
+        val used = copyZipEntryToFile(zis, tempFile, ZipImportPolicy.MAX_ENTRY_BYTES)
+        val ragCfg = deps.settings.getRagConfig()
+        val content = deps.documentParser
+            .parseResult(
+                android.net.Uri.fromFile(tempFile),
+                deps.context,
+                ragCfg.documentParserType,
+                ragCfg.cloudParserEndpoint,
+                ragCfg.mineruEndpoint,
+                ragCfg.mineruToken,
+            )
+            .getOrNull()
+            .orEmpty()
+        if (content.isBlank()) error("empty content: $title")
+        val docId = "doc-${System.currentTimeMillis()}-${entryName.hashCode()}"
+        val now = System.currentTimeMillis()
+        deps.docDao.upsert(
+            KnowledgeDocEntity(
+                id = docId,
+                title = title,
+                content = if (content.length > CONTENT_CHAR_LIMIT) content.take(CONTENT_CHAR_LIMIT) else content,
+                filePath = "zip://$zipName/$entryName",
+                fileType = ZipImportPolicy.parsedFileType(title),
+                createdAt = now,
+                updatedAt = now,
+                kbId = kbId,
+            ),
+        )
+        val chunks = try {
+            deps.ragService.indexDocument(docId, content, ragCfg)
+        } catch (ce: kotlinx.coroutines.CancellationException) {
+            resultOf { deps.ragService.deleteDocument(docId) }
+            throw ce
+        } catch (e: Exception) {
+            resultOf { deps.ragService.deleteDocument(docId) }
+            throw e
+        }
+        if (chunks <= 0) {
+            resultOf { deps.ragService.deleteDocument(docId) }
+            error("index failed: $title")
+        }
+        deps.docDao.upsert(
+            (deps.docDao.getById(docId) ?: error("doc missing: $docId")).copy(
+                chunkCount = chunks,
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+        return used
+    } finally {
+        resultOf { tempFile.delete() }
+    }
 }
 
 /**
