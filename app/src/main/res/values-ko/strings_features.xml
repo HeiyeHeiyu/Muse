@@ -314,6 +314,7 @@
     <string name="knowledge_ocr">OCR 실행 중…</string>
     <string name="knowledge_chunking">청킹 및 벡터 인덱스 구축…</string>
     <string name="knowledge_generating_vector">벡터 생성 %1$d/%2$d…</string>
+    <string name="knowledge_import_unsupported">압축 파일·바이너리 파일은 아직 지원되지 않습니다. 압축을 풀고 문서를 개별로 가져오세요</string>
     <string name="knowledge_import_empty">가져오기 실패: 파일 콘텐츠가 비어 있습니다.</string>
     <!-- v1.0.47 P7-3: File size friendly prompt -->
     <string name="knowledge_file_too_large_title">파일이 너무 큼</string>

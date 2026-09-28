@@ -314,6 +314,7 @@
     <string name="knowledge_ocr">Ejecutando OCR...</string>
     <string name="knowledge_chunking">Fragmentación y construcción de índice de vectores…</string>
     <string name="knowledge_generating_vector">Generando vectores %1$d/%2$d…</string>
+    <string name="knowledge_import_unsupported">Los archivos comprimidos o binarios aún no son compatibles — descomprime e importa los documentos</string>
     <string name="knowledge_import_empty">Falló la importación: el contenido del archivo está vacío</string>
     <!-- v1.0.47 P7-3: File size friendly prompt -->
     <string name="knowledge_file_too_large_title">Archivo demasiado grande</string>

@@ -341,6 +341,7 @@
     <string name="knowledge_ocr">Running OCR…</string>
     <string name="knowledge_chunking">Chunking and building vector index…</string>
     <string name="knowledge_generating_vector">Generating vectors %1$d/%2$d…</string>
+    <string name="knowledge_import_unsupported">Archives and binary files are not supported yet — unzip and import the documents inside</string>
     <string name="knowledge_import_empty">Import failed: file content is empty</string>
     <!-- v1.0.47 P7-3: File size friendly prompt -->
     <string name="knowledge_file_too_large_title">File Too Large</string>

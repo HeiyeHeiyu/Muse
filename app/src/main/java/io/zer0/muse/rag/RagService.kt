@@ -115,6 +115,9 @@ class RagService(
     /** 自首次 add 后累计的待保存计数,达到 [SAVE_INTERVAL] 时触发 [saveVectorIndex]。 */
     private val pendingSaveCount = AtomicInteger(0)
 
+    /** v2.x: HNSW 落盘节流 — 距上次落盘不足 [SAVE_THROTTLE_MS] 时暂缓,防大文档每 50 块全量重写索引。 */
+    private val lastVectorIndexSaveAt = java.util.concurrent.atomic.AtomicLong(0L)
+
     /** v1.55: chunk 元数据缓存条目(HNSW 检索结果回填用)。 */
     private data class ChunkMeta(
         val chunkId: String,
@@ -254,6 +257,7 @@ class RagService(
             vi.save(file)
         }.onSuccess {
             pendingSaveCount.set(0)
+            lastVectorIndexSaveAt.set(System.currentTimeMillis())
             Logger.d("RagService", "HNSW 索引已保存:size=${vi.size}, file=${file.absolutePath}")
         }.onError { msg, e ->
             Logger.w("RagService", "HNSW 索引保存失败: $msg", e)
@@ -308,9 +312,12 @@ class RagService(
                 ),
             )
         }
-        // 累计 SAVE_INTERVAL 个 chunk → 触发保存(同步,suspend save 通常 <100ms)
+        // 累计 SAVE_INTERVAL 个 chunk 且距上次落盘超过节流窗口 → 触发保存
+        // (v2.x: 大文档场景下每 50 块全量重写索引会退化为 O(n²) IO/内存峰值,故加时间节流)
         val pending = pendingSaveCount.addAndGet(entities.size)
-        if (pending >= SAVE_INTERVAL) {
+        if (pending >= SAVE_INTERVAL &&
+            System.currentTimeMillis() - lastVectorIndexSaveAt.get() >= SAVE_THROTTLE_MS
+        ) {
             saveVectorIndex()
         }
     }
@@ -1162,6 +1169,9 @@ class RagService(
         const val TITLES_TTL_MS = 5L * 60 * 1000
         /** v1.55: HNSW 索引自动保存阈值(累计新增 SAVE_INTERVAL 个 chunk 后触发一次 save)。 */
         const val SAVE_INTERVAL = 50
+
+        /** v2.x: HNSW 落盘最小间隔 — 即使达到 SAVE_INTERVAL,两次落盘间也不少于该间隔。 */
+        const val SAVE_THROTTLE_MS = 15_000L
 
         /** v2.x: 流式索引滑窗大小(字符)。窗口越大内存峰值越高、窗口间切分越少。 */
         const val STREAM_WINDOW_CHARS = 200_000

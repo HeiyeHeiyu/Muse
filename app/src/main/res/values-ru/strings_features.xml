@@ -314,6 +314,7 @@
     <string name="knowledge_ocr">Запускаем распознавание текста…</string>
     <string name="knowledge_chunking">Разбиение на части и построение векторного индекса…</string>
     <string name="knowledge_generating_vector">Генерация векторов %1$d/%2$d…</string>
+    <string name="knowledge_import_unsupported">Архивы и бинарные файлы пока не поддерживаются — распакуйте и импортируйте документы</string>
     <string name="knowledge_import_empty">Не удалось импортировать: содержимое файла пусто.</string>
     <!-- v1.0.47 P7-3: File size friendly prompt -->
     <string name="knowledge_file_too_large_title">Файл слишком большой</string>

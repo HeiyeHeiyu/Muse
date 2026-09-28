@@ -149,6 +149,15 @@ fun KnowledgeBaseManagePage(
                     lowerName.endsWith(".epub") || lowerName.endsWith(".pptx")
                 val isImage = lowerName.endsWith(".png") || lowerName.endsWith(".jpg") ||
                     lowerName.endsWith(".jpeg") || lowerName.endsWith(".bmp") || lowerName.endsWith(".webp")
+                // v2.x: 压缩包/二进制文件拒绝导入 — 此前 .zip 等会落入「文本流式」分支,
+                // 二进制被 UTF-8 解码成乱码,可切出数万块拖垮索引内存(2026-09-28 用户反馈:44MB zip 导入闪退)
+                val archiveExts = listOf(".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".bz2", ".xz")
+                val isArchive = archiveExts.any { lowerName.endsWith(it) }
+                val isTextCandidate = !isParsedDoc && !isImage
+                if (isArchive || (isTextCandidate && looksBinary(uri, context))) {
+                    MuseToast.show(context.getString(R.string.knowledge_import_unsupported))
+                    return@launch
+                }
                 if (!isParsedDoc && !isImage) {
                     // v2.x: 文本文件流式导入 — 滑窗分块 + 增量索引,内存 O(窗口),不限制文件大小
                     // (2026-09 用户反馈:知识库就是要收大文件,不做大小拒绝;
@@ -792,6 +801,24 @@ private fun KbEditDialog(
         onDismiss = onDismiss,
     )
 }
+
+/**
+ * v2.x: 嗅探文件头部是否含 NUL 字节(二进制特征),防止压缩包/可执行文件被当文本索引。
+ * 读取失败时按「非二进制」处理,不阻断正常导入。
+ */
+private suspend fun looksBinary(
+    uri: android.net.Uri,
+    context: android.content.Context,
+): Boolean =
+    withContext(Dispatchers.IO) {
+        runCatching {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                val head = ByteArray(512)
+                val n = input.read(head)
+                n > 0 && (0 until n).any { head[it] == 0.toByte() }
+            } ?: false
+        }.getOrDefault(false)
+    }
 
 /**
  * v2.x: 文档预览最大字符数 — doc.content 只保留前 N 字符作预览展示;

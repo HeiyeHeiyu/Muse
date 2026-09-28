@@ -314,6 +314,7 @@
     <string name="knowledge_ocr">OCR を実行中…</string>
     <string name="knowledge_chunking">チャンク化とベクター インデックスの構築…</string>
     <string name="knowledge_generating_vector">ベクター%1$d/%2$dを生成中…</string>
+    <string name="knowledge_import_unsupported">圧縮ファイル・バイナリファイルは未対応です。解凍して中の文書を個別にインポートしてください</string>
     <string name="knowledge_import_empty">インポートに失敗しました: ファイルの内容が空です</string>
     <!-- v1.0.47 P7-3: File size friendly prompt -->
     <string name="knowledge_file_too_large_title">ファイルが大きすぎます</string>
