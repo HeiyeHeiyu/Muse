@@ -350,10 +350,19 @@ class MuseCrashHandler private constructor(private val appContext: Context) : Th
         fun getCrashTrace(appContext: Context): String? =
             safeModeSp(appContext).getString(SP_KEY_CRASH_TRACE, null)
 
-        /** 列出全部崩溃日志文件(按时间降序)。 */
+        /**
+         * 列出全部崩溃日志文件(按时间降序)。
+         *
+         * v2.x: 同时扫描外部目录(externalFilesDir/crash,当前崩溃日志实际落盘位置)
+         * 与私有目录(filesDir/crash,旧版本残留 / 外部存储不可用场景),
+         * 按文件名去重后合并 — 此前只读私有目录,导致崩溃日志面板/导出为空。
+         */
         fun listCrashLogs(appContext: Context): List<File> {
-            val dir = File(appContext.filesDir, "crash")
-            return dir.listFiles()?.sortedByDescending { it.lastModified() } ?: emptyList()
+            val dirs = listOfNotNull(appContext.getExternalFilesDir("crash"), File(appContext.filesDir, "crash"))
+            return dirs
+                .flatMap { dir -> dir.listFiles()?.toList() ?: emptyList() }
+                .distinctBy { it.name }
+                .sortedByDescending { it.lastModified() }
         }
 
         /** 读取最近一份崩溃日志内容(用于 Safe Mode UI 展示)。 */
