@@ -12830,39 +12830,38 @@
         <error line="644" column="5" source="standard:no-consecutive-comments" />
         <error line="646" column="5" source="standard:discouraged-comment-location" />
         <error line="647" column="5" source="standard:no-consecutive-comments" />
-        <error line="1002" column="1" source="standard:no-consecutive-comments" />
-        <error line="1063" column="1" source="standard:no-consecutive-comments" />
-        <error line="1337" column="9" source="standard:no-consecutive-comments" />
-        <error line="1340" column="9" source="standard:no-consecutive-comments" />
-        <error line="1361" column="9" source="standard:no-consecutive-comments" />
-        <error line="1464" column="5" source="standard:no-consecutive-comments" />
-        <error line="1473" column="27" source="standard:property-naming" />
-        <error line="1475" column="27" source="standard:property-naming" />
-        <error line="1586" column="5" source="standard:no-consecutive-comments" />
-        <error line="1746" column="1" source="standard:max-line-length" />
-        <error line="3044" column="60" source="standard:discouraged-comment-location" />
-        <error line="3510" column="5" source="standard:no-consecutive-comments" />
-        <error line="3546" column="5" source="standard:no-consecutive-comments" />
-        <error line="3798" column="1" source="standard:max-line-length" />
-        <error line="3829" column="1" source="standard:max-line-length" />
-        <error line="3909" column="5" source="standard:no-consecutive-comments" />
-        <error line="3919" column="5" source="standard:no-consecutive-comments" />
-        <error line="4475" column="1" source="standard:max-line-length" />
-        <error line="4850" column="1" source="standard:max-line-length" />
-        <error line="4927" column="1" source="standard:max-line-length" />
-        <error line="4956" column="1" source="standard:max-line-length" />
-        <error line="5007" column="1" source="standard:max-line-length" />
-        <error line="5048" column="1" source="standard:max-line-length" />
-        <error line="5361" column="1" source="standard:max-line-length" />
-        <error line="5449" column="1" source="standard:max-line-length" />
-        <error line="5631" column="1" source="standard:max-line-length" />
-        <error line="5731" column="5" source="standard:no-consecutive-comments" />
-        <error line="5911" column="1" source="standard:max-line-length" />
-        <error line="6175" column="5" source="standard:no-consecutive-comments" />
-        <error line="6822" column="5" source="standard:no-consecutive-comments" />
-        <error line="6824" column="5" source="standard:no-consecutive-comments" />
-        <error line="6834" column="5" source="standard:no-consecutive-comments" />
-        <error line="6836" column="5" source="standard:no-consecutive-comments" />
+        <error line="1038" column="1" source="standard:no-consecutive-comments" />
+        <error line="1312" column="9" source="standard:no-consecutive-comments" />
+        <error line="1315" column="9" source="standard:no-consecutive-comments" />
+        <error line="1336" column="9" source="standard:no-consecutive-comments" />
+        <error line="1439" column="5" source="standard:no-consecutive-comments" />
+        <error line="1448" column="27" source="standard:property-naming" />
+        <error line="1450" column="27" source="standard:property-naming" />
+        <error line="1561" column="5" source="standard:no-consecutive-comments" />
+        <error line="1721" column="1" source="standard:max-line-length" />
+        <error line="3019" column="60" source="standard:discouraged-comment-location" />
+        <error line="3485" column="5" source="standard:no-consecutive-comments" />
+        <error line="3521" column="5" source="standard:no-consecutive-comments" />
+        <error line="3773" column="1" source="standard:max-line-length" />
+        <error line="3804" column="1" source="standard:max-line-length" />
+        <error line="3884" column="5" source="standard:no-consecutive-comments" />
+        <error line="3894" column="5" source="standard:no-consecutive-comments" />
+        <error line="4450" column="1" source="standard:max-line-length" />
+        <error line="4825" column="1" source="standard:max-line-length" />
+        <error line="4902" column="1" source="standard:max-line-length" />
+        <error line="4931" column="1" source="standard:max-line-length" />
+        <error line="4982" column="1" source="standard:max-line-length" />
+        <error line="5023" column="1" source="standard:max-line-length" />
+        <error line="5336" column="1" source="standard:max-line-length" />
+        <error line="5424" column="1" source="standard:max-line-length" />
+        <error line="5606" column="1" source="standard:max-line-length" />
+        <error line="5706" column="5" source="standard:no-consecutive-comments" />
+        <error line="5886" column="1" source="standard:max-line-length" />
+        <error line="6150" column="5" source="standard:no-consecutive-comments" />
+        <error line="6797" column="5" source="standard:no-consecutive-comments" />
+        <error line="6799" column="5" source="standard:no-consecutive-comments" />
+        <error line="6809" column="5" source="standard:no-consecutive-comments" />
+        <error line="6811" column="5" source="standard:no-consecutive-comments" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/CommandPalette.kt">
         <error line="3" column="1" source="standard:import-ordering" />

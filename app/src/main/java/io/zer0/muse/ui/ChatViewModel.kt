@@ -644,14 +644,6 @@ class ChatUiState(
     /** v2.3: 任务模型路由开关(开启后根据输入内容自动推荐模型)。 */
     val taskRoutingEnabled: Boolean = false,
     /** 待审批的工具调用列表(ToolApprovalCard 用)。 */
-    /**
-     * v1.0.47 P1: 上下文压缩状态(流式 Compaction UI)。
-     *
-     * 压缩进行中时 ChatScreen 顶部显示"正在压缩上下文..."进度条,
-     * 压缩完成后显示"已压缩 N 条历史"短暂提示。
-     * null 表示无压缩活动。
-     */
-    val compactionState: CompactionState? = null,
     /** P3: 当前会话的工具权限模式(TRUSTED/ASK/STRICT),默认 ASK。 */
     val sessionPermissionMode: SessionPermissionMode = SessionPermissionMode.ASK,
     /**
@@ -798,7 +790,6 @@ class ChatUiState(
         toolCallHistory: List<ToolCallRecord> = this.toolCallHistory,
         taskRoutingEnabled: Boolean = this.taskRoutingEnabled,
         pendingToolApprovals: List<PendingToolApproval> = this.pendingToolApprovals,
-        compactionState: CompactionState? = this.compactionState,
         sessionPermissionMode: SessionPermissionMode = this.sessionPermissionMode,
         appRunAllowAllTools: Boolean = this.appRunAllowAllTools,
         pinnedMessageContent: String? = this.pinnedMessageContent,
@@ -970,7 +961,6 @@ class ChatUiState(
             isLoadingMore = isLoadingMore,
             lastHistoryLoadCount = lastHistoryLoadCount,
             taskRoutingEnabled = taskRoutingEnabled,
-            compactionState = compactionState,
             sessionPermissionMode = sessionPermissionMode,
             appRunAllowAllTools = appRunAllowAllTools,
             pinnedMessageContent = pinnedMessageContent,
@@ -998,21 +988,6 @@ data class ToolCallRecord(
 )
 
 /** 待审批的工具调用(ToolApprovalCard 用)。 */
-
-/**
- * v1.0.47 P1: 上下文压缩状态机。
- *
- * - [Compacting]: 压缩进行中,显示进度(messageCount 为待压缩消息数)
- * - [Compacted]: 压缩完成,显示短暂成功提示(compressedCount 为已压缩条数)
- * - [Failed]: 压缩失败,降级为截断(reason 为失败原因)
- */
-sealed class CompactionState {
-    data class Compacting(val messageCount: Int) : CompactionState()
-
-    data class Compacted(val compressedCount: Int) : CompactionState()
-
-    data class Failed(val reason: String) : CompactionState()
-}
 
 data class PendingToolApproval(
     val toolCallId: String,
