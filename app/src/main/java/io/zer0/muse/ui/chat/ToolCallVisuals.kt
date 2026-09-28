@@ -36,7 +36,12 @@ internal object ToolCallVisuals {
                 ?: prefixVerbId(toolName)?.let { id -> r.getString(id) }
                 ?: r.getString(R.string.tool_summary_default_success)
         } ?: (successVerb[toolName] ?: prefixVerb(toolName) ?: defaultVerb(true))
-        val obj = targetFor(toolName, arguments, result)
+        var obj = targetFor(toolName, arguments, result)
+        // v2.3.1: find_tools 未带 query 表示「列出全部工具」—— 兜底文案走资源;
+        // 在此处(而非 targetFor)取,避免改动 targetFor 签名导致 detekt 基线签名失配
+        if (obj.isBlank() && toolName == "find_tools") {
+            obj = res?.getString(R.string.tool_target_all_tools).orEmpty()
+        }
         return if (obj.isBlank()) verb else "$verb $obj"
     }
 
@@ -459,7 +464,7 @@ internal object ToolCallVisuals {
             "pin_memory", "unpin_memory" -> argString(args, "query") ?: result.take(30)
             "save_memory" -> argString(args, "content") ?: result.take(30)
             "delete_memory" -> argString(args, "match") ?: argString(args, "id") ?: result.take(30)
-            "find_tools" -> argString(args, "query") ?: "全部工具"
+            "find_tools" -> argString(args, "query")
             "device_shell" -> argString(args, "command")
             "terminal_exec" -> argString(args, "command")
             "termux_exec" -> argString(args, "command")

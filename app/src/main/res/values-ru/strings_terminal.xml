@@ -7,4 +7,7 @@
     <string name="terminal_restart_cd">Перезапустить сеанс</string>
     <string name="terminal_interrupt_cd">Прервать (Ctrl-C)</string>
     <string name="terminal_send_cd">Отправить</string>
+    <string name="terminal_session_exited">[Процесс сессии завершён с кодом %1$d; нажмите кнопку справа вверху для перезапуска]</string>
+    <string name="terminal_session_restarted">[Сессия перезапущена]</string>
+    <string name="terminal_probe_after_seconds">через %1$d с</string>
 </resources>

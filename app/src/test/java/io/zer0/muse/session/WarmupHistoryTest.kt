@@ -1,4 +1,4 @@
-package io.zer0.muse.ui.chat
+package io.zer0.muse.session
 
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage

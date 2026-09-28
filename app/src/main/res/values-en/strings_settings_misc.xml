@@ -348,4 +348,6 @@
     <string name="settings_experiments_parallel_tools_subtitle">When all tools in one round are read-only, run them in parallel for speed and efficiency (enabled by default; can be turned off to return to serial)</string>
     <string name="settings_model_action_test_chat">Test conversation (full pipeline)</string>
     <string name="settings_model_action_test_chat_short">Test</string>
+    <string name="settings_web_search_path_baidu">Baidu HTTP</string>
+    <string name="settings_web_search_path_user_api">User API</string>
 </resources>

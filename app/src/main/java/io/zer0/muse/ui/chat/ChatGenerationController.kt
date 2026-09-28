@@ -509,11 +509,11 @@ internal class ChatGenerationController(
         if (additions.isEmpty()) return
         deps.stateStore.messages.value = messages + additions
         deps.messageController.rebuildConversationTree()
-        Logger.i(
-            "ChatVM",
-            "outbox 恢复: 补回占位消息 user=${req.userMessage.id.toString().take(8)}, " +
-                "assistant=${req.assistantMessageId.toString().take(8)}",
-        )
+        // v2.3.1: 收敛为单行 —— 多行写法会把日志中文落到「非 Logger 行」,
+        // 被 check_hardcoded_cjk 误判为 UI 硬编码文案(该检查只按同一行识别日志调用)
+        val userShort = req.userMessage.id.toString().take(8)
+        val assistantShort = req.assistantMessageId.toString().take(8)
+        Logger.i("ChatVM", "outbox 恢复: 补回占位消息 user=$userShort, assistant=$assistantShort")
     }
 
     /**

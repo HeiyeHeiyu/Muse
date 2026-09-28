@@ -117,7 +117,7 @@ fun TerminalScreen(onBack: () -> Unit) {
                 override fun onOutput(bytes: ByteArray) = pushToTerminal(bytes)
 
                 override fun onExit(code: Int) {
-                    pushText("\r\n[会话进程已退出 code=$code,点右上角重启]\r\n")
+                    pushText("\r\n" + context.getString(R.string.terminal_session_exited, code) + "\r\n")
                 }
             },
         )
@@ -175,7 +175,7 @@ fun TerminalScreen(onBack: () -> Unit) {
             }
             IconButton(onClick = {
                 session.restart()
-                pushText("\r\n[会话已重启]\r\n")
+                pushText("\r\n" + context.getString(R.string.terminal_session_restarted) + "\r\n")
             }) {
                 Icon(
                     imageVector = MuseIcons.refresh,
@@ -257,8 +257,10 @@ fun TerminalScreen(onBack: () -> Unit) {
                                         }
                                         if (TERMINAL_PROBES_ENABLED) {
                                             runProbe(wv, "onReady")
-                                            mainHandler.postDelayed({ webViewRef?.let { runProbe(it, "3s后") } }, 3000)
-                                            mainHandler.postDelayed({ webViewRef?.let { runProbe(it, "8s后") } }, 8000)
+                                            val after3 = context.getString(R.string.terminal_probe_after_seconds, 3)
+                                            val after8 = context.getString(R.string.terminal_probe_after_seconds, 8)
+                                            mainHandler.postDelayed({ webViewRef?.let { runProbe(it, after3) } }, 3000)
+                                            mainHandler.postDelayed({ webViewRef?.let { runProbe(it, after8) } }, 8000)
                                         }
                                     }
                                 }

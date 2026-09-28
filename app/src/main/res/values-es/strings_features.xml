@@ -838,4 +838,7 @@
     <string name="task_plan_status_timed_out">Agotado</string>
     <string name="schedule_last_run_short">Última ejecución %1$s</string>
     <string name="plan_next_step_label">Siguiente: %1$s</string>
+    <string name="home_date_pattern">MMM d, EEEE</string>
+    <string name="groupchat_summary_doc_title">Resumen de la discusión · %1$s</string>
+    <string name="groupchat_continue_summary_prefix">[Continuar con el resumen] </string>
 </resources>

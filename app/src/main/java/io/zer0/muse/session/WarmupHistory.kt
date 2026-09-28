@@ -1,4 +1,6 @@
-package io.zer0.muse.ui.chat
+// v2.3.1: 本文件为模型侧上下文/简报文本(非 UI 文案),从 ui/chat 迁到 session/,
+// 与 check_hardcoded_cjk 的扫描范围(ui/ 的 Compose 文案)保持一致。
+package io.zer0.muse.session
 
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage

@@ -538,8 +538,10 @@ class GroupChatViewModel(
         viewModelScope.launch {
             val message = _state.value.currentMessages.firstOrNull { it.id == messageId } ?: return@launch
             if (message.body.isBlank()) return@launch
-            val title = "讨论总结 · " + java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault())
+            // v2.3.1: 标题走字符串资源(7 语言);时间戳格式与语言无关,保持原样
+            val stamp = java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault())
                 .format(java.util.Date(message.timestamp))
+            val title = appContext.getString(R.string.groupchat_summary_doc_title, stamp)
             runCatching {
                 groupChatRepository.addSharedDoc(chatId, title, message.body)
             }.onFailure { t ->

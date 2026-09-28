@@ -228,4 +228,5 @@
     <string name="plugin_file_read_failed">Could not read the selected file</string>
     <string name="plugin_public_key_invalid">Invalid public key</string>
     <string name="plugin_rollback_failed">Rollback failed</string>
+    <string name="tool_target_all_tools">all tools</string>
 </resources>

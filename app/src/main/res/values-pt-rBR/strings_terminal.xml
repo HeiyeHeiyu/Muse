@@ -7,4 +7,7 @@
     <string name="terminal_restart_cd">Reiniciar sessão</string>
     <string name="terminal_interrupt_cd">Interromper (Ctrl-C)</string>
     <string name="terminal_send_cd">Enviar</string>
+    <string name="terminal_session_exited">[O processo da sessão terminou com o código %1$d; toque no botão superior direito para reiniciar]</string>
+    <string name="terminal_session_restarted">[Sessão reiniciada]</string>
+    <string name="terminal_probe_after_seconds">após %1$ds</string>
 </resources>

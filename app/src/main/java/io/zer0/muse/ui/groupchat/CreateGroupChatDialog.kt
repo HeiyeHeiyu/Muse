@@ -58,11 +58,13 @@ fun CreateGroupChatDialog(
     var selectedTemplateKey by rememberSaveable { mutableStateOf<String?>(null) }
     var templateMode by rememberSaveable { mutableStateOf<String?>(null) }
     var templateLength by rememberSaveable { mutableStateOf<String?>(null) }
+    // v2.3.1: 预置名直接复用模板文案资源(labelRes),不再重复硬编码中文 ——
+    // 该值既作 chip 文案也作群聊名预填,两处共用同一份 7 语言译文
     val templatePresets = listOf(
-        TemplatePreset("review", R.string.groupchat_template_review, "方案评审", "host", "standard"),
-        TemplatePreset("debate", R.string.groupchat_template_debate, "正反辩论", "debate", "standard"),
-        TemplatePreset("brainstorm", R.string.groupchat_template_brainstorm, "头脑风暴", "auto", "brief"),
-        TemplatePreset("retro", R.string.groupchat_template_retro, "项目复盘", "round_robin", "detailed"),
+        TemplatePreset("review", R.string.groupchat_template_review, "host", "standard"),
+        TemplatePreset("debate", R.string.groupchat_template_debate, "debate", "standard"),
+        TemplatePreset("brainstorm", R.string.groupchat_template_brainstorm, "auto", "brief"),
+        TemplatePreset("retro", R.string.groupchat_template_retro, "round_robin", "detailed"),
     )
 
     val maxNameLength = 30
@@ -106,15 +108,17 @@ fun CreateGroupChatDialog(
                 contentPadding = PaddingValues(horizontal = 2.dp),
             ) {
                 items(templatePresets, key = { it.key }) { preset ->
+                    // v2.3.1: 先取译文,再在 onClick(非 Composable)里复用
+                    val label = stringResource(preset.labelRes)
                     MuseChip(
                         selected = selectedTemplateKey == preset.key,
                         onClick = {
                             selectedTemplateKey = preset.key
-                            name = preset.suggestedName
+                            name = label
                             templateMode = preset.mode
                             templateLength = preset.length
                         },
-                        label = stringResource(preset.labelRes),
+                        label = label,
                     )
                 }
             }
@@ -230,8 +234,8 @@ fun CreateGroupChatDialog(
 /** v2.x: 新建群聊快速模板预置(名称 + 讨论模式 + 发言长度)。 */
 data class TemplatePreset(
     val key: String,
+    /** v2.3.1: 模板名称资源 — 同时用作 chip 文案与群聊名预填。 */
     val labelRes: Int,
-    val suggestedName: String,
     val mode: String,
     val length: String,
 )

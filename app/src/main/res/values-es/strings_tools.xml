@@ -226,4 +226,5 @@
     <string name="plugin_file_read_failed">No se pudo leer el archivo seleccionado</string>
     <string name="plugin_public_key_invalid">Clave pública no válida</string>
     <string name="plugin_rollback_failed">Error al revertir</string>
+    <string name="tool_target_all_tools">todas las herramientas</string>
 </resources>

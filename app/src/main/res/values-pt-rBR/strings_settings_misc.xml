@@ -348,4 +348,6 @@
     <string name="settings_experiments_parallel_tools_subtitle">Quando todas as ferramentas de uma rodada forem somente leitura, execute-as em paralelo para ser mais rápido e eficiente (ativado por padrão; pode ser desativado para voltar ao serial)</string>
     <string name="settings_model_action_test_chat">Conversa de teste (canal completo)</string>
     <string name="settings_model_action_test_chat_short">Testar</string>
+    <string name="settings_web_search_path_baidu">Baidu HTTP</string>
+    <string name="settings_web_search_path_user_api">API do usuário</string>
 </resources>

@@ -19,6 +19,7 @@ import io.zer0.muse.data.promptinjection.PromptInjectionRepository
 import io.zer0.muse.data.session.SessionRepository
 import io.zer0.muse.data.skill.SkillRepository
 import io.zer0.muse.privacy.PiiGuard
+import io.zer0.muse.session.WarmupHistory
 import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.transformer.InternalMarkupSanitizer
 import io.zer0.muse.transformer.MoodSkinParser

@@ -226,4 +226,5 @@
     <string name="plugin_file_read_failed">選択したファイルを読み取れませんでした</string>
     <string name="plugin_public_key_invalid">公開鍵が無効です</string>
     <string name="plugin_rollback_failed">ロールバックに失敗しました</string>
+    <string name="tool_target_all_tools">すべてのツール</string>
 </resources>

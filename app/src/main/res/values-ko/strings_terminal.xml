@@ -7,4 +7,7 @@
     <string name="terminal_restart_cd">세션 다시 시작</string>
     <string name="terminal_interrupt_cd">중단 (Ctrl-C)</string>
     <string name="terminal_send_cd">보내기</string>
+    <string name="terminal_session_exited">[세션 프로세스가 종료되었습니다 code=%1$d. 오른쪽 위 버튼으로 재시작]</string>
+    <string name="terminal_session_restarted">[세션이 재시작되었습니다]</string>
+    <string name="terminal_probe_after_seconds">%1$d초 후</string>
 </resources>

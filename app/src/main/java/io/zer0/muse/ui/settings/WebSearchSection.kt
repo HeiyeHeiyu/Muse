@@ -156,11 +156,22 @@ internal fun WebSearchSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(MusePaddings.cardInner),
         )
+        // v2.3.1: 路径名走字符串资源(与 Bing HTTP 行一致),不再把中文标签硬编码在 UI 层
         PathRow(MuseIcons.brandBing, "Bing HTTP", stringResource(R.string.settings_web_search_provider_status_bing), true)
         HorizontalDivider(modifier = Modifier.padding(start = 52.dp))
-        PathRow(MuseIcons.globe, "百度 HTTP", stringResource(R.string.settings_web_search_provider_status_jina), false)
+        PathRow(
+            MuseIcons.globe,
+            stringResource(R.string.settings_web_search_path_baidu),
+            stringResource(R.string.settings_web_search_provider_status_jina),
+            false,
+        )
         HorizontalDivider(modifier = Modifier.padding(start = 52.dp))
-        PathRow(MuseIcons.search, "用户 API", stringResource(R.string.settings_web_search_provider_status_searxng), false)
+        PathRow(
+            MuseIcons.search,
+            stringResource(R.string.settings_web_search_path_user_api),
+            stringResource(R.string.settings_web_search_provider_status_searxng),
+            false,
+        )
     }
 
     Spacer(Modifier.heightIn(min = 12.dp))
@@ -298,7 +309,7 @@ internal fun WebSearchSection(
             WebSearchConfig.PROVIDERS_NEEDING_API_KEY
                 // v2.x: 去重 — 自定义 API 不参与 Auto 回退链,其 Key 与接口地址在下方「当前引擎」组统一配置;
                 // 此处排除两种写法,同一 Key 不再出现两个输入入口。
-                .filter { it != "Custom API" && it != "自定义 API" }
+                .filter { it !in WebSearchConfig.CUSTOM_PROVIDER_NAMES }
                 .forEach { provider ->
                     var keyDraft by remember(provider, webSearchConfig.apiKeys[provider]) {
                         mutableStateOf(webSearchConfig.apiKeys[provider].orEmpty())
@@ -327,7 +338,7 @@ internal fun WebSearchSection(
     // v2.x: 去重 — 需 Key 的引擎中,只有「自定义 API」(不在 Auto 回退链)在本组就近配置 Key;
     // 其余引擎的 Key 统一在上方「多引擎 API Key」列表编辑,本组仅保留接口地址与测试。
     val isCustomApi = webSearchConfig.providerName.equals("Custom API", ignoreCase = true) ||
-        webSearchConfig.providerName == "自定义 API"
+        webSearchConfig.providerName == WebSearchConfig.CUSTOM_PROVIDER_NAME
     if (needsApiConfig) {
         SettingsGroup(modifier = Modifier.padding(top = 8.dp)) {
             Column(Modifier.padding(MusePaddings.cardInner)) {

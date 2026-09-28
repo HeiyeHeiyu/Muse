@@ -7,4 +7,7 @@
     <string name="terminal_restart_cd">Restart session</string>
     <string name="terminal_interrupt_cd">Interrupt (Ctrl-C)</string>
     <string name="terminal_send_cd">Send</string>
+    <string name="terminal_session_exited">[Session process exited with code %1$d; tap the top-right button to restart]</string>
+    <string name="terminal_session_restarted">[Session restarted]</string>
+    <string name="terminal_probe_after_seconds">after %1$ds</string>
 </resources>

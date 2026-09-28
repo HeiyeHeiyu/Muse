@@ -348,4 +348,6 @@
     <string name="settings_experiments_parallel_tools_subtitle">1ラウンドのツールがすべて読み取り専用の場合は並列で実行し、高速で効率的です（デフォルトでオン。オフにすると直列に戻ります）</string>
     <string name="settings_model_action_test_chat">テスト会話（完全な連携）</string>
     <string name="settings_model_action_test_chat_short">テスト</string>
+    <string name="settings_web_search_path_baidu">Baidu HTTP</string>
+    <string name="settings_web_search_path_user_api">ユーザー API</string>
 </resources>

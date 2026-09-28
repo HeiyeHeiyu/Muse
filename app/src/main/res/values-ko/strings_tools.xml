@@ -226,4 +226,5 @@
     <string name="plugin_file_read_failed">선택한 파일을 읽을 수 없습니다</string>
     <string name="plugin_public_key_invalid">공개 키가 잘못되었습니다</string>
     <string name="plugin_rollback_failed">롤백에 실패했습니다</string>
+    <string name="tool_target_all_tools">모든 도구</string>
 </resources>

@@ -348,4 +348,6 @@
     <string name="settings_experiments_parallel_tools_subtitle">Когда все инструменты раунда доступны только для чтения, они выполняются параллельно — быстрее и эффективнее (включено по умолчанию; можно отключить, чтобы вернуться к последовательному выполнению)</string>
     <string name="settings_model_action_test_chat">Тестовый диалог (полный цикл)</string>
     <string name="settings_model_action_test_chat_short">Тест</string>
+    <string name="settings_web_search_path_baidu">Baidu HTTP</string>
+    <string name="settings_web_search_path_user_api">API пользователя</string>
 </resources>

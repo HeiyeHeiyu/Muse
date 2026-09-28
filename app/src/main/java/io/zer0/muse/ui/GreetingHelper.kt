@@ -14,6 +14,9 @@ object GreetingHelper {
     /** 首页问候区每日总结的单行字符预算。 */
     internal const val DAILY_SUMMARY_HINT_MAX_LENGTH = 24
 
+    /** v2.3.1: 无资源环境(单元测试)下的日期模式兜底。 */
+    private const val DEFAULT_DATE_PATTERN = "MMM d, EEEE"
+
     /**
      * I18N-01: 优先用资源字符串,无资源(单元测试)回退中文常量。
      * @param args 与资源占位符(%1$s 等)一一对应。
@@ -273,17 +276,15 @@ object GreetingHelper {
     /**
      * v2.x: 首页日期行(替代原"熟悉度"记忆计数行) — 例:9月27日 星期六。
      *
-     * 按应用语言本地化;中/日文用「M月d日 EEEE」,韩文用「M월 d일 EEEE」,其余「MMM d, EEEE」。
-     * 格式化异常时回退 ISO 日期。
+     * v2.3.1: 日期模式由字符串资源 [R.string.home_date_pattern] 按语言提供
+     * (zh/ja「M月d日 EEEE」、ko「M월 d일 EEEE」、其余「MMM d, EEEE」),不再在代码里硬编码;
+     * 无资源(单元测试)时退回 [DEFAULT_DATE_PATTERN]。格式化异常时回退 ISO 日期。
      */
     fun getDateLine(date: LocalDate = LocalDate.now(), res: Resources? = null): String {
         val locale = runCatching { res?.configuration?.locales?.get(0) }.getOrNull()
             ?: java.util.Locale.getDefault()
-        val pattern = when (locale.language) {
-            "zh", "ja" -> "M月d日 EEEE"
-            "ko" -> "M월 d일 EEEE"
-            else -> "MMM d, EEEE"
-        }
+        val pattern = runCatching { res?.getString(R.string.home_date_pattern) }.getOrNull()
+            ?: DEFAULT_DATE_PATTERN
         return runCatching {
             date.format(java.time.format.DateTimeFormatter.ofPattern(pattern, locale))
         }.getOrElse { date.toString() }

@@ -348,4 +348,6 @@
     <string name="settings_experiments_parallel_tools_subtitle">한 라운드의 도구가 모두 읽기 전용이면 병렬로 실행해 더 빠르고 효율적입니다(기본 활성화, 끄면 직렬로 돌아갑니다)</string>
     <string name="settings_model_action_test_chat">대화 테스트(전체 경로)</string>
     <string name="settings_model_action_test_chat_short">테스트</string>
+    <string name="settings_web_search_path_baidu">Baidu HTTP</string>
+    <string name="settings_web_search_path_user_api">사용자 API</string>
 </resources>

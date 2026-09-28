@@ -350,5 +350,7 @@
     <string name="settings_web_search_no_diagnosis">还没有搜索记录</string>
     <string name="settings_web_search_endpoint_optional">接口地址（可选）</string>
     <string name="settings_web_search_provider_not_configured">未配置</string>
+    <string name="settings_web_search_path_baidu">百度 HTTP</string>
+    <string name="settings_web_search_path_user_api">用户 API</string>
 </resources>
 

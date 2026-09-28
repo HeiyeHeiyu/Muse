@@ -177,6 +177,15 @@ data class WebSearchConfig(
             "Perplexity",
         )
 
+        /** v2.3.1: 自定义 API 引擎名 — 存于配置(providerName)的标识,不可随意改动。 */
+        const val CUSTOM_PROVIDER_NAME: String = "自定义 API"
+
+        /** v2.3.1: 自定义 API 的英文历史写法(旧配置可能存此值)。 */
+        const val CUSTOM_PROVIDER_NAME_EN: String = "Custom API"
+
+        /** v2.3.1: 自定义 API 的两种写法集合(UI 去重与回退链判定共用)。 */
+        val CUSTOM_PROVIDER_NAMES: Set<String> = setOf(CUSTOM_PROVIDER_NAME, CUSTOM_PROVIDER_NAME_EN)
+
         /**
          * 需要 API Key 的 provider 集合(WebSearchSection 据此决定是否显示 API Key 输入框)。
          *
@@ -185,7 +194,7 @@ data class WebSearchConfig(
          * - 同时覆盖 Brave / Perplexity / Exa / Bocha 等所有商用搜索 API
          */
         val PROVIDERS_NEEDING_API_KEY: Set<String> = setOf(
-            "自定义 API", "Custom API",
+            CUSTOM_PROVIDER_NAME, CUSTOM_PROVIDER_NAME_EN,
             "Tavily",
             "Zhipu", "Brave", "Serper", "Bocha", "Metaso", "Exa",
             "Firecrawl", "Perplexity",
