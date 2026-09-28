@@ -2833,10 +2833,10 @@
         <error line="270" column="26" source="standard:multiline-expression-wrapping" />
         <error line="341" column="57" source="standard:function-signature" />
         <error line="350" column="58" source="standard:function-signature" />
-        <error line="377" column="38" source="standard:multiline-expression-wrapping" />
-        <error line="406" column="33" source="standard:function-signature" />
-        <error line="406" column="54" source="standard:function-signature" />
-        <error line="406" column="74" source="standard:function-signature" />
+        <error line="386" column="38" source="standard:multiline-expression-wrapping" />
+        <error line="415" column="33" source="standard:function-signature" />
+        <error line="415" column="54" source="standard:function-signature" />
+        <error line="415" column="74" source="standard:function-signature" />
     </file>
     <file name="src/main/java/io/zer0/muse/data/AccountState.kt">
         <error line="1" column="1" source="standard:final-newline" />
@@ -7804,53 +7804,57 @@
     </file>
     <file name="src/main/java/io/zer0/muse/rag/RagService.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="89" column="5" source="standard:blank-line-before-declaration" />
-        <error line="89" column="5" source="standard:no-consecutive-comments" />
-        <error line="97" column="45" source="standard:multiline-expression-wrapping" />
-        <error line="169" column="1" source="standard:spacing-between-declarations-with-annotations" />
-        <error line="184" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="268" column="22" source="standard:multiline-expression-wrapping" />
-        <error line="337" column="32" source="standard:multiline-expression-wrapping" />
-        <error line="379" column="30" source="standard:multiline-expression-wrapping" />
-        <error line="416" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="424" column="1" source="standard:max-line-length" />
-        <error line="424" column="18" source="standard:argument-list-wrapping" />
-        <error line="424" column="32" source="standard:argument-list-wrapping" />
-        <error line="424" column="145" source="standard:argument-list-wrapping" />
-        <error line="432" column="27" source="standard:multiline-expression-wrapping" />
-        <error line="470" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="475" column="33" source="standard:no-multi-spaces" />
-        <error line="475" column="34" source="standard:discouraged-comment-location" />
-        <error line="489" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="533" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="549" column="27" source="standard:multiline-expression-wrapping" />
-        <error line="578" column="28" source="standard:multiline-expression-wrapping" />
-        <error line="593" column="27" source="standard:multiline-expression-wrapping" />
-        <error line="607" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="721" column="39" source="standard:multiline-expression-wrapping" />
-        <error line="735" column="26" source="standard:multiline-expression-wrapping" />
-        <error line="751" column="30" source="standard:multiline-expression-wrapping" />
-        <error line="775" column="35" source="standard:multiline-expression-wrapping" />
-        <error line="780" column="34" source="standard:multiline-expression-wrapping" />
-        <error line="802" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="825" column="9" source="standard:function-signature" />
-        <error line="825" column="57" source="standard:function-signature" />
-        <error line="830" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="833" column="31" source="standard:no-multi-spaces" />
-        <error line="877" column="23" source="standard:multiline-expression-wrapping" />
-        <error line="887" column="30" source="standard:multiline-expression-wrapping" />
-        <error line="896" column="28" source="standard:multiline-expression-wrapping" />
-        <error line="900" column="27" source="standard:multiline-expression-wrapping" />
-        <error line="960" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="967" column="31" source="standard:multiline-expression-wrapping" />
-        <error line="1049" column="20" source="standard:multiline-expression-wrapping" />
-        <error line="1079" column="21" source="standard:multiline-expression-wrapping" />
-        <error line="1120" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="1126" column="24" source="standard:multiline-expression-wrapping" />
-        <error line="1153" column="9" source="standard:spacing-between-declarations-with-comments" />
-        <error line="1155" column="9" source="standard:spacing-between-declarations-with-comments" />
-        <error line="1160" column="9" source="standard:spacing-between-declarations-with-comments" />
-        <error line="1162" column="9" source="standard:spacing-between-declarations-with-comments" />
+        <error line="91" column="5" source="standard:blank-line-before-declaration" />
+        <error line="91" column="5" source="standard:no-consecutive-comments" />
+        <error line="99" column="45" source="standard:multiline-expression-wrapping" />
+        <error line="171" column="1" source="standard:spacing-between-declarations-with-annotations" />
+        <error line="186" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="270" column="22" source="standard:multiline-expression-wrapping" />
+        <error line="339" column="32" source="standard:multiline-expression-wrapping" />
+        <error line="381" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="417" column="14" source="standard:multiline-expression-wrapping" />
+        <error line="417" column="14" source="standard:function-signature" />
+        <error line="422" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="430" column="1" source="standard:max-line-length" />
+        <error line="430" column="18" source="standard:argument-list-wrapping" />
+        <error line="430" column="32" source="standard:argument-list-wrapping" />
+        <error line="430" column="145" source="standard:argument-list-wrapping" />
+        <error line="438" column="27" source="standard:multiline-expression-wrapping" />
+        <error line="476" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="481" column="33" source="standard:no-multi-spaces" />
+        <error line="481" column="34" source="standard:discouraged-comment-location" />
+        <error line="495" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="538" column="14" source="standard:multiline-expression-wrapping" />
+        <error line="538" column="14" source="standard:function-signature" />
+        <error line="541" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="557" column="27" source="standard:multiline-expression-wrapping" />
+        <error line="586" column="28" source="standard:multiline-expression-wrapping" />
+        <error line="601" column="27" source="standard:multiline-expression-wrapping" />
+        <error line="615" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="729" column="39" source="standard:multiline-expression-wrapping" />
+        <error line="743" column="26" source="standard:multiline-expression-wrapping" />
+        <error line="759" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="783" column="35" source="standard:multiline-expression-wrapping" />
+        <error line="788" column="34" source="standard:multiline-expression-wrapping" />
+        <error line="810" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="833" column="9" source="standard:function-signature" />
+        <error line="833" column="57" source="standard:function-signature" />
+        <error line="838" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="841" column="31" source="standard:no-multi-spaces" />
+        <error line="885" column="23" source="standard:multiline-expression-wrapping" />
+        <error line="895" column="30" source="standard:multiline-expression-wrapping" />
+        <error line="904" column="28" source="standard:multiline-expression-wrapping" />
+        <error line="908" column="27" source="standard:multiline-expression-wrapping" />
+        <error line="968" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="975" column="31" source="standard:multiline-expression-wrapping" />
+        <error line="1057" column="20" source="standard:multiline-expression-wrapping" />
+        <error line="1087" column="21" source="standard:multiline-expression-wrapping" />
+        <error line="1128" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="1134" column="24" source="standard:multiline-expression-wrapping" />
+        <error line="1161" column="9" source="standard:spacing-between-declarations-with-comments" />
+        <error line="1163" column="9" source="standard:spacing-between-declarations-with-comments" />
+        <error line="1168" column="9" source="standard:spacing-between-declarations-with-comments" />
+        <error line="1170" column="9" source="standard:spacing-between-declarations-with-comments" />
     </file>
     <file name="src/main/java/io/zer0/muse/rag/ReindexAllWorker.kt">
         <error line="46" column="1" source="standard:no-consecutive-comments" />
