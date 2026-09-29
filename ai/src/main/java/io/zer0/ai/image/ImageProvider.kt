@@ -49,7 +49,7 @@ interface ImageProvider {
 data class ImageGenRequest(
     val prompt: String,
     val model: String,
-    val size: String,  // "1024x1024" 或 "1:1" 比例
+    val size: String, // "1024x1024" 或 "1:1" 比例
     val quality: String = "standard",
     val style: String = "",
     val n: Int = 1,

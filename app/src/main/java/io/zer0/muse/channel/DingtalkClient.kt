@@ -59,62 +59,56 @@ internal object DingtalkClient {
         clientId: String,
         clientSecret: String,
         apiBase: String = DINGTALK_DEFAULT_API_BASE,
-    ): Result<StreamConnection> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val body = buildJsonObject {
-                    put("clientId", clientId)
-                    put("clientSecret", clientSecret)
-                    putJsonArray("subscriptions") {
-                        addJsonObject {
-                            put("topic", "/v1.0/im/bot/messages/get")
-                            put("type", "CALLBACK")
-                        }
+    ): Result<StreamConnection> = withContext(Dispatchers.IO) {
+        runCatching {
+            val body = buildJsonObject {
+                put("clientId", clientId)
+                put("clientSecret", clientSecret)
+                putJsonArray("subscriptions") {
+                    addJsonObject {
+                        put("topic", "/v1.0/im/bot/messages/get")
+                        put("type", "CALLBACK")
                     }
-                    put("ua", "muse-app/2.0")
-                }.toString()
-                val resp = postJson(
-                    "$apiBase/gateway/connections/open",
-                    body,
-                    emptyMap(),
-                ).getOrThrow()
-                val obj = AppJson.parseToJsonElement(resp).jsonObject
-                StreamConnection(
-                    endpoint = obj["endpoint"]?.jsonPrimitive?.contentOrNull
-                        ?: error("Stream 响应缺少 endpoint: ${resp.take(200)}"),
-                    ticket = obj["ticket"]?.jsonPrimitive?.contentOrNull
-                        ?: error("Stream 响应缺少 ticket: ${resp.take(200)}"),
-                )
-            }
+                }
+                put("ua", "muse-app/2.0")
+            }.toString()
+            val resp = postJson(
+                "$apiBase/gateway/connections/open",
+                body,
+                emptyMap(),
+            ).getOrThrow()
+            val obj = AppJson.parseToJsonElement(resp).jsonObject
+            StreamConnection(
+                endpoint = obj["endpoint"]?.jsonPrimitive?.contentOrNull
+                    ?: error("Stream 响应缺少 endpoint: ${resp.take(200)}"),
+                ticket = obj["ticket"]?.jsonPrimitive?.contentOrNull
+                    ?: error("Stream 响应缺少 ticket: ${resp.take(200)}"),
+            )
         }
+    }
 
     /** WebSocket 连接 URL(endpoint + ticket;ticket 有效期 90 秒且仅可用一次)。 */
     fun streamUrl(connection: StreamConnection): String =
         "${connection.endpoint}?ticket=${java.net.URLEncoder.encode(connection.ticket, "UTF-8")}"
 
     /** 用 sessionWebhook 回复(临时地址自带会话凭据,无需鉴权)。 */
-    suspend fun sendViaSessionWebhook(webhookUrl: String, text: String): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val body = buildJsonObject {
-                    put("msgtype", "text")
-                    putJsonObject("text") { put("content", text) }
-                }.toString()
-                val resp = postJson(webhookUrl, body, emptyMap()).getOrThrow()
-                val obj = runCatching { AppJson.parseToJsonElement(resp).jsonObject }.getOrNull()
-                val errcode = obj?.get("errcode")?.jsonPrimitive?.contentOrNull?.toIntOrNull()
-                if (errcode != null && errcode != 0) {
-                    error("钉钉回发失败: errcode=$errcode ${obj["errmsg"]?.jsonPrimitive?.contentOrNull.orEmpty()}")
-                }
+    suspend fun sendViaSessionWebhook(webhookUrl: String, text: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val body = buildJsonObject {
+                put("msgtype", "text")
+                putJsonObject("text") { put("content", text) }
+            }.toString()
+            val resp = postJson(webhookUrl, body, emptyMap()).getOrThrow()
+            val obj = runCatching { AppJson.parseToJsonElement(resp).jsonObject }.getOrNull()
+            val errcode = obj?.get("errcode")?.jsonPrimitive?.contentOrNull?.toIntOrNull()
+            if (errcode != null && errcode != 0) {
+                error("钉钉回发失败: errcode=$errcode ${obj["errmsg"]?.jsonPrimitive?.contentOrNull.orEmpty()}")
             }
         }
+    }
 
     /** 获取企业内部应用 access_token。 */
-    suspend fun fetchAccessToken(
-        appKey: String,
-        appSecret: String,
-        apiBase: String = DINGTALK_DEFAULT_API_BASE,
-    ): Result<TokenInfo> =
+    suspend fun fetchAccessToken(appKey: String, appSecret: String, apiBase: String = DINGTALK_DEFAULT_API_BASE): Result<TokenInfo> =
         withContext(Dispatchers.IO) {
             runCatching {
                 val body = buildJsonObject {
@@ -192,16 +186,15 @@ internal object DingtalkClient {
         }
     }
 
-    private fun postJson(url: String, body: String, headers: Map<String, String>): Result<String> =
-        runCatching {
-            val builder = Request.Builder().url(url).post(body.toRequestBody(JSON_MEDIA))
-            headers.forEach { (k, v) -> builder.header(k, v) }
-            HTTP.newCall(builder.build()).execute().use { resp ->
-                val text = resp.body.string()
-                if (!resp.isSuccessful) error("HTTP ${resp.code}: ${text.take(300)}")
-                text
-            }
+    private fun postJson(url: String, body: String, headers: Map<String, String>): Result<String> = runCatching {
+        val builder = Request.Builder().url(url).post(body.toRequestBody(JSON_MEDIA))
+        headers.forEach { (k, v) -> builder.header(k, v) }
+        HTTP.newCall(builder.build()).execute().use { resp ->
+            val text = resp.body.string()
+            if (!resp.isSuccessful) error("HTTP ${resp.code}: ${text.take(300)}")
+            text
         }
+    }
 
     /** Stream 推送帧的 ACK 应答(按协议回传 messageId 与 data)。 */
     fun ackFrame(messageId: String, data: String): String = buildJsonObject {
@@ -233,6 +226,5 @@ internal object DingtalkSessionCache {
     }
 
     /** 返回未过期的 sessionWebhook;无可用值返回 null。 */
-    fun get(key: String): String? =
-        entries[key]?.takeIf { it.expireAt > System.currentTimeMillis() }?.webhookUrl
+    fun get(key: String): String? = entries[key]?.takeIf { it.expireAt > System.currentTimeMillis() }?.webhookUrl
 }

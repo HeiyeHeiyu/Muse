@@ -39,7 +39,7 @@ class MediaGenToolsRegistrar(
                 required = setOf("prompt"),
                 riskLevel = ToolRiskLevel.HIGH,
                 parameterTypes = mapOf("n" to "integer"),
-            )
+            ),
         ) { args -> impl.execGenerateImage(args) }
 
         toolRegistry.register(
@@ -57,7 +57,7 @@ class MediaGenToolsRegistrar(
                 required = setOf("prompt"),
                 riskLevel = ToolRiskLevel.HIGH,
                 parameterTypes = mapOf("duration" to "integer"),
-            )
+            ),
         ) { args -> impl.execGenerateVideo(args) }
 
         toolRegistry.register(
@@ -71,7 +71,7 @@ class MediaGenToolsRegistrar(
                 required = setOf("content"),
                 riskLevel = ToolRiskLevel.SAFE,
                 parameterTypes = mapOf("size" to "integer"),
-            )
+            ),
         ) { args -> impl.execGenerateQrCode(args) }
     }
 }

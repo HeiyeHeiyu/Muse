@@ -154,5 +154,4 @@ class VideoProviderRequestTest {
             images?.jsonArray?.map { it.jsonPrimitive.content },
         )
     }
-
 }

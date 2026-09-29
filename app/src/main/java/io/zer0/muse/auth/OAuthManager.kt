@@ -75,21 +75,26 @@ object OAuthManager {
     sealed class State {
         /** 空闲,无进行中的 OAuth 流程。 */
         object IDLE : State()
+
         /**
          * 等待用户操作。
          * - Device Flow:携带 [userCode] + [verificationUri],UI 应弹窗显示给用户。
          * - Auth Code Flow:[userCode] 为空,UI 应提示「浏览器已打开,请完成授权」。
          */
         data class AWAITING_USER(val userCode: String = "", val verificationUri: String = "") : State()
+
         /** Device Flow 正在轮询 token 端点。 */
         object POLLING : State()
+
         /** 成功,[apiKey] 为换到的 access_token。 */
         data class SUCCESS(val apiKey: String) : State()
+
         /** 失败,[message] 为错误描述。 */
         data class ERROR(val message: String) : State()
     }
 
     private val _stateFlow = MutableStateFlow<State>(State.IDLE)
+
     /** 状态流,UI 观察以驱动弹窗/进度/错误提示。 */
     val stateFlow: StateFlow<State> = _stateFlow.asStateFlow()
 
@@ -281,11 +286,7 @@ object OAuthManager {
      * @param providerId P2-11: 供应商 ID(空字符串表示不持久化,保留旧调用方兼容)
      * @return 成功时 Result.success(access_token);失败时 Result.failure(异常)
      */
-    suspend fun launchAuthorizationCodeFlow(
-        activity: Activity,
-        config: OAuthConfig,
-        providerId: String = "",
-    ): Result<String> {
+    suspend fun launchAuthorizationCodeFlow(activity: Activity, config: OAuthConfig, providerId: String = ""): Result<String> {
         if (config.clientId.isBlank()) {
             val msg = "Auth Code Flow 不可用:clientId 为空"
             _stateFlow.value = State.ERROR(msg)
@@ -551,11 +552,7 @@ object OAuthManager {
      * P2-11: 返回完整 [TokenResponse](含 refresh_token / expires_in / scope),
      * 供调用方构造 [TokenBundle] 持久化。
      */
-    private suspend fun exchangeCodeForToken(
-        config: OAuthConfig,
-        code: String,
-        codeVerifier: String,
-    ): TokenResponse? {
+    private suspend fun exchangeCodeForToken(config: OAuthConfig, code: String, codeVerifier: String): TokenResponse? {
         return withContext(Dispatchers.IO) {
             runCatching {
                 val form = FormBody.Builder()

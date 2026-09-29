@@ -1,18 +1,10 @@
 package io.zer0.muse.ui.worldbook
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.surface.MuseSurface
-import io.zer0.muse.ui.common.surface.museBottomBarInsets
-
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,10 +23,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -43,20 +37,25 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
+import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseDropdown
 import io.zer0.muse.ui.common.form.MuseFloatingButton
 import io.zer0.muse.ui.common.form.MuseSwitch
+import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.form.MuseTextField
-import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsSwitchRow
 import io.zer0.muse.ui.common.state.MuseEmptyState
+import io.zer0.muse.ui.common.surface.MuseSurface
+import io.zer0.muse.ui.common.surface.museBottomBarInsets
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.worldbook.WorldBookEntryEntity
@@ -80,10 +79,7 @@ import java.util.UUID
  *  - 支持 SillyTavern World Info JSON 导入导出
  */
 @Composable
-fun WorldBookScreen(
-    onBack: () -> Unit,
-    viewModel: WorldBookViewModel = koinViewModel(),
-) {
+fun WorldBookScreen(onBack: () -> Unit, viewModel: WorldBookViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<WorldBookEntryEntity?>(null) }
     var isNew by remember { mutableStateOf(false) }
@@ -96,7 +92,10 @@ fun WorldBookScreen(
         WorldBookEditPage(
             initial = entity,
             isNew = isNew,
-            onBack = { editing = null; isNew = false },
+            onBack = {
+                editing = null
+                isNew = false
+            },
             onSave = { saved ->
                 viewModel.save(saved)
                 editing = null
@@ -123,14 +122,18 @@ fun WorldBookScreen(
                     MuseCapsuleButton(
                         text = stringResource(R.string.worldbook_export),
                         onClick = {
-                        viewModel.exportSillyTavern { json ->
-                            scope.launch {
-                                val file = java.io.File(context.cacheDir, "worldbook_export.json")
-                                file.writeText(json)
-                                Toast.makeText(context, context.getString(R.string.worldbook_exported_to, file.absolutePath), Toast.LENGTH_LONG).show() // 前端修复 (i18n-8)
+                            viewModel.exportSillyTavern { json ->
+                                scope.launch {
+                                    val file = java.io.File(context.cacheDir, "worldbook_export.json")
+                                    file.writeText(json)
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.worldbook_exported_to, file.absolutePath),
+                                        Toast.LENGTH_LONG,
+                                    ).show() // 前端修复 (i18n-8)
+                                }
                             }
-                        }
-                    },
+                        },
                         variant = IosCapsuleButtonVariant.Text,
                         fillWidth = false,
                     )
@@ -172,7 +175,10 @@ fun WorldBookScreen(
             items(state.entries, key = { it.id }) { entry ->
                 WorldBookCard(
                     entry = entry,
-                    onEdit = { editing = entry; isNew = false },
+                    onEdit = {
+                        editing = entry
+                        isNew = false
+                    },
                     onDelete = { deleteTarget = entry },
                     onToggleEnabled = {
                         viewModel.save(entry.copy(enabled = !entry.enabled))
@@ -205,12 +211,7 @@ fun WorldBookScreen(
 }
 
 @Composable
-private fun WorldBookCard(
-    entry: WorldBookEntryEntity,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onToggleEnabled: () -> Unit,
-) {
+private fun WorldBookCard(entry: WorldBookEntryEntity, onEdit: () -> Unit, onDelete: () -> Unit, onToggleEnabled: () -> Unit) {
     val unnamedText = stringResource(R.string.worldbook_unnamed)
     val disabledText = stringResource(R.string.worldbook_disabled)
     val enabledStateText = stringResource(R.string.worldbook_enabled_cd)
@@ -223,10 +224,13 @@ private fun WorldBookCard(
     MuseSurface(
         modifier = Modifier.fillMaxWidth(),
         shape = MuseShapes.medium,
-        color = if (entry.enabled) MaterialTheme.colorScheme.surfaceVariant
-            else MaterialTheme.colorScheme.surface,
+        color = if (entry.enabled) {
+            MaterialTheme.colorScheme.surfaceVariant
+        } else {
+            MaterialTheme.colorScheme.surface
+        },
     ) {
-Row(
+        Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -243,8 +247,11 @@ Row(
                         text = entry.name.ifBlank { unnamedText },
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
-                        color = if (entry.enabled) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.outline,
+                        color = if (entry.enabled) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.outline
+                        },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -308,12 +315,7 @@ Row(
 }
 
 @Composable
-private fun WorldBookEditPage(
-    initial: WorldBookEntryEntity,
-    isNew: Boolean,
-    onBack: () -> Unit,
-    onSave: (WorldBookEntryEntity) -> Unit,
-) {
+private fun WorldBookEditPage(initial: WorldBookEntryEntity, isNew: Boolean, onBack: () -> Unit, onSave: (WorldBookEntryEntity) -> Unit) {
     var name by rememberSaveable { mutableStateOf(initial.name) }
     val initialKeywordsText = remember { WorldBookRepository.parseKeywords(initial.keywordsJson).joinToString(", ") }
     var keywordsText by rememberSaveable { mutableStateOf(initialKeywordsText) }
@@ -383,26 +385,29 @@ private fun WorldBookEditPage(
                     MuseCapsuleButton(
                         text = saveText,
                         onClick = {
-                        val keywordsList = if (keywordsText.isBlank()) emptyList()
-                        else keywordsText.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                        val keywordsJson = WorldBookRepository.encodeKeywords(keywordsList)
-                        val saved = initial.copy(
-                            name = name.trim().ifBlank { unnamedText },
-                            keywordsJson = keywordsJson,
-                            content = content,
-                            priority = priority.trim().toIntOrNull() ?: 50,
-                            caseSensitive = caseSensitive,
-                            wholeWord = wholeWord,
-                            isRegex = isRegex,
-                            alwaysActive = alwaysActive,
-                            scanDepth = scanDepth.trim().toIntOrNull()?.coerceAtLeast(1) ?: 3,
-                            injectTarget = injectTarget,
-                            injectPosition = injectPosition,
-                            insertionDepth = insertionDepth.trim().toIntOrNull() ?: 0,
-                            enabled = enabled,
-                        )
-                        onSave(saved)
-                    },
+                            val keywordsList = if (keywordsText.isBlank()) {
+                                emptyList()
+                            } else {
+                                keywordsText.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                            }
+                            val keywordsJson = WorldBookRepository.encodeKeywords(keywordsList)
+                            val saved = initial.copy(
+                                name = name.trim().ifBlank { unnamedText },
+                                keywordsJson = keywordsJson,
+                                content = content,
+                                priority = priority.trim().toIntOrNull() ?: 50,
+                                caseSensitive = caseSensitive,
+                                wholeWord = wholeWord,
+                                isRegex = isRegex,
+                                alwaysActive = alwaysActive,
+                                scanDepth = scanDepth.trim().toIntOrNull()?.coerceAtLeast(1) ?: 3,
+                                injectTarget = injectTarget,
+                                injectPosition = injectPosition,
+                                insertionDepth = insertionDepth.trim().toIntOrNull() ?: 0,
+                                enabled = enabled,
+                            )
+                            onSave(saved)
+                        },
                         variant = IosCapsuleButtonVariant.Text,
                         fillWidth = false,
                     )

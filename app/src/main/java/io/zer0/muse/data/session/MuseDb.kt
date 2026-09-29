@@ -1,16 +1,22 @@
 package io.zer0.muse.data.session
 
+import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import android.content.Context
+import io.zer0.common.AppJson
+import io.zer0.common.Logger
+import io.zer0.muse.data.agentdm.AgentMessageDao
+import io.zer0.muse.data.agentdm.AgentMessageEntity
 import io.zer0.muse.data.artifact.ArtifactDao
 import io.zer0.muse.data.artifact.ArtifactEntity
 import io.zer0.muse.data.assistant.AssistantDao
 import io.zer0.muse.data.assistant.AssistantEntity
+import io.zer0.muse.data.audit.AuditLogDao
+import io.zer0.muse.data.audit.AuditLogEntity
 import io.zer0.muse.data.experience.ExperienceDao
 import io.zer0.muse.data.experience.ExperienceEntity
 import io.zer0.muse.data.groupchat.GroupChatDao
@@ -30,6 +36,8 @@ import io.zer0.muse.data.knowledge.KnowledgeDocDao
 import io.zer0.muse.data.knowledge.KnowledgeDocEntity
 import io.zer0.muse.data.lorebook.LorebookDao
 import io.zer0.muse.data.lorebook.LorebookEntity
+import io.zer0.muse.data.milestone.MilestoneDao
+import io.zer0.muse.data.milestone.MilestoneEntity
 import io.zer0.muse.data.promptinjection.PromptInjectionDao
 import io.zer0.muse.data.promptinjection.PromptInjectionEntity
 import io.zer0.muse.data.quickmsg.QuickMessageDao
@@ -43,12 +51,6 @@ import io.zer0.muse.data.schedule.ScheduledTaskExecutionDao
 import io.zer0.muse.data.schedule.ScheduledTaskExecutionEntity
 import io.zer0.muse.data.skill.SkillDao
 import io.zer0.muse.data.skill.SkillEntity
-import io.zer0.muse.data.milestone.MilestoneDao
-import io.zer0.muse.data.milestone.MilestoneEntity
-import io.zer0.muse.data.agentdm.AgentMessageDao
-import io.zer0.muse.data.agentdm.AgentMessageEntity
-import io.zer0.muse.data.audit.AuditLogDao
-import io.zer0.muse.data.audit.AuditLogEntity
 import io.zer0.muse.data.stats.AutoBackupLogDao
 import io.zer0.muse.data.stats.AutoBackupLogEntity
 import io.zer0.muse.data.stats.DbIntegrityLogDao
@@ -57,11 +59,9 @@ import io.zer0.muse.data.stats.StatsCacheDao
 import io.zer0.muse.data.stats.StatsCacheEntity
 import io.zer0.muse.ui.translate.TranslateHistoryDao
 import io.zer0.muse.ui.translate.TranslateHistoryEntity
-import io.zer0.common.AppJson
-import io.zer0.common.Logger
-import java.io.File
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
+import java.io.File
 
 /**
  * muse app 层 Room 数据库。
@@ -187,12 +187,14 @@ abstract class MuseDb : RoomDatabase() {
     abstract fun scheduledTaskDao(): ScheduledTaskDao
     abstract fun knowledgeDocDao(): KnowledgeDocDao
     abstract fun knowledgeChunkDao(): KnowledgeChunkDao
+
     // v1.133: 多知识库 + FTS4
     abstract fun knowledgeBaseDao(): KnowledgeBaseDao
     abstract fun knowledgeChunkFtsDao(): KnowledgeChunkFtsDao
     abstract fun scheduledTaskExecutionDao(): ScheduledTaskExecutionDao
     abstract fun groupChatDao(): GroupChatDao
     abstract fun groupChatMessageDao(): GroupChatMessageDao
+
     // v2.x: 群聊记忆隔离(独立 fact store,不污染主记忆)
     abstract fun groupChatMemoryDao(): GroupChatMemoryDao
 
@@ -200,32 +202,45 @@ abstract class MuseDb : RoomDatabase() {
     abstract fun momentDao(): io.zer0.muse.data.moment.MomentDao
     abstract fun diaryDao(): io.zer0.muse.data.diary.DiaryDao
     abstract fun patrolLogDao(): io.zer0.muse.data.patrol.PatrolLogDao
+
     // v1.98: 经验库
     abstract fun experienceDao(): ExperienceDao
+
     // Phase 2 2B: 里程碑
     abstract fun milestoneDao(): MilestoneDao
     abstract fun agentMessageDao(): AgentMessageDao
+
     // P2-4: 审计日志
     abstract fun auditLogDao(): AuditLogDao
+
     // v1.134 P1-1/P1-2: 孤儿组件接入所需 DAO
     abstract fun autoBackupLogDao(): AutoBackupLogDao
     abstract fun statsCacheDao(): StatsCacheDao
+
     // P3-3: 数据库完整性校验 DAO(IntegrityChecker 使用)
     abstract fun integrityLogDao(): DbIntegrityLogDao
+
     // v1.0.15: 消息发送 outbox DAO
     abstract fun messageOutboxDao(): MessageOutboxDao
+
     // v1.0.17: 翻译历史 DAO
     abstract fun translateHistoryDao(): TranslateHistoryDao
+
     // v1.0.17: 快速记录 DAO(替代 JSON 文件存储 + 回收站)
     abstract fun quickNoteDao(): QuickNoteDao
+
     // P1-2: Worldbook 动态世界书 DAO
     abstract fun worldBookDao(): io.zer0.muse.worldbook.WorldBookDao
+
     // v1.0.53 Phase 1: 子 agent 线程 DAO(持久化版)
     abstract fun subagentThreadDao(): io.zer0.muse.data.subagent.SubagentThreadDao
+
     // B5-01: 流式生成检查点 DAO
     abstract fun generationCheckpointDao(): GenerationCheckpointDao
+
     // B5-02: 群聊生成账本 DAO
     abstract fun groupChatGenerationLedgerDao(): io.zer0.muse.data.groupchat.GroupChatGenerationLedgerDao
+
     // Overnight rebuild: 对话影子事件与新投影存储
     abstract fun conversationEventDao(): ConversationEventDao
     abstract fun conversationTurnDao(): ConversationTurnDao
@@ -525,7 +540,7 @@ abstract class MuseDb : RoomDatabase() {
                 // 1. 无条件补齐 scheduled_tasks 索引(幂等)
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_scheduled_tasks_enabled_next_run_at` " +
-                        "ON `scheduled_tasks` (`enabled`, `next_run_at`)"
+                        "ON `scheduled_tasks` (`enabled`, `next_run_at`)",
                 )
                 // 2. 条件重建 messages(imageUrlsJson 缺 DEFAULT '[]' 时)
                 var imageUrlsDefault = ""
@@ -540,7 +555,8 @@ abstract class MuseDb : RoomDatabase() {
                 }
                 if (imageUrlsDefault == "[]") return
                 // 重建表: 列定义与 Entity 完全一致(30 列 + FK),随后重建 4 个索引
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS `messages_new` (
                         `id` TEXT NOT NULL,
                         `sessionId` TEXT NOT NULL,
@@ -574,8 +590,10 @@ abstract class MuseDb : RoomDatabase() {
                         PRIMARY KEY(`id`),
                         FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
                     )
-                """.trimIndent())
-                db.execSQL("""
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
                     INSERT INTO `messages_new` (
                         `id`,`sessionId`,`role`,`content`,`reasoning`,`thinkingSignature`,
                         `thinkingEncryptedContent`,`modelId`,`createdAt`,`imageUrlsJson`,
@@ -592,14 +610,17 @@ abstract class MuseDb : RoomDatabase() {
                         `reflection`,`contentLength`,`deletedAt`,`reaction`,`variantGroupId`,
                         `variantIndex`,`variantCount`,`parentGroupId`,`attachmentsJson`,`toolCallInfoJson`
                     FROM `messages`
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 db.execSQL("DROP TABLE `messages`")
                 db.execSQL("ALTER TABLE `messages_new` RENAME TO `messages`")
                 // 重建索引(DROP TABLE 会删除所有索引)
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_messages_sessionId` ON `messages` (`sessionId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_messages_role` ON `messages` (`role`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_messages_sessionId_createdAt` ON `messages` (`sessionId`, `createdAt`)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_messages_sessionId_createdAt_role` ON `messages` (`sessionId`, `createdAt`, `role`)")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_messages_sessionId_createdAt_role` ON `messages` (`sessionId`, `createdAt`, `role`)",
+                )
             }
         }
 
@@ -647,7 +668,8 @@ abstract class MuseDb : RoomDatabase() {
         /** v92→v93: 新建对话事件、回合和工具轮表，不改写旧消息。 */
         val MIGRATION_92_93 = object : Migration(92, 93) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS conversation_turns (
                         turnId TEXT NOT NULL PRIMARY KEY,
                         sessionId TEXT NOT NULL,
@@ -661,12 +683,14 @@ abstract class MuseDb : RoomDatabase() {
                         updatedAt INTEGER NOT NULL,
                         FOREIGN KEY(sessionId) REFERENCES sessions(id) ON UPDATE NO ACTION ON DELETE CASCADE
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_conversation_turns_session_started ON conversation_turns(sessionId, startedAt)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_conversation_turns_session_phase ON conversation_turns(sessionId, phase)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_conversation_turns_assistant ON conversation_turns(assistantMessageId)")
 
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS conversation_events (
                         sessionId TEXT NOT NULL,
                         eventSeq INTEGER NOT NULL,
@@ -685,12 +709,16 @@ abstract class MuseDb : RoomDatabase() {
                         PRIMARY KEY(sessionId, eventSeq),
                         FOREIGN KEY(sessionId) REFERENCES sessions(id) ON UPDATE NO ACTION ON DELETE CASCADE
                     )
-                """.trimIndent())
-                db.execSQL("CREATE INDEX IF NOT EXISTS idx_conversation_events_session_turn_seq ON conversation_events(sessionId, turnId, eventSeq)")
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS idx_conversation_events_session_turn_seq ON conversation_events(sessionId, turnId, eventSeq)",
+                )
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_conversation_events_turn_stream ON conversation_events(turnId, streamId)")
                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS idx_conversation_events_event_id ON conversation_events(eventId)")
 
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS tool_rounds (
                         id TEXT NOT NULL PRIMARY KEY,
                         turnId TEXT NOT NULL,
@@ -705,7 +733,8 @@ abstract class MuseDb : RoomDatabase() {
                         errorDetail TEXT DEFAULT NULL,
                         FOREIGN KEY(turnId) REFERENCES conversation_turns(turnId) ON UPDATE NO ACTION ON DELETE CASCADE
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_tool_rounds_turn_round ON tool_rounds(turnId, roundIndex)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_tool_rounds_call ON tool_rounds(toolCallId)")
             }
@@ -718,7 +747,8 @@ abstract class MuseDb : RoomDatabase() {
                 db.execSQL("ALTER TABLE messages ADD COLUMN parentMessageId TEXT DEFAULT NULL")
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_messages_sessionId_commitSeq ON messages(sessionId, commitSeq)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_messages_parentMessageId ON messages(parentMessageId)")
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS session_branch_heads (
                         sessionId TEXT NOT NULL PRIMARY KEY,
                         headMessageId TEXT DEFAULT NULL,
@@ -727,14 +757,16 @@ abstract class MuseDb : RoomDatabase() {
                         updatedAt INTEGER NOT NULL,
                         FOREIGN KEY(sessionId) REFERENCES sessions(id) ON UPDATE NO ACTION ON DELETE CASCADE
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
             }
         }
 
         /** v94→v95: 新建结构化 message parts，不回填既有消息。 */
         val MIGRATION_94_95 = object : Migration(94, 95) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS message_parts (
                         messageId TEXT NOT NULL,
                         partIndex INTEGER NOT NULL,
@@ -745,7 +777,8 @@ abstract class MuseDb : RoomDatabase() {
                         PRIMARY KEY(messageId, partIndex),
                         FOREIGN KEY(messageId) REFERENCES messages(id) ON UPDATE NO ACTION ON DELETE CASCADE
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_message_parts_message_index ON message_parts(messageId, partIndex)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_message_parts_kind ON message_parts(kind)")
             }
@@ -755,10 +788,14 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_95_96 = object : Migration(95, 96) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_messages_parentGroupId ON messages(parentGroupId)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS idx_sessions_assistantId_updatedAt " +
-                    "ON sessions(assistantId, updatedAt)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS idx_sessions_deletedAt_archived_updatedAt " +
-                    "ON sessions(deletedAt, archived, updatedAt)")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS idx_sessions_assistantId_updatedAt " +
+                        "ON sessions(assistantId, updatedAt)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS idx_sessions_deletedAt_archived_updatedAt " +
+                        "ON sessions(deletedAt, archived, updatedAt)",
+                )
                 db.execSQL("CREATE INDEX IF NOT EXISTS idx_sessions_parentSessionId ON sessions(parentSessionId)")
             }
         }
@@ -927,7 +964,8 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // 新建 assistants 表
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS assistants (
                         id TEXT NOT NULL PRIMARY KEY,
                         name TEXT NOT NULL,
@@ -964,14 +1002,17 @@ abstract class MuseDb : RoomDatabase() {
                         customBodiesJson TEXT NOT NULL DEFAULT '{}',
                         capabilitiesJson TEXT NOT NULL DEFAULT '[]'
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 // 插入默认 Assistant
                 // Android 16 (SDK 36) 起禁止 SQLiteDatabase.execSQL 执行 DML,只允许 DDL;
                 // 改用 compileStatement + executeInsert(SQLiteStatement 方法,Android 16 仍允许)
-                db.compileStatement("""
+                db.compileStatement(
+                    """
                     INSERT OR IGNORE INTO assistants (id, name, sortIndex, createdAt, updatedAt)
                     VALUES ('default', '默认助手', 0, 0, 0)
-                """.trimIndent()).use { it.executeInsert() }
+                    """.trimIndent(),
+                ).use { it.executeInsert() }
                 // sessions 加字段
                 db.execSQL("ALTER TABLE sessions ADD COLUMN assistantId TEXT NOT NULL DEFAULT 'default'")
                 db.execSQL("ALTER TABLE sessions ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0")
@@ -1006,7 +1047,8 @@ abstract class MuseDb : RoomDatabase() {
          */
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS lorebooks (
                         id TEXT NOT NULL PRIMARY KEY,
                         name TEXT NOT NULL,
@@ -1019,8 +1061,10 @@ abstract class MuseDb : RoomDatabase() {
                         createdAt INTEGER NOT NULL DEFAULT 0,
                         updatedAt INTEGER NOT NULL DEFAULT 0
                     )
-                """.trimIndent())
-                db.execSQL("""
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS quick_messages (
                         id TEXT NOT NULL PRIMARY KEY,
                         name TEXT NOT NULL,
@@ -1032,8 +1076,10 @@ abstract class MuseDb : RoomDatabase() {
                         createdAt INTEGER NOT NULL DEFAULT 0,
                         updatedAt INTEGER NOT NULL DEFAULT 0
                     )
-                """.trimIndent())
-                db.execSQL("""
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS prompt_injections (
                         id TEXT NOT NULL PRIMARY KEY,
                         name TEXT NOT NULL,
@@ -1046,7 +1092,8 @@ abstract class MuseDb : RoomDatabase() {
                         createdAt INTEGER NOT NULL DEFAULT 0,
                         updatedAt INTEGER NOT NULL DEFAULT 0
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
             }
         }
 
@@ -1067,7 +1114,8 @@ abstract class MuseDb : RoomDatabase() {
          */
         val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS skills (
                         id TEXT NOT NULL PRIMARY KEY,
                         name TEXT NOT NULL,
@@ -1080,7 +1128,8 @@ abstract class MuseDb : RoomDatabase() {
                         createdAt INTEGER NOT NULL DEFAULT 0,
                         updatedAt INTEGER NOT NULL DEFAULT 0
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
             }
         }
 
@@ -1091,7 +1140,8 @@ abstract class MuseDb : RoomDatabase() {
          */
         val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS folders (
                         id TEXT NOT NULL PRIMARY KEY,
                         name TEXT NOT NULL,
@@ -1100,7 +1150,8 @@ abstract class MuseDb : RoomDatabase() {
                         updatedAt INTEGER NOT NULL DEFAULT 0,
                         expanded INTEGER NOT NULL DEFAULT 1
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 // sessions 加 folderId 字段(默认 '',与 SessionEntity @ColumnInfo(defaultValue="") 对齐)
                 db.execSQL("ALTER TABLE sessions ADD COLUMN folderId TEXT DEFAULT ''")
             }
@@ -1122,7 +1173,7 @@ abstract class MuseDb : RoomDatabase() {
                 db.execSQL(
                     "CREATE VIRTUAL TABLE IF NOT EXISTS `messages_fts` USING FTS4(" +
                         "`message_id` TEXT, `content_ngram` TEXT" +
-                        ")"
+                        ")",
                 )
             }
         }
@@ -1137,7 +1188,8 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_9_10 = object : Migration(9, 10) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // scheduled_tasks 表(SQL 必须与 ScheduledTaskEntity @Entity 注解生成的完全一致)
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS scheduled_tasks (
                         id TEXT NOT NULL PRIMARY KEY,
                         name TEXT NOT NULL,
@@ -1151,9 +1203,11 @@ abstract class MuseDb : RoomDatabase() {
                         created_at INTEGER NOT NULL DEFAULT 0,
                         updated_at INTEGER NOT NULL DEFAULT 0
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 // knowledge_docs 表
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS knowledge_docs (
                         id TEXT NOT NULL PRIMARY KEY,
                         title TEXT NOT NULL,
@@ -1163,7 +1217,8 @@ abstract class MuseDb : RoomDatabase() {
                         created_at INTEGER NOT NULL DEFAULT 0,
                         updated_at INTEGER NOT NULL DEFAULT 0
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
             }
         }
 
@@ -1177,7 +1232,8 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_10_11 = object : Migration(10, 11) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // scheduled_task_executions 表(SQL 必须与 ScheduledTaskExecutionEntity @Entity 注解生成的完全一致)
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS scheduled_task_executions (
                         id TEXT NOT NULL PRIMARY KEY,
                         task_id TEXT NOT NULL,
@@ -1186,7 +1242,8 @@ abstract class MuseDb : RoomDatabase() {
                         reply_summary TEXT NOT NULL DEFAULT '',
                         error_message TEXT NOT NULL DEFAULT ''
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 // 索引: 按 task_id 查询执行历史(对应 @Index 注解)
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_scheduled_task_executions_task_id ON scheduled_task_executions(task_id)")
             }
@@ -1223,7 +1280,8 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_13_14 = object : Migration(13, 14) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // group_chats 表(SQL 必须与 GroupChatEntity @Entity 注解生成的完全一致)
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS group_chats (
                         id TEXT NOT NULL PRIMARY KEY,
                         name TEXT NOT NULL,
@@ -1233,9 +1291,11 @@ abstract class MuseDb : RoomDatabase() {
                         createdAt INTEGER NOT NULL DEFAULT 0,
                         updatedAt INTEGER NOT NULL DEFAULT 0
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 // group_chat_messages 表(SQL 必须与 GroupChatMessageEntity @Entity 注解生成的完全一致)
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS group_chat_messages (
                         id TEXT NOT NULL PRIMARY KEY,
                         chatId TEXT NOT NULL,
@@ -1246,7 +1306,8 @@ abstract class MuseDb : RoomDatabase() {
                         timestamp INTEGER NOT NULL DEFAULT 0,
                         mood TEXT
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 // 索引: 按 chatId 查询消息(对应 @Index 注解)
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_group_chat_messages_chatId ON group_chat_messages(chatId)")
             }
@@ -1270,7 +1331,8 @@ abstract class MuseDb : RoomDatabase() {
          */
         val MIGRATION_15_16 = object : Migration(15, 16) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS artifacts (
                         id TEXT NOT NULL PRIMARY KEY,
                         sessionId TEXT NOT NULL,
@@ -1283,7 +1345,8 @@ abstract class MuseDb : RoomDatabase() {
                         updatedAt INTEGER NOT NULL DEFAULT 0,
                         FOREIGN KEY(sessionId) REFERENCES sessions(id) ON DELETE CASCADE
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_artifacts_sessionId ON artifacts(sessionId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_artifacts_messageId ON artifacts(messageId)")
                 db.execSQL("ALTER TABLE messages ADD COLUMN artifactIdsJson TEXT NOT NULL DEFAULT '[]'")
@@ -1292,11 +1355,11 @@ abstract class MuseDb : RoomDatabase() {
 
         /**
          * v1.44: v16 → v17 迁移。
- * - group_chats 加 pinned 字段(默认 0),支持群聊置顶
- *
- * v1.46: v17 → v18 迁移。
- * - group_chat_messages 加 reasoning 字段(可选),支持群聊消息思考过程展示
- */
+         * - group_chats 加 pinned 字段(默认 0),支持群聊置顶
+         *
+         * v1.46: v17 → v18 迁移。
+         * - group_chat_messages 加 reasoning 字段(可选),支持群聊消息思考过程展示
+         */
         val MIGRATION_16_17 = object : Migration(16, 17) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE group_chats ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0")
@@ -1332,7 +1395,8 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_18_19 = object : Migration(18, 19) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // 1. 建新表(DDL,execSQL 可用)
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS skills_new (
                         id TEXT NOT NULL PRIMARY KEY,
                         name TEXT NOT NULL,
@@ -1345,14 +1409,16 @@ abstract class MuseDb : RoomDatabase() {
                         createdAt INTEGER NOT NULL DEFAULT 0,
                         updatedAt INTEGER NOT NULL DEFAULT 0
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 // 2. 数据迁移(DML,Android 16 必须用 query() 而非 execSQL)
                 //    MIGRATION_6_7 建表时已包含 category/createdAt/updatedAt 列,直接 INSERT 即可。
                 //    若旧表异常缺列,放弃迁移(技能可重新导入)。
                 //    (原 catch 分支用 COALESCE 补缺列是死代码:SQLite 对不存在的列在解析
                 //    阶段即报错,COALESCE 无法补救,故移除。)
                 try {
-                    db.query("""
+                    db.query(
+                        """
                         INSERT INTO skills_new
                             (id, name, description, parametersJson, requiredJson,
                              implementationKotlin, enabled, category, createdAt, updatedAt)
@@ -1360,7 +1426,8 @@ abstract class MuseDb : RoomDatabase() {
                             id, name, description, parametersJson, requiredJson,
                             implementationKotlin, enabled, category, createdAt, updatedAt
                         FROM skills
-                    """.trimIndent()).use { /* 执行 INSERT,关闭 Cursor */ }
+                        """.trimIndent(),
+                    ).use { /* 执行 INSERT,关闭 Cursor */ }
                 } catch (e: Exception) {
                     // 旧表异常:放弃数据迁移,skills 表将重建为空(内置 skill 会在启动时重新写入)
                     // v1.71: 记录日志,便于排查用户 skill 丢失问题
@@ -1416,7 +1483,9 @@ abstract class MuseDb : RoomDatabase() {
                     """.trimIndent(),
                 )
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_knowledge_chunks_doc_id ON knowledge_chunks(doc_id)")
-                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_knowledge_chunks_doc_id_chunk_index ON knowledge_chunks(doc_id, chunk_index)")
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_knowledge_chunks_doc_id_chunk_index ON knowledge_chunks(doc_id, chunk_index)",
+                )
                 // 2. knowledge_docs 加索引追踪字段(ALTER TABLE ADD COLUMN 是 DDL,execSQL 可用)
                 db.execSQL("ALTER TABLE knowledge_docs ADD COLUMN chunk_count INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE knowledge_docs ADD COLUMN embedding_model TEXT NOT NULL DEFAULT ''")
@@ -1452,7 +1521,9 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_22_23 = object : Migration(22, 23) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_prompt_injections_mode_enabled ON prompt_injections(mode, enabled)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_quick_messages_scope_assistantId_enabled ON quick_messages(scope, assistantId, enabled)")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_quick_messages_scope_assistantId_enabled ON quick_messages(scope, assistantId, enabled)",
+                )
             }
         }
 
@@ -1490,7 +1561,8 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_24_25 = object : Migration(24, 25) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // 1. 建新表(DDL,implementationKotlin 加 DEFAULT '')
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS skills_new (
                         id TEXT NOT NULL PRIMARY KEY,
                         name TEXT NOT NULL,
@@ -1503,10 +1575,12 @@ abstract class MuseDb : RoomDatabase() {
                         createdAt INTEGER NOT NULL DEFAULT 0,
                         updatedAt INTEGER NOT NULL DEFAULT 0
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 // 2. 数据迁移(DML,Android 16 必须用 query() 而非 execSQL)
                 try {
-                    db.query("""
+                    db.query(
+                        """
                         INSERT INTO skills_new
                             (id, name, description, parametersJson, requiredJson,
                              implementationKotlin, enabled, category, createdAt, updatedAt)
@@ -1514,7 +1588,8 @@ abstract class MuseDb : RoomDatabase() {
                             id, name, description, parametersJson, requiredJson,
                             implementationKotlin, enabled, category, createdAt, updatedAt
                         FROM skills
-                    """.trimIndent()).use { /* 执行 INSERT,关闭 Cursor */ }
+                        """.trimIndent(),
+                    ).use { /* 执行 INSERT,关闭 Cursor */ }
                 } catch (e: Exception) {
                     // 旧表异常:放弃数据迁移,skills 表将重建为空(内置 skill 会在启动时重新写入)
                     Logger.w("MuseDb", "skills 表迁移失败,用户自定义 skill 将丢失", e)
@@ -1537,7 +1612,7 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_25_26 = object : Migration(25, 26) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
-                    "ALTER TABLE assistants ADD COLUMN regexRulesJson TEXT NOT NULL DEFAULT '[]'"
+                    "ALTER TABLE assistants ADD COLUMN regexRulesJson TEXT NOT NULL DEFAULT '[]'",
                 )
             }
         }
@@ -1551,7 +1626,8 @@ abstract class MuseDb : RoomDatabase() {
          */
         val MIGRATION_26_27 = object : Migration(26, 27) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS experiences (
                         id TEXT NOT NULL PRIMARY KEY,
                         title TEXT NOT NULL,
@@ -1563,7 +1639,8 @@ abstract class MuseDb : RoomDatabase() {
                         createdAt INTEGER NOT NULL DEFAULT 0,
                         updatedAt INTEGER NOT NULL DEFAULT 0
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
             }
         }
 
@@ -1614,7 +1691,8 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_29_30 = object : Migration(29, 30) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // 1. 建新表(列定义与 onCreate 完全一致,含 DEFAULT NULL)
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS `messages_new` (
                         `id` TEXT NOT NULL,
                         `sessionId` TEXT NOT NULL,
@@ -1634,9 +1712,11 @@ abstract class MuseDb : RoomDatabase() {
                         PRIMARY KEY(`id`),
                         FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 // 2. 复制数据(列顺序与建表一致)
-                db.execSQL("""
+                db.execSQL(
+                    """
                     INSERT INTO `messages_new` (
                         `id`,`sessionId`,`role`,`content`,`reasoning`,`modelId`,
                         `createdAt`,`imageUrlsJson`,`favorite`,`favoriteTag`,
@@ -1649,7 +1729,8 @@ abstract class MuseDb : RoomDatabase() {
                         `citationUrlsJson`,`imageBase64Json`,`artifactIdsJson`,
                         `mood`,`reflection`
                     FROM `messages`
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 // 3. 替换旧表
                 db.execSQL("DROP TABLE `messages`")
                 db.execSQL("ALTER TABLE `messages_new` RENAME TO `messages`")
@@ -1657,7 +1738,9 @@ abstract class MuseDb : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_messages_sessionId` ON `messages` (`sessionId`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_messages_role` ON `messages` (`role`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_messages_sessionId_createdAt` ON `messages` (`sessionId`, `createdAt`)")
-                db.execSQL("CREATE INDEX IF NOT EXISTS `index_messages_sessionId_createdAt_role` ON `messages` (`sessionId`, `createdAt`, `role`)")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_messages_sessionId_createdAt_role` ON `messages` (`sessionId`, `createdAt`, `role`)",
+                )
             }
         }
 
@@ -1689,45 +1772,56 @@ abstract class MuseDb : RoomDatabase() {
                 // sessions.messageCount
                 db.execSQL("UPDATE sessions SET messageCount = (SELECT COUNT(*) FROM messages WHERE sessionId = sessions.id)")
                 // assistants.messageCount (该 Assistant 关联会话中的 ASSISTANT 消息数)
-                db.execSQL("""
+                db.execSQL(
+                    """
                     UPDATE assistants SET messageCount = (
                         SELECT COUNT(*) FROM messages m
                         JOIN sessions s ON m.sessionId = s.id
                         WHERE s.assistantId = assistants.id AND m.role = 'ASSISTANT'
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 // assistants.lastUsedAt (关联会话的最大 updatedAt)
-                db.execSQL("UPDATE assistants SET lastUsedAt = COALESCE((SELECT MAX(updatedAt) FROM sessions WHERE assistantId = assistants.id), 0)")
+                db.execSQL(
+                    "UPDATE assistants SET lastUsedAt = COALESCE((SELECT MAX(updatedAt) FROM sessions WHERE assistantId = assistants.id), 0)",
+                )
                 // folders.sessionCount
                 db.execSQL("UPDATE folders SET sessionCount = (SELECT COUNT(*) FROM sessions WHERE folderId = folders.id)")
                 // group_chats.messageCount
                 db.execSQL("UPDATE group_chats SET messageCount = (SELECT COUNT(*) FROM group_chat_messages WHERE chatId = group_chats.id)")
                 // group_chats.lastActivityAt
-                db.execSQL("UPDATE group_chats SET lastActivityAt = COALESCE((SELECT MAX(timestamp) FROM group_chat_messages WHERE chatId = group_chats.id), 0)")
+                db.execSQL(
+                    "UPDATE group_chats SET lastActivityAt = COALESCE((SELECT MAX(timestamp) FROM group_chat_messages WHERE chatId = group_chats.id), 0)",
+                )
                 // group_chats.lastMessagePreview (最后一条消息内容,截断到 50 字)
                 // 注意: group_chat_messages 表的内容列是 body 不是 content
-                db.execSQL("""
+                db.execSQL(
+                    """
                     UPDATE group_chats SET lastMessagePreview = COALESCE(
                         (SELECT substr(body, 1, 50) FROM group_chat_messages
                          WHERE chatId = group_chats.id ORDER BY timestamp DESC LIMIT 1),
                         ''
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 // messages.contentLength
                 db.execSQL("UPDATE messages SET contentLength = length(content)")
 
                 // ── 3. 新建统计缓存表 ──
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS `stats_cache` (
                         `key` TEXT NOT NULL,
                         `value` TEXT NOT NULL DEFAULT '{}',
                         `updatedAt` INTEGER NOT NULL DEFAULT 0,
                         PRIMARY KEY(`key`)
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
 
                 // ── 4. 新建完整性校验日志表 ──
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS `db_integrity_log` (
                         `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                         `status` TEXT NOT NULL DEFAULT 'ok',
@@ -1735,10 +1829,12 @@ abstract class MuseDb : RoomDatabase() {
                         `dbSizeBytes` INTEGER NOT NULL DEFAULT 0,
                         `checkedAt` INTEGER NOT NULL DEFAULT 0
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
 
                 // ── 5. 新建自动备份日志表 ──
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS `auto_backup_log` (
                         `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                         `backupPath` TEXT NOT NULL DEFAULT '',
@@ -1748,7 +1844,8 @@ abstract class MuseDb : RoomDatabase() {
                         `messageCount` INTEGER NOT NULL DEFAULT 0,
                         `createdAt` INTEGER NOT NULL DEFAULT 0
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
             }
         }
 
@@ -1811,7 +1908,8 @@ abstract class MuseDb : RoomDatabase() {
          */
         val MIGRATION_35_36 = object : Migration(35, 36) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS milestones (
                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                         type TEXT NOT NULL DEFAULT 'auto',
@@ -1824,7 +1922,8 @@ abstract class MuseDb : RoomDatabase() {
                         created_at INTEGER NOT NULL DEFAULT 0,
                         dismissed_at INTEGER
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
             }
         }
 
@@ -1833,7 +1932,8 @@ abstract class MuseDb : RoomDatabase() {
          */
         val MIGRATION_36_37 = object : Migration(36, 37) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS agent_messages (
                         id TEXT NOT NULL PRIMARY KEY,
                         from_agent_id TEXT NOT NULL,
@@ -1843,7 +1943,8 @@ abstract class MuseDb : RoomDatabase() {
                         reply_to_id TEXT,
                         created_at INTEGER NOT NULL DEFAULT 0
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
             }
         }
 
@@ -1854,7 +1955,8 @@ abstract class MuseDb : RoomDatabase() {
          */
         val MIGRATION_37_38 = object : Migration(37, 38) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS audit_log (
                         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                         timestamp INTEGER NOT NULL,
@@ -1864,7 +1966,8 @@ abstract class MuseDb : RoomDatabase() {
                         detail TEXT NOT NULL DEFAULT '',
                         success INTEGER NOT NULL DEFAULT 1
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
             }
         }
 
@@ -1888,7 +1991,8 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_38_39 = object : Migration(38, 39) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // 1. 新建 knowledge_bases 表
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS knowledge_bases (
                         id TEXT NOT NULL PRIMARY KEY,
                         name TEXT NOT NULL,
@@ -1897,7 +2001,8 @@ abstract class MuseDb : RoomDatabase() {
                         updated_at INTEGER NOT NULL DEFAULT 0,
                         doc_count INTEGER NOT NULL DEFAULT 0
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_knowledge_bases_updated_at ON knowledge_bases(updated_at)")
 
                 // 2. knowledge_docs 加 4 列(ALTER TABLE ADD COLUMN 是 DDL,SQLite 支持)
@@ -1916,20 +2021,24 @@ abstract class MuseDb : RoomDatabase() {
                 // 列名用 text_content 而非 content,避开 FTS4 内部 content 列占位符冲突
                 // 列名用 doc_id 而非 docId:FTS4 保留列 docid(rowid 别名,大小写不敏感),docId 会导致 vtable constructor failed
                 // 不指定 tokenizer:中文检索由调用方做 ngram 预处理后再写入(按 MessageFtsManager 模式)
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_chunks_fts
                     USING fts4(chunkId, doc_id, text_content)
-                """.trimIndent())
+                    """.trimIndent(),
+                )
 
                 // 5. assistants 加 2 列
                 db.execSQL("ALTER TABLE assistants ADD COLUMN knowledgeBaseIdsJson TEXT NOT NULL DEFAULT '[]'")
                 db.execSQL("ALTER TABLE assistants ADD COLUMN ragConfigOverride TEXT DEFAULT NULL")
 
                 // 6. 插入默认 KB
-                db.compileStatement("""
+                db.compileStatement(
+                    """
                     INSERT OR IGNORE INTO knowledge_bases (id, name, description, created_at, updated_at, doc_count)
                     VALUES ('default', '默认知识库', '所有未指定知识库的文档默认归入此处', 0, 0, 0)
-                """.trimIndent()).use { it.executeInsert() }
+                    """.trimIndent(),
+                ).use { it.executeInsert() }
 
                 // 7. 标记 internal 文档(替代原 fileType="devdoc" + id.startsWith("devdoc-") 双重硬编码)
                 db.execSQL("UPDATE knowledge_docs SET is_internal = 1 WHERE file_type = 'devdoc' OR id LIKE 'devdoc-%'")
@@ -1938,22 +2047,26 @@ abstract class MuseDb : RoomDatabase() {
                 // Android 16 (SDK 36) 起禁止 execSQL 执行 DML,改用 compileStatement 不适用于 SELECT INSERT 组合,
                 // 这里用 SupportSQLiteDatabase.execSQL(原始 SQL) — Room 的 SupportSQLiteDatabase.execSQL 对 INSERT 仍兼容。
                 try {
-                    db.execSQL("""
+                    db.execSQL(
+                        """
                         INSERT INTO knowledge_chunks_fts(chunkId, doc_id, text_content)
                         SELECT id, doc_id, content FROM knowledge_chunks
                         WHERE content != ''
-                    """.trimIndent())
+                        """.trimIndent(),
+                    )
                 } catch (e: Exception) {
                     // FTS 同步失败不阻塞迁移,后续重索引会补齐
                     io.zer0.common.Logger.w("MuseDb", "FTS 同步失败,稍后重索引补齐", e)
                 }
 
                 // 9. 更新默认 KB 的 doc_count(冗余字段)
-                db.execSQL("""
+                db.execSQL(
+                    """
                     UPDATE knowledge_bases
                     SET doc_count = (SELECT COUNT(*) FROM knowledge_docs WHERE kb_id = 'default' AND is_internal = 0)
                     WHERE id = 'default'
-                """.trimIndent())
+                    """.trimIndent(),
+                )
 
                 // 10. messages 加 ragCitationsJson 列(持久化 RAG 引用列表)
                 db.execSQL("ALTER TABLE messages ADD COLUMN ragCitationsJson TEXT NOT NULL DEFAULT '[]'")
@@ -2051,7 +2164,8 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_42_43 = object : Migration(42, 43) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // v1.0.15: 消息发送 outbox 表(持久化发送队列)
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS message_outbox (
                         id TEXT NOT NULL PRIMARY KEY,
                         sessionId TEXT NOT NULL,
@@ -2062,7 +2176,8 @@ abstract class MuseDb : RoomDatabase() {
                         createdAt INTEGER NOT NULL,
                         FOREIGN KEY(sessionId) REFERENCES sessions(id) ON DELETE CASCADE
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_message_outbox_sessionId ON message_outbox(sessionId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_message_outbox_createdAt ON message_outbox(createdAt)")
             }
@@ -2077,7 +2192,8 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_43_44 = object : Migration(43, 44) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // translate_history 表(SQL 必须与 TranslateHistoryEntity @Entity 注解生成的完全一致)
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS translate_history (
                         id TEXT NOT NULL PRIMARY KEY,
                         source_text TEXT NOT NULL,
@@ -2087,11 +2203,14 @@ abstract class MuseDb : RoomDatabase() {
                         style TEXT NOT NULL,
                         created_at INTEGER NOT NULL
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 // 索引: 按时间倒序查询历史(对应 @Index 注解)
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_translate_history_created_at ON translate_history(created_at)")
                 // 索引: 按语言对查询(对应 @Index 注解)
-                db.execSQL("CREATE INDEX IF NOT EXISTS index_translate_history_source_language_target_language ON translate_history(source_language, target_language)")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_translate_history_source_language_target_language ON translate_history(source_language, target_language)",
+                )
             }
         }
 
@@ -2106,7 +2225,8 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_44_45 = object : Migration(44, 45) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // quick_notes 表(SQL 必须与 QuickNoteEntity @Entity 注解生成的完全一致)
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS quick_notes (
                         id TEXT NOT NULL PRIMARY KEY,
                         title TEXT NOT NULL,
@@ -2118,7 +2238,8 @@ abstract class MuseDb : RoomDatabase() {
                         created_at INTEGER NOT NULL DEFAULT 0,
                         updated_at INTEGER NOT NULL DEFAULT 0
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 // 索引: 覆盖 observeActive / observeTrash 的 WHERE + ORDER BY
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_quick_notes_deleted_updated_at ON quick_notes(deleted, updated_at)")
                 // 索引: 覆盖 ORDER BY pinned DESC, updated_at DESC
@@ -2199,7 +2320,8 @@ abstract class MuseDb : RoomDatabase() {
          */
         val MIGRATION_49_50 = object : Migration(49, 50) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS group_chat_memories (
                         id TEXT NOT NULL PRIMARY KEY,
                         groupChatId TEXT NOT NULL,
@@ -2208,7 +2330,8 @@ abstract class MuseDb : RoomDatabase() {
                         createdAt INTEGER NOT NULL,
                         expiresAt INTEGER
                     )
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_group_chat_memories_assistantId ON group_chat_memories(assistantId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_group_chat_memories_groupChatId ON group_chat_memories(groupChatId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_group_chat_memories_createdAt ON group_chat_memories(createdAt)")
@@ -2279,7 +2402,8 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_53_54 = object : Migration(53, 54) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // ── 重建 group_chats(host_id 默认值 NULL) ──
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS group_chats_new (
                         id TEXT NOT NULL PRIMARY KEY,
                         name TEXT NOT NULL,
@@ -2298,8 +2422,10 @@ abstract class MuseDb : RoomDatabase() {
                         shared_docs_json TEXT NOT NULL DEFAULT '[]',
                         member_private_context_json TEXT NOT NULL DEFAULT '{}'
                     )
-                """.trimIndent())
-                db.execSQL("""
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
                     INSERT INTO group_chats_new (id, name, description, memberIdsJson, teamId, pinned,
                         createdAt, updatedAt, lastMessagePreview, messageCount, lastActivityAt,
                         discussionMode, autoMaxRounds, host_id, shared_docs_json, member_private_context_json)
@@ -2307,12 +2433,14 @@ abstract class MuseDb : RoomDatabase() {
                         createdAt, updatedAt, lastMessagePreview, messageCount, lastActivityAt,
                         discussionMode, autoMaxRounds, host_id, shared_docs_json, member_private_context_json
                     FROM group_chats
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 db.execSQL("DROP TABLE group_chats")
                 db.execSQL("ALTER TABLE group_chats_new RENAME TO group_chats")
 
                 // ── 重建 group_chat_messages(whisper_target_id / reply_to_id 默认值 NULL) ──
-                db.execSQL("""
+                db.execSQL(
+                    """
                     CREATE TABLE IF NOT EXISTS group_chat_messages_new (
                         id TEXT NOT NULL PRIMARY KEY,
                         chatId TEXT NOT NULL,
@@ -2328,8 +2456,10 @@ abstract class MuseDb : RoomDatabase() {
                         reply_to_id TEXT DEFAULT NULL,
                         messageType TEXT NOT NULL DEFAULT 'normal'
                     )
-                """.trimIndent())
-                db.execSQL("""
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    """
                     INSERT INTO group_chat_messages_new (id, chatId, senderType, senderId, senderName,
                         body, imageBase64Json, timestamp, mood, reasoning,
                         whisper_target_id, reply_to_id, messageType)
@@ -2337,7 +2467,8 @@ abstract class MuseDb : RoomDatabase() {
                         body, imageBase64Json, timestamp, mood, reasoning,
                         whisper_target_id, reply_to_id, messageType
                     FROM group_chat_messages
-                """.trimIndent())
+                    """.trimIndent(),
+                )
                 db.execSQL("DROP TABLE group_chat_messages")
                 db.execSQL("ALTER TABLE group_chat_messages_new RENAME TO group_chat_messages")
 
@@ -2440,7 +2571,7 @@ abstract class MuseDb : RoomDatabase() {
                         createdAt INTEGER NOT NULL DEFAULT 0,
                         updatedAt INTEGER NOT NULL DEFAULT 0
                     )
-                    """.trimIndent()
+                    """.trimIndent(),
                 )
             }
         }
@@ -2479,190 +2610,218 @@ abstract class MuseDb : RoomDatabase() {
                         createdAt INTEGER NOT NULL DEFAULT 0,
                         updatedAt INTEGER NOT NULL DEFAULT 0
                     )
-                    """.trimIndent()
+                    """.trimIndent(),
                 )
                 db.execSQL(
-                    "CREATE INDEX IF NOT EXISTS index_subagent_threads_parentSessionId ON subagent_threads(parentSessionId)"
+                    "CREATE INDEX IF NOT EXISTS index_subagent_threads_parentSessionId ON subagent_threads(parentSessionId)",
                 )
                 db.execSQL(
-                    "CREATE INDEX IF NOT EXISTS index_subagent_threads_status ON subagent_threads(status)"
+                    "CREATE INDEX IF NOT EXISTS index_subagent_threads_status ON subagent_threads(status)",
                 )
             }
         }
 
-    /**
-     * v1.0.53: MIGRATION_59_60 — assistants 表加 toolModelId 列(per-assistant 工具模型)。
-     * 工具调用轮次优先用助手自己的工具模型,未设置时回退全局。
-     */
-    val MIGRATION_59_60 = object : Migration(59, 60) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE assistants ADD COLUMN toolModelId TEXT NOT NULL DEFAULT ''")
+        /**
+         * v1.0.53: MIGRATION_59_60 — assistants 表加 toolModelId 列(per-assistant 工具模型)。
+         * 工具调用轮次优先用助手自己的工具模型,未设置时回退全局。
+         */
+        val MIGRATION_59_60 = object : Migration(59, 60) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE assistants ADD COLUMN toolModelId TEXT NOT NULL DEFAULT ''")
+            }
         }
-    }
 
+        /**
+         * B5-03: MIGRATION_60_61 — messages 加 thinking_signature / thinking_encrypted_content。
+         */
+        val MIGRATION_60_61 = object : Migration(60, 61) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                ensureMessageColumns(db)
+            }
+        }
 
-    /**
-     * B5-03: MIGRATION_60_61 — messages 加 thinking_signature / thinking_encrypted_content。
-     */
-    val MIGRATION_60_61 = object : Migration(60, 61) { override fun migrate(db: SupportSQLiteDatabase) { ensureMessageColumns(db) }
-    }
-    /**
-     * B5-01: MIGRATION_61_62 — 新增 generation_checkpoints 表。
-     */
-    val MIGRATION_61_62 = object : Migration(61, 62) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("CREATE TABLE IF NOT EXISTS `generation_checkpoints` (`assistantMessageId` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `userMessageId` TEXT NOT NULL, `content` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`assistantMessageId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
-            db.execSQL("CREATE INDEX IF NOT EXISTS `index_generation_checkpoints_sessionId` ON `generation_checkpoints` (`sessionId`)")
-            db.execSQL("CREATE INDEX IF NOT EXISTS `index_generation_checkpoints_createdAt` ON `generation_checkpoints` (`createdAt`)")
+        /**
+         * B5-01: MIGRATION_61_62 — 新增 generation_checkpoints 表。
+         */
+        val MIGRATION_61_62 = object : Migration(61, 62) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `generation_checkpoints` (`assistantMessageId` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `userMessageId` TEXT NOT NULL, `content` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`assistantMessageId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_generation_checkpoints_sessionId` ON `generation_checkpoints` (`sessionId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_generation_checkpoints_createdAt` ON `generation_checkpoints` (`createdAt`)")
+            }
         }
-    }
-    /**
-     * B5-02: MIGRATION_62_63 — 新增 group_chat_generation_ledger 表。
-     */
-    val MIGRATION_62_63 = object : Migration(62, 63) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("CREATE TABLE IF NOT EXISTS `group_chat_generation_ledger` (`id` TEXT NOT NULL, `chatId` TEXT NOT NULL, `mode` TEXT NOT NULL, `round` INTEGER NOT NULL, `memberIndex` INTEGER NOT NULL, `memberIdsJson` TEXT NOT NULL DEFAULT '[]', `status` TEXT NOT NULL DEFAULT 'running', `createdAt` INTEGER NOT NULL DEFAULT 0, `updatedAt` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`), FOREIGN KEY(`chatId`) REFERENCES `group_chats`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)")
-            db.execSQL("CREATE INDEX IF NOT EXISTS `index_group_chat_generation_ledger_chatId` ON `group_chat_generation_ledger` (`chatId`)")
-            db.execSQL("CREATE INDEX IF NOT EXISTS `index_group_chat_generation_ledger_status` ON `group_chat_generation_ledger` (`status`)")
-        }
-    }
-    /**
-     * B6-03: MIGRATION_63_64 — messages 加 mood_skin 列(情绪皮肤标识)。
-     */
-    val MIGRATION_63_64 = object : Migration(63, 64) { override fun migrate(db: SupportSQLiteDatabase) { ensureMessageColumns(db) }
-    }
-    /**
-     * B7-03/B7-05: MIGRATION_64_65 — sessions 加 lastReadMessageId / sortOrder。
-     */
-    val MIGRATION_64_65 = object : Migration(64, 65) { override fun migrate(db: SupportSQLiteDatabase) { ensureSessionColumns(db) }
-    }
-    /**
-     * B7-03: MIGRATION_65_66 — sessions 加 lastReadCount,用于会话列表未读数徽标。
-     */
-    val MIGRATION_65_66 = object : Migration(65, 66) { override fun migrate(db: SupportSQLiteDatabase) { ensureSessionColumns(db) }
-    }
-    /**
-     * B8-01: MIGRATION_66_67 — sessions 加 proactiveNextTriggerAt,支持会话级主动消息排期。
-     */
-    val MIGRATION_66_67 = object : Migration(66, 67) { override fun migrate(db: SupportSQLiteDatabase) { ensureSessionColumns(db) }
-    }
-    /**
-     * B8-06: MIGRATION_67_68 — 修复历史库 messages/sessions 缺列问题。
-     *
-     * 旧版本若曾在迁移中途失败或使用不一致 schema,Room 会报
-     * "Migration didn't properly handle: messages"。本迁移按 PRAGMA 检查,
-     * 只补缺失列,已存在的列保持不动。
-     */
-    val MIGRATION_67_68 = object : Migration(67, 68) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            ensureMessageColumns(db)
-            ensureSessionColumns(db)
-            ensureGroupChatMessageColumns(db)
-        }
-    }
 
-    /**
-     * v1.0.62 fix: 兼容从 v1.0.60（DB version 73）升级的场景：
-     * 确保 generation_checkpoints 和 group_chat_generation_ledger 表存在。
-     */
-    val MIGRATION_68_74 = object : Migration(68, 74) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            ensureGenerationTables(db)
-            ensureSessionColumns(db)
-            ensureMessageColumns(db)
-            ensureGroupChatMessageColumns(db)
+        /**
+         * B5-02: MIGRATION_62_63 — 新增 group_chat_generation_ledger 表。
+         */
+        val MIGRATION_62_63 = object : Migration(62, 63) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `group_chat_generation_ledger` (`id` TEXT NOT NULL, `chatId` TEXT NOT NULL, `mode` TEXT NOT NULL, `round` INTEGER NOT NULL, `memberIndex` INTEGER NOT NULL, `memberIdsJson` TEXT NOT NULL DEFAULT '[]', `status` TEXT NOT NULL DEFAULT 'running', `createdAt` INTEGER NOT NULL DEFAULT 0, `updatedAt` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`), FOREIGN KEY(`chatId`) REFERENCES `group_chats`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_group_chat_generation_ledger_chatId` ON `group_chat_generation_ledger` (`chatId`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_group_chat_generation_ledger_status` ON `group_chat_generation_ledger` (`status`)",
+                )
+            }
         }
-    }
 
-    /** v1.0.74: 68→69 补链(68_74 直跳仍保留,供老设备)。 */
-    val MIGRATION_68_69 = object : Migration(68, 69) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            ensureSessionColumns(db)
-            ensureMessageColumns(db)
+        /**
+         * B6-03: MIGRATION_63_64 — messages 加 mood_skin 列(情绪皮肤标识)。
+         */
+        val MIGRATION_63_64 = object : Migration(63, 64) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                ensureMessageColumns(db)
+            }
         }
-    }
 
-    /** v1.0.74: 补齐 69-72 版本缺口 — 若这些版本曾发布(灰度/测试),升级时 Room 找不到迁移会启动崩溃。
-     *  空迁移 + ensure 幂等补列,与 68_74 共用防御逻辑。 */
-    val MIGRATION_69_70 = object : Migration(69, 70) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            ensureSessionColumns(db)
-            ensureMessageColumns(db)
+        /**
+         * B7-03/B7-05: MIGRATION_64_65 — sessions 加 lastReadMessageId / sortOrder。
+         */
+        val MIGRATION_64_65 = object : Migration(64, 65) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                ensureSessionColumns(db)
+            }
         }
-    }
-    val MIGRATION_70_71 = object : Migration(70, 71) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            ensureSessionColumns(db)
-            ensureMessageColumns(db)
-        }
-    }
-    val MIGRATION_71_72 = object : Migration(71, 72) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            ensureSessionColumns(db)
-            ensureMessageColumns(db)
-        }
-    }
-    val MIGRATION_72_73 = object : Migration(72, 73) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            ensureSessionColumns(db)
-            ensureMessageColumns(db)
-        }
-    }
-    /**
-     * P0 对话树: messages 表加 parentGroupId(助手变体所属的用户提问变体组)。
-     * 旧库升级时通过 ensureMessageColumns 幂等补列,不影响存量数据。
-     */
-    val MIGRATION_74_75 = object : Migration(74, 75) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            ensureMessageColumns(db)
-            ensureGroupChatMessageColumns(db)
-        }
-    }
-    val MIGRATION_73_74 = object : Migration(73, 74) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            ensureGenerationTables(db)
-            ensureGroupChatMessageColumns(db)
-        }
-    }
 
-    /**
-     * R-DB-04: 75→76 — messages 表存量 base64 图片外置到 filesDir/muse_images/。
-     * 复用 MessageImageStore.toPersistable:长 base64 落盘并改为 file:// 引用,
-     * 短 base64 保持内联(与 v1.134 新写入行为一致);失败时回退原值,幂等可重入。
-     */
-    fun migrate75To76(storageDir: File): Migration = object : Migration(75, 76) {
-        override fun migrate(db: SupportSQLiteDatabase) {
-            val store = MessageImageStore(storageDir)
-            val jsonSerializer = ListSerializer(String.serializer())
-            db.query(
-                "SELECT id, imageBase64Json FROM messages " +
-                    "WHERE imageBase64Json IS NOT NULL AND imageBase64Json != '' AND imageBase64Json != '[]'",
-            ).use { cursor ->
-                val idIdx = cursor.getColumnIndex("id")
-                val jsonIdx = cursor.getColumnIndex("imageBase64Json")
-                while (cursor.moveToNext()) {
-                    val id = cursor.getString(idIdx)
-                    val json = cursor.getString(jsonIdx)
-                    val base64List = runCatching {
-                        AppJson.decodeFromString(jsonSerializer, json)
-                    }.getOrNull()
-                    if (base64List.isNullOrEmpty()) continue
-                    val persistable = store.toPersistable(id, base64List)
-                    if (persistable != base64List) {
-                        val updated = AppJson.encodeToString(jsonSerializer, persistable)
-                        db.execSQL(
-                            "UPDATE messages SET imageBase64Json = ? WHERE id = ?",
-                            arrayOf(updated, id),
-                        )
+        /**
+         * B7-03: MIGRATION_65_66 — sessions 加 lastReadCount,用于会话列表未读数徽标。
+         */
+        val MIGRATION_65_66 = object : Migration(65, 66) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                ensureSessionColumns(db)
+            }
+        }
+
+        /**
+         * B8-01: MIGRATION_66_67 — sessions 加 proactiveNextTriggerAt,支持会话级主动消息排期。
+         */
+        val MIGRATION_66_67 = object : Migration(66, 67) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                ensureSessionColumns(db)
+            }
+        }
+
+        /**
+         * B8-06: MIGRATION_67_68 — 修复历史库 messages/sessions 缺列问题。
+         *
+         * 旧版本若曾在迁移中途失败或使用不一致 schema,Room 会报
+         * "Migration didn't properly handle: messages"。本迁移按 PRAGMA 检查,
+         * 只补缺失列,已存在的列保持不动。
+         */
+        val MIGRATION_67_68 = object : Migration(67, 68) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                ensureMessageColumns(db)
+                ensureSessionColumns(db)
+                ensureGroupChatMessageColumns(db)
+            }
+        }
+
+        /**
+         * v1.0.62 fix: 兼容从 v1.0.60（DB version 73）升级的场景：
+         * 确保 generation_checkpoints 和 group_chat_generation_ledger 表存在。
+         */
+        val MIGRATION_68_74 = object : Migration(68, 74) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                ensureGenerationTables(db)
+                ensureSessionColumns(db)
+                ensureMessageColumns(db)
+                ensureGroupChatMessageColumns(db)
+            }
+        }
+
+        /** v1.0.74: 68→69 补链(68_74 直跳仍保留,供老设备)。 */
+        val MIGRATION_68_69 = object : Migration(68, 69) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                ensureSessionColumns(db)
+                ensureMessageColumns(db)
+            }
+        }
+
+        /** v1.0.74: 补齐 69-72 版本缺口 — 若这些版本曾发布(灰度/测试),升级时 Room 找不到迁移会启动崩溃。
+         *  空迁移 + ensure 幂等补列,与 68_74 共用防御逻辑。 */
+        val MIGRATION_69_70 = object : Migration(69, 70) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                ensureSessionColumns(db)
+                ensureMessageColumns(db)
+            }
+        }
+        val MIGRATION_70_71 = object : Migration(70, 71) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                ensureSessionColumns(db)
+                ensureMessageColumns(db)
+            }
+        }
+        val MIGRATION_71_72 = object : Migration(71, 72) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                ensureSessionColumns(db)
+                ensureMessageColumns(db)
+            }
+        }
+        val MIGRATION_72_73 = object : Migration(72, 73) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                ensureSessionColumns(db)
+                ensureMessageColumns(db)
+            }
+        }
+
+        /**
+         * P0 对话树: messages 表加 parentGroupId(助手变体所属的用户提问变体组)。
+         * 旧库升级时通过 ensureMessageColumns 幂等补列,不影响存量数据。
+         */
+        val MIGRATION_74_75 = object : Migration(74, 75) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                ensureMessageColumns(db)
+                ensureGroupChatMessageColumns(db)
+            }
+        }
+        val MIGRATION_73_74 = object : Migration(73, 74) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                ensureGenerationTables(db)
+                ensureGroupChatMessageColumns(db)
+            }
+        }
+
+        /**
+         * R-DB-04: 75→76 — messages 表存量 base64 图片外置到 filesDir/muse_images/。
+         * 复用 MessageImageStore.toPersistable:长 base64 落盘并改为 file:// 引用,
+         * 短 base64 保持内联(与 v1.134 新写入行为一致);失败时回退原值,幂等可重入。
+         */
+        fun migrate75To76(storageDir: File): Migration = object : Migration(75, 76) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val store = MessageImageStore(storageDir)
+                val jsonSerializer = ListSerializer(String.serializer())
+                db.query(
+                    "SELECT id, imageBase64Json FROM messages " +
+                        "WHERE imageBase64Json IS NOT NULL AND imageBase64Json != '' AND imageBase64Json != '[]'",
+                ).use { cursor ->
+                    val idIdx = cursor.getColumnIndex("id")
+                    val jsonIdx = cursor.getColumnIndex("imageBase64Json")
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getString(idIdx)
+                        val json = cursor.getString(jsonIdx)
+                        val base64List = runCatching {
+                            AppJson.decodeFromString(jsonSerializer, json)
+                        }.getOrNull()
+                        if (base64List.isNullOrEmpty()) continue
+                        val persistable = store.toPersistable(id, base64List)
+                        if (persistable != base64List) {
+                            val updated = AppJson.encodeToString(jsonSerializer, persistable)
+                            db.execSQL(
+                                "UPDATE messages SET imageBase64Json = ? WHERE id = ?",
+                                arrayOf(updated, id),
+                            )
+                        }
                     }
                 }
             }
         }
-    }
 
-
-
-    fun get(context: Context): MuseDb {
+        fun get(context: Context): MuseDb {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
@@ -3026,7 +3185,7 @@ private fun ensureGroupChatMessageColumns(db: androidx.sqlite.db.SupportSQLiteDa
             if (name in existing) "`$name`" else fallback[name] ?: "''"
         }
         db.execSQL(
-            "INSERT INTO group_chat_messages_new ($insertColumns) SELECT $selectExpr FROM group_chat_messages"
+            "INSERT INTO group_chat_messages_new ($insertColumns) SELECT $selectExpr FROM group_chat_messages",
         )
         db.execSQL("DROP TABLE group_chat_messages")
         db.execSQL("ALTER TABLE group_chat_messages_new RENAME TO group_chat_messages")
@@ -3034,7 +3193,7 @@ private fun ensureGroupChatMessageColumns(db: androidx.sqlite.db.SupportSQLiteDa
         db.execSQL("ALTER TABLE group_chat_messages_new RENAME TO group_chat_messages")
     }
     db.execSQL(
-        "CREATE INDEX IF NOT EXISTS index_group_chat_messages_chatId ON group_chat_messages(chatId)"
+        "CREATE INDEX IF NOT EXISTS index_group_chat_messages_chatId ON group_chat_messages(chatId)",
     )
 }
 
@@ -3055,7 +3214,7 @@ private fun ensureGenerationTables(db: androidx.sqlite.db.SupportSQLiteDatabase)
             PRIMARY KEY(`assistantMessageId`),
             FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
         )
-        """.trimIndent()
+        """.trimIndent(),
     )
     db.execSQL("CREATE INDEX IF NOT EXISTS `index_generation_checkpoints_sessionId` ON `generation_checkpoints` (`sessionId`)")
     db.execSQL("CREATE INDEX IF NOT EXISTS `index_generation_checkpoints_createdAt` ON `generation_checkpoints` (`createdAt`)")
@@ -3074,7 +3233,7 @@ private fun ensureGenerationTables(db: androidx.sqlite.db.SupportSQLiteDatabase)
             PRIMARY KEY(`id`),
             FOREIGN KEY(`chatId`) REFERENCES `group_chats`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
         )
-        """.trimIndent()
+        """.trimIndent(),
     )
     db.execSQL("CREATE INDEX IF NOT EXISTS `index_group_chat_generation_ledger_chatId` ON `group_chat_generation_ledger` (`chatId`)")
     db.execSQL("CREATE INDEX IF NOT EXISTS `index_group_chat_generation_ledger_status` ON `group_chat_generation_ledger` (`status`)")

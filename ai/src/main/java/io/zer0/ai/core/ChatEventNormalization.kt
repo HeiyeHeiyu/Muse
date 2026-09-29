@@ -230,5 +230,4 @@ class ChatEventReducer {
 /**
  * 便捷入口:事件序列一次性聚合为 [NormalizedChatResult]。
  */
-fun List<ChatStreamEvent>.normalize(): NormalizedChatResult =
-    ChatEventReducer().also { it.reduceAll(this) }.toResult()
+fun List<ChatStreamEvent>.normalize(): NormalizedChatResult = ChatEventReducer().also { it.reduceAll(this) }.toResult()

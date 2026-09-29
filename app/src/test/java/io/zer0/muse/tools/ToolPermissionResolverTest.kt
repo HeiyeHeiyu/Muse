@@ -71,7 +71,10 @@ class ToolPermissionResolverTest {
         assertEquals(
             ToolApprovalState.Auto,
             ToolPermissionResolver.resolve(
-                "clipboard_write", ToolRiskLevel.NORMAL, SessionPermissionMode.TRUSTED, null,
+                "clipboard_write",
+                ToolRiskLevel.NORMAL,
+                SessionPermissionMode.TRUSTED,
+                null,
             ),
         )
     }
@@ -101,8 +104,12 @@ class ToolPermissionResolverTest {
         // 断点恢复时对 executionState=EXECUTING 的调用重跑审批:风险取 riskLevelFor(单一真源),
         // ASK 模式下 HIGH 工具必须 Pending(重新走审批卡),不得因"已保存为执行中"直接 Auto。
         listOf(
-            "send_email", "open_url", "workspace_write", "workspace_delete",
-            "make_phone_call", "execute_javascript",
+            "send_email",
+            "open_url",
+            "workspace_write",
+            "workspace_delete",
+            "make_phone_call",
+            "execute_javascript",
         ).forEach { tool ->
             val result = ToolPermissionResolver.resolve(
                 toolName = tool,
@@ -119,8 +126,12 @@ class ToolPermissionResolverTest {
         // 恢复重审用 riskLevelFor 而非注册台账:即使注册值被降级为 NORMAL,
         // TRUSTED 模式下不可逆工具仍必须 Pending(避免 TRUSTED 恢复时绕过审批)。
         listOf(
-            "workspace_write", "workspace_delete", "workspace_move",
-            "execute_javascript", "send_sms", "make_phone_call",
+            "workspace_write",
+            "workspace_delete",
+            "workspace_move",
+            "execute_javascript",
+            "send_sms",
+            "make_phone_call",
         ).forEach { tool ->
             val result = ToolPermissionResolver.resolve(
                 toolName = tool,

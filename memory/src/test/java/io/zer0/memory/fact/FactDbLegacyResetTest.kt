@@ -153,19 +153,15 @@ class FactDbLegacyResetTest {
         db.close()
     }
 
-    private fun countFacts(name: String): Int =
-        SQLiteDatabase.openDatabase(
-            context.getDatabasePath(name).absolutePath,
-            null,
-            SQLiteDatabase.OPEN_READONLY,
-        ).use { db ->
-            db.rawQuery("SELECT COUNT(*) FROM facts", null).use { if (it.moveToFirst()) it.getInt(0) else 0 }
-        }
+    private fun countFacts(name: String): Int = SQLiteDatabase.openDatabase(
+        context.getDatabasePath(name).absolutePath,
+        null,
+        SQLiteDatabase.OPEN_READONLY,
+    ).use { db ->
+        db.rawQuery("SELECT COUNT(*) FROM facts", null).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+    }
 
-    private fun createDatabase(
-        name: String,
-        version: Int,
-    ) {
+    private fun createDatabase(name: String, version: Int) {
         val file = context.getDatabasePath(name)
         file.parentFile?.mkdirs()
         val db = SQLiteDatabase.openOrCreateDatabase(file, null)

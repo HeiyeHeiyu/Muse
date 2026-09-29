@@ -32,66 +32,94 @@ import androidx.compose.ui.unit.dp
 object MusePaddings {
     /** 屏幕水平边距(Scaffold padding)。 */
     val screen = 16.dp
+
     /** 卡片内边距(统一所有 Card 的 padding)。 */
     val cardInner = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+
     /** 略松的卡片内边距(列表项大留白场景)。 */
     val cardInnerLoose = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
+
     /** section 之间间距。 */
     val sectionGap = 16.dp
+
     /** v2.0.1: 卡片组之间的间距（设置类页面，实测 20dp）。 */
     val cardGap = 20.dp
+
     /** 列表项之间间距(LazyColumn spacedBy)。v2.0.1: 12 → 16（"松一点"结构方向）。 */
     val itemGap = 16.dp
+
     /** 卡片内组件之间间距。 */
     val contentGap = 8.dp
+
     /** 紧凑间距(图标 + 文字)。 */
     val tightGap = 4.dp
+
     /** v1.0.15: 徽标 / 行间极紧间距。 */
     val tinyGap = 2.dp
+
     /** v1.0.15: 小徽标 / 紧凑行间距。 */
     val labelVerticalGap = 6.dp
+
     /** v1.0.15: 中等徽标 / 卡片内辅助间距。 */
     val auxGap = 10.dp
+
     /** v1.0.15: BottomSheet 内部 / 空状态大间距。 */
     val largeGap = 24.dp
+
     /** v1.0.15: 空状态 / 大留白。 */
     val emptyStateGap = 32.dp
+
     /**
      * 触摸目标尺寸(MD3 红线,IconButton / 行高最小值)。
      * L-PD1: 统一以 [MuseIconSizes.touchTarget] 为唯一数据源,此处委托引用,
      * 避免两处分别定义 48.dp 造成双数据源漂移。
      */
     val touchTarget: androidx.compose.ui.unit.Dp get() = MuseIconSizes.touchTarget
+
     /** 输入框内边距。 */
     val inputPadding = 12.dp
+
     /** B7-07: 输入栏横向/纵向外边距。 */
     val inputHorizontal = 24.dp
     val inputVertical = 2.dp
+
     /** B7-07: 输入栏内部紧凑行距(快捷入口/文档/视频预览)。 */
     val inputStackGap = 6.dp
+
     /** B7-07: 待发送预览缩略图尺寸。 */
     val previewThumb = 72.dp
+
     /** B7-07: 小圆点移除按钮内边距。 */
     val removeDotPadding = 3.dp
+
     /** B7-07: 内联预览最大宽度。 */
     val maxInlineWidth = 120.dp
+
     /** B7-07: 紧凑 chip 垂直内边距。 */
     val compactChipVertical = 1.dp
+
     /** B7-07: 消息输入框最大高度。 */
     val maxMessageFieldHeight = 160.dp
+
     /** B7-07: 工具面板分隔线宽度/厚度。 */
     val dividerWidth = 1.dp
     val dividerThickness = 0.5.dp
+
     /** B7-07: 加号工具面板列表最大高度。 */
     val maxToolSheetListHeight = 360.dp
+
     /** B7-07: 工具列表行垂直内边距。 */
     val listRowVertical = 14.dp
+
     /** 图标内边距(图标与相邻文字间距)。 */
     val iconPadding = 8.dp
+
     /** M-CS5: 消息间距(聊天列表 LazyColumn spacedBy,呼吸感)。 */
     val messageGap = 20.dp
+
     /** v1.0.17: 屏幕宽 + contentGap 垂直(气泡/卡片)。 */
     val cardInnerSpaced = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+
     /** v1.0.17: 气泡/紧凑卡片内边距。 */
     val bubbleInner = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
     /**
@@ -101,10 +129,13 @@ object MusePaddings {
      */
     /** 较宽松的 Chip 内边距(含图标+文本的复合标签,如视觉辅助/语速标签)。 */
     val chipInnerLoose = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+
     /** 较紧凑的 Chip 内边距(如 TopBar 行内边距)。 */
     val chipInnerTight = PaddingValues(horizontal = 4.dp, vertical = 1.dp)
+
     /** CHAT-18: 列表底部留白(FAB / 输入栏让位)。 */
     val listBottomClearance = 88.dp
+
     /** CHAT-18: section 标题起始缩进 — 对齐会话行标题文字列(行内边距 16dp + 图标列 26dp = 42dp)。 */
     val sectionTitleIndent = 42.dp
 }

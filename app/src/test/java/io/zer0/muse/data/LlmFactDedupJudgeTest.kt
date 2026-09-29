@@ -1,8 +1,8 @@
 package io.zer0.muse.data
 
+import io.zer0.ai.core.Model
 import io.zer0.memory.fact.DedupVerdict
 import io.zer0.memory.llm.MemoryLlmClient
-import io.zer0.ai.core.Model
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

@@ -41,10 +41,8 @@ class MoodTagTransformer : Transformer {
      * 实时提取会因标签未闭合而漏掉；此处复用 transform 逻辑做最终兜底，确保
      * mood / moodfx / reflection 都被提取并写回消息字段。幂等：已有字段会跳过。
      */
-    override suspend fun onGenerationFinish(
-        messages: List<UIMessage>,
-        context: TransformContext,
-    ): List<UIMessage> = transform(messages, context)
+    override suspend fun onGenerationFinish(messages: List<UIMessage>, context: TransformContext): List<UIMessage> =
+        transform(messages, context)
 
     /**
      * 正则匹配 `<mood>...</mood>` 块(非贪婪,跨行)。
@@ -67,11 +65,7 @@ class MoodTagTransformer : Transformer {
      *
      * @return Pair(extracted 值, 剥离后的新 content)
      */
-    private fun extractTag(
-        content: String,
-        regex: Regex,
-        existing: String?,
-    ): Pair<String?, String> {
+    private fun extractTag(content: String, regex: Regex, existing: String?): Pair<String?, String> {
         val matches = regex.findAll(content).toList()
         if (existing != null && matches.isEmpty()) return existing to content
         if (matches.isEmpty()) {
@@ -102,55 +96,51 @@ class MoodTagTransformer : Transformer {
         return (existing ?: extracted) to sb.toString()
     }
 
-    override suspend fun transform(
-        messages: List<UIMessage>,
-        context: TransformContext,
-    ): List<UIMessage> =
-        messages.map { msg ->
-            if (msg.role != MessageRole.ASSISTANT) return@map msg
+    override suspend fun transform(messages: List<UIMessage>, context: TransformContext): List<UIMessage> = messages.map { msg ->
+        if (msg.role != MessageRole.ASSISTANT) return@map msg
 
-            // ── MOOD 剥离 ──
-            // 已有 mood 字段则跳过(避免重复抽取)
-            val (extractedMood, contentAfterMood) = extractTag(msg.content, moodRegex, msg.mood)
-            // 部分模型把内部腹稿写成 <mod>...</mod>，也按 mood 附属块处理，不能进入正文。
-            val modRegex =
-                Regex("""<(?:mod|mood)>([\s\S]*?)</(?:mod|mood)>|\[(?:mod|mood)\]([\s\S]*?)\[/\s*(?:mod|mood)\]""", RegexOption.IGNORE_CASE)
-            val modMatches = modRegex.findAll(contentAfterMood).toList()
-            val modContent =
-                modMatches.mapNotNull { match ->
-                    match.groupValues.drop(1).firstOrNull { value -> value.isNotBlank() }?.trim()
-                }.joinToString("\n").ifBlank { null }
-            val contentAfterMod = modMatches.fold(contentAfterMood) { current, match -> current.replace(match.value, "") }
-            val combinedMood = listOfNotNull(extractedMood, modContent).joinToString("\n").ifBlank { null }
+        // ── MOOD 剥离 ──
+        // 已有 mood 字段则跳过(避免重复抽取)
+        val (extractedMood, contentAfterMood) = extractTag(msg.content, moodRegex, msg.mood)
+        // 部分模型把内部腹稿写成 <mod>...</mod>，也按 mood 附属块处理，不能进入正文。
+        val modRegex =
+            Regex("""<(?:mod|mood)>([\s\S]*?)</(?:mod|mood)>|\[(?:mod|mood)\]([\s\S]*?)\[/\s*(?:mod|mood)\]""", RegexOption.IGNORE_CASE)
+        val modMatches = modRegex.findAll(contentAfterMood).toList()
+        val modContent =
+            modMatches.mapNotNull { match ->
+                match.groupValues.drop(1).firstOrNull { value -> value.isNotBlank() }?.trim()
+            }.joinToString("\n").ifBlank { null }
+        val contentAfterMod = modMatches.fold(contentAfterMood) { current, match -> current.replace(match.value, "") }
+        val combinedMood = listOfNotNull(extractedMood, modContent).joinToString("\n").ifBlank { null }
 
-            // ── reflection 剥离(v0.32 实验性 selfReflection) ──
-            // 已有 reflection 字段则跳过(避免重复抽取)
-            // ── moodfx 剥离(B6-02,与 <mood> 腹稿完全隔离) ──
-            val (extractedMoodSkin, contentAfterMoodSkin) = MoodSkinParser.extract(contentAfterMod, msg.moodSkin)
+        // ── reflection 剥离(v0.32 实验性 selfReflection) ──
+        // 已有 reflection 字段则跳过(避免重复抽取)
+        // ── moodfx 剥离(B6-02,与 <mood> 腹稿完全隔离) ──
+        val (extractedMoodSkin, contentAfterMoodSkin) = MoodSkinParser.extract(contentAfterMod, msg.moodSkin)
 
-            // ── reflection 剥离(v0.32 实验性 selfReflection) ──
-            val (extractedReflection, workingContent) = extractTag(contentAfterMoodSkin, reflectionRegex, msg.reflection)
+        // ── reflection 剥离(v0.32 实验性 selfReflection) ──
+        val (extractedReflection, workingContent) = extractTag(contentAfterMoodSkin, reflectionRegex, msg.reflection)
 
-            // 任意一个有抽取,或 content 被裁剪 → 生成新 msg;否则原样返回
-            if (combinedMood == msg.mood && extractedMoodSkin == msg.moodSkin &&
-                extractedReflection == msg.reflection && workingContent == msg.content
-            ) {
-                msg
-            } else {
-                if (combinedMood != null && combinedMood != msg.mood && context.extra("debug_mode") == true) {
-                    Logger.d(
-                        "MoodTag",
-                        "history mood extracted | len=${combinedMood.length} | preview=${combinedMood.replace('\n', ' ').take(120)}",
-                    )
-                }
-                msg.copy(
-                    mood = combinedMood,
-                    reflection = extractedReflection,
-                    // B6-02: 之前漏了这一行 — moodfx 被剥离后皮肤名没有写回 msg.moodSkin，
-                    // 导致 ChatScreen 读 lastAssistant.moodSkin 恒为 null，全屏皮肤永不显示。
-                    moodSkin = extractedMoodSkin,
-                    content = workingContent.trim(),
+        // 任意一个有抽取,或 content 被裁剪 → 生成新 msg;否则原样返回
+        if (combinedMood == msg.mood && extractedMoodSkin == msg.moodSkin &&
+            extractedReflection == msg.reflection && workingContent == msg.content
+        ) {
+            msg
+        } else {
+            if (combinedMood != null && combinedMood != msg.mood && context.extra("debug_mode") == true) {
+                Logger.d(
+                    "MoodTag",
+                    "history mood extracted | len=${combinedMood.length} | preview=${combinedMood.replace('\n', ' ').take(120)}",
                 )
             }
+            msg.copy(
+                mood = combinedMood,
+                reflection = extractedReflection,
+                // B6-02: 之前漏了这一行 — moodfx 被剥离后皮肤名没有写回 msg.moodSkin，
+                // 导致 ChatScreen 读 lastAssistant.moodSkin 恒为 null，全屏皮肤永不显示。
+                moodSkin = extractedMoodSkin,
+                content = workingContent.trim(),
+            )
         }
+    }
 }

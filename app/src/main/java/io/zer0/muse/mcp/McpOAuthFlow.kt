@@ -38,11 +38,11 @@ import java.util.concurrent.TimeUnit
 object McpOAuthFlow {
 
     private const val TAG = "McpOAuthFlow"
-    private const val VERIFIER_LENGTH = 64  // RFC 7636 推荐 43-128,取中间值 64
+    private const val VERIFIER_LENGTH = 64 // RFC 7636 推荐 43-128,取中间值 64
     private val VERIFIER_CHARS: CharArray = (
         ('A'..'Z').toList() + ('a'..'z').toList() + ('0'..'9').toList() +
             listOf('-', '.', '_', '~')
-    ).toCharArray()
+        ).toCharArray()
 
     /** token 交换用的 OkHttp client(短超时,OAuth 流程不应长时间阻塞)。 */
     private val httpClient: OkHttpClient by lazy {
@@ -135,11 +135,7 @@ object McpOAuthFlow {
      *
      * @return 成功返回 [McpTokenInfo],失败返回 null(error 已记录日志)
      */
-    suspend fun exchangeCodeForToken(
-        config: McpOAuthConfig,
-        code: String,
-        verifier: String,
-    ): McpTokenInfo? = withContext(Dispatchers.IO) {
+    suspend fun exchangeCodeForToken(config: McpOAuthConfig, code: String, verifier: String): McpTokenInfo? = withContext(Dispatchers.IO) {
         if (config.tokenEndpoint.isBlank()) {
             Logger.w(TAG, "tokenEndpoint is blank, cannot exchange code")
             return@withContext null
@@ -187,10 +183,7 @@ object McpOAuthFlow {
      *
      * @return 成功返回新的 [McpTokenInfo](refresh_token 可能不变,沿用旧值),失败返回 null
      */
-    suspend fun refreshAccessToken(
-        config: McpOAuthConfig,
-        refreshToken: String,
-    ): McpTokenInfo? = withContext(Dispatchers.IO) {
+    suspend fun refreshAccessToken(config: McpOAuthConfig, refreshToken: String): McpTokenInfo? = withContext(Dispatchers.IO) {
         if (config.tokenEndpoint.isBlank()) {
             Logger.w(TAG, "tokenEndpoint is blank, cannot refresh")
             return@withContext null
@@ -222,7 +215,7 @@ object McpOAuthFlow {
                 // refresh 响应可能不含新 refresh_token,沿用旧的;server 轮换 refresh_token 时用新的
                 parseTokenResponse(body)?.let { token ->
                     token.copy(
-                        refreshToken = token.refreshToken.ifBlank { refreshToken }
+                        refreshToken = token.refreshToken.ifBlank { refreshToken },
                     )
                 }
             }
@@ -318,7 +311,9 @@ object McpOAuthFlow {
         }
         val expiresAt = if (resp.expires_in > 0) {
             System.currentTimeMillis() + resp.expires_in * 1000L
-        } else 0L
+        } else {
+            0L
+        }
         return McpTokenInfo(
             accessToken = resp.access_token,
             refreshToken = resp.refresh_token.orEmpty(),
@@ -332,10 +327,8 @@ object McpOAuthFlow {
         val obj = runCatching {
             AppJson.decodeFromString(JsonObject.serializer(), body)
         }.getOrNull() ?: return null
-        fun getStr(key: String): String =
-            (obj[key] as? JsonPrimitive)?.content ?: ""
-        fun getLong(key: String): Long =
-            (obj[key] as? JsonPrimitive)?.content?.toLongOrNull() ?: 0L
+        fun getStr(key: String): String = (obj[key] as? JsonPrimitive)?.content ?: ""
+        fun getLong(key: String): Long = (obj[key] as? JsonPrimitive)?.content?.toLongOrNull() ?: 0L
         return TokenResponse(
             access_token = getStr("access_token").ifBlank { getStr("accessToken") },
             token_type = getStr("token_type").ifBlank { "Bearer" },
@@ -348,10 +341,8 @@ object McpOAuthFlow {
     }
 
     /** URL 编码(用 java.net.URLEncoder,UTF-8)。 */
-    private fun urlEncode(s: String): String =
-        java.net.URLEncoder.encode(s, "UTF-8")
+    private fun urlEncode(s: String): String = java.net.URLEncoder.encode(s, "UTF-8")
 
     /** URL 解码。 */
-    private fun urlDecode(s: String): String =
-        java.net.URLDecoder.decode(s, "UTF-8")
+    private fun urlDecode(s: String): String = java.net.URLDecoder.decode(s, "UTF-8")
 }

@@ -14,8 +14,10 @@ import androidx.compose.ui.unit.dp
 object MuseDialogSizes {
     /** 弹窗内容区内边距(22dp:比卡片 16dp 多一档呼吸感,弹窗视觉)。 */
     val contentPadding = 22.dp
+
     /** 弹窗最大宽度(大屏居中;窄屏由系统宽度兜底)。 */
     val maxWidth = 340.dp
+
     /** 弹窗内容区最大高度(超出后内容区内部滚动,标题与按钮保持可见)。 */
     val contentMaxHeight = 420.dp
 }
@@ -23,10 +25,13 @@ object MuseDialogSizes {
 object MuseSwitchSizes {
     /** 开关轨道宽度(开关标准规格)。 */
     val trackWidth = 51.dp
+
     /** 开关轨道高度(开关标准规格)。 */
     val trackHeight = 31.dp
+
     /** 开关拇指直径(轨道高度 − 2×inset)。 */
     val thumbSize = 27.dp
+
     /** 拇指与轨道的内缩(复用通用紧凑间距令牌,不引入新值)。 */
     val trackPadding = MusePaddings.tinyGap
 }

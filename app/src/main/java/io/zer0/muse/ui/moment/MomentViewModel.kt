@@ -98,6 +98,7 @@ class MomentViewModel(
     private val settings: SettingsRepository by lazy {
         org.koin.java.KoinJavaComponent.get(SettingsRepository::class.java)
     }
+
     // v1.xxx: 朋友圈调度器(手动"立即生成"走 generateNow,与定时生成同一套走法)
     private val scheduler: io.zer0.muse.schedule.MomentScheduler by lazy {
         org.koin.java.KoinJavaComponent.get(io.zer0.muse.schedule.MomentScheduler::class.java)
@@ -110,10 +111,20 @@ class MomentViewModel(
                 val context = getApplication<Application>()
                 val parts = buildList {
                     if (notice.likerNames.isNotEmpty()) {
-                        add(context.getString(R.string.moment_banner_liked_by, notice.likerNames.joinToString(context.getString(R.string.moment_separator_and))))
+                        add(
+                            context.getString(
+                                R.string.moment_banner_liked_by,
+                                notice.likerNames.joinToString(context.getString(R.string.moment_separator_and)),
+                            ),
+                        )
                     }
                     if (notice.commenterNames.isNotEmpty()) {
-                        add(context.getString(R.string.moment_banner_commented_by, notice.commenterNames.joinToString(context.getString(R.string.moment_separator_and))))
+                        add(
+                            context.getString(
+                                R.string.moment_banner_commented_by,
+                                notice.commenterNames.joinToString(context.getString(R.string.moment_separator_and)),
+                            ),
+                        )
                     }
                 }
                 val text = when {
@@ -230,7 +241,7 @@ class MomentViewModel(
      *  v1.0.75: 手动生成不触发互动,避免刷屏。
      */
     fun generateNow() {
-        if (_state.value.isGeneratingNow) return  // 防止连点重复生成
+        if (_state.value.isGeneratingNow) return // 防止连点重复生成
         viewModelScope.launch {
             _state.value = _state.value.copy(isGeneratingNow = true, generateNotice = null)
             // generateNow 返回 Boolean: true=已产出并写入,false=未产出(无素材或 LLM 失败)

@@ -4,18 +4,14 @@ package io.zer0.muse.ui.quicknotes
 
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.surface.clearMuseWindowDim
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,8 +22,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -40,6 +38,8 @@ import io.zer0.muse.data.quicknote.QuickNoteEntity
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.form.MuseChip
 import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.surface.clearMuseWindowDim
 import io.zer0.muse.ui.markdown.MarkdownText
 import io.zer0.muse.ui.theme.MuseDateFormats
 import io.zer0.muse.ui.theme.MuseIconSizes
@@ -230,11 +230,7 @@ private fun QuickNoteActionRow(
 }
 
 @Composable
-internal fun QuickNoteDialog(
-    existing: QuickNoteEntity?,
-    onDismiss: () -> Unit,
-    onSave: (String, String, List<String>, String) -> Unit,
-) {
+internal fun QuickNoteDialog(existing: QuickNoteEntity?, onDismiss: () -> Unit, onSave: (String, String, List<String>, String) -> Unit) {
     var title by remember { mutableStateOf(existing?.title ?: "") }
     var content by remember { mutableStateOf(existing?.content ?: "") }
     var tags by remember { mutableStateOf(existing?.tags?.joinToString(",") ?: "") }
@@ -246,13 +242,16 @@ internal fun QuickNoteDialog(
     MuseDialog(
         onDismissRequest = onDismiss,
         title = stringResource(
-            if (existing == null) R.string.quick_notes_new else R.string.quick_notes_edit_title
+            if (existing == null) R.string.quick_notes_new else R.string.quick_notes_edit_title,
         ),
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap)) {
                 MuseTextField(
                     value = title,
-                    onValueChange = { title = it; errorMessage = null },
+                    onValueChange = {
+                        title = it
+                        errorMessage = null
+                    },
                     label = { Text(stringResource(R.string.quick_notes_title_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -294,8 +293,11 @@ internal fun QuickNoteDialog(
                         ) {
                             Text(
                                 text = stringResource(
-                                    if (previewMode) R.string.quick_notes_markdown_edit
-                                    else R.string.quick_notes_markdown_preview
+                                    if (previewMode) {
+                                        R.string.quick_notes_markdown_edit
+                                    } else {
+                                        R.string.quick_notes_markdown_preview
+                                    },
                                 ),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -612,11 +614,7 @@ internal fun QuickNoteFolderFilterRow(
 }
 
 @Composable
-private fun FolderChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun FolderChip(label: String, selected: Boolean, onClick: () -> Unit) {
     MuseChip(
         selected = selected,
         onClick = onClick,
@@ -635,12 +633,7 @@ private fun FolderChip(
  * 导出/导入菜单 — 提供 Markdown 导出 / JSON 导出 / JSON 导入 三个入口。
  */
 @Composable
-internal fun QuickNoteExportMenu(
-    onDismiss: () -> Unit,
-    onExportMarkdown: () -> Unit,
-    onExportJson: () -> Unit,
-    onImportJson: () -> Unit,
-) {
+internal fun QuickNoteExportMenu(onDismiss: () -> Unit, onExportMarkdown: () -> Unit, onExportJson: () -> Unit, onImportJson: () -> Unit) {
     MuseDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.quick_notes_export),
@@ -675,11 +668,7 @@ internal fun QuickNoteExportMenu(
  * 文件夹设置弹窗 — 列出已有文件夹 + 未分类 + 新建文件夹输入框。
  */
 @Composable
-internal fun QuickNoteFolderDialog(
-    folders: List<String>,
-    onDismiss: () -> Unit,
-    onSelect: (String) -> Unit,
-) {
+internal fun QuickNoteFolderDialog(folders: List<String>, onDismiss: () -> Unit, onSelect: (String) -> Unit) {
     var newFolder by remember { mutableStateOf("") }
     MuseDialog(
         onDismissRequest = onDismiss,
@@ -749,12 +738,7 @@ internal fun QuickNoteFolderDialog(
  * 提醒设置弹窗 — 展示当前提醒状态,点击设置依次弹出日期/时间选择器。
  */
 @Composable
-internal fun QuickNoteReminderDialog(
-    currentReminderAt: Long,
-    onDismiss: () -> Unit,
-    onSet: (Long) -> Unit,
-    onCancel: () -> Unit,
-) {
+internal fun QuickNoteReminderDialog(currentReminderAt: Long, onDismiss: () -> Unit, onSet: (Long) -> Unit, onCancel: () -> Unit) {
     val context = LocalContext.current
     val fmt = remember { SimpleDateFormat(MuseDateFormats.DATE_TIME_FULL, Locale.getDefault()) }
 

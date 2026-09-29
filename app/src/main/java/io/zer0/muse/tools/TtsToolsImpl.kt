@@ -63,6 +63,7 @@ class TtsToolsImpl(private val context: Context) {
                         tts?.setOnUtteranceProgressListener(
                             object : android.speech.tts.UtteranceProgressListener() {
                                 override fun onStart(uttId: String?) {}
+
                                 @Deprecated("Deprecated in Java")
                                 override fun onError(uttId: String?) {
                                     release()

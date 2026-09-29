@@ -29,9 +29,12 @@ class ChatToolController(
         accessor.update { current ->
             current.copy(
                 pendingToolApprovals = current.pendingToolApprovals.map { approval ->
-                    if (approval.toolCallId == toolCallId) approval.copy(referenceImageOverride = dataUri)
-                    else approval
-                }
+                    if (approval.toolCallId == toolCallId) {
+                        approval.copy(referenceImageOverride = dataUri)
+                    } else {
+                        approval
+                    }
+                },
             )
         }
     }
@@ -41,9 +44,12 @@ class ChatToolController(
         accessor.update { current ->
             current.copy(
                 pendingToolApprovals = current.pendingToolApprovals.map { approval ->
-                    if (approval.toolCallId == toolCallId) approval.copy(alwaysAllow = alwaysAllow)
-                    else approval
-                }
+                    if (approval.toolCallId == toolCallId) {
+                        approval.copy(alwaysAllow = alwaysAllow)
+                    } else {
+                        approval
+                    }
+                },
             )
         }
     }
@@ -54,9 +60,12 @@ class ChatToolController(
             current.copy(
                 appRunAllowAllTools = allowAll,
                 pendingToolApprovals = current.pendingToolApprovals.map { approval ->
-                    if (approval.toolCallId == toolCallId) approval.copy(appRunAllowAll = allowAll)
-                    else approval
-                }
+                    if (approval.toolCallId == toolCallId) {
+                        approval.copy(appRunAllowAll = allowAll)
+                    } else {
+                        approval
+                    }
+                },
             )
         }
     }

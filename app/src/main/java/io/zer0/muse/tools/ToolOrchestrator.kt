@@ -289,21 +289,14 @@ interface ToolLoopHost {
     /**
      * 工具调用循环内部发生非致命错误时回调(如 DB 落盘失败)。
      */
-    fun onToolLoopError(
-        type: ChatErrorType,
-        message: String,
-        recoverable: Boolean = true,
-    )
+    fun onToolLoopError(type: ChatErrorType, message: String, recoverable: Boolean = true)
 
     /**
      * v1.x: 单个工具开始执行时回调(可用于 UI 进度提示/日志)。
      *
      * 默认空实现,宿主可选覆盖,用于细粒度进度通知。
      */
-    fun onToolStart(
-        toolCallId: String,
-        toolName: String,
-    ) {}
+    fun onToolStart(toolCallId: String, toolName: String) {}
 
     /**
      * v1.x: 单个工具执行结束回调。
@@ -312,12 +305,7 @@ interface ToolLoopHost {
      * @param durationMs 工具执行耗时(毫秒,含审批等待)
      * 默认空实现,宿主可选覆盖。
      */
-    fun onToolFinish(
-        toolCallId: String,
-        toolName: String,
-        success: Boolean,
-        durationMs: Long,
-    ) {}
+    fun onToolFinish(toolCallId: String, toolName: String, success: Boolean, durationMs: Long) {}
 }
 
 /**
@@ -575,15 +563,14 @@ class ToolOrchestrator(
      * TIMED_OUT / CANCELLED 不再被折叠成 FAILED,任务卡因此能呈现真实终态
      * (折叠态步骤条与展开态步骤行都会据此显示超时/取消图标)。
      */
-    private fun ToolExecStatus.toTaskStepStatus(): TaskStepStatus =
-        when (this) {
-            ToolExecStatus.SUCCESS -> TaskStepStatus.SUCCESS
-            ToolExecStatus.FAILED -> TaskStepStatus.FAILED
-            ToolExecStatus.INTERRUPTED -> TaskStepStatus.CANCELLED
-            ToolExecStatus.CANCELLED -> TaskStepStatus.CANCELLED
-            ToolExecStatus.TIMED_OUT -> TaskStepStatus.TIMED_OUT
-            ToolExecStatus.APPROVAL_PENDING -> TaskStepStatus.RUNNING
-        }
+    private fun ToolExecStatus.toTaskStepStatus(): TaskStepStatus = when (this) {
+        ToolExecStatus.SUCCESS -> TaskStepStatus.SUCCESS
+        ToolExecStatus.FAILED -> TaskStepStatus.FAILED
+        ToolExecStatus.INTERRUPTED -> TaskStepStatus.CANCELLED
+        ToolExecStatus.CANCELLED -> TaskStepStatus.CANCELLED
+        ToolExecStatus.TIMED_OUT -> TaskStepStatus.TIMED_OUT
+        ToolExecStatus.APPROVAL_PENDING -> TaskStepStatus.RUNNING
+    }
 
     private data class ToolExecResult(
         val idx: Int,
@@ -740,12 +727,12 @@ class ToolOrchestrator(
                         citationUrls = citationUrls.toList(),
                         success = false,
                         error =
-                            ToolLoopError(
-                                type = outcome.type,
-                                message = outcome.message,
-                                partialContent = outcome.partialContent,
-                                partialReasoning = outcome.partialReasoning,
-                            ),
+                        ToolLoopError(
+                            type = outcome.type,
+                            message = outcome.message,
+                            partialContent = outcome.partialContent,
+                            partialReasoning = outcome.partialReasoning,
+                        ),
                         toolRounds = toolRounds.toList(),
                         terminationReason = ToolLoopTerminationReason.STREAM_ERROR,
                     )
@@ -938,25 +925,25 @@ class ToolOrchestrator(
                                 accessor.update { state ->
                                     state.copy(
                                         toolCallHistory =
-                                            state.toolCallHistory +
-                                                ToolCallRecord(
-                                                    toolName = tc.name,
-                                                    arguments = tc.arguments,
-                                                    result = interruptedText,
-                                                    isSuccess = false,
-                                                    timestamp = interruptedAt,
-                                                    traceId = params.traceId,
-                                                    sessionId = params.sessionId,
-                                                    turnId = params.turnId,
-                                                    generationId = executionIdentity.generationId,
-                                                    roundIndex = round,
-                                                    toolCallId = tc.id,
-                                                    executionId = executionId ?: "",
-                                                    startedAt = stepStartedAt,
-                                                    finishedAt = interruptedAt,
-                                                    status = ToolExecStatus.CANCELLED.name,
-                                                    terminationReason = interruptedText,
-                                                ),
+                                        state.toolCallHistory +
+                                            ToolCallRecord(
+                                                toolName = tc.name,
+                                                arguments = tc.arguments,
+                                                result = interruptedText,
+                                                isSuccess = false,
+                                                timestamp = interruptedAt,
+                                                traceId = params.traceId,
+                                                sessionId = params.sessionId,
+                                                turnId = params.turnId,
+                                                generationId = executionIdentity.generationId,
+                                                roundIndex = round,
+                                                toolCallId = tc.id,
+                                                executionId = executionId ?: "",
+                                                startedAt = stepStartedAt,
+                                                finishedAt = interruptedAt,
+                                                status = ToolExecStatus.CANCELLED.name,
+                                                terminationReason = interruptedText,
+                                            ),
                                     )
                                 }
                                 throw ce
@@ -1060,15 +1047,15 @@ class ToolOrchestrator(
                             action = if (isDelegationTool) "delegate_tool" else "tool_exec",
                             target = tc.id,
                             detail =
-                                mapOf(
-                                    "sessionId" to params.sessionId,
-                                    "traceId" to params.traceId,
-                                    "round" to round,
-                                    "tool" to tc.name,
-                                    "status" to result.status.name,
-                                    "durationMs" to result.durationMs,
-                                    "isSuccess" to isSuccess,
-                                ),
+                            mapOf(
+                                "sessionId" to params.sessionId,
+                                "traceId" to params.traceId,
+                                "round" to round,
+                                "tool" to tc.name,
+                                "status" to result.status.name,
+                                "durationMs" to result.durationMs,
+                                "isSuccess" to isSuccess,
+                            ),
                         )
                         val toolMsg =
                             UIMessage(
@@ -1086,18 +1073,18 @@ class ToolOrchestrator(
                                 //   send_sticker 特例: content 只保留贴纸路径(MessageBubble.extractStickerPaths
                                 //   据此渲染图片),工具卡片静默(isSilentTool)。
                                 content =
-                                    if (tc.name == "send_sticker") {
-                                        extractStickerPaths(finalToolResult).joinToString("\n")
-                                    } else {
-                                        ""
-                                    },
+                                if (tc.name == "send_sticker") {
+                                    extractStickerPaths(finalToolResult).joinToString("\n")
+                                } else {
+                                    ""
+                                },
                                 toolCallInfo =
-                                    ToolCallInfo(
-                                        toolName = tc.name,
-                                        arguments = tc.arguments,
-                                        result = displayResult ?: finalToolResult,
-                                        isSuccess = isSuccess,
-                                    ),
+                                ToolCallInfo(
+                                    toolName = tc.name,
+                                    arguments = tc.arguments,
+                                    result = displayResult ?: finalToolResult,
+                                    isSuccess = isSuccess,
+                                ),
                             )
                         val finishedAt = System.currentTimeMillis()
                         val record =
@@ -1118,11 +1105,11 @@ class ToolOrchestrator(
                                 finishedAt = finishedAt,
                                 status = result.status.name,
                                 terminationReason =
-                                    if (isSuccess) {
-                                        null
-                                    } else {
-                                        (displayResult ?: finalToolResult).lineSequence().firstOrNull()?.take(200)
-                                    },
+                                if (isSuccess) {
+                                    null
+                                } else {
+                                    (displayResult ?: finalToolResult).lineSequence().firstOrNull()?.take(200)
+                                },
                             )
 
                         // 工具结果消息不能只放在内存 UI：切出会话、进程重启后仍需显示工具卡片。
@@ -1279,14 +1266,14 @@ class ToolOrchestrator(
             citationUrls = citationUrls.toList(),
             success = completed,
             error =
-                if (completed) {
-                    null
-                } else {
-                    ToolLoopError(
-                        type = ChatErrorType.TOOL_ERROR,
-                        message = terminationDetail ?: effectiveReason.name,
-                    )
-                },
+            if (completed) {
+                null
+            } else {
+                ToolLoopError(
+                    type = ChatErrorType.TOOL_ERROR,
+                    message = terminationDetail ?: effectiveReason.name,
+                )
+            },
             finalAssistantMessage = finalAssistantMessage,
             toolRounds = toolRounds.toList(),
             terminationReason = effectiveReason,
@@ -1299,25 +1286,19 @@ class ToolOrchestrator(
      * 与 ToolLoopResult.error.message 同源,最终由 runLoop 收尾注入为 assistant 消息,
      * 保证"提前收尾"对用户可见(而不是只有任务卡悬空)。
      */
-    private fun roundBudgetStopText(reason: ToolExecutionPolicy.StopReason?): String =
-        when (reason) {
-            ToolExecutionPolicy.StopReason.MAX_TOTAL_CALLS ->
-                "本轮工具调用次数已达上限,已自动停止。如需继续,可以让我接着处理。"
-            ToolExecutionPolicy.StopReason.MAX_TOTAL_OUTPUT_CHARS ->
-                "本轮工具输出已超出预算,已自动停止。如需继续,可以让我接着处理。"
-            ToolExecutionPolicy.StopReason.CONSECUTIVE_FAILURES ->
-                "连续多次工具调用失败,已自动停止。如需继续,可以让我重新处理。"
-            ToolExecutionPolicy.StopReason.TIME_BUDGET_EXHAUSTED ->
-                "工具循环耗时已超出预算,已自动停止。如需继续,可以让我接着处理。"
-            else -> "工具调用已超出预算,已自动停止。如需继续,可以让我接着处理。"
-        }
+    private fun roundBudgetStopText(reason: ToolExecutionPolicy.StopReason?): String = when (reason) {
+        ToolExecutionPolicy.StopReason.MAX_TOTAL_CALLS ->
+            "本轮工具调用次数已达上限,已自动停止。如需继续,可以让我接着处理。"
+        ToolExecutionPolicy.StopReason.MAX_TOTAL_OUTPUT_CHARS ->
+            "本轮工具输出已超出预算,已自动停止。如需继续,可以让我接着处理。"
+        ToolExecutionPolicy.StopReason.CONSECUTIVE_FAILURES ->
+            "连续多次工具调用失败,已自动停止。如需继续,可以让我重新处理。"
+        ToolExecutionPolicy.StopReason.TIME_BUDGET_EXHAUSTED ->
+            "工具循环耗时已超出预算,已自动停止。如需继续,可以让我接着处理。"
+        else -> "工具调用已超出预算,已自动停止。如需继续,可以让我接着处理。"
+    }
 
-    private suspend fun persistToolRoundIncrementally(
-        params: ToolLoopParams,
-        round: Int,
-        startedAt: Long,
-        result: ToolExecResult,
-    ) {
+    private suspend fun persistToolRoundIncrementally(params: ToolLoopParams, round: Int, startedAt: Long, result: ToolExecResult) {
         if (params.turnId.isBlank()) return
         val now = System.currentTimeMillis()
         val entity =
@@ -1351,10 +1332,7 @@ class ToolOrchestrator(
      *
      * 混合轮(含写入/副作用工具)整体串行,避免破坏"先读后写"的调用顺序语义。
      */
-    private fun shouldExecuteRoundInParallel(
-        toolCallList: List<ToolCall>,
-        params: ToolLoopParams,
-    ): Boolean {
+    private fun shouldExecuteRoundInParallel(toolCallList: List<ToolCall>, params: ToolLoopParams): Boolean {
         if (!parallelReadOnlyToolsEnabled || toolCallList.size <= 1) return false
         // 用户可在「实验功能」中一键关闭只读工具并行(灰度开关)
         if (!params.experiments.parallelReadOnlyTools) return false
@@ -1397,10 +1375,7 @@ class ToolOrchestrator(
      * "按单 turn 顺序使用"设计的非原子状态,统一经此锁串行写入;
      * [lock] 为 null(串行路径)时直接执行,零额外开销、行为与现状一致。
      */
-    private suspend fun <T> withTurnLock(
-        lock: Mutex?,
-        block: suspend () -> T,
-    ): T {
+    private suspend fun <T> withTurnLock(lock: Mutex?, block: suspend () -> T): T {
         if (lock == null) return block()
         lock.lock()
         try {
@@ -1455,11 +1430,7 @@ class ToolOrchestrator(
      * @param block 阻塞型工具执行(内部可含 runBlocking)
      * @return 执行结果;超时返回 null(调用方按既有超时语义处理)
      */
-    private suspend fun executeBlockingToolWithHardTimeout(
-        timeoutMs: Long,
-        toolCallId: String,
-        block: () -> String,
-    ): String? {
+    private suspend fun executeBlockingToolWithHardTimeout(timeoutMs: Long, toolCallId: String, block: () -> String): String? {
         val gate = ToolResultGate { onLateResultDropped(toolCallId) }
         val future =
             blockingToolExecutor.submit {
@@ -1881,15 +1852,11 @@ class ToolOrchestrator(
     }
 
     /** 工具没有返回可显示文本时的统一可见回执。 */
-    private fun normalizeToolResult(
-        toolName: String,
-        result: String,
-    ): String =
-        if (result.isBlank()) {
-            "工具 $toolName 已执行完成,但没有返回可显示的内容。"
-        } else {
-            result
-        }
+    private fun normalizeToolResult(toolName: String, result: String): String = if (result.isBlank()) {
+        "工具 $toolName 已执行完成,但没有返回可显示的内容。"
+    } else {
+        result
+    }
 
     /**
      * 工具副作用可能已经完成,但结果回传链路仍发生异常时的终态。
@@ -1950,10 +1917,7 @@ class ToolOrchestrator(
      * 所有值统一以 JSON 字符串形式写入(对齐 ToolRegistry.executeFromJson 的解析约定:
      * `v.toString().trim('"')`)。
      */
-    internal fun mergeToolArguments(
-        originalArguments: String,
-        overrides: Map<String, String>,
-    ): String {
+    internal fun mergeToolArguments(originalArguments: String, overrides: Map<String, String>): String {
         if (overrides.isEmpty()) return originalArguments
         val base: JsonObject =
             resultOf {
@@ -1967,11 +1931,7 @@ class ToolOrchestrator(
         return merged.toString()
     }
 
-    private suspend fun persistAssistantToolMsg(
-        sessionId: String,
-        msg: UIMessage,
-        host: ToolLoopHost,
-    ) {
+    private suspend fun persistAssistantToolMsg(sessionId: String, msg: UIMessage, host: ToolLoopHost) {
         try {
             sessionRepository.upsertMessage(sessionId, msg)
         } catch (ce: kotlin.coroutines.cancellation.CancellationException) {
@@ -2030,11 +1990,7 @@ class ToolOrchestrator(
      *  - 否则简单任务默认 [DEFAULT_MAX_TOOL_ROUNDS](10 轮)
      *  - 上限 [MAX_TOOL_ROUNDS_HARD_CAP](25)兜底,且不超过 [hardCap](向后兼容调用方传入的 params.maxRounds)
      */
-    internal fun computeMaxRounds(
-        messages: List<UIMessage>,
-        hardCap: Int = MAX_TOOL_ROUNDS_HARD_CAP,
-        sessionId: String? = null,
-    ): Int {
+    internal fun computeMaxRounds(messages: List<UIMessage>, hardCap: Int = MAX_TOOL_ROUNDS_HARD_CAP, sessionId: String? = null): Int {
         val planSteps = countTaskPlanSteps(messages, sessionId)
         val base = if (planSteps > 0) planSteps * 2 + 5 else DEFAULT_MAX_TOOL_ROUNDS
         return minOf(base, MAX_TOOL_ROUNDS_HARD_CAP, hardCap)
@@ -2044,10 +2000,7 @@ class ToolOrchestrator(
      * 统计 task_plan 步骤数:优先用 SkillExecutor 内存中的活跃计划,
      * 回退到从历史消息中解析 task_plan 工具调用的 steps 参数(断点续传/继续会话场景)。
      */
-    internal fun countTaskPlanSteps(
-        messages: List<UIMessage>,
-        sessionId: String? = null,
-    ): Int {
+    internal fun countTaskPlanSteps(messages: List<UIMessage>, sessionId: String? = null): Int {
         val activePlanSteps =
             (
                 if (sessionId == null) {
@@ -2055,7 +2008,7 @@ class ToolOrchestrator(
                 } else {
                     skillExecutor.getActivePlans(sessionId)
                 }
-            ).values.sumOf { it.steps.size }
+                ).values.sumOf { it.steps.size }
         if (activePlanSteps > 0) return activePlanSteps
         return messages.asSequence()
             .filter { it.role == MessageRole.ASSISTANT }
@@ -2112,10 +2065,7 @@ class ToolOrchestrator(
      * Phase 3 可靠性:落盘在独立 [withTimeoutOrNull] 内执行并受 [toolOutputWriteTimeoutMs] 约束,
      * 写盘超时/失败一律降级为内存截断(仅记日志),绝不让磁盘 IO 无限阻塞工具循环。
      */
-    private suspend fun maybeTruncateToolOutput(
-        toolCallId: String,
-        output: String,
-    ): String {
+    private suspend fun maybeTruncateToolOutput(toolCallId: String, output: String): String {
         if (output.length <= MAX_TOOL_RESULT_CHARS) return output
 
         val preview = output.take(TOOL_RESULT_PREVIEW_CHARS)
@@ -2172,10 +2122,7 @@ class ToolOrchestrator(
  * 遍历目录下所有 .txt 文件,按 lastModified 判定是否过期,删除过期文件。
  * 失败的删除操作仅记日志,不影响其他文件清理。
  */
-fun cleanupOldToolOutputs(
-    context: Context,
-    retentionMs: Long = TOOL_OUTPUT_RETENTION_MS,
-) {
+fun cleanupOldToolOutputs(context: Context, retentionMs: Long = TOOL_OUTPUT_RETENTION_MS) {
     val dir = File(context.filesDir, TOOL_OUTPUTS_DIR)
     if (!dir.exists() || !dir.isDirectory) return
     val cutoff = System.currentTimeMillis() - retentionMs

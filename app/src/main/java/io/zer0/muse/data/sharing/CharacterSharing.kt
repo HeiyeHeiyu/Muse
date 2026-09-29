@@ -1,7 +1,6 @@
 package io.zer0.muse.data.sharing
 
 import android.content.Context
-import io.zer0.muse.util.ShareIntentHelper
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -16,6 +15,7 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
+import io.zer0.muse.util.ShareIntentHelper
 import kotlinx.serialization.Serializable
 import java.io.File
 import java.io.FileOutputStream
@@ -67,12 +67,7 @@ object CharacterSharer {
      *
      * @return 生成的文件 URI, 用于分享
      */
-    fun generateCardPng(
-        context: Context,
-        assistant: ShareableAssistant,
-        width: Int = 1080,
-        height: Int = 1350,
-    ): Uri? {
+    fun generateCardPng(context: Context, assistant: ShareableAssistant, width: Int = 1080, height: Int = 1350): Uri? {
         return try {
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)

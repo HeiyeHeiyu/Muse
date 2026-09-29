@@ -219,7 +219,7 @@
     <string name="recently_deleted_auto_clear">Eliminado automáticamente después de 7 días</string>
 
     <string name="chat_draft_label">Borrador</string>
-    <string name="chat_list_archive_confirm">Este chat será archivado y oculto de la lista.</string>
+    <string name="chat_list_archive_confirm">¿Archivar el chat "%1$s"? Se puede restaurar desde el archivo.</string>
     <string name="chat_list_archive_confirm_button">Archivo</string>
     <string name="chat_list_archive_title">Archivar chat</string>
     <string name="chat_list_section_in_progress">En curso</string>
@@ -241,14 +241,14 @@
     <string name="err_image_empty_response">La generación de imágenes arrojó una respuesta vacía.</string>
     <string name="err_image_invalid_uri">URI o ruta de imagen no válida.</string>
     <string name="err_image_no_results">No se generaron imágenes.</string>
-    <string name="err_image_reference_download_failed">No se pudo descargar la imagen de referencia.</string>
-    <string name="err_image_reference_too_large">La imagen de referencia es demasiado grande.</string>
-    <string name="err_image_response_too_large">La imagen generada es demasiado grande para mostrarse.</string>
-    <string name="err_image_unsupported_model">El modelo seleccionado no admite la generación de imágenes.</string>
+    <string name="err_image_reference_download_failed">No se pudo descargar la imagen de referencia. (%1$s)</string>
+    <string name="err_image_reference_too_large">La imagen de referencia es demasiado grande. (%1$s)</string>
+    <string name="err_image_response_too_large">La imagen generada es demasiado grande para mostrarse. (%1$s)</string>
+    <string name="err_image_unsupported_model">El modelo seleccionado no admite la generación de imágenes. (%1$s)</string>
     <string name="err_invalid_argument">Se proporcionó un argumento no válido.</string>
-    <string name="err_invalid_response">Respuesta no válida del servidor.</string>
-    <string name="err_memory_config_invalid">La configuración de la memoria no es válida.</string>
-    <string name="err_memory_token_budget_invalid">Presupuesto de token de memoria no válido.</string>
+    <string name="err_invalid_response">Respuesta no válida del servidor. (%1$s)</string>
+    <string name="err_memory_config_invalid">La configuración de la memoria no es válida. (%1$s)</string>
+    <string name="err_memory_token_budget_invalid">Presupuesto de token de memoria no válido. (%1$s)</string>
     <string name="err_network_error">Error de red.</string>
     <string name="err_no_model_selected">Ningún modelo seleccionado.</string>
     <string name="err_no_provider_configured">Ningún proveedor configurado.</string>
@@ -261,8 +261,8 @@
     <string name="err_resource_exhausted">Recurso agotado.</string>
     <string name="err_service_unavailable">El servicio no está disponible temporalmente.</string>
     <string name="err_stream_interrupted">La transmisión fue interrumpida.</string>
-    <string name="err_vertex_ai_config_invalid">La configuración de Vertex AI no es válida.</string>
-    <string name="err_vertex_ai_token_failed">No se pudo obtener el token de acceso de Vertex AI.</string>
+    <string name="err_vertex_ai_config_invalid">La configuración de Vertex AI no es válida. (%1$s)</string>
+    <string name="err_vertex_ai_token_failed">No se pudo obtener el token de acceso de Vertex AI. (%1$s)</string>
 
     <!-- Assistant detail: capabilities -->
     <string name="assistant_detail_capabilities_title">Capacidades</string>

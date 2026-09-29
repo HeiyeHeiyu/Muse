@@ -17,10 +17,7 @@ import io.zer0.muse.ui.theme.MuseIconSizes
  * @param modifier 修饰符
  */
 @Composable
-fun MuseSettingsIcon(
-    icon: ImageVector,
-    modifier: Modifier = Modifier,
-) {
+fun MuseSettingsIcon(icon: ImageVector, modifier: Modifier = Modifier) {
     Icon(
         imageVector = icon,
         contentDescription = null,

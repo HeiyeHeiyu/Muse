@@ -15,7 +15,12 @@ class ProviderTemplateEngineTest {
         val variables = mapOf(
             "model" to JsonPrimitive("gpt-4"),
             "messages" to buildJsonArray {
-                add(buildJsonObject { put("role", "user"); put("content", "hi") })
+                add(
+                    buildJsonObject {
+                        put("role", "user")
+                        put("content", "hi")
+                    },
+                )
             },
         )
         val rendered = ProviderTemplateEngine.renderRequestTemplate(
@@ -36,9 +41,12 @@ class ProviderTemplateEngineTest {
     @Test
     fun `extractByPath supports nested object and array index`() {
         val json = buildJsonObject {
-            put("choices", buildJsonArray {
-                add(buildJsonObject { put("message", buildJsonObject { put("content", "answer") }) })
-            })
+            put(
+                "choices",
+                buildJsonArray {
+                    add(buildJsonObject { put("message", buildJsonObject { put("content", "answer") }) })
+                },
+            )
         }
         val extracted = ProviderTemplateEngine.extractByPath(json, "$.choices[0].message.content")
         assertEquals(JsonPrimitive("answer"), extracted)

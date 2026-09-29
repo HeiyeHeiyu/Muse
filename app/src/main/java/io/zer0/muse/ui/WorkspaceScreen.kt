@@ -1,9 +1,9 @@
 package io.zer0.muse.ui
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import android.content.ClipData
 import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,18 +24,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -46,16 +44,18 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.R
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseEmptyState
-import io.zer0.muse.ui.common.state.MuseErrorStateBox
-import io.zer0.muse.ui.common.form.MuseFloatingButton
-import io.zer0.muse.ui.common.navigation.MuseTopBar
-import io.zer0.muse.ui.common.state.MuseLoadingState
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseFloatingButton
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.media.WindowWidthClass
 import io.zer0.muse.ui.common.media.rememberWindowWidthClass
+import io.zer0.muse.ui.common.navigation.MuseTopBar
+import io.zer0.muse.ui.common.state.MuseEmptyState
+import io.zer0.muse.ui.common.state.MuseErrorStateBox
+import io.zer0.muse.ui.common.state.MuseLoadingState
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MusePaddings
@@ -316,7 +316,7 @@ fun WorkspaceScreen(
                                     Modifier.widthIn(max = 720.dp)
                                 } else {
                                     Modifier
-                                }
+                                },
                             )
                             .padding(horizontal = MusePaddings.screen),
                         contentPadding = PaddingValues(
@@ -813,12 +813,7 @@ private fun MenuActionRow(
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun QuickSwitchChip(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun QuickSwitchChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, selected: Boolean, onClick: () -> Unit) {
     Surface(
         shape = MuseShapes.pill,
         color = if (selected) {
@@ -862,4 +857,3 @@ private fun formatSize(bytes: Long): String {
     val mb = kb / 1024.0
     return "%.1fMB".format(mb)
 }
-

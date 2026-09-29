@@ -7,8 +7,7 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 object WidgetPrefs {
     private const val PREFS_NAME = "muse_widget_prefs"
 
-    private fun prefs(context: Context): SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private fun prefs(context: Context): SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     fun saveChatWidgetAssistant(context: Context, appWidgetId: Int, assistantId: String) {
         prefs(context).edit().putString("chat_widget_assistant_$appWidgetId", assistantId).apply()

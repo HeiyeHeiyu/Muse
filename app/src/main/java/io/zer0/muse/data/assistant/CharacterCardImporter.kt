@@ -41,30 +41,28 @@ object CharacterCardImporter {
      * @return 成功返回包含角色卡数据的 [AssistantEntity] (id 为空, 调用方需生成 id 并 upsert);
      *         失败返回 Result.failure
      */
-    suspend fun importFromPng(context: Context, uri: Uri): Result<AssistantEntity> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val bytes = readUriWithLimit(context, uri) ?: error("无法读取文件")
-                val base64Text = PngChunkUtil.readTextChunk(bytes, "chara")
-                    ?: error("PNG 中未找到 chara 元数据 (非 SillyTavern 角色卡)")
-                val json = String(Base64.decode(base64Text, Base64.DEFAULT), Charsets.UTF_8)
-                val card = parseCardJson(json)
-                card.toAssistantEntity()
-            }.onFailure { Logger.w(TAG, "importFromPng failed: ${it.message}") }
-        }
+    suspend fun importFromPng(context: Context, uri: Uri): Result<AssistantEntity> = withContext(Dispatchers.IO) {
+        runCatching {
+            val bytes = readUriWithLimit(context, uri) ?: error("无法读取文件")
+            val base64Text = PngChunkUtil.readTextChunk(bytes, "chara")
+                ?: error("PNG 中未找到 chara 元数据 (非 SillyTavern 角色卡)")
+            val json = String(Base64.decode(base64Text, Base64.DEFAULT), Charsets.UTF_8)
+            val card = parseCardJson(json)
+            card.toAssistantEntity()
+        }.onFailure { Logger.w(TAG, "importFromPng failed: ${it.message}") }
+    }
 
     /**
      * 从 JSON 文件导入角色卡 (V1 扁平结构或 V2 包裹结构均可)。
      */
-    suspend fun importFromJson(context: Context, uri: Uri): Result<AssistantEntity> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val bytes = readUriWithLimit(context, uri) ?: error("无法读取文件")
-                val json = String(bytes, Charsets.UTF_8)
-                val card = parseCardJson(json)
-                card.toAssistantEntity()
-            }.onFailure { Logger.w(TAG, "importFromJson failed: ${it.message}") }
-        }
+    suspend fun importFromJson(context: Context, uri: Uri): Result<AssistantEntity> = withContext(Dispatchers.IO) {
+        runCatching {
+            val bytes = readUriWithLimit(context, uri) ?: error("无法读取文件")
+            val json = String(bytes, Charsets.UTF_8)
+            val card = parseCardJson(json)
+            card.toAssistantEntity()
+        }.onFailure { Logger.w(TAG, "importFromJson failed: ${it.message}") }
+    }
 
     /**
      * 自动识别格式并导入。
@@ -74,19 +72,18 @@ object CharacterCardImporter {
      *  - MIME 含 "json" → 走 [importFromJson]
      *  - MIME 未知 → 先试 PNG, 失败再试 JSON (兼容未正确标注 MIME 的来源)
      */
-    suspend fun importAuto(context: Context, uri: Uri): Result<AssistantEntity> =
-        withContext(Dispatchers.IO) {
-            val mime = runCatching { context.contentResolver.getType(uri) }.getOrNull() ?: ""
-            when {
-                mime.contains("png", ignoreCase = true) -> importFromPng(context, uri)
-                mime.contains("json", ignoreCase = true) -> importFromJson(context, uri)
-                else -> {
-                    // MIME 未知: 先试 PNG, 失败回退 JSON
-                    val pngResult = importFromPng(context, uri)
-                    if (pngResult.isSuccess) pngResult else importFromJson(context, uri)
-                }
+    suspend fun importAuto(context: Context, uri: Uri): Result<AssistantEntity> = withContext(Dispatchers.IO) {
+        val mime = runCatching { context.contentResolver.getType(uri) }.getOrNull() ?: ""
+        when {
+            mime.contains("png", ignoreCase = true) -> importFromPng(context, uri)
+            mime.contains("json", ignoreCase = true) -> importFromJson(context, uri)
+            else -> {
+                // MIME 未知: 先试 PNG, 失败回退 JSON
+                val pngResult = importFromPng(context, uri)
+                if (pngResult.isSuccess) pngResult else importFromJson(context, uri)
             }
         }
+    }
 
     // ── 内部工具 ──
 

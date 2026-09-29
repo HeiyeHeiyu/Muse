@@ -45,13 +45,7 @@ import io.zer0.muse.ui.theme.MusePaddings
  * @param consequence 后果说明(点名对象后必填,如"其对话与记忆也会删除");为空时用通用文案
  */
 @Composable
-fun ConfirmDeleteDialog(
-    title: String,
-    itemName: String,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-    consequence: String? = null,
-) {
+fun ConfirmDeleteDialog(title: String, itemName: String, onConfirm: () -> Unit, onDismiss: () -> Unit, consequence: String? = null) {
     MuseDialog(
         onDismissRequest = onDismiss,
         title = title,

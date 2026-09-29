@@ -28,8 +28,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import io.zer0.muse.automation.core.AutomationManager
 import io.zer0.muse.R
+import io.zer0.muse.automation.core.AutomationManager
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.settings.ChevronRight
@@ -143,8 +143,11 @@ fun AutomationSettingsPage(
         // 测试按钮
         item(key = "test") {
             MuseCapsuleButton(
-                text = if (testing) stringResource(R.string.automation_test_running)
-                else stringResource(R.string.automation_test_action),
+                text = if (testing) {
+                    stringResource(R.string.automation_test_running)
+                } else {
+                    stringResource(R.string.automation_test_action)
+                },
                 onClick = {
                     if (testing) return@MuseCapsuleButton
                     scope.launch {
@@ -167,14 +170,14 @@ fun AutomationSettingsPage(
                                             context.getString(
                                                 R.string.automation_test_node_count,
                                                 screen.nodes.size,
-                                            )
+                                            ),
                                         )
                                         appendLine(
                                             context.getString(
                                                 R.string.automation_test_resolution,
                                                 screen.screenWidth,
                                                 screen.screenHeight,
-                                            )
+                                            ),
                                         )
                                     }.trimEnd('\n'),
                                     success = true,
@@ -183,13 +186,13 @@ fun AutomationSettingsPage(
                                             context.getString(
                                                 R.string.automation_test_current_app,
                                                 screen.packageName ?: unknown,
-                                            )
+                                            ),
                                         )
                                         appendLine(
                                             context.getString(
                                                 R.string.automation_test_source,
                                                 screen.source,
-                                            )
+                                            ),
                                         )
                                     }.trimEnd('\n'),
                                 )

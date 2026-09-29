@@ -2,16 +2,10 @@
 
 package io.zer0.muse.ui
 
-import androidx.compose.runtime.getValue
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.theme.MuseMotion
-
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
-import java.io.ByteArrayOutputStream
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
@@ -36,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -48,15 +43,19 @@ import androidx.compose.ui.unit.dp
 import io.zer0.ai.image.ImageGenParams
 import io.zer0.ai.image.ImageModelCatalog
 import io.zer0.muse.R
-import io.zer0.muse.ui.common.form.MuseChip
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 
 /**
  * 录音波形条:把最近振幅历史渲染成竖条。
@@ -93,10 +92,7 @@ internal fun RecordingWaveform(amplitudes: List<Float>) {
  * v0.35: 绘图模式参数面板 — 尺寸/质量/风格 + 参考图临时覆盖。
  */
 @Composable
-internal fun ImageGenParamsPanel(
-    params: ImageGenParams,
-    onParamsChange: (ImageGenParams) -> Unit,
-) {
+internal fun ImageGenParamsPanel(params: ImageGenParams, onParamsChange: (ImageGenParams) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val imagePicker = rememberLauncherForActivityResult(
@@ -227,7 +223,13 @@ internal fun ImageGenParamsPanel(
                     if (supportsRef) imagePicker.launch("image/*")
                 },
                 enabled = supportsRef,
-                label = if (supportsRef) stringResource(R.string.chat_ref_image_add) else stringResource(R.string.chat_ref_image_not_supported),
+                label = if (supportsRef) {
+                    stringResource(
+                        R.string.chat_ref_image_add,
+                    )
+                } else {
+                    stringResource(R.string.chat_ref_image_not_supported)
+                },
                 leadingIcon = {
                     Icon(
                         imageVector = MuseIcons.image,
@@ -258,7 +260,6 @@ internal fun ImageGenParamsPanel(
                     iconSize = MuseIconSizes.iconSmallTiny,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        
                         .background(
                             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
                             shape = CircleShape,
@@ -286,7 +287,7 @@ private data class CompressedReferenceImage(
     /** 人类可读的尺寸/体积描述,用于 Toast 提示。 */
     fun describe(): String {
         val kb = byteCount / 1024
-        return "${width}x${height}, ${kb}KB"
+        return "${width}x$height, ${kb}KB"
     }
 }
 
@@ -367,7 +368,7 @@ private fun compressReferenceImageToDataUri(
 
     if (base64Len > maxBase64Bytes) {
         // 仍超限:拒绝上传,避免 OOM/超时
-        error("image still too large after compression (${width}x${height}, ${bytes.size / 1024}KB)")
+        error("image still too large after compression (${width}x$height, ${bytes.size / 1024}KB)")
     }
 
     val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
@@ -381,10 +382,7 @@ private fun compressReferenceImageToDataUri(
 }
 
 /** 解码原图边界(宽高),不将像素加载到内存。 */
-private fun decodeImageBounds(
-    resolver: android.content.ContentResolver,
-    uri: Uri,
-): Pair<Int, Int> {
+private fun decodeImageBounds(resolver: android.content.ContentResolver, uri: Uri): Pair<Int, Int> {
     val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     resolver.openInputStream(uri)?.use { input ->
         BitmapFactory.decodeStream(input, null, opts)
@@ -393,11 +391,7 @@ private fun decodeImageBounds(
 }
 
 /** 按 inSampleSize 解码 Bitmap。 */
-private fun decodeSampledBitmap(
-    resolver: android.content.ContentResolver,
-    uri: Uri,
-    sampleSize: Int,
-): Bitmap? {
+private fun decodeSampledBitmap(resolver: android.content.ContentResolver, uri: Uri, sampleSize: Int): Bitmap? {
     val opts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
     return resolver.openInputStream(uri)?.use { input ->
         BitmapFactory.decodeStream(input, null, opts)

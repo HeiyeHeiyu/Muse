@@ -95,8 +95,11 @@ object PendingToolCallStore {
         if (!f.exists()) return@withContext emptyList()
         resultOf {
             val text = f.readText()
-            if (text.isBlank()) emptyList()
-            else AppJson.decodeFromString(ListSerializer(PendingToolCall.serializer()), text)
+            if (text.isBlank()) {
+                emptyList()
+            } else {
+                AppJson.decodeFromString(ListSerializer(PendingToolCall.serializer()), text)
+            }
         }.onError { msg, t ->
             AtomicFileStore.quarantine(f, "pending_tool_calls_parse")
             Logger.w(TAG, "loadAll 解析失败: $msg(文件已隔离，待处理调用不会被静默丢弃)", t)
@@ -151,11 +154,7 @@ object PendingToolCallStore {
     }
 
     /** 更新指定工具调用的持久化阶段；未知调用返回 false。 */
-    suspend fun updateState(
-        toolCallId: String,
-        executionState: String,
-        abortReason: String? = null,
-    ): Boolean = mutex.withLock {
+    suspend fun updateState(toolCallId: String, executionState: String, abortReason: String? = null): Boolean = mutex.withLock {
         val current = loadAll()
         var changed = false
         val updated = current.map { pending ->

@@ -3,7 +3,6 @@ package io.zer0.muse.ui.common.media
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.background
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -42,10 +41,10 @@ import io.zer0.muse.R
 import io.zer0.muse.ui.SmartImage
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.surface.MuseDialogWindowEffect
-import io.zer0.muse.ui.theme.MuseIconSizes
-import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseAnimation
+import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MusePaddings
 import kotlinx.coroutines.launch
 
 /**
@@ -57,11 +56,7 @@ import kotlinx.coroutines.launch
  * - scale/offset 用 rememberSaveable,旋屏后保持缩放状态
  */
 @Composable
-internal fun ZoomableImage(
-    model: Any?,
-    modifier: Modifier = Modifier,
-    contentDescription: String? = null,
-) {
+internal fun ZoomableImage(model: Any?, modifier: Modifier = Modifier, contentDescription: String? = null) {
     var scale by rememberSaveable { mutableStateOf(1f) }
     var offsetX by rememberSaveable { mutableStateOf(0f) }
     var offsetY by rememberSaveable { mutableStateOf(0f) }

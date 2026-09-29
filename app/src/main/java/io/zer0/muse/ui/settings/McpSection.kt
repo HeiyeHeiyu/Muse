@@ -1,12 +1,12 @@
 package io.zer0.muse.ui.settings
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.common.resultOf
 import android.content.Intent
 import android.net.Uri
-import io.zer0.muse.ui.common.feedback.MuseDialog
-import io.zer0.muse.ui.common.feedback.MuseToast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,27 +19,28 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseAnchoredMenu
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.zer0.common.resultOf
+import io.zer0.muse.R
 import io.zer0.muse.mcp.McpConnectionState
 import io.zer0.muse.mcp.McpFeishuAuthConfig
 import io.zer0.muse.mcp.McpPrompt
@@ -50,31 +51,30 @@ import io.zer0.muse.mcp.McpResourceContent
 import io.zer0.muse.mcp.McpServerConfig
 import io.zer0.muse.mcp.McpServerTemplates
 import io.zer0.muse.mcp.McpTransportType
-import io.zer0.muse.R
+import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseAnchoredMenu
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseSwitch
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.ui.common.surface.MuseListItem
-import kotlinx.coroutines.launch
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseErrorStateBox
-import io.zer0.muse.ui.common.form.MuseSwitch
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.ui.text.font.FontWeight
+import io.zer0.muse.ui.common.state.MuseSpinner
+import io.zer0.muse.ui.common.surface.MuseListItem
 import io.zer0.muse.ui.theme.MuseAnimation
-import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MusePaddings
+import io.zer0.muse.ui.theme.MuseShapes
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.koin.compose.koinInject
 
 /**
@@ -300,8 +300,11 @@ private fun McpServerRow(
             Text(
                 text = server.name.ifBlank { server.id },
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (server.enabled) MaterialTheme.colorScheme.onSurface
-                else MaterialTheme.colorScheme.outline,
+                color = if (server.enabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.outline
+                },
             )
             Text(
                 text = "${server.transportType.name} · ${server.url.take(50)}${if (server.url.length > 50) "..." else ""}",
@@ -445,10 +448,7 @@ private fun McpServerRow(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun McpServerAddDialog(
-    onDismiss: () -> Unit,
-    onAdd: suspend (McpServerConfig) -> Unit,
-) {
+private fun McpServerAddDialog(onDismiss: () -> Unit, onAdd: suspend (McpServerConfig) -> Unit) {
     var name by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
     var transportType by remember {
@@ -504,7 +504,6 @@ private fun McpServerAddDialog(
                         expanded = templateMenuExpanded,
                         onDismissRequest = { templateMenuExpanded = false },
                     ) {
-
                         (listOf(McpServerTemplates.custom) + McpServerTemplates.all).forEach { template ->
                             MuseListItem(
                                 onClick = {
@@ -537,7 +536,6 @@ private fun McpServerAddDialog(
                                 },
                             )
                         }
-                    
                     }
                 }
                 Text(
@@ -623,7 +621,13 @@ private fun McpServerAddDialog(
                     )
                     Icon(
                         imageVector = if (showAdvanced) MuseIcons.chevronUp else MuseIcons.chevronDown,
-                        contentDescription = if (showAdvanced) stringResource(R.string.settings_common_collapse) else stringResource(R.string.settings_common_expand),
+                        contentDescription = if (showAdvanced) {
+                            stringResource(
+                                R.string.settings_common_collapse,
+                            )
+                        } else {
+                            stringResource(R.string.settings_common_expand)
+                        },
                         tint = MaterialTheme.colorScheme.outline,
                         modifier = Modifier.size(20.dp),
                     )
@@ -730,11 +734,7 @@ private fun McpServerAddDialog(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ResourcesBrowserDialog(
-    serverId: String,
-    mcpRegistry: McpRegistry,
-    onDismiss: () -> Unit,
-) {
+private fun ResourcesBrowserDialog(serverId: String, mcpRegistry: McpRegistry, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var loading by remember { mutableStateOf(true) }
@@ -837,12 +837,12 @@ private fun ResourcesBrowserDialog(
                             }
                         }
                     }
+                }
             }
-        }
-    },
-    confirmText = stringResource(R.string.settings_common_close),
-    onConfirm = onDismiss,
-)
+        },
+        confirmText = stringResource(R.string.settings_common_close),
+        onConfirm = onDismiss,
+    )
 
     // 资源内容详情(叠加在列表 dialog 之上)
     viewingContent?.let { contents ->
@@ -879,11 +879,7 @@ private fun ResourcesBrowserDialog(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PromptsBrowserDialog(
-    serverId: String,
-    mcpRegistry: McpRegistry,
-    onDismiss: () -> Unit,
-) {
+private fun PromptsBrowserDialog(serverId: String, mcpRegistry: McpRegistry, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var loading by remember { mutableStateOf(true) }
@@ -1102,10 +1098,7 @@ private fun PromptsBrowserDialog(
  * Dialog 内容区错误条 — 替代 MuseToast,避免 Toast 被 Dialog 窗口遮挡。
  */
 @Composable
-private fun InlineError(
-    message: String,
-    onDismiss: () -> Unit,
-) {
+private fun InlineError(message: String, onDismiss: () -> Unit) {
     Surface(
         shape = MuseShapes.medium,
         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
@@ -1174,10 +1167,7 @@ private fun JsonElement.toDisplayText(): String {
  * 全宽 + 左对齐文本 + 适度 padding,点击触发回调。
  */
 @Composable
-private fun McpActionRow(
-    label: String,
-    onClick: () -> Unit,
-) {
+private fun McpActionRow(label: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

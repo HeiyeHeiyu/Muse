@@ -97,7 +97,6 @@ object CompiledMemoryState {
     }
 
     /** 检测是否有孤立的 <think> 开头标签(无闭合)。 */
-    fun hasDanglingLeadingThinkTag(value: String): Boolean =
-        Regex("<think(?:ing)?>", RegexOption.IGNORE_CASE).containsMatchIn(value) &&
-            !Regex("</think(?:ing)?>", RegexOption.IGNORE_CASE).containsMatchIn(value)
+    fun hasDanglingLeadingThinkTag(value: String): Boolean = Regex("<think(?:ing)?>", RegexOption.IGNORE_CASE).containsMatchIn(value) &&
+        !Regex("</think(?:ing)?>", RegexOption.IGNORE_CASE).containsMatchIn(value)
 }

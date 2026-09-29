@@ -45,11 +45,7 @@ import io.zer0.muse.ui.theme.MuseIconSizes
  * 超过 [MAX_DOC_BYTES] 的文件回退加载失败态（后续可扩展分块加载）。
  */
 @Composable
-fun DocPreviewDialog(
-    fileName: String,
-    loadBytes: suspend () -> ByteArray?,
-    onDismiss: () -> Unit,
-) {
+fun DocPreviewDialog(fileName: String, loadBytes: suspend () -> ByteArray?, onDismiss: () -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
     var payloadB64 by remember { mutableStateOf<String?>(null) }
     var failed by remember { mutableStateOf(false) }

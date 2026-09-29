@@ -17,23 +17,23 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
 import io.zer0.muse.R
-import io.zer0.muse.ui.ChatListScreen
 import io.zer0.muse.ui.ArchivedChatsScreen
+import io.zer0.muse.ui.ChatListScreen
 import io.zer0.muse.ui.ChatScreen
 import io.zer0.muse.ui.ChatViewModel
 import io.zer0.muse.ui.HomeScreen
 import io.zer0.muse.ui.HtmlPreviewScreen
 import io.zer0.muse.ui.RecentlyDeletedScreen
 import io.zer0.muse.ui.SearchScreen
-import io.zer0.muse.ui.settings.PromptTemplateManagerPage
 import io.zer0.muse.ui.common.media.WindowWidthClass
 import io.zer0.muse.ui.common.media.rememberWindowWidthClass
 import io.zer0.muse.ui.quicknotes.QuickNotesScreen
 import io.zer0.muse.ui.quicknotes.QuickNotesViewModel
-import org.koin.androidx.compose.koinViewModel
-import androidx.navigation.toRoute
+import io.zer0.muse.ui.settings.PromptTemplateManagerPage
 import kotlinx.coroutines.launch
+import org.koin.androidx.compose.koinViewModel
 
 /**
  * 聊天域 NavGraph — 包含首页、搜索、聊天详情、群聊详情、最近删除、快速记录、
@@ -42,11 +42,7 @@ import kotlinx.coroutines.launch
  * 从 MainActivity 抽取以解决后者过载问题(原 1804 行 → 目标 ≤ 800 行)。
  * HOME 使用垂直过渡,其余页面统一使用 [MuseTransitions.horizontalPushEnter] / [horizontalPushPopExit]。
  */
-fun NavGraphBuilder.chatNavGraph(
-    navController: NavHostController,
-    sharedViewModel: ChatViewModel,
-    context: Context,
-) {
+fun NavGraphBuilder.chatNavGraph(navController: NavHostController, sharedViewModel: ChatViewModel, context: Context) {
     // v0.22: 首页 — 顶部 Tab 导航(垂直过渡,HOME 专属)
     composable<HomeRoute>(
         enterTransition = { MuseTransitions.verticalPushEnter() },
@@ -421,12 +417,12 @@ fun NavGraphBuilder.chatNavGraph(
             chatId = chatId,
             onBack = { navController.popBackStack() },
             // HTML/SVG 代码块全屏预览:URL 编码后跳转 HtmlPreviewScreen
-                onHtmlPreview = { html ->
-                    navController.navigate(HtmlPreviewRoute(html))
-                },
-                onOpenPromptTemplateManager = { navController.navigate(PromptTemplateManagerRoute) },
-                // v1.0.72: 编辑助手供应商 → 模型与服务设置页
-                onEditAssistantProvider = { navController.navigate(io.zer0.muse.ui.navigation.SettingsModelRoute) },
+            onHtmlPreview = { html ->
+                navController.navigate(HtmlPreviewRoute(html))
+            },
+            onOpenPromptTemplateManager = { navController.navigate(PromptTemplateManagerRoute) },
+            // v1.0.72: 编辑助手供应商 → 模型与服务设置页
+            onEditAssistantProvider = { navController.navigate(io.zer0.muse.ui.navigation.SettingsModelRoute) },
         )
     }
     // 定时任务(首页大方块入口)

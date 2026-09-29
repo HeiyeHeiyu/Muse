@@ -10,9 +10,9 @@ import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.notification.MuseNotificationManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -46,6 +46,7 @@ class CloudBackupScheduler(
      * [checkAndSync] 触发重复 exportToCloud,用 Mutex 串行临界区。
      */
     private val syncMutex = Mutex()
+
     /**
      * B-11: 内存抢占标记 —— 触发上传前前置写入,防止临界区外的重复调用
      * 在同窗内再次触发。内存标记仅对同进程可见;跨进程(WorkManager 独立进程)
@@ -56,10 +57,13 @@ class CloudBackupScheduler(
 
     companion object {
         private const val TAG = "CloudBackupSched"
+
         /** 轮询间隔:10 分钟检查一次是否到期(不需要更频繁,备份间隔最小 1 小时)。 */
         private const val POLL_INTERVAL_MS = 10 * 60 * 1000L
+
         /** 最小间隔:1 小时(防止用户设置过小导致频繁上传)。 */
         private const val MIN_INTERVAL_HOURS = 1
+
         /** B-11: 同窗口抢占保护时长(取轮询间隔,覆盖一轮轮询内可能的重复触发)。 */
         private const val SYNC_GUARD_MS = 10 * 60 * 1000L
     }
@@ -99,7 +103,8 @@ class CloudBackupScheduler(
     fun registerWorkManagerFallback(context: Context) {
         try {
             val request = PeriodicWorkRequestBuilder<CloudBackupWorker>(
-                15, TimeUnit.MINUTES,
+                15,
+                TimeUnit.MINUTES,
             ).build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 CloudBackupWorker.UNIQUE_WORK_NAME,

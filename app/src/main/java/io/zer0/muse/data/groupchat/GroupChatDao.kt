@@ -61,7 +61,9 @@ interface GroupChatDao {
     // ── v1.107 冗余字段维护方法 ──
 
     /** v1.107: 原子更新群聊冗余字段(最后消息预览 + 计数 + 最后活动时间)。 */
-    @Query("UPDATE group_chats SET lastMessagePreview = :preview, messageCount = messageCount + :delta, lastActivityAt = :timestamp, updatedAt = :timestamp WHERE id = :id")
+    @Query(
+        "UPDATE group_chats SET lastMessagePreview = :preview, messageCount = messageCount + :delta, lastActivityAt = :timestamp, updatedAt = :timestamp WHERE id = :id",
+    )
     suspend fun updateLastMessageAndCount(id: String, preview: String, delta: Int, timestamp: Long)
 
     @Query("SELECT * FROM group_chats")

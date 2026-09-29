@@ -3,6 +3,8 @@
 
 package io.zer0.muse.ui.knowledge
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.knowledge.KnowledgeBaseDao
@@ -45,25 +48,22 @@ import io.zer0.muse.data.knowledge.KnowledgeDocDao
 import io.zer0.muse.data.knowledge.KnowledgeDocEntity
 import io.zer0.muse.rag.RagConfig
 import io.zer0.muse.rag.RagService
+import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.media.WindowWidthClass
+import io.zer0.muse.ui.common.media.rememberWindowWidthClass
 import io.zer0.muse.ui.common.museAnimateItem
+import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
 import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseErrorStateBox
-import io.zer0.muse.ui.common.navigation.MuseTopBar
-import io.zer0.muse.ui.common.feedback.MuseDialog
-import io.zer0.muse.ui.common.feedback.MuseToast
-import io.zer0.muse.ui.common.media.rememberWindowWidthClass
-import io.zer0.muse.ui.common.media.WindowWidthClass
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.settings.SettingField
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import io.zer0.common.resultOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -442,66 +442,66 @@ fun KnowledgeBaseManagePage(
                     label = "kbManageContent",
                     modifier = Modifier.fillMaxSize(),
                 ) { kind ->
-                when (kind) {
-                    0 -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        MuseErrorStateBox(
-                            message = kbsLoadError.orEmpty(),
-                            onRetry = {
-                                kbsLoadError = null
-                                kbsRetryKey++
-                            },
-                        )
-                    }
-                    }
-                    1 -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        MuseSpinner()
-                    }
-                    }
-                    2 -> {
-                    MuseEmptyState(
-                        icon = MuseIcons.folder,
-                        title = stringResource(R.string.kb_manage_empty),
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                    }
-                    else -> {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(
-                                if (widthClass == WindowWidthClass.Expanded) {
-                                    Modifier.widthIn(max = 720.dp)
-                                } else {
-                                    Modifier
-                                }
-                            ),
-                        verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                            bottom = MusePaddings.screen + 80.dp,
-                        ),
-                    ) {
-                        items(list.orEmpty(), key = { it.id }) { kb ->
-                            // v2.x: 动效补齐 — 知识库行入场(令牌 animateItem)
-                            Box(museAnimateItem()) {
-                            KbRow(
-                                kb = kb,
-                                onEdit = { editing = kb },
-                                onDelete = { deleting = kb },
-                                // F-31: 向本知识库添加文档
-                                onAddDocument = {
-                                    importTargetKb = kb
-                                    importLauncher.launch("*/*")
-                                },
-                                // ST-02: 先二次确认(点名该库 + 说明后果),不再点一下就直接重建
-                                onReindex = { reindexConfirmTarget = kb },
+                    when (kind) {
+                        0 -> {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                MuseErrorStateBox(
+                                    message = kbsLoadError.orEmpty(),
+                                    onRetry = {
+                                        kbsLoadError = null
+                                        kbsRetryKey++
+                                    },
+                                )
+                            }
+                        }
+                        1 -> {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                MuseSpinner()
+                            }
+                        }
+                        2 -> {
+                            MuseEmptyState(
+                                icon = MuseIcons.folder,
+                                title = stringResource(R.string.kb_manage_empty),
+                                modifier = Modifier.fillMaxSize(),
                             )
+                        }
+                        else -> {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .then(
+                                        if (widthClass == WindowWidthClass.Expanded) {
+                                            Modifier.widthIn(max = 720.dp)
+                                        } else {
+                                            Modifier
+                                        },
+                                    ),
+                                verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                    bottom = MusePaddings.screen + 80.dp,
+                                ),
+                            ) {
+                                items(list.orEmpty(), key = { it.id }) { kb ->
+                                    // v2.x: 动效补齐 — 知识库行入场(令牌 animateItem)
+                                    Box(museAnimateItem()) {
+                                        KbRow(
+                                            kb = kb,
+                                            onEdit = { editing = kb },
+                                            onDelete = { deleting = kb },
+                                            // F-31: 向本知识库添加文档
+                                            onAddDocument = {
+                                                importTargetKb = kb
+                                                importLauncher.launch("*/*")
+                                            },
+                                            // ST-02: 先二次确认(点名该库 + 说明后果),不再点一下就直接重建
+                                            onReindex = { reindexConfirmTarget = kb },
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
-                    }
-                }
                 }
             }
         }
@@ -849,11 +849,7 @@ private data class ZipEntryResult(val outcome: ZipEntryOutcome, val units: Long)
  * - 文本条目直接流式索引(不落盘);解析类条目临时落盘单个文件,用完即删
  * - 压缩包为空或全部失败时回收新建知识库,避免留下空壳
  */
-private suspend fun importZipBundle(
-    zipUri: android.net.Uri,
-    zipName: String,
-    deps: ZipImportDeps,
-) {
+private suspend fun importZipBundle(zipUri: android.net.Uri, zipName: String, deps: ZipImportDeps) {
     val kbName = zipName.substringBeforeLast('.').take(60).ifBlank { zipName.take(60) }
     val baseTime = System.currentTimeMillis()
     val kbId = "kb-$baseTime"
@@ -899,19 +895,10 @@ private suspend fun importZipBundle(
 private data class ZipScanResult(val imported: Int, val skipped: Int, val failed: Int)
 
 /** v2.x: 条目数/总量是否超过导入上限。 */
-private fun overLimit(
-    count: Int,
-    units: Long,
-): Boolean =
-    count >= ZipImportPolicy.MAX_ENTRIES || units >= ZipImportPolicy.MAX_TOTAL_BYTES
+private fun overLimit(count: Int, units: Long): Boolean = count >= ZipImportPolicy.MAX_ENTRIES || units >= ZipImportPolicy.MAX_TOTAL_BYTES
 
 /** v2.x: 遍历 zip 条目流并逐条导入;单条失败不中断,返回统计。 */
-private suspend fun scanZipEntries(
-    zis: java.util.zip.ZipInputStream,
-    kbId: String,
-    zipName: String,
-    deps: ZipImportDeps,
-): ZipScanResult {
+private suspend fun scanZipEntries(zis: java.util.zip.ZipInputStream, kbId: String, zipName: String, deps: ZipImportDeps): ZipScanResult {
     var imported = 0
     var skipped = 0
     var failed = 0
@@ -1051,11 +1038,7 @@ private suspend fun importZipTextEntry(
 }
 
 /** v2.x: 把当前 zip 条目完整写入临时文件;超过上限立即抛错。返回写入字节数。 */
-private fun copyZipEntryToFile(
-    zis: java.util.zip.ZipInputStream,
-    target: java.io.File,
-    capBytes: Long,
-): Long {
+private fun copyZipEntryToFile(zis: java.util.zip.ZipInputStream, target: java.io.File, capBytes: Long): Long {
     var used = 0L
     java.io.FileOutputStream(target).use { out ->
         val buf = ByteArray(64 * 1024)

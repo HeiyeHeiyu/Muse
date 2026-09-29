@@ -5,11 +5,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import kotlinx.coroutines.test.runTest
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -38,9 +38,15 @@ class MemoryDbMigrationTest {
                 .name(file.absolutePath)
                 .callback(object : SupportSQLiteOpenHelper.Callback(1) {
                     override fun onCreate(db: SupportSQLiteDatabase) {
-                        db.execSQL("CREATE TABLE session_summaries (session_id TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, summary TEXT NOT NULL, message_count INTEGER NOT NULL, source_time_range TEXT, snapshot TEXT NOT NULL, snapshot_at TEXT, assistant_id TEXT NOT NULL, PRIMARY KEY(session_id))")
-                        db.execSQL("CREATE TABLE daily_state (`key` TEXT NOT NULL, schema_version INTEGER NOT NULL, logical_date TEXT NOT NULL, reset_at TEXT, facts_mode TEXT NOT NULL, completed_steps TEXT NOT NULL, daily_completed_at TEXT, updated_at TEXT NOT NULL, PRIMARY KEY(`key`))")
-                        db.execSQL("CREATE TABLE compiled_sections (section_key TEXT NOT NULL, content TEXT NOT NULL, fingerprint TEXT, updated_at TEXT NOT NULL, PRIMARY KEY(section_key))")
+                        db.execSQL(
+                            "CREATE TABLE session_summaries (session_id TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, summary TEXT NOT NULL, message_count INTEGER NOT NULL, source_time_range TEXT, snapshot TEXT NOT NULL, snapshot_at TEXT, assistant_id TEXT NOT NULL, PRIMARY KEY(session_id))",
+                        )
+                        db.execSQL(
+                            "CREATE TABLE daily_state (`key` TEXT NOT NULL, schema_version INTEGER NOT NULL, logical_date TEXT NOT NULL, reset_at TEXT, facts_mode TEXT NOT NULL, completed_steps TEXT NOT NULL, daily_completed_at TEXT, updated_at TEXT NOT NULL, PRIMARY KEY(`key`))",
+                        )
+                        db.execSQL(
+                            "CREATE TABLE compiled_sections (section_key TEXT NOT NULL, content TEXT NOT NULL, fingerprint TEXT, updated_at TEXT NOT NULL, PRIMARY KEY(section_key))",
+                        )
                         db.execSQL("CREATE TABLE room_master_table (id INTEGER PRIMARY KEY, identity_hash TEXT)")
                         db.execSQL("INSERT INTO room_master_table VALUES (42, '5b74599c11f2cfdaae37cbc32148a9fd')")
                     }

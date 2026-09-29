@@ -114,8 +114,7 @@ object ChannelConversationStore {
     }
 
     /** 读取对话(不存在时返回 null)。 */
-    fun conversation(channelId: String, from: String): Conversation? =
-        _conversations.value[key(channelId, from)]
+    fun conversation(channelId: String, from: String): Conversation? = _conversations.value[key(channelId, from)]
 
     /**
      * v2.3.2: 压缩结果**条件回写** —— 取代原来的 `replace()` 盲覆盖。
@@ -133,13 +132,7 @@ object ChannelConversationStore {
      * @return true = 已写入;false = 放弃(调用方仅记日志)
      */
     @Synchronized
-    fun applyCompression(
-        channelId: String,
-        from: String,
-        snapshotSummary: String,
-        drainedTurns: List<Turn>,
-        summary: String,
-    ): Boolean {
+    fun applyCompression(channelId: String, from: String, snapshotSummary: String, drainedTurns: List<Turn>, summary: String): Boolean {
         val key = key(channelId, from)
         val current = _conversations.value[key]
         val applicable = compressionApplicable(current, snapshotSummary, drainedTurns)
@@ -162,11 +155,7 @@ object ChannelConversationStore {
      *  2. 摘要仍是压缩前读到的那份 —— 否则说明另一次压缩已抢先写入;
      *  3. 边界轮次仍是同一条(时间戳 + 文本)—— 否则列表被 clear/裁剪重建过。
      */
-    private fun compressionApplicable(
-        current: Conversation?,
-        snapshotSummary: String,
-        drainedTurns: List<Turn>,
-    ): Boolean {
+    private fun compressionApplicable(current: Conversation?, snapshotSummary: String, drainedTurns: List<Turn>): Boolean {
         val boundary = drainedTurns.lastOrNull()
         val currentBoundary = current?.turns?.getOrNull(drainedTurns.size - 1)
         val sameSummary = current != null && current.summary == snapshotSummary

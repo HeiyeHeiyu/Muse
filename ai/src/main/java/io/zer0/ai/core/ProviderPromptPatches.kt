@@ -64,11 +64,7 @@ object ProviderPromptPatches {
      * @param baseUrl Provider 的 baseUrl
      * @param thinkingFormat ProviderCompat 派生的思考格式
      */
-    private fun isDeepSeekReasoningModel(
-        model: Model,
-        baseUrl: String,
-        thinkingFormat: ThinkingFormat?,
-    ): Boolean {
+    private fun isDeepSeekReasoningModel(model: Model, baseUrl: String, thinkingFormat: ThinkingFormat?): Boolean {
         // 快速路径:thinkingFormat 已派生为 DEEPSEEK
         if (thinkingFormat == ThinkingFormat.DEEPSEEK) return true
 

@@ -37,38 +37,30 @@ object CharacterCardExporter {
      * @param avatar 可选头像 Bitmap;为 null 时用 1x1 透明 PNG 作载体
      * @param destUri 目标 URI (SAF CreateDocument 返回)
      */
-    suspend fun exportToPng(
-        context: Context,
-        assistant: AssistantEntity,
-        avatar: Bitmap?,
-        destUri: Uri,
-    ): Result<Unit> = withContext(Dispatchers.IO) {
-        runCatching {
-            val card = SillyTavernCardV2.fromAssistantEntity(assistant)
-            val json = AppJson.encodeToString(SillyTavernCardV2.serializer(), card)
-            // NO_WRAP: 不插入换行, 保证 tEXt chunk 单段 text
-            val base64 = Base64.encodeToString(json.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
+    suspend fun exportToPng(context: Context, assistant: AssistantEntity, avatar: Bitmap?, destUri: Uri): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val card = SillyTavernCardV2.fromAssistantEntity(assistant)
+                val json = AppJson.encodeToString(SillyTavernCardV2.serializer(), card)
+                // NO_WRAP: 不插入换行, 保证 tEXt chunk 单段 text
+                val base64 = Base64.encodeToString(json.toByteArray(Charsets.UTF_8), Base64.NO_WRAP)
 
-            // 生成 PNG 载体字节 (头像 or 1x1 透明)
-            val pngBytes = encodePngBytes(avatar)
-            // 注入 tEXt chunk (插到 IHDR 之后)
-            val finalBytes = PngChunkUtil.writeTextChunk(pngBytes, "chara", base64)
+                // 生成 PNG 载体字节 (头像 or 1x1 透明)
+                val pngBytes = encodePngBytes(avatar)
+                // 注入 tEXt chunk (插到 IHDR 之后)
+                val finalBytes = PngChunkUtil.writeTextChunk(pngBytes, "chara", base64)
 
-            context.contentResolver.openOutputStream(destUri)?.use { os ->
-                os.write(finalBytes)
-                os.flush()
-            } ?: error("无法写入目标 URI")
-        }.onFailure { Logger.w(TAG, "exportToPng failed: ${it.message}") }
-    }
+                context.contentResolver.openOutputStream(destUri)?.use { os ->
+                    os.write(finalBytes)
+                    os.flush()
+                } ?: error("无法写入目标 URI")
+            }.onFailure { Logger.w(TAG, "exportToPng failed: ${it.message}") }
+        }
 
     /**
      * 导出为 SillyTavern JSON 角色卡 (V2 结构)。
      */
-    suspend fun exportToJson(
-        context: Context,
-        assistant: AssistantEntity,
-        destUri: Uri,
-    ): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun exportToJson(context: Context, assistant: AssistantEntity, destUri: Uri): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             val card = SillyTavernCardV2.fromAssistantEntity(assistant)
             val json = AppJson.encodeToString(SillyTavernCardV2.serializer(), card)

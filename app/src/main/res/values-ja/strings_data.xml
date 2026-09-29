@@ -102,7 +102,7 @@
     <!-- ===== data/DocumentParser ===== -->
     <!-- Document parsing error messages (via Result.Error to UI) -->
     <string name="doc_err_open_pdf">PDFファイルを開けません</string>
-    <string name="doc_err_pdf_text_empty">PDF テキスト抽出は空です (スキャンされた PDF である可能性があり、OCR が必要です)。</string>
+    <string name="doc_err_pdf_text_empty">PDFのテキストを抽出できませんでした（スキャンPDFの可能性があります。OCRが必要です）。全%1$dページ。</string>
     <string name="doc_err_docx_no_document">DOCX を読み取れません: word/document.xml がありません</string>
     <string name="doc_err_pptx_no_slides">PPTX を読み取れません: スライドが見つかりません</string>
     <string name="doc_err_xlsx_no_sheets">XLSX を読み取れません: ワークシートが見つかりません</string>

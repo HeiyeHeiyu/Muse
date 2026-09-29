@@ -91,13 +91,12 @@ sealed class ProviderSpecificConfig {
         val customBody: Map<String, JsonElement> = emptyMap(),
     ) : ProviderSpecificConfig() {
         /** 不把自定义 headers/body 的值写入日志,只保留键名便于诊断。 */
-        override fun toString(): String =
-            "OpenAI(chatCompletionsPath=$chatCompletionsPath, useResponseApi=$useResponseApi, " +
-                "responsesPath=$responsesPath, includeHistoryReasoning=$includeHistoryReasoning, " +
-                "embeddingsPath=$embeddingsPath, imagesPath=$imagesPath, imageModel=$imageModel, " +
-                "videoGenerationsPath=$videoGenerationsPath, stripModelPrefix=$stripModelPrefix, " +
-                "codingPlan=$codingPlan, customHeaderKeys=${customHeaders.keys}, " +
-                "customBodyKeys=${customBody.keys})"
+        override fun toString(): String = "OpenAI(chatCompletionsPath=$chatCompletionsPath, useResponseApi=$useResponseApi, " +
+            "responsesPath=$responsesPath, includeHistoryReasoning=$includeHistoryReasoning, " +
+            "embeddingsPath=$embeddingsPath, imagesPath=$imagesPath, imageModel=$imageModel, " +
+            "videoGenerationsPath=$videoGenerationsPath, stripModelPrefix=$stripModelPrefix, " +
+            "codingPlan=$codingPlan, customHeaderKeys=${customHeaders.keys}, " +
+            "customBodyKeys=${customBody.keys})"
     }
 
     /**
@@ -117,7 +116,7 @@ sealed class ProviderSpecificConfig {
     @SerialName("Anthropic")
     data class Anthropic(
         val promptCaching: Boolean = false,
-        val promptCacheTtl: String = "5m",  // "5m" / "1h"
+        val promptCacheTtl: String = "5m", // "5m" / "1h"
         val messagesPath: String = "/messages",
         val modelsPath: String = "/models",
     ) : ProviderSpecificConfig() {

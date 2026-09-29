@@ -4,8 +4,8 @@ import android.content.Context
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import io.mockk.coEvery
-import io.mockk.just
 import io.mockk.coVerify
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import kotlinx.coroutines.test.runTest

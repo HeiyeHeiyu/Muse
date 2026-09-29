@@ -32,8 +32,7 @@ data class RootRequestResult(
         val Granted: RootRequestResult = RootRequestResult(granted = true)
 
         /** 请求失败,附失败原因。 */
-        fun failed(reason: RootRequestFailure): RootRequestResult =
-            RootRequestResult(granted = false, failure = reason)
+        fun failed(reason: RootRequestFailure): RootRequestResult = RootRequestResult(granted = false, failure = reason)
     }
 }
 
@@ -46,8 +45,7 @@ internal const val ROOT_PROBE_COMMAND = "id"
  * 与 [RootExecutor.shellPrefix] 的调用约定一致:`su -c <cmd>`;固定 argv 走 ProcessBuilder,
  * 不经过 shell 文本拼接,避免命令注入面。
  */
-internal fun rootProbeArgs(prefix: List<String>): List<String> =
-    prefix + listOf("-c", ROOT_PROBE_COMMAND)
+internal fun rootProbeArgs(prefix: List<String>): List<String> = prefix + listOf("-c", ROOT_PROBE_COMMAND)
 
 /** 探针输出是否表明已获得 root(uid=0)。 */
 internal fun isRootGranted(output: String?): Boolean = output?.contains("uid=0") == true
@@ -66,8 +64,7 @@ internal fun evaluateRootProbe(exitCode: Int, output: String): RootRequestResult
 }
 
 /** 探针未在超时内结束(root 弹窗无人处理)→ 超时失败。 */
-internal fun rootProbeTimeout(): RootRequestResult =
-    RootRequestResult.failed(RootRequestFailure.TIMEOUT)
+internal fun rootProbeTimeout(): RootRequestResult = RootRequestResult.failed(RootRequestFailure.TIMEOUT)
 
 /** 子进程启动/读取异常 → 失败原因分类。 */
 internal fun classifyRootProbeException(error: Throwable): RootRequestFailure = when (error) {

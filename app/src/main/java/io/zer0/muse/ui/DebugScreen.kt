@@ -8,12 +8,6 @@ package io.zer0.muse.ui
 //  - 导出失败:DebugLogStore.exportToFile() 返回 null 时 toast(debug_export_failed_no_logs),
 //    FileProvider.getUriForFile 失败也 toast(debug_export_failed_no_uri)。
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.theme.MuseMotion
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -43,9 +37,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,24 +62,28 @@ import io.zer0.muse.debug.DebugLogStore
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.MuseBottomSheet
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseDropdown
+import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.state.MuseErrorStateBox
 import io.zer0.muse.ui.common.state.MuseLoadingState
 import io.zer0.muse.ui.theme.MuseMonoFontFamily
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.MuseStatusColors
 import io.zer0.muse.ui.theme.statusColors
 import io.zer0.muse.ui.theme.tiny
 import io.zer0.muse.util.ShareIntentHelper
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * 调试日志页 — 支持查看、过滤、导出。
@@ -100,9 +100,7 @@ import org.koin.compose.koinInject
  * @param onBack 返回回调(由 NavHost 注入)
  */
 @Composable
-fun DebugScreen(
-    onBack: () -> Unit,
-) {
+fun DebugScreen(onBack: () -> Unit) {
     val context = LocalContext.current
 
     // ── 过滤器状态 ───────────────────────────────────────────────────────
@@ -245,7 +243,7 @@ fun DebugScreen(
                 val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
                     as android.content.ClipboardManager
                 clipboard.setPrimaryClip(
-                    android.content.ClipData.newPlainText("Muse Debug Log", text)
+                    android.content.ClipData.newPlainText("Muse Debug Log", text),
                 )
                 MuseToast.show(context.getString(R.string.debug_logs_copied_toast, filteredLogs.size))
             }
@@ -324,15 +322,15 @@ private fun ScaffoldLayout(
                         icon = if (paused) MuseIcons.play else MuseIcons.pause,
                         onClick = onTogglePause,
                         contentDescription = if (paused) {
-                                stringResource(R.string.debug_cd_resume_follow)
-                            } else {
-                                stringResource(R.string.debug_cd_pause_follow)
-                            },
+                            stringResource(R.string.debug_cd_resume_follow)
+                        } else {
+                            stringResource(R.string.debug_cd_pause_follow)
+                        },
                         tint = if (paused) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            },
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
                     )
                     // 崩溃日志入口(P1-4):展示 MuseCrashHandler 已落盘的崩溃日志列表 + 一键打包 ZIP 分享
                     MuseTactileButton(
@@ -572,7 +570,7 @@ private fun LogEntryItem(
                     androidx.compose.ui.text.SpanStyle(
                         background = statusColors.highlight,
                         color = onSurfaceColor,
-                    )
+                    ),
                 )
                 append(text.substring(hit, hit + highlight.length))
                 pop()
@@ -690,7 +688,6 @@ private fun levelColor(level: String, colors: MuseStatusColors): Color {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-
 
 // ════════════════════════════════════════════════════════════════════════════
 // P3-3:数据库完整性面板 — 把 IntegrityChecker 已有但未 UI 化的检查结果透出
@@ -884,8 +881,11 @@ private fun DbIntegritySheet(onDismiss: () -> Unit) {
 
                     // ── 立即检查按钮 ─────────────────────────────────────────
                     MuseCapsuleButton(
-                        text = if (checking) stringResource(R.string.debug_checking)
-                        else stringResource(R.string.debug_check_now),
+                        text = if (checking) {
+                            stringResource(R.string.debug_checking)
+                        } else {
+                            stringResource(R.string.debug_check_now)
+                        },
                         onClick = {
                             if (checking) return@MuseCapsuleButton
                             scope.launch {
@@ -897,9 +897,12 @@ private fun DbIntegritySheet(onDismiss: () -> Unit) {
                                 result.onSuccess { ok ->
                                     MuseToast.show(
                                         context.getString(
-                                            if (ok) R.string.debug_integrity_check_passed
-                                            else R.string.debug_integrity_check_failed
-                                        )
+                                            if (ok) {
+                                                R.string.debug_integrity_check_passed
+                                            } else {
+                                                R.string.debug_integrity_check_failed
+                                            },
+                                        ),
                                     )
                                 }.onFailure { e ->
                                     if (e is kotlinx.coroutines.CancellationException) throw e
@@ -922,8 +925,11 @@ private fun DbIntegritySheet(onDismiss: () -> Unit) {
                         modifier = Modifier.padding(vertical = MusePaddings.contentGap),
                     )
                     MuseCapsuleButton(
-                        text = if (checking) stringResource(R.string.debug_checking)
-                        else stringResource(R.string.debug_check_now),
+                        text = if (checking) {
+                            stringResource(R.string.debug_checking)
+                        } else {
+                            stringResource(R.string.debug_check_now)
+                        },
                         onClick = {
                             if (checking) return@MuseCapsuleButton
                             scope.launch {
@@ -949,5 +955,3 @@ private fun DbIntegritySheet(onDismiss: () -> Unit) {
         }
     }
 }
-
-

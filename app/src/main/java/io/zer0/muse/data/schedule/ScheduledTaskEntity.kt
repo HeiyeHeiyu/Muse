@@ -19,7 +19,7 @@ data class ScheduledTaskEntity(
     val name: String,
     @ColumnInfo(defaultValue = "") val prompt: String = "",
     @ColumnInfo(name = "assistant_id", defaultValue = "default") val assistantId: String = "default",
-    @ColumnInfo(defaultValue = "daily") val interval: String = "daily",  // once / hourly / daily / weekly / cron
+    @ColumnInfo(defaultValue = "daily") val interval: String = "daily", // once / hourly / daily / weekly / cron
     @ColumnInfo(name = "cron_expr", defaultValue = "") val cronExpr: String = "",
     @ColumnInfo(name = "enabled", defaultValue = "1") val enabled: Boolean = true,
     @ColumnInfo(name = "next_run_at", defaultValue = "0") val nextRunAt: Long = 0,

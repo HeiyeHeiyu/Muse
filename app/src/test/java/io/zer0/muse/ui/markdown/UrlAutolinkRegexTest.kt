@@ -21,8 +21,7 @@ import org.junit.Test
 class UrlAutolinkRegexTest {
 
     /** 提取文本中所有 URL 匹配结果为字符串列表(便于断言)。 */
-    private fun urls(input: String): List<String> =
-        URL_AUTOLINK_REGEX.findAll(input).map { it.value }.toList()
+    private fun urls(input: String): List<String> = URL_AUTOLINK_REGEX.findAll(input).map { it.value }.toList()
 
     // ── 标准匹配 ──
 

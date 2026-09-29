@@ -1,7 +1,7 @@
 package io.zer0.muse.rag
 
-import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.ProviderConfigStore
+import io.zer0.ai.core.ProviderConfig
 import io.zer0.common.Logger
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -30,6 +30,7 @@ class EmbeddingService(
 ) {
     @Volatile
     private var cachedProvider: EmbeddingProvider? = null
+
     @Volatile
     private var cachedConfigHash: Int = 0
     private val mutex = Mutex()
@@ -94,7 +95,7 @@ class EmbeddingService(
         ) {
             Logger.w(
                 "EmbeddingService",
-                "Provider ${providerConfig.displayName}(${providerConfig.type}) 不兼容 OpenAI embedding API 且未指定 cloudModel,降级到本地关键词 embedding"
+                "Provider ${providerConfig.displayName}(${providerConfig.type}) 不兼容 OpenAI embedding API 且未指定 cloudModel,降级到本地关键词 embedding",
             )
             return LocalKeywordEmbeddingProvider()
         }

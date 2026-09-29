@@ -3,10 +3,10 @@ package io.zer0.ai.decorator
 import io.zer0.ai.core.ChatCompletion
 import io.zer0.ai.core.ChatRequest
 import io.zer0.ai.core.ChatStreamEvent
+import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.Model
 import io.zer0.ai.core.Provider
 import io.zer0.ai.core.UIMessage
-import io.zer0.ai.core.MessageRole
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay

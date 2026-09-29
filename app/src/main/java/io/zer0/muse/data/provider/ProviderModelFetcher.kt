@@ -31,64 +31,63 @@ object ProviderModelFetcher {
     enum class FailureKind { AUTH, EMPTY, NETWORK, OTHER }
 
     /** 拉取并富化模型清单。全策略失败时返回 [Outcome.Failure]。 */
-    suspend fun fetch(config: ProviderConfig, forceFresh: Boolean = false): Outcome =
-        withContext(Dispatchers.IO) {
-            // 1) 缓存优先(5 分钟 TTL)— 与供应商编辑页共用缓存,避免重复打上游
-            if (!forceFresh) {
-                val cached = ModelListCache.get(config, forceFresh = false)
-                if (cached != null) {
-                    return@withContext if (cached.isEmpty()) {
-                        Outcome.Failure(FailureKind.EMPTY, "cached model list is empty")
-                    } else {
-                        Outcome.Success(cached.map { ModelRegistry.enrich(it) }, config)
-                    }
+    suspend fun fetch(config: ProviderConfig, forceFresh: Boolean = false): Outcome = withContext(Dispatchers.IO) {
+        // 1) 缓存优先(5 分钟 TTL)— 与供应商编辑页共用缓存,避免重复打上游
+        if (!forceFresh) {
+            val cached = ModelListCache.get(config, forceFresh = false)
+            if (cached != null) {
+                return@withContext if (cached.isEmpty()) {
+                    Outcome.Failure(FailureKind.EMPTY, "cached model list is empty")
+                } else {
+                    Outcome.Success(cached.map { ModelRegistry.enrich(it) }, config)
                 }
-            }
-
-            // 2) URL 多策略补全 — 覆盖用户漏填/多填 /v1 的场景
-            val base = config.baseUrl.trimEnd('/')
-            val urlsToTry = mutableListOf<String>()
-            if (base.isNotBlank()) {
-                urlsToTry.add(base)
-                if (!base.endsWith("/v1") && !base.endsWith("/v1beta")) {
-                    urlsToTry.add("$base/v1")
-                } else if (base.endsWith("/v1")) {
-                    urlsToTry.add(base.removeSuffix("/v1"))
-                }
-            } else {
-                urlsToTry.add(config.baseUrl)
-            }
-
-            var lastError: String? = null
-            var sawEmpty = false
-            for (url in urlsToTry) {
-                val cfg = config.copy(baseUrl = url)
-                val result = resultOf { ProviderRegistry.create(cfg).listModels(cfg) }
-                val models = result.getOrNull()
-                if (models != null) {
-                    if (models.isEmpty()) {
-                        sawEmpty = true
-                        continue
-                    }
-                    // 3) 逐个富化 — 自动推导 abilities / modalities / contextWindow,
-                    //    保证视觉/推理三态判定在引导阶段就已生效
-                    val enriched = models.map { ModelRegistry.enrich(it) }
-                    ModelListCache.put(cfg, models)
-                    return@withContext Outcome.Success(enriched, cfg)
-                }
-                var failMsg = "unknown"
-                result.onError { msg, t -> failMsg = t?.message ?: msg }
-                if (failMsg.contains("401") || failMsg.contains("403")) {
-                    return@withContext Outcome.Failure(FailureKind.AUTH, failMsg)
-                }
-                lastError = failMsg
-            }
-
-            // 全策略失败: 空清单 vs 网络/其他
-            if (sawEmpty) {
-                Outcome.Failure(FailureKind.EMPTY, "upstream returned no models")
-            } else {
-                Outcome.Failure(FailureKind.NETWORK, lastError ?: "unknown error")
             }
         }
+
+        // 2) URL 多策略补全 — 覆盖用户漏填/多填 /v1 的场景
+        val base = config.baseUrl.trimEnd('/')
+        val urlsToTry = mutableListOf<String>()
+        if (base.isNotBlank()) {
+            urlsToTry.add(base)
+            if (!base.endsWith("/v1") && !base.endsWith("/v1beta")) {
+                urlsToTry.add("$base/v1")
+            } else if (base.endsWith("/v1")) {
+                urlsToTry.add(base.removeSuffix("/v1"))
+            }
+        } else {
+            urlsToTry.add(config.baseUrl)
+        }
+
+        var lastError: String? = null
+        var sawEmpty = false
+        for (url in urlsToTry) {
+            val cfg = config.copy(baseUrl = url)
+            val result = resultOf { ProviderRegistry.create(cfg).listModels(cfg) }
+            val models = result.getOrNull()
+            if (models != null) {
+                if (models.isEmpty()) {
+                    sawEmpty = true
+                    continue
+                }
+                // 3) 逐个富化 — 自动推导 abilities / modalities / contextWindow,
+                //    保证视觉/推理三态判定在引导阶段就已生效
+                val enriched = models.map { ModelRegistry.enrich(it) }
+                ModelListCache.put(cfg, models)
+                return@withContext Outcome.Success(enriched, cfg)
+            }
+            var failMsg = "unknown"
+            result.onError { msg, t -> failMsg = t?.message ?: msg }
+            if (failMsg.contains("401") || failMsg.contains("403")) {
+                return@withContext Outcome.Failure(FailureKind.AUTH, failMsg)
+            }
+            lastError = failMsg
+        }
+
+        // 全策略失败: 空清单 vs 网络/其他
+        if (sawEmpty) {
+            Outcome.Failure(FailureKind.EMPTY, "upstream returned no models")
+        } else {
+            Outcome.Failure(FailureKind.NETWORK, lastError ?: "unknown error")
+        }
+    }
 }

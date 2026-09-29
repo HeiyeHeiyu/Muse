@@ -72,12 +72,7 @@ class GroupChatActivityHub {
      * @param assistantName 助手显示名
      * @param status 新状态
      */
-    fun updateStatus(
-        groupChatId: String,
-        assistantId: String,
-        assistantName: String,
-        status: AgentActivityStatus,
-    ) {
+    fun updateStatus(groupChatId: String, assistantId: String, assistantName: String, status: AgentActivityStatus) {
         // 审计修复 (3.5): 用 MutableStateFlow.update 原子完成读-改-写,
         // 避免并发调用时各自基于旧快照 toMutableMap() 操作后互相覆盖。
         _activities.update { current ->
@@ -94,6 +89,7 @@ class GroupChatActivityHub {
     // ══════════════════════════════════════════════════════════════════
 
     private val _streamingContent = MutableStateFlow<Map<String, String>>(emptyMap())
+
     /** chatId → 正在流式生成的助手回复内容(空 map 表示无流式输出)。 */
     val streamingContent: StateFlow<Map<String, String>> = _streamingContent.asStateFlow()
 

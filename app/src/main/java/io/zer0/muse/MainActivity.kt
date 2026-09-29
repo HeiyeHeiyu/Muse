@@ -8,17 +8,15 @@ import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.setValue
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -26,8 +24,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
@@ -37,34 +36,52 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
 import io.zer0.common.Logger
 import io.zer0.muse.crash.MuseCrashHandler
+import io.zer0.muse.data.AppearanceSettingsStore
 import io.zer0.muse.data.ChatPreferences
 import io.zer0.muse.data.SettingsRepository
-import io.zer0.muse.data.AppearanceSettingsStore
 import io.zer0.muse.data.assistant.AssistantCardImportBridge
 import io.zer0.muse.intent.ShareIntentHandler
 import io.zer0.muse.ui.ChatViewModel
 import io.zer0.muse.ui.MuseRoutes
-import io.zer0.muse.ui.onboarding.OnboardingScreen
 import io.zer0.muse.ui.SafeModeScreen
-import io.zer0.muse.ui.common.media.DesktopShortcuts
 import io.zer0.muse.ui.common.feedback.MuseToastHost
+import io.zer0.muse.ui.common.media.DesktopShortcuts
 import io.zer0.muse.ui.common.media.rememberDesktopShortcutsEnabled
+import io.zer0.muse.ui.navigation.AssistantsRoute
+import io.zer0.muse.ui.navigation.ChatDetailRoute
+import io.zer0.muse.ui.navigation.HomeRoute
+import io.zer0.muse.ui.navigation.KnowledgeBaseManageRoute
+import io.zer0.muse.ui.navigation.KnowledgeRoute
+import io.zer0.muse.ui.navigation.MuseTransitions
+import io.zer0.muse.ui.navigation.QuickNoteRoute
+import io.zer0.muse.ui.navigation.QuickNotesRoute
+import io.zer0.muse.ui.navigation.ScheduledTaskRoute
+import io.zer0.muse.ui.navigation.ScheduledTasksRoute
+import io.zer0.muse.ui.navigation.SettingsAboutRoute
+import io.zer0.muse.ui.navigation.SettingsAgentRoute
+import io.zer0.muse.ui.navigation.SettingsCloudBackupRoute
+import io.zer0.muse.ui.navigation.SettingsDataRoute
+import io.zer0.muse.ui.navigation.SettingsMemoryRoute
+import io.zer0.muse.ui.navigation.SettingsModelRoute
+import io.zer0.muse.ui.navigation.SettingsRoute
+import io.zer0.muse.ui.navigation.TranslateRoute
 import io.zer0.muse.ui.navigation.assistantNavGraph
 import io.zer0.muse.ui.navigation.chatNavGraph
-import io.zer0.muse.ui.navigation.MuseTransitions
 import io.zer0.muse.ui.navigation.settingsNavGraph
 import io.zer0.muse.ui.navigation.toolsNavGraph
+import io.zer0.muse.ui.onboarding.OnboardingScreen
 import io.zer0.muse.ui.quicknotes.QuickCaptureEdgeOverlay
 import io.zer0.muse.ui.quicknotes.QuickCaptureOverlayService
 import io.zer0.muse.ui.quicknotes.QuickNotesViewModel
-import io.zer0.muse.ui.theme.MuseTheme
 import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MuseTheme
 import io.zer0.muse.ui.theme.loadCustomFontFamily
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -72,23 +89,6 @@ import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.compose.koinInject
 import org.koin.core.context.GlobalContext
-import io.zer0.muse.ui.navigation.SettingsRoute
-import io.zer0.muse.ui.navigation.AssistantsRoute
-import io.zer0.muse.ui.navigation.HomeRoute
-import io.zer0.muse.ui.navigation.ScheduledTasksRoute
-import io.zer0.muse.ui.navigation.ScheduledTaskRoute
-import io.zer0.muse.ui.navigation.TranslateRoute
-import io.zer0.muse.ui.navigation.QuickNotesRoute
-import io.zer0.muse.ui.navigation.QuickNoteRoute
-import io.zer0.muse.ui.navigation.ChatDetailRoute
-import io.zer0.muse.ui.navigation.SettingsDataRoute
-import io.zer0.muse.ui.navigation.SettingsCloudBackupRoute
-import io.zer0.muse.ui.navigation.SettingsAboutRoute
-import io.zer0.muse.ui.navigation.SettingsAgentRoute
-import io.zer0.muse.ui.navigation.SettingsModelRoute
-import io.zer0.muse.ui.navigation.SettingsMemoryRoute
-import io.zer0.muse.ui.navigation.KnowledgeRoute
-import io.zer0.muse.ui.navigation.KnowledgeBaseManageRoute
 
 /**
  * 应用唯一 Activity。
@@ -112,7 +112,7 @@ class MainActivity : ComponentActivity() {
 
     /** Phase 8.10: 当前待消费的 Intent 处理结果(由 NavGraph 观察)。 */
     private var pendingShareResult by mutableStateOf<ShareIntentHandler.ShareResult>(
-        ShareIntentHandler.ShareResult.None
+        ShareIntentHandler.ShareResult.None,
     )
 
     /** 通知权限申请 launcher(Android 13+ 必需 POST_NOTIFICATIONS 运行时权限)。 */
@@ -441,218 +441,217 @@ private fun MuseNavGraph(
                 },
         ) {
             // v1.x: 应用锁功能已移除(产品决策),不再订阅 appPin/biometric 设置
-        LaunchedEffect(splashDelayDone, settingsReady) {
-            if (splashDelayDone && settingsReady) {
-                onSplashReady()
+            LaunchedEffect(splashDelayDone, settingsReady) {
+                if (splashDelayDone && settingsReady) {
+                    onSplashReady()
+                }
             }
-        }
 
-        LaunchedEffect(
-            settingsReady,
-            showOnboarding,
-            quickCaptureEnabled,
-            quickCaptureOverlayEnabled,
-        ) {
-            val shouldRunOverlay = settingsReady &&
-                !showOnboarding &&
-                quickCaptureEnabled &&
-                quickCaptureOverlayEnabled &&
-                android.provider.Settings.canDrawOverlays(context)
-            if (shouldRunOverlay) {
-                QuickCaptureOverlayService.start(context)
-            } else if (!quickCaptureEnabled || !quickCaptureOverlayEnabled || showOnboarding) {
-                QuickCaptureOverlayService.stop(context)
+            LaunchedEffect(
+                settingsReady,
+                showOnboarding,
+                quickCaptureEnabled,
+                quickCaptureOverlayEnabled,
+            ) {
+                val shouldRunOverlay = settingsReady &&
+                    !showOnboarding &&
+                    quickCaptureEnabled &&
+                    quickCaptureOverlayEnabled &&
+                    android.provider.Settings.canDrawOverlays(context)
+                if (shouldRunOverlay) {
+                    QuickCaptureOverlayService.start(context)
+                } else if (!quickCaptureEnabled || !quickCaptureOverlayEnabled || showOnboarding) {
+                    QuickCaptureOverlayService.stop(context)
+                }
             }
-        }
 
-        // v1.27: 不再依赖登录态重建 NavHost,直接使用固定导航图
-        // H2: settings 加载完成后再组合 NavHost,确保 startDestination 用真实 providers/onboardingShown
-        if (settingsReady) {
-            // 开机引导页:首次启动且未完成引导时,全屏覆盖显示引导
-            if (showOnboarding) {
-                OnboardingScreen(
-                    onComplete = { onboardingCompleted = true },
-                )
-            } else {
-                // Phase 8.10: 消费分享/Deep Link 结果
-                LaunchedEffect(pendingShareResult) {
-                    val result = pendingShareResult
-                    when (result) {
-                        is ShareIntentHandler.ShareResult.PrefillText -> {
-                            sharedViewModel.updateInput(result.text)
-                            navController.navigate(HomeRoute) {
-                                popUpTo(HomeRoute) { inclusive = false }
-                                launchSingleTop = true
-                            }
-                        }
-                        is ShareIntentHandler.ShareResult.OpenSession -> {
-                            navController.navigate(ChatDetailRoute) {
-                                popUpTo(HomeRoute) { inclusive = false }
-                                launchSingleTop = true
-                            }
-                            sharedViewModel.openSessionFromNotification(result.sessionId)
-                        }
-                        is ShareIntentHandler.ShareResult.NewSession -> {
-                            sharedViewModel.createNewSession()
-                            navController.navigate(HomeRoute) {
-                                popUpTo(HomeRoute) { inclusive = false }
-                                launchSingleTop = true
-                            }
-                        }
-                        is ShareIntentHandler.ShareResult.OpenAssistants -> {
-                            navController.navigate(AssistantsRoute)
-                        }
-                        is ShareIntentHandler.ShareResult.ImportAssistantCard -> {
-                            // v2.x: 角色包导入 — URI 交给助手页的导入预览对话框消费
-                            AssistantCardImportBridge.offer(result.uri)
-                            navController.navigate(AssistantsRoute)
-                        }
-                        is ShareIntentHandler.ShareResult.OpenSettings -> {
-                            navController.navigate(SettingsRoute)
-                        }
-                        is ShareIntentHandler.ShareResult.OpenChats -> {
-                            navController.navigate(HomeRoute) {
-                                popUpTo(HomeRoute) {
-                                    inclusive = true
+            // v1.27: 不再依赖登录态重建 NavHost,直接使用固定导航图
+            // H2: settings 加载完成后再组合 NavHost,确保 startDestination 用真实 providers/onboardingShown
+            if (settingsReady) {
+                // 开机引导页:首次启动且未完成引导时,全屏覆盖显示引导
+                if (showOnboarding) {
+                    OnboardingScreen(
+                        onComplete = { onboardingCompleted = true },
+                    )
+                } else {
+                    // Phase 8.10: 消费分享/Deep Link 结果
+                    LaunchedEffect(pendingShareResult) {
+                        val result = pendingShareResult
+                        when (result) {
+                            is ShareIntentHandler.ShareResult.PrefillText -> {
+                                sharedViewModel.updateInput(result.text)
+                                navController.navigate(HomeRoute) {
+                                    popUpTo(HomeRoute) { inclusive = false }
+                                    launchSingleTop = true
                                 }
-                                launchSingleTop = true
                             }
-                        }
-                        is ShareIntentHandler.ShareResult.OpenScheduledTasks -> {
-                            navController.navigate(ScheduledTasksRoute)
-                        }
-                        is ShareIntentHandler.ShareResult.OpenScheduledTask -> {
-                            navController.navigate(ScheduledTaskRoute(result.taskId))
-                        }
-                        is ShareIntentHandler.ShareResult.OpenQuickNote -> {
-                            navController.navigate(QuickNoteRoute(result.noteId))
-                        }
-                        is ShareIntentHandler.ShareResult.OpenChat -> {
-                            navController.navigate(ChatDetailRoute)
-                        }
-                        is ShareIntentHandler.ShareResult.OpenHome -> {
-                            navController.navigate(HomeRoute) {
-                                popUpTo(HomeRoute) { inclusive = false }
-                                launchSingleTop = true
+                            is ShareIntentHandler.ShareResult.OpenSession -> {
+                                navController.navigate(ChatDetailRoute) {
+                                    popUpTo(HomeRoute) { inclusive = false }
+                                    launchSingleTop = true
+                                }
+                                sharedViewModel.openSessionFromNotification(result.sessionId)
                             }
-                        }
-                        is ShareIntentHandler.ShareResult.OpenSettingsData -> {
-                            navController.navigate(SettingsDataRoute)
-                        }
-                        is ShareIntentHandler.ShareResult.OpenCloudBackup -> {
-                            navController.navigate(SettingsCloudBackupRoute)
-                        }
-                        is ShareIntentHandler.ShareResult.OpenSettingsAbout -> {
-                            navController.navigate(SettingsAboutRoute)
-                        }
-                        is ShareIntentHandler.ShareResult.OpenSettingsAgent -> {
-                            navController.navigate(SettingsAgentRoute)
-                        }
-                        is ShareIntentHandler.ShareResult.OpenSettingsModel -> {
-                            navController.navigate(SettingsModelRoute)
-                        }
-                        is ShareIntentHandler.ShareResult.OpenMemory -> {
-                            navController.navigate(SettingsMemoryRoute)
-                        }
-                        is ShareIntentHandler.ShareResult.OpenKnowledge -> {
-                            navController.navigate(KnowledgeRoute)
-                        }
-                        is ShareIntentHandler.ShareResult.OpenKnowledgeBases -> {
-                            navController.navigate(KnowledgeBaseManageRoute)
-                        }
-                        // Launcher 快捷方式:打开翻译页
-                        is ShareIntentHandler.ShareResult.OpenTranslate -> {
-                            navController.navigate(TranslateRoute)
-                        }
-                        // Launcher 快捷方式:进入主页并触发语音输入
-                        is ShareIntentHandler.ShareResult.StartVoiceInput -> {
-                            navController.navigate(HomeRoute) {
-                                popUpTo(HomeRoute) { inclusive = false }
-                                launchSingleTop = true
+                            is ShareIntentHandler.ShareResult.NewSession -> {
+                                sharedViewModel.createNewSession()
+                                navController.navigate(HomeRoute) {
+                                    popUpTo(HomeRoute) { inclusive = false }
+                                    launchSingleTop = true
+                                }
                             }
-                            // P2-17: SYSTEM(默认)/文件模式无流式 ASR 实现,直接调用会静默无响应;
-                            // 改走系统语音识别 Intent(SpeechInput),识别文本回填输入框。
-                            if (sharedViewModel.shouldUseApiRecording()) {
-                                // 触发流式 ASR(麦克风录音识别)
-                                // 注意:这里直接调用 sharedViewModel 上的 ASR 入口,
-                                // UI(InputBar)会通过 asrState 状态观察并显示录音中状态。
-                                sharedViewModel.startStreamingAsr()
-                            } else if (io.zer0.muse.ui.speech.SpeechInput.isAvailable(context)) {
-                                systemSpeechLauncher.launch(
-                                    io.zer0.muse.ui.speech.SpeechInput.createIntent(
-                                        context.getString(R.string.settings_asr_provider_system),
-                                    ),
-                                )
-                            } else {
-                                // 无可用语音识别器时给明确提示,不再静默
-                                io.zer0.muse.ui.common.feedback.MuseToast.show(
-                                    context.getString(R.string.asr_system_unavailable),
-                                )
+                            is ShareIntentHandler.ShareResult.OpenAssistants -> {
+                                navController.navigate(AssistantsRoute)
                             }
+                            is ShareIntentHandler.ShareResult.ImportAssistantCard -> {
+                                // v2.x: 角色包导入 — URI 交给助手页的导入预览对话框消费
+                                AssistantCardImportBridge.offer(result.uri)
+                                navController.navigate(AssistantsRoute)
+                            }
+                            is ShareIntentHandler.ShareResult.OpenSettings -> {
+                                navController.navigate(SettingsRoute)
+                            }
+                            is ShareIntentHandler.ShareResult.OpenChats -> {
+                                navController.navigate(HomeRoute) {
+                                    popUpTo(HomeRoute) {
+                                        inclusive = true
+                                    }
+                                    launchSingleTop = true
+                                }
+                            }
+                            is ShareIntentHandler.ShareResult.OpenScheduledTasks -> {
+                                navController.navigate(ScheduledTasksRoute)
+                            }
+                            is ShareIntentHandler.ShareResult.OpenScheduledTask -> {
+                                navController.navigate(ScheduledTaskRoute(result.taskId))
+                            }
+                            is ShareIntentHandler.ShareResult.OpenQuickNote -> {
+                                navController.navigate(QuickNoteRoute(result.noteId))
+                            }
+                            is ShareIntentHandler.ShareResult.OpenChat -> {
+                                navController.navigate(ChatDetailRoute)
+                            }
+                            is ShareIntentHandler.ShareResult.OpenHome -> {
+                                navController.navigate(HomeRoute) {
+                                    popUpTo(HomeRoute) { inclusive = false }
+                                    launchSingleTop = true
+                                }
+                            }
+                            is ShareIntentHandler.ShareResult.OpenSettingsData -> {
+                                navController.navigate(SettingsDataRoute)
+                            }
+                            is ShareIntentHandler.ShareResult.OpenCloudBackup -> {
+                                navController.navigate(SettingsCloudBackupRoute)
+                            }
+                            is ShareIntentHandler.ShareResult.OpenSettingsAbout -> {
+                                navController.navigate(SettingsAboutRoute)
+                            }
+                            is ShareIntentHandler.ShareResult.OpenSettingsAgent -> {
+                                navController.navigate(SettingsAgentRoute)
+                            }
+                            is ShareIntentHandler.ShareResult.OpenSettingsModel -> {
+                                navController.navigate(SettingsModelRoute)
+                            }
+                            is ShareIntentHandler.ShareResult.OpenMemory -> {
+                                navController.navigate(SettingsMemoryRoute)
+                            }
+                            is ShareIntentHandler.ShareResult.OpenKnowledge -> {
+                                navController.navigate(KnowledgeRoute)
+                            }
+                            is ShareIntentHandler.ShareResult.OpenKnowledgeBases -> {
+                                navController.navigate(KnowledgeBaseManageRoute)
+                            }
+                            // Launcher 快捷方式:打开翻译页
+                            is ShareIntentHandler.ShareResult.OpenTranslate -> {
+                                navController.navigate(TranslateRoute)
+                            }
+                            // Launcher 快捷方式:进入主页并触发语音输入
+                            is ShareIntentHandler.ShareResult.StartVoiceInput -> {
+                                navController.navigate(HomeRoute) {
+                                    popUpTo(HomeRoute) { inclusive = false }
+                                    launchSingleTop = true
+                                }
+                                // P2-17: SYSTEM(默认)/文件模式无流式 ASR 实现,直接调用会静默无响应;
+                                // 改走系统语音识别 Intent(SpeechInput),识别文本回填输入框。
+                                if (sharedViewModel.shouldUseApiRecording()) {
+                                    // 触发流式 ASR(麦克风录音识别)
+                                    // 注意:这里直接调用 sharedViewModel 上的 ASR 入口,
+                                    // UI(InputBar)会通过 asrState 状态观察并显示录音中状态。
+                                    sharedViewModel.startStreamingAsr()
+                                } else if (io.zer0.muse.ui.speech.SpeechInput.isAvailable(context)) {
+                                    systemSpeechLauncher.launch(
+                                        io.zer0.muse.ui.speech.SpeechInput.createIntent(
+                                            context.getString(R.string.settings_asr_provider_system),
+                                        ),
+                                    )
+                                } else {
+                                    // 无可用语音识别器时给明确提示,不再静默
+                                    io.zer0.muse.ui.common.feedback.MuseToast.show(
+                                        context.getString(R.string.asr_system_unavailable),
+                                    )
+                                }
+                            }
+                            // v1.0.18: Launcher 快捷方式:打开快速记录页
+                            is ShareIntentHandler.ShareResult.OpenQuickNotes -> {
+                                navController.navigate(QuickNotesRoute)
+                            }
+                            ShareIntentHandler.ShareResult.None -> Unit
                         }
-                        // v1.0.18: Launcher 快捷方式:打开快速记录页
-                        is ShareIntentHandler.ShareResult.OpenQuickNotes -> {
-                            navController.navigate(QuickNotesRoute)
+                        // 一次性消费通知/Deep Link 事件，确保连续点击同类通知也能重新导航。
+                        if (result != ShareIntentHandler.ShareResult.None) {
+                            onPendingIntentConsumed()
                         }
-                        ShareIntentHandler.ShareResult.None -> Unit
                     }
-                    // 一次性消费通知/Deep Link 事件，确保连续点击同类通知也能重新导航。
-                    if (result != ShareIntentHandler.ShareResult.None) {
-                        onPendingIntentConsumed()
+
+                    // v1.131: 首次启动引导已移除,直接进入主页
+                    val startDestination = HomeRoute
+
+                    // 返回交给 NavHost 自带的 Navigation Compose 回调：
+                    // 子页面由导航栈回退，根页面没有可回退栈时交给 Activity 默认行为退出。
+                    // 页面级 BackHandler、Dialog 和 Popup 仍按 Compose 的内层优先级先消费。
+
+                    NavHost(
+                        navController = navController,
+                        startDestination = startDestination,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.background),
+                        // 默认过渡与各子 NavGraph 复用同一套 helper，避免根图和二级图的
+                        // 时长/位移/淡入淡出语义漂移。
+                        enterTransition = { MuseTransitions.horizontalPushEnter() },
+                        exitTransition = { MuseTransitions.horizontalPushExit() },
+                        popEnterTransition = { MuseTransitions.horizontalPopEnter() },
+                        popExitTransition = { MuseTransitions.horizontalPushPopExit() },
+                    ) {
+                        // P0-3: NavGraph 子图抽取 — 66 个 composable 拆分到 4 个域文件
+                        chatNavGraph(
+                            navController = navController,
+                            sharedViewModel = sharedViewModel,
+                            context = context,
+                        )
+                        assistantNavGraph(
+                            navController = navController,
+                            sharedViewModel = sharedViewModel,
+                        )
+                        settingsNavGraph(
+                            navController = navController,
+                        )
+                        toolsNavGraph(
+                            navController = navController,
+                            sharedViewModel = sharedViewModel,
+                        )
                     }
-                }
+                } // 关闭 else(showOnboarding) 分支
+            }
 
-                // v1.131: 首次启动引导已移除,直接进入主页
-                val startDestination = HomeRoute
-
-                // 返回交给 NavHost 自带的 Navigation Compose 回调：
-                // 子页面由导航栈回退，根页面没有可回退栈时交给 Activity 默认行为退出。
-                // 页面级 BackHandler、Dialog 和 Popup 仍按 Compose 的内层优先级先消费。
-
-                NavHost(
-                    navController = navController,
-                    startDestination = startDestination,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background),
-                    // 默认过渡与各子 NavGraph 复用同一套 helper，避免根图和二级图的
-                    // 时长/位移/淡入淡出语义漂移。
-                    enterTransition = { MuseTransitions.horizontalPushEnter() },
-                    exitTransition = { MuseTransitions.horizontalPushExit() },
-                    popEnterTransition = { MuseTransitions.horizontalPopEnter() },
-                    popExitTransition = { MuseTransitions.horizontalPushPopExit() },
-                ) {
-                    // P0-3: NavGraph 子图抽取 — 66 个 composable 拆分到 4 个域文件
-                    chatNavGraph(
-                        navController = navController,
-                        sharedViewModel = sharedViewModel,
-                        context = context,
-                    )
-                    assistantNavGraph(
-                        navController = navController,
-                        sharedViewModel = sharedViewModel,
-                    )
-                    settingsNavGraph(
-                        navController = navController,
-                    )
-                    toolsNavGraph(
-                        navController = navController,
-                        sharedViewModel = sharedViewModel,
-                    )
-                }
-            } // 关闭 else(showOnboarding) 分支
-        }
-
-        // 高频入口:在 Muse 内任何页面从右侧边缘左滑,唤起快速记录侧滑面板。
-        // 不申请悬浮窗权限,也不覆盖引导页,避免与系统手势冲突。
-        QuickCaptureEdgeOverlay(
-            enabled = settingsReady &&
-                !showOnboarding &&
-                quickCaptureEnabled &&
-                !quickCaptureOverlayEnabled,
-            viewModel = quickNotesViewModel,
-        )
-
+            // 高频入口:在 Muse 内任何页面从右侧边缘左滑,唤起快速记录侧滑面板。
+            // 不申请悬浮窗权限,也不覆盖引导页,避免与系统手势冲突。
+            QuickCaptureEdgeOverlay(
+                enabled = settingsReady &&
+                    !showOnboarding &&
+                    quickCaptureEnabled &&
+                    !quickCaptureOverlayEnabled,
+                viewModel = quickNotesViewModel,
+            )
         } // 关闭 P2-13 内层 onKeyEvent Box
     }
 }
@@ -684,10 +683,7 @@ private fun parseAppLocale(lang: String): java.util.Locale? = when (lang) {
  * ROM 兜底: 与 wrapWithLanguage 一致,额外 updateConfiguration 强制刷新 locale。
  */
 @Composable
-private fun RuntimeLocaleProvider(
-    lang: String,
-    content: @Composable () -> Unit,
-) {
+private fun RuntimeLocaleProvider(lang: String, content: @Composable () -> Unit) {
     val context = LocalContext.current
     // 覆盖 LocalContext 时显式透传 Activity Result 宿主,否则聊天页的
     // rememberLauncherForActivityResult 在进入 ChatScreen 时会直接崩溃。

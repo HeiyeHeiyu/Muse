@@ -26,8 +26,7 @@ class LlmBudgetSegmentTest {
 
     private fun longtermBody() = "长期记忆 A 非常重要完全保留\n长期记忆 B 同样重要"
 
-    private fun hugeBody(prefix: String, lines: Int = 80): String =
-        (1..lines).joinToString("\n") { "$prefix 填充行 $it 用于把本段撑大远超预算" }
+    private fun hugeBody(prefix: String, lines: Int = 80): String = (1..lines).joinToString("\n") { "$prefix 填充行 $it 用于把本段撑大远超预算" }
 
     /** 构造一段与 assembleCompiledMarkdown 输出格式一致的 4 段 markdown。 */
     private fun sampleMarkdown(): String = listOf(

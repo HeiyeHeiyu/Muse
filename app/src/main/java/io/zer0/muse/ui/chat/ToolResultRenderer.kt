@@ -37,10 +37,7 @@ import org.json.JSONObject
  * 识别是启发式的:任何解析失败都会安全回退到纯文本,不抛异常拖垮消息气泡。
  */
 @Composable
-internal fun ToolResultRenderer(
-    result: String,
-    modifier: Modifier = Modifier,
-) {
+internal fun ToolResultRenderer(result: String, modifier: Modifier = Modifier) {
     val kind = remember(result) { detectResultKind(result) }
     when (kind) {
         ResultKind.JSON -> JsonTreeView(result, modifier)
@@ -170,13 +167,7 @@ private fun JsonArrayNode(key: String?, arr: JSONArray, depth: Int) {
 }
 
 @Composable
-private fun JsonToggleRow(
-    key: String?,
-    preview: String,
-    expanded: Boolean,
-    depth: Int,
-    onToggle: () -> Unit,
-) {
+private fun JsonToggleRow(key: String?, preview: String, expanded: Boolean, depth: Int, onToggle: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

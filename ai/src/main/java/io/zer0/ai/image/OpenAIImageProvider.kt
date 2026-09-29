@@ -1,10 +1,10 @@
 package io.zer0.ai.image
 
 import io.zer0.ai.RefImageUrlValidator
+import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ProviderHttpSupport
 import io.zer0.ai.core.ProviderKeyRotation
 import io.zer0.ai.core.ProviderSpecificConfig
-import io.zer0.ai.core.ProviderConfig
 import io.zer0.common.ErrorCode
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
@@ -67,126 +67,129 @@ class OpenAIImageProvider(
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    override suspend fun submit(request: ImageGenRequest): ImageSubmitResult =
-        withContext(Dispatchers.IO) {
-            val config = request.config
-                ?: error(ErrorCode.IMAGE_API_KEY_MISSING.toMessage())
-            if (config.apiKey.isBlank()) error(ErrorCode.IMAGE_API_KEY_MISSING.toMessage())
+    override suspend fun submit(request: ImageGenRequest): ImageSubmitResult = withContext(Dispatchers.IO) {
+        val config = request.config
+            ?: error(ErrorCode.IMAGE_API_KEY_MISSING.toMessage())
+        if (config.apiKey.isBlank()) error(ErrorCode.IMAGE_API_KEY_MISSING.toMessage())
 
-            val specific = (config.resolvedSpecific() as? ProviderSpecificConfig.OpenAI)
-                ?: ProviderSpecificConfig.OpenAI()
-            val effectiveModelId = request.model.takeIf { it.isNotBlank() }
-                ?: specific.imageModel.takeIf { it.isNotBlank() }
-                ?: ImageModelCatalog.DEFAULT_MODEL_ID
-            val model = ImageModelCatalog.resolveById(effectiveModelId)
+        val specific = (config.resolvedSpecific() as? ProviderSpecificConfig.OpenAI)
+            ?: ProviderSpecificConfig.OpenAI()
+        val effectiveModelId = request.model.takeIf { it.isNotBlank() }
+            ?: specific.imageModel.takeIf { it.isNotBlank() }
+            ?: ImageModelCatalog.DEFAULT_MODEL_ID
+        val model = ImageModelCatalog.resolveById(effectiveModelId)
 
-            // 参数校验(复用旧 ImageService.validateParams 逻辑)
-            val validated = validateParams(request, effectiveModelId, model)
-            val hasReference = validated.referenceImages.isNotEmpty()
-            if (hasReference && model != null && !model.supportsReferenceImage) {
-                error(ErrorCode.IMAGE_UNSUPPORTED_MODEL.toMessage(effectiveModelId))
-            }
-
-            // 端点路径:优先 ProviderSpecificConfig.OpenAI.imagesPath
-            val generationsPath = specific.imagesPath.trim().trim('/').ifBlank { "images/generations" }
-            val editsPath = if (generationsPath.endsWith("generations")) {
-                generationsPath.removeSuffix("generations").trimEnd('/') + "/edits"
-            } else {
-                "images/edits"
-            }
-            val path = if (hasReference) editsPath else generationsPath
-            val baseUrl = config.resolvedBaseUrl()
-            val url = "${baseUrl.trimEnd('/')}/$path"
-
-            Logger.i(TAG, "submit: model=$effectiveModelId size=${validated.size} n=${validated.n} ref=$hasReference")
-
-            // T1.2: 多 Key 轮换 — 用 effective key 构造 header;429 时切下一个 key 重试
-            val keyRotation = keyRotationFactory(config)
-            val initialKey = keyRotation.effectiveApiKey()
-            // 参考图字节解析(仅 hasReference 时执行,与原有 buildEditsRequest 行为一致)
-            val editsRequest: Request? = if (hasReference) {
-                buildEditsRequest(url, initialKey, validated, model)
-            } else null
-            val initialRequest = editsRequest ?: buildGenerationsRequest(url, initialKey, validated, model)
-
-            try {
-                var resp = execWithRetry(initialRequest)
-                // T1.2: 429 限流时切到下一个 key 重试一次(仅多 key 场景)
-                if (resp.code == 429 && keyRotation.switchToNextKey()) {
-                    Logger.i(TAG, "openai image 429, 切换到下一个 key 重试")
-                    resp.close()
-                    val retryKey = keyRotation.effectiveApiKey()
-                    val retryRequest = if (hasReference) {
-                        buildEditsRequest(url, retryKey, validated, model)
-                    } else buildGenerationsRequest(url, retryKey, validated, model)
-                    resp = execWithRetry(retryRequest)
-                }
-                resp.use { r ->
-                    if (!r.isSuccessful) {
-                        val body = ProviderHttpSupport.readBodyCapped(r)
-                        val openAiMsg = parseOpenAiError(body)
-                        val hint = when (r.code) {
-                            401, 403 -> ErrorCode.AUTH_FAILED.toMessage()
-                            429 -> ErrorCode.RATE_LIMITED.toMessage()
-                            in 500..599 -> ErrorCode.SERVICE_UNAVAILABLE.toMessage()
-                            else -> null
-                        }
-                        val msg = buildString {
-                            append(ErrorCode.IMAGE_GEN_FAILED.toMessage())
-                            append(" HTTP ${r.code}")
-                            hint?.let { append(" [").append(it).append("]") }
-                            openAiMsg?.let { append(": ").append(it) }
-                            if (hint == null && openAiMsg == null && body.isNotBlank()) {
-                                append(": ").append(body)
-                            }
-                        }
-                        Logger.w(TAG, "openai image HTTP ${r.code}")
-                        error(msg)
-                    }
-                    val declaredLen = r.body?.contentLength() ?: -1L
-                    if (declaredLen > MAX_RESPONSE_BODY_BYTES) {
-                        error(ErrorCode.IMAGE_RESPONSE_TOO_LARGE.toMessage(declaredLen / 1024 / 1024))
-                    }
-                    // B-03: chunked/未声明长度时 contentLength 检查不生效,用流式限长读取兜底
-                    val (respBody, overLimit) = ProviderHttpSupport.readBodyCappedStreaming(r, MAX_RESPONSE_BODY_BYTES.toInt())
-                    if (overLimit) {
-                        error(ErrorCode.IMAGE_RESPONSE_TOO_LARGE.toMessage(MAX_RESPONSE_BODY_BYTES / 1024 / 1024))
-                    }
-                    if (respBody.isBlank()) error(ErrorCode.IMAGE_EMPTY_RESPONSE.toMessage())
-                    val root = json.parseToJsonElement(respBody).jsonObject
-                    val data = root["data"]?.jsonArray
-                        ?: error(ErrorCode.INVALID_RESPONSE.toMessage("missing_data"))
-                    if (data.isEmpty()) error(ErrorCode.IMAGE_NO_RESULTS.toMessage())
-                    val mime = model?.outputMime ?: "image/png"
-                    val images = data.mapNotNull { item ->
-                        val obj = item.jsonObject
-                        // B-01 (生图链路): 只接受字符串标量 — JSON null / 数字 / 布尔
-                        // (JsonPrimitive.content 对非字符串原样返回,如 "123"/"true")一律过滤,
-                        // 否则拼出 "data:image/png;base64,123" 假图;字面量 "null" 字符串也过滤。
-                        val b64 = (obj["b64_json"] as? JsonPrimitive)
-                            ?.takeIf { it.isString }
-                            ?.content?.takeIf { it.isNotBlank() && it != "null" }
-                        // B-01: url 必须是 http(s) 或 data:image/ 前缀
-                        val url = (obj["url"] as? JsonPrimitive)
-                            ?.takeIf { it.isString }
-                            ?.content?.takeIf { it.startsWith("http") || it.startsWith("data:image/") }
-                        if (b64 == null && url == null) null else GeneratedImage(base64 = b64, url = url)
-                    }
-                    // 保留 mime 在 base64 字段中,由 ImageService 拼 data URI 时剥离
-                    val withMime = images.map { img ->
-                        if (img.base64 != null) img.copy(base64 = "$mime|${img.base64}") else img
-                    }
-                    ImageSubmitResult(images = withMime, isAsync = false)
-                }
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: IllegalStateException) {
-                throw e
-            } catch (e: Exception) {
-                Logger.w(TAG, "openai image failed: ${e.message}")
-                error(ErrorCode.IMAGE_GEN_FAILED.toMessage(e.message ?: ""))
-            }
+        // 参数校验(复用旧 ImageService.validateParams 逻辑)
+        val validated = validateParams(request, effectiveModelId, model)
+        val hasReference = validated.referenceImages.isNotEmpty()
+        if (hasReference && model != null && !model.supportsReferenceImage) {
+            error(ErrorCode.IMAGE_UNSUPPORTED_MODEL.toMessage(effectiveModelId))
         }
+
+        // 端点路径:优先 ProviderSpecificConfig.OpenAI.imagesPath
+        val generationsPath = specific.imagesPath.trim().trim('/').ifBlank { "images/generations" }
+        val editsPath = if (generationsPath.endsWith("generations")) {
+            generationsPath.removeSuffix("generations").trimEnd('/') + "/edits"
+        } else {
+            "images/edits"
+        }
+        val path = if (hasReference) editsPath else generationsPath
+        val baseUrl = config.resolvedBaseUrl()
+        val url = "${baseUrl.trimEnd('/')}/$path"
+
+        Logger.i(TAG, "submit: model=$effectiveModelId size=${validated.size} n=${validated.n} ref=$hasReference")
+
+        // T1.2: 多 Key 轮换 — 用 effective key 构造 header;429 时切下一个 key 重试
+        val keyRotation = keyRotationFactory(config)
+        val initialKey = keyRotation.effectiveApiKey()
+        // 参考图字节解析(仅 hasReference 时执行,与原有 buildEditsRequest 行为一致)
+        val editsRequest: Request? = if (hasReference) {
+            buildEditsRequest(url, initialKey, validated, model)
+        } else {
+            null
+        }
+        val initialRequest = editsRequest ?: buildGenerationsRequest(url, initialKey, validated, model)
+
+        try {
+            var resp = execWithRetry(initialRequest)
+            // T1.2: 429 限流时切到下一个 key 重试一次(仅多 key 场景)
+            if (resp.code == 429 && keyRotation.switchToNextKey()) {
+                Logger.i(TAG, "openai image 429, 切换到下一个 key 重试")
+                resp.close()
+                val retryKey = keyRotation.effectiveApiKey()
+                val retryRequest = if (hasReference) {
+                    buildEditsRequest(url, retryKey, validated, model)
+                } else {
+                    buildGenerationsRequest(url, retryKey, validated, model)
+                }
+                resp = execWithRetry(retryRequest)
+            }
+            resp.use { r ->
+                if (!r.isSuccessful) {
+                    val body = ProviderHttpSupport.readBodyCapped(r)
+                    val openAiMsg = parseOpenAiError(body)
+                    val hint = when (r.code) {
+                        401, 403 -> ErrorCode.AUTH_FAILED.toMessage()
+                        429 -> ErrorCode.RATE_LIMITED.toMessage()
+                        in 500..599 -> ErrorCode.SERVICE_UNAVAILABLE.toMessage()
+                        else -> null
+                    }
+                    val msg = buildString {
+                        append(ErrorCode.IMAGE_GEN_FAILED.toMessage())
+                        append(" HTTP ${r.code}")
+                        hint?.let { append(" [").append(it).append("]") }
+                        openAiMsg?.let { append(": ").append(it) }
+                        if (hint == null && openAiMsg == null && body.isNotBlank()) {
+                            append(": ").append(body)
+                        }
+                    }
+                    Logger.w(TAG, "openai image HTTP ${r.code}")
+                    error(msg)
+                }
+                val declaredLen = r.body?.contentLength() ?: -1L
+                if (declaredLen > MAX_RESPONSE_BODY_BYTES) {
+                    error(ErrorCode.IMAGE_RESPONSE_TOO_LARGE.toMessage(declaredLen / 1024 / 1024))
+                }
+                // B-03: chunked/未声明长度时 contentLength 检查不生效,用流式限长读取兜底
+                val (respBody, overLimit) = ProviderHttpSupport.readBodyCappedStreaming(r, MAX_RESPONSE_BODY_BYTES.toInt())
+                if (overLimit) {
+                    error(ErrorCode.IMAGE_RESPONSE_TOO_LARGE.toMessage(MAX_RESPONSE_BODY_BYTES / 1024 / 1024))
+                }
+                if (respBody.isBlank()) error(ErrorCode.IMAGE_EMPTY_RESPONSE.toMessage())
+                val root = json.parseToJsonElement(respBody).jsonObject
+                val data = root["data"]?.jsonArray
+                    ?: error(ErrorCode.INVALID_RESPONSE.toMessage("missing_data"))
+                if (data.isEmpty()) error(ErrorCode.IMAGE_NO_RESULTS.toMessage())
+                val mime = model?.outputMime ?: "image/png"
+                val images = data.mapNotNull { item ->
+                    val obj = item.jsonObject
+                    // B-01 (生图链路): 只接受字符串标量 — JSON null / 数字 / 布尔
+                    // (JsonPrimitive.content 对非字符串原样返回,如 "123"/"true")一律过滤,
+                    // 否则拼出 "data:image/png;base64,123" 假图;字面量 "null" 字符串也过滤。
+                    val b64 = (obj["b64_json"] as? JsonPrimitive)
+                        ?.takeIf { it.isString }
+                        ?.content?.takeIf { it.isNotBlank() && it != "null" }
+                    // B-01: url 必须是 http(s) 或 data:image/ 前缀
+                    val url = (obj["url"] as? JsonPrimitive)
+                        ?.takeIf { it.isString }
+                        ?.content?.takeIf { it.startsWith("http") || it.startsWith("data:image/") }
+                    if (b64 == null && url == null) null else GeneratedImage(base64 = b64, url = url)
+                }
+                // 保留 mime 在 base64 字段中,由 ImageService 拼 data URI 时剥离
+                val withMime = images.map { img ->
+                    if (img.base64 != null) img.copy(base64 = "$mime|${img.base64}") else img
+                }
+                ImageSubmitResult(images = withMime, isAsync = false)
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: IllegalStateException) {
+            throw e
+        } catch (e: Exception) {
+            Logger.w(TAG, "openai image failed: ${e.message}")
+            error(ErrorCode.IMAGE_GEN_FAILED.toMessage(e.message ?: ""))
+        }
+    }
 
     override suspend fun poll(taskId: String): ImagePollResult {
         // OpenAI 图片生成同步返回,不支持异步任务
@@ -197,11 +200,7 @@ class OpenAIImageProvider(
      * 参数校验(迁移自旧 ImageService.validateParams)。
      * 把 [ImageGenRequest] 规范化为带模型能力约束的 [ValidatedParams]。
      */
-    private fun validateParams(
-        request: ImageGenRequest,
-        modelId: String,
-        model: ImageModel?,
-    ): ValidatedParams {
+    private fun validateParams(request: ImageGenRequest, modelId: String, model: ImageModel?): ValidatedParams {
         if (model == null) {
             return ValidatedParams(
                 prompt = request.prompt,
@@ -238,12 +237,7 @@ class OpenAIImageProvider(
         )
     }
 
-    private fun buildGenerationsRequest(
-        url: String,
-        apiKey: String,
-        params: ValidatedParams,
-        model: ImageModel?,
-    ): Request {
+    private fun buildGenerationsRequest(url: String, apiKey: String, params: ValidatedParams, model: ImageModel?): Request {
         val body = buildGenerationsBody(
             prompt = params.prompt,
             n = params.n,
@@ -262,12 +256,7 @@ class OpenAIImageProvider(
             .build()
     }
 
-    private suspend fun buildEditsRequest(
-        url: String,
-        apiKey: String,
-        params: ValidatedParams,
-        model: ImageModel?,
-    ): Request {
+    private suspend fun buildEditsRequest(url: String, apiKey: String, params: ValidatedParams, model: ImageModel?): Request {
         val refUri = params.referenceImages.first()
         val imageBytes = resolveImageBytes(refUri)
             ?: error(ErrorCode.IMAGE_REFERENCE_DOWNLOAD_FAILED.toMessage("no_bytes"))
@@ -375,20 +364,19 @@ class OpenAIImageProvider(
         }.getOrNull()
     }
 
-    private suspend fun exec(request: Request): Response =
-        suspendCancellableCoroutine { cont ->
-            val call = client.newCall(request)
-            cont.invokeOnCancellation { runCatching { call.cancel() } }
-            call.enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    if (cont.isActive) cont.resumeWithException(e)
-                }
+    private suspend fun exec(request: Request): Response = suspendCancellableCoroutine { cont ->
+        val call = client.newCall(request)
+        cont.invokeOnCancellation { runCatching { call.cancel() } }
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                if (cont.isActive) cont.resumeWithException(e)
+            }
 
-                override fun onResponse(call: Call, response: Response) {
-                    if (cont.isActive) cont.resume(response) else response.close()
-                }
-            })
-        }
+            override fun onResponse(call: Call, response: Response) {
+                if (cont.isActive) cont.resume(response) else response.close()
+            }
+        })
+    }
 
     /**
      * 对 429 做有限重试(1 次,迁移自旧 ImageService.execWithRetry)。
@@ -439,6 +427,7 @@ class OpenAIImageProvider(
             if (style.isNotBlank()) put("style", style)
             if (responseFormat.isNotBlank()) put("response_format", responseFormat)
         }.toString()
+
         /** Provider 唯一标识。 */
         const val PROVIDER_ID = "openai"
 

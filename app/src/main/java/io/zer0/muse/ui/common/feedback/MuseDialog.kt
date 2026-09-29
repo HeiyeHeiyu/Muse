@@ -3,12 +3,6 @@
 package io.zer0.muse.ui.common.feedback
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.runtime.getValue
-import io.zer0.muse.ui.theme.MuseAnimation
-import io.zer0.muse.ui.theme.MuseMotion
-import io.zer0.muse.ui.common.surface.MuseDialogWindowEffect
-import io.zer0.muse.ui.common.surface.museDialogInsets
-import io.zer0.muse.ui.common.surface.museModalScrimColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -29,23 +23,29 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.zer0.muse.R
-import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.common.surface.MuseDialogWindowEffect
+import io.zer0.muse.ui.common.surface.museDialogInsets
+import io.zer0.muse.ui.common.surface.museModalScrimColor
 import io.zer0.muse.ui.theme.MuseActionColors
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseDialogSizes
 import io.zer0.muse.ui.theme.MuseElevation
+import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.huge
@@ -149,70 +149,70 @@ fun MuseDialog(
                         .padding(MuseDialogSizes.contentPadding),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                // 标题(居中加粗)
-                if (title != null) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.SemiBold,
-                        ),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center,
-                    )
-                    Spacer(Modifier.height(MusePaddings.auxGap))
-                }
-                // 内容区(居中 + 可滚动,防长内容溢出)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // 内容区最大高度令牌:超出内部滚动,标题与按钮保持可见。
-                        .heightIn(max = MuseDialogSizes.contentMaxHeight)
-                        .verticalScroll(rememberScrollState()),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        content()
+                    // 标题(居中加粗)
+                    if (title != null) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.SemiBold,
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(Modifier.height(MusePaddings.auxGap))
                     }
-                }
-                Spacer(Modifier.height(MuseDialogSizes.contentPadding))
-                // 按钮区(垂直排列 + 全宽胶囊)
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(MusePaddings.auxGap),
-                ) {
-                    // 主按钮(全宽胶囊,品牌绿/红色背景)
-                    if (onConfirm != null) {
-                        val confirmBg = if (destructive) {
-                            MuseActionColors.dangerContainer
-                        } else {
-                            MuseActionColors.container
+                    // 内容区(居中 + 可滚动,防长内容溢出)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // 内容区最大高度令牌:超出内部滚动,标题与按钮保持可见。
+                            .heightIn(max = MuseDialogSizes.contentMaxHeight)
+                            .verticalScroll(rememberScrollState()),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            content()
                         }
-                        MuseDialogButton(
-                            text = confirmText,
-                            backgroundColor = confirmBg,
-                            contentColor = if (destructive) MuseActionColors.dangerContent else MuseActionColors.content,
-                            enabled = confirmEnabled,
-                            onClick = {
-                                onConfirm()
-                            },
-                        )
                     }
-                    // 次按钮(全宽胶囊,浅灰背景)
-                    if (dismissText != null) {
-                        MuseDialogButton(
-                            text = dismissText,
-                            backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            onClick = {
-                                onDismiss?.invoke() ?: onDismissRequest()
-                            },
-                        )
+                    Spacer(Modifier.height(MuseDialogSizes.contentPadding))
+                    // 按钮区(垂直排列 + 全宽胶囊)
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(MusePaddings.auxGap),
+                    ) {
+                        // 主按钮(全宽胶囊,品牌绿/红色背景)
+                        if (onConfirm != null) {
+                            val confirmBg = if (destructive) {
+                                MuseActionColors.dangerContainer
+                            } else {
+                                MuseActionColors.container
+                            }
+                            MuseDialogButton(
+                                text = confirmText,
+                                backgroundColor = confirmBg,
+                                contentColor = if (destructive) MuseActionColors.dangerContent else MuseActionColors.content,
+                                enabled = confirmEnabled,
+                                onClick = {
+                                    onConfirm()
+                                },
+                            )
+                        }
+                        // 次按钮(全宽胶囊,浅灰背景)
+                        if (dismissText != null) {
+                            MuseDialogButton(
+                                text = dismissText,
+                                backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                onClick = {
+                                    onDismiss?.invoke() ?: onDismissRequest()
+                                },
+                            )
+                        }
                     }
                 }
             }
         }
     }
-}
 }
 
 /**
@@ -220,13 +220,7 @@ fun MuseDialog(
  * 替代原生 TextButton,提升"应用感"和视觉层次。
  */
 @Composable
-private fun MuseDialogButton(
-    text: String,
-    backgroundColor: Color,
-    contentColor: Color,
-    enabled: Boolean = true,
-    onClick: () -> Unit,
-) {
+private fun MuseDialogButton(text: String, backgroundColor: Color, contentColor: Color, enabled: Boolean = true, onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -252,7 +246,10 @@ private fun MuseDialogButton(
                 enabled = enabled,
                 onClick = onClick,
             )
-            .graphicsLayer { scaleX = scale; scaleY = scale },
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            },
         contentAlignment = Alignment.Center,
     ) {
         Text(

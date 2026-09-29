@@ -219,10 +219,7 @@ class SkillManagementToolsImpl(
      * v2.x: 支持可选 `input` 参数 — 指令文本含 [PROMPT_INPUT_PLACEHOLDER](或 [PROMPT_ARGS_PLACEHOLDER])时
      * 替换为输入;无占位符时把输入追加到指令末尾;其余参数忽略。
      */
-    fun execPromptSkill(
-        skill: SkillEntity,
-        args: Map<String, String> = emptyMap(),
-    ): String {
+    fun execPromptSkill(skill: SkillEntity, args: Map<String, String> = emptyMap()): String {
         val text = SkillImporter.decodePromptText(skill.implementationKotlin)?.trim()
         if (text.isNullOrEmpty()) return context.getString(R.string.skill_prompt_empty)
         val input = args["input"]?.trim().orEmpty()

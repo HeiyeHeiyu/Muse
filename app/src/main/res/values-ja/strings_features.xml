@@ -279,7 +279,7 @@
     <string name="quick_notes_export_folder">フォルダー: %1$s</string>
     <string name="quick_notes_export_updated_at">更新日時: %1$s</string>
     <string name="quick_notes_delete_permanent_title">完全に削除</string>
-    <string name="quick_notes_delete_permanent_confirm">これを元に戻すことはできません。</string>
+    <string name="quick_notes_delete_permanent_confirm">この操作は元に戻せません。「%1$s」を完全に削除しますか？</string>
     <string name="quick_notes_clear_trash">ゴミを取り除く</string>
     <string name="quick_notes_clear_trash_confirm">これにより、ゴミ箱内のすべての%1$dメモが完全に削除されます。</string>
     <string name="quick_notes_trash_count">ゴミ箱: %1$d</string>

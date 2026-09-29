@@ -26,11 +26,7 @@ object CompressionSummaryStore {
 
     /** 记下一次压缩(会话 id / 摘要为空、或没有覆盖任何消息时忽略)。 */
     @Synchronized
-    fun remember(
-        sessionId: String?,
-        coveredIds: Set<String>,
-        summary: String,
-    ) {
+    fun remember(sessionId: String?, coveredIds: Set<String>, summary: String) {
         if (sessionId.isNullOrBlank() || summary.isBlank() || coveredIds.isEmpty()) return
         // 重新插入即"最近写入",超出容量时淘汰最早的
         entries.remove(sessionId)
@@ -64,10 +60,6 @@ object CompressionSummaryStore {
  * 只覆盖一部分时不能复用 —— 那会把未被覆盖的消息也一并替换掉(等于丢历史),
  * 这种情况交给压缩器重新摘要(新摘要会覆盖更大的区间)。
  */
-internal fun reusableSummary(
-    entry: CompressionSummaryStore.Entry?,
-    toCompress: List<UIMessage>,
-): String? =
-    entry?.summary?.takeIf {
-        toCompress.isNotEmpty() && toCompress.all { message -> message.id.toString() in entry.coveredIds }
-    }
+internal fun reusableSummary(entry: CompressionSummaryStore.Entry?, toCompress: List<UIMessage>): String? = entry?.summary?.takeIf {
+    toCompress.isNotEmpty() && toCompress.all { message -> message.id.toString() in entry.coveredIds }
+}

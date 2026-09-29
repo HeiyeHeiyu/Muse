@@ -1,5 +1,9 @@
 package io.zer0.muse.ui.settings
 
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,31 +23,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberTimePickerState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseSlider
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import android.content.Intent
-import android.net.Uri
-import io.zer0.muse.ui.common.icons.MuseIcons
-import java.io.File
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,15 +50,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.ColorUtils
-import io.zer0.muse.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.zer0.muse.data.SettingsRepository
+import io.zer0.common.AppJson
+import io.zer0.common.Logger
+import io.zer0.muse.R
 import io.zer0.muse.data.AppearanceSettingsStore
-import io.zer0.muse.ui.common.form.MuseSwitch
+import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
-import io.zer0.muse.ui.common.settings.SectionLabel
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseCapsuleTab
+import io.zer0.muse.ui.common.form.MuseSlider
+import io.zer0.muse.ui.common.form.MuseSwitch
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.settings.SettingsItemRow
@@ -74,15 +75,14 @@ import io.zer0.muse.ui.theme.CustomTheme
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.ui.theme.PresetThemes
 import io.zer0.muse.ui.theme.PresetTheme
+import io.zer0.muse.ui.theme.PresetThemes
 import io.zer0.muse.ui.theme.semiLarge
 import io.zer0.muse.ui.theme.tiny
-import io.zer0.common.AppJson
-import io.zer0.common.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import kotlin.math.roundToInt
 
 /**
@@ -97,11 +97,7 @@ import kotlin.math.roundToInt
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ThemeSection(
-    themeMode: String,
-    fontSizeScale: String,
-    settings: SettingsRepository,
-) {
+internal fun ThemeSection(themeMode: String, fontSizeScale: String, settings: SettingsRepository) {
     val scope = rememberCoroutineScope()
     val themeId by settings.themeIdFlow.collectAsStateWithLifecycle(initialValue = AppearanceSettingsStore.DEFAULT_THEME_ID)
 
@@ -152,7 +148,10 @@ internal fun ThemeSection(
         // 分段控件替代胶囊按钮
         val modeOptions = listOf(followSystem, lightLabel, darkLabel)
         val selectedMode = when (themeMode) {
-            "system" -> 0; "light" -> 1; "dark" -> 2; else -> 0
+            "system" -> 0
+            "light" -> 1
+            "dark" -> 2
+            else -> 0
         }
         MuseCapsuleTab(
             tabs = modeOptions,
@@ -160,7 +159,12 @@ internal fun ThemeSection(
             onSelect = { idx ->
                 scope.launch {
                     settings.saveThemeMode(
-                        when (idx) { 0 -> "system"; 1 -> "light"; 2 -> "dark"; else -> "system" }
+                        when (idx) {
+                            0 -> "system"
+                            1 -> "light"
+                            2 -> "dark"
+                            else -> "system"
+                        },
                     )
                 }
             },
@@ -269,9 +273,11 @@ internal fun ThemeSection(
             showEditDialog = true
         },
         onDelete = { theme -> deletingTheme = theme },
-        onImport = { importThemeLauncher.launch(
-            arrayOf("application/json", "text/plain", "application/octet-stream"),
-        ) },
+        onImport = {
+            importThemeLauncher.launch(
+                arrayOf("application/json", "text/plain", "application/octet-stream"),
+            )
+        },
         onExport = shareTheme,
     )
 
@@ -425,7 +431,10 @@ internal fun ThemeSection(
         // 分段控件替代胶囊按钮
         val fontOptions = listOf(smallLabel, mediumLabel, largeLabel, xlargeLabel)
         val selectedFont = when (fontSizeScale) {
-            "small" -> 0; "large" -> 2; "xlarge" -> 3; else -> 1
+            "small" -> 0
+            "large" -> 2
+            "xlarge" -> 3
+            else -> 1
         }
         MuseCapsuleTab(
             tabs = fontOptions,
@@ -433,7 +442,13 @@ internal fun ThemeSection(
             onSelect = { idx ->
                 scope.launch {
                     settings.saveFontSizeScale(
-                        when (idx) { 0 -> "small"; 1 -> "medium"; 2 -> "large"; 3 -> "xlarge"; else -> "medium" }
+                        when (idx) {
+                            0 -> "small"
+                            1 -> "medium"
+                            2 -> "large"
+                            3 -> "xlarge"
+                            else -> "medium"
+                        },
                     )
                 }
             },
@@ -480,11 +495,7 @@ internal fun ThemeSection(
  * Android 12+ 从系统壁纸提取主色调,覆盖预设主题;低版本灰显并提示不支持。
  */
 @Composable
-private fun DynamicColorRow(
-    enabled: Boolean,
-    supported: Boolean,
-    onToggle: (Boolean) -> Unit,
-) {
+private fun DynamicColorRow(enabled: Boolean, supported: Boolean, onToggle: (Boolean) -> Unit) {
     val dynamicColorLabel = stringResource(R.string.settings_theme_dynamic_color)
     val supportedText = stringResource(R.string.settings_theme_dynamic_color_supported)
     val unsupportedText = stringResource(R.string.settings_theme_dynamic_color_unsupported)
@@ -517,7 +528,11 @@ private fun DynamicColorRow(
         }
         MuseSwitch(
             checked = enabled && supported,
-            onCheckedChange = if (supported) { { onToggle(it) } } else null,
+            onCheckedChange = if (supported) {
+                { onToggle(it) }
+            } else {
+                null
+            },
             contentDescription = dynamicColorLabel,
         )
     }
@@ -528,10 +543,7 @@ private fun DynamicColorRow(
  * 面向弱视用户;主题 primary 语义色保留。
  */
 @Composable
-private fun HighContrastRow(
-    enabled: Boolean,
-    onToggle: (Boolean) -> Unit,
-) {
+private fun HighContrastRow(enabled: Boolean, onToggle: (Boolean) -> Unit) {
     val highContrastLabel = stringResource(R.string.settings_theme_high_contrast)
     val descText = stringResource(R.string.settings_theme_high_contrast_desc)
     Row(
@@ -627,11 +639,7 @@ private fun FontSizePreview(scale: String) {
  * 选中时主题名与图标都用 primary 色高亮。
  */
 @Composable
-private fun ThemeOptionRow(
-    name: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun ThemeOptionRow(name: String, isSelected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -647,8 +655,11 @@ private fun ThemeOptionRow(
         Text(
             text = name,
             style = MaterialTheme.typography.titleMedium,
-            color = if (isSelected) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurface,
+            color = if (isSelected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
             modifier = Modifier.weight(1f),
         )
         if (isSelected) {
@@ -662,7 +673,6 @@ private fun ThemeOptionRow(
     }
 }
 
-
 /**
  * 主题网格选择器 — 3 列卡片展示预设主题,每张卡片显示主色+表面色+名称。
  *
@@ -670,12 +680,7 @@ private fun ThemeOptionRow(
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun ThemeGridPicker(
-    themes: List<PresetTheme>,
-    selectedThemeId: String,
-    isDark: Boolean,
-    onSelect: (PresetTheme) -> Unit,
-) {
+private fun ThemeGridPicker(themes: List<PresetTheme>, selectedThemeId: String, isDark: Boolean, onSelect: (PresetTheme) -> Unit) {
     androidx.compose.foundation.layout.FlowRow(
         modifier = Modifier
             .fillMaxWidth()
@@ -778,10 +783,7 @@ private fun ThemeGridCard(
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-internal fun LanguageSection(
-    language: String,
-    settings: SettingsRepository,
-) {
+internal fun LanguageSection(language: String, settings: SettingsRepository) {
     val scope = rememberCoroutineScope()
 
     SectionLabel(stringResource(R.string.settings_theme_language))
@@ -840,9 +842,7 @@ internal fun LanguageSection(
  * 选项:任务 / Agent / 群聊。仅在启动时决定初始页,运行中切换设置不会重置当前页。
  */
 @Composable
-internal fun DefaultHomePageSection(
-    settings: SettingsRepository,
-) {
+internal fun DefaultHomePageSection(settings: SettingsRepository) {
     val scope = rememberCoroutineScope()
     val defaultPage by settings.defaultHomePageFlow.collectAsStateWithLifecycle(initialValue = 0)
 
@@ -1084,8 +1084,11 @@ private fun CustomThemeItemRow(
         Text(
             text = theme.name.ifEmpty { unnamedLabel },
             style = MaterialTheme.typography.titleMedium,
-            color = if (isSelected) MaterialTheme.colorScheme.primary
-            else MaterialTheme.colorScheme.onSurface,
+            color = if (isSelected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
             modifier = Modifier.weight(1f),
         )
         // 导出 / 编辑 / 删除按钮
@@ -1125,12 +1128,7 @@ private fun CustomThemeItemRow(
  * 保存按钮在名称为空时禁用(与 既有实现 行为一致)。
  */
 @Composable
-private fun CustomThemeEditDialog(
-    theme: CustomTheme?,
-    isDark: Boolean,
-    onDismiss: () -> Unit,
-    onSave: (CustomTheme) -> Unit,
-) {
+private fun CustomThemeEditDialog(theme: CustomTheme?, isDark: Boolean, onDismiss: () -> Unit, onSave: (CustomTheme) -> Unit) {
     // 编辑现有主题时沿用其值;创建新主题时用默认值(月桂绿种子色)
     var currentTheme by remember {
         mutableStateOf(theme ?: CustomTheme())
@@ -1262,10 +1260,7 @@ private fun CustomThemeEditDialog(
  * 解析失败时显示错误提示但不阻塞滑块操作。
  */
 @Composable
-private fun ColorPickerRow(
-    color: Color,
-    onColorChange: (Color) -> Unit,
-) {
+private fun ColorPickerRow(color: Color, onColorChange: (Color) -> Unit) {
     val hsl = remember(color) {
         FloatArray(3).also { ColorUtils.colorToHSL(color.toArgb(), it) }
     }
@@ -1378,10 +1373,7 @@ private fun ColorPickerRow(
  * primaryContainer / secondaryContainer / surface 六色,让用户在保存前预览效果。
  */
 @Composable
-private fun ThemeColorPreview(
-    theme: CustomTheme,
-    isDark: Boolean,
-) {
+private fun ThemeColorPreview(theme: CustomTheme, isDark: Boolean) {
     val scheme = remember(theme, isDark) { theme.generateColorScheme(isDark) }
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1509,13 +1501,7 @@ private val PRESET_COLOR_SCHEMES = listOf(
  * v1.97: 精选配色快捷芯片 — 显示三色小圆点 + 名称,点击一键填充。
  */
 @Composable
-private fun PresetColorChip(
-    name: String,
-    primary: Color,
-    secondary: Color,
-    tertiary: Color,
-    onClick: () -> Unit,
-) {
+private fun PresetColorChip(name: String, primary: Color, secondary: Color, tertiary: Color, onClick: () -> Unit) {
     Surface(
         shape = MuseShapes.semiLarge,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -1545,11 +1531,7 @@ private fun PresetColorChip(
  * (MainActivity 收集 customFontPathFlow 重建 MuseTheme Typography)。
  */
 @Composable
-private fun FontSection(
-    customFontPath: String?,
-    onImport: () -> Unit,
-    onClear: () -> Unit,
-) {
+private fun FontSection(customFontPath: String?, onImport: () -> Unit, onClear: () -> Unit) {
     SectionLabel(stringResource(R.string.settings_font_section_title))
     SettingsGroup(
         modifier = Modifier.padding(top = 8.dp),

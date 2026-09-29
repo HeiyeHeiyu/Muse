@@ -309,10 +309,7 @@ private fun GalleryDemoBody(text: String) {
 
 /** 分组：小节标题 + 一张卡片容器。 */
 @Composable
-private fun GallerySection(
-    title: String,
-    content: @Composable ColumnScope.() -> Unit,
-) {
+private fun GallerySection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap)) {
         SectionLabel(title)
         CardGroup {
@@ -728,11 +725,7 @@ private fun StatesSection() {
 }
 
 @Composable
-private fun OverlaysSection(
-    onOpen: (GalleryOverlay) -> Unit,
-    onPopoverAnchor: (Rect) -> Unit,
-    onConfirmDelete: () -> Unit,
-) {
+private fun OverlaysSection(onOpen: (GalleryOverlay) -> Unit, onPopoverAnchor: (Rect) -> Unit, onConfirmDelete: () -> Unit) {
     var localAnchor by remember { mutableStateOf(Rect.Zero) }
     GallerySection(stringResource(R.string.gallery_group_overlays)) {
         MuseCapsuleButton(text = "MuseDialog", onClick = { onOpen(GalleryOverlay.Dialog) })

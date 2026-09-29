@@ -21,11 +21,7 @@ object DelegationContextBuilder {
      * @param maxMessages 最大携带条数(取最近 N 条)
      * @param includeImages 是否保留图片消息(默认 false,委派子助手时不传图)
      */
-    fun build(
-        sessionMessages: List<UIMessage>,
-        maxMessages: Int = DEFAULT_MAX_MESSAGES,
-        includeImages: Boolean = false,
-    ): List<UIMessage> {
+    fun build(sessionMessages: List<UIMessage>, maxMessages: Int = DEFAULT_MAX_MESSAGES, includeImages: Boolean = false): List<UIMessage> {
         return sessionMessages
             .takeLast(maxMessages)
             .filter { msg ->

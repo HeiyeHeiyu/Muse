@@ -14,12 +14,8 @@ import java.util.Locale
  */
 class ConversationExporterTest {
 
-    private fun msg(
-        role: MessageRole,
-        content: String,
-        reasoning: String? = null,
-        createdAt: Long = 1_700_000_000_000L,
-    ) = UIMessage(role = role, content = content, reasoning = reasoning, createdAt = createdAt)
+    private fun msg(role: MessageRole, content: String, reasoning: String? = null, createdAt: Long = 1_700_000_000_000L) =
+        UIMessage(role = role, content = content, reasoning = reasoning, createdAt = createdAt)
 
     @Test
     fun `markdown starts with title and uses english role labels for non-zh`() {

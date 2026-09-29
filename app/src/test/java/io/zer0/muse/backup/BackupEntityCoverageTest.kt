@@ -1,6 +1,5 @@
 package io.zer0.muse.backup
 
-import io.zer0.muse.backup.BackupService
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -58,9 +57,13 @@ class BackupEntityCoverageTest {
 
     /** 运维/派生表: 明确不纳入备份(重建成本低、含机器元数据)。新数据表不得落入此集合。 */
     private val operationalEntities = setOf(
-        "StatsCacheEntity", "DbIntegrityLogEntity", "AutoBackupLogEntity",
-        "AuditLogEntity", "io.zer0.muse.data.patrol.PatrolLogEntity",
-        "GenerationCheckpointEntity", "GroupChatGenerationLedgerEntity",
+        "StatsCacheEntity",
+        "DbIntegrityLogEntity",
+        "AutoBackupLogEntity",
+        "AuditLogEntity",
+        "io.zer0.muse.data.patrol.PatrolLogEntity",
+        "GenerationCheckpointEntity",
+        "GroupChatGenerationLedgerEntity",
     )
 
     /** 从 MuseDb.kt 源码提取 @Database 声明实体(保持与 Room 真源一致,规避注解反射不可见问题)。 */
@@ -89,11 +92,13 @@ class BackupEntityCoverageTest {
 
         assertEquals(
             "新增数据实体未接入备份(或未显式归入运维表),换机将丢数据:\n" + missing.joinToString("\n"),
-            emptyList<String>(), missing,
+            emptyList<String>(),
+            missing,
         )
         assertEquals(
             "无法识别的实体,请接入 backup 或加入 operationalEntities(运维表)清单:\n" + unknown.joinToString("\n"),
-            emptyList<String>(), unknown,
+            emptyList<String>(),
+            unknown,
         )
     }
 
@@ -101,11 +106,16 @@ class BackupEntityCoverageTest {
     fun `every backup field maps to a declared entity or known derived slot`() {
         val declared = declaredEntities().toSet()
         val knownDerived = setOf(
-            "settingsSnapshot", "scopedFacts",
+            "settingsSnapshot",
+            "scopedFacts",
             // v4: 文件型存储快照(渠道/连接器/批注/收件箱/插件),无对应 MuseDb 实体
             "fileStores",
             // memory 模块表(独立 MemoryDb,不在 MuseDb 清单)已随备份一并导出
-            "sessionSummaries", "dailyStates", "compiledSections", "scopedCompiledSections", "facts",
+            "sessionSummaries",
+            "dailyStates",
+            "compiledSections",
+            "scopedCompiledSections",
+            "facts",
         )
         val orphans = BackupService.Backup::class.java.declaredFields
             .filter { List::class.java.isAssignableFrom(it.type) || Map::class.java.isAssignableFrom(it.type) }

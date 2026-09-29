@@ -21,10 +21,13 @@ object GreetingHelper {
      * I18N-01: 优先用资源字符串,无资源(单元测试)回退中文常量。
      * @param args 与资源占位符(%1$s 等)一一对应。
      */
-    private fun zh(res: Resources?, id: Int, fallback: String, vararg args: Any): String =
-        if (res != null) res.getString(id, *args)
-        else if (args.isEmpty()) fallback
-        else String.format(fallback, *args)
+    private fun zh(res: Resources?, id: Int, fallback: String, vararg args: Any): String = if (res != null) {
+        res.getString(id, *args)
+    } else if (args.isEmpty()) {
+        fallback
+    } else {
+        String.format(fallback, *args)
+    }
 
     // 根据时间返回问候语
     fun getTimeGreeting(hour: Int = LocalTime.now().hour, res: Resources? = null): String {
@@ -35,13 +38,17 @@ object GreetingHelper {
             in 18..22 -> R.string.greeting_evening
             else -> R.string.greeting_late_night
         }
-        return zh(res, id, when (hour) {
-            in 5..10 -> "早上好"
-            in 11..13 -> "中午好"
-            in 14..17 -> "下午好"
-            in 18..22 -> "晚上好"
-            else -> "深夜了"
-        })
+        return zh(
+            res,
+            id,
+            when (hour) {
+                in 5..10 -> "早上好"
+                in 11..13 -> "中午好"
+                in 14..17 -> "下午好"
+                in 18..22 -> "晚上好"
+                else -> "深夜了"
+            },
+        )
     }
 
     // 获取节气（v1.0.72: 用寿星公式按年份计算,替代固定日期表）
@@ -55,18 +62,18 @@ object GreetingHelper {
     fun getSolarTerm(date: LocalDate = LocalDate.now()): String? {
         // 24 节气世纪常数(顺序: 1月小寒/大寒 ... 12月大雪/冬至)
         val cValues = doubleArrayOf(
-            5.4055, 20.12,   // 1月
-            3.87, 18.73,     // 2月
-            5.63, 20.646,    // 3月
-            4.81, 20.1,      // 4月
-            5.52, 21.04,     // 5月
-            5.678, 21.37,    // 6月
-            7.108, 22.83,    // 7月
-            7.5, 23.13,      // 8月
-            7.646, 23.042,   // 9月
-            8.318, 23.438,   // 10月
-            7.438, 22.36,    // 11月
-            7.18, 21.94,     // 12月
+            5.4055, 20.12, // 1月
+            3.87, 18.73, // 2月
+            5.63, 20.646, // 3月
+            4.81, 20.1, // 4月
+            5.52, 21.04, // 5月
+            5.678, 21.37, // 6月
+            7.108, 22.83, // 7月
+            7.5, 23.13, // 8月
+            7.646, 23.042, // 9月
+            8.318, 23.438, // 10月
+            7.438, 22.36, // 11月
+            7.18, 21.94, // 12月
         )
         val termNames = listOf(
             "小寒", "大寒", "立春", "雨水", "惊蛰", "春分",
@@ -243,11 +250,7 @@ object GreetingHelper {
      * 总结可能是在后台生成的,因此只接受今天或昨天的内容,避免用户几天没打开
      * 应用后仍看到过期事项。正文统一压缩到首页单行预算,超长内容不再撑开问候区。
      */
-    fun getDailySummaryHint(
-        summary: String?,
-        summaryDate: String?,
-        today: LocalDate = LocalDate.now(),
-    ): String? {
+    fun getDailySummaryHint(summary: String?, summaryDate: String?, today: LocalDate = LocalDate.now()): String? {
         if (summary.isNullOrBlank() || summaryDate.isNullOrBlank()) return null
         val date = runCatching {
             LocalDate.parse(summaryDate.substringBefore("T"))
@@ -261,6 +264,7 @@ object GreetingHelper {
     private fun betterHint(best: Pair<Int, String>?, diff: Long, hint: String): Pair<Int, String> {
         return if (best == null || diff < best.first) diff.toInt() to hint else best
     }
+
     // 记忆提示语（人性化）— I18N-01: 文案走资源,测试回退中文。
     fun getMemoryCountText(count: Int, assistantName: String = "Muse", res: Resources? = null): String {
         return when (count) {

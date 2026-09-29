@@ -65,8 +65,11 @@ object WordPieceTokenizer {
         for (ch in text) {
             val code = ch.code
             if (code == 0 || code == 0xFFFD || isControl(ch)) continue
-            if (isWhitespace(ch)) sb.append(' ')
-            else sb.append(ch)
+            if (isWhitespace(ch)) {
+                sb.append(' ')
+            } else {
+                sb.append(ch)
+            }
         }
         return sb.toString()
     }
@@ -104,9 +107,8 @@ object WordPieceTokenizer {
         return result
     }
 
-    private fun isWhitespace(ch: Char): Boolean =
-        ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' ||
-            Character.getType(ch) == Character.SPACE_SEPARATOR.toInt()
+    private fun isWhitespace(ch: Char): Boolean = ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' ||
+        Character.getType(ch) == Character.SPACE_SEPARATOR.toInt()
 
     private fun isControl(ch: Char): Boolean {
         if (ch == '\t' || ch == '\n' || ch == '\r') return false
@@ -129,12 +131,12 @@ object WordPieceTokenizer {
 
     private fun isCjkChar(ch: Char): Boolean {
         val c = ch.code
-        return (c in 0x4E00..0x9FFF) ||   // CJK 统一汉字
-            (c in 0x3400..0x4DBF) ||       // CJK Extension A
-            (c in 0x20000..0x2A6DF) ||     // CJK Extension B
-            (c in 0x2A700..0x2B73F) ||     // CJK Extension C
-            (c in 0x2B740..0x2B81F) ||     // CJK Extension D
-            (c in 0x3000..0x303F) ||       // CJK 符号和标点
-            (c in 0xFF00..0xFFEF)          // 半角/全角字符
+        return (c in 0x4E00..0x9FFF) || // CJK 统一汉字
+            (c in 0x3400..0x4DBF) || // CJK Extension A
+            (c in 0x20000..0x2A6DF) || // CJK Extension B
+            (c in 0x2A700..0x2B73F) || // CJK Extension C
+            (c in 0x2B740..0x2B81F) || // CJK Extension D
+            (c in 0x3000..0x303F) || // CJK 符号和标点
+            (c in 0xFF00..0xFFEF) // 半角/全角字符
     }
 }

@@ -34,11 +34,7 @@ object ShareIntentHelper {
     }
 
     /** 构造带正确启动 flag 的 chooser，供调用方和 JVM 回归测试复用。 */
-    internal fun buildChooserIntent(
-        context: Context,
-        shareIntent: Intent,
-        chooserTitle: String? = null,
-    ): Intent {
+    internal fun buildChooserIntent(context: Context, shareIntent: Intent, chooserTitle: String? = null): Intent {
         // 分享文件需授予读取权限(EXTRA_STREAM 场景)
         if (shareIntent.hasExtra(Intent.EXTRA_STREAM)) {
             shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

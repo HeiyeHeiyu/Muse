@@ -7,30 +7,14 @@
     "UseCheckOrError",
 )
 
-
 @file:OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 
 package io.zer0.muse.ui.groupchat
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseAnchoredMenu
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseSlider
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.ui.common.surface.MuseListItem
-import io.zer0.muse.ui.theme.MuseMotion
-
+import android.content.ContentUris
+import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import android.content.ContentUris
 import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -38,101 +22,115 @@ import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
-import androidx.core.content.ContextCompat
-import coil.compose.AsyncImage
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import android.content.Context
-import io.zer0.common.Logger
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
-import androidx.compose.ui.input.pointer.pointerInput
-import io.zer0.muse.ui.common.form.MuseChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import coil.compose.AsyncImage
 import io.zer0.common.AppJson
+import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.groupchat.GroupChatMessageEntity
-import io.zer0.muse.ui.SmartImage
 import io.zer0.muse.ui.AssistantVideoCard
+import io.zer0.muse.ui.SmartImage
 import io.zer0.muse.ui.chat.StickerAwareMarkdownBody
-import io.zer0.muse.ui.common.media.AssistantAvatar
-import io.zer0.muse.ui.common.form.MuseBottomSheet
 import io.zer0.muse.ui.common.feedback.MuseDialog
-import io.zer0.muse.ui.theme.MuseHaptics
-import io.zer0.muse.ui.theme.MusePaddings
-import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseAnchoredMenu
+import io.zer0.muse.ui.common.form.MuseBottomSheet
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseSlider
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.media.AssistantAvatar
+import io.zer0.muse.ui.common.state.MuseSpinner
+import io.zer0.muse.ui.common.surface.MuseListItem
+import io.zer0.muse.ui.formatMessageTime
 import io.zer0.muse.ui.theme.MuseAvatarSize
 import io.zer0.muse.ui.theme.MuseBubbleStyles
+import io.zer0.muse.ui.theme.MuseHaptics
+import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MusePaddings
+import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.huge
 import io.zer0.muse.ui.theme.semiLarge
-import io.zer0.muse.ui.formatMessageTime
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import java.io.ByteArrayOutputStream
@@ -213,10 +211,13 @@ internal fun GroupChatMessageBubble(
                 .fillMaxWidth()
                 // v1.0.74 fix: 搜索跳转高亮
                 .then(
-                    if (highlighted) Modifier
-                        .clip(MuseShapes.semiLarge)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
-                    else Modifier
+                    if (highlighted) {
+                        Modifier
+                            .clip(MuseShapes.semiLarge)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                    } else {
+                        Modifier
+                    },
                 ),
             horizontalArrangement = Arrangement.End,
         ) {
@@ -233,9 +234,14 @@ internal fun GroupChatMessageBubble(
                         ?: MuseBubbleStyles.userBubbleShape(),
                     color = resolvedSkin?.let { androidx.compose.ui.graphics.Color(it.style.surfaceArgb) }
                         ?: MuseBubbleStyles.userSurfaceColor(),
-                    border = if (selected) androidx.compose.foundation.BorderStroke(
-                        1.5.dp, MaterialTheme.colorScheme.primary,
-                    ) else null,
+                    border = if (selected) {
+                        androidx.compose.foundation.BorderStroke(
+                            1.5.dp,
+                            MaterialTheme.colorScheme.primary,
+                        )
+                    } else {
+                        null
+                    },
                     modifier = Modifier
                         .then(pressTracker)
                         .onGloballyPositioned { coordinates ->
@@ -302,10 +308,13 @@ internal fun GroupChatMessageBubble(
                 .fillMaxWidth()
                 // v1.0.74 fix: 搜索跳转高亮
                 .then(
-                    if (highlighted) Modifier
-                        .clip(MuseShapes.semiLarge)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
-                    else Modifier
+                    if (highlighted) {
+                        Modifier
+                            .clip(MuseShapes.semiLarge)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                    } else {
+                        Modifier
+                    },
                 ),
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.Top,
@@ -406,9 +415,14 @@ internal fun GroupChatMessageBubble(
                         ?: MuseBubbleStyles.assistantBubbleShape(),
                     color = resolvedSkin?.let { androidx.compose.ui.graphics.Color(it.style.surfaceArgb) }
                         ?: MuseBubbleStyles.assistantSurfaceColor(),
-                    border = if (selected) androidx.compose.foundation.BorderStroke(
-                        1.5.dp, MaterialTheme.colorScheme.primary,
-                    ) else null,
+                    border = if (selected) {
+                        androidx.compose.foundation.BorderStroke(
+                            1.5.dp,
+                            MaterialTheme.colorScheme.primary,
+                        )
+                    } else {
+                        null
+                    },
                     modifier = Modifier
                         .then(pressTracker)
                         .onGloballyPositioned { coordinates ->
@@ -457,11 +471,7 @@ internal fun GroupChatMessageBubble(
  * MOOD 标签胶囊 — 浅绿色背景,品牌色文字,可展开查看完整腹稿。
  */
 @Composable
-internal fun MoodCapsule(
-    mood: String,
-    expanded: Boolean,
-    onToggle: () -> Unit,
-) {
+internal fun MoodCapsule(mood: String, expanded: Boolean, onToggle: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = MuseShapes.medium,
@@ -573,10 +583,7 @@ internal fun GroupChatExpandableBlock(
  * 消息图片网格 — 在气泡内展示用户/Agent 发送的图片附件。
  */
 @Composable
-internal fun MessageImageGrid(
-    imageBase64Json: String,
-    modifier: Modifier = Modifier,
-) {
+internal fun MessageImageGrid(imageBase64Json: String, modifier: Modifier = Modifier) {
     val images = remember(imageBase64Json) {
         // L4: 用 resultOf 替代 runCatching,getOrNull 替代 getOrDefault
         resultOf {
@@ -639,10 +646,7 @@ internal fun ThinkingIndicator(currentSpeaker: AssistantEntity? = null) {
  * 连续助理段 ≥4 条时:保留首 2 条 + 末 1 条,中段收起,
  * 由 [CollapsedRoundBar] 提供"点击展开"; 长讨论轮读起来不再刷屏。
  */
-internal fun groupCollapseSegment(
-    messages: List<GroupChatMessageEntity>,
-    index: Int,
-): Triple<Int, Int, Boolean>? {
+internal fun groupCollapseSegment(messages: List<GroupChatMessageEntity>, index: Int): Triple<Int, Int, Boolean>? {
     val m = messages.getOrNull(index) ?: return null
     if (m.senderType != "assistant" || m.messageType != "normal") return null
     var start = index
@@ -899,7 +903,6 @@ internal fun GroupChatInputBar(
                 onDismissRequest = { showMentionDropdown = false },
                 focusable = false,
             ) {
-
                 filteredMembers.take(8).forEach { member ->
                     MuseListItem(
                         onClick = {
@@ -916,7 +919,6 @@ internal fun GroupChatInputBar(
                         headlineContent = { Text(member.name) },
                     )
                 }
-            
             }
             Row(
                 modifier = Modifier
@@ -927,69 +929,72 @@ internal fun GroupChatInputBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
             ) {
-                    // 加号菜单入口(保留,但改为小型图标按钮,不再用大圆形 Surface)
-                    MuseTactileButton(
-                        icon = MuseIcons.plus,
-                        onClick = onOpenToolSheet,
-                        contentDescription = stringResource(R.string.groupchat_tools),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        enabled = enabled,
-                        size = MuseIconSizes.touchTarget,
-                        iconSize = MuseIconSizes.icon,
-                    )
-                    // v2.x: 会议操作入口 — 表决/总结/@/成员/上下文/编辑从加号菜单提升为一级入口
-                    MuseTactileButton(
-                        icon = MuseIcons.clipboard,
-                        onClick = onOpenMeetingSheet,
-                        contentDescription = stringResource(R.string.groupchat_meeting),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        enabled = enabled,
-                        size = MuseIconSizes.touchTarget,
-                        iconSize = MuseIconSizes.icon,
-                    )
-                    MuseTextField(
-                        value = text,
-                        onValueChange = onTextChange,
-                        caretAtEndTick = caretTick,
-                        placeholder = { Text(stringResource(R.string.groupchat_input_placeholder)) },
-                        enabled = enabled,
-                        // v1.0.72: 输入框背景透明(岛背景即容器)
-                        containerColor = androidx.compose.ui.graphics.Color.Transparent,
-                        modifier = Modifier.weight(1f),
-                        maxLines = 4,
-                        singleLine = false,
-                    )
-                    // 发送按钮 — CHAT-11: 统一 48dp 触控 + 36dp 主色圆 + 18dp 图标(与单聊一致)
+                // 加号菜单入口(保留,但改为小型图标按钮,不再用大圆形 Surface)
+                MuseTactileButton(
+                    icon = MuseIcons.plus,
+                    onClick = onOpenToolSheet,
+                    contentDescription = stringResource(R.string.groupchat_tools),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    enabled = enabled,
+                    size = MuseIconSizes.touchTarget,
+                    iconSize = MuseIconSizes.icon,
+                )
+                // v2.x: 会议操作入口 — 表决/总结/@/成员/上下文/编辑从加号菜单提升为一级入口
+                MuseTactileButton(
+                    icon = MuseIcons.clipboard,
+                    onClick = onOpenMeetingSheet,
+                    contentDescription = stringResource(R.string.groupchat_meeting),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    enabled = enabled,
+                    size = MuseIconSizes.touchTarget,
+                    iconSize = MuseIconSizes.icon,
+                )
+                MuseTextField(
+                    value = text,
+                    onValueChange = onTextChange,
+                    caretAtEndTick = caretTick,
+                    placeholder = { Text(stringResource(R.string.groupchat_input_placeholder)) },
+                    enabled = enabled,
+                    // v1.0.72: 输入框背景透明(岛背景即容器)
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 4,
+                    singleLine = false,
+                )
+                // 发送按钮 — CHAT-11: 统一 48dp 触控 + 36dp 主色圆 + 18dp 图标(与单聊一致)
+                Box(
+                    modifier = Modifier
+                        .size(MuseIconSizes.touchTarget)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            enabled = enabled && canSend,
+                            onClick = onSend,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(MuseIconSizes.touchTarget)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                enabled = enabled && canSend,
-                                onClick = onSend,
+                            .size(MuseIconSizes.stopButton)
+                            .clip(CircleShape)
+                            .background(
+                                if (enabled && canSend) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
+                                },
                             ),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(MuseIconSizes.stopButton)
-                                .clip(CircleShape)
-                                .background(
-                                    if (enabled && canSend) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.38f),
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = MuseIcons.send,
-                                contentDescription = stringResource(R.string.groupchat_send),
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(MuseIconSizes.iconSmall),
-                            )
-                        }
+                        Icon(
+                            imageVector = MuseIcons.send,
+                            contentDescription = stringResource(R.string.groupchat_send),
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(MuseIconSizes.iconSmall),
+                        )
                     }
                 }
+            }
         }
     }
 }
@@ -1067,7 +1072,7 @@ internal fun AgentActivityChip(activity: AgentActivity) {
     // 非 REPLYING 状态不跑动画帧(原实现无条件创建,静止时也每帧驱动)。
     val pulseAlpha = if (
         activity.status == AgentActivityStatus.REPLYING &&
-            !io.zer0.muse.ui.theme.MuseMotion.isReducedMotion()
+        !io.zer0.muse.ui.theme.MuseMotion.isReducedMotion()
     ) {
         val infiniteTransition = rememberInfiniteTransition(label = "activity_pulse")
         infiniteTransition.animateFloat(
@@ -1223,16 +1228,20 @@ internal fun GroupChatToolSheet(
             horizontalArrangement = Arrangement.spacedBy(MusePaddings.screen),
         ) {
             GroupToolTab(MuseIcons.image, stringResource(R.string.groupchat_image)) {
-                onPickImage(); onDismiss()
+                onPickImage()
+                onDismiss()
             }
             GroupToolTab(MuseIcons.paperclip, stringResource(R.string.chat_tool_attachment)) {
-                onPickDocument(); onDismiss()
+                onPickDocument()
+                onDismiss()
             }
             GroupToolTab(MuseIcons.book, stringResource(R.string.chat_tool_knowledge)) {
-                onInsertKnowledge(); onDismiss()
+                onInsertKnowledge()
+                onDismiss()
             }
             GroupToolTab(MuseIcons.template, stringResource(R.string.chat_prompt_templates_title)) {
-                onPickPromptTemplate(); onDismiss()
+                onPickPromptTemplate()
+                onDismiss()
             }
         }
     }
@@ -1274,22 +1283,28 @@ internal fun GroupChatMeetingSheet(
             horizontalArrangement = Arrangement.spacedBy(MusePaddings.screen),
         ) {
             GroupToolTab(MuseIcons.check, stringResource(R.string.groupchat_tool_vote)) {
-                onLaunchVote(); onDismiss()
+                onLaunchVote()
+                onDismiss()
             }
             GroupToolTab(MuseIcons.fileText, stringResource(R.string.groupchat_tool_summary)) {
-                onLaunchSummary(); onDismiss()
+                onLaunchSummary()
+                onDismiss()
             }
             GroupToolTab(MuseIcons.at, stringResource(R.string.groupchat_tool_mention)) {
-                onMentionMember(); onDismiss()
+                onMentionMember()
+                onDismiss()
             }
             GroupToolTab(MuseIcons.users, stringResource(R.string.groupchat_tool_members)) {
-                onOpenMembers(); onDismiss()
+                onOpenMembers()
+                onDismiss()
             }
             GroupToolTab(MuseIcons.folder, stringResource(R.string.groupchat_tool_context)) {
-                onOpenContext(); onDismiss()
+                onOpenContext()
+                onDismiss()
             }
             GroupToolTab(MuseIcons.edit, stringResource(R.string.groupchat_edit_cd)) {
-                onEditGroup(); onDismiss()
+                onEditGroup()
+                onDismiss()
             }
         }
     }
@@ -1297,11 +1312,7 @@ internal fun GroupChatMeetingSheet(
 
 /** v1.0.72: 群聊加号菜单横滚 tab(圆形图标 + 下方独立文字)。 */
 @Composable
-private fun GroupToolTab(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    onClick: () -> Unit,
-) {
+private fun GroupToolTab(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .widthIn(min = 60.dp)
@@ -1401,11 +1412,7 @@ internal fun GroupChatToolDivider() {
  * 待发送图片预览行 — 可点击右上角删除。
  */
 @Composable
-internal fun PendingImagesRow(
-    images: List<String>,
-    onRemove: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+internal fun PendingImagesRow(images: List<String>, onRemove: (String) -> Unit, modifier: Modifier = Modifier) {
     LazyRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1455,11 +1462,7 @@ internal fun PendingImagesRow(
  * 成员列表对话框。
  */
 @Composable
-internal fun MembersDialog(
-    memberNames: List<String>,
-    memberCount: Int,
-    onDismiss: () -> Unit,
-) {
+internal fun MembersDialog(memberNames: List<String>, memberCount: Int, onDismiss: () -> Unit) {
     MuseDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.groupchat_members_title, memberCount),
@@ -1776,11 +1779,11 @@ internal fun EditGroupChatDialog(
                 ) {
                     // "不选"选项
                     item(key = "no_host") {
-                    MuseChip(
-                        selected = hostId.isBlank(),
-                        onClick = { hostId = "" },
-                        label = stringResource(R.string.groupchat_mode_no_host),
-                    )
+                        MuseChip(
+                            selected = hostId.isBlank(),
+                            onClick = { hostId = "" },
+                            label = stringResource(R.string.groupchat_mode_no_host),
+                        )
                     }
                     // 只能选已选成员做主持人
                     items(assistants.filter { it.id in selectedMemberIds }, key = { it.id }) { assistant ->
@@ -1888,10 +1891,7 @@ private fun GroupMediaCard(
 
 /** v1.0.72: 相机实时取景预览(CameraX,复用单聊加号菜单实现)。 */
 @Composable
-private fun CameraLivePreviewBox(
-    modifier: Modifier,
-    onTap: () -> Unit,
-) {
+private fun CameraLivePreviewBox(modifier: Modifier, onTap: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentOnTap by rememberUpdatedState(onTap)
@@ -1936,7 +1936,10 @@ private fun queryRecentGalleryImages(context: Context, maxCount: Int): List<Uri>
         val sortOrder = "${MediaStore.Images.Media.DATE_ADDED} DESC"
         context.contentResolver.query(
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            projection, null, null, sortOrder,
+            projection,
+            null,
+            null,
+            sortOrder,
         )?.use { cursor ->
             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID)
             var count = 0

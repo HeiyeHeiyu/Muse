@@ -196,5 +196,4 @@ class ScheduledTaskToolsImpl(private val context: Context) {
         }
         return sb.toString().trimEnd()
     }
-
 }

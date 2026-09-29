@@ -57,6 +57,7 @@ fun stripHtmlSimple(s: String): String {
 fun stripHtmlComprehensive(html: String): String {
     val s = html.replace(SCRIPT_STYLE_BLOCK_REGEX, " ")
         .replace(HTML_TAG_REGEX, " ")
+
     @Suppress("DEPRECATION")
     val spanned = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
         Html.fromHtml(s, Html.FROM_HTML_MODE_COMPACT)

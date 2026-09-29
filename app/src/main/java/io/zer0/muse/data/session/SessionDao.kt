@@ -22,7 +22,9 @@ interface SessionDao {
     fun observeActive(): Flow<List<SessionEntity>>
 
     /** v1.28: 观察未归档的任务会话(排除 Agent Tab 会话)。任务列表用。 */
-    @Query("SELECT * FROM sessions WHERE archived = 0 AND isAgentSession = 0 AND deletedAt IS NULL ORDER BY pinned DESC, sortOrder ASC, updatedAt DESC")
+    @Query(
+        "SELECT * FROM sessions WHERE archived = 0 AND isAgentSession = 0 AND deletedAt IS NULL ORDER BY pinned DESC, sortOrder ASC, updatedAt DESC",
+    )
     fun observeTaskSessions(): Flow<List<SessionEntity>>
 
     /** v1.28: 观察 Agent Tab 会话(Agent 日常聊天)。 */
@@ -34,7 +36,9 @@ interface SessionDao {
     suspend fun getLatestAgentSession(): SessionEntity?
 
     /** v1.0.54: 按助手查最近 Agent 会话(切换助手时恢复该助手的对话房间)。 */
-    @Query("SELECT * FROM sessions WHERE assistantId = :assistantId AND deletedAt IS NULL AND isAgentSession = 1 ORDER BY updatedAt DESC LIMIT :limit")
+    @Query(
+        "SELECT * FROM sessions WHERE assistantId = :assistantId AND deletedAt IS NULL AND isAgentSession = 1 ORDER BY updatedAt DESC LIMIT :limit",
+    )
     suspend fun getRecentAgentByAssistant(assistantId: String, limit: Int): List<SessionEntity>
 
     /** v0.45: 观察已归档会话。v1.67: 排序与主列表一致(pinned DESC, updatedAt DESC)。 */
@@ -119,7 +123,8 @@ interface SessionDao {
      * 用 CASE 在单条 UPDATE 内完成条件标题更新,彻底避免读-改-写竞态。
      * :isUser 传 1 表示当前消息角色为 USER,否则 0。
      */
-    @Query("""
+    @Query(
+        """
         UPDATE sessions SET
             lastMessagePreview = :preview,
             updatedAt = :now,
@@ -128,31 +133,23 @@ interface SessionDao {
                 ELSE title
             END
         WHERE id = :id
-    """)
-    suspend fun updatePreviewAndTitle(
-        id: String,
-        preview: String,
-        now: Long,
-        defaultTitle: String,
-        isUser: Int,
-        autoTitle: String,
+    """,
     )
+    suspend fun updatePreviewAndTitle(id: String, preview: String, now: Long, defaultTitle: String, isUser: Int, autoTitle: String)
 
     /**
      * 仅更新会话预览 + updatedAt,不改标题。
      * 退出对话时由 AI 摘要统一命名,首条消息不再自动覆盖标题。
      */
-    @Query("""
+    @Query(
+        """
         UPDATE sessions SET
             lastMessagePreview = :preview,
             updatedAt = :now
         WHERE id = :id
-    """)
-    suspend fun updatePreviewOnly(
-        id: String,
-        preview: String,
-        now: Long,
+    """,
     )
+    suspend fun updatePreviewOnly(id: String, preview: String, now: Long)
 
     /** 按 id 删除会话(级联删消息)。 */
     @Query("DELETE FROM sessions WHERE id = :id")
@@ -201,7 +198,9 @@ interface SessionDao {
      *  - 排除 Agent Tab 会话(isAgentSession=1,Agent 日常聊天不参与参考)
      * 按 updatedAt DESC 排序,LIMIT :limit。
      */
-    @Query("SELECT * FROM sessions WHERE assistantId = :assistantId AND archived = 0 AND deletedAt IS NULL AND isAgentSession = 0 ORDER BY updatedAt DESC LIMIT :limit")
+    @Query(
+        "SELECT * FROM sessions WHERE assistantId = :assistantId AND archived = 0 AND deletedAt IS NULL AND isAgentSession = 0 ORDER BY updatedAt DESC LIMIT :limit",
+    )
     suspend fun getRecentByAssistant(assistantId: String, limit: Int): List<SessionEntity>
 
     @Query("UPDATE sessions SET lastReadMessageId = :messageId, lastReadCount = :readCount WHERE id = :sessionId")

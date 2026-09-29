@@ -63,17 +63,13 @@ interface KnowledgeChunkFtsDao {
      * OnConflictStrategy.REPLACE 在 FTS 表上基于 rowid(自动生成),
      * 实际是 INSERT,不会按 chunkId 替换。调用方需先 [deleteByChunkIds] 再 [insert] 实现 upsert 语义。
      */
-    suspend fun insert(chunkId: String, docId: String, content: String) =
-        withFtsSelfHeal { insertRaw(chunkId, docId, content) }
+    suspend fun insert(chunkId: String, docId: String, content: String) = withFtsSelfHeal { insertRaw(chunkId, docId, content) }
 
-    suspend fun deleteByDoc(docId: String) =
-        withFtsSelfHeal { deleteByDocRaw(docId) }
+    suspend fun deleteByDoc(docId: String) = withFtsSelfHeal { deleteByDocRaw(docId) }
 
-    suspend fun deleteByChunkIds(chunkIds: List<String>) =
-        withFtsSelfHeal { deleteByChunkIdsRaw(chunkIds) }
+    suspend fun deleteByChunkIds(chunkIds: List<String>) = withFtsSelfHeal { deleteByChunkIdsRaw(chunkIds) }
 
-    suspend fun deleteAll() =
-        withFtsSelfHeal { deleteAllRaw() }
+    suspend fun deleteAll() = withFtsSelfHeal { deleteAllRaw() }
 
     /**
      * v1.133: BM25 全文检索 — 返回匹配的 chunkId 及 BM25 分数(越小越好,SQLite bm25() 返回负值)。

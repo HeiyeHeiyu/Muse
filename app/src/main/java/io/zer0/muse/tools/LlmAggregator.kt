@@ -37,10 +37,7 @@ class LlmAggregator(
      * @param question 原始任务/问题,作为评审上下文;null 视为 "未提供"
      * @return 融合后的最终输出文本;调用失败 / 超时 / 空响应返回 null,由上游降级处理
      */
-    suspend fun review(
-        candidates: List<AgentResultAggregator.Candidate>,
-        question: String?,
-    ): String? {
+    suspend fun review(candidates: List<AgentResultAggregator.Candidate>, question: String?): String? {
         if (candidates.isEmpty()) return null
 
         val prompt = buildReviewPrompt(candidates, question)
@@ -92,10 +89,7 @@ class LlmAggregator(
     }
 
     /** 构造评审 prompt(中文)。 */
-    private fun buildReviewPrompt(
-        candidates: List<AgentResultAggregator.Candidate>,
-        question: String?,
-    ): String {
+    private fun buildReviewPrompt(candidates: List<AgentResultAggregator.Candidate>, question: String?): String {
         val candidatesBlock = candidates.mapIndexed { i, c ->
             val meta = buildString {
                 append("来源: ${c.source}")

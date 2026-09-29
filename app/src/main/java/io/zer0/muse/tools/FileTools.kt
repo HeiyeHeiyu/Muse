@@ -33,12 +33,16 @@ object FileTools {
 
     /** read_file 文件大小上限 2MB。 */
     private const val READ_FILE_MAX_BYTES = 2 * 1024 * 1024
+
     /** create_download 内容大小上限 10MB。 */
     private const val CREATE_DOWNLOAD_MAX_BYTES = 10 * 1024 * 1024
+
     /** parse_link 抓取超时 ms。 */
     private const val PARSE_LINK_TIMEOUT_MS = 15_000
+
     /** parse_link 响应体上限 1MB。 */
     private const val PARSE_LINK_MAX_BYTES = 1024 * 1024
+
     /** B-30: parse_link 手动跟跳转上限(每跳都过 SSRF 主机校验)。 */
     private const val MAX_REDIRECTS = 5
 
@@ -97,27 +101,19 @@ object FileTools {
      * @param context 应用上下文(读取 filesDir/Download)
      * @param workspaceRoot 工作区根目录(用于解析工作区相对路径)
      */
-    suspend fun execute(
-        name: String,
-        args: Map<String, String>,
-        context: Context,
-        workspaceRoot: File,
-    ): String = withContext(Dispatchers.IO) {
-        when (name) {
-            NAME_READ_FILE -> execReadFile(args, context, workspaceRoot)
-            NAME_CREATE_DOWNLOAD -> execCreateDownload(args, context)
-            NAME_PARSE_LINK -> execParseLink(args)
-            else -> "[错误] 未知工具: $name"
+    suspend fun execute(name: String, args: Map<String, String>, context: Context, workspaceRoot: File): String =
+        withContext(Dispatchers.IO) {
+            when (name) {
+                NAME_READ_FILE -> execReadFile(args, context, workspaceRoot)
+                NAME_CREATE_DOWNLOAD -> execCreateDownload(args, context)
+                NAME_PARSE_LINK -> execParseLink(args)
+                else -> "[错误] 未知工具: $name"
+            }
         }
-    }
 
     // ============================ read_file ============================
 
-    private fun execReadFile(
-        args: Map<String, String>,
-        context: Context,
-        workspaceRoot: File,
-    ): String {
+    private fun execReadFile(args: Map<String, String>, context: Context, workspaceRoot: File): String {
         val path = args["path"]?.takeIf { it.isNotBlank() }
             ?: return "[错误] 缺少必填参数 path"
 
@@ -149,7 +145,7 @@ object FileTools {
 
         val size = target.length()
         if (size > READ_FILE_MAX_BYTES) {
-            return "[错误] 文件过大(${size} 字节),上限 ${READ_FILE_MAX_BYTES} 字节(2MB)。" +
+            return "[错误] 文件过大($size 字节),上限 ${READ_FILE_MAX_BYTES} 字节(2MB)。" +
                 "大文件请用 workspace_read 配合分块读取。"
         }
 
@@ -309,7 +305,9 @@ object FileTools {
 
                 val truncated = if (text.length > 8000) {
                     text.substring(0, 8000) + "\n\n...(正文超过 8000 字符,已截断)"
-                } else text
+                } else {
+                    text
+                }
 
                 Logger.i("FileTools", "parse_link 成功: $currentUrl (${text.length} chars)")
                 "# $title\n\n来源: $currentUrl\n\n$truncated"
@@ -322,8 +320,7 @@ object FileTools {
         }
     }
 
-    private fun ByteArray.copyOfLength(length: Int): ByteArray =
-        if (size <= length) this else copyOf(length)
+    private fun ByteArray.copyOfLength(length: Int): ByteArray = if (size <= length) this else copyOf(length)
 }
 
 /**
@@ -336,7 +333,9 @@ class FileToolsRegistrar(
     private val context: Context,
     private val workspaceRoot: File,
 ) {
-    init { registerAll() }
+    init {
+        registerAll()
+    }
 
     fun registerAll() {
         FileTools.toolDefs().forEach { def ->

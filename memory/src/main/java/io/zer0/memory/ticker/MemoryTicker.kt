@@ -5,8 +5,8 @@ import io.zer0.ai.core.UIMessage
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.memory.budget.LlmBudget
-import io.zer0.memory.compile.MemoryCompiler
 import io.zer0.memory.compile.MemoryCompileTarget
+import io.zer0.memory.compile.MemoryCompiler
 import io.zer0.memory.deep.DeepMemoryProcessor
 import io.zer0.memory.summary.DailyStateDao
 import io.zer0.memory.summary.DailyStateEntity
@@ -17,23 +17,23 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import java.time.Instant
 import java.time.LocalDate
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * 记忆调度器。
@@ -55,7 +55,7 @@ import java.time.LocalDate
  *  - [_health] 用 synchronized 保护(纯内存读写,极短临界区)
  *  - daily pipeline 用 [_dailyRunning] (AtomicBoolean.compareAndSet) 防重入
  */
-class  MemoryTicker(
+class MemoryTicker(
     private val summaryManager: SessionSummaryManager,
     private val compiler: MemoryCompiler,
     private val deepProcessor: DeepMemoryProcessor,
@@ -130,7 +130,10 @@ class  MemoryTicker(
         val STEP_KEYS = listOf("rollingSummary") + DAILY_STEP_KEYS
     }
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
     private val stepsSerializer = MapSerializer(String.serializer(), String.serializer())
 
     // ──────────────────────────────────────────────
@@ -183,7 +186,9 @@ class  MemoryTicker(
 
     // v1.78 (H7): 改 AtomicBoolean,用 compareAndSet 消除 check-then-act 竞态
     private val _dailyRunning = AtomicBoolean(false)
+
     @Volatile private var _lastDailyJobDate: String? = null
+
     @Volatile private var _stopped = false
     private var _timerJob: Job? = null
 
@@ -384,11 +389,7 @@ class  MemoryTicker(
         dailyStateDao.get()
     }.getOrNull()
 
-    private suspend fun writeDailyState(
-        context: DailyContext,
-        completedSteps: Map<String, String>,
-        dailyCompletedAt: String?,
-    ) {
+    private suspend fun writeDailyState(context: DailyContext, completedSteps: Map<String, String>, dailyCompletedAt: String?) {
         val entity = DailyStateEntity(
             schemaVersion = DAILY_STATE_SCHEMA_VERSION,
             logicalDate = context.logicalDate,
@@ -495,11 +496,7 @@ class  MemoryTicker(
         spaceId = runtimeContext.getCurrentSpaceId(),
     )
 
-    private suspend fun doCompileTodayAndAssemble(
-        model: Model?,
-        locale: String,
-        timeZone: String,
-    ) {
+    private suspend fun doCompileTodayAndAssemble(model: Model?, locale: String, timeZone: String) {
         if (!stepBackoff.shouldRun("compileToday")) return
         try {
             markStepStart("compileToday", "turn")
@@ -813,7 +810,11 @@ class  MemoryTicker(
                     // processSession 内部会检查 dirty 状态,复用 Semaphore(3) 排队
                     resultOf {
                         deepProcessor.processSession(
-                            sessionId, summaryManager, model, locale, runtimeContext.getConfig(),
+                            sessionId,
+                            summaryManager,
+                            model,
+                            locale,
+                            runtimeContext.getConfig(),
                         )
                     }.onError { msg, t ->
                         Logger.w(TAG, "notifySessionEnd: processSession 失败: $msg", t)
@@ -914,11 +915,7 @@ class  MemoryTicker(
      * 手动触发一次完整编译(调试 / 启动时用)。
      * 先跑 daily job(确保 week/longterm/facts 存在),再 compileToday。
      */
-    suspend fun tick(
-        model: Model? = null,
-        locale: String = "zh-CN",
-        timeZone: String = TimeContext.DEFAULT_TIMEZONE,
-    ) {
+    suspend fun tick(model: Model? = null, locale: String = "zh-CN", timeZone: String = TimeContext.DEFAULT_TIMEZONE) {
         if (_stopped) return
         // B-7: 备份恢复(文件级替换 DB)窗口内跳过写入型编译,避免写丢失。
         if (io.zer0.common.ProcessWriteGate.restoring) {
@@ -984,11 +981,7 @@ class  MemoryTicker(
      *
      * 失败步骤记录到 health,不中断整体流程。
      */
-    suspend fun forceCompileNow(
-        model: Model? = null,
-        locale: String = "zh-CN",
-        timeZone: String = TimeContext.DEFAULT_TIMEZONE,
-    ) {
+    suspend fun forceCompileNow(model: Model? = null, locale: String = "zh-CN", timeZone: String = TimeContext.DEFAULT_TIMEZONE) {
         if (_stopped) return
         if (!isMemoryEnabled()) return
         // 1. 强制重跑 compileFacts(从 30 天摘要提取 fact,忽略指纹缓存外的 checkpoint)
@@ -1041,11 +1034,7 @@ class  MemoryTicker(
      * 软裁剪到目标 token 数,避免记忆过长挤占对话预算(按 memory.token_budget 配置)。
      * 默认值 2500 token 约等于 10KB 文本,日常记忆量足够;用户调小可压缩 prompt。
      */
-    suspend fun readCompiledMemoryMarkdown(
-        locale: String = "zh-CN",
-        scope: String? = null,
-        spaceId: String? = null,
-    ): String {
+    suspend fun readCompiledMemoryMarkdown(locale: String = "zh-CN", scope: String? = null, spaceId: String? = null): String {
         val md = compiler.readCompiledMemoryMarkdown(locale, scope, spaceId)
         val cfg = runtimeContext.getConfig()
         return LlmBudget.truncateToTokenBudget(md, cfg.tokenBudget)

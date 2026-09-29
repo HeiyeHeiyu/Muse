@@ -44,29 +44,29 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
+import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantCardExporter
 import io.zer0.muse.data.assistant.AssistantCardImportBridge
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantRepository
-import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.CharacterCardImporter
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.museAnimateItem
-import io.zer0.muse.ui.common.media.AssistantAvatar
-import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
-import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.media.AssistantAvatar
+import io.zer0.muse.ui.common.museAnimateItem
+import io.zer0.muse.ui.common.navigation.MuseTopBar
+import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
 import io.zer0.muse.ui.common.surface.CardGroup
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
-import kotlin.uuid.Uuid
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
+import kotlin.uuid.Uuid
 
 /**
  * 助手列表页 —— 全量重写。
@@ -80,11 +80,7 @@ import org.koin.compose.koinInject
  *  - 所有按压反馈走 color-fade + 轻触觉,无 Material 涟漪
  */
 @Composable
-fun AssistantScreen(
-    onBack: () -> Unit,
-    onOpenDetail: (String) -> Unit,
-    viewModel: ChatViewModel = koinViewModel(),
-) {
+fun AssistantScreen(onBack: () -> Unit, onOpenDetail: (String) -> Unit, viewModel: ChatViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val repo: AssistantRepository = koinInject()
     val settings: SettingsRepository = koinInject()
@@ -274,123 +270,123 @@ fun AssistantScreen(
                 // v2.x: 动效补齐 — 骨架屏入场(令牌 animateItem)
                 item {
                     Box(museAnimateItem()) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
-                    ) {
-                        repeat(6) {
-                            io.zer0.muse.ui.common.surface.AvatarRowSkeleton()
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
+                        ) {
+                            repeat(6) {
+                                io.zer0.muse.ui.common.surface.AvatarRowSkeleton()
+                            }
                         }
-                    }
                     }
                 }
             } else {
                 // v2.x: 动效补齐 — 卡片组入场(令牌 animateItem)
                 item {
                     Box(museAnimateItem()) {
-                    CardGroup(
-                        title = {
-                            Text(defaultAssistantTitle)
-                        },
-                    ) {
-                        item(
-                            onClick = { showDefaultAssistantPicker = true },
-                            leadingContent = {
-                                Icon(
-                                    imageVector = MuseIcons.brain,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(MuseIconSizes.icon),
-                                    tint = MaterialTheme.colorScheme.primary,
-                                )
-                            },
-                            headlineContent = {
+                        CardGroup(
+                            title = {
                                 Text(defaultAssistantTitle)
                             },
-                            supportingContent = {
-                                val currentDefault = state.assistants.firstOrNull { it.id == defaultAssistantId }
-                                Text(currentDefault?.name?.ifBlank { null } ?: defaultAssistantTitle)
-                            },
-                            trailingContent = { ChevronRight() },
-                        )
-                    }
-                    }
-                }
-
-                // v2.x: 动效补齐 — 卡片组入场(令牌 animateItem)
-                item {
-                    Box(museAnimateItem()) {
-                    CardGroup(
-                        title = {
-                            Text(sectionAssistants)
-                        },
-                    ) {
-                        if (state.assistants.isEmpty()) {
+                        ) {
                             item(
-                                onClick = { createNewAssistant() },
+                                onClick = { showDefaultAssistantPicker = true },
                                 leadingContent = {
                                     Icon(
-                                        imageVector = MuseIcons.plus,
+                                        imageVector = MuseIcons.brain,
                                         contentDescription = null,
                                         modifier = Modifier.size(MuseIconSizes.icon),
                                         tint = MaterialTheme.colorScheme.primary,
                                     )
                                 },
                                 headlineContent = {
-                                    Text(
-                                        text = emptyCreateText,
-                                        color = MaterialTheme.colorScheme.primary,
-                                    )
+                                    Text(defaultAssistantTitle)
                                 },
+                                supportingContent = {
+                                    val currentDefault = state.assistants.firstOrNull { it.id == defaultAssistantId }
+                                    Text(currentDefault?.name?.ifBlank { null } ?: defaultAssistantTitle)
+                                },
+                                trailingContent = { ChevronRight() },
                             )
-                        } else {
-                            state.assistants.forEach { assistant ->
+                        }
+                    }
+                }
+
+                // v2.x: 动效补齐 — 卡片组入场(令牌 animateItem)
+                item {
+                    Box(museAnimateItem()) {
+                        CardGroup(
+                            title = {
+                                Text(sectionAssistants)
+                            },
+                        ) {
+                            if (state.assistants.isEmpty()) {
                                 item(
-                                    key = assistant.id,
-                                    onClick = { onOpenDetail(assistant.id) },
-                                    onLongClick = { actionSheetAssistantId = assistant.id },
+                                    onClick = { createNewAssistant() },
                                     leadingContent = {
-                                        AssistantAvatar(assistant = assistant, avatarSize = 44.dp)
+                                        Icon(
+                                            imageVector = MuseIcons.plus,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(MuseIconSizes.icon),
+                                            tint = MaterialTheme.colorScheme.primary,
+                                        )
                                     },
                                     headlineContent = {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
-                                        ) {
-                                            Text(
-                                                text = assistant.name.ifBlank { unnamedText },
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
-                                            if (assistant.id == state.currentAssistant?.id) {
-                                                CurrentIndicator(text = currentText)
-                                            }
-                                        }
-                                    },
-                                    supportingContent = {
-                                        val desc = assistant.summary.ifBlank {
-                                            assistant.systemPrompt.take(40).replace("\n", " ")
-                                        }
-                                        if (desc.isNotEmpty()) {
-                                            Text(
-                                                text = desc,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                            )
-                                        }
-                                    },
-                                    trailingContent = {
-                                        MuseTactileButton(
-                                            icon = MuseIcons.moreVertical,
-                                            onClick = { actionSheetAssistantId = assistant.id },
-                                            contentDescription = moreCd,
-                                            size = MuseIconSizes.touchTarget,
-                                            iconSize = MuseIconSizes.iconMedium,
+                                        Text(
+                                            text = emptyCreateText,
+                                            color = MaterialTheme.colorScheme.primary,
                                         )
                                     },
                                 )
+                            } else {
+                                state.assistants.forEach { assistant ->
+                                    item(
+                                        key = assistant.id,
+                                        onClick = { onOpenDetail(assistant.id) },
+                                        onLongClick = { actionSheetAssistantId = assistant.id },
+                                        leadingContent = {
+                                            AssistantAvatar(assistant = assistant, avatarSize = 44.dp)
+                                        },
+                                        headlineContent = {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
+                                            ) {
+                                                Text(
+                                                    text = assistant.name.ifBlank { unnamedText },
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                                if (assistant.id == state.currentAssistant?.id) {
+                                                    CurrentIndicator(text = currentText)
+                                                }
+                                            }
+                                        },
+                                        supportingContent = {
+                                            val desc = assistant.summary.ifBlank {
+                                                assistant.systemPrompt.take(40).replace("\n", " ")
+                                            }
+                                            if (desc.isNotEmpty()) {
+                                                Text(
+                                                    text = desc,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                            }
+                                        },
+                                        trailingContent = {
+                                            MuseTactileButton(
+                                                icon = MuseIcons.moreVertical,
+                                                onClick = { actionSheetAssistantId = assistant.id },
+                                                contentDescription = moreCd,
+                                                size = MuseIconSizes.touchTarget,
+                                                iconSize = MuseIconSizes.iconMedium,
+                                            )
+                                        },
+                                    )
+                                }
                             }
                         }
-                    }
                     }
                 }
 
@@ -399,56 +395,56 @@ fun AssistantScreen(
                 if (state.assistants.isNotEmpty()) {
                     item {
                         Box(museAnimateItem()) {
-                        CardGroup(
-                            title = {
-                                Text(sectionActions)
-                            },
-                        ) {
-                            item(
-                                onClick = { createNewAssistant() },
-                                leadingContent = {
-                                    Icon(
-                                        imageVector = MuseIcons.plus,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(MuseIconSizes.icon),
-                                        tint = MaterialTheme.colorScheme.primary,
-                                    )
+                            CardGroup(
+                                title = {
+                                    Text(sectionActions)
                                 },
-                                headlineContent = {
-                                    Text(
-                                        text = newActionText,
-                                        color = MaterialTheme.colorScheme.primary,
-                                    )
-                                },
-                                trailingContent = { ChevronRight() },
-                            )
-                            item(
-                                onClick = {
-                                    runCatching {
-                                        importSillyTavernLauncher.launch(
-                                            arrayOf("image/png", "application/json", "*/*"),
+                            ) {
+                                item(
+                                    onClick = { createNewAssistant() },
+                                    leadingContent = {
+                                        Icon(
+                                            imageVector = MuseIcons.plus,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(MuseIconSizes.icon),
+                                            tint = MaterialTheme.colorScheme.primary,
                                         )
-                                    }.onFailure {
-                                        MuseToast.show(toastSillyTavernImportFailed.format(it.message ?: ""), 3500)
-                                    }
-                                },
-                                leadingContent = {
-                                    Icon(
-                                        imageVector = MuseIcons.image,
-                                        contentDescription = importSillyTavernCd,
-                                        modifier = Modifier.size(MuseIconSizes.icon),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                },
-                                headlineContent = {
-                                    Text(
-                                        text = importSillyTavernText,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                },
-                                trailingContent = { ChevronRight() },
-                            )
-                        }
+                                    },
+                                    headlineContent = {
+                                        Text(
+                                            text = newActionText,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                    },
+                                    trailingContent = { ChevronRight() },
+                                )
+                                item(
+                                    onClick = {
+                                        runCatching {
+                                            importSillyTavernLauncher.launch(
+                                                arrayOf("image/png", "application/json", "*/*"),
+                                            )
+                                        }.onFailure {
+                                            MuseToast.show(toastSillyTavernImportFailed.format(it.message ?: ""), 3500)
+                                        }
+                                    },
+                                    leadingContent = {
+                                        Icon(
+                                            imageVector = MuseIcons.image,
+                                            contentDescription = importSillyTavernCd,
+                                            modifier = Modifier.size(MuseIconSizes.icon),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    },
+                                    headlineContent = {
+                                        Text(
+                                            text = importSillyTavernText,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    },
+                                    trailingContent = { ChevronRight() },
+                                )
+                            }
                         }
                     }
                 }
@@ -505,7 +501,6 @@ fun AssistantScreen(
             onDismiss = { showDefaultAssistantPicker = false },
         )
     }
-
 
     // 操作菜单(MuseDialog)
     actionSheetAssistant?.let { assistant ->
@@ -712,10 +707,7 @@ fun AssistantScreen(
  * "当前"状态指示器:绿色小圆点 + 文字,用于标识当前选中助手。
  */
 @Composable
-private fun CurrentIndicator(
-    text: String,
-    modifier: Modifier = Modifier,
-) {
+private fun CurrentIndicator(text: String, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
         shape = MuseShapes.pill,
@@ -786,10 +778,7 @@ private fun ActionMenuRow(
  * 右箭头指示器,与 CardGroup / 列表项风格一致。
  */
 @Composable
-private fun ChevronRight(
-    modifier: Modifier = Modifier,
-    tint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-) {
+private fun ChevronRight(modifier: Modifier = Modifier, tint: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
     Icon(
         imageVector = MuseIcons.chevronRight,
         contentDescription = null,
@@ -797,4 +786,3 @@ private fun ChevronRight(
         tint = tint,
     )
 }
-

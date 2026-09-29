@@ -103,7 +103,9 @@ object Perf {
         }
         // 通知外部 sink(供 PerformanceReporter 订阅慢操作);try-catch 防止 sink 异常影响调用方
         sink?.let { cb ->
-            try { cb(name, elapsedMs) } catch (t: Throwable) {
+            try {
+                cb(name, elapsedMs)
+            } catch (t: Throwable) {
                 Logger.w("Perf", "sink 回调异常: ${t.message}", t)
             }
         }

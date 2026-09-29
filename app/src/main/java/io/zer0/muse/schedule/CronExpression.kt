@@ -100,7 +100,7 @@ class CronExpression internal constructor(
                 val lastDay = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
                 if (dayOfMonth == lastDay) {
                     val dow = cal.get(Calendar.DAY_OF_WEEK) - 1
-                    dow in 1..5  // 周一到周五
+                    dow in 1..5 // 周一到周五
                 } else {
                     // 如果最后一天是周末,看是不是"最后一个周五"
                     val dow = cal.get(Calendar.DAY_OF_WEEK) - 1
@@ -120,14 +120,18 @@ class CronExpression internal constructor(
                 val target = dayOfMonthModifier.day
                 if (dayOfMonth == target) {
                     val dow = cal.get(Calendar.DAY_OF_WEEK) - 1
-                    dow in 1..5  // 目标日本身是工作日
+                    dow in 1..5 // 目标日本身是工作日
                 } else {
                     val dow = cal.get(Calendar.DAY_OF_WEEK) - 1
                     // 目标日是周六(N):最近工作日是 N-1(周五)
-                    if (dow == 6 && dayOfMonth == target - 1 && target - 1 >= 1) true
-                    // 目标日是周日(N):最近工作日是 N+1(周一)
-                    else if (dow == 1 && dayOfMonth == target + 1) true
-                    else false
+                    if (dow == 6 && dayOfMonth == target - 1 && target - 1 >= 1) {
+                        true
+                    } // 目标日是周日(N):最近工作日是 N+1(周一)
+                    else if (dow == 1 && dayOfMonth == target + 1) {
+                        true
+                    } else {
+                        false
+                    }
                 }
             }
             DayModifier.None -> dayOfMonth in daysOfMonth
@@ -147,13 +151,13 @@ class CronExpression internal constructor(
                 if (dayOfWeek != targetDow) return false
                 val currentDay = cal.get(Calendar.DAY_OF_MONTH)
                 val lastDayOfMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
-                currentDay + 7 > lastDayOfMonth  // 当前日期 + 7 超出月末,说明这是本月最后一个该周几
+                currentDay + 7 > lastDayOfMonth // 当前日期 + 7 超出月末,说明这是本月最后一个该周几
             }
             is DayOfWeekModifier.Nth -> {
                 // `2#3`:第 3 个周一 — 检查当前是第几个该周几
                 if (dayOfWeek != dayOfWeekModifier.dayOfWeek) return false
                 val currentDay = cal.get(Calendar.DAY_OF_MONTH)
-                val occurrence = (currentDay - 1) / 7 + 1  // 第几个(从 1 开始)
+                val occurrence = (currentDay - 1) / 7 + 1 // 第几个(从 1 开始)
                 occurrence == dayOfWeekModifier.occurrence
             }
             DayOfWeekModifier.None -> dayOfWeek in daysOfWeek
@@ -164,10 +168,13 @@ class CronExpression internal constructor(
     sealed class DayModifier {
         /** 无修饰符。 */
         object None : DayModifier()
+
         /** `L`:当月最后一天。 */
         object Last : DayModifier()
+
         /** `LW`:当月最后一个工作日。 */
         object LastWeekday : DayModifier()
+
         /** `NW`:离 N 号最近的工作日(N 已含在 [daysOfMonth] 中)。 */
         data class Weekday(val day: Int) : DayModifier()
     }
@@ -176,8 +183,10 @@ class CronExpression internal constructor(
     sealed class DayOfWeekModifier {
         /** 无修饰符。 */
         object None : DayOfWeekModifier()
+
         /** `5L`:最后一个周五。 */
         data class Last(val dayOfWeek: Int) : DayOfWeekModifier()
+
         /** `2#3`:第 3 个周一。 */
         data class Nth(val dayOfWeek: Int, val occurrence: Int) : DayOfWeekModifier()
     }

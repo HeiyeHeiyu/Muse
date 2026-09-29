@@ -75,6 +75,5 @@ open class ProviderKeyRotation(
         return newKey != failedKey
     }
 
-    private fun hasMultipleKeys(): Boolean =
-        config.apiKey.contains(',') || config.apiKey.contains('\n')
+    private fun hasMultipleKeys(): Boolean = config.apiKey.contains(',') || config.apiKey.contains('\n')
 }

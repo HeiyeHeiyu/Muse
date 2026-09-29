@@ -66,32 +66,28 @@ object MuseTransitions {
             fadeIn(MuseMotion.tweenSpec(MuseAnimation.NAV_HORIZONTAL_MS))
 
     /** 首页专用纵向 push 入场(从底部滑入 + 淡入)。 */
-    fun verticalPushEnter(): EnterTransition =
-        slideInVertically(
-            animationSpec = MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_ENTER_MS),
-            initialOffsetY = { it },
-        ) + fadeIn(MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_ENTER_MS))
+    fun verticalPushEnter(): EnterTransition = slideInVertically(
+        animationSpec = MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_ENTER_MS),
+        initialOffsetY = { it },
+    ) + fadeIn(MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_ENTER_MS))
 
     /** 首页专用纵向 push 退场(向上移出 1/3 + 淡出)。 */
-    fun verticalPushExit(): ExitTransition =
-        slideOutVertically(
-            animationSpec = MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_EXIT_MS),
-            targetOffsetY = { -it / 3 },
-        ) + fadeOut(MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_EXIT_MS))
+    fun verticalPushExit(): ExitTransition = slideOutVertically(
+        animationSpec = MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_EXIT_MS),
+        targetOffsetY = { -it / 3 },
+    ) + fadeOut(MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_EXIT_MS))
 
     /** 首页专用纵向 pop 入场(从上方回到首页 + 淡入)。 */
-    fun verticalPopEnter(): EnterTransition =
-        slideInVertically(
-            animationSpec = MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_ENTER_MS),
-            initialOffsetY = { -it / 3 },
-        ) + fadeIn(MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_ENTER_MS))
+    fun verticalPopEnter(): EnterTransition = slideInVertically(
+        animationSpec = MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_ENTER_MS),
+        initialOffsetY = { -it / 3 },
+    ) + fadeIn(MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_ENTER_MS))
 
     /** 首页专用纵向 pop 退场(向底部移出 + 淡出)。 */
-    fun verticalPushPopExit(): ExitTransition =
-        slideOutVertically(
-            animationSpec = MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_EXIT_MS),
-            targetOffsetY = { it },
-        ) + fadeOut(MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_EXIT_MS))
+    fun verticalPushPopExit(): ExitTransition = slideOutVertically(
+        animationSpec = MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_EXIT_MS),
+        targetOffsetY = { it },
+    ) + fadeOut(MuseMotion.tweenSpec(MuseAnimation.NAV_VERTICAL_EXIT_MS))
 
     /** 纯淡入，用于沉浸式全屏页等不适合横向 push 的入口。 */
     fun fadeEnter(): EnterTransition = fadeIn(MuseMotion.tweenSpec(MuseAnimation.NORMAL_MS))

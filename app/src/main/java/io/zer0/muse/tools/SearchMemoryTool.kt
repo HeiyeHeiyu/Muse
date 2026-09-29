@@ -30,20 +30,12 @@ object SearchMemoryTool {
         riskLevel = ToolRiskLevel.SAFE,
     )
 
-    suspend fun execute(args: Map<String, String>, factStore: FactStore): String =
-        executeInternal(args, factStore, null)
+    suspend fun execute(args: Map<String, String>, factStore: FactStore): String = executeInternal(args, factStore, null)
 
-    suspend fun execute(
-        args: Map<String, String>,
-        factStore: FactStore,
-        executionContext: ToolExecutionContext,
-    ): String = executeInternal(args, factStore, executionContext)
+    suspend fun execute(args: Map<String, String>, factStore: FactStore, executionContext: ToolExecutionContext): String =
+        executeInternal(args, factStore, executionContext)
 
-    private suspend fun executeInternal(
-        args: Map<String, String>,
-        factStore: FactStore,
-        executionContext: ToolExecutionContext?,
-    ): String {
+    private suspend fun executeInternal(args: Map<String, String>, factStore: FactStore, executionContext: ToolExecutionContext?): String {
         val query = args["query"]?.trim().orEmpty()
         if (query.isEmpty()) return "Error: query parameter is required."
 
@@ -59,7 +51,9 @@ object SearchMemoryTool {
 
         val dateRange = if (from != null || to != null) {
             FactStore.DateRange(from = from, to = to)
-        } else null
+        } else {
+            null
+        }
         val facts = if (executionContext != null && tags.isNotEmpty()) {
             factStore.searchByTagsScoped(
                 queryTags = tags,

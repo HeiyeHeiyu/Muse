@@ -5,9 +5,9 @@ import io.zer0.ai.core.MessageRole
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.R
+import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.artifact.ArtifactEntity
 import io.zer0.muse.data.artifact.ArtifactRepository
-import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.ui.ChatErrorType
 import io.zer0.muse.ui.speech.TtsManager
 import io.zer0.muse.ui.speech.VoiceConversationState
@@ -251,11 +251,7 @@ internal class ChatMediaController(
      *    → 续期一次,避免长文本被误杀;
      *  - 否则回落 LISTENING 并记录原因(未收到任何回调 / 长时间未报告结束),同时停止 TTS 避免残留播放。
      */
-    private suspend fun armSpeakingWatchdog(
-        epoch: Int,
-        textLength: Int,
-        isCurrent: () -> Boolean,
-    ) {
+    private suspend fun armSpeakingWatchdog(epoch: Int, textLength: Int, isCurrent: () -> Boolean) {
         val timeoutMs = speakingWatchdogTimeoutMs(textLength)
         var extensions = 0
         while (true) {

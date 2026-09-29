@@ -33,12 +33,21 @@ class BackupRoundTripSerializationTest {
     @Test
     fun `P0-10 entities round trip without data loss`() {
         val quickNote = QuickNoteEntity(
-            id = "qn1", title = "标题", content = "内容", tags = listOf("a", "b"),
-            folder = "工作", contentType = "markdown", attachmentsJson = "[]",
+            id = "qn1",
+            title = "标题",
+            content = "内容",
+            tags = listOf("a", "b"),
+            folder = "工作",
+            contentType = "markdown",
+            attachmentsJson = "[]",
         )
         val worldBook = WorldBookEntryEntity(
-            id = "wb1", name = "条目", content = "正文", keywordsJson = """["关键词"]""",
-            alwaysActive = true, scanDepth = 5,
+            id = "wb1",
+            name = "条目",
+            content = "正文",
+            keywordsJson = """["关键词"]""",
+            alwaysActive = true,
+            scanDepth = 5,
         )
         val convEvent = ConversationEventEntity(
             sessionId = "s1", eventSeq = 1, eventId = "ev1", turnId = "t1",
@@ -46,35 +55,60 @@ class BackupRoundTripSerializationTest {
             createdAt = 100L,
         )
         val convTurn = ConversationTurnEntity(
-            turnId = "t1", sessionId = "s1",
-            inputUserMessageId = "m1", assistantMessageId = "m2", phase = "user",
-            startedAt = 100L, updatedAt = 100L,
+            turnId = "t1",
+            sessionId = "s1",
+            inputUserMessageId = "m1",
+            assistantMessageId = "m2",
+            phase = "user",
+            startedAt = 100L,
+            updatedAt = 100L,
         )
         val messagePart = MessagePartEntity(
-            messageId = "m1", partIndex = 0, kind = "text",
-            text = "正文", createdAt = 100L,
+            messageId = "m1",
+            partIndex = 0,
+            kind = "text",
+            text = "正文",
+            createdAt = 100L,
         )
         val outbox = MessageOutboxEntity(
-            id = "o1", sessionId = "s1", text = "待发",
-            userMessageId = "m1", assistantMessageId = "m2", createdAt = 100L,
+            id = "o1",
+            sessionId = "s1",
+            text = "待发",
+            userMessageId = "m1",
+            assistantMessageId = "m2",
+            createdAt = 100L,
         )
         val diary = DiaryEntity(date = "2026-09-20", content = "日记正文", createdAt = 100L)
         val translate = TranslateHistoryEntity(
-            id = "tr1", sourceText = "hello", translatedText = "你好",
-            sourceLanguage = "en", targetLanguage = "zh",
+            id = "tr1",
+            sourceText = "hello",
+            translatedText = "你好",
+            sourceLanguage = "en",
+            targetLanguage = "zh",
         )
         val kb = KnowledgeBaseEntity(id = "kb1", name = "知识库", description = "d")
         val thread = SubagentThreadEntity(
-            threadId = "th1", parentSessionId = "s1", childSessionPath = "/x.json",
+            threadId = "th1",
+            parentSessionId = "s1",
+            childSessionPath = "/x.json",
             assistantId = "a1",
         )
         val toolRound = ToolRoundEntity(
-            id = "r1", turnId = "t1", roundIndex = 0, toolCallId = "c1",
-            toolName = "search", argsJson = "{}", status = "done", startedAt = 100L,
+            id = "r1",
+            turnId = "t1",
+            roundIndex = 0,
+            toolCallId = "c1",
+            toolName = "search",
+            argsJson = "{}",
+            status = "done",
+            startedAt = 100L,
         )
         val branchHead = SessionBranchHeadEntity(sessionId = "s1", updatedAt = 100L)
         val groupChatMemory = GroupChatMemoryEntity(
-            id = "gm1", groupChatId = "g1", assistantId = "a1", summary = "摘要",
+            id = "gm1",
+            groupChatId = "g1",
+            assistantId = "a1",
+            summary = "摘要",
         )
 
         val backup = BackupService.Backup(

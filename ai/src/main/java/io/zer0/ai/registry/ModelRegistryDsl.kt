@@ -50,8 +50,7 @@ class ModelDefinition(
         return rule.evaluate(modelId, tokens)
     }
 
-    internal fun matchScore(modelId: String, tokens: List<String>): Int? =
-        rule.evaluate(modelId, tokens)
+    internal fun matchScore(modelId: String, tokens: List<String>): Int? = rule.evaluate(modelId, tokens)
 }
 
 class ModelGroup internal constructor(
@@ -60,11 +59,9 @@ class ModelGroup internal constructor(
     override fun match(modelId: String): Boolean = members.any { it.match(modelId) }
 }
 
-fun defineModel(block: ModelDefinitionBuilder.() -> Unit): ModelDefinition =
-    ModelDefinitionBuilder().apply(block).build()
+fun defineModel(block: ModelDefinitionBuilder.() -> Unit): ModelDefinition = ModelDefinitionBuilder().apply(block).build()
 
-fun defineGroup(block: ModelGroupBuilder.() -> Unit): ModelGroup =
-    ModelGroupBuilder().apply(block).build()
+fun defineGroup(block: ModelGroupBuilder.() -> Unit): ModelGroup = ModelGroupBuilder().apply(block).build()
 
 fun tokenRegex(pattern: String): TokenSpec = RegexTokenSpec(pattern.toRegex(RegexOption.IGNORE_CASE))
 
@@ -76,6 +73,7 @@ class ModelDefinitionBuilder {
     private val outputModalities = mutableSetOf("text")
     private val abilities = mutableSetOf<ModelAbility>()
     private val builtInTools = mutableSetOf<BuiltInTool>()
+
     /** v1.0.4: 视觉 grounding 能力。 */
     private var visionCapabilities: VisionCapabilities? = null
 
@@ -160,7 +158,9 @@ class ModelDefinitionBuilder {
 
 class ModelGroupBuilder {
     private val members = mutableListOf<ModelSelector>()
-    fun add(vararg models: ModelSelector) { members.addAll(models) }
+    fun add(vararg models: ModelSelector) {
+        members.addAll(models)
+    }
     fun build(): ModelGroup = ModelGroup(members.toList())
 }
 
@@ -220,8 +220,7 @@ private class OrderedTokenRule(private val specs: List<TokenSpec>) : ModelRule {
 
 private class AbsentTokenRule(private val specs: List<TokenSpec>) : ModelRule {
     private val inner = OrderedTokenRule(specs)
-    override fun evaluate(modelId: String, tokens: List<String>): Int? =
-        if (inner.evaluate(modelId, tokens) == null) 0 else null
+    override fun evaluate(modelId: String, tokens: List<String>): Int? = if (inner.evaluate(modelId, tokens) == null) 0 else null
 }
 
 // --- 辅助函数 ---

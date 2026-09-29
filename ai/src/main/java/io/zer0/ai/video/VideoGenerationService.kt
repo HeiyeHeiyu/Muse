@@ -120,10 +120,7 @@ class VideoGenerationService(
      *
      * 适用于 UI 层需要手动轮询的场景(如 VideoGenerationPage 后续可拆分提交/轮询)。
      */
-    suspend fun submit(
-        providerConfig: ProviderConfig,
-        request: VideoGenRequest,
-    ): Result<VideoSubmitResult> = withContext(Dispatchers.IO) {
+    suspend fun submit(providerConfig: ProviderConfig, request: VideoGenRequest): Result<VideoSubmitResult> = withContext(Dispatchers.IO) {
         val r = resultOf {
             val provider = registry.selectFor(providerConfig)
             val effectiveKey = keyRotationFactory(providerConfig).effectiveApiKey()
@@ -211,7 +208,7 @@ class VideoGenerationService(
                         }
                         Logger.w(
                             TAG,
-                            "查询异常 (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS})" +
+                            "查询异常 ($consecutiveErrors/${MAX_CONSECUTIVE_ERRORS})" +
                                 ",将重试: ${e.message}",
                         )
                         null
@@ -246,7 +243,7 @@ class VideoGenerationService(
                                     }
                                     Logger.w(
                                         TAG,
-                                        "查询失败 (${consecutiveErrors}/${MAX_CONSECUTIVE_ERRORS})" +
+                                        "查询失败 ($consecutiveErrors/${MAX_CONSECUTIVE_ERRORS})" +
                                             ",将重试: ${pollResult.errorMessage}",
                                     )
                                 } else {
@@ -261,7 +258,7 @@ class VideoGenerationService(
                 delay(TICK_MS)
             }
             null
-        } ?: error("${provider.providerId} 任务超时(taskId=$taskId, timeoutMs=${timeoutMs})")
+        } ?: error("${provider.providerId} 任务超时(taskId=$taskId, timeoutMs=$timeoutMs)")
 
         // 清理取消围栏(任务已正常完成)
         cancelledTasks.remove(taskId)

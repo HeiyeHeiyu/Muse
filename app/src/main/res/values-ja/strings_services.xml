@@ -256,7 +256,7 @@
     <string name="tool_url_opened">開いたリンク: %1$s</string>
     <string name="tool_open_url_failed">リンクを開けませんでした: %1$s</string>
     <string name="tool_installed_apps_header">インストールされているアプリ (%1$d 合計):\n</string>
-    <string name="tool_installed_apps_item">%1$s |</string>
+    <string name="tool_installed_apps_item">%1$s | %2$s</string>
     <string name="tool_installed_apps_empty">マッチングアプリが見つかりませんでした</string>
     <string name="tool_installed_apps_failed">インストールされたアプリの取得に失敗しました</string>
     <string name="tool_network_info">オンライン: %1$s\nネットワーク タイプ: %2$s\n従量制: %3$s</string>
@@ -304,7 +304,7 @@
     <string name="tool_bluetooth_enabled">Bluetooth: 有効</string>
     <string name="tool_bluetooth_disabled">Bluetooth: 無効</string>
     <string name="tool_bluetooth_header">ペアリングされた Bluetooth デバイス (%1$d 合計):\n</string>
-    <string name="tool_bluetooth_item">- %1$s |</string>
+    <string name="tool_bluetooth_item">- %1$s | %2$s</string>
     <string name="tool_bluetooth_empty">ペアリングされた Bluetooth デバイスがありません</string>
     <string name="tool_phone_call_opened">開いたダイヤラ: %1$s</string>
     <string name="tool_phone_call_missing">パラメータがありません: 電話</string>
@@ -328,7 +328,7 @@
     <string name="tool_reminder_cancelled">キャンセルされたリマインダー: %1$s</string>
     <string name="tool_reminder_not_found">リマインダーが見つかりません: %1$s</string>
     <string name="tool_reminder_list_header">スケジュールされたリマインダー (%1$d 合計):\n</string>
-    <string name="tool_reminder_list_item">- ID: %1$s |</string>
+    <string name="tool_reminder_list_item">- ID: %1$s | 時間: %2$s | タイトル: %3$s</string>
     <string name="tool_reminder_list_empty">スケジュールされたリマインダーはありません</string>
     <string name="tool_reminder_missing_title">パラメータがありません: タイトル</string>
     <string name="tool_reminder_missing_message">パラメータがありません: メッセージ</string>
@@ -342,9 +342,9 @@
     <string name="tool_resource_deleted">削除されたリソース: %1$s</string>
     <string name="tool_resource_not_found">リソースが見つかりません: %1$s</string>
     <string name="tool_resource_list_header">リソース ライブラリ (%1$d 合計):\n</string>
-    <string name="tool_resource_list_item">- ID: %1$s |</string>
+    <string name="tool_resource_list_item">- ID: %1$s | タイトル: %2$s | タグ: %3$s</string>
     <string name="tool_resource_list_empty">リソースライブラリが空です</string>
-    <string name="tool_resource_item_detail">リソースの詳細\nid: %1$s\nタイトル: %2$s\nタグ: %3$s\n作成日:</string>
+    <string name="tool_resource_item_detail">リソースの詳細\nid: %1$s\nタイトル: %2$s\nタグ: %3$s\n作成日時: %4$s\n内容:\n%5$s</string>
     <string name="tool_resource_missing_title">パラメータがありません: タイトル</string>
     <string name="tool_resource_missing_content">パラメータがありません: コンテンツ</string>
     <string name="tool_resource_missing_id">パラメータがありません: id</string>
@@ -370,9 +370,9 @@
     <string name="tool_quick_note_not_found">メモが見つかりません: %1$s</string>
     <string name="tool_quick_note_pinned">%1$s 固定されたメモ: %2$s</string>
     <string name="tool_quick_note_list_header">簡単なメモ (%1$d 合計):\n</string>
-    <string name="tool_quick_note_list_item">- %1$s%2$s %3$s |</string>
+    <string name="tool_quick_note_list_item">- %1$s%2$s %3$s | タグ: %4$s</string>
     <string name="tool_quick_note_list_empty">簡単なメモはまだありません</string>
-    <string name="tool_quick_note_item_detail">詳細\nid: %1$s\nタイトル: %2$s\n固定: %3$s\nタグ:</string>
+    <string name="tool_quick_note_item_detail">詳細\nid: %1$s\nタイトル: %2$s\n固定: %3$s\nタグ: %4$s\n内容:\n%5$s</string>
     <string name="tool_quick_note_missing_title">パラメータがありません: タイトル</string>
     <string name="tool_quick_note_missing_id">パラメータがありません: id</string>
 

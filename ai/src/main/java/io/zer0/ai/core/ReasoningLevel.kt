@@ -33,12 +33,14 @@ enum class ReasoningLevel(
     LOW(budgetTokens = 1000, effort = "low", anthropicLevel = "low"),
     MEDIUM(budgetTokens = 2000, effort = "medium", anthropicLevel = "medium"),
     HIGH(budgetTokens = 8000, effort = "high", anthropicLevel = "high"),
+
     /**
      * v1.80 (M-CORE8): XHIGH 补全 effort/anthropicLevel。
      * 原先为 null 导致 OpenAI/Anthropic 不发送推理参数,用户选"极深推理"实际未生效。
      * OpenAI 无 "xhigh" 值,降级为 "high";Anthropic 同理用 "high"。
      */
-    XHIGH(budgetTokens = 16000, effort = "high", anthropicLevel = "high");
+    XHIGH(budgetTokens = 16000, effort = "high", anthropicLevel = "high"),
+    ;
 
     companion object {
         /** 默认推理等级(向后兼容旧配置无字段时)。 */

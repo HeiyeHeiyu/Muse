@@ -47,10 +47,7 @@ import java.time.format.DateTimeFormatter
 
 /** 时间轴内部筛选行(全部 / 事实 / 摘要 / 里程碑)。 */
 @Composable
-internal fun MemoryTimelineFilterRow(
-    selected: String,
-    onSelect: (String) -> Unit,
-) {
+internal fun MemoryTimelineFilterRow(selected: String, onSelect: (String) -> Unit) {
     val filters = listOf(
         "all" to stringResource(R.string.memory_timeline_filter_all),
         "fact" to stringResource(R.string.memory_timeline_filter_fact),

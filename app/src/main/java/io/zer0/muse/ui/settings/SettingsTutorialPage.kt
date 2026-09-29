@@ -1,11 +1,5 @@
 package io.zer0.muse.ui.settings
 
-import androidx.compose.foundation.layout.defaultMinSize
-
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,10 +30,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,7 +45,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.R
+import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MusePaddings
@@ -81,9 +80,7 @@ import kotlinx.coroutines.launch
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsTutorialPage(
-    onBack: () -> Unit,
-) {
+fun SettingsTutorialPage(onBack: () -> Unit) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -398,7 +395,9 @@ fun SettingsTutorialPage(
                                     iconSize = MuseIconSizes.iconSmall,
                                 )
                             }
-                        } else null,
+                        } else {
+                            null
+                        },
                         singleLine = true,
                     )
                 }
@@ -535,10 +534,7 @@ private fun SectionQuickJumpRail(
  *  - 点击区域 20dp(符合无障碍最小触控目标)
  */
 @Composable
-private fun SectionJumpDot(
-    isCurrent: Boolean,
-    onClick: () -> Unit,
-) {
+private fun SectionJumpDot(isCurrent: Boolean, onClick: () -> Unit) {
     val dotSize = if (isCurrent) 7.dp else 5.dp
     val dotColor = if (isCurrent) {
         MaterialTheme.colorScheme.onSurface
@@ -565,12 +561,7 @@ private fun SectionJumpDot(
  * v2.x: 教程章节头卡片 — 图标 + 标题 + 展开状态。独立 LazyColumn item。
  */
 @Composable
-private fun TutorialChapterHeader(
-    icon: ImageVector,
-    titleRes: Int,
-    isExpanded: Boolean,
-    onToggleExpand: () -> Unit,
-) {
+private fun TutorialChapterHeader(icon: ImageVector, titleRes: Int, isExpanded: Boolean, onToggleExpand: () -> Unit) {
     val title = stringResource(titleRes)
     Surface(
         shape = MuseShapes.large,
@@ -609,10 +600,7 @@ private fun TutorialChapterHeader(
  * v2.x: 教程小节卡片 — 标题(主色) + 正文。独立 LazyColumn item。
  */
 @Composable
-private fun TutorialSectionCard(
-    titleRes: Int,
-    contentRes: Int,
-) {
+private fun TutorialSectionCard(titleRes: Int, contentRes: Int) {
     Surface(
         shape = MuseShapes.large,
         color = MaterialTheme.colorScheme.surface,

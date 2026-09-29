@@ -71,15 +71,13 @@ class ConnectorStore(context: Context) {
         AtomicFileStore.writeText(file, AppJson.encodeToString(Payload.serializer(), payload))
     }
 
-    private suspend fun encrypt(config: ConnectorConfig): ConnectorConfig =
-        config.copy(
-            clientSecret = if (config.clientSecret.isBlank()) "" else SecureKeyStore.encrypt(config.clientSecret),
-        )
+    private suspend fun encrypt(config: ConnectorConfig): ConnectorConfig = config.copy(
+        clientSecret = if (config.clientSecret.isBlank()) "" else SecureKeyStore.encrypt(config.clientSecret),
+    )
 
-    private suspend fun decrypt(config: ConnectorConfig): ConnectorConfig =
-        config.copy(
-            clientSecret = if (config.clientSecret.isBlank()) "" else SecureKeyStore.decrypt(config.clientSecret),
-        )
+    private suspend fun decrypt(config: ConnectorConfig): ConnectorConfig = config.copy(
+        clientSecret = if (config.clientSecret.isBlank()) "" else SecureKeyStore.decrypt(config.clientSecret),
+    )
 
     companion object {
         private const val TAG = "ConnectorStore"

@@ -1,8 +1,5 @@
 package io.zer0.muse.ui.settings
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.common.resultOf
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,12 +13,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -31,27 +29,28 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.backup.BackupService
 import io.zer0.muse.backup.CloudBackupConfig
 import io.zer0.muse.backup.CloudBackupService
 import io.zer0.muse.backup.RemoteBackup
 import io.zer0.muse.data.SettingsRepository
+import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseDropdown
 import io.zer0.muse.ui.common.form.MuseSlider
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.form.MuseTextField
-import io.zer0.muse.ui.common.feedback.MuseDialog
-import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
-import io.zer0.muse.ui.common.state.MuseErrorStateBox
 import io.zer0.muse.ui.common.settings.SettingsItemRow
 import io.zer0.muse.ui.common.settings.SettingsSwitchRow
+import io.zer0.muse.ui.common.state.MuseErrorStateBox
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.theme.MuseDateFormats
 import io.zer0.muse.ui.theme.MusePaddings
@@ -79,9 +78,7 @@ import java.util.Locale
  *  - 密码/密钥输入框默认遮罩,点击「显示」切换
  */
 @Composable
-fun CloudBackupPage(
-    onBack: () -> Unit,
-) {
+fun CloudBackupPage(onBack: () -> Unit) {
     val settings: SettingsRepository = koinInject()
     val backupService: BackupService = koinInject()
     val cloudBackupService: CloudBackupService = koinInject()
@@ -89,7 +86,7 @@ fun CloudBackupPage(
     val context = LocalContext.current
 
     val cloudConfig by settings.cloudBackupConfigFlow.collectAsStateWithLifecycle(
-        initialValue = CloudBackupConfig()
+        initialValue = CloudBackupConfig(),
     )
 
     // 本地草稿(初始化为当前 config,保存后同步)
@@ -170,11 +167,13 @@ fun CloudBackupPage(
                     checked = draft.type != "none",
                     onCheckedChange = { enabled ->
                         // 启用时回退到之前用过的类型(默认 webdav);禁用时置 none 但保留字段
-                        draft = draft.copy(type = if (enabled) {
-                            if (draft.s3Endpoint.isNotBlank() || draft.s3Bucket.isNotBlank()) "s3" else "webdav"
-                        } else {
-                            "none"
-                        })
+                        draft = draft.copy(
+                            type = if (enabled) {
+                                if (draft.s3Endpoint.isNotBlank() || draft.s3Bucket.isNotBlank()) "s3" else "webdav"
+                            } else {
+                                "none"
+                            },
+                        )
                     },
                 )
                 SettingsGroupDivider()
@@ -217,7 +216,10 @@ fun CloudBackupPage(
                     // 加密密码(通用)
                     EncryptionPasswordField(
                         password = draft.backupPassword,
-                        onPasswordChange = { draft = draft.copy(backupPassword = it); passwordEdited = true },
+                        onPasswordChange = {
+                            draft = draft.copy(backupPassword = it)
+                            passwordEdited = true
+                        },
                         secretVisible = secretVisible,
                         onToggleSecret = { secretVisible = !secretVisible },
                     )
@@ -247,8 +249,8 @@ fun CloudBackupPage(
                             testing = false
                             MuseToast.show(
                                 context.getString(
-                                    if (ok) R.string.cloud_backup_test_success else R.string.cloud_backup_test_failed
-                                )
+                                    if (ok) R.string.cloud_backup_test_success else R.string.cloud_backup_test_failed,
+                                ),
                             )
                         }
                     },
@@ -313,9 +315,12 @@ fun CloudBackupPage(
                             cloudBackupDialogVisible = false
                             MuseToast.show(
                                 context.getString(
-                                    if (ok) R.string.cloud_backup_backup_success
-                                    else R.string.cloud_backup_backup_failed
-                                )
+                                    if (ok) {
+                                        R.string.cloud_backup_backup_success
+                                    } else {
+                                        R.string.cloud_backup_backup_failed
+                                    },
+                                ),
                             )
                             // 上传成功后刷新远端列表
                             if (ok) {
@@ -437,9 +442,12 @@ fun CloudBackupPage(
                                         deleting = null
                                         MuseToast.show(
                                             context.getString(
-                                                if (ok) R.string.cloud_backup_delete_success
-                                                else R.string.cloud_backup_delete_failed
-                                            )
+                                                if (ok) {
+                                                    R.string.cloud_backup_delete_success
+                                                } else {
+                                                    R.string.cloud_backup_delete_failed
+                                                },
+                                            ),
                                         )
                                         if (ok) {
                                             remoteBackups = resultOf {
@@ -529,12 +537,12 @@ fun CloudBackupPage(
                             MuseCapsuleButton(
                                 text = stringResource(R.string.cloud_backup_save_config),
                                 onClick = {
-                                scope.launch {
-                                    val hours = (intervalDaysDraft.toInt().coerceIn(1, 30)) * 24
-                                    settings.saveCloudBackupConfig(cloudConfig.copy(autoSyncIntervalHours = hours))
-                                    MuseToast.show(context.getString(R.string.cloud_backup_config_saved))
-                                }
-                            },
+                                    scope.launch {
+                                        val hours = (intervalDaysDraft.toInt().coerceIn(1, 30)) * 24
+                                        settings.saveCloudBackupConfig(cloudConfig.copy(autoSyncIntervalHours = hours))
+                                        MuseToast.show(context.getString(R.string.cloud_backup_config_saved))
+                                    }
+                                },
                                 variant = IosCapsuleButtonVariant.Text,
                                 fillWidth = false,
                             )
@@ -550,7 +558,13 @@ fun CloudBackupPage(
         MuseDialog(
             // 返回只关闭进度展示，云端备份/恢复任务继续运行。
             onDismissRequest = { cloudBackupDialogVisible = false },
-            title = if (backingUp) stringResource(R.string.settings_backup_uploading) else stringResource(R.string.settings_backup_restoring),
+            title = if (backingUp) {
+                stringResource(
+                    R.string.settings_backup_uploading,
+                )
+            } else {
+                stringResource(R.string.settings_backup_restoring)
+            },
             content = {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -560,8 +574,11 @@ fun CloudBackupPage(
                     MuseSpinner()
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(
-                        if (backingUp) stringResource(R.string.settings_backup_uploading_cloud)
-                        else stringResource(R.string.settings_backup_restoring_cloud)
+                        if (backingUp) {
+                            stringResource(R.string.settings_backup_uploading_cloud)
+                        } else {
+                            stringResource(R.string.settings_backup_restoring_cloud)
+                        },
                     )
                 }
             },
@@ -718,8 +735,11 @@ private fun WebDavFields(
             visualTransformation = if (secretVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
                 MuseCapsuleButton(
-                    text = if (secretVisible) stringResource(R.string.cloud_backup_hide_secret)
-                        else stringResource(R.string.cloud_backup_show_secret),
+                    text = if (secretVisible) {
+                        stringResource(R.string.cloud_backup_hide_secret)
+                    } else {
+                        stringResource(R.string.cloud_backup_show_secret)
+                    },
                     onClick = onToggleSecret,
                     variant = IosCapsuleButtonVariant.Text,
                     fillWidth = false,
@@ -789,8 +809,11 @@ private fun S3Fields(
             visualTransformation = if (secretVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
                 MuseCapsuleButton(
-                    text = if (secretVisible) stringResource(R.string.cloud_backup_hide_secret)
-                        else stringResource(R.string.cloud_backup_show_secret),
+                    text = if (secretVisible) {
+                        stringResource(R.string.cloud_backup_hide_secret)
+                    } else {
+                        stringResource(R.string.cloud_backup_show_secret)
+                    },
                     onClick = onToggleSecret,
                     variant = IosCapsuleButtonVariant.Text,
                     fillWidth = false,
@@ -838,8 +861,11 @@ private fun EncryptionPasswordField(
             visualTransformation = if (secretVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
                 MuseCapsuleButton(
-                    text = if (secretVisible) stringResource(R.string.cloud_backup_hide_secret)
-                        else stringResource(R.string.cloud_backup_show_secret),
+                    text = if (secretVisible) {
+                        stringResource(R.string.cloud_backup_hide_secret)
+                    } else {
+                        stringResource(R.string.cloud_backup_show_secret)
+                    },
                     onClick = onToggleSecret,
                     variant = IosCapsuleButtonVariant.Text,
                     fillWidth = false,
@@ -853,12 +879,7 @@ private fun EncryptionPasswordField(
  * 单条远端备份行 — 文件名 + 时间 + 大小 + 恢复 / 删除按钮。
  */
 @Composable
-private fun RemoteBackupRow(
-    backup: RemoteBackup,
-    onRestore: () -> Unit,
-    onDelete: () -> Unit,
-    isDeleting: Boolean,
-) {
+private fun RemoteBackupRow(backup: RemoteBackup, onRestore: () -> Unit, onDelete: () -> Unit, isDeleting: Boolean) {
     val fmt = remember { SimpleDateFormat(MuseDateFormats.DATE_TIME_FULL, Locale.getDefault()) }
     Column(
         modifier = Modifier

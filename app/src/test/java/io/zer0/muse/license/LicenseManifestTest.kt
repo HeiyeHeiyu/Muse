@@ -21,7 +21,10 @@ import org.junit.Test
  */
 class LicenseManifestTest {
 
-    private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+    }
 
     private val sampleJson = """
         {

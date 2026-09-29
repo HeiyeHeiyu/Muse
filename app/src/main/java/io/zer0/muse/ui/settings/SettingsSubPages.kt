@@ -1,40 +1,37 @@
 package io.zer0.muse.ui.settings
 
 import android.content.ClipData
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.util.ShareIntentHelper
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import io.zer0.muse.ui.common.feedback.MuseToast
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -45,38 +42,41 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import io.zer0.muse.R
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.zer0.ai.ProviderRegistry
+import io.zer0.common.Result
+import io.zer0.common.resultOf
 import io.zer0.muse.BuildConfig
+import io.zer0.muse.R
 import io.zer0.muse.UpdateChecker
 import io.zer0.muse.data.SettingsRepository
-import io.zer0.muse.update.UpdateNotifier
+import io.zer0.muse.data.assistant.AssistantRepository
+import io.zer0.muse.ui.common.feedback.MuseAlertDialog
+import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.navigation.MuseLargeTitleHeader
 import io.zer0.muse.ui.common.navigation.MuseStickyBackButton
 import io.zer0.muse.ui.common.settings.ChevronRight
-import io.zer0.muse.ui.common.surface.museSafeTopInsetPadding
-import io.zer0.muse.ui.common.feedback.MuseAlertDialog
-import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.settings.SettingsItemRow
 import io.zer0.muse.ui.common.settings.SettingsSwitchRow
+import io.zer0.muse.ui.common.state.MuseSpinner
+import io.zer0.muse.ui.common.surface.museSafeTopInsetPadding
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
+import io.zer0.muse.update.UpdateNotifier
+import io.zer0.muse.util.ShareIntentHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
-import androidx.compose.runtime.mutableStateMapOf
-import io.zer0.ai.ProviderRegistry
-import io.zer0.common.Result
-import io.zer0.muse.data.assistant.AssistantRepository
-import io.zer0.common.resultOf
 
 /**
  * v0.34: 通用二级设置页容器 — 大标题栏。
@@ -88,11 +88,7 @@ import io.zer0.common.resultOf
  * Expanded 模式下 LazyColumn 居中限宽 720dp,避免大屏上列表项过度拉伸。
  */
 @Composable
-fun SettingsSubPageScaffold(
-    title: String,
-    onBack: (() -> Unit)? = null,
-    content: LazyListScope.() -> Unit,
-) {
+fun SettingsSubPageScaffold(title: String, onBack: (() -> Unit)? = null, content: LazyListScope.() -> Unit) {
     // v2.0.1: 滚动头部 — 大标题（item 0）随滚动推出（保留返回键）。
     // 搜索栏只保留在一级设置页；二三级子页不再放置搜索栏。
     // 大标题推出后，左上角渐显吸顶返回键（MuseStickyBackButton），保证随时可返回。
@@ -345,8 +341,11 @@ fun SettingsModelPage(
             onDismiss = { editingConfig = null },
             onSave = { saved ->
                 scope.launch {
-                    if (isNewProvider) settings.addProvider(saved)
-                    else settings.updateProvider(saved)
+                    if (isNewProvider) {
+                        settings.addProvider(saved)
+                    } else {
+                        settings.updateProvider(saved)
+                    }
                     editingConfig = null
                 }
             },
@@ -417,7 +416,8 @@ fun SettingsModelPage(
                     isFromPreset = false
                 },
                 onDelete = {
-                    id -> scope.launch {
+                        id ->
+                    scope.launch {
                         settings.deleteProvider(id)
                         assistantRepository.removeProviderBinding(id)
                     }
@@ -454,12 +454,10 @@ fun SettingsModelPage(
  * 仅渲染 [WebSearchSection],让"模型与服务"页只保留供应商列表。
  */
 @Composable
-fun SettingsWebSearchPage(
-    onBack: () -> Unit,
-) {
+fun SettingsWebSearchPage(onBack: () -> Unit) {
     val settings: SettingsRepository = koinInject()
     val webSearchConfig by settings.webSearchConfigFlow.collectAsStateWithLifecycle(
-        initialValue = io.zer0.muse.web.WebSearchConfig()
+        initialValue = io.zer0.muse.web.WebSearchConfig(),
     )
     SettingsSubPageScaffold(title = stringResource(R.string.settings_web_search_section), onBack = onBack) {
         item { WebSearchSection(webSearchConfig = webSearchConfig, settings = settings) }
@@ -502,12 +500,10 @@ fun SettingsAssistantResourcesPage(
  * v1.133: 二级页 — 语音识别 ASR(从 SettingsModelPage 拆出)。
  */
 @Composable
-fun SettingsAsrPage(
-    onBack: () -> Unit,
-) {
+fun SettingsAsrPage(onBack: () -> Unit) {
     val settings: SettingsRepository = koinInject()
     val asrConfig by settings.asrConfigFlow.collectAsStateWithLifecycle(
-        initialValue = io.zer0.muse.asr.AsrConfig()
+        initialValue = io.zer0.muse.asr.AsrConfig(),
     )
     SettingsSubPageScaffold(title = stringResource(R.string.section_asr), onBack = onBack) {
         item { AsrSection(asrConfig = asrConfig, settings = settings) }
@@ -518,9 +514,7 @@ fun SettingsAsrPage(
  * v1.133: 二级页 — MCP 服务器(从 SettingsModelPage 拆出)。
  */
 @Composable
-fun SettingsMcpPage(
-    onBack: () -> Unit,
-) {
+fun SettingsMcpPage(onBack: () -> Unit) {
     SettingsSubPageScaffold(title = stringResource(R.string.section_mcp), onBack = onBack) {
         item { McpSection() }
     }
@@ -532,10 +526,7 @@ fun SettingsMcpPage(
  * 云备份配置通过独立的 CloudBackupPage 管理；本页保留状态、上传/恢复和自动同步快捷入口。
  */
 @Composable
-fun SettingsDataPage(
-    onBack: () -> Unit,
-    onOpenCloudBackup: () -> Unit = {},
-) {
+fun SettingsDataPage(onBack: () -> Unit, onOpenCloudBackup: () -> Unit = {}) {
     val settings: SettingsRepository = koinInject()
     val sessionRepository: io.zer0.muse.data.session.SessionRepository = koinInject()
     val backupService: io.zer0.muse.backup.BackupService = koinInject()
@@ -566,9 +557,7 @@ fun SettingsDataPage(
  * 二级页:外观(主题 + 字号)
  */
 @Composable
-fun SettingsAppearancePage(
-    onBack: () -> Unit,
-) {
+fun SettingsAppearancePage(onBack: () -> Unit) {
     val settings: SettingsRepository = koinInject()
     val themeMode by settings.themeModeFlow.collectAsStateWithLifecycle(initialValue = "system")
     val fontSizeScale by settings.fontSizeScaleFlow.collectAsStateWithLifecycle(initialValue = "medium")
@@ -622,7 +611,7 @@ fun SettingsAboutPage(
         runCatching {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                 context.packageManager.getPackageInfo(
-                    context.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0)
+                    context.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0),
                 ).versionName
             } else {
                 @Suppress("DEPRECATION")
@@ -634,7 +623,7 @@ fun SettingsAboutPage(
         runCatching {
             val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                 context.packageManager.getPackageInfo(
-                    context.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0)
+                    context.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0),
                 )
             } else {
                 @Suppress("DEPRECATION")
@@ -734,7 +723,9 @@ fun SettingsAboutPage(
                             when (result) {
                                 is UpdateChecker.Result.NewVersion -> newVersion = result
                                 is UpdateChecker.Result.UpToDate -> upToDate = true
-                                is UpdateChecker.Result.Error -> MuseToast.show(context.getString(R.string.settings_about_update_check_failed, result.message))
+                                is UpdateChecker.Result.Error -> MuseToast.show(
+                                    context.getString(R.string.settings_about_update_check_failed, result.message),
+                                )
                             }
                         }
                     },
@@ -895,7 +886,13 @@ private fun openQQGroup(context: Context) {
  */
 private fun sendFeedback(context: Context, versionName: String) {
     val deviceInfo = buildString {
-        appendLine(context.getString(R.string.settings_feedback_android_version, android.os.Build.VERSION.RELEASE, android.os.Build.VERSION.SDK_INT))
+        appendLine(
+            context.getString(
+                R.string.settings_feedback_android_version,
+                android.os.Build.VERSION.RELEASE,
+                android.os.Build.VERSION.SDK_INT,
+            ),
+        )
         appendLine(context.getString(R.string.settings_feedback_device_model, android.os.Build.MANUFACTURER, android.os.Build.MODEL))
         appendLine(context.getString(R.string.settings_feedback_app_version, versionName))
     }

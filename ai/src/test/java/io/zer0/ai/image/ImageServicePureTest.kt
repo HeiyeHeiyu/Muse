@@ -119,10 +119,7 @@ class ImageServicePureTest {
         assertEquals(AgnesImageProvider.DEFAULT_MODEL_ID, result)
     }
 
-    private fun providerConfig(
-        models: List<Model>,
-        imageModel: String? = null,
-    ): ProviderConfig = ProviderConfig(
+    private fun providerConfig(models: List<Model>, imageModel: String? = null): ProviderConfig = ProviderConfig(
         id = "p",
         displayName = "P",
         type = ProviderType.OPENAI,

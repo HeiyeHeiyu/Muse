@@ -2,15 +2,15 @@ package io.zer0.ai.openai
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.descriptors.buildClassSerialDescriptor
-import kotlinx.serialization.descriptors.SerialDescriptor
-import kotlinx.serialization.encoding.Decoder
-import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -136,7 +136,7 @@ internal data class ResponsesIncompleteDetails(
 
 @Serializable
 internal data class ResponsesOutputItem(
-    val type: String,  // "message" | "reasoning" | "function_call" | "image_generation_call"
+    val type: String, // "message" | "reasoning" | "function_call" | "image_generation_call"
     val id: String? = null,
     val role: String? = null,
     val status: String? = null,
@@ -148,12 +148,12 @@ internal data class ResponsesOutputItem(
     val summary: JsonElement? = null,
     @SerialName("encrypted_content")
     val encryptedContent: String? = null,
-    val result: String? = null,  // image_generation_call 的 base64 结果
+    val result: String? = null, // image_generation_call 的 base64 结果
 )
 
 @Serializable
 internal data class ResponsesContentBlock(
-    val type: String,  // "output_text" | "text" | "refusal" | "input_text" | "input_image"
+    val type: String, // "output_text" | "text" | "refusal" | "input_text" | "input_image"
     val text: String? = null,
     val annotations: List<ResponsesAnnotation> = emptyList(),
 )
@@ -207,7 +207,7 @@ internal data class OpenAIRequest(
     val top_p: Float? = null,
     val max_tokens: Int? = null,
     val stream: Boolean = true,
-            /** Phase 7: 工具定义列表,启用 function calling。 */
+    /** Phase 7: 工具定义列表,启用 function calling。 */
     val tools: List<OpenAITool>? = null,
     /** v1.0.40: 工具选择策略。tools=null 时强制 "none" 防止模型幻觉 tool call。 */
     val tool_choice: String? = null,
@@ -426,15 +426,20 @@ private object FlexibleStringListSerializer : kotlinx.serialization.KSerializer<
 
     override fun deserialize(decoder: Decoder): List<String>? {
         val json = decoder as? JsonDecoder
-            ?: return try { listSerializer.deserialize(decoder) } catch (_: Exception) { null }
+            ?: return try {
+                listSerializer.deserialize(decoder)
+            } catch (_: Exception) {
+                null
+            }
         return when (val element = json.decodeJsonElement()) {
             is JsonNull -> null
             is JsonArray -> element.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
-            is JsonPrimitive -> element.content
-                .split(',')
-                .map { it.trim() }
-                .filter { it.isNotEmpty() }
-                .ifEmpty { null }
+            is JsonPrimitive ->
+                element.content
+                    .split(',')
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .ifEmpty { null }
             else -> null
         }
     }

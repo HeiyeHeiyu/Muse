@@ -40,8 +40,8 @@ object VisionImagePreprocessor {
      */
     object POLICY {
         const val maxDimension = 2000
-        const val maxImageBase64Bytes = 4_500_000  // 4.5MB
-        const val totalBase64BudgetBytes = 24_000_000  // 24MB
+        const val maxImageBase64Bytes = 4_500_000 // 4.5MB
+        const val totalBase64BudgetBytes = 24_000_000 // 24MB
         const val jpegQuality = 80
     }
 
@@ -79,10 +79,7 @@ object VisionImagePreprocessor {
      * @param imageCount 本次请求的图片总数,用于分摊单图预算
      * @return 预处理后的图片;解码失败返回 null(调用方决定丢弃或走降级)
      */
-    suspend fun prepareSingle(
-        imageBase64: String,
-        imageCount: Int = 1,
-    ): PreparedImage? = withContext(Dispatchers.IO) {
+    suspend fun prepareSingle(imageBase64: String, imageCount: Int = 1): PreparedImage? = withContext(Dispatchers.IO) {
         if (imageBase64.isBlank()) return@withContext null
 
         // 1. 嗅探 MIME + 解码
@@ -120,7 +117,9 @@ object VisionImagePreprocessor {
             Bitmap.createScaledBitmap(bitmap, newW, newH, true).also {
                 if (it != bitmap) bitmap.recycle()
             }
-        } else bitmap
+        } else {
+            bitmap
+        }
 
         // 5. JPEG 压缩,按预算递减质量
         val perImageMaxBytes = computePerImageBudget(imageCount)
@@ -130,7 +129,7 @@ object VisionImagePreprocessor {
         val resultBase64 = Base64.encodeToString(compressed, Base64.NO_WRAP)
         PreparedImage(
             base64 = resultBase64,
-            mimeType = "image/jpeg",  // 统一转 JPEG
+            mimeType = "image/jpeg", // 统一转 JPEG
             originalWidth = origW,
             originalHeight = origH,
             resizedWidth = if (origW > 0) minOf(origW, targetMaxDim) else 0,

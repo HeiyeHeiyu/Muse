@@ -12,9 +12,9 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import io.zer0.common.Logger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
 /**
@@ -44,12 +44,15 @@ class BingWebViewSearcher(private val appContext: Context) {
 
     companion object {
         private const val TAG = "BingWebView"
+
         /** 单次搜索超时(含页面加载 + JS 渲染 + 提取)。 */
         private const val SEARCH_TIMEOUT_MS = 20_000L
+
         /** 桌面 Chrome UA(与 Hana extractors 对齐),拿到桌面版 li.b_algo 结构。 */
         private const val DESKTOP_UA =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+
         /** Bing 桌面中文结果 cookie。 */
         private const val BING_COOKIE =
             "SRCHHPGUSR=NRSLT=10;SRCHLANG=zh-CN;HIDTTONS=1;ADLT=MODERATE; SRCHLANG=zh-CN; _SS=mlock=1"
@@ -65,37 +68,32 @@ class BingWebViewSearcher(private val appContext: Context) {
      * @param maxResults 最多返回条数
      * @return 搜索结果;被拦截/超时/解析失败返回空列表(不抛异常,由上层 fallback)
      */
-    suspend fun search(query: String, maxResults: Int): List<WebSearchResult> =
-        withContext(Dispatchers.Main) {
-            val wv = ensureWebView()
-            val encoded = java.net.URLEncoder.encode(query, "UTF-8")
-            val url = buildString {
-                append("https://cn.bing.com/search?q=").append(encoded)
-                append("&mkt=zh-CN&setlang=zh-CN&FORM=Z9FD1")
-            }
-
-            val outcome = withTimeoutOrNull(SEARCH_TIMEOUT_MS) {
-                loadAndExtract(wv, url, maxResults)
-            }
-            when {
-                outcome == null -> {
-                    Logger.w(TAG, "search 超时(${SEARCH_TIMEOUT_MS}ms): $query")
-                    emptyList()
-                }
-                outcome.blocked -> {
-                    Logger.w(TAG, "必应返回验证码/拦截页,放弃 WebView 兜底: $query")
-                    emptyList()
-                }
-                else -> outcome.results
-            }
+    suspend fun search(query: String, maxResults: Int): List<WebSearchResult> = withContext(Dispatchers.Main) {
+        val wv = ensureWebView()
+        val encoded = java.net.URLEncoder.encode(query, "UTF-8")
+        val url = buildString {
+            append("https://cn.bing.com/search?q=").append(encoded)
+            append("&mkt=zh-CN&setlang=zh-CN&FORM=Z9FD1")
         }
 
+        val outcome = withTimeoutOrNull(SEARCH_TIMEOUT_MS) {
+            loadAndExtract(wv, url, maxResults)
+        }
+        when {
+            outcome == null -> {
+                Logger.w(TAG, "search 超时(${SEARCH_TIMEOUT_MS}ms): $query")
+                emptyList()
+            }
+            outcome.blocked -> {
+                Logger.w(TAG, "必应返回验证码/拦截页,放弃 WebView 兜底: $query")
+                emptyList()
+            }
+            else -> outcome.results
+        }
+    }
+
     /** 加载 [url] 并在页面渲染后注入提取 JS,返回结构化结果。 */
-    private suspend fun loadAndExtract(
-        wv: WebView,
-        url: String,
-        maxResults: Int,
-    ): ExtractOutcome = suspendCancellableCoroutine { cont ->
+    private suspend fun loadAndExtract(wv: WebView, url: String, maxResults: Int): ExtractOutcome = suspendCancellableCoroutine { cont ->
         val previousClient = wv.webViewClient
         var resumed = false
         // 轮询尝试次数与间隔:必应部分结果是 JS 异步渲染,固定等 600ms 有时不够。
@@ -181,12 +179,7 @@ class BingWebViewSearcher(private val appContext: Context) {
             }
 
             @Deprecated("Deprecated in API 23")
-            override fun onReceivedError(
-                view: WebView?,
-                errorCode: Int,
-                description: String?,
-                failingUrl: String?,
-            ) {
+            override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
                 // 旧 API:仅主框架错误才失败,子资源错误忽略
                 Logger.w(TAG, "onReceivedError(legacy): code=$errorCode desc=$description url=$failingUrl")
                 if (!resumed) {
@@ -194,11 +187,7 @@ class BingWebViewSearcher(private val appContext: Context) {
                 }
             }
 
-            override fun onReceivedError(
-                view: WebView?,
-                request: WebResourceRequest?,
-                error: WebResourceError?,
-            ) {
+            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                 if (request?.isForMainFrame == true) {
                     Logger.w(TAG, "页面加载错误: code=${error?.errorCode} desc=${error?.description} url=${request.url}")
                 }
@@ -207,11 +196,7 @@ class BingWebViewSearcher(private val appContext: Context) {
                 }
             }
 
-            override fun onReceivedHttpError(
-                view: WebView?,
-                request: WebResourceRequest?,
-                errorResponse: WebResourceResponse?,
-            ) {
+            override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, errorResponse: WebResourceResponse?) {
                 if (request?.isForMainFrame == true) {
                     Logger.w(TAG, "HTTP 错误: code=${errorResponse?.statusCode} reason=${errorResponse?.reasonPhrase} url=${request.url}")
                 }
@@ -320,7 +305,9 @@ class BingWebViewSearcher(private val appContext: Context) {
             val outer = AppJsonLenient.parseToJsonElement(raw)
             val inner = if (outer is kotlinx.serialization.json.JsonPrimitive) {
                 AppJsonLenient.parseToJsonElement(outer.content)
-            } else outer
+            } else {
+                outer
+            }
             val obj = inner as? kotlinx.serialization.json.JsonObject
                 ?: return ExtractOutcome(false, emptyList())
             val blocked = (obj["blocked"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true"
@@ -331,8 +318,11 @@ class BingWebViewSearcher(private val appContext: Context) {
                 val title = (o["title"] as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
                 val url = (o["url"] as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
                 val snippet = (o["snippet"] as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
-                if (title.isBlank() || url.isBlank()) null
-                else WebSearchResult(title = title, url = url, snippet = snippet, source = "Bing")
+                if (title.isBlank() || url.isBlank()) {
+                    null
+                } else {
+                    WebSearchResult(title = title, url = url, snippet = snippet, source = "Bing")
+                }
             }
             ExtractOutcome(blocked, results)
         } catch (e: Exception) {
@@ -366,10 +356,7 @@ class BingWebViewSearcher(private val appContext: Context) {
 
             webViewClient = object : WebViewClient() {
                 /** ROM 兼容:渲染进程崩溃时销毁,下次搜索自动重建。 */
-                override fun onRenderProcessGone(
-                    view: WebView?,
-                    detail: android.webkit.RenderProcessGoneDetail?,
-                ): Boolean {
+                override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
                     Logger.e(TAG, "WebView 渲染进程崩溃: ${detail?.didCrash()},销毁重建")
                     webViewRef = null
                     view?.let { v ->

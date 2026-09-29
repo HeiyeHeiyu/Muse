@@ -119,10 +119,7 @@ class VideoGenerationServiceTest {
         return VideoGenerationService(registry)
     }
 
-    private fun config(
-        id: String = "p",
-        specId: String? = null,
-    ): ProviderConfig = ProviderConfig(
+    private fun config(id: String = "p", specId: String? = null): ProviderConfig = ProviderConfig(
         id = id,
         displayName = id,
         type = ProviderType.OPENAI,

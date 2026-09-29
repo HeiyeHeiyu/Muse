@@ -80,6 +80,7 @@ class PresetProviders(
     private val ENDPOINT_API2D = "https://oa.api2d.net/v1"
     private val ENDPOINT_AIHUBMIX = "https://aihubmix.com/v1"
     private val ENDPOINT_DEEPBRICKS = "https://api.deepbricks.ai/v1"
+
     // P2-5: SiliconFlow 平台 OpenAI 兼容端点(与 SiliconFlowFreeModels.BASE_URL 保持一致)
     private val ENDPOINT_SILICONFLOW = SiliconFlowFreeModels.BASE_URL
 
@@ -171,7 +172,7 @@ class PresetProviders(
             domestic.take(3) +
             relay.take(3) +
             customOpenAI()
-    ).map { preset ->
+        ).map { preset ->
         preset.copy(specId = preset.id.removePrefix("preset_").ifBlank { null })
     }
 
@@ -201,12 +202,14 @@ class PresetProviders(
                 inputModalities = entry.inputModalities ?: model.inputModalities,
                 outputModalities = entry.outputModalities ?: model.outputModalities,
                 visionCapabilities = entry.visionCapabilities ?: model.visionCapabilities,
-                abilities = (model.abilities.toMutableSet().apply {
-                    if (entry.supportsTools == true) add(ModelAbility.TOOL)
-                    if (entry.supportsTools == false) remove(ModelAbility.TOOL)
-                    if (entry.supportsReasoning == true) add(ModelAbility.REASONING)
-                    if (entry.supportsReasoning == false) remove(ModelAbility.REASONING)
-                }).toSet(),
+                abilities = (
+                    model.abilities.toMutableSet().apply {
+                        if (entry.supportsTools == true) add(ModelAbility.TOOL)
+                        if (entry.supportsTools == false) remove(ModelAbility.TOOL)
+                        if (entry.supportsReasoning == true) add(ModelAbility.REASONING)
+                        if (entry.supportsReasoning == false) remove(ModelAbility.REASONING)
+                    }
+                    ).toSet(),
             )
         }
     }
@@ -227,15 +230,13 @@ class PresetProviders(
     }
 
     /** 按 id 查找预置供应商。 */
-    fun byId(id: String): ProviderConfig? =
-        (all + internalPresets).firstOrNull { it.id == id }
+    fun byId(id: String): ProviderConfig? = (all + internalPresets).firstOrNull { it.id == id }
 
     /**
      * v1.0.7: 按 specId 查找预置供应商规格(供 ProviderSpecMerger 合并默认模型)。
      * @param specId 内置规格标识(如 "openai"/"deepseek",不含 "preset_" 前缀)
      */
-    fun bySpecId(specId: String): ProviderConfig? =
-        (all + internalPresets).firstOrNull { it.specId == specId }
+    fun bySpecId(specId: String): ProviderConfig? = (all + internalPresets).firstOrNull { it.specId == specId }
 
     // ── 模型构造辅助 ──────────────────────────────────────────────
 
@@ -302,10 +303,40 @@ class PresetProviders(
         builtIn = true,
         category = ProviderCategory.OFFICIAL,
         models = listOf(
-            chatModel("preset_anthropic", "claude-sonnet-4-5-20250514", "Claude Sonnet 4.5", contextWindow = 200_000, supportsVision = true, reasoning = true, supportsTools = true),
-            chatModel("preset_anthropic", "claude-opus-4-1-20250805", "Claude Opus 4.1", contextWindow = 200_000, supportsVision = true, reasoning = true, supportsTools = true),
-            chatModel("preset_anthropic", "claude-haiku-4-5-20251001", "Claude Haiku 4.5", contextWindow = 200_000, supportsVision = true, supportsTools = true),
-            chatModel("preset_anthropic", "claude-3-5-sonnet-20241022", "Claude 3.5 Sonnet", contextWindow = 200_000, supportsVision = true, supportsTools = true),
+            chatModel(
+                "preset_anthropic",
+                "claude-sonnet-4-5-20250514",
+                "Claude Sonnet 4.5",
+                contextWindow = 200_000,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
+            chatModel(
+                "preset_anthropic",
+                "claude-opus-4-1-20250805",
+                "Claude Opus 4.1",
+                contextWindow = 200_000,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
+            chatModel(
+                "preset_anthropic",
+                "claude-haiku-4-5-20251001",
+                "Claude Haiku 4.5",
+                contextWindow = 200_000,
+                supportsVision = true,
+                supportsTools = true,
+            ),
+            chatModel(
+                "preset_anthropic",
+                "claude-3-5-sonnet-20241022",
+                "Claude 3.5 Sonnet",
+                contextWindow = 200_000,
+                supportsVision = true,
+                supportsTools = true,
+            ),
             chatModel("preset_anthropic", "claude-3-5-haiku-20241022", "Claude 3.5 Haiku", contextWindow = 200_000, supportsTools = true),
         ),
     )
@@ -319,9 +350,32 @@ class PresetProviders(
         builtIn = true,
         category = ProviderCategory.OFFICIAL,
         models = listOf(
-            chatModel("preset_gemini", "gemini-2.5-flash", "Gemini 2.5 Flash", contextWindow = 1_048_576, supportsVision = true, reasoning = true, supportsTools = true),
-            chatModel("preset_gemini", "gemini-2.5-pro", "Gemini 2.5 Pro", contextWindow = 1_048_576, supportsVision = true, reasoning = true, supportsTools = true),
-            chatModel("preset_gemini", "gemini-2.0-flash", "Gemini 2.0 Flash", contextWindow = 1_048_576, supportsVision = true, supportsTools = true),
+            chatModel(
+                "preset_gemini",
+                "gemini-2.5-flash",
+                "Gemini 2.5 Flash",
+                contextWindow = 1_048_576,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
+            chatModel(
+                "preset_gemini",
+                "gemini-2.5-pro",
+                "Gemini 2.5 Pro",
+                contextWindow = 1_048_576,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
+            chatModel(
+                "preset_gemini",
+                "gemini-2.0-flash",
+                "Gemini 2.0 Flash",
+                contextWindow = 1_048_576,
+                supportsVision = true,
+                supportsTools = true,
+            ),
         ),
     )
 
@@ -340,8 +394,24 @@ class PresetProviders(
         builtIn = true,
         category = ProviderCategory.OFFICIAL,
         models = listOf(
-            chatModel("preset_xai", "grok-4", "Grok 4", contextWindow = 256_000, supportsVision = true, reasoning = true, supportsTools = true),
-            chatModel("preset_xai", "grok-4-heavy", "Grok 4 Heavy", contextWindow = 256_000, supportsVision = true, reasoning = true, supportsTools = true),
+            chatModel(
+                "preset_xai",
+                "grok-4",
+                "Grok 4",
+                contextWindow = 256_000,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
+            chatModel(
+                "preset_xai",
+                "grok-4-heavy",
+                "Grok 4 Heavy",
+                contextWindow = 256_000,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
             chatModel("preset_xai", "grok-3", "Grok 3", contextWindow = 131_072, supportsVision = true, supportsTools = true),
             chatModel("preset_xai", "grok-3-mini", "Grok 3 mini", contextWindow = 131_072, reasoning = true, supportsTools = true),
         ),
@@ -368,10 +438,46 @@ class PresetProviders(
         builtIn = true,
         category = ProviderCategory.OFFICIAL,
         models = listOf(
-            chatModel("preset_xai_oauth", "grok-4.5", "Grok 4.5", contextWindow = 500_000, maxOutputTokens = 128_000, supportsVision = true, reasoning = true, supportsTools = true),
-            chatModel("preset_xai_oauth", "grok-4.5-latest", "Grok 4.5 Latest", contextWindow = 500_000, maxOutputTokens = 128_000, supportsVision = true, reasoning = true, supportsTools = true),
-            chatModel("preset_xai_oauth", "grok-build-latest", "Grok Build Latest", contextWindow = 500_000, maxOutputTokens = 128_000, supportsVision = true, reasoning = true, supportsTools = true),
-            chatModel("preset_xai_oauth", "grok-4.3", "Grok 4.3", contextWindow = 1_000_000, maxOutputTokens = 128_000, supportsVision = true, reasoning = true, supportsTools = true),
+            chatModel(
+                "preset_xai_oauth",
+                "grok-4.5",
+                "Grok 4.5",
+                contextWindow = 500_000,
+                maxOutputTokens = 128_000,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
+            chatModel(
+                "preset_xai_oauth",
+                "grok-4.5-latest",
+                "Grok 4.5 Latest",
+                contextWindow = 500_000,
+                maxOutputTokens = 128_000,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
+            chatModel(
+                "preset_xai_oauth",
+                "grok-build-latest",
+                "Grok Build Latest",
+                contextWindow = 500_000,
+                maxOutputTokens = 128_000,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
+            chatModel(
+                "preset_xai_oauth",
+                "grok-4.3",
+                "Grok 4.3",
+                contextWindow = 1_000_000,
+                maxOutputTokens = 128_000,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
         ),
         oauthConfig = OAuthConfig.XAI_OAUTH_PRESET,
         specific = ProviderSpecificConfig.OpenAI(useResponseApi = true),
@@ -394,7 +500,14 @@ class PresetProviders(
         category = ProviderCategory.OFFICIAL,
         models = listOf(
             chatModel("preset_openai_codex", "gpt-4o", "GPT-4o", contextWindow = 128_000, supportsVision = true, supportsTools = true),
-            chatModel("preset_openai_codex", "gpt-4o-mini", "GPT-4o mini", contextWindow = 128_000, supportsVision = true, supportsTools = true),
+            chatModel(
+                "preset_openai_codex",
+                "gpt-4o-mini",
+                "GPT-4o mini",
+                contextWindow = 128_000,
+                supportsVision = true,
+                supportsTools = true,
+            ),
             chatModel("preset_openai_codex", "o3-mini", "o3-mini", contextWindow = 200_000, reasoning = true, supportsTools = true),
         ),
         oauthConfig = OAuthConfig.OPENAI_CODEX_PRESET,
@@ -417,8 +530,24 @@ class PresetProviders(
         category = ProviderCategory.OFFICIAL,
         models = listOf(
             chatModel("preset_github_copilot", "gpt-4o", "GPT-4o", contextWindow = 128_000, supportsVision = true, supportsTools = true),
-            chatModel("preset_github_copilot", "claude-sonnet-4-5-20250514", "Claude Sonnet 4.5", contextWindow = 200_000, supportsVision = true, reasoning = true, supportsTools = true),
-            chatModel("preset_github_copilot", "gemini-2.5-flash", "Gemini 2.5 Flash", contextWindow = 1_048_576, supportsVision = true, reasoning = true, supportsTools = true),
+            chatModel(
+                "preset_github_copilot",
+                "claude-sonnet-4-5-20250514",
+                "Claude Sonnet 4.5",
+                contextWindow = 200_000,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
+            chatModel(
+                "preset_github_copilot",
+                "gemini-2.5-flash",
+                "Gemini 2.5 Flash",
+                contextWindow = 1_048_576,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
         ),
         oauthConfig = OAuthConfig.GITHUB_COPILOT_PRESET,
     )
@@ -447,7 +576,13 @@ class PresetProviders(
         builtIn = true,
         category = ProviderCategory.OFFICIAL,
         models = listOf(
-            chatModel("preset_together", "meta-llama/Llama-3.3-70B-Instruct-Turbo", "Llama 3.3 70B Turbo", contextWindow = 131_072, supportsTools = true),
+            chatModel(
+                "preset_together",
+                "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                "Llama 3.3 70B Turbo",
+                contextWindow = 131_072,
+                supportsTools = true,
+            ),
             chatModel("preset_together", "deepseek-ai/DeepSeek-R1", "DeepSeek R1", contextWindow = 131_072, reasoning = true),
         ),
     )
@@ -499,8 +634,20 @@ class PresetProviders(
         builtIn = true,
         category = ProviderCategory.OFFICIAL,
         models = listOf(
-            chatModel("preset_fireworks", "accounts/fireworks/models/llama-v3p3-70b-instruct", "Llama 3.3 70B", contextWindow = 131_072, supportsTools = true),
-            chatModel("preset_fireworks", "accounts/fireworks/models/deepseek-r1", "DeepSeek R1", contextWindow = 131_072, reasoning = true),
+            chatModel(
+                "preset_fireworks",
+                "accounts/fireworks/models/llama-v3p3-70b-instruct",
+                "Llama 3.3 70B",
+                contextWindow = 131_072,
+                supportsTools = true,
+            ),
+            chatModel(
+                "preset_fireworks",
+                "accounts/fireworks/models/deepseek-r1",
+                "DeepSeek R1",
+                contextWindow = 131_072,
+                reasoning = true,
+            ),
         ),
     )
 
@@ -516,7 +663,14 @@ class PresetProviders(
         models = listOf(
             chatModel("preset_perplexity", "sonar-pro", "Sonar Pro", contextWindow = 200_000, supportsTools = true),
             chatModel("preset_perplexity", "sonar", "Sonar", contextWindow = 127_072, supportsTools = true),
-            chatModel("preset_perplexity", "sonar-reasoning", "Sonar Reasoning", contextWindow = 127_072, reasoning = true, supportsTools = true),
+            chatModel(
+                "preset_perplexity",
+                "sonar-reasoning",
+                "Sonar Reasoning",
+                contextWindow = 127_072,
+                reasoning = true,
+                supportsTools = true,
+            ),
         ),
     )
 
@@ -586,8 +740,24 @@ class PresetProviders(
             chatModel("preset_zhipu", "glm-4-plus", "GLM-4 Plus", contextWindow = 128_000, supportsTools = true),
             chatModel("preset_zhipu", "glm-4-flash", "GLM-4 Flash", contextWindow = 128_000, supportsTools = true),
             chatModel("preset_zhipu", "glm-4-air", "GLM-4 Air", contextWindow = 128_000, supportsTools = true),
-            chatModel("preset_zhipu", "glm-4.5", "GLM-4.5", contextWindow = 128_000, supportsVision = true, reasoning = true, supportsTools = true),
-            chatModel("preset_zhipu", "glm-4.6", "GLM-4.6", contextWindow = 128_000, supportsVision = true, reasoning = true, supportsTools = true),
+            chatModel(
+                "preset_zhipu",
+                "glm-4.5",
+                "GLM-4.5",
+                contextWindow = 128_000,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
+            chatModel(
+                "preset_zhipu",
+                "glm-4.6",
+                "GLM-4.6",
+                contextWindow = 128_000,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
         ),
     )
 
@@ -697,11 +867,11 @@ class PresetProviders(
         displayName = context.getString(R.string.preset_siliconflow_free),
         type = ProviderType.OPENAI,
         baseUrl = ENDPOINT_SILICONFLOW,
-        apiKey = "",  // 空,触发 FreeModelConfig 免费模型 fallback 机制
+        apiKey = "", // 空,触发 FreeModelConfig 免费模型 fallback 机制
         builtIn = true,
         hiddenFromSettings = true,
         category = ProviderCategory.OFFICIAL,
-        allowMissingApiKey = true,  // v1.0.18: 允许不填 key,由 fallback key 兜底
+        allowMissingApiKey = true, // v1.0.18: 允许不填 key,由 fallback key 兜底
         models = listOf(
             // v1.0.18: 与 FreeModelConfig.FREE_MODEL_IDS 保持一致
             chatModel(
@@ -748,7 +918,14 @@ class PresetProviders(
         builtIn = true,
         category = ProviderCategory.OFFICIAL,
         models = listOf(
-            chatModel("preset_baidu_cloud", "ernie-4.5-turbo-vl-32k", "ERNIE 4.5 Turbo VL", contextWindow = 32_768, supportsVision = true, supportsTools = true),
+            chatModel(
+                "preset_baidu_cloud",
+                "ernie-4.5-turbo-vl-32k",
+                "ERNIE 4.5 Turbo VL",
+                contextWindow = 32_768,
+                supportsVision = true,
+                supportsTools = true,
+            ),
             chatModel("preset_baidu_cloud", "ernie-4.0-turbo-128k", "ERNIE 4.0 Turbo 128K", contextWindow = 128_000, supportsTools = true),
         ),
     )
@@ -763,7 +940,14 @@ class PresetProviders(
         builtIn = true,
         category = ProviderCategory.OFFICIAL,
         models = listOf(
-            chatModel("preset_modelscope", "Qwen/Qwen3-235B-A22B", "Qwen3 235B A22B", contextWindow = 131_072, reasoning = true, supportsTools = true),
+            chatModel(
+                "preset_modelscope",
+                "Qwen/Qwen3-235B-A22B",
+                "Qwen3 235B A22B",
+                contextWindow = 131_072,
+                reasoning = true,
+                supportsTools = true,
+            ),
         ),
     )
 
@@ -827,12 +1011,20 @@ class PresetProviders(
         models = listOf(
             // chat 模型(支持视觉输入 + 工具调用)
             chatModel(
-                "preset_agnes", "agnes-2.0-flash", "Agnes 2.0 Flash",
-                contextWindow = 131_072, supportsTools = true, supportsVision = true,
+                "preset_agnes",
+                "agnes-2.0-flash",
+                "Agnes 2.0 Flash",
+                contextWindow = 131_072,
+                supportsTools = true,
+                supportsVision = true,
             ),
             chatModel(
-                "preset_agnes", "agnes-2.0-pro", "Agnes 2.0 Pro",
-                contextWindow = 131_072, supportsTools = true, supportsVision = true,
+                "preset_agnes",
+                "agnes-2.0-pro",
+                "Agnes 2.0 Pro",
+                contextWindow = 131_072,
+                supportsTools = true,
+                supportsVision = true,
             ),
             // 生图模型(输出 image 模态)
             Model(
@@ -873,7 +1065,15 @@ class PresetProviders(
         builtIn = true,
         category = ProviderCategory.OFFICIAL,
         models = listOf(
-            chatModel("preset_minimax", "MiniMax-M3", "MiniMax M3", contextWindow = 1_000_000, supportsVision = true, reasoning = true, supportsTools = true),
+            chatModel(
+                "preset_minimax",
+                "MiniMax-M3",
+                "MiniMax M3",
+                contextWindow = 1_000_000,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
             chatModel("preset_minimax", "MiniMax-M2.7", "MiniMax M2.7", contextWindow = 1_000_000, supportsTools = true),
             chatModel("preset_minimax", "MiniMax-M2.5", "MiniMax M2.5", contextWindow = 1_000_000, supportsTools = true),
             chatModel("preset_minimax", "MiniMax-M2.1", "MiniMax M2.1", contextWindow = 1_000_000, supportsTools = true),
@@ -921,7 +1121,14 @@ class PresetProviders(
         category = ProviderCategory.OFFICIAL,
         specific = ProviderSpecificConfig.OpenAI(codingPlan = true),
         models = listOf(
-            chatModel("preset_kimi_coding", "kimi-for-coding", "Kimi for Coding", contextWindow = 262_144, reasoning = true, supportsTools = true),
+            chatModel(
+                "preset_kimi_coding",
+                "kimi-for-coding",
+                "Kimi for Coding",
+                contextWindow = 262_144,
+                reasoning = true,
+                supportsTools = true,
+            ),
         ),
     )
 
@@ -983,7 +1190,15 @@ class PresetProviders(
         builtIn = true,
         category = ProviderCategory.OFFICIAL,
         models = listOf(
-            chatModel("preset_minimax_token_plan", "MiniMax-M3", "MiniMax M3", contextWindow = 1_000_000, supportsVision = true, reasoning = true, supportsTools = true),
+            chatModel(
+                "preset_minimax_token_plan",
+                "MiniMax-M3",
+                "MiniMax M3",
+                contextWindow = 1_000_000,
+                supportsVision = true,
+                reasoning = true,
+                supportsTools = true,
+            ),
             chatModel("preset_minimax_token_plan", "MiniMax-M2.7", "MiniMax M2.7", contextWindow = 1_000_000, supportsTools = true),
             chatModel("preset_minimax_token_plan", "MiniMax-M2.5", "MiniMax M2.5", contextWindow = 1_000_000, supportsTools = true),
             chatModel("preset_minimax_token_plan", "MiniMax-M2.1", "MiniMax M2.1", contextWindow = 1_000_000, supportsTools = true),
@@ -1010,7 +1225,14 @@ class PresetProviders(
             chatModel("preset_mimo_token_plan", "mimo-v2.5", "MiMo V2.5", contextWindow = 131_072, supportsTools = true),
             chatModel("preset_mimo_token_plan", "mimo-v2-pro", "MiMo V2 Pro", contextWindow = 131_072, supportsTools = true),
             chatModel("preset_mimo_token_plan", "mimo-v2-flash", "MiMo V2 Flash", contextWindow = 131_072, supportsTools = true),
-            chatModel("preset_mimo_token_plan", "mimo-v2-omni", "MiMo V2 Omni", contextWindow = 131_072, supportsVision = true, supportsTools = true),
+            chatModel(
+                "preset_mimo_token_plan",
+                "mimo-v2-omni",
+                "MiMo V2 Omni",
+                contextWindow = 131_072,
+                supportsVision = true,
+                supportsTools = true,
+            ),
         ),
     )
 
@@ -1078,7 +1300,7 @@ class PresetProviders(
         id = "preset_oneapi",
         displayName = context.getString(R.string.preset_provider_oneapi),
         type = ProviderType.OPENAI,
-        baseUrl = "",  // 用户自部署,留空让用户填
+        baseUrl = "", // 用户自部署,留空让用户填
         apiKey = "",
         builtIn = true,
         category = ProviderCategory.RELAY,
@@ -1091,7 +1313,7 @@ class PresetProviders(
         id = "preset_newapi",
         displayName = context.getString(R.string.preset_provider_newapi),
         type = ProviderType.OPENAI,
-        baseUrl = "",  // 用户自部署,留空让用户填
+        baseUrl = "", // 用户自部署,留空让用户填
         apiKey = "",
         builtIn = true,
         category = ProviderCategory.RELAY,

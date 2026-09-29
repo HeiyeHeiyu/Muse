@@ -1,5 +1,7 @@
 package io.zer0.muse.ui
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -13,29 +15,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.form.MuseTextField
-import io.zer0.muse.ui.common.form.MuseDropdown
-import io.zer0.muse.ui.common.form.MuseSlider
-import io.zer0.muse.ui.common.form.MuseSwitch
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -50,6 +45,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.ai.core.Model
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ReasoningLevel
+import io.zer0.memory.fact.FactDbProvider
+import io.zer0.memory.fact.FactStore
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantCardExporter
@@ -57,38 +54,41 @@ import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.assistant.AvatarStorage
 import io.zer0.muse.data.assistant.CharacterCardExporter
-import io.zer0.muse.data.sharing.CharacterSharer
-import io.zer0.muse.data.sharing.ShareableAssistant
 import io.zer0.muse.data.lorebook.LorebookRepository
 import io.zer0.muse.data.promptinjection.PromptInjectionRepository
 import io.zer0.muse.data.quickmsg.QuickMessageRepository
+import io.zer0.muse.data.sharing.CharacterSharer
+import io.zer0.muse.data.sharing.ShareableAssistant
 import io.zer0.muse.data.skill.SkillRepository
 import io.zer0.muse.tools.ToolRegistry
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.media.AssistantAvatar
-import io.zer0.muse.ui.common.settings.ChevronRight
-import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseDropdown
+import io.zer0.muse.ui.common.form.MuseSlider
+import io.zer0.muse.ui.common.form.MuseSwitch
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.media.AssistantAvatar
 import io.zer0.muse.ui.common.museAnimateItem
+import io.zer0.muse.ui.common.settings.ChevronRight
+import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
 import io.zer0.muse.ui.common.surface.CardGroup
 import io.zer0.muse.ui.common.surface.CardGroupScope
 import io.zer0.muse.ui.common.surface.MuseListItem
 import io.zer0.muse.ui.settings.SettingsSubPageScaffold
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.memory.fact.FactDbProvider
-import io.zer0.memory.fact.FactStore
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.koin.compose.koinInject
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import java.io.File
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -310,8 +310,11 @@ fun AssistantDetailPage(
                         Icon(
                             imageVector = MuseIcons.sparkle,
                             contentDescription = null,
-                            tint = if (assistant?.modelId != null) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = if (assistant?.modelId != null) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                             modifier = Modifier.size(24.dp),
                         )
                     },
@@ -471,7 +474,7 @@ fun AssistantDetailPage(
                             MuseToast.show(
                                 context.getString(
                                     R.string.assistant_detail_share_muse_failed,
-                                    "card generation"
+                                    "card generation",
                                 ),
                                 3000,
                             )
@@ -566,9 +569,11 @@ private fun AssistantModelPickerDialog(
             Column(modifier = Modifier.fillMaxWidth()) {
                 val currentModelId = assistant?.modelId
                 Surface(
-                    color = if (currentModelId == null)
+                    color = if (currentModelId == null) {
                         MaterialTheme.colorScheme.primaryContainer
-                    else MaterialTheme.colorScheme.surfaceVariant,
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
                     shape = MuseShapes.medium,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -584,16 +589,20 @@ private fun AssistantModelPickerDialog(
                         Text(
                             text = if (currentModelId == null) globalDefaultSelected else globalDefaultCard,
                             fontWeight = FontWeight.Medium,
-                            color = if (currentModelId == null)
+                            color = if (currentModelId == null) {
                                 MaterialTheme.colorScheme.onPrimaryContainer
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                         )
                         Text(
                             text = globalModelName,
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (currentModelId == null)
+                            color = if (currentModelId == null) {
                                 MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                         )
                     }
                 }
@@ -608,9 +617,11 @@ private fun AssistantModelPickerDialog(
                         )
                         provider.models.forEach { model ->
                             MuseCapsuleButton(
-                                text = if (model.id == currentModelId)
-                                        stringResource(R.string.assistant_detail_model_selected, model.name)
-                                    else model.name,
+                                text = if (model.id == currentModelId) {
+                                    stringResource(R.string.assistant_detail_model_selected, model.name)
+                                } else {
+                                    model.name
+                                },
                                 onClick = {
                                     update { it.copy(modelId = model.id, providerId = provider.id) }
                                     onDismiss()
@@ -634,10 +645,7 @@ private fun AssistantModelPickerDialog(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AssistantBasicPage(
-    assistantId: String,
-    onBack: () -> Unit,
-) {
+fun AssistantBasicPage(assistantId: String, onBack: () -> Unit) {
     val assistant = rememberAssistant(assistantId)
     val update = rememberAssistantUpdater(assistantId)
     val context = LocalContext.current
@@ -688,9 +696,13 @@ fun AssistantBasicPage(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(stringResource(R.string.assistant_detail_avatar), style = MaterialTheme.typography.bodyMedium)
                                 Text(
-                                    text = if (a.avatarImageUrl.isNotBlank()) stringResource(R.string.assistant_detail_avatar_image_set)
-                                    else if (a.avatarEmoji.isNotBlank()) stringResource(R.string.assistant_detail_avatar_emoji)
-                                    else stringResource(R.string.assistant_detail_avatar_initial),
+                                    text = if (a.avatarImageUrl.isNotBlank()) {
+                                        stringResource(R.string.assistant_detail_avatar_image_set)
+                                    } else if (a.avatarEmoji.isNotBlank()) {
+                                        stringResource(R.string.assistant_detail_avatar_emoji)
+                                    } else {
+                                        stringResource(R.string.assistant_detail_avatar_initial)
+                                    },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -762,8 +774,11 @@ fun AssistantBasicPage(
                         Icon(
                             imageVector = MuseIcons.sparkle,
                             contentDescription = null,
-                            tint = if (a.modelId != null) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = if (a.modelId != null) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                             modifier = Modifier.size(24.dp),
                         )
                     },
@@ -989,10 +1004,7 @@ fun AssistantBasicPage(
  * 提示词子页 — systemPrompt / messageTemplate / presetMessagesJson。
  */
 @Composable
-fun AssistantPromptPage(
-    assistantId: String,
-    onBack: () -> Unit,
-) {
+fun AssistantPromptPage(assistantId: String, onBack: () -> Unit) {
     val assistant = rememberAssistant(assistantId)
     val update = rememberAssistantUpdater(assistantId)
 
@@ -1108,9 +1120,9 @@ private fun <T> MultiSelectChipsDialog(
                     MuseCapsuleButton(
                         text = stringResource(R.string.assistant_detail_select_all),
                         onClick = {
-                        // 全选:选中所有选项
-                        onSelectionChange(items.map { itemId(it) })
-                    },
+                            // 全选:选中所有选项
+                            onSelectionChange(items.map { itemId(it) })
+                        },
                         variant = IosCapsuleButtonVariant.Text,
                         fillWidth = false,
                     )
@@ -1118,9 +1130,9 @@ private fun <T> MultiSelectChipsDialog(
                     MuseCapsuleButton(
                         text = stringResource(R.string.assistant_detail_clear_all),
                         onClick = {
-                        // 清空
-                        onSelectionChange(emptyList())
-                    },
+                            // 清空
+                            onSelectionChange(emptyList())
+                        },
                         variant = IosCapsuleButtonVariant.Text,
                         fillWidth = false,
                     )
@@ -1168,10 +1180,7 @@ private fun <T> MultiSelectChipsDialog(
  * 扩展子页 — 显示 6 类关联资源,点击行弹出多选 chips 弹窗,切换后即时保存。
  */
 @Composable
-fun AssistantExtensionsPage(
-    assistantId: String,
-    onBack: () -> Unit,
-) {
+fun AssistantExtensionsPage(assistantId: String, onBack: () -> Unit) {
     val assistant = rememberAssistant(assistantId)
     val repo: AssistantRepository = koinInject()
     val update = rememberAssistantUpdater(assistantId)
@@ -1363,11 +1372,7 @@ fun AssistantExtensionsPage(
     }
 }
 
-private fun CardGroupScope.ExtensionRow(
-    type: ExtensionType,
-    count: Int,
-    onClick: () -> Unit,
-) {
+private fun CardGroupScope.ExtensionRow(type: ExtensionType, count: Int, onClick: () -> Unit) {
     item(
         onClick = onClick,
         headlineContent = { Text(type.titleText()) },
@@ -1384,10 +1389,7 @@ private fun CardGroupScope.ExtensionRow(
  * 记忆子页 — memoryEnabled / useGlobalMemory / enableRecentChatsReference / enableTimeReminder。
  */
 @Composable
-fun AssistantMemoryPage(
-    assistantId: String,
-    onBack: () -> Unit,
-) {
+fun AssistantMemoryPage(assistantId: String, onBack: () -> Unit) {
     val assistant = rememberAssistant(assistantId)
     val update = rememberAssistantUpdater(assistantId)
 
@@ -1476,7 +1478,10 @@ fun AssistantMemoryPage(
         }
         // 已存记忆列表(支持删除)
         item {
-            CardGroup(modifier = museAnimateItem(), title = { Text(stringResource(R.string.assistant_detail_saved_memory_count, facts.size)) }) {
+            CardGroup(
+                modifier = museAnimateItem(),
+                title = { Text(stringResource(R.string.assistant_detail_saved_memory_count, facts.size)) },
+            ) {
                 if (facts.isEmpty()) {
                     item(headlineContent = { Text(stringResource(R.string.assistant_detail_no_memory)) })
                 } else {
@@ -1504,7 +1509,13 @@ fun AssistantMemoryPage(
                                         itemName = fact.fact,
                                         // MEM-04: 统一句式 + 后果说明(该助手不再引用这条记忆)
                                         consequence = stringResource(R.string.assistant_memory_delete_consequence),
-                                        onConfirm = { showDeleteConfirm = false; scope.launch { runCatching { memoryStore.delete(fact.id) }; refreshKey++ } },
+                                        onConfirm = {
+                                            showDeleteConfirm = false
+                                            scope.launch {
+                                                runCatching { memoryStore.delete(fact.id) }
+                                                refreshKey++
+                                            }
+                                        },
                                         onDismiss = { showDeleteConfirm = false },
                                     )
                                 }
@@ -1563,4 +1574,3 @@ private fun reasoningLevelLabelRes(level: ReasoningLevel): Int = when (level) {
     ReasoningLevel.HIGH -> R.string.reasoning_level_high
     ReasoningLevel.XHIGH -> R.string.reasoning_level_xhigh
 }
-

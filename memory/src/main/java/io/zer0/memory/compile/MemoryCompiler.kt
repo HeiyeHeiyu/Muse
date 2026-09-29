@@ -62,7 +62,8 @@ class MemoryCompiler(
         FACTS("facts"),
         TODAY("today"),
         WEEK("week"),
-        LONGTERM("longterm");
+        LONGTERM("longterm"),
+        ;
 
         companion object {
             val ALL = listOf(FACTS, TODAY, WEEK, LONGTERM)
@@ -91,31 +92,44 @@ class MemoryCompiler(
         val scoped = scopedSectionDao
         return if (scoped != null) {
             scoped.get(key, scope, spaceId)
-                ?: if (target == null && scope == "main" && spaceId == "default") sectionDao.get(key)?.let { legacy ->
-                    io.zer0.memory.summary.ScopedCompiledSectionEntity(
-                        sectionKey = legacy.sectionKey, scope = scope, spaceId = spaceId,
-                        content = legacy.content, fingerprint = legacy.fingerprint, updatedAt = legacy.updatedAt,
-                    )
-                } else null
+                ?: if (target == null && scope == "main" && spaceId == "default") {
+                    sectionDao.get(key)?.let { legacy ->
+                        io.zer0.memory.summary.ScopedCompiledSectionEntity(
+                            sectionKey = legacy.sectionKey, scope = scope, spaceId = spaceId,
+                            content = legacy.content, fingerprint = legacy.fingerprint, updatedAt = legacy.updatedAt,
+                        )
+                    }
+                } else {
+                    null
+                }
         } else {
             sectionDao.get(key)?.let { legacy ->
                 io.zer0.memory.summary.ScopedCompiledSectionEntity(
-                    sectionKey = legacy.sectionKey, content = legacy.content,
-                    fingerprint = legacy.fingerprint, updatedAt = legacy.updatedAt,
+                    sectionKey = legacy.sectionKey,
+                    content = legacy.content,
+                    fingerprint = legacy.fingerprint,
+                    updatedAt = legacy.updatedAt,
                 )
             }
         }
     }
 
     private suspend fun updateStoredContent(
-        key: String, content: String, fingerprint: String?, now: String,
+        key: String,
+        content: String,
+        fingerprint: String?,
+        now: String,
         target: MemoryCompileTarget? = null,
     ) {
         val scoped = scopedSectionDao
         if (scoped != null) {
             scoped.updateContent(
-                key, target?.normalizedScope ?: currentScope(),
-                target?.normalizedSpaceId ?: currentSpaceId(), content, fingerprint, now,
+                key,
+                target?.normalizedScope ?: currentScope(),
+                target?.normalizedSpaceId ?: currentSpaceId(),
+                content,
+                fingerprint,
+                now,
             )
         } else {
             sectionDao.updateContent(key, content, fingerprint, now)
@@ -132,14 +146,21 @@ class MemoryCompiler(
     }
 
     private suspend fun upsertStored(
-        key: String, content: String, fingerprint: String?, now: String,
+        key: String,
+        content: String,
+        fingerprint: String?,
+        now: String,
         target: MemoryCompileTarget? = null,
     ) {
         val scoped = scopedSectionDao
         if (scoped != null) {
             scoped.updateContent(
-                key, target?.normalizedScope ?: currentScope(),
-                target?.normalizedSpaceId ?: currentSpaceId(), content, fingerprint, now,
+                key,
+                target?.normalizedScope ?: currentScope(),
+                target?.normalizedSpaceId ?: currentSpaceId(),
+                content,
+                fingerprint,
+                now,
             )
         } else {
             sectionDao.upsert(
@@ -192,12 +213,10 @@ class MemoryCompiler(
      * 审查修复 (2.0 B-07): 匹配逻辑下沉到 [FactStore.filterTombstonedLines]
      * (空白压缩 + 标点剥离双通道),本方法保留签名与可见性兼容测试。
      */
-    internal fun filterTombstonedLines(text: String, tombstones: List<String>): String =
-        FactStore.filterTombstonedLines(text, tombstones)
+    internal fun filterTombstonedLines(text: String, tombstones: List<String>): String = FactStore.filterTombstonedLines(text, tombstones)
 
     /** S-04: 从 [FactStore] 加载墓碑列表(未注入时返回空列表)。 */
-    private suspend fun loadTombstones(): List<String> =
-        runCatching { factStore?.getTombstones() }.getOrNull() ?: emptyList()
+    private suspend fun loadTombstones(): List<String> = runCatching { factStore?.getTombstones() }.getOrNull() ?: emptyList()
 
     /**
      * S-04: 立即从已编译的各注入段剔除命中墓碑的内容。
@@ -236,34 +255,31 @@ class MemoryCompiler(
     /** 读取四块拼装后的 memory.md(注入 system prompt 用)。
      *  审查修复 (2.0 A-05): 注入读路径统一按墓碑过滤 — 兜底任何未及时 purge 的段,
      *  已删内容不会泄漏进 system prompt(双通道匹配见 FactStore.filterTombstonedLines)。 */
-    suspend fun readCompiledMemoryMarkdown(
-        locale: String = "zh-CN",
-        scope: String? = null,
-        spaceId: String? = null,
-    ): String = withContext(Dispatchers.IO) {
-        val tombstones = loadTombstones()
-        val read: suspend (Section) -> String = if (scope != null && spaceId != null) {
-            { section -> readSection(section, scope, spaceId) }
-        } else {
-            { section -> readSection(section) }
+    suspend fun readCompiledMemoryMarkdown(locale: String = "zh-CN", scope: String? = null, spaceId: String? = null): String =
+        withContext(Dispatchers.IO) {
+            val tombstones = loadTombstones()
+            val read: suspend (Section) -> String = if (scope != null && spaceId != null) {
+                { section -> readSection(section, scope, spaceId) }
+            } else {
+                { section -> readSection(section) }
+            }
+            val facts = CompiledMemoryState.normalizeSectionBody(
+                filterTombstonedLines(read(Section.FACTS), tombstones),
+            )
+            val today = CompiledMemoryState.normalizeSectionBody(
+                filterTombstonedLines(read(Section.TODAY), tombstones),
+            )
+            val week = CompiledMemoryState.normalizeSectionBody(
+                filterTombstonedLines(read(Section.WEEK), tombstones),
+            )
+            val longterm = CompiledMemoryState.normalizeSectionBody(
+                filterTombstonedLines(read(Section.LONGTERM), tombstones),
+            )
+            val md = assembleCompiledMarkdown(facts, today, week, longterm, locale)
+            // v6: 同时输出到文件系统,便于调试和备份
+            fileWriter?.writeMemoryMd(md, locale)
+            md
         }
-        val facts = CompiledMemoryState.normalizeSectionBody(
-            filterTombstonedLines(read(Section.FACTS), tombstones),
-        )
-        val today = CompiledMemoryState.normalizeSectionBody(
-            filterTombstonedLines(read(Section.TODAY), tombstones),
-        )
-        val week = CompiledMemoryState.normalizeSectionBody(
-            filterTombstonedLines(read(Section.WEEK), tombstones),
-        )
-        val longterm = CompiledMemoryState.normalizeSectionBody(
-            filterTombstonedLines(read(Section.LONGTERM), tombstones),
-        )
-        val md = assembleCompiledMarkdown(facts, today, week, longterm, locale)
-        // v6: 同时输出到文件系统,便于调试和备份
-        fileWriter?.writeMemoryMd(md, locale)
-        md
-    }
 
     /**
      * 编译 today: 当天 sessions → today.md。
@@ -407,8 +423,8 @@ class MemoryCompiler(
         }
 
         if (input.isBlank()) {
-                    fileWriter.deleteDailyMd(logicalDate, target)
-                    return@withContext Result.COMPILED
+            fileWriter.deleteDailyMd(logicalDate, target)
+            return@withContext Result.COMPILED
         }
 
         val fp = fingerprint(input)
@@ -578,68 +594,68 @@ class MemoryCompiler(
      * 编译 longterm: week.md fold 进 longterm.md。
      * fingerprint = fingerprint(weekContent),week 没变就跳过。
      */
-    suspend fun compileLongterm(
-        model: Model?,
-        locale: String = "zh-CN",
-    ): Result = foldIntoLongTerm(readSection(Section.WEEK), model, locale)
+    suspend fun compileLongterm(model: Model?, locale: String = "zh-CN"): Result =
+        foldIntoLongTerm(readSection(Section.WEEK), model, locale)
 
-    private suspend fun foldIntoLongTerm(
-        newContent: String,
-        model: Model?,
-        locale: String = "zh-CN",
-    ): Result = withContext(Dispatchers.IO) {
-        val trimmed = newContent.trim()
-        if (trimmed.isBlank()) return@withContext Result.SKIPPED
+    private suspend fun foldIntoLongTerm(newContent: String, model: Model?, locale: String = "zh-CN"): Result =
+        withContext(Dispatchers.IO) {
+            val trimmed = newContent.trim()
+            if (trimmed.isBlank()) return@withContext Result.SKIPPED
 
-        val fp = fingerprint(trimmed)
-        val existing = readStoredSection(Section.LONGTERM.key)
-        if (existing?.fingerprint == fp && existing.content.isNotEmpty()) {
-            return@withContext Result.SKIPPED
+            val fp = fingerprint(trimmed)
+            val existing = readStoredSection(Section.LONGTERM.key)
+            if (existing?.fingerprint == fp && existing.content.isNotEmpty()) {
+                return@withContext Result.SKIPPED
+            }
+
+            val prevLongterm = readSection(Section.LONGTERM).trim()
+            // 审查修复 (B-21): 截断上限 2000 → 4000,减轻长期知识不可逆丢弃。
+            // 每次 fold 时旧内容最多保留 4000 字符,给新内容留足 LLM 输出空间
+            // (maxTokens=600 约 2400 字符);被裁剪部分附到"裁剪记录"日志,便于追溯丢失知识。
+            // 取舍说明见任务报告: 未改动 buildLongtermPrompt 的 LLM 契约,仅提高上限 + 记录裁剪。
+            val prevLongtermCapped = if (prevLongterm.length > 4000) {
+                val trimmedTail = prevLongterm.takeLast(prevLongterm.length - 4000)
+                Logger.d(
+                    "MemoryCompiler",
+                    "foldIntoLongTerm: 截断旧 longterm(${prevLongterm.length} → 4000 chars),丢失 ${trimmedTail.length} chars: ${trimmedTail.take(
+                        500,
+                    )}…",
+                )
+                prevLongterm.take(4000)
+            } else {
+                prevLongterm
+            }
+            val isZh = locale.startsWith("zh")
+            val input = if (prevLongtermCapped.isNotBlank()) {
+                val prevLabel = if (isZh) "## 上一份长期情况" else "## Previous long-term context"
+                val newLabel = if (isZh) "## 新沉淀内容" else "## Newly settled content"
+                "$prevLabel\n\n$prevLongtermCapped\n\n$newLabel\n\n$trimmed"
+            } else {
+                val newLabel = if (isZh) "## 新沉淀内容" else "## Newly settled content"
+                "$newLabel\n\n$trimmed"
+            }
+
+            val result = resultOf {
+                llmClient.callText(
+                    systemPrompt = CompilePrompts.buildLongtermPrompt(locale),
+                    userContent = input,
+                    model = model,
+                    temperature = 0.3f,
+                    maxTokens = 600,
+                )
+            }.onError { msg, t ->
+                Logger.w("MemoryCompiler", "foldIntoLongTerm LLM 调用失败: $msg", t)
+            }.getOrNull() ?: return@withContext Result.FAILED
+
+            // v1.0.51: 空响应防御 — 不覆盖已有 longterm,不写指纹(避免锁死),返回 FAILED
+            val normalized = CompiledMemoryState.normalizeLlmResult(result, "compileLongterm")
+            if (normalized.isBlank()) {
+                Logger.w("MemoryCompiler", "foldIntoLongTerm: LLM 返回空响应,保留旧内容,返回 FAILED")
+                return@withContext Result.FAILED
+            }
+            updateStoredContent(Section.LONGTERM.key, normalized, fp, Instant.now().toString())
+            Result.COMPILED
         }
-
-        val prevLongterm = readSection(Section.LONGTERM).trim()
-        // 审查修复 (B-21): 截断上限 2000 → 4000,减轻长期知识不可逆丢弃。
-        // 每次 fold 时旧内容最多保留 4000 字符,给新内容留足 LLM 输出空间
-        // (maxTokens=600 约 2400 字符);被裁剪部分附到"裁剪记录"日志,便于追溯丢失知识。
-        // 取舍说明见任务报告: 未改动 buildLongtermPrompt 的 LLM 契约,仅提高上限 + 记录裁剪。
-        val prevLongtermCapped = if (prevLongterm.length > 4000) {
-            val trimmedTail = prevLongterm.takeLast(prevLongterm.length - 4000)
-            Logger.d("MemoryCompiler", "foldIntoLongTerm: 截断旧 longterm(${prevLongterm.length} → 4000 chars),丢失 ${trimmedTail.length} chars: ${trimmedTail.take(500)}…")
-            prevLongterm.take(4000)
-        } else {
-            prevLongterm
-        }
-        val isZh = locale.startsWith("zh")
-        val input = if (prevLongtermCapped.isNotBlank()) {
-            val prevLabel = if (isZh) "## 上一份长期情况" else "## Previous long-term context"
-            val newLabel = if (isZh) "## 新沉淀内容" else "## Newly settled content"
-            "$prevLabel\n\n$prevLongtermCapped\n\n$newLabel\n\n$trimmed"
-        } else {
-            val newLabel = if (isZh) "## 新沉淀内容" else "## Newly settled content"
-            "$newLabel\n\n$trimmed"
-        }
-
-        val result = resultOf {
-            llmClient.callText(
-                systemPrompt = CompilePrompts.buildLongtermPrompt(locale),
-                userContent = input,
-                model = model,
-                temperature = 0.3f,
-                maxTokens = 600,
-            )
-        }.onError { msg, t ->
-            Logger.w("MemoryCompiler", "foldIntoLongTerm LLM 调用失败: $msg", t)
-        }.getOrNull() ?: return@withContext Result.FAILED
-
-        // v1.0.51: 空响应防御 — 不覆盖已有 longterm,不写指纹(避免锁死),返回 FAILED
-        val normalized = CompiledMemoryState.normalizeLlmResult(result, "compileLongterm")
-        if (normalized.isBlank()) {
-            Logger.w("MemoryCompiler", "foldIntoLongTerm: LLM 返回空响应,保留旧内容,返回 FAILED")
-            return@withContext Result.FAILED
-        }
-        updateStoredContent(Section.LONGTERM.key, normalized, fp, Instant.now().toString())
-        Result.COMPILED
-    }
 
     /**
      * 编译 facts: 30 天摘要的 facts 段 → facts.md。
@@ -771,49 +787,47 @@ class MemoryCompiler(
      *
      * @return 1 = 段内容有更新;0 = 无变化(含空表/无内容)
      */
-    suspend fun reconcileFactsSectionWithStore(
-        facts: List<io.zer0.memory.fact.FactStore.Fact>,
-        target: MemoryCompileTarget? = null,
-    ): Int = withContext(Dispatchers.IO) {
-        val tombstones = loadTombstones()
-        val scope = target?.normalizedScope ?: currentScope()
-        val spaceId = target?.normalizedSpaceId ?: currentSpaceId()
-        val store = factStore
+    suspend fun reconcileFactsSectionWithStore(facts: List<io.zer0.memory.fact.FactStore.Fact>, target: MemoryCompileTarget? = null): Int =
+        withContext(Dispatchers.IO) {
+            val tombstones = loadTombstones()
+            val scope = target?.normalizedScope ?: currentScope()
+            val spaceId = target?.normalizedSpaceId ?: currentSpaceId()
+            val store = factStore
 
-        // 1) 吸收段孤儿(factStore 可用时;墓碑命中行跳过,防"删除复活")
-        if (store != null) {
-            val currentForAbsorb = target?.let { readSection(Section.FACTS, it) } ?: readSection(Section.FACTS)
-            if (currentForAbsorb.isNotBlank()) {
-                absorbFactLines(currentForAbsorb, scope, spaceId, tombstones)
+            // 1) 吸收段孤儿(factStore 可用时;墓碑命中行跳过,防"删除复活")
+            if (store != null) {
+                val currentForAbsorb = target?.let { readSection(Section.FACTS, it) } ?: readSection(Section.FACTS)
+                if (currentForAbsorb.isNotBlank()) {
+                    absorbFactLines(currentForAbsorb, scope, spaceId, tombstones)
+                }
             }
-        }
 
-        // 2) 投影(factStore 可用时重查最新表;否则退回传入快照,兼容无 store 场景)
-        val source = if (store != null) {
-            resultOf { store.getByScopeAndSpace(scope, spaceId) }.getOrNull() ?: facts
-        } else {
-            facts
-        }
-        if (source.isEmpty()) return@withContext 0
-        val projected = FactsSectionProjector.project(
-            source.filter { filterTombstonedLines(it.fact, tombstones).isNotBlank() },
-        )
-        if (projected.isBlank()) return@withContext 0
+            // 2) 投影(factStore 可用时重查最新表;否则退回传入快照,兼容无 store 场景)
+            val source = if (store != null) {
+                resultOf { store.getByScopeAndSpace(scope, spaceId) }.getOrNull() ?: facts
+            } else {
+                facts
+            }
+            if (source.isEmpty()) return@withContext 0
+            val projected = FactsSectionProjector.project(
+                source.filter { filterTombstonedLines(it.fact, tombstones).isNotBlank() },
+            )
+            if (projected.isBlank()) return@withContext 0
 
-        val current = target?.let { readSection(Section.FACTS, it) } ?: readSection(Section.FACTS)
-        if (projected.trim() == current.trim()) return@withContext 0
-        // 用 @Insert(REPLACE) 而非 updateContent(UPSERT 语法在部分测试 SQLite 版本报错);
-        // REPLACE 对无外键的 compiled_sections 语义一致(冲突时删除重建)。
-        upsertStored(
-            key = Section.FACTS.key,
-            content = projected,
-            fingerprint = null,
-            now = Instant.now().toString(),
-            target = target,
-        )
-        Logger.i("MemoryCompiler", "FACTS 段确定性投影: ${projected.lines().size} 条 / ${projected.length} 字符")
-        1
-    }
+            val current = target?.let { readSection(Section.FACTS, it) } ?: readSection(Section.FACTS)
+            if (projected.trim() == current.trim()) return@withContext 0
+            // 用 @Insert(REPLACE) 而非 updateContent(UPSERT 语法在部分测试 SQLite 版本报错);
+            // REPLACE 对无外键的 compiled_sections 语义一致(冲突时删除重建)。
+            upsertStored(
+                key = Section.FACTS.key,
+                content = projected,
+                fingerprint = null,
+                now = Instant.now().toString(),
+                target = target,
+            )
+            Logger.i("MemoryCompiler", "FACTS 段确定性投影: ${projected.lines().size} 条 / ${projected.length} 字符")
+            1
+        }
 
     /**
      * D3-P2: 把文本行中不在事实表的条目补录进表(防"仅在编译产物、未入表"的事实
@@ -825,12 +839,7 @@ class MemoryCompiler(
      *
      * @return 实际吸收条数
      */
-    private suspend fun absorbFactLines(
-        text: String,
-        scope: String,
-        spaceId: String,
-        tombstones: List<String>,
-    ): Int {
+    private suspend fun absorbFactLines(text: String, scope: String, spaceId: String, tombstones: List<String>): Int {
         val store = factStore ?: return 0
         val existing = resultOf { store.getByScopeAndSpace(scope, spaceId) }
             .getOrNull()?.map { normalizeLine(it.fact) }?.toSet() ?: return 0
@@ -937,13 +946,7 @@ class MemoryCompiler(
     }
 
     /** 拼装 memory.md(4 个 ## 标题段,空段写占位符)。 */
-    private fun assembleCompiledMarkdown(
-        facts: String,
-        today: String,
-        week: String,
-        longterm: String,
-        locale: String = "zh-CN",
-    ): String {
+    private fun assembleCompiledMarkdown(facts: String, today: String, week: String, longterm: String, locale: String = "zh-CN"): String {
         val isZh = locale.startsWith("zh")
         val empty = if (isZh) "（暂无）" else "(none)"
         val factsTitle = if (isZh) "重要事实" else "Key facts"

@@ -1,7 +1,7 @@
 package io.zer0.ai.gemini
 
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 /**
@@ -38,7 +38,7 @@ internal data class GeminiRequest(
 
 @Serializable
 internal data class GeminiContent(
-    val role: String,  // "user" / "model"(Gemini 用 "model" 而非 "assistant")
+    val role: String, // "user" / "model"(Gemini 用 "model" 而非 "assistant")
     val parts: List<GeminiPart>,
 )
 
@@ -70,7 +70,7 @@ internal data class GeminiPart(
 internal data class GeminiInlineData(
     // L-GEM9: mimeType 默认 image/png
     val mimeType: String = "image/png",
-    val data: String,  // base64 编码(无 data: 前缀)
+    val data: String, // base64 编码(无 data: 前缀)
 )
 
 /**
@@ -280,6 +280,6 @@ internal data class GeminiFileResource(
 internal fun GeminiUsageMetadata.toUsageTokens(): io.zer0.ai.core.UsageTokens = io.zer0.ai.core.UsageTokens(
     promptTokens = promptTokenCount,
     completionTokens = candidatesTokenCount,
-    reasoningTokens = 0,  // Gemini 不单独计 reasoning tokens
+    reasoningTokens = 0, // Gemini 不单独计 reasoning tokens
     cachedTokens = cachedContentTokenCount,
 )

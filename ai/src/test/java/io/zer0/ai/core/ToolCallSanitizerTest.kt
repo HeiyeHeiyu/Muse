@@ -30,7 +30,7 @@ class ToolCallSanitizerTest {
 
     @Test
     fun `truncated json is balanced and preserved`() {
-        val tc = ToolCall(id = "1", name = "web_search", arguments = """{"query":"hello""" )
+        val tc = ToolCall(id = "1", name = "web_search", arguments = """{"query":"hello""")
         val sanitized = ToolCallSanitizer.sanitize(listOf(tc)).single()
         assertEquals("""{"query":"hello"}""", sanitized.arguments)
     }

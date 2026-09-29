@@ -3,13 +3,23 @@ package io.zer0.muse.data.session
 import android.content.Context
 import androidx.room.withTransaction
 import io.zer0.ai.core.MessageRole
-import io.zer0.muse.tools.SessionPermissionStore
-import io.zer0.muse.data.audit.AuditLogger
 import io.zer0.ai.core.RagCitation
 import io.zer0.ai.core.UIMessage
 import io.zer0.common.ErrorMessage
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.R
+import io.zer0.muse.data.audit.AuditLogger
+import io.zer0.muse.data.chat.orderConversationMessages
+import io.zer0.muse.data.chat.rewrite.ConversationEventDraft
+import io.zer0.muse.data.chat.rewrite.ConversationEventType
+import io.zer0.muse.data.chat.rewrite.ConversationProjector
+import io.zer0.muse.data.chat.rewrite.ConversationRebuildFlagStore
+import io.zer0.muse.data.chat.rewrite.MessageCommitRequest
+import io.zer0.muse.data.chat.rewrite.MessageCommitResult
+import io.zer0.muse.tools.SessionPermissionStore
+import io.zer0.muse.transformer.InternalMarkupSanitizer
+import io.zer0.muse.transformer.MoodSkinParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -24,16 +34,6 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlin.uuid.Uuid
-import io.zer0.muse.R
-import io.zer0.muse.transformer.MoodSkinParser
-import io.zer0.muse.transformer.InternalMarkupSanitizer
-import io.zer0.muse.data.chat.rewrite.ConversationEventDraft
-import io.zer0.muse.data.chat.rewrite.ConversationEventType
-import io.zer0.muse.data.chat.rewrite.MessageCommitRequest
-import io.zer0.muse.data.chat.rewrite.MessageCommitResult
-import io.zer0.muse.data.chat.rewrite.ConversationProjector
-import io.zer0.muse.data.chat.rewrite.ConversationRebuildFlagStore
-import io.zer0.muse.data.chat.orderConversationMessages
 
 /**
  * 会话仓库:封装 SessionDao + MessageDao,提供领域模型 API。
@@ -72,6 +72,7 @@ class SessionRepository(
     private val json = Json { ignoreUnknownKeys = true }
     private val messageFtsDao: MessageFtsDao get() = database.messageFtsDao()
     private val urlListSerializer = ListSerializer(String.serializer())
+
     /** v1.133: RAG 引用列表序列化器(持久化到 messages.ragCitationsJson)。 */
     private val ragCitationListSerializer = ListSerializer(RagCitation.serializer())
 
@@ -80,10 +81,7 @@ class SessionRepository(
      * 只对明确的 closed 错误做一次重开重试,避免普通数据库错误被重复执行;
      * 重试前通过 openHelper.writableDatabase 触发同一 Room 实例重新打开。
      */
-    private suspend fun <T> withDatabaseRecovery(
-        operation: String,
-        block: suspend () -> T,
-    ): T {
+    private suspend fun <T> withDatabaseRecovery(operation: String, block: suspend () -> T): T {
         try {
             return block()
         } catch (e: Exception) {
@@ -107,18 +105,25 @@ class SessionRepository(
 
     companion object {
         private const val TAG = "SessionRepo"
+
         /** H-SESS3: observeBySession 默认加载条数,与分页加载配合避免 OOM。 */
         private const val OBSERVE_LIMIT = 200
+
         /** 会话预览(lastMessagePreview)最大长度。 */
         private const val MESSAGE_PREVIEW_LENGTH = 50
+
         /** 首条 user 消息自动命名时取内容前缀长度。 */
         private const val AUTO_TITLE_LENGTH = 20
+
         /** 搜索片段匹配位置前后保留字数。 */
         private const val SNIPPET_RADIUS = 30
+
         /** 搜索片段无匹配时回退取前缀长度。 */
         private const val SNIPPET_FALLBACK_LENGTH = 60
+
         /** C-23: FTS 内容一致性抽查条数。 */
         private const val FTS_SAMPLE_COUNT = 10
+
         /** C-23: 内容抽查时每个样本用于构造 MATCH 探测的 token 数量上限。 */
         private const val FTS_PROBE_TOKEN_LIMIT = 3
     }
@@ -139,11 +144,11 @@ class SessionRepository(
     suspend fun setArchived(sessionId: String, archived: Boolean) {
         sessionDao.setArchived(sessionId, archived)
     }
+
     /** B7-03: 更新会话已读位置。 */
     suspend fun updateLastReadMessage(sessionId: String, messageId: String, readCount: Int) {
         sessionDao.updateLastReadMessage(sessionId, messageId, readCount)
     }
-
 
     /** B7-05: 置顶会话拖拽排序持久化。 */
     suspend fun reorderPinnedSessions(ids: List<String>) {
@@ -246,7 +251,7 @@ class SessionRepository(
                 updatedAt = now,
                 assistantId = assistantId,
                 warmupPending = warmupPending,
-            )
+            ),
         )
         return id
     }
@@ -263,7 +268,7 @@ class SessionRepository(
                 updatedAt = now,
                 assistantId = assistantId,
                 isAgentSession = true,
-            )
+            ),
         )
         return id
     }
@@ -280,7 +285,7 @@ class SessionRepository(
                 updatedAt = now,
                 assistantId = assistantId,
                 isMiniPhone = true,
-            )
+            ),
         )
         return id
     }
@@ -327,13 +332,18 @@ class SessionRepository(
                 sessionDao.insert(
                     SessionEntity(
                         id = newId,
-                        title = context.getString(R.string.session_repo_fork_title, sourceSession.title.ifBlank { context.getString(R.string.session_repo_default_title) }),
+                        title = context.getString(
+                            R.string.session_repo_fork_title,
+                            sourceSession.title.ifBlank {
+                                context.getString(R.string.session_repo_default_title)
+                            },
+                        ),
                         createdAt = now,
                         updatedAt = now,
                         assistantId = sourceSession.assistantId,
                         folderId = sourceSession.folderId,
                         parentSessionId = sourceSessionId,
-                    )
+                    ),
                 )
                 sessionDao.incrementChildCount(sourceSessionId)
                 // 复制到锚点为止的全部消息(含锚点),完整重映射消息、父消息和变体组引用。
@@ -378,7 +388,7 @@ class SessionRepository(
                             nextCommitSeq = remapped.size.toLong() + 1,
                             projectionVersion = 1,
                             updatedAt = now,
-                        )
+                        ),
                     )
                 }
                 newId
@@ -573,11 +583,7 @@ class SessionRepository(
     }
 
     /** 每日总结用:读取指定本地日历区间内的用户消息。 */
-    suspend fun getUserMessagesBetween(
-        fromCreatedAt: Long,
-        toCreatedAt: Long,
-        limit: Int,
-    ): List<UIMessage> = withContext(Dispatchers.IO) {
+    suspend fun getUserMessagesBetween(fromCreatedAt: Long, toCreatedAt: Long, limit: Int): List<UIMessage> = withContext(Dispatchers.IO) {
         messageDao.getUserMessagesBetween(fromCreatedAt, toCreatedAt, limit).map { it.toUIMessage() }
     }
 
@@ -676,90 +682,91 @@ class SessionRepository(
      * 同一 turn 的第二次提交在事务入口返回 AlreadyCommitted；任何写入异常都会回滚
      * turn、消息和分支头，避免出现“已完成但正文未落盘”的半提交状态。
      */
-    suspend fun commitConversationMessage(request: MessageCommitRequest): MessageCommitResult =
-        withContext(Dispatchers.IO) {
-            database.withTransaction {
-                val session = sessionDao.getById(request.sessionId)
-                    ?: return@withTransaction MessageCommitResult.Rejected
-                if (session.deletedAt != null) return@withTransaction MessageCommitResult.Rejected
-                val turn = database.conversationTurnDao().getById(request.turnId)
-                    ?: return@withTransaction MessageCommitResult.Rejected
-                if (turn.finishedAt != null) return@withTransaction MessageCommitResult.AlreadyCommitted
-                val finished = database.conversationTurnDao().finishIfOpen(
-                    turnId = request.turnId,
-                    phase = "COMPLETED",
-                    finishedAt = System.currentTimeMillis(),
-                )
-                if (finished != 1) return@withTransaction MessageCommitResult.AlreadyCommitted
+    suspend fun commitConversationMessage(request: MessageCommitRequest): MessageCommitResult = withContext(Dispatchers.IO) {
+        database.withTransaction {
+            val session = sessionDao.getById(request.sessionId)
+                ?: return@withTransaction MessageCommitResult.Rejected
+            if (session.deletedAt != null) return@withTransaction MessageCommitResult.Rejected
+            val turn = database.conversationTurnDao().getById(request.turnId)
+                ?: return@withTransaction MessageCommitResult.Rejected
+            if (turn.finishedAt != null) return@withTransaction MessageCommitResult.AlreadyCommitted
+            val finished = database.conversationTurnDao().finishIfOpen(
+                turnId = request.turnId,
+                phase = "COMPLETED",
+                finishedAt = System.currentTimeMillis(),
+            )
+            if (finished != 1) return@withTransaction MessageCommitResult.AlreadyCommitted
 
-                val existing = messageDao.getById(request.sessionId, request.message.id.toString())
-                val branch = database.sessionBranchHeadDao().get(request.sessionId)
-                val nextCommitSeq = branch?.nextCommitSeq
-                    ?.coerceAtLeast(messageDao.getMaxSeq(request.sessionId) + 1)
-                    ?: (messageDao.getMaxSeq(request.sessionId) + 1)
-                var entity = request.message.toEntity(request.sessionId)
-                entity = if (existing != null) {
-                    entity.copy(
-                        seq = existing.seq,
-                        commitSeq = existing.commitSeq,
-                        createdAt = existing.createdAt,
-                        deletedAt = existing.deletedAt,
-                    )
-                } else {
-                    entity.copy(
-                        seq = if (entity.seq > 0) entity.seq else messageDao.getMaxSeq(request.sessionId) + 1,
-                        commitSeq = if (entity.commitSeq > 0) entity.commitSeq else nextCommitSeq,
-                        parentMessageId = entity.parentMessageId ?: turn.inputUserMessageId,
-                    )
-                }
-                messageDao.upsert(entity)
-                resultOf {
-                    syncFtsDelete(entity.id)
-                    syncFtsInsert(entity.id, entity.content)
-                }.onError { _, t -> Logger.w(TAG, "MessageCommit FTS 写入失败: ${t?.message ?: ""}", t) }
-
-                if (request.parts.isNotEmpty()) {
-                    database.messagePartDao().deleteByMessage(entity.id)
-                    database.messagePartDao().upsertAll(
-                        request.parts.map { it.copy(messageId = entity.id) },
-                    )
-                }
-                if (request.toolRounds.isNotEmpty()) {
-                    database.toolRoundDao().upsertAll(
-                        request.toolRounds.map { it.copy(turnId = request.turnId) },
-                    )
-                }
-                if (existing == null) sessionDao.incrementMessageCount(request.sessionId, 1)
-                updateSessionPreview(request.sessionId, request.message)
-
-                val now = System.currentTimeMillis()
-                val branchHead = SessionBranchHeadEntity(
-                    sessionId = request.sessionId,
-                    headMessageId = entity.id,
-                    nextCommitSeq = entity.commitSeq + 1,
-                    projectionVersion = (branch?.projectionVersion ?: 0) + 1,
-                    updatedAt = now,
+            val existing = messageDao.getById(request.sessionId, request.message.id.toString())
+            val branch = database.sessionBranchHeadDao().get(request.sessionId)
+            val nextCommitSeq = branch?.nextCommitSeq
+                ?.coerceAtLeast(messageDao.getMaxSeq(request.sessionId) + 1)
+                ?: (messageDao.getMaxSeq(request.sessionId) + 1)
+            var entity = request.message.toEntity(request.sessionId)
+            entity = if (existing != null) {
+                entity.copy(
+                    seq = existing.seq,
+                    commitSeq = existing.commitSeq,
+                    createdAt = existing.createdAt,
+                    deletedAt = existing.deletedAt,
                 )
-                database.sessionBranchHeadDao().upsert(branchHead)
-                val event = ConversationEventDraft(
-                    sessionId = request.sessionId,
-                    turnId = request.turnId,
-                    type = ConversationEventType.TURN_FINISHED,
-                    streamId = turn.streamId,
-                    generationSerial = turn.generationSerial,
-                    payloadJson = "{\"messageId\":\"${entity.id}\",\"contentLength\":${entity.content.length},\"contentHash\":\"${io.zer0.muse.data.chat.rewrite.sha256(entity.content)}\"}",
+            } else {
+                entity.copy(
+                    seq = if (entity.seq > 0) entity.seq else messageDao.getMaxSeq(request.sessionId) + 1,
+                    commitSeq = if (entity.commitSeq > 0) entity.commitSeq else nextCommitSeq,
+                    parentMessageId = entity.parentMessageId ?: turn.inputUserMessageId,
                 )
-                database.conversationEventDao().insert(
-                    event.toEntity(
-                        eventSeq = database.conversationEventDao().nextEventSeq(request.sessionId),
-                        eventId = Uuid.random().toString(),
-                    ),
-                )
-                database.generationCheckpointDao().deleteByAssistantMessageId(request.assistantMessageId)
-                database.generationCheckpointDao().deleteByUserMessageId(request.userMessageId)
-                MessageCommitResult.Committed
             }
+            messageDao.upsert(entity)
+            resultOf {
+                syncFtsDelete(entity.id)
+                syncFtsInsert(entity.id, entity.content)
+            }.onError { _, t -> Logger.w(TAG, "MessageCommit FTS 写入失败: ${t?.message ?: ""}", t) }
+
+            if (request.parts.isNotEmpty()) {
+                database.messagePartDao().deleteByMessage(entity.id)
+                database.messagePartDao().upsertAll(
+                    request.parts.map { it.copy(messageId = entity.id) },
+                )
+            }
+            if (request.toolRounds.isNotEmpty()) {
+                database.toolRoundDao().upsertAll(
+                    request.toolRounds.map { it.copy(turnId = request.turnId) },
+                )
+            }
+            if (existing == null) sessionDao.incrementMessageCount(request.sessionId, 1)
+            updateSessionPreview(request.sessionId, request.message)
+
+            val now = System.currentTimeMillis()
+            val branchHead = SessionBranchHeadEntity(
+                sessionId = request.sessionId,
+                headMessageId = entity.id,
+                nextCommitSeq = entity.commitSeq + 1,
+                projectionVersion = (branch?.projectionVersion ?: 0) + 1,
+                updatedAt = now,
+            )
+            database.sessionBranchHeadDao().upsert(branchHead)
+            val event = ConversationEventDraft(
+                sessionId = request.sessionId,
+                turnId = request.turnId,
+                type = ConversationEventType.TURN_FINISHED,
+                streamId = turn.streamId,
+                generationSerial = turn.generationSerial,
+                payloadJson = "{\"messageId\":\"${entity.id}\",\"contentLength\":${entity.content.length},\"contentHash\":\"${io.zer0.muse.data.chat.rewrite.sha256(
+                    entity.content,
+                )}\"}",
+            )
+            database.conversationEventDao().insert(
+                event.toEntity(
+                    eventSeq = database.conversationEventDao().nextEventSeq(request.sessionId),
+                    eventId = Uuid.random().toString(),
+                ),
+            )
+            database.generationCheckpointDao().deleteByAssistantMessageId(request.assistantMessageId)
+            database.generationCheckpointDao().deleteByUserMessageId(request.userMessageId)
+            MessageCommitResult.Committed
         }
+    }
 
     /**
      * appendMessage 的非事务版本,供已在事务内的调用方(如 [forkSession])复用,
@@ -909,7 +916,7 @@ class SessionRepository(
                         content = content,
                         createdAt = createdAt,
                         updatedAt = System.currentTimeMillis(),
-                    )
+                    ),
                 )
             }
         }
@@ -1043,57 +1050,57 @@ class SessionRepository(
     suspend fun upsertMessage(sessionId: String, message: UIMessage, skipFts: Boolean = false) {
         withDatabaseRecovery("upsertMessage") {
             // H-SESS1: 跨表(messages + FTS + sessions)用事务包裹,保证流式更新一致性
-        withContext(Dispatchers.IO) {
-            database.withTransaction {
-                var entity = message.toEntity(sessionId)
-                // v1.0.85 (T-1): 同 id 更新保留首次 createdAt — REPLACE 语义会覆盖整行,
-                // 若流式/中断恢复/编辑的 UIMessage 用默认 createdAt(当前时间),
-                // 会把消息时序刷到"现在",导致排序错乱(早消息跑到会话末尾)。
-                // 查询旧行,存在且 createdAt 不同时保留旧值,维持原始时序。
-                val existing = messageDao.getById(sessionId, entity.id)
-                if (existing != null) {
-                    if (existing.createdAt != entity.createdAt) {
-                        entity = entity.copy(createdAt = existing.createdAt)
+            withContext(Dispatchers.IO) {
+                database.withTransaction {
+                    var entity = message.toEntity(sessionId)
+                    // v1.0.85 (T-1): 同 id 更新保留首次 createdAt — REPLACE 语义会覆盖整行,
+                    // 若流式/中断恢复/编辑的 UIMessage 用默认 createdAt(当前时间),
+                    // 会把消息时序刷到"现在",导致排序错乱(早消息跑到会话末尾)。
+                    // 查询旧行,存在且 createdAt 不同时保留旧值,维持原始时序。
+                    val existing = messageDao.getById(sessionId, entity.id)
+                    if (existing != null) {
+                        if (existing.createdAt != entity.createdAt) {
+                            entity = entity.copy(createdAt = existing.createdAt)
+                        }
+                        // v92: 同 id 更新保留首次 seq(REPLACE 不改变消息的稳定序号)
+                        if (entity.seq == 0L) {
+                            entity = entity.copy(seq = existing.seq)
+                        }
+                        // commitSeq 与 seq 一样属于消息身份的一部分；REPLACE 更新时不能清零，
+                        // 否则新链路消息会退回旧排序分支，导致历史消息位置漂移。
+                        if (entity.commitSeq == 0L) {
+                            entity = entity.copy(commitSeq = existing.commitSeq)
+                        }
+                        // v1.0.88 (R-2): 变体身份字段兜底 — 工具轮/中断恢复/周期性落盘构建的
+                        // UIMessage 常丢 variantGroupId 等字段,REPLACE 覆盖后变体身份丢失,
+                        // 重进会话树重建时消息挂错位置(重叠/错位)。新值缺失时用旧行兜底;
+                        // 新变体(variantGroupId 非空)不受影响。
+                        if (entity.variantGroupId == null && existing.variantGroupId != null) {
+                            entity = entity.copy(
+                                variantGroupId = existing.variantGroupId,
+                                variantIndex = existing.variantIndex,
+                                variantCount = existing.variantCount,
+                                parentGroupId = existing.parentGroupId,
+                            )
+                        }
+                    } else if (entity.seq == 0L) {
+                        // v92: 新消息分配会话内单调 seq = max+1(首次插入时固定,后续更新保留)
+                        entity = entity.copy(seq = messageDao.getMaxSeq(sessionId) + 1)
                     }
-                    // v92: 同 id 更新保留首次 seq(REPLACE 不改变消息的稳定序号)
-                    if (entity.seq == 0L) {
-                        entity = entity.copy(seq = existing.seq)
+                    messageDao.upsert(entity)
+                    // Phase 10.3: 同步 FTS(删后插,避免重复索引项)
+                    // v1.97 (P1-2): skipFts=true 时跳过,避免流式周期性落盘反复重建 FTS
+                    if (!skipFts) {
+                        resultOf {
+                            syncFtsDelete(entity.id)
+                            syncFtsInsert(entity.id, entity.content)
+                        }.onError { _, t -> Logger.w(TAG, "FTS upsert sync failed: ${t?.message ?: ""}") }
                     }
-                    // commitSeq 与 seq 一样属于消息身份的一部分；REPLACE 更新时不能清零，
-                    // 否则新链路消息会退回旧排序分支，导致历史消息位置漂移。
-                    if (entity.commitSeq == 0L) {
-                        entity = entity.copy(commitSeq = existing.commitSeq)
+                    if (message.role == MessageRole.ASSISTANT && message.content.isNotEmpty()) {
+                        updateSessionPreview(sessionId, message)
                     }
-                    // v1.0.88 (R-2): 变体身份字段兜底 — 工具轮/中断恢复/周期性落盘构建的
-                    // UIMessage 常丢 variantGroupId 等字段,REPLACE 覆盖后变体身份丢失,
-                    // 重进会话树重建时消息挂错位置(重叠/错位)。新值缺失时用旧行兜底;
-                    // 新变体(variantGroupId 非空)不受影响。
-                    if (entity.variantGroupId == null && existing.variantGroupId != null) {
-                        entity = entity.copy(
-                            variantGroupId = existing.variantGroupId,
-                            variantIndex = existing.variantIndex,
-                            variantCount = existing.variantCount,
-                            parentGroupId = existing.parentGroupId,
-                        )
-                    }
-                } else if (entity.seq == 0L) {
-                    // v92: 新消息分配会话内单调 seq = max+1(首次插入时固定,后续更新保留)
-                    entity = entity.copy(seq = messageDao.getMaxSeq(sessionId) + 1)
-                }
-                messageDao.upsert(entity)
-                // Phase 10.3: 同步 FTS(删后插,避免重复索引项)
-                // v1.97 (P1-2): skipFts=true 时跳过,避免流式周期性落盘反复重建 FTS
-                if (!skipFts) {
-                    resultOf {
-                        syncFtsDelete(entity.id)
-                        syncFtsInsert(entity.id, entity.content)
-                    }.onError { _, t -> Logger.w(TAG, "FTS upsert sync failed: ${t?.message ?: ""}") }
-                }
-                if (message.role == MessageRole.ASSISTANT && message.content.isNotEmpty()) {
-                    updateSessionPreview(sessionId, message)
                 }
             }
-        }
         }
     }
 
@@ -1513,12 +1520,14 @@ class SessionRepository(
             useCommitSeq = ConversationRebuildFlagStore.current.useCommitSeq,
         )
         val byId = entities.associateBy { it.id }
-        return orderConversationMessages(projection.messages.mapNotNull { projected ->
-            byId[projected.id]?.toUIMessage()?.copy(
-                content = projected.content,
-                reasoning = projected.reasoning,
-            )
-        })
+        return orderConversationMessages(
+            projection.messages.mapNotNull { projected ->
+                byId[projected.id]?.toUIMessage()?.copy(
+                    content = projected.content,
+                    reasoning = projected.reasoning,
+                )
+            },
+        )
     }
 
     /** 会话列表/系统提示只显示正文，隐藏 mood、mod、think 等内部块。 */
@@ -1633,8 +1642,7 @@ class SessionRepository(
     )
 
     /** v1.0.30: 按 id 获取消息（变体查询用）。 */
-    suspend fun getMessageById(messageId: String): MessageEntity? =
-        withContext(Dispatchers.IO) { messageDao.getByMessageId(messageId) }
+    suspend fun getMessageById(messageId: String): MessageEntity? = withContext(Dispatchers.IO) { messageDao.getByMessageId(messageId) }
 
     /**
      * 审查修复 (2.0 B-02): 按 id 读取消息并转为 UI 消息 — 中断恢复时若内存 builder 无内容
@@ -1693,8 +1701,7 @@ class SessionRepository(
     }
 
     /** v1.0.30: 获取同变体组所有消息。 */
-    suspend fun getVariants(groupId: String): List<MessageEntity> =
-        withContext(Dispatchers.IO) { messageDao.getVariants(groupId) }
+    suspend fun getVariants(groupId: String): List<MessageEntity> = withContext(Dispatchers.IO) { messageDao.getVariants(groupId) }
 
     /** v1.0.30: 更新变体组计数。 */
     suspend fun updateVariantCount(groupId: String, count: Int) {
@@ -1706,8 +1713,7 @@ class SessionRepository(
         withContext(Dispatchers.IO) { messageDao.upsert(entity) }
     }
 
-    private fun encodeImageUrls(urls: List<String>): String =
-        // v1.100: 空列表短路,避免周期性落盘(每 300 字符)时对 4 个空字段
+    private fun encodeImageUrls(urls: List<String>): String = // v1.100: 空列表短路,避免周期性落盘(每 300 字符)时对 4 个空字段
         // 各做一次 JSON 序列化(虽然开销小,但高频累积)
         if (urls.isEmpty()) "[]" else runCatching { json.encodeToString(urlListSerializer, urls) }.getOrDefault("[]")
 

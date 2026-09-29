@@ -71,7 +71,7 @@ data class UiNode(
             if (!isEnabled) add("禁用")
         }
         val tagStr = if (tags.isEmpty()) "" else " [${tags.joinToString(",")}]"
-        val bounds = "(${centerX},${centerY})"
+        val bounds = "($centerX,$centerY)"
         return "$label$tagStr $bounds"
     }
 }

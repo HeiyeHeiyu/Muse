@@ -229,12 +229,12 @@ class PhoneToolsImpl(private val context: Context) {
         return ToolOutcome.ok(
             text,
             details =
-                mapOf(
-                    "brand" to android.os.Build.BRAND,
-                    "model" to android.os.Build.MODEL,
-                    "androidVersion" to android.os.Build.VERSION.RELEASE,
-                    "sdkInt" to android.os.Build.VERSION.SDK_INT,
-                ),
+            mapOf(
+                "brand" to android.os.Build.BRAND,
+                "model" to android.os.Build.MODEL,
+                "androidVersion" to android.os.Build.VERSION.RELEASE,
+                "sdkInt" to android.os.Build.VERSION.SDK_INT,
+            ),
         )
     }
 

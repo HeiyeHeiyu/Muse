@@ -67,82 +67,81 @@ class GeminiImageProvider(
     override val supportsImageEdit: Boolean = true
     override val supportsAsync: Boolean = false
 
-    override suspend fun submit(request: ImageGenRequest): ImageSubmitResult =
-        withContext(Dispatchers.IO) {
-            val config = request.config
-                ?: error(ErrorCode.IMAGE_API_KEY_MISSING.toMessage())
-            if (config.apiKey.isBlank() && !config.allowMissingApiKey) {
-                error(ErrorCode.IMAGE_API_KEY_MISSING.toMessage())
-            }
-            val modelId = request.model.takeIf { it.isNotBlank() } ?: DEFAULT_MODEL_ID
-
-            try {
-                // 参考图 → base64(无 data: 前缀):解析失败/超限/命中内网会抛业务错误,原样上抛
-                val refBase64 = request.referenceImages.map { ref ->
-                    AgnesImageProvider.resolveReferenceImage(ref, referenceImageUrlValidator)
-                }
-                val body = buildImageRequestBody(request.prompt, refBase64)
-
-                // 复用 GeminiProvider 的端点/鉴权解析(含 Vertex Express / 服务号 OAuth / generativelanguage)
-                val endpoint = GeminiProvider(config)
-                val url = endpoint.buildUrl(model = modelId, stream = false)
-                val token = endpoint.resolveToken()
-
-                val httpRequest = Request.Builder()
-                    .url(url)
-                    .apply { if (token != null) header("Authorization", "Bearer $token") }
-                    .header("Content-Type", "application/json")
-                    .post(body.toRequestBody(JSON_MEDIA_TYPE))
-                    .build()
-
-                Logger.i(TAG, "submit: model=$modelId refs=${refBase64.size} vertex=${url.contains("aiplatform")}")
-
-                exec(httpRequest).use { r ->
-                    if (!r.isSuccessful) {
-                        val errBody = ProviderHttpSupport.readBodyCapped(r)
-                        val hint = when (r.code) {
-                            401, 403 -> ErrorCode.AUTH_FAILED.toMessage()
-                            429 -> ErrorCode.RATE_LIMITED.toMessage()
-                            in 500..599 -> ErrorCode.SERVICE_UNAVAILABLE.toMessage()
-                            else -> null
-                        }
-                        val msg = buildString {
-                            append(ErrorCode.IMAGE_GEN_FAILED.toMessage())
-                            append(" HTTP ${r.code}")
-                            hint?.let { append(" [").append(it).append("]") }
-                            if (errBody.isNotBlank()) append(": ").append(errBody)
-                        }
-                        Logger.w(TAG, "gemini image HTTP ${r.code}")
-                        error(msg)
-                    }
-                    // B-03: contentLength 未知(chunked)时同样限长 — 流式读取,超限即中断
-                    val (respBody, overLimit) = ProviderHttpSupport.readBodyCappedStreaming(r, MAX_RESPONSE_BODY_BYTES)
-                    if (overLimit) {
-                        error(ErrorCode.IMAGE_RESPONSE_TOO_LARGE.toMessage(MAX_RESPONSE_BODY_BYTES / 1024 / 1024))
-                    }
-                    if (respBody.isBlank()) error(ErrorCode.IMAGE_EMPTY_RESPONSE.toMessage())
-                    // 提示级安全拦截:给出明确原因而非"无结果"
-                    val blockReason = runCatching {
-                        AppJson.parseToJsonElement(respBody).jsonObject["promptFeedback"]
-                            ?.jsonObject?.get("blockReason")?.jsonPrimitive?.content
-                    }.getOrNull()
-                    if (!blockReason.isNullOrBlank()) {
-                        error(ErrorCode.IMAGE_GEN_FAILED.toMessage("safety: $blockReason"))
-                    }
-                    val images = parseInlineImages(respBody)
-                    if (images.isEmpty()) error(ErrorCode.IMAGE_NO_RESULTS.toMessage())
-                    ImageSubmitResult(images = images, isAsync = false)
-                }
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: IllegalStateException) {
-                // error() 抛出的业务错误原样传播
-                throw e
-            } catch (e: Exception) {
-                Logger.w(TAG, "gemini image failed: ${e.message}")
-                error(ErrorCode.IMAGE_GEN_FAILED.toMessage(e.message ?: ""))
-            }
+    override suspend fun submit(request: ImageGenRequest): ImageSubmitResult = withContext(Dispatchers.IO) {
+        val config = request.config
+            ?: error(ErrorCode.IMAGE_API_KEY_MISSING.toMessage())
+        if (config.apiKey.isBlank() && !config.allowMissingApiKey) {
+            error(ErrorCode.IMAGE_API_KEY_MISSING.toMessage())
         }
+        val modelId = request.model.takeIf { it.isNotBlank() } ?: DEFAULT_MODEL_ID
+
+        try {
+            // 参考图 → base64(无 data: 前缀):解析失败/超限/命中内网会抛业务错误,原样上抛
+            val refBase64 = request.referenceImages.map { ref ->
+                AgnesImageProvider.resolveReferenceImage(ref, referenceImageUrlValidator)
+            }
+            val body = buildImageRequestBody(request.prompt, refBase64)
+
+            // 复用 GeminiProvider 的端点/鉴权解析(含 Vertex Express / 服务号 OAuth / generativelanguage)
+            val endpoint = GeminiProvider(config)
+            val url = endpoint.buildUrl(model = modelId, stream = false)
+            val token = endpoint.resolveToken()
+
+            val httpRequest = Request.Builder()
+                .url(url)
+                .apply { if (token != null) header("Authorization", "Bearer $token") }
+                .header("Content-Type", "application/json")
+                .post(body.toRequestBody(JSON_MEDIA_TYPE))
+                .build()
+
+            Logger.i(TAG, "submit: model=$modelId refs=${refBase64.size} vertex=${url.contains("aiplatform")}")
+
+            exec(httpRequest).use { r ->
+                if (!r.isSuccessful) {
+                    val errBody = ProviderHttpSupport.readBodyCapped(r)
+                    val hint = when (r.code) {
+                        401, 403 -> ErrorCode.AUTH_FAILED.toMessage()
+                        429 -> ErrorCode.RATE_LIMITED.toMessage()
+                        in 500..599 -> ErrorCode.SERVICE_UNAVAILABLE.toMessage()
+                        else -> null
+                    }
+                    val msg = buildString {
+                        append(ErrorCode.IMAGE_GEN_FAILED.toMessage())
+                        append(" HTTP ${r.code}")
+                        hint?.let { append(" [").append(it).append("]") }
+                        if (errBody.isNotBlank()) append(": ").append(errBody)
+                    }
+                    Logger.w(TAG, "gemini image HTTP ${r.code}")
+                    error(msg)
+                }
+                // B-03: contentLength 未知(chunked)时同样限长 — 流式读取,超限即中断
+                val (respBody, overLimit) = ProviderHttpSupport.readBodyCappedStreaming(r, MAX_RESPONSE_BODY_BYTES)
+                if (overLimit) {
+                    error(ErrorCode.IMAGE_RESPONSE_TOO_LARGE.toMessage(MAX_RESPONSE_BODY_BYTES / 1024 / 1024))
+                }
+                if (respBody.isBlank()) error(ErrorCode.IMAGE_EMPTY_RESPONSE.toMessage())
+                // 提示级安全拦截:给出明确原因而非"无结果"
+                val blockReason = runCatching {
+                    AppJson.parseToJsonElement(respBody).jsonObject["promptFeedback"]
+                        ?.jsonObject?.get("blockReason")?.jsonPrimitive?.content
+                }.getOrNull()
+                if (!blockReason.isNullOrBlank()) {
+                    error(ErrorCode.IMAGE_GEN_FAILED.toMessage("safety: $blockReason"))
+                }
+                val images = parseInlineImages(respBody)
+                if (images.isEmpty()) error(ErrorCode.IMAGE_NO_RESULTS.toMessage())
+                ImageSubmitResult(images = images, isAsync = false)
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: IllegalStateException) {
+            // error() 抛出的业务错误原样传播
+            throw e
+        } catch (e: Exception) {
+            Logger.w(TAG, "gemini image failed: ${e.message}")
+            error(ErrorCode.IMAGE_GEN_FAILED.toMessage(e.message ?: ""))
+        }
+    }
 
     override suspend fun poll(taskId: String): ImagePollResult {
         error("Gemini 图片生成不支持异步任务: $taskId")
@@ -217,28 +216,27 @@ class GeminiImageProvider(
     private fun inferMimeType(base64: String): String {
         val head = base64.take(16).uppercase()
         return when {
-            head.startsWith("IVBORW0") -> "image/png"   // PNG: iVBORw0K
-            head.startsWith("/9J/") -> "image/jpeg"      // JPEG: /9j/
-            head.startsWith("UKLGR") -> "image/webp"     // WebP: UklGR
-            head.startsWith("R0LGOD") -> "image/gif"     // GIF: R0lGOD
+            head.startsWith("IVBORW0") -> "image/png" // PNG: iVBORw0K
+            head.startsWith("/9J/") -> "image/jpeg" // JPEG: /9j/
+            head.startsWith("UKLGR") -> "image/webp" // WebP: UklGR
+            head.startsWith("R0LGOD") -> "image/gif" // GIF: R0lGOD
             else -> "image/png"
         }
     }
 
-    private suspend fun exec(request: Request): Response =
-        kotlinx.coroutines.suspendCancellableCoroutine { cont ->
-            val call = client.newCall(request)
-            cont.invokeOnCancellation { runCatching { call.cancel() } }
-            call.enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    if (cont.isActive) cont.resumeWithException(e)
-                }
+    private suspend fun exec(request: Request): Response = kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+        val call = client.newCall(request)
+        cont.invokeOnCancellation { runCatching { call.cancel() } }
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                if (cont.isActive) cont.resumeWithException(e)
+            }
 
-                override fun onResponse(call: Call, response: Response) {
-                    if (cont.isActive) cont.resume(response) else response.close()
-                }
-            })
-        }
+            override fun onResponse(call: Call, response: Response) {
+                if (cont.isActive) cont.resume(response) else response.close()
+            }
+        })
+    }
 
     companion object {
         private const val TAG = "GeminiImageProvider"

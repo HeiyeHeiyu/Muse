@@ -41,7 +41,13 @@ class VectorSearchServicePagingTest {
         val requestedLimits = java.util.Collections.synchronizedList(mutableListOf<Int>())
         val calls = AtomicInteger(0)
 
-        suspend fun page(@Suppress("UNUSED_PARAMETER") docIds: List<String>, limit: Int, offset: Int): List<VectorSearchService.ChunkWithDoc> {
+        suspend fun page(
+            @Suppress(
+                "UNUSED_PARAMETER",
+            ) docIds: List<String>,
+            limit: Int,
+            offset: Int,
+        ): List<VectorSearchService.ChunkWithDoc> {
             calls.incrementAndGet()
             requestedLimits.add(limit)
             return all.drop(offset).take(limit)
@@ -161,11 +167,7 @@ class VectorSearchServicePagingTest {
     }
 
     /** 参考实现:一次性全量载入 + 打分 + 稳定降序 + take(topK)(threshold=0 时保留非负分数)。 */
-    private fun referenceTopK(
-        chunks: List<VectorSearchService.ChunkWithDoc>,
-        query: FloatArray,
-        topK: Int,
-    ): List<Pair<String, Float>> {
+    private fun referenceTopK(chunks: List<VectorSearchService.ChunkWithDoc>, query: FloatArray, topK: Int): List<Pair<String, Float>> {
         val queryNorm = kotlin.math.sqrt(query.sumOf { (it * it).toDouble() }).toFloat()
         return chunks.mapNotNull { c ->
             val vector = FloatArray(dim) { i -> java.nio.ByteBuffer.wrap(c.embeddingBlob!!).asFloatBuffer().get(i) }

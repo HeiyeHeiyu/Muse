@@ -1,8 +1,5 @@
 package io.zer0.muse.ui.common.settings
 
-import androidx.compose.runtime.getValue
-import io.zer0.muse.ui.theme.MuseMotion
-
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +28,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 
@@ -73,11 +72,15 @@ fun SettingsItemRow(
             .fillMaxWidth()
             .background(rowBgColor)
             .then(
-                if (onClick != null && enabled) Modifier.clickable(
-                    interactionSource = rowInteractionSource,
-                    indication = null,
-                    onClick = onClick,
-                ) else Modifier,
+                if (onClick != null && enabled) {
+                    Modifier.clickable(
+                        interactionSource = rowInteractionSource,
+                        indication = null,
+                        onClick = onClick,
+                    )
+                } else {
+                    Modifier
+                },
             )
             .padding(MusePaddings.cardInner),
         verticalAlignment = Alignment.CenterVertically,

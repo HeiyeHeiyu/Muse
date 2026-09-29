@@ -21,25 +21,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.form.MuseTextField
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseEmptyState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,16 +47,21 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
-import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.navigation.MuseTopBar
+import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 
@@ -177,297 +177,305 @@ fun VoiceCloningPage(
                 .padding(horizontal = MusePaddings.screen, vertical = MusePaddings.contentGap),
             verticalArrangement = Arrangement.spacedBy(MusePaddings.sectionGap),
         ) {
-                // ── 服务商选择(FilterChip 行)──
-                FormSection(label = stringResource(R.string.voice_cloning_provider)) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        voiceCloningService.availableProviders().forEach { pid ->
-                            MuseChip(
-                                selected = pid == selectedProvider,
-                                onClick = { selectedProvider = pid },
-                                label = pid,
-                            )
-                        }
+            // ── 服务商选择(FilterChip 行)──
+            FormSection(label = stringResource(R.string.voice_cloning_provider)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    voiceCloningService.availableProviders().forEach { pid ->
+                        MuseChip(
+                            selected = pid == selectedProvider,
+                            onClick = { selectedProvider = pid },
+                            label = pid,
+                        )
                     }
                 }
+            }
 
-                // ── API Key 输入 ──
-                FormSection(label = stringResource(R.string.voice_cloning_api_key)) {
-                    MuseTextField(
-                        value = apiKey,
-                        onValueChange = { apiKey = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("xi-api-key") },
-                        singleLine = true,
-                        visualTransformation = if (apiKeyVisible) VisualTransformation.None
-                        else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        trailingIcon = {
-                            // v1.132: 替换原 emoji(🙈/👁)为 Material Icons,与 ProviderSection 风格一致
-                            MuseTactileButton(
-                                icon = if (apiKeyVisible) MuseIcons.eyeOff
-                                    else MuseIcons.eye,
-                                onClick = { apiKeyVisible = !apiKeyVisible },
-                                contentDescription = if (apiKeyVisible)
-                                        stringResource(R.string.settings_common_hide)
-                                    else stringResource(R.string.settings_common_show),
-                            )
-                        },
-                    )
-                }
-
-                // ── 克隆新语音表单 ──
-                FormSection(label = stringResource(R.string.voice_cloning_new_voice)) {
-                    // 语音名称输入
-                    MuseTextField(
-                        value = voiceName,
-                        onValueChange = { voiceName = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text(stringResource(R.string.voice_cloning_voice_name)) },
-                        singleLine = true,
-                        enabled = !isCloning,
-                        leadingIcon = {
-                            Icon(
-                                imageVector = MuseIcons.user,
-                                contentDescription = null,
-                                modifier = Modifier.size(MusePaddings.iconPadding * 2),
-                            )
-                        },
-                    )
-
-                    Spacer(Modifier.height(MusePaddings.contentGap))
-
-                    // 选择样本音频按钮(Surface + clickable,不用 Material3 Button)
-                    Surface(
-                        shape = MuseShapes.medium,
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = !isCloning) {
-                                pickAudioLauncher.launch(arrayOf("audio/*"))
-                            },
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(MusePaddings.cardInner),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
-                        ) {
-                            Icon(
-                                imageVector = MuseIcons.waveSine,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(MusePaddings.iconPadding * 2),
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.voice_cloning_select_audio),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                if (selectedAudioLabel.isNotBlank()) {
-                                    Text(
-                                        text = selectedAudioLabel,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(Modifier.height(MusePaddings.contentGap))
-
-                    // 提交按钮(Surface + clickable,不用 Material3 Button)
-                    Surface(
-                        shape = MuseShapes.medium,
-                        color = if (isCloning) {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = !isCloning) {
-                                if (apiKey.isBlank()) {
-                                    MuseToast.show(strAudioRequired, 2500)
-                                    return@clickable
-                                }
-                                if (voiceName.isBlank()) {
-                                    MuseToast.show(
-                                        context.getString(R.string.voice_cloning_voice_name),
-                                        2500,
-                                    )
-                                    return@clickable
-                                }
-                                val uri = selectedAudioUri
-                                if (uri == null) {
-                                    MuseToast.show(strAudioRequired, 2500)
-                                    return@clickable
-                                }
-                                scope.launch {
-                                    isCloning = true
-                                    // 读音频文件 + base64 编码(必须在 IO 线程)
-                                    val base64Result = withContext(Dispatchers.IO) {
-                                        runCatching {
-                                            context.contentResolver.openInputStream(uri)?.use {
-                                                Base64.encodeToString(
-                                                    it.readBytes(),
-                                                    Base64.NO_WRAP,
-                                                )
-                                            } ?: throw java.io.IOException(
-                                                "Cannot open audio stream",
-                                            )
-                                        }
-                                    }
-                                    val base64 = base64Result.getOrElse { e ->
-                                        isCloning = false
-                                        MuseToast.show(
-                                            context.getString(
-                                                R.string.voice_cloning_failed,
-                                                e.message ?: "read audio failed",
-                                            ),
-                                            3000,
-                                        )
-                                        return@launch
-                                    }
-
-                                    // 透传 apiKey 到 provider(防止用户刚改完未触发 LaunchedEffect)
-                                    if (selectedProvider == "elevenlabs") {
-                                        elevenLabsProvider.apiKey = apiKey.trim()
-                                    }
-                                    if (selectedProvider == "fish") {
-                                        fishProvider.apiKey = apiKey.trim()
-                                        fishProvider.endpoint = settings.mediaConfigFlow.first().ttsEndpoint
-                                    }
-
-                                    voiceCloningService.cloneVoice(
-                                        providerId = selectedProvider,
-                                        name = voiceName.trim(),
-                                        sampleAudioBase64 = base64,
-                                    ).onSuccess { voiceId ->
-                                        MuseToast.show(strSuccess, 2000)
-                                        // B6-04: 克隆成功自动设为当前 TTS 音色
-                                        runCatching {
-                                            val media = settings.mediaConfigFlow.first()
-                                            settings.saveMediaConfig(
-                                                media.copy(
-                                                    // P2-15: 此前写死 "fish",用 ElevenLabs 克隆的 voiceId
-                                                    // 会被挂在 fish 引擎名下,朗读永远取不到该音色
-                                                    ttsEngine = selectedProvider,
-                                                    ttsVoice = voiceId,
-                                                )
-                                            )
-                                        }
-                                        // 重置表单
-                                        voiceName = ""
-                                        selectedAudioUri = null
-                                        selectedAudioLabel = ""
-                                        // 刷新列表
-                                        voiceCloningService.listClonedVoices(selectedProvider)
-                                            .onSuccess { list ->
-                                                voices.clear()
-                                                voices.addAll(list)
-                                            }
-                                    }.onError { msg, _ ->
-                                        MuseToast.show(
-                                            context.getString(R.string.voice_cloning_failed, msg),
-                                            3000,
-                                        )
-                                    }
-                                    isCloning = false
-                                }
-                            },
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = MusePaddings.cardInner.calculateTopPadding()),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            if (isCloning) {
-                                MuseSpinner(
-                                    size = MusePaddings.iconPadding * 2,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                Spacer(Modifier.size(MusePaddings.iconPadding))
+            // ── API Key 输入 ──
+            FormSection(label = stringResource(R.string.voice_cloning_api_key)) {
+                MuseTextField(
+                    value = apiKey,
+                    onValueChange = { apiKey = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("xi-api-key") },
+                    singleLine = true,
+                    visualTransformation = if (apiKeyVisible) {
+                        VisualTransformation.None
+                    } else {
+                        PasswordVisualTransformation()
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    trailingIcon = {
+                        // v1.132: 替换原 emoji(🙈/👁)为 Material Icons,与 ProviderSection 风格一致
+                        MuseTactileButton(
+                            icon = if (apiKeyVisible) {
+                                MuseIcons.eyeOff
                             } else {
-                                Icon(
-                                    imageVector = MuseIcons.plus,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(MusePaddings.iconPadding * 2),
-                                )
-                                Spacer(Modifier.size(MusePaddings.iconPadding))
-                            }
-                            Text(
-                                text = stringResource(R.string.voice_cloning_submit),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (isCloning) {
-                                    MaterialTheme.colorScheme.onSurface
-                                } else {
-                                    MaterialTheme.colorScheme.onPrimary
-                                },
-                            )
-                        }
-                    }
-                }
+                                MuseIcons.eye
+                            },
+                            onClick = { apiKeyVisible = !apiKeyVisible },
+                            contentDescription = if (apiKeyVisible) {
+                                stringResource(R.string.settings_common_hide)
+                            } else {
+                                stringResource(R.string.settings_common_show)
+                            },
+                        )
+                    },
+                )
+            }
 
-                Spacer(Modifier.height(MusePaddings.sectionGap))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            // ── 克隆新语音表单 ──
+            FormSection(label = stringResource(R.string.voice_cloning_new_voice)) {
+                // 语音名称输入
+                MuseTextField(
+                    value = voiceName,
+                    onValueChange = { voiceName = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(stringResource(R.string.voice_cloning_voice_name)) },
+                    singleLine = true,
+                    enabled = !isCloning,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = MuseIcons.user,
+                            contentDescription = null,
+                            modifier = Modifier.size(MusePaddings.iconPadding * 2),
+                        )
+                    },
+                )
+
                 Spacer(Modifier.height(MusePaddings.contentGap))
 
-                // ── 已克隆语音列表(跟随上下滚动,不再固定底部)──
-                // v1.132: 改用 forEach 替代 LazyColumn(verticalScroll 内不能嵌套 LazyColumn),
-                // 让克隆语音列表与表单一起随整页滚动
-                if (isLoadingList && voices.isEmpty()) {
-                    Box(
+                // 选择样本音频按钮(Surface + clickable,不用 Material3 Button)
+                Surface(
+                    shape = MuseShapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !isCloning) {
+                            pickAudioLauncher.launch(arrayOf("audio/*"))
+                        },
+                ) {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = MusePaddings.sectionGap),
-                        contentAlignment = Alignment.Center,
+                            .padding(MusePaddings.cardInner),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
                     ) {
-                        MuseSpinner(
-                            size = MusePaddings.iconPadding * 3,
-                            color = MaterialTheme.colorScheme.primary,
+                        Icon(
+                            imageVector = MuseIcons.waveSine,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(MusePaddings.iconPadding * 2),
                         )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.voice_cloning_select_audio),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            if (selectedAudioLabel.isNotBlank()) {
+                                Text(
+                                    text = selectedAudioLabel,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
                     }
-                } else if (voices.isEmpty()) {
-                    Box(
+                }
+
+                Spacer(Modifier.height(MusePaddings.contentGap))
+
+                // 提交按钮(Surface + clickable,不用 Material3 Button)
+                Surface(
+                    shape = MuseShapes.medium,
+                    color = if (isCloning) {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !isCloning) {
+                            if (apiKey.isBlank()) {
+                                MuseToast.show(strAudioRequired, 2500)
+                                return@clickable
+                            }
+                            if (voiceName.isBlank()) {
+                                MuseToast.show(
+                                    context.getString(R.string.voice_cloning_voice_name),
+                                    2500,
+                                )
+                                return@clickable
+                            }
+                            val uri = selectedAudioUri
+                            if (uri == null) {
+                                MuseToast.show(strAudioRequired, 2500)
+                                return@clickable
+                            }
+                            scope.launch {
+                                isCloning = true
+                                // 读音频文件 + base64 编码(必须在 IO 线程)
+                                val base64Result = withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        context.contentResolver.openInputStream(uri)?.use {
+                                            Base64.encodeToString(
+                                                it.readBytes(),
+                                                Base64.NO_WRAP,
+                                            )
+                                        } ?: throw java.io.IOException(
+                                            "Cannot open audio stream",
+                                        )
+                                    }
+                                }
+                                val base64 = base64Result.getOrElse { e ->
+                                    isCloning = false
+                                    MuseToast.show(
+                                        context.getString(
+                                            R.string.voice_cloning_failed,
+                                            e.message ?: "read audio failed",
+                                        ),
+                                        3000,
+                                    )
+                                    return@launch
+                                }
+
+                                // 透传 apiKey 到 provider(防止用户刚改完未触发 LaunchedEffect)
+                                if (selectedProvider == "elevenlabs") {
+                                    elevenLabsProvider.apiKey = apiKey.trim()
+                                }
+                                if (selectedProvider == "fish") {
+                                    fishProvider.apiKey = apiKey.trim()
+                                    fishProvider.endpoint = settings.mediaConfigFlow.first().ttsEndpoint
+                                }
+
+                                voiceCloningService.cloneVoice(
+                                    providerId = selectedProvider,
+                                    name = voiceName.trim(),
+                                    sampleAudioBase64 = base64,
+                                ).onSuccess { voiceId ->
+                                    MuseToast.show(strSuccess, 2000)
+                                    // B6-04: 克隆成功自动设为当前 TTS 音色
+                                    runCatching {
+                                        val media = settings.mediaConfigFlow.first()
+                                        settings.saveMediaConfig(
+                                            media.copy(
+                                                // P2-15: 此前写死 "fish",用 ElevenLabs 克隆的 voiceId
+                                                // 会被挂在 fish 引擎名下,朗读永远取不到该音色
+                                                ttsEngine = selectedProvider,
+                                                ttsVoice = voiceId,
+                                            ),
+                                        )
+                                    }
+                                    // 重置表单
+                                    voiceName = ""
+                                    selectedAudioUri = null
+                                    selectedAudioLabel = ""
+                                    // 刷新列表
+                                    voiceCloningService.listClonedVoices(selectedProvider)
+                                        .onSuccess { list ->
+                                            voices.clear()
+                                            voices.addAll(list)
+                                        }
+                                }.onError { msg, _ ->
+                                    MuseToast.show(
+                                        context.getString(R.string.voice_cloning_failed, msg),
+                                        3000,
+                                    )
+                                }
+                                isCloning = false
+                            }
+                        },
+                ) {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = MusePaddings.sectionGap),
-                        contentAlignment = Alignment.Center,
+                            .padding(vertical = MusePaddings.cardInner.calculateTopPadding()),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        // ST-03: 空态统一 MuseEmptyState
-                        MuseEmptyState(title = strEmpty)
-                    }
-                } else {
-                    // 列表标题
-                    Text(
-                        text = stringResource(R.string.voice_cloning_list_title),
-                        style = MaterialTheme.typography.titleMedium.copy(
+                        if (isCloning) {
+                            MuseSpinner(
+                                size = MusePaddings.iconPadding * 2,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Spacer(Modifier.size(MusePaddings.iconPadding))
+                        } else {
+                            Icon(
+                                imageVector = MuseIcons.plus,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(MusePaddings.iconPadding * 2),
+                            )
+                            Spacer(Modifier.size(MusePaddings.iconPadding))
+                        }
+                        Text(
+                            text = stringResource(R.string.voice_cloning_submit),
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                        ),
-                        color = MaterialTheme.colorScheme.onBackground,
-                    )
-                    voices.forEach { voice ->
-                        ClonedVoiceRow(
-                            voice = voice,
-                            isDeleting = isDeleting,
-                            onDelete = { voiceToDelete = voice },
+                            color = if (isCloning) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.onPrimary
+                            },
                         )
                     }
                 }
-                Spacer(Modifier.height(MusePaddings.screen))
             }
+
+            Spacer(Modifier.height(MusePaddings.sectionGap))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Spacer(Modifier.height(MusePaddings.contentGap))
+
+            // ── 已克隆语音列表(跟随上下滚动,不再固定底部)──
+            // v1.132: 改用 forEach 替代 LazyColumn(verticalScroll 内不能嵌套 LazyColumn),
+            // 让克隆语音列表与表单一起随整页滚动
+            if (isLoadingList && voices.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = MusePaddings.sectionGap),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    MuseSpinner(
+                        size = MusePaddings.iconPadding * 3,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            } else if (voices.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = MusePaddings.sectionGap),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // ST-03: 空态统一 MuseEmptyState
+                    MuseEmptyState(title = strEmpty)
+                }
+            } else {
+                // 列表标题
+                Text(
+                    text = stringResource(R.string.voice_cloning_list_title),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                voices.forEach { voice ->
+                    ClonedVoiceRow(
+                        voice = voice,
+                        isDeleting = isDeleting,
+                        onDelete = { voiceToDelete = voice },
+                    )
+                }
+            }
+            Spacer(Modifier.height(MusePaddings.screen))
+        }
     }
 
     // ── 删除确认弹窗(MuseDialog,不用 Material3 AlertDialog)──
@@ -515,10 +523,7 @@ fun VoiceCloningPage(
  * 表单分组(标题 + 内容),与 VideoGenerationPage 风格一致。
  */
 @Composable
-private fun FormSection(
-    label: String,
-    content: @Composable () -> Unit,
-) {
+private fun FormSection(label: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(MusePaddings.tightGap)) {
         Text(
             text = label,
@@ -534,11 +539,7 @@ private fun FormSection(
  * 已克隆语音行 — 名称 + voiceId + 删除按钮。
  */
 @Composable
-private fun ClonedVoiceRow(
-    voice: ClonedVoice,
-    isDeleting: Boolean,
-    onDelete: () -> Unit,
-) {
+private fun ClonedVoiceRow(voice: ClonedVoice, isDeleting: Boolean, onDelete: () -> Unit) {
     Surface(
         shape = MuseShapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -610,5 +611,3 @@ private fun ClonedVoiceRow(
         }
     }
 }
-
-

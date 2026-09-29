@@ -39,7 +39,9 @@ class AutomationTools(
                     (n.text?.contains(query, ignoreCase = true) == true) ||
                         (n.contentDescription?.contains(query, ignoreCase = true) == true)
                 }
-            } else info.nodes
+            } else {
+                info.nodes
+            }
             buildString {
                 appendLine(info.toSummary(nodes.size.coerceAtMost(50)))
                 if (nodes.isNotEmpty()) {
@@ -121,8 +123,11 @@ class AutomationTools(
             ),
         ) { args ->
             val text = args["text"] ?: return@register "错误:缺少 text 参数"
-            if (manager.tapByText(text)) "已点击包含\"$text\"的控件"
-            else "未找到包含\"$text\"的可点击控件"
+            if (manager.tapByText(text)) {
+                "已点击包含\"$text\"的控件"
+            } else {
+                "未找到包含\"$text\"的可点击控件"
+            }
         }
 
         registry.register(

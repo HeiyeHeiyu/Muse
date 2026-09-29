@@ -13,10 +13,7 @@ import io.zer0.muse.vdproto.VdContract
  * 只有 action 与宿主包名同时匹配才接受,防止第三方伪造。
  */
 class VirtualDisplayBinderReceiver : BroadcastReceiver() {
-    override fun onReceive(
-        context: Context,
-        intent: Intent,
-    ) {
+    override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != VdContract.ACTION_BINDER) return
         val host = intent.getStringExtra(VdContract.EXTRA_HOST_PACKAGE)
         if (host != context.packageName) {

@@ -45,9 +45,11 @@ class SubagentSessionStore(
             if (messages.isEmpty()) return@resultOf
             val file = pathOf(threadId)
             file.parentFile?.mkdirs()
-            file.appendText(messages.joinToString("") { msg ->
-                AppJson.encodeToString(UIMessage.serializer(), msg) + "\n"
-            })
+            file.appendText(
+                messages.joinToString("") { msg ->
+                    AppJson.encodeToString(UIMessage.serializer(), msg) + "\n"
+                },
+            )
         }
     }
 

@@ -49,8 +49,16 @@ interface AuditLogDao {
         maxCount: Int,
         trimBatch: Int,
     ) {
-        insert(AuditLogEntity(timestamp = timestamp, category = category, action = action,
-            target = target, detail = detail, success = success))
+        insert(
+            AuditLogEntity(
+                timestamp = timestamp,
+                category = category,
+                action = action,
+                target = target,
+                detail = detail,
+                success = success,
+            ),
+        )
         val total = count()
         if (total > maxCount) {
             deleteOldest(trimBatch)

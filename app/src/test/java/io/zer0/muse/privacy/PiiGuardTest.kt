@@ -44,10 +44,10 @@ class PiiGuardTest {
     @Test
     fun maskMasksBankCardOfSixteenToNineteenDigits() {
         val inputs = listOf(
-            "卡号 6222021234567890",       // 16 位
-            "卡号 62220212345678901",      // 17 位
-            "卡号 622202123456789012",     // 18 位
-            "卡号 6222021234567890123",    // 19 位
+            "卡号 6222021234567890", // 16 位
+            "卡号 62220212345678901", // 17 位
+            "卡号 622202123456789012", // 18 位
+            "卡号 6222021234567890123", // 19 位
         )
         for (input in inputs) {
             val card = input.removePrefix("卡号 ").trim()

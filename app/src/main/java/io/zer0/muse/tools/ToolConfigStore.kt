@@ -27,7 +27,10 @@ private val Context.toolDataStore: androidx.datastore.core.DataStore<Preferences
  */
 class ToolConfigStore(private val context: Context) {
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     companion object {
         private val TOOL_POLICIES_KEY = stringPreferencesKey("tool_policies")
@@ -51,8 +54,7 @@ class ToolConfigStore(private val context: Context) {
      * 会让 [ToolPermissionResolver] 认为用户已显式放行，从而跳过 ASK/STRICT 模式下按风险等级
      * 应有的审批（历史缺陷：ASK 模式下高风险工具实际不会弹审批卡）。
      */
-    suspend fun getConfiguredPolicy(toolName: String): ToolApprovalPolicy? =
-        policiesFlow.first()[toolName]
+    suspend fun getConfiguredPolicy(toolName: String): ToolApprovalPolicy? = policiesFlow.first()[toolName]
 
     /**
      * 读取生效策略：未配置时回退为 [ToolApprovalPolicy.ALWAYS_ALLOW]。
@@ -60,8 +62,7 @@ class ToolConfigStore(private val context: Context) {
      * 仅适用于「只关心用户是否显式禁用/要求审批」的场景（如子 agent 的
      * deny_on_prompt 处理）；审批主路径请使用 [getConfiguredPolicy]。
      */
-    suspend fun getPolicy(toolName: String): ToolApprovalPolicy =
-        getConfiguredPolicy(toolName) ?: ToolApprovalPolicy.ALWAYS_ALLOW
+    suspend fun getPolicy(toolName: String): ToolApprovalPolicy = getConfiguredPolicy(toolName) ?: ToolApprovalPolicy.ALWAYS_ALLOW
 
     /**
      * 设置指定工具的审批策略。
@@ -73,7 +74,7 @@ class ToolConfigStore(private val context: Context) {
         context.toolDataStore.edit { prefs ->
             val current = decodePolicies(prefs)
             val updated = current.copy(
-                policies = current.policies.toMutableMap().apply { put(toolName, policy) }
+                policies = current.policies.toMutableMap().apply { put(toolName, policy) },
             )
             prefs[TOOL_POLICIES_KEY] = encodePolicies(updated)
         }
@@ -102,7 +103,5 @@ class ToolConfigStore(private val context: Context) {
         }
     }
 
-    private fun encodePolicies(policies: ToolPolicies): String =
-        json.encodeToString(policies)
-
+    private fun encodePolicies(policies: ToolPolicies): String = json.encodeToString(policies)
 }

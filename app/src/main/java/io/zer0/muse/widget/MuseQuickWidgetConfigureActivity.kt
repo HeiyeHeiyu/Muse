@@ -3,8 +3,8 @@ package io.zer0.muse.widget
 import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.Intent
-import android.os.Bundle
 import android.net.Uri
+import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,7 +27,8 @@ class MuseQuickWidgetConfigureActivity : ComponentActivity() {
                         onAssistantSelected = { assistantId ->
                             WidgetPrefs.saveQuickWidgetAssistant(this, appWidgetId, assistantId)
                             val resultIntent = Intent().putExtra(
-                                AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId,
+                                AppWidgetManager.EXTRA_APPWIDGET_ID,
+                                appWidgetId,
                             )
                             setResult(Activity.RESULT_OK, resultIntent)
                             val updateIntent = Intent(

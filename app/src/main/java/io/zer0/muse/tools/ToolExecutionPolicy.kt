@@ -144,10 +144,7 @@ class ToolExecutionPolicy(
      * @param toolName 工具名
      * @param argumentsJson 工具参数原文(指纹原料,不做解析)
      */
-    fun beforeExecute(
-        toolName: String,
-        argumentsJson: String,
-    ): Decision {
+    fun beforeExecute(toolName: String, argumentsJson: String): Decision {
         val fingerprint = fingerprint(toolName, argumentsJson)
         val repeatCount = if (fingerprint == lastFingerprint) lastFingerprintRepeatCount else 0
         val elapsedMs = System.currentTimeMillis() - startedAtMs
@@ -170,10 +167,7 @@ class ToolExecutionPolicy(
     }
 
     /** 预算命中决策的便捷构造。 */
-    private fun blocked(
-        reason: StopReason,
-        detail: String,
-    ): Decision = Decision(allowed = false, reason = reason, detail = detail)
+    private fun blocked(reason: StopReason, detail: String): Decision = Decision(allowed = false, reason = reason, detail = detail)
 
     /**
      * 调用落账:更新计数、失败连击与重复指纹。
@@ -182,11 +176,7 @@ class ToolExecutionPolicy(
      * @param argumentsJson 参数原文(与 beforeExecute 一致)
      * @param success 工具是否执行成功(审批拒绝/预算拦截不算失败,不计入)
      */
-    fun afterExecute(
-        toolName: String,
-        argumentsJson: String,
-        success: Boolean,
-    ) {
+    fun afterExecute(toolName: String, argumentsJson: String, success: Boolean) {
         totalCalls++
         if (success) {
             consecutiveFailures = 0
@@ -255,10 +245,7 @@ class ToolExecutionPolicy(
      * 参数原文不解析 —— 指纹稳定性由"同一模型重复发出相同调用"保证,
      * 键序差异视为不同调用(保守,不误伤合法重试)。
      */
-    internal fun fingerprint(
-        toolName: String,
-        argumentsJson: String,
-    ): String {
+    internal fun fingerprint(toolName: String, argumentsJson: String): String {
         val digest =
             java.security.MessageDigest.getInstance("SHA-256")
                 .digest((toolName + "\u0000" + argumentsJson).toByteArray())

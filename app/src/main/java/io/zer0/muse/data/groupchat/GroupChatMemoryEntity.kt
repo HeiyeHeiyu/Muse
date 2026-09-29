@@ -87,7 +87,7 @@ interface GroupChatMemoryDao {
     @Query(
         "SELECT * FROM group_chat_memories " +
             "WHERE assistantId = :assistantId AND groupChatId = :groupChatId " +
-            "ORDER BY createdAt DESC LIMIT :limit"
+            "ORDER BY createdAt DESC LIMIT :limit",
     )
     suspend fun getByAssistantAndChat(assistantId: String, groupChatId: String, limit: Int = 10): List<GroupChatMemoryEntity>
 

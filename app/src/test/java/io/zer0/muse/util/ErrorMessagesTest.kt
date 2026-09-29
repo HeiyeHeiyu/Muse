@@ -19,8 +19,7 @@ class ErrorMessagesTest {
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
-    private fun classified(msg: String): String =
-        ErrorMessages.classifyNetworkError(context, RuntimeException(msg))
+    private fun classified(msg: String): String = ErrorMessages.classifyNetworkError(context, RuntimeException(msg))
 
     @Test
     fun `unresolvable host maps to network unresolvable`() {

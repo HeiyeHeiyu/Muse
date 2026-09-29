@@ -134,8 +134,7 @@ class PluginMarketInstallerTest {
         return File(dir, "safe-plugin-1.0.0.muse-plugin").apply { writeText(content) }
     }
 
-    private fun tempDir(): File =
-        Files.createTempDirectory("plugin-market-installer").toFile().also { tempDirs += it }
+    private fun tempDir(): File = Files.createTempDirectory("plugin-market-installer").toFile().also { tempDirs += it }
 
     private fun sha256(content: String): String =
         MessageDigest.getInstance("SHA-256").digest(content.toByteArray()).joinToString("") { "%02x".format(it) }

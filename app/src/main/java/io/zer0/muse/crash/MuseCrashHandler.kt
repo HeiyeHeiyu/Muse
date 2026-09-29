@@ -142,28 +142,35 @@ class MuseCrashHandler private constructor(private val appContext: Context) : Th
         private const val TAG = "MuseCrashHandler"
         private const val SAFE_MODE_FLAG = "safe_mode.flag"
         private const val MAX_CRASH_LOGS = 5
+
         // L4-1: 崩溃日志时间戳格式串
         private const val CRASH_TIME_FMT = "yyyyMMdd-HHmmss"
+
         // v2.0+: SP 中崩溃时间展示格式(可读格式,供 SafeModeScreen 直接显示)
         private const val CRASH_TIME_DISPLAY_FMT = "yyyy-MM-dd HH:mm:ss"
+
         // v2.0+: SP 文件名 — 独立 SP 文件,避免与其他模块 SP 冲突,且不依赖 Koin
         private const val SAFE_MODE_SP = "muse_safe_mode"
+
         // v2.0+: SP 字段 key — 与任务规约保持一致(safe_mode_pending + crash_time + crash_trace)
         private const val SP_KEY_PENDING = "safe_mode_pending"
         private const val SP_KEY_CRASH_TIME = "crash_time"
         private const val SP_KEY_CRASH_TRACE = "crash_trace"
+
         // v2.0+: SP crash_trace 字段最大长度(避免 SP 写入超大字符串导致 ANR)
         private const val MAX_SP_TRACE_LENGTH = 8000
+
         // 崩溃上报队列 SP 文件名 — 与 safe_mode SP 分离,互不影响,且不依赖 Koin
         private const val CRASH_QUEUE_SP = "muse_crash_queue"
+
         // 队列字段 key — 与任务规约保持一致(queue_crash_reports)
         private const val SP_KEY_QUEUE = "queue_crash_reports"
+
         // 队列上限 — 超出丢弃最旧的,避免 SP 越积越大导致 ANR
         private const val MAX_QUEUE_SIZE = 10
 
         /** 获取 Safe Mode 专用 SharedPreferences(不依赖 Koin,可在启动早期读取)。 */
-        private fun safeModeSp(appContext: Context): SharedPreferences =
-            appContext.getSharedPreferences(SAFE_MODE_SP, Context.MODE_PRIVATE)
+        private fun safeModeSp(appContext: Context): SharedPreferences = appContext.getSharedPreferences(SAFE_MODE_SP, Context.MODE_PRIVATE)
 
         /** 获取崩溃上报队列专用 SharedPreferences(不依赖 Koin,可在启动早期读取)。 */
         private fun crashQueueSp(appContext: Context): SharedPreferences =
@@ -182,8 +189,7 @@ class MuseCrashHandler private constructor(private val appContext: Context) : Th
         }
 
         /** 把队列编码为 SP 存储字符串(用 [QUEUE_DELIMITER] 拼接)。 */
-        private fun encodeQueue(queue: List<String>): String =
-            queue.joinToString(QUEUE_DELIMITER)
+        private fun encodeQueue(queue: List<String>): String = queue.joinToString(QUEUE_DELIMITER)
 
         // 队列条目分隔符 — 用零宽不可见字符序列,避免与崩溃堆栈文本冲突
         private const val QUEUE_DELIMITER = "\u0000\u0001<CRASH_ENTRY>\u0001\u0000"
@@ -219,12 +225,10 @@ class MuseCrashHandler private constructor(private val appContext: Context) : Th
          *
          * 调用方应在用户授权后遍历列表逐条上报,完成后调 [clearCrashQueue] 清空。
          */
-        fun getPendingCrashReports(appContext: Context): List<String> =
-            readQueueFromSp(crashQueueSp(appContext))
+        fun getPendingCrashReports(appContext: Context): List<String> = readQueueFromSp(crashQueueSp(appContext))
 
         /** 是否有待上报的崩溃(快速检查,避免启动时遍历整列表)。 */
-        fun hasPendingCrashReports(appContext: Context): Boolean =
-            readQueueFromSp(crashQueueSp(appContext)).isNotEmpty()
+        fun hasPendingCrashReports(appContext: Context): Boolean = readQueueFromSp(crashQueueSp(appContext)).isNotEmpty()
 
         /** 清空待上报队列(用户已上报或选择不上报时调用)。 */
         fun clearCrashQueue(appContext: Context) {
@@ -286,9 +290,8 @@ class MuseCrashHandler private constructor(private val appContext: Context) : Th
          * v2.0+: 同时检查文件 flag 和 SP safe_mode_pending,任一存在即返回 true。
          * 双检保证旧版本(只写文件)升级后仍能识别 Safe Mode 状态。
          */
-        fun checkSafeMode(appContext: Context): Boolean =
-            File(appContext.filesDir, SAFE_MODE_FLAG).exists() ||
-                safeModeSp(appContext).getBoolean(SP_KEY_PENDING, false)
+        fun checkSafeMode(appContext: Context): Boolean = File(appContext.filesDir, SAFE_MODE_FLAG).exists() ||
+            safeModeSp(appContext).getBoolean(SP_KEY_PENDING, false)
 
         /**
          * 清除 Safe Mode 标记(用户确认后调用,下次正常启动)。
@@ -338,8 +341,7 @@ class MuseCrashHandler private constructor(private val appContext: Context) : Th
          * 数据来源:SharedPreferences 持久化层,崩溃时由 [markSafeMode] 写入。
          * 若 SP 中无值(旧版本升级场景),返回 null,调用方可回退到崩溃日志文件的 mtime。
          */
-        fun getCrashTime(appContext: Context): String? =
-            safeModeSp(appContext).getString(SP_KEY_CRASH_TIME, null)
+        fun getCrashTime(appContext: Context): String? = safeModeSp(appContext).getString(SP_KEY_CRASH_TIME, null)
 
         /**
          * v2.0+: 读取上次崩溃堆栈摘要(脱敏后的完整崩溃日志文本)。
@@ -347,8 +349,7 @@ class MuseCrashHandler private constructor(private val appContext: Context) : Th
          * 数据来源:SharedPreferences 持久化层,已截断至 [MAX_SP_TRACE_LENGTH] 字符。
          * 若 SP 中无值,返回 null,调用方应回退到 [readLatestCrashLog] 读文件。
          */
-        fun getCrashTrace(appContext: Context): String? =
-            safeModeSp(appContext).getString(SP_KEY_CRASH_TRACE, null)
+        fun getCrashTrace(appContext: Context): String? = safeModeSp(appContext).getString(SP_KEY_CRASH_TRACE, null)
 
         /**
          * 列出全部崩溃日志文件(按时间降序)。

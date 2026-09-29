@@ -219,7 +219,7 @@
     <string name="recently_deleted_auto_clear">Автоматически удаляется через 7 дней.</string>
 
     <string name="chat_draft_label">Черновик</string>
-    <string name="chat_list_archive_confirm">Этот чат будет заархивирован и скрыт из списка.</string>
+    <string name="chat_list_archive_confirm">Архивировать чат "%1$s"? Его можно восстановить из архива.</string>
     <string name="chat_list_archive_confirm_button">Архив</string>
     <string name="chat_list_archive_title">Архив чата</string>
     <string name="chat_list_section_in_progress">В ходе выполнения</string>
@@ -241,14 +241,14 @@
     <string name="err_image_empty_response">Генерация изображения вернула пустой ответ.</string>
     <string name="err_image_invalid_uri">Неверный URI изображения или путь.</string>
     <string name="err_image_no_results">Изображения не были созданы.</string>
-    <string name="err_image_reference_download_failed">Не удалось загрузить эталонное изображение.</string>
-    <string name="err_image_reference_too_large">Эталонное изображение слишком велико.</string>
-    <string name="err_image_response_too_large">Сгенерированное изображение слишком велико для отображения.</string>
-    <string name="err_image_unsupported_model">Выбранная модель не поддерживает создание изображений.</string>
+    <string name="err_image_reference_download_failed">Не удалось загрузить эталонное изображение. (%1$s)</string>
+    <string name="err_image_reference_too_large">Эталонное изображение слишком велико. (%1$s)</string>
+    <string name="err_image_response_too_large">Сгенерированное изображение слишком велико для отображения. (%1$s)</string>
+    <string name="err_image_unsupported_model">Выбранная модель не поддерживает создание изображений. (%1$s)</string>
     <string name="err_invalid_argument">Указан неверный аргумент.</string>
-    <string name="err_invalid_response">Неверный ответ от сервера.</string>
-    <string name="err_memory_config_invalid">Конфигурация памяти недействительна.</string>
-    <string name="err_memory_token_budget_invalid">Неверный бюджет токена памяти.</string>
+    <string name="err_invalid_response">Неверный ответ от сервера. (%1$s)</string>
+    <string name="err_memory_config_invalid">Конфигурация памяти недействительна. (%1$s)</string>
+    <string name="err_memory_token_budget_invalid">Неверный бюджет токена памяти. (%1$s)</string>
     <string name="err_network_error">Ошибка сети.</string>
     <string name="err_no_model_selected">Модель не выбрана.</string>
     <string name="err_no_provider_configured">Поставщик не настроен.</string>
@@ -261,8 +261,8 @@
     <string name="err_resource_exhausted">Ресурс исчерпан.</string>
     <string name="err_service_unavailable">Сервис временно недоступен.</string>
     <string name="err_stream_interrupted">Трансляция была прервана.</string>
-    <string name="err_vertex_ai_config_invalid">Конфигурация Vertex AI недействительна.</string>
-    <string name="err_vertex_ai_token_failed">Не удалось получить токен доступа Vertex AI.</string>
+    <string name="err_vertex_ai_config_invalid">Конфигурация Vertex AI недействительна. (%1$s)</string>
+    <string name="err_vertex_ai_token_failed">Не удалось получить токен доступа Vertex AI. (%1$s)</string>
 
     <!-- Assistant detail: capabilities -->
     <string name="assistant_detail_capabilities_title">Возможности</string>

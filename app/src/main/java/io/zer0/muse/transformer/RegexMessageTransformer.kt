@@ -28,10 +28,7 @@ class RegexMessageTransformer : Transformer {
 
     override val name: String = "Regex"
 
-    override suspend fun transform(
-        messages: List<UIMessage>,
-        context: TransformContext,
-    ): List<UIMessage> {
+    override suspend fun transform(messages: List<UIMessage>, context: TransformContext): List<UIMessage> {
         val rules = (context.extra("regex_rules") as? List<*>)?.filterIsInstance<AssistantRegex>()
             ?: return messages
         if (rules.isEmpty()) return messages

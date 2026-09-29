@@ -24,11 +24,7 @@ import java.util.zip.ZipInputStream
  * @return 当前 entry 的完整字节数组
  * @throws IOException 解压大小超过 [maxBytes]
  */
-fun readZipEntryWithLimit(
-    zis: ZipInputStream,
-    maxBytes: Long,
-    entryName: String? = null,
-): ByteArray {
+fun readZipEntryWithLimit(zis: ZipInputStream, maxBytes: Long, entryName: String? = null): ByteArray {
     val out = java.io.ByteArrayOutputStream()
     val buf = ByteArray(8 * 1024)
     var total = 0L
@@ -39,14 +35,13 @@ fun readZipEntryWithLimit(
         if (total > maxBytes) {
             val label = entryName?.let { "条目 '$it' " } ?: "条目 "
             throw IOException(
-                "${label}解压大小超过限制(${maxBytes / 1024 / 1024}MB),可能是恶意压缩包或 ZIP 炸弹"
+                "${label}解压大小超过限制(${maxBytes / 1024 / 1024}MB),可能是恶意压缩包或 ZIP 炸弹",
             )
         }
         out.write(buf, 0, read)
     }
     return out.toByteArray()
 }
-
 
 /**
  * 将当前 ZIP 条目流式复制到目标输出流，并限制解压后的最大字节数。
@@ -56,12 +51,7 @@ fun readZipEntryWithLimit(
  *
  * @return 实际复制的字节数
  */
-fun copyZipEntryWithLimit(
-    zis: ZipInputStream,
-    output: OutputStream,
-    maxBytes: Long,
-    entryName: String? = null,
-): Long {
+fun copyZipEntryWithLimit(zis: ZipInputStream, output: OutputStream, maxBytes: Long, entryName: String? = null): Long {
     require(maxBytes >= 0) { "maxBytes must be non-negative" }
     val buf = ByteArray(64 * 1024)
     var total = 0L

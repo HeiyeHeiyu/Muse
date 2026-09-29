@@ -21,14 +21,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.navigation.MuseTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -37,11 +35,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.zer0.common.resultOf
 import io.zer0.muse.R
-import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
+import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.theme.MuseMonoFontFamily
 import io.zer0.muse.ui.theme.MuseShapes
@@ -64,10 +64,7 @@ import org.koin.compose.koinInject
  *  - 协议全文按需懒加载([LicenseRepository.loadLicenseText])
  */
 @Composable
-fun LicensesScreen(
-    onBack: () -> Unit,
-    repository: LicenseRepository = koinInject(),
-) {
+fun LicensesScreen(onBack: () -> Unit, repository: LicenseRepository = koinInject()) {
     val context = LocalContext.current
     var manifest by remember { mutableStateOf<LicenseManifest?>(null) }
     var showLicenseDialog by remember { mutableStateOf<Pair<String, String>?>(null) }
@@ -296,10 +293,7 @@ private fun LicenseGroupSection(
  * 点击整行 → 若有 URL 则打开;没有 URL 则不响应(避免误点反馈)。
  */
 @Composable
-private fun DependencyRow(
-    entry: LicenseEntry,
-    onClickUrl: (String) -> Unit,
-) {
+private fun DependencyRow(entry: LicenseEntry, onClickUrl: (String) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -394,12 +388,7 @@ private fun FooterNote() {
  * 协议全文弹窗 — 单按钮关闭,长文本可滚动。
  */
 @Composable
-private fun LicenseTextDialog(
-    title: String,
-    text: String?,
-    isLoading: Boolean,
-    onDismiss: () -> Unit,
-) {
+private fun LicenseTextDialog(title: String, text: String?, isLoading: Boolean, onDismiss: () -> Unit) {
     MuseDialog(
         onDismissRequest = onDismiss,
         title = title,
@@ -412,7 +401,6 @@ private fun LicenseTextDialog(
                 when {
                     isLoading -> MuseSpinner(
                         modifier = Modifier
-                            
                             .align(Alignment.Center),
                         size = 24.dp,
                     )
@@ -441,4 +429,3 @@ private fun LicenseTextDialog(
         dismissText = null,
     )
 }
-

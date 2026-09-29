@@ -6,13 +6,13 @@ import android.content.ContextWrapper
 import android.os.Build
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -230,26 +230,25 @@ fun MuseTheme(
  * 面向弱视用户:文本与背景对比度达到最大(21:1),secondaryContainer/errorContainer 等
  * 语义容器色保持不变,避免破坏状态色可辨识度。
  */
-private fun ColorScheme.toHighContrast(darkTheme: Boolean): ColorScheme =
-    if (darkTheme) {
-        copy(
-            background = Color(0xFF000000),
-            onBackground = Color(0xFFFFFFFF),
-            surface = Color(0xFF000000),
-            onSurface = Color(0xFFFFFFFF),
-            surfaceVariant = Color(0xFF1E1E1E),
-            onSurfaceVariant = Color(0xFFE6E6E6),
-        )
-    } else {
-        copy(
-            background = Color(0xFFFFFFFF),
-            onBackground = Color(0xFF000000),
-            surface = Color(0xFFFFFFFF),
-            onSurface = Color(0xFF000000),
-            surfaceVariant = Color(0xFFE6E6E6),
-            onSurfaceVariant = Color(0xFF1E1E1E),
-        )
-    }
+private fun ColorScheme.toHighContrast(darkTheme: Boolean): ColorScheme = if (darkTheme) {
+    copy(
+        background = Color(0xFF000000),
+        onBackground = Color(0xFFFFFFFF),
+        surface = Color(0xFF000000),
+        onSurface = Color(0xFFFFFFFF),
+        surfaceVariant = Color(0xFF1E1E1E),
+        onSurfaceVariant = Color(0xFFE6E6E6),
+    )
+} else {
+    copy(
+        background = Color(0xFFFFFFFF),
+        onBackground = Color(0xFF000000),
+        surface = Color(0xFFFFFFFF),
+        onSurface = Color(0xFF000000),
+        surfaceVariant = Color(0xFFE6E6E6),
+        onSurfaceVariant = Color(0xFF1E1E1E),
+    )
+}
 
 /**
  * v1.0.90: 主题无关的"偏白的灰"归一化。
@@ -267,38 +266,37 @@ private fun ColorScheme.toHighContrast(darkTheme: Boolean): ColorScheme =
  * 让"浅底色 + 更亮卡面(surface)"的明度差成为层级的主要载体；
  * 卡面不再靠描边/阴影分层。深色模式暂不变（待深色参考校准）。
  */
-private fun ColorScheme.toWhiterNeutrals(darkTheme: Boolean): ColorScheme =
-    if (darkTheme) {
-        copy(
-            // v2.x 深色双平面(深色模式校准):底色向 OLED 纯黑压一档(与浅色"底色压深"同构);
-            // 实测参照:深色 = #000 底 / #1A1A1A 卡,层级靠底-卡明度差。
-            background = darkenToward(background, DOUBLE_PLANE_DARK_BG_PUSH),
-            surface = darkenToward(surface, DOUBLE_PLANE_DARK_BG_PUSH),
-            surfaceDim = darkenToward(surfaceDim, DOUBLE_PLANE_DARK_BG_PUSH),
-            // 卡面灰块适度收敛(原 lift 略高,与深底搭配时卡偏亮;回收约 30%,保留"雾面不闷"观感)。
-            surfaceBright = liftTowardWhite(surfaceBright, 0.04f),
-            surfaceContainerLowest = liftTowardWhite(surfaceContainerLowest, 0.02f),
-            surfaceContainerLow = liftTowardWhite(surfaceContainerLow, 0.04f),
-            surfaceContainer = liftTowardWhite(surfaceContainer, 0.07f),
-            surfaceContainerHigh = liftTowardWhite(surfaceContainerHigh, 0.09f),
-            surfaceContainerHighest = liftTowardWhite(surfaceContainerHighest, 0.11f),
-            surfaceVariant = liftTowardWhite(surfaceVariant, 0.10f),
-            outlineVariant = liftTowardWhite(outlineVariant, 0.10f),
-        )
-    } else {
-        copy(
-            // v2.0.1 双平面：底色压深一档（×0.955），卡面(surface)保持白底，明度差建立层级。
-            background = darkenToward(background, DOUBLE_PLANE_BG_PUSH),
-            surfaceDim = darkenToward(surfaceDim, DOUBLE_PLANE_BG_PUSH),
-            surfaceContainerLowest = liftTowardWhite(surfaceContainerLowest, 0.25f),
-            surfaceContainerLow = liftTowardWhite(surfaceContainerLow, 0.40f),
-            surfaceContainer = liftTowardWhite(surfaceContainer, 0.55f),
-            surfaceContainerHigh = liftTowardWhite(surfaceContainerHigh, 0.62f),
-            surfaceContainerHighest = liftTowardWhite(surfaceContainerHighest, 0.68f),
-            surfaceVariant = liftTowardWhite(surfaceVariant, 0.68f),
-            outlineVariant = liftTowardWhite(outlineVariant, 0.55f),
-        )
-    }
+private fun ColorScheme.toWhiterNeutrals(darkTheme: Boolean): ColorScheme = if (darkTheme) {
+    copy(
+        // v2.x 深色双平面(深色模式校准):底色向 OLED 纯黑压一档(与浅色"底色压深"同构);
+        // 实测参照:深色 = #000 底 / #1A1A1A 卡,层级靠底-卡明度差。
+        background = darkenToward(background, DOUBLE_PLANE_DARK_BG_PUSH),
+        surface = darkenToward(surface, DOUBLE_PLANE_DARK_BG_PUSH),
+        surfaceDim = darkenToward(surfaceDim, DOUBLE_PLANE_DARK_BG_PUSH),
+        // 卡面灰块适度收敛(原 lift 略高,与深底搭配时卡偏亮;回收约 30%,保留"雾面不闷"观感)。
+        surfaceBright = liftTowardWhite(surfaceBright, 0.04f),
+        surfaceContainerLowest = liftTowardWhite(surfaceContainerLowest, 0.02f),
+        surfaceContainerLow = liftTowardWhite(surfaceContainerLow, 0.04f),
+        surfaceContainer = liftTowardWhite(surfaceContainer, 0.07f),
+        surfaceContainerHigh = liftTowardWhite(surfaceContainerHigh, 0.09f),
+        surfaceContainerHighest = liftTowardWhite(surfaceContainerHighest, 0.11f),
+        surfaceVariant = liftTowardWhite(surfaceVariant, 0.10f),
+        outlineVariant = liftTowardWhite(outlineVariant, 0.10f),
+    )
+} else {
+    copy(
+        // v2.0.1 双平面：底色压深一档（×0.955），卡面(surface)保持白底，明度差建立层级。
+        background = darkenToward(background, DOUBLE_PLANE_BG_PUSH),
+        surfaceDim = darkenToward(surfaceDim, DOUBLE_PLANE_BG_PUSH),
+        surfaceContainerLowest = liftTowardWhite(surfaceContainerLowest, 0.25f),
+        surfaceContainerLow = liftTowardWhite(surfaceContainerLow, 0.40f),
+        surfaceContainer = liftTowardWhite(surfaceContainer, 0.55f),
+        surfaceContainerHigh = liftTowardWhite(surfaceContainerHigh, 0.62f),
+        surfaceContainerHighest = liftTowardWhite(surfaceContainerHighest, 0.68f),
+        surfaceVariant = liftTowardWhite(surfaceVariant, 0.68f),
+        outlineVariant = liftTowardWhite(outlineVariant, 0.55f),
+    )
+}
 
 /** 「双平面」浅色模式底色压深幅度：1 - 0.955 = 4.5%。（校准参数，样张迭代时调整。） */
 private const val DOUBLE_PLANE_BG_PUSH = 0.045f

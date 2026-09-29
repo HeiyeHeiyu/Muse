@@ -83,6 +83,5 @@ object McpServerTemplates {
     )
 
     /** 按 id 查找模板,找不到时返回自定义模板。 */
-    fun find(id: String): McpServerTemplate =
-        all.firstOrNull { it.id == id } ?: custom
+    fun find(id: String): McpServerTemplate = all.firstOrNull { it.id == id } ?: custom
 }

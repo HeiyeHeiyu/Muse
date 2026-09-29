@@ -40,6 +40,7 @@ class HybridSearchService(
         /** B4-03: 分块创建时间戳(时间范围过滤判定用)。 */
         val createdAt: Long = 0L,
     )
+
     /** 混合检索结果 — 用 RRF 分数替代原始相似度。 */
     data class HybridResult(
         val docId: String,
@@ -142,7 +143,7 @@ class HybridSearchService(
             }
         }
 
-        val rrfScores = mutableMapOf<String, Float>()  // chunkId -> rrfScore
+        val rrfScores = mutableMapOf<String, Float>() // chunkId -> rrfScore
         val metaMap = mutableMapOf<String, VectorSearchService.SearchResult>()
         val bm25ChunkIds = mutableSetOf<String>()
 
@@ -178,7 +179,7 @@ class HybridSearchService(
         }
         val maxScore = rrfScores.values.maxOrNull() ?: 0f
         return rrfScores.entries
-            .filter { metaMap[it.key] != null }  // 只保留有内容的结果(无法解析的 BM25-only 跳过)
+            .filter { metaMap[it.key] != null } // 只保留有内容的结果(无法解析的 BM25-only 跳过)
             .map { (chunkId, score) ->
                 val r = metaMap[chunkId]!!
                 HybridResult(
@@ -223,7 +224,7 @@ class HybridSearchService(
             if (current.isNotEmpty()) tokens.add(current.toString())
 
             val filtered = tokens.filter { it.length >= 2 }.distinct().take(10)
-            if (filtered.isEmpty()) return "\"${query.take(50)}\""  // fallback 短语
+            if (filtered.isEmpty()) return "\"${query.take(50)}\"" // fallback 短语
             // 多 token 用空格分隔(FTS4 默认 AND);若 token 太多降级为 OR
             return if (filtered.size <= 5) {
                 filtered.joinToString(" ")

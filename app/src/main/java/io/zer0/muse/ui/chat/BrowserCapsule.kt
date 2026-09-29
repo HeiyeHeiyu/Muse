@@ -74,11 +74,7 @@ internal enum class BrowserDisplayState {
 }
 
 /** 纯逻辑状态映射,供 UI 与测试复用。 */
-internal fun browserDisplayState(
-    isActive: Boolean,
-    isLoading: Boolean,
-    url: String,
-): BrowserDisplayState = when {
+internal fun browserDisplayState(isActive: Boolean, isLoading: Boolean, url: String): BrowserDisplayState = when {
     isLoading -> BrowserDisplayState.LOADING
     !isActive || url.isBlank() -> BrowserDisplayState.NOT_STARTED
     url.equals("about:blank", ignoreCase = true) -> BrowserDisplayState.BLANK_PAGE
@@ -86,8 +82,7 @@ internal fun browserDisplayState(
 }
 
 /** 未启动时不占用聊天标题栏；浏览器真正开始工作后才显示入口。 */
-internal fun shouldShowBrowserCapsule(state: BrowserDisplayState): Boolean =
-    state != BrowserDisplayState.NOT_STARTED
+internal fun shouldShowBrowserCapsule(state: BrowserDisplayState): Boolean = state != BrowserDisplayState.NOT_STARTED
 
 /** 将页面标题/地址归一化为状态胶囊可展示的短标签。 */
 internal fun browserPageLabel(title: String, url: String): String {

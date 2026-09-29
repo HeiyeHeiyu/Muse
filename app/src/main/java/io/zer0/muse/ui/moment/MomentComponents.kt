@@ -13,10 +13,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -62,13 +62,7 @@ import io.zer0.muse.ui.theme.MusePaddings
 
 /** v1.0.73: 圆形头像 — 图片优先(用户资料/助手头像),无图时渐变底 + 首字。 */
 @Composable
-fun MomentAvatar(
-    senderType: String,
-    name: String,
-    size: Int,
-    avatarUrl: String? = null,
-    modifier: Modifier = Modifier,
-) {
+fun MomentAvatar(senderType: String, name: String, size: Int, avatarUrl: String? = null, modifier: Modifier = Modifier) {
     val gradient = Brush.linearGradient(
         listOf(
             MaterialTheme.colorScheme.primary,
@@ -141,7 +135,7 @@ fun MomentsFeedHeader(
                         MaterialTheme.colorScheme.surfaceVariant,
                     ),
                 ),
-            )
+            ),
     ) {
         // 封面背景图(用户自选)
         if (!coverImage.isNullOrBlank()) {
@@ -254,7 +248,7 @@ fun MomentsFeedHeader(
                     .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.35f), CircleShape)
                     .padding(MusePaddings.tinyGap)
-                .clickable(onClick = onOpenSelfProfile),
+                    .clickable(onClick = onOpenSelfProfile),
             )
         }
     }
@@ -402,7 +396,7 @@ fun MomentMessagesPage(
             )
         }
         if (messages.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     text = stringResource(R.string.moment_messages_empty),
                     style = MaterialTheme.typography.bodyMedium,
@@ -420,61 +414,61 @@ fun MomentMessagesPage(
                         modifier = Modifier.fillMaxWidth(),
                         backgroundAlpha = 1f,
                     ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onOpenMoment(msg.momentId) }
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        MomentAvatar(
-                            senderType = "assistant",
-                            name = msg.actorName,
-                            size = 40,
-                            avatarUrl = msg.actorAvatar,
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (msg.type == "like") {
-                                    Icon(
-                                        imageVector = MuseIcons.heart,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(14.dp),
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onOpenMoment(msg.momentId) }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            MomentAvatar(
+                                senderType = "assistant",
+                                name = msg.actorName,
+                                size = 40,
+                                avatarUrl = msg.actorAvatar,
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (msg.type == "like") {
+                                        Icon(
+                                            imageVector = MuseIcons.heart,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(14.dp),
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                    }
+                                    Text(
+                                        text = when (msg.type) {
+                                            "like" -> stringResource(R.string.moment_notification_liked, msg.actorName)
+                                            else -> stringResource(R.string.moment_notification_commented, msg.actorName)
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.onSurface,
                                     )
-                                    Spacer(Modifier.width(4.dp))
                                 }
+                                if (msg.type == "comment" && msg.content.isNotBlank()) {
+                                    Text(
+                                        text = msg.content,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Spacer(Modifier.height(2.dp))
                                 Text(
-                                    text = when (msg.type) {
-                                        "like" -> stringResource(R.string.moment_notification_liked, msg.actorName)
-                                        else -> stringResource(R.string.moment_notification_commented, msg.actorName)
-                                    },
-                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    text = "\"${msg.momentContent.take(30)}${if (msg.momentContent.length > 30) "..." else ""}\"",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline,
+                                    maxLines = 1,
                                 )
                             }
-                            if (msg.type == "comment" && msg.content.isNotBlank()) {
-                                Text(
-                                    text = msg.content,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            Spacer(Modifier.height(2.dp))
                             Text(
-                                text = "\"${msg.momentContent.take(30)}${if (msg.momentContent.length > 30) "..." else ""}\"",
+                                text = momentTimeText(msg.createdAt, context),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.outline,
-                                maxLines = 1,
                             )
                         }
-                        Text(
-                            text = momentTimeText(msg.createdAt, context),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-                    }
                     } // MuseIsland
                 }
             }

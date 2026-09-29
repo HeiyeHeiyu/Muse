@@ -34,16 +34,15 @@ class ArtifactCardListTest {
 
     private fun moreText(hidden: Int): String = context.getString(R.string.artifact_more_count, hidden)
 
-    private fun artifact(index: Int) =
-        ArtifactEntity(
-            id = "artifact-$index",
-            sessionId = "session-1",
-            messageId = "message-1",
-            title = "产物$index",
-            type = "code",
-            content = "val x = $index",
-            language = "kotlin",
-        )
+    private fun artifact(index: Int) = ArtifactEntity(
+        id = "artifact-$index",
+        sessionId = "session-1",
+        messageId = "message-1",
+        title = "产物$index",
+        type = "code",
+        content = "val x = $index",
+        language = "kotlin",
+    )
 
     @Test
     fun `超过三个时尾部显示折叠条`() {

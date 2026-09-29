@@ -22,21 +22,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
 import io.zer0.muse.data.plugin.PluginManifest
 import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.tools.ToolRiskLevel
+import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.ui.common.navigation.MuseTopBar
-import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.surface.CardGroup
 import io.zer0.muse.ui.common.surface.CardGroupScope
@@ -66,9 +66,7 @@ import org.koin.compose.koinInject
  *     本页不做全局开关(避免与 per-Assistant 机制冲突),只做展示与说明。
  */
 @Composable
-fun ToolsScreen(
-    onBack: () -> Unit,
-) {
+fun ToolsScreen(onBack: () -> Unit) {
     val toolRegistry: ToolRegistry = koinInject()
     // ToolRegistry 支持 MCP/插件动态注册；订阅 revision，避免页面首次为空后永久不刷新。
     val registryRevision by toolRegistry.revision.collectAsStateWithLifecycle()
@@ -101,31 +99,31 @@ fun ToolsScreen(
             // v2.x: 动效补齐 — 列表项入场(令牌 animateItem)
             item(key = "intro") {
                 Box(museAnimateItem()) {
-                CardGroup(modifier = Modifier.padding(horizontal = MusePaddings.screen)) {
-                    item(
-                        leadingContent = {
-                            Icon(
-                                imageVector = MuseIcons.info,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(22.dp),
-                            )
-                        },
-                        headlineContent = {
-                            Text(
-                                text = stringResource(R.string.tools_intro_what),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        },
-                        supportingContent = {
-                            Text(
-                                text = stringResource(R.string.tools_intro_manage),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        },
-                    )
-                }
+                    CardGroup(modifier = Modifier.padding(horizontal = MusePaddings.screen)) {
+                        item(
+                            leadingContent = {
+                                Icon(
+                                    imageVector = MuseIcons.info,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(22.dp),
+                                )
+                            },
+                            headlineContent = {
+                                Text(
+                                    text = stringResource(R.string.tools_intro_what),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = stringResource(R.string.tools_intro_manage),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            },
+                        )
+                    }
                 }
             }
 
@@ -134,12 +132,12 @@ fun ToolsScreen(
             item(key = "stats") {
                 val highRiskCount = tools.count { it.riskLevel == ToolRiskLevel.HIGH }
                 Box(museAnimateItem()) {
-                Text(
-                    text = stringResource(R.string.tools_stats_count, tools.size, highRiskCount),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = MusePaddings.screen),
-                )
+                    Text(
+                        text = stringResource(R.string.tools_stats_count, tools.size, highRiskCount),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = MusePaddings.screen),
+                    )
                 }
             }
 
@@ -148,11 +146,11 @@ fun ToolsScreen(
                 // v2.x: 动效补齐 — 空态入场(令牌 animateItem)
                 item(key = "tools_empty") {
                     Box(museAnimateItem()) {
-                    MuseEmptyState(
-                        title = stringResource(R.string.tools_empty_title),
-                        subtitle = stringResource(R.string.tools_empty_subtitle),
-                        modifier = Modifier.padding(horizontal = MusePaddings.screen),
-                    )
+                        MuseEmptyState(
+                            title = stringResource(R.string.tools_empty_title),
+                            subtitle = stringResource(R.string.tools_empty_subtitle),
+                            modifier = Modifier.padding(horizontal = MusePaddings.screen),
+                        )
                     }
                 }
             }
@@ -160,19 +158,19 @@ fun ToolsScreen(
                 // v2.x: 动效补齐 — 分类分组入场(令牌 animateItem)
                 item(key = "group_$category") {
                     Box(museAnimateItem()) {
-                    CardGroup(
-                        modifier = Modifier.padding(horizontal = MusePaddings.screen),
-                        title = {
-                            Text(text = categoryLabel(category))
-                        },
-                    ) {
-                        toolsInCategory.forEach { tool ->
-                            ToolRow(
-                                tool = tool,
-                                onClick = { detailTarget = tool },
-                            )
+                        CardGroup(
+                            modifier = Modifier.padding(horizontal = MusePaddings.screen),
+                            title = {
+                                Text(text = categoryLabel(category))
+                            },
+                        ) {
+                            toolsInCategory.forEach { tool ->
+                                ToolRow(
+                                    tool = tool,
+                                    onClick = { detailTarget = tool },
+                                )
+                            }
                         }
-                    }
                     }
                 }
             }
@@ -184,23 +182,23 @@ fun ToolsScreen(
             // v2.x: 动效补齐 — 插件分组入场(令牌 animateItem)
             item(key = "plugins_group") {
                 Box(museAnimateItem()) {
-                CardGroup(
-                    modifier = Modifier.padding(horizontal = MusePaddings.screen),
-                    title = {
-                        Column {
-                            Text(text = stringResource(R.string.tools_plugins_section))
-                            Text(
-                                text = stringResource(R.string.tools_plugins_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.padding(top = 2.dp),
-                            )
+                    CardGroup(
+                        modifier = Modifier.padding(horizontal = MusePaddings.screen),
+                        title = {
+                            Column {
+                                Text(text = stringResource(R.string.tools_plugins_section))
+                                Text(
+                                    text = stringResource(R.string.tools_plugins_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                )
+                            }
+                        },
+                    ) {
+                        PluginManifest.BUILT_IN.forEach { plugin ->
+                            PluginRow(plugin = plugin)
                         }
-                    },
-                ) {
-                    PluginManifest.BUILT_IN.forEach { plugin ->
-                        PluginRow(plugin = plugin)
                     }
-                }
                 }
             }
         }
@@ -218,10 +216,7 @@ fun ToolsScreen(
 /**
  * 单条工具行 — 图标 + name + description + 风险等级徽章。
  */
-private fun CardGroupScope.ToolRow(
-    tool: ToolRegistry.ToolDef,
-    onClick: () -> Unit,
-) {
+private fun CardGroupScope.ToolRow(tool: ToolRegistry.ToolDef, onClick: () -> Unit) {
     item(
         key = tool.name,
         onClick = onClick,
@@ -282,10 +277,7 @@ private fun RiskBadge(level: ToolRiskLevel) {
  * 工具详情弹窗 — 展示参数 Schema + 风险等级 + 安全说明。
  */
 @Composable
-private fun ToolDetailDialog(
-    tool: ToolRegistry.ToolDef,
-    onDismiss: () -> Unit,
-) {
+private fun ToolDetailDialog(tool: ToolRegistry.ToolDef, onDismiss: () -> Unit) {
     MuseDialog(
         onDismissRequest = onDismiss,
         title = tool.name,
@@ -385,12 +377,7 @@ private fun ToolDetailDialog(
  * 参数行 — 名称(等宽)+ 类型 + 必填标记 + 描述。
  */
 @Composable
-private fun ParamRow(
-    name: String,
-    type: String,
-    required: Boolean,
-    description: String,
-) {
+private fun ParamRow(name: String, type: String, required: Boolean, description: String) {
     Surface(
         shape = MuseShapes.small,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
@@ -539,4 +526,3 @@ private fun CardGroupScope.PluginRow(plugin: PluginManifest) {
         }
     }
 }
-

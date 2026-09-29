@@ -42,12 +42,16 @@ class ElevenLabsVoiceCloningProvider(
 
     companion object {
         private const val TAG = "ElevenLabsVoiceClone"
+
         /** ElevenLabs Voice Cloning API 基址。 */
         private const val BASE_URL = "https://api.elevenlabs.io/v1"
+
         /** 克隆语音的 mime 类型(ElevenLabs 接受 mp3/wav/m4a 等)。 */
         private const val SAMPLE_MIME = "audio/mpeg"
+
         /** 上传样本音频时的文件名(ElevenLabs 仅依赖二进制内容,文件名占位即可)。 */
         private const val SAMPLE_FILENAME = "sample.mp3"
+
         /** 强制 30 秒超时(满足任务约束)。 */
         private const val TIMEOUT_SECONDS = 30L
     }
@@ -130,47 +134,46 @@ class ElevenLabsVoiceCloningProvider(
      * 响应:`{"voices": [{"voice_id": "...", "name": "...", "category": "...", "created_at": "..."}]}`
      * `created_at` 为 ISO 8601 字符串(如 "2024-01-15T12:34:56.789Z"),解析失败时回退 0L。
      */
-    override suspend fun listClonedVoices(): Result<List<ClonedVoice>> =
-        withContext(kotlinx.coroutines.Dispatchers.IO) {
-            if (apiKey.isBlank()) {
-                return@withContext Result.Error("ElevenLabs apiKey is empty")
-            }
-            resultOf {
-                val req = Request.Builder()
-                    .url("$BASE_URL/voices")
-                    .header("xi-api-key", apiKey)
-                    .header("Accept", "application/json")
-                    .get()
-                    .build()
+    override suspend fun listClonedVoices(): Result<List<ClonedVoice>> = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        if (apiKey.isBlank()) {
+            return@withContext Result.Error("ElevenLabs apiKey is empty")
+        }
+        resultOf {
+            val req = Request.Builder()
+                .url("$BASE_URL/voices")
+                .header("xi-api-key", apiKey)
+                .header("Accept", "application/json")
+                .get()
+                .build()
 
-                timedClient.newCall(req).execute().use { resp ->
-                    if (!resp.isSuccessful) {
-                        val body = resp.body.string()
-                        throw IOException("ElevenLabs listVoices failed: HTTP ${resp.code}, body=$body")
-                    }
-                    val root = Json { ignoreUnknownKeys = true }
-                        .parseToJsonElement(resp.body.string()) as? JsonObject
-                        ?: throw IOException("ElevenLabs listVoices response is not JSON")
-                    val arr = root["voices"] as? kotlinx.serialization.json.JsonArray
-                        ?: throw IOException("ElevenLabs listVoices response missing voices[]")
-                    arr.mapNotNull { item ->
-                        val obj = item as? JsonObject ?: return@mapNotNull null
-                        val voiceId = obj["voice_id"]?.jsonPrimitive?.contentOrNull
-                            ?: return@mapNotNull null
-                        val voiceName = obj["name"]?.jsonPrimitive?.contentOrNull ?: voiceId
-                        val category = obj["category"]?.jsonPrimitive?.contentOrNull ?: "cloned"
-                        val createdAtStr = obj["created_at"]?.jsonPrimitive?.contentOrNull
-                        val createdAt = parseIso8601ToMillis(createdAtStr)
-                        ClonedVoice(
-                            voiceId = voiceId,
-                            name = voiceName,
-                            createdAt = createdAt,
-                            category = category,
-                        )
-                    }.filter { it.category == "cloned" }
+            timedClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    val body = resp.body.string()
+                    throw IOException("ElevenLabs listVoices failed: HTTP ${resp.code}, body=$body")
                 }
+                val root = Json { ignoreUnknownKeys = true }
+                    .parseToJsonElement(resp.body.string()) as? JsonObject
+                    ?: throw IOException("ElevenLabs listVoices response is not JSON")
+                val arr = root["voices"] as? kotlinx.serialization.json.JsonArray
+                    ?: throw IOException("ElevenLabs listVoices response missing voices[]")
+                arr.mapNotNull { item ->
+                    val obj = item as? JsonObject ?: return@mapNotNull null
+                    val voiceId = obj["voice_id"]?.jsonPrimitive?.contentOrNull
+                        ?: return@mapNotNull null
+                    val voiceName = obj["name"]?.jsonPrimitive?.contentOrNull ?: voiceId
+                    val category = obj["category"]?.jsonPrimitive?.contentOrNull ?: "cloned"
+                    val createdAtStr = obj["created_at"]?.jsonPrimitive?.contentOrNull
+                    val createdAt = parseIso8601ToMillis(createdAtStr)
+                    ClonedVoice(
+                        voiceId = voiceId,
+                        name = voiceName,
+                        createdAt = createdAt,
+                        category = category,
+                    )
+                }.filter { it.category == "cloned" }
             }
         }
+    }
 
     /**
      * 删除指定 voice。
@@ -178,29 +181,28 @@ class ElevenLabsVoiceCloningProvider(
      * DELETE /voices/{voice_id}
      * 成功返回 204 No Content(无响应体)。
      */
-    override suspend fun deleteVoice(voiceId: String): Result<Unit> =
-        withContext(kotlinx.coroutines.Dispatchers.IO) {
-            if (apiKey.isBlank()) {
-                return@withContext Result.Error("ElevenLabs apiKey is empty")
-            }
-            resultOf {
-                val req = Request.Builder()
-                    .url("$BASE_URL/voices/$voiceId")
-                    .header("xi-api-key", apiKey)
-                    .header("Accept", "application/json")
-                    .delete()
-                    .build()
+    override suspend fun deleteVoice(voiceId: String): Result<Unit> = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        if (apiKey.isBlank()) {
+            return@withContext Result.Error("ElevenLabs apiKey is empty")
+        }
+        resultOf {
+            val req = Request.Builder()
+                .url("$BASE_URL/voices/$voiceId")
+                .header("xi-api-key", apiKey)
+                .header("Accept", "application/json")
+                .delete()
+                .build()
 
-                timedClient.newCall(req).execute().use { resp ->
-                    if (!resp.isSuccessful) {
-                        val body = runCatching { resp.body.string() }.getOrNull()
-                        throw IOException("ElevenLabs deleteVoice failed: HTTP ${resp.code}, body=$body")
-                    }
-                    Logger.i(TAG, "Deleted voice: voiceId=$voiceId")
-                    Unit
+            timedClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    val body = runCatching { resp.body.string() }.getOrNull()
+                    throw IOException("ElevenLabs deleteVoice failed: HTTP ${resp.code}, body=$body")
                 }
+                Logger.i(TAG, "Deleted voice: voiceId=$voiceId")
+                Unit
             }
         }
+    }
 
     /**
      * 解析 ISO 8601 时间字符串为毫秒时间戳。

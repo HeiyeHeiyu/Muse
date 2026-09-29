@@ -12,11 +12,7 @@ import io.zer0.common.Logger
  * startActivity 仍会抛 ActivityNotFoundException。逐个检查并捕获启动异常,
  * 保证权限页点击不会把整个 Compose Activity 弄崩。
  */
-internal fun launchFirstResolvable(
-    candidates: List<Intent>,
-    canResolve: (Intent) -> Boolean,
-    startActivity: (Intent) -> Unit,
-): Boolean {
+internal fun launchFirstResolvable(candidates: List<Intent>, canResolve: (Intent) -> Boolean, startActivity: (Intent) -> Unit): Boolean {
     candidates.forEach { candidate ->
         if (!runCatching { canResolve(candidate) }.getOrDefault(false)) return@forEach
         try {
@@ -32,11 +28,7 @@ internal fun launchFirstResolvable(
 }
 
 /** 从非 Activity Context 启动设置时,把 NEW_TASK 加到最终候选 Intent。 */
-internal fun openAutomationSettings(
-    context: Context,
-    candidates: List<Intent>,
-    onUnavailable: () -> Unit = {},
-): Boolean {
+internal fun openAutomationSettings(context: Context, candidates: List<Intent>, onUnavailable: () -> Unit = {}): Boolean {
     val started = launchFirstResolvable(
         candidates = candidates.map { Intent(it).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) },
         canResolve = { intent -> intent.resolveActivity(context.packageManager) != null },

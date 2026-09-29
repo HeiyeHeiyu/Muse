@@ -1,8 +1,8 @@
 package io.zer0.muse.ui
 
 import android.content.Context
-import io.zer0.muse.R
 import io.zer0.common.ErrorMessage
+import io.zer0.muse.R
 
 /**
  * ErrorMessage → 用户可见本地化字符串的适配层。

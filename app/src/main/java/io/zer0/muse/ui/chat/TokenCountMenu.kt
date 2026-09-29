@@ -46,10 +46,7 @@ data class TokenCountSnapshot(
  * 使用 [MuseBottomSheet] 而非 ModalBottomSheet(真机 scrim 卡死 bug)。
  */
 @Composable
-fun TokenCountMenu(
-    snapshot: TokenCountSnapshot,
-    onDismissRequest: () -> Unit,
-) {
+fun TokenCountMenu(snapshot: TokenCountSnapshot, onDismissRequest: () -> Unit) {
     MuseBottomSheet(onDismissRequest = onDismissRequest) {
         Column(
             modifier = Modifier
@@ -147,5 +144,4 @@ private fun TokenRow(label: String, value: Int) {
 }
 
 /** 千分位格式化,便于阅读大数字。 */
-private fun formatNumber(v: Int): String =
-    "%,d".format(v)
+private fun formatNumber(v: Int): String = "%,d".format(v)

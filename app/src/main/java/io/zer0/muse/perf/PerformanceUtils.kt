@@ -29,10 +29,7 @@ object MessagePaginator {
      * @param pageSize 每页大小
      * @return 分页后的消息 ID 列表 Flow(按加载顺序累加)
      */
-    fun createFlow(
-        allMessages: List<String>,
-        pageSize: Int = DEFAULT_PAGE_SIZE,
-    ): Flow<List<String>> = flow {
+    fun createFlow(allMessages: List<String>, pageSize: Int = DEFAULT_PAGE_SIZE): Flow<List<String>> = flow {
         if (allMessages.isEmpty()) {
             emit(emptyList())
             return@flow

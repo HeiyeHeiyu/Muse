@@ -181,7 +181,7 @@ class PluginVersionIntegrationTest {
         assertTrue("降级安装必须被拒绝", downgraded.isFailure)
         assertTrue(
             downgraded.exceptionOrNull()?.message.orEmpty().contains("降级"),
-            )
+        )
         assertEquals("2.0.0", manager.findPlugin("downgrade-plugin")?.version)
         trustFile.delete()
         Unit

@@ -87,11 +87,7 @@ import java.time.ZoneId
  * 内容区只显示当前分段，避免单页无限长列表，也避免横向滚动的筛选胶囊。
  */
 @Composable
-fun MemoryScreen(
-    onBack: () -> Unit = {},
-    onOpenSettings: () -> Unit = {},
-    viewModel: MemoryViewModel = koinViewModel(),
-) {
+fun MemoryScreen(onBack: () -> Unit = {}, onOpenSettings: () -> Unit = {}, viewModel: MemoryViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scopes by viewModel.availableScopes.collectAsStateWithLifecycle()
     val spaces by viewModel.availableSpaces.collectAsStateWithLifecycle()
@@ -183,9 +179,9 @@ fun MemoryScreen(
         ) {
             LazyColumn(
                 modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .then(if (widthClass == WindowWidthClass.Expanded) Modifier.widthIn(max = 760.dp) else Modifier),
+                Modifier
+                    .fillMaxSize()
+                    .then(if (widthClass == WindowWidthClass.Expanded) Modifier.widthIn(max = 760.dp) else Modifier),
                 contentPadding = PaddingValues(bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -195,11 +191,11 @@ fun MemoryScreen(
                         organizing = organizing,
                         stage = organizeStage,
                         scopeLabel =
-                            scopes.firstOrNull { it.id == selectedScope }?.displayName
-                                ?: stringResource(R.string.memory_center_scope_all),
+                        scopes.firstOrNull { it.id == selectedScope }?.displayName
+                            ?: stringResource(R.string.memory_center_scope_all),
                         spaceLabel =
-                            spaces.firstOrNull { it.id == selectedSpace }?.name
-                                ?: stringResource(R.string.memory_center_space_default),
+                        spaces.firstOrNull { it.id == selectedSpace }?.name
+                            ?: stringResource(R.string.memory_center_space_default),
                         onOrganize = viewModel::organizeMemory,
                         onOpenFilter = { showFilter = true },
                     )
@@ -212,8 +208,8 @@ fun MemoryScreen(
                     item(key = "memory_error") {
                         MuseErrorStateBox(
                             message =
-                                memoryError.lineSequence().firstOrNull { it.isNotBlank() }?.take(240)
-                                    ?: stringResource(R.string.memory_graph_load_failed),
+                            memoryError.lineSequence().firstOrNull { it.isNotBlank() }?.take(240)
+                                ?: stringResource(R.string.memory_graph_load_failed),
                             onRetry = { viewModel.loadAll() },
                             modifier = Modifier.fillMaxWidth().heightIn(min = 320.dp),
                         )
@@ -329,10 +325,10 @@ fun MemoryScreen(
                 var advancedFilterExpanded by remember { mutableStateOf(false) }
                 Row(
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { advancedFilterExpanded = !advancedFilterExpanded }
-                            .padding(vertical = 6.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { advancedFilterExpanded = !advancedFilterExpanded }
+                        .padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
@@ -352,15 +348,15 @@ fun MemoryScreen(
                     visible = advancedFilterExpanded,
                     // v2.x: 补令牌 spec(原为默认 spec)
                     enter =
-                        fadeIn(animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS)) +
-                            expandVertically(
-                                animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
-                            ),
+                    fadeIn(animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS)) +
+                        expandVertically(
+                            animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+                        ),
                     exit =
-                        fadeOut(animationSpec = MuseMotion.tween(MuseAnimation.FAST_MS)) +
-                            shrinkVertically(
-                                animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS),
-                            ),
+                    fadeOut(animationSpec = MuseMotion.tween(MuseAnimation.FAST_MS)) +
+                        shrinkVertically(
+                            animationSpec = MuseMotion.tween(MuseAnimation.FAST_NORMAL_MS),
+                        ),
                 ) {
                     Column {
                         Text(
@@ -458,10 +454,7 @@ fun MemoryScreen(
 }
 
 @Composable
-private fun MemoryCapsuleTabs(
-    selected: Int,
-    onSelect: (Int) -> Unit,
-) {
+private fun MemoryCapsuleTabs(selected: Int, onSelect: (Int) -> Unit) {
     // P1-3: 恢复记忆星座 tab(真实星座图,经 MemoryGraphViewModel 加载)
     val tabs =
         listOf(
@@ -532,12 +525,12 @@ private fun MemoryOverviewCard(
             }
             MuseCapsuleButton(
                 text =
-                    when (stage) {
-                        "prepare" -> stringResource(R.string.memory_organize_stage_prepare)
-                        "compile" -> stringResource(R.string.memory_organize_stage_compile)
-                        "dedup" -> stringResource(R.string.memory_organize_stage_dedup)
-                        else -> stringResource(R.string.memory_organize_action)
-                    },
+                when (stage) {
+                    "prepare" -> stringResource(R.string.memory_organize_stage_prepare)
+                    "compile" -> stringResource(R.string.memory_organize_stage_compile)
+                    "dedup" -> stringResource(R.string.memory_organize_stage_dedup)
+                    else -> stringResource(R.string.memory_organize_action)
+                },
                 onClick = onOrganize,
                 enabled = !organizing,
                 loading = organizing,
@@ -571,14 +564,14 @@ private fun LazyListScope.memoryStreamItems(
         item(key = "memory_stream_pinned") {
             PinnedMemorySection(
                 pinnedEntries =
-                    pinned.map { item ->
-                        io.zer0.memory.pin.PinnedMemoryStore.PinnedEntry(
-                            id = item.id,
-                            content = item.content,
-                            createdAt = item.createdAt ?: item.time.orEmpty(),
-                            updatedAt = item.pinnedAt ?: item.createdAt ?: item.time.orEmpty(),
-                        )
-                    },
+                pinned.map { item ->
+                    io.zer0.memory.pin.PinnedMemoryStore.PinnedEntry(
+                        id = item.id,
+                        content = item.content,
+                        createdAt = item.createdAt ?: item.time.orEmpty(),
+                        updatedAt = item.pinnedAt ?: item.createdAt ?: item.time.orEmpty(),
+                    )
+                },
                 onRemove = { id -> items.firstOrNull { it.id == id }?.let(onPin) },
             )
         }
@@ -650,14 +643,14 @@ private fun LazyListScope.memoryStreamItems(
                     Box(museAnimateItem()) {
                         TimelineEventCard(
                             item =
-                                TimelineItem(
-                                    id = item.id,
-                                    content = item.content,
-                                    source = item.source,
-                                    importance = item.importance,
-                                    createdAt = item.createdAt ?: item.time,
-                                    tags = item.tags,
-                                ),
+                            TimelineItem(
+                                id = item.id,
+                                content = item.content,
+                                source = item.source,
+                                importance = item.importance,
+                                createdAt = item.createdAt ?: item.time,
+                                tags = item.tags,
+                            ),
                         )
                     }
                 }
@@ -696,10 +689,7 @@ private fun LazyListScope.memoryStreamItems(
 
 /** P1-3: 记忆流「列表 / 时间轴」切换行。 */
 @Composable
-private fun TimelineModeToggleRow(
-    timelineMode: Boolean,
-    onToggle: () -> Unit,
-) {
+private fun TimelineModeToggleRow(timelineMode: Boolean, onToggle: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = MusePaddings.screen, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -744,9 +734,9 @@ private fun LazyListScope.memoryFactsItems(
         item(key = "memory_contradictions") {
             androidx.compose.material3.ElevatedCard(
                 modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = MusePaddings.screen, vertical = 4.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = MusePaddings.screen, vertical = 4.dp),
             ) {
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
@@ -827,11 +817,11 @@ private fun LazyListScope.memoryFactsItems(
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
                         text =
-                            if (query.isBlank()) {
-                                stringResource(R.string.memory_center_empty_subtitle)
-                            } else {
-                                stringResource(R.string.memory_screen_empty_content)
-                            },
+                        if (query.isBlank()) {
+                            stringResource(R.string.memory_center_empty_subtitle)
+                        } else {
+                            stringResource(R.string.memory_screen_empty_content)
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -864,12 +854,7 @@ private fun LazyListScope.memoryFactsItems(
 }
 
 @Composable
-private fun MemoryConstellationTab(
-    scope: String?,
-    spaceId: String,
-    factCount: Int,
-    modifier: Modifier = Modifier,
-) {
+private fun MemoryConstellationTab(scope: String?, spaceId: String, factCount: Int, modifier: Modifier = Modifier) {
     val graphViewModel: MemoryGraphViewModel = koinViewModel()
     val graphState by graphViewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(scope, spaceId) { graphViewModel.load(scope, spaceId) }
@@ -882,10 +867,10 @@ private fun MemoryConstellationTab(
         )
         Box(
             modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .clip(MuseShapes.extraLarge),
+            Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .clip(MuseShapes.extraLarge),
         ) {
             // v2.x: 动效补齐 — 加载/空态/图谱三态切换走 Crossfade(NORMAL_MS, 同 ChatScreen 规格)。
             // 切换记忆空间(spaceId)或作用域(scope)时星座重新加载,也会经此过渡淡入淡出。
@@ -915,13 +900,13 @@ private fun MemoryConstellationTab(
                         ) {
                             Text(
                                 text =
-                                    stringResource(
-                                        if (factCount == 0) {
-                                            R.string.memory_center_constellation_empty
-                                        } else {
-                                            R.string.memory_center_filter_empty
-                                        },
-                                    ),
+                                stringResource(
+                                    if (factCount == 0) {
+                                        R.string.memory_center_constellation_empty
+                                    } else {
+                                        R.string.memory_center_filter_empty
+                                    },
+                                ),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
@@ -971,9 +956,9 @@ private fun MemoryFactRow(
                     maxLines = if (expanded) Int.MAX_VALUE else 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier =
-                        Modifier
-                            .weight(1f)
-                            .clickable(enabled = canExpand) { toggleExpand() },
+                    Modifier
+                        .weight(1f)
+                        .clickable(enabled = canExpand) { toggleExpand() },
                 )
                 if (item.pinnedAt != null) Text("•", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp))
             }
@@ -993,9 +978,9 @@ private fun MemoryFactRow(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier =
-                        Modifier
-                            .clickable { toggleExpand() }
-                            .padding(vertical = 2.dp),
+                    Modifier
+                        .clickable { toggleExpand() }
+                        .padding(vertical = 2.dp),
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1099,11 +1084,7 @@ private const val MEMORY_FACT_ROW_SESSION_ID_MAX = 10
 private const val EXPAND_TEXT_THRESHOLD = 80
 
 @Composable
-private fun MemoryFilterRow(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun MemoryFilterRow(label: String, selected: Boolean, onClick: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth().clip(MuseShapes.medium).clickable(onClick = onClick),
         shape = MuseShapes.medium,

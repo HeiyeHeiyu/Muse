@@ -16,16 +16,12 @@ import kotlinx.coroutines.withContext
  * 嗅探文件头部是否含 NUL 字节(二进制特征),防止压缩包/可执行文件被当文本索引。
  * 读取失败时按「非二进制」处理,不阻断正常导入。
  */
-internal suspend fun looksBinary(
-    uri: Uri,
-    context: Context,
-): Boolean =
-    withContext(Dispatchers.IO) {
-        runCatching {
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                val head = ByteArray(512)
-                val n = input.read(head)
-                n > 0 && (0 until n).any { head[it] == 0.toByte() }
-            } ?: false
-        }.getOrDefault(false)
-    }
+internal suspend fun looksBinary(uri: Uri, context: Context): Boolean = withContext(Dispatchers.IO) {
+    runCatching {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            val head = ByteArray(512)
+            val n = input.read(head)
+            n > 0 && (0 until n).any { head[it] == 0.toByte() }
+        } ?: false
+    }.getOrDefault(false)
+}

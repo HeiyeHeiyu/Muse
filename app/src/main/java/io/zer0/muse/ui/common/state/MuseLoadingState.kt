@@ -34,10 +34,7 @@ import io.zer0.muse.ui.theme.MusePaddings
  * @param modifier 修饰符
  */
 @Composable
-fun MuseLoadingState(
-    message: String? = null,
-    modifier: Modifier = Modifier,
-) {
+fun MuseLoadingState(message: String? = null, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()

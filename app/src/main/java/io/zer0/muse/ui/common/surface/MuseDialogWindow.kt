@@ -3,8 +3,8 @@
 package io.zer0.muse.ui.common.surface
 
 import android.graphics.Color
-import android.graphics.drawable.Drawable
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.Drawable
 import android.os.Build
 import android.view.Gravity
 import android.view.Window
@@ -23,10 +23,7 @@ internal fun clearMuseWindowDim(window: Window?) {
 }
 
 @Composable
-internal fun MuseDialogWindowEffect(
-    forceFullScreen: Boolean = false,
-    bottomAligned: Boolean = false,
-) {
+internal fun MuseDialogWindowEffect(forceFullScreen: Boolean = false, bottomAligned: Boolean = false) {
     val localView = LocalView.current
     val dialogWindow = (localView.parent as? DialogWindowProvider)?.window
 

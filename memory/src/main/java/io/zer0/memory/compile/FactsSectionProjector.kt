@@ -35,10 +35,7 @@ object FactsSectionProjector {
      *
      * @return 每行一条事实的纯文本；无内容时返回空串
      */
-    fun project(
-        facts: List<FactStore.Fact>,
-        config: Config = Config(),
-    ): String {
+    fun project(facts: List<FactStore.Fact>, config: Config = Config()): String {
         if (facts.isEmpty()) return ""
         val sorted = facts
             .filter { it.fact.isNotBlank() }

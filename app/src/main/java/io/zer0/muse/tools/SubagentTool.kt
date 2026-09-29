@@ -309,10 +309,7 @@ object SubagentTool {
      *
      * 关闭后该 threadId 不可再 reply;正在执行的任务会跑完,但后续 reply 会失败。
      */
-    private suspend fun doClose(
-        args: Map<String, String>,
-        subagentThreadStore: SubagentThreadStore,
-    ): String {
+    private suspend fun doClose(args: Map<String, String>, subagentThreadStore: SubagentThreadStore): String {
         val threadId = args["thread_id"]?.trim()
             ?: return "Error: thread_id is required for close."
         val entry = subagentThreadStore.getThread(threadId)

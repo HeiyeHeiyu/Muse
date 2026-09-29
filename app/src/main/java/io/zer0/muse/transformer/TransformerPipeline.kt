@@ -37,10 +37,7 @@ class TransformerPipeline(
      * @param context 执行上下文
      * @return 处理后的消息列表;若管道为空,原样返回
      */
-    suspend fun execute(
-        messages: List<UIMessage>,
-        context: TransformContext,
-    ): List<UIMessage> {
+    suspend fun execute(messages: List<UIMessage>, context: TransformContext): List<UIMessage> {
         // L-PIPE3: 空管道提前返回,避免无谓的调度器切换/循环
         if (transformers.isEmpty()) return messages
         var current = messages
@@ -57,7 +54,7 @@ class TransformerPipeline(
                 // L-PIPE4: 只记类名 + 截断后的 message,避免日志泄露消息内容
                 val summary = "${err::class.simpleName}: ${err.message?.take(200)}"
                 Logger.e("TransformerPipeline", "Transformer ${transformer.name} failed, skipping: $summary")
-                current  // 失败则跳过,保留前一步结果
+                current // 失败则跳过,保留前一步结果
             }
         }
         return current
@@ -75,10 +72,7 @@ class TransformerPipeline(
      * @param context 执行上下文
      * @return 转换后的列表(仅供 UI 显示,不替换实际消息)
      */
-    suspend fun applyVisualTransform(
-        messages: List<UIMessage>,
-        context: TransformContext,
-    ): List<UIMessage> {
+    suspend fun applyVisualTransform(messages: List<UIMessage>, context: TransformContext): List<UIMessage> {
         if (transformers.isEmpty()) return messages
         var current = messages
         for (transformer in transformers) {
@@ -109,10 +103,7 @@ class TransformerPipeline(
      * @param context 执行上下文
      * @return 处理后的列表(可替换实际消息)
      */
-    suspend fun applyOnGenerationFinish(
-        messages: List<UIMessage>,
-        context: TransformContext,
-    ): List<UIMessage> {
+    suspend fun applyOnGenerationFinish(messages: List<UIMessage>, context: TransformContext): List<UIMessage> {
         if (transformers.isEmpty()) return messages
         var current = messages
         for (transformer in transformers) {

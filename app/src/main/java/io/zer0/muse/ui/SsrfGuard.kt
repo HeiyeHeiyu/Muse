@@ -124,8 +124,7 @@ internal object SsrfGuard {
      * 任一命中(内网/回环/链路本地/无法解析等)即返回 true,调用方应整体拒绝该文本。
      * 仅负责定位 http(s) 片段,私网/链路本地/IPv6/整数 IP 等判定统一收敛到 [isPrivateAddress]。
      */
-    fun hasBlockedUrlInText(text: String): Boolean =
-        HTTP_URL_IN_TEXT.findAll(text).any { isBlocked(it.value) }
+    fun hasBlockedUrlInText(text: String): Boolean = HTTP_URL_IN_TEXT.findAll(text).any { isBlocked(it.value) }
 
     private fun parseHttpUri(url: String): URI? = try {
         URI(url).takeIf { it.scheme?.lowercase() in setOf("http", "https") }
@@ -185,22 +184,20 @@ internal object SsrfGuard {
     }
 
     /** IPv4-mapped IPv6 (::ffff:a.b.c.d) 判定,Java 的 isLoopbackAddress 等对映射地址返回 false。 */
-    private fun isV4Mapped(bytes: ByteArray): Boolean =
-        bytes.size == 16 &&
-            bytes.copyOfRange(0, 10).all { it == 0.toByte() } &&
-            bytes[10] == 0xFF.toByte() && bytes[11] == 0xFF.toByte()
+    private fun isV4Mapped(bytes: ByteArray): Boolean = bytes.size == 16 &&
+        bytes.copyOfRange(0, 10).all { it == 0.toByte() } &&
+        bytes[10] == 0xFF.toByte() && bytes[11] == 0xFF.toByte()
 
-    private fun isUla(bytes: ByteArray): Boolean =
-        bytes.size == 16 && (bytes[0].toInt() and 0xFE) == 0xFC
+    private fun isUla(bytes: ByteArray): Boolean = bytes.size == 16 && (bytes[0].toInt() and 0xFE) == 0xFC
 
     private fun isPrivateIpv4(a: Int, b: Int): Boolean = when {
-        a == 0 -> true                  // 0.0.0.0/8
-        a == 10 -> true                 // 10.0.0.0/8
-        a == 127 -> true                // 127.0.0.0/8
-        a == 169 && b == 254 -> true    // 169.254.0.0/16 link-local
+        a == 0 -> true // 0.0.0.0/8
+        a == 10 -> true // 10.0.0.0/8
+        a == 127 -> true // 127.0.0.0/8
+        a == 169 && b == 254 -> true // 169.254.0.0/16 link-local
         a == 172 && b in 16..31 -> true // 172.16.0.0/12
-        a == 192 && b == 168 -> true    // 192.168.0.0/16
-        a >= 224 -> true                // 224.0.0.0/4 multicast 及保留段
+        a == 192 && b == 168 -> true // 192.168.0.0/16
+        a >= 224 -> true // 224.0.0.0/4 multicast 及保留段
         else -> false
     }
 

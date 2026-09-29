@@ -26,8 +26,8 @@ import androidx.compose.ui.unit.dp
 import io.zer0.ai.core.UIMessage
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 
 /**
@@ -40,10 +40,7 @@ import io.zer0.muse.ui.theme.MuseShapes
  * 组首条渲染本卡,组内其余条不渲染(消息索引保持不变,滚动/高亮无需调整)。
  */
 @Composable
-internal fun ToolRunCard(
-    msgs: List<UIMessage>,
-    modifier: Modifier = Modifier,
-) {
+internal fun ToolRunCard(msgs: List<UIMessage>, modifier: Modifier = Modifier) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val toolInfos = msgs.mapNotNull { it.toolCallInfo }
     // v2.0.1: 纯思考组也要渲染（过程折叠），仅完全空组才跳过

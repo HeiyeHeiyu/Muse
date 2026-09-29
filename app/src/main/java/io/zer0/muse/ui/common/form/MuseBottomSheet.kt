@@ -42,16 +42,10 @@ internal fun calculateBottomSheetHeight(
     maxHeight: androidx.compose.ui.unit.Dp,
     fraction: Float,
     bottomInset: androidx.compose.ui.unit.Dp,
-): androidx.compose.ui.unit.Dp =
-    ((maxHeight - bottomInset).coerceAtLeast(0.dp) * fraction.coerceIn(0f, 1f)).coerceAtLeast(0.dp)
+): androidx.compose.ui.unit.Dp = ((maxHeight - bottomInset).coerceAtLeast(0.dp) * fraction.coerceIn(0f, 1f)).coerceAtLeast(0.dp)
 
 /** 将弹层底边固定在 Popup 窗口底边,键盘避让由调用方传入的 inset 负责。 */
-internal fun calculateBottomPopupPosition(
-    windowSize: IntSize,
-    popupContentSize: IntSize,
-    bottomInsetPx: Int,
-    gapPx: Int,
-): IntOffset {
+internal fun calculateBottomPopupPosition(windowSize: IntSize, popupContentSize: IntSize, bottomInsetPx: Int, gapPx: Int): IntOffset {
     val maxX = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
     val x = ((windowSize.width - popupContentSize.width) / 2).coerceIn(0, maxX)
     val y = (

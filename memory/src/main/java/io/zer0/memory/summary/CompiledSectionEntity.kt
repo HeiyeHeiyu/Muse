@@ -18,7 +18,7 @@ import kotlinx.serialization.Serializable
 data class CompiledSectionEntity(
     @PrimaryKey
     @ColumnInfo(name = "section_key")
-    val sectionKey: String,  // facts / today / week / longterm
+    val sectionKey: String, // facts / today / week / longterm
 
     @ColumnInfo(name = "content")
     val content: String = "",

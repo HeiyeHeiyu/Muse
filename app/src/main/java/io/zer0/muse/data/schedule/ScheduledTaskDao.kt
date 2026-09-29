@@ -99,11 +99,7 @@ interface ScheduledTaskDao {
      * 首次执行时创建专用会话后调用此方法持久化,后续执行复用同一会话。
      */
     @Query("UPDATE scheduled_tasks SET dedicated_session_id = :sessionId, updated_at = :now WHERE id = :id")
-    suspend fun updateDedicatedSessionId(
-        id: String,
-        sessionId: String,
-        now: Long = System.currentTimeMillis(),
-    )
+    suspend fun updateDedicatedSessionId(id: String, sessionId: String, now: Long = System.currentTimeMillis())
 
     /**
      * H-SC1: 原子地记录执行历史并更新下次执行时间。
@@ -144,12 +140,7 @@ interface ScheduledTaskDao {
     suspend fun listChainCandidates(excludeId: String): List<TaskIdName>
 
     @Transaction
-    suspend fun recordExecutionAndScheduleNext(
-        execution: ScheduledTaskExecutionEntity,
-        taskId: String,
-        nextRunAt: Long,
-        lastRunAt: Long,
-    ) {
+    suspend fun recordExecutionAndScheduleNext(execution: ScheduledTaskExecutionEntity, taskId: String, nextRunAt: Long, lastRunAt: Long) {
         insertExecution(execution)
         if (nextRunAt > 0) {
             updateRunState(taskId, nextRunAt, lastRunAt)

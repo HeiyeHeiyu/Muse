@@ -30,40 +30,56 @@ import androidx.compose.ui.unit.dp
 object MuseIconSizes {
     /** 触摸目标最小尺寸(MD3 红线,所有 IconButton 必须用此尺寸)。 */
     val touchTarget = 48.dp
+
     /** 空状态/错误态大图标(MuseEmptyState / MuseErrorStateBox 顶部,L-ES2)。 */
     val iconEmpty = 64.dp
+
     /** 大图标(头像 / 强调图标)。 */
     val iconLarge = 32.dp
+
     /** 图标视觉尺寸(MD3 标准)。 */
     val icon = 24.dp
+
     /** 中图标(导航 / 操作行)。 */
     val iconMedium = 20.dp
+
     /** 小图标(列表项)。 */
     val iconSmall = 18.dp
+
     /** 微图标(标签内图标)。 */
     val iconTiny = 14.dp
+
     /**
      * v2.x: 自绘图标线宽 — muse-icons 生成器的权威值(1.7f)。
      * MuseIcons.kt 为生成文件;调整线宽需同步修改生成器(muse-icons 仓库脚本),
      * 此常量供文档化与本文件外的引用,不要在其他手写代码里散落硬编码。
      */
     const val strokeWidth = 1.7f
+
     /** B7-07: 16dp 图标/进度圈。 */
     val iconSmallTiny = 16.dp
+
     /** B7-07: 28dp 视频缩略图标。 */
     val iconVideo = 28.dp
+
     /** B7-07: 32dp 紧凑触控区(移除小圆点/工具按钮)。 */
     val controlTouch = 32.dp
+
     /** B7-07: 36dp 停止/发送胶囊内部尺寸。 */
     val stopButton = 36.dp
+
     /** UI-FIX A: 顶栏实心圆按钮的视觉直径(触摸区仍为 [touchTarget])。 */
     val topBarSolid = 36.dp
+
     /** B7-07: 进度圈描边。 */
     val progressStroke = 2.dp
+
     /** B7-07: 输入框最小高度。 */
     val inputMinHeight = 36.dp
+
     /** CMP-08: 浮动按钮默认尺寸(Material FAB 规范 56dp)。 */
     val fab = 56.dp
+
     /** B7-07: 录音波形条尺寸。 */
     val waveformHeight = 24.dp
     val waveformBarWidth = 3.dp

@@ -3,6 +3,7 @@ package io.zer0.muse.web
 import io.zer0.common.AppDispatchers
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.util.stripHtmlSimple
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -17,7 +18,6 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.jsoup.Jsoup
-import io.zer0.muse.util.stripHtmlSimple
 
 /**
  * 百度网页搜索兜底。
@@ -42,27 +42,26 @@ class BaiduProvider(
 ) : WebSearchService {
     override val name: String = "Baidu"
 
-    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> =
-        withContext(AppDispatchers.io) {
-            resultOf {
-                val url = "https://www.baidu.com/s?wd=" + java.net.URLEncoder.encode(query, "UTF-8")
-                val request = Request.Builder()
-                    .url(url)
-                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36")
-                    .header("Accept-Language", "zh-CN,zh;q=0.9")
-                    .get()
-                    .build()
-                client.executeAsync(request).use { response ->
-                    if (!response.isSuccessful) {
-                        Logger.w(name, "search failed: ${response.searchDiagnostic()}")
-                        return@use emptyList()
-                    }
-                    parseResults(response.body.string(), maxResults)
+    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> = withContext(AppDispatchers.io) {
+        resultOf {
+            val url = "https://www.baidu.com/s?wd=" + java.net.URLEncoder.encode(query, "UTF-8")
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/124 Mobile Safari/537.36")
+                .header("Accept-Language", "zh-CN,zh;q=0.9")
+                .get()
+                .build()
+            client.executeAsync(request).use { response ->
+                if (!response.isSuccessful) {
+                    Logger.w(name, "search failed: ${response.searchDiagnostic()}")
+                    return@use emptyList()
                 }
-            }.onError { msg, t -> Logger.w(name, "search error: $msg", t) }
-                .getOrNull()
-                ?: emptyList()
-        }
+                parseResults(response.body.string(), maxResults)
+            }
+        }.onError { msg, t -> Logger.w(name, "search error: $msg", t) }
+            .getOrNull()
+            ?: emptyList()
+    }
 
     private fun parseResults(body: String, maxResults: Int): List<WebSearchResult> {
         val document = Jsoup.parse(body)
@@ -94,33 +93,32 @@ class SearXNGProvider(
 ) : WebSearchService {
     override val name: String = "SearXNG"
 
-    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> =
-        withContext(AppDispatchers.io) {
-            // H-WS1: 用 resultOf 替代 runCatching,避免吞 CancellationException
-            resultOf {
-                val url = "$endpoint/search?q=${java.net.URLEncoder.encode(query, "UTF-8")}" +
-                    "&format=json&categories=general&language=zh-CN"
-                val req = Request.Builder().url(url)
-                    .header("User-Agent", "muse/1.0 (Android LLM client)")
-                    .header("Accept", "application/json")
-                    .get().build()
-                // M-WS2: 用 executeAsync(enqueue + suspendCancellableCoroutine)替代阻塞 execute()
-                client.executeAsync(req).use { resp ->
-                    // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
-                    SearchRateLimiter.assertNotRateLimited(name, resp)
-                    if (!resp.isSuccessful) {
-                        Logger.w("SearXNG", "search failed: ${resp.searchDiagnostic()}")
-                        return@use emptyList()
-                    }
-                    val body = resp.body.string()
-                    parseResults(body, maxResults)
+    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> = withContext(AppDispatchers.io) {
+        // H-WS1: 用 resultOf 替代 runCatching,避免吞 CancellationException
+        resultOf {
+            val url = "$endpoint/search?q=${java.net.URLEncoder.encode(query, "UTF-8")}" +
+                "&format=json&categories=general&language=zh-CN"
+            val req = Request.Builder().url(url)
+                .header("User-Agent", "muse/1.0 (Android LLM client)")
+                .header("Accept", "application/json")
+                .get().build()
+            // M-WS2: 用 executeAsync(enqueue + suspendCancellableCoroutine)替代阻塞 execute()
+            client.executeAsync(req).use { resp ->
+                // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
+                SearchRateLimiter.assertNotRateLimited(name, resp)
+                if (!resp.isSuccessful) {
+                    Logger.w("SearXNG", "search failed: ${resp.searchDiagnostic()}")
+                    return@use emptyList()
                 }
-            }.onError { _, t ->
-                // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
-                if (t is SearchRateLimitException) throw t
-                Logger.w("SearXNG", "search error", t)
-            }.getOrNull() ?: emptyList()
-        }
+                val body = resp.body.string()
+                parseResults(body, maxResults)
+            }
+        }.onError { _, t ->
+            // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
+            if (t is SearchRateLimitException) throw t
+            Logger.w("SearXNG", "search error", t)
+        }.getOrNull() ?: emptyList()
+    }
 
     private fun parseResults(body: String, max: Int): List<WebSearchResult> {
         val json = Json { ignoreUnknownKeys = true }
@@ -157,48 +155,47 @@ class TavilyProvider(
 ) : WebSearchService {
     override val name: String = "Tavily"
 
-    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> =
-        withContext(AppDispatchers.io) {
-            if (apiKey.isBlank()) {
-                Logger.w("Tavily", "no API key configured, skip")
-                return@withContext emptyList()
-            }
-            // H-WS1: 用 resultOf 替代 runCatching,避免吞 CancellationException
-            resultOf {
-                // Phase 8.5 修复: 用 buildJsonObject 构造请求体,避免手动拼接 JSON 字符串的转义 bug。
-                // 原实现只对 query 的双引号做了 replace,但:
-                //  1. apiKey 未转义(若含 " 或 \ 会破坏 JSON)
-                //  2. query 的反斜杠未转义(原 `\` 会被吃掉)
-                //  3. 换行/制表符等控制字符未转义(JSON 字符串不允许字面控制字符)
-                // 改用 kotlinx.serialization 的 buildJsonObject,所有字符串转义由序列化库处理。
-                val payload = kotlinx.serialization.json.buildJsonObject {
-                    put("api_key", kotlinx.serialization.json.JsonPrimitive(apiKey))
-                    put("query", kotlinx.serialization.json.JsonPrimitive(query))
-                    put("max_results", kotlinx.serialization.json.JsonPrimitive(maxResults))
-                    put("search_depth", kotlinx.serialization.json.JsonPrimitive("basic"))
-                }.toString()
-                val req = Request.Builder().url("$endpoint/search")
-                    .header("Content-Type", "application/json")
-                    .header("Accept", "application/json")
-                    .post(payload.toRequestBody("application/json".toMediaType()))
-                    .build()
-                // M-WS2: 用 executeAsync(enqueue + suspendCancellableCoroutine)替代阻塞 execute()
-                client.executeAsync(req).use { resp ->
-                    // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
-                    SearchRateLimiter.assertNotRateLimited(name, resp)
-                    if (!resp.isSuccessful) {
-                        Logger.w("Tavily", "search failed: ${resp.searchDiagnostic()}")
-                        return@use emptyList()
-                    }
-                    val body = resp.body.string()
-                    parseResults(body, maxResults)
-                }
-            }.onError { _, t ->
-                // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
-                if (t is SearchRateLimitException) throw t
-                Logger.w("Tavily", "search error", t)
-            }.getOrNull() ?: emptyList()
+    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> = withContext(AppDispatchers.io) {
+        if (apiKey.isBlank()) {
+            Logger.w("Tavily", "no API key configured, skip")
+            return@withContext emptyList()
         }
+        // H-WS1: 用 resultOf 替代 runCatching,避免吞 CancellationException
+        resultOf {
+            // Phase 8.5 修复: 用 buildJsonObject 构造请求体,避免手动拼接 JSON 字符串的转义 bug。
+            // 原实现只对 query 的双引号做了 replace,但:
+            //  1. apiKey 未转义(若含 " 或 \ 会破坏 JSON)
+            //  2. query 的反斜杠未转义(原 `\` 会被吃掉)
+            //  3. 换行/制表符等控制字符未转义(JSON 字符串不允许字面控制字符)
+            // 改用 kotlinx.serialization 的 buildJsonObject,所有字符串转义由序列化库处理。
+            val payload = kotlinx.serialization.json.buildJsonObject {
+                put("api_key", kotlinx.serialization.json.JsonPrimitive(apiKey))
+                put("query", kotlinx.serialization.json.JsonPrimitive(query))
+                put("max_results", kotlinx.serialization.json.JsonPrimitive(maxResults))
+                put("search_depth", kotlinx.serialization.json.JsonPrimitive("basic"))
+            }.toString()
+            val req = Request.Builder().url("$endpoint/search")
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .build()
+            // M-WS2: 用 executeAsync(enqueue + suspendCancellableCoroutine)替代阻塞 execute()
+            client.executeAsync(req).use { resp ->
+                // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
+                SearchRateLimiter.assertNotRateLimited(name, resp)
+                if (!resp.isSuccessful) {
+                    Logger.w("Tavily", "search failed: ${resp.searchDiagnostic()}")
+                    return@use emptyList()
+                }
+                val body = resp.body.string()
+                parseResults(body, maxResults)
+            }
+        }.onError { _, t ->
+            // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
+            if (t is SearchRateLimitException) throw t
+            Logger.w("Tavily", "search error", t)
+        }.getOrNull() ?: emptyList()
+    }
 
     private fun parseResults(body: String, max: Int): List<WebSearchResult> {
         val json = Json { ignoreUnknownKeys = true }
@@ -312,10 +309,9 @@ class AutoWebSearchService(
 
         // 用户配置的搜索 API 优先于免费抓取。apiKeys 是新格式，apiKey 是旧格式；
         // 旧格式仅在 providerName 指向该 provider 时回退，避免把一个 key 误发给其他供应商。
-        fun keyFor(provider: String): String =
-            cfg.apiKeys[provider].orEmpty().ifBlank {
-                cfg.apiKey.takeIf { cfg.providerName.equals(provider, ignoreCase = true) }.orEmpty()
-            }
+        fun keyFor(provider: String): String = cfg.apiKeys[provider].orEmpty().ifBlank {
+            cfg.apiKey.takeIf { cfg.providerName.equals(provider, ignoreCase = true) }.orEmpty()
+        }
         fun addIfConfigured(provider: String, factory: (String) -> WebSearchService) {
             keyFor(provider).takeIf { it.isNotBlank() }?.let { chain.add(factory(it)) }
         }
@@ -348,8 +344,14 @@ class AutoWebSearchService(
     companion object {
         /** 已知低质量域名(日期计算器、单位换算等工具站)。 */
         private val LOW_QUALITY_DOMAINS = setOf(
-            "timeanddate.com", "datecalculator.org", "calculator.net", "calculatorsoup.com",
-            "unitconverters.net", "rapidtables.com", "datetime360.com", "timedatecalc.com",
+            "timeanddate.com",
+            "datecalculator.org",
+            "calculator.net",
+            "calculatorsoup.com",
+            "unitconverters.net",
+            "rapidtables.com",
+            "datetime360.com",
+            "timedatecalc.com",
         )
 
         /** 中文词典/释义类站点关键词。 */
@@ -357,8 +359,14 @@ class AutoWebSearchService(
 
         /** 日期计算器类关键词。 */
         private val DATE_CALC_PATTERNS = listOf(
-            "date calculator", "days calculator", "age calculator", "day calculator",
-            "datecalculator", "dayscalculator", "hours calculator", "time calculator",
+            "date calculator",
+            "days calculator",
+            "age calculator",
+            "day calculator",
+            "datecalculator",
+            "dayscalculator",
+            "hours calculator",
+            "time calculator",
         )
 
         private fun hasCjk(text: String): Boolean = text.any { it in '\u3400'..'\u9fff' }
@@ -409,11 +417,7 @@ class AutoWebSearchService(
         /**
          * 规范化结果:过滤空字段、去重、移除低质量、按相关性排序、截断。
          */
-        private fun normalizeResults(
-            query: String,
-            results: List<WebSearchResult>,
-            maxResults: Int,
-        ): List<WebSearchResult> = results
+        private fun normalizeResults(query: String, results: List<WebSearchResult>, maxResults: Int): List<WebSearchResult> = results
             .asSequence()
             .filter { it.title.isNotBlank() && it.url.isNotBlank() }
             .filter { !isLowQualityResult(query, it) }
@@ -443,6 +447,7 @@ class CompositeWebSearchService(
      */
     @Volatile
     private var config: WebSearchConfig = config
+
     @Volatile
     private var delegate: WebSearchService = buildDelegate(config)
 
@@ -474,33 +479,33 @@ class CompositeWebSearchService(
          */
         fun buildDelegate(client: OkHttpClient, cfg: WebSearchConfig): WebSearchService {
             return when (cfg.providerName) {
-        // v1.135: Auto 多引擎 fallback
-        "Auto" -> AutoWebSearchService(client, cfg)
-        "Bing" -> BingProvider(client)
-        "Jina" -> JinaProvider(client, cfg.apiKey)
-        // M-WS3: 自定义 API — 按 apiKey 是否非空二次分发:
-        //  有 apiKey 走 Tavily 兼容接口,无 apiKey 走 SearXNG 兼容接口(原先无条件映射到 SearXNG,忽略 apiKey)
-        "Custom API" ->
-            if (cfg.apiKey.isNotBlank()) {
-                TavilyProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://api.tavily.com" })
-            } else {
-                SearXNGProvider(client, cfg.endpoint.ifBlank { "https://searx.be" })
+                // v1.135: Auto 多引擎 fallback
+                "Auto" -> AutoWebSearchService(client, cfg)
+                "Bing" -> BingProvider(client)
+                "Jina" -> JinaProvider(client, cfg.apiKey)
+                // M-WS3: 自定义 API — 按 apiKey 是否非空二次分发:
+                //  有 apiKey 走 Tavily 兼容接口,无 apiKey 走 SearXNG 兼容接口(原先无条件映射到 SearXNG,忽略 apiKey)
+                "Custom API" ->
+                    if (cfg.apiKey.isNotBlank()) {
+                        TavilyProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://api.tavily.com" })
+                    } else {
+                        SearXNGProvider(client, cfg.endpoint.ifBlank { "https://searx.be" })
+                    }
+                "SearXNG" -> SearXNGProvider(client, cfg.endpoint.ifBlank { "https://searx.be" })
+                "Tavily" -> TavilyProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://api.tavily.com" })
+                // v1.97: 新增搜索 provider
+                "Zhipu" -> ZhipuSearchProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://open.bigmodel.cn/api/paas/v4" })
+                "Brave" -> BraveSearchProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://api.search.brave.com/res/v1" })
+                "Serper" -> SerperSearchProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://google.serper.dev" })
+                "Bocha" -> BochaSearchProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://api.bochaai.com/v1" })
+                "Metaso" -> MetasoSearchProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://metaso.cn/api/v1" })
+                "Exa" -> ExaSearchProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://api.exa.ai" })
+                "Firecrawl" -> FirecrawlProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://api.firecrawl.dev/v1" })
+                // Perplexity AI 搜索 API(sonar-pro 模型 + citations),既有实现 PerplexityService
+                "Perplexity" -> PerplexitySearchProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://api.perplexity.ai" })
+                // 默认用 Bing HTTP(免费,无需 API key)
+                else -> BingProvider(client)
             }
-        "SearXNG" -> SearXNGProvider(client, cfg.endpoint.ifBlank { "https://searx.be" })
-        "Tavily" -> TavilyProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://api.tavily.com" })
-        // v1.97: 新增搜索 provider
-        "Zhipu" -> ZhipuSearchProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://open.bigmodel.cn/api/paas/v4" })
-        "Brave" -> BraveSearchProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://api.search.brave.com/res/v1" })
-        "Serper" -> SerperSearchProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://google.serper.dev" })
-        "Bocha" -> BochaSearchProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://api.bochaai.com/v1" })
-        "Metaso" -> MetasoSearchProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://metaso.cn/api/v1" })
-        "Exa" -> ExaSearchProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://api.exa.ai" })
-        "Firecrawl" -> FirecrawlProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://api.firecrawl.dev/v1" })
-        // Perplexity AI 搜索 API(sonar-pro 模型 + citations),既有实现 PerplexityService
-        "Perplexity" -> PerplexitySearchProvider(client, cfg.apiKey, cfg.endpoint.ifBlank { "https://api.perplexity.ai" })
-        // 默认用 Bing HTTP(免费,无需 API key)
-        else -> BingProvider(client)
-    }
         }
     }
 }
@@ -530,29 +535,28 @@ class BingProvider(
     override val name: String = "Bing"
 
     /** 使用中国区入口的 HTTP HTML 搜索；不启动 Android WebView。 */
-    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> =
-        withContext(AppDispatchers.io) {
-            resultOf {
-                val encoded = java.net.URLEncoder.encode(query, "UTF-8")
-                val url = "https://cn.bing.com/search?q=$encoded&mkt=zh-CN&setlang=zh-CN"
-                val request = Request.Builder()
-                    .url(url)
-                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36")
-                    .header("Accept-Language", "zh-CN,zh;q=0.9")
-                    .header("Accept", "text/html,application/xhtml+xml")
-                    .get()
-                    .build()
-                client.executeAsync(request).use { response ->
-                    if (!response.isSuccessful) {
-                        Logger.w(name, "HTTP search failed: ${response.searchDiagnostic()}")
-                        return@use emptyList()
-                    }
-                    parseHttpResults(response.body.string(), maxResults)
+    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> = withContext(AppDispatchers.io) {
+        resultOf {
+            val encoded = java.net.URLEncoder.encode(query, "UTF-8")
+            val url = "https://cn.bing.com/search?q=$encoded&mkt=zh-CN&setlang=zh-CN"
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36")
+                .header("Accept-Language", "zh-CN,zh;q=0.9")
+                .header("Accept", "text/html,application/xhtml+xml")
+                .get()
+                .build()
+            client.executeAsync(request).use { response ->
+                if (!response.isSuccessful) {
+                    Logger.w(name, "HTTP search failed: ${response.searchDiagnostic()}")
+                    return@use emptyList()
                 }
-            }.onError { msg, t -> Logger.w(name, "HTTP search error: $msg", t) }
-                .getOrNull()
-                ?: emptyList()
-        }
+                parseHttpResults(response.body.string(), maxResults)
+            }
+        }.onError { msg, t -> Logger.w(name, "HTTP search error: $msg", t) }
+            .getOrNull()
+            ?: emptyList()
+    }
 
     private fun parseHttpResults(body: String, maxResults: Int): List<WebSearchResult> {
         val document = Jsoup.parse(body)
@@ -589,37 +593,36 @@ class JinaProvider(
 ) : WebSearchService {
     override val name: String = "Jina"
 
-    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> =
-        withContext(AppDispatchers.io) {
-            val endpoints = listOf("https://s.jinaai.cn/", "https://s.jina.ai/")
-            for (endpoint in endpoints) {
-                val result = resultOf {
-                    val payload = kotlinx.serialization.json.buildJsonObject {
-                        put("q", kotlinx.serialization.json.JsonPrimitive(query))
-                        put("num", kotlinx.serialization.json.JsonPrimitive(maxResults))
-                    }.toString()
-                    val reqBuilder = Request.Builder().url(endpoint)
-                        .header("Content-Type", "application/json")
-                        .header("Accept", "application/json")
-                    if (apiKey.isNotBlank()) reqBuilder.header("Authorization", "Bearer $apiKey")
-                    val req = reqBuilder.post(payload.toRequestBody("application/json".toMediaType())).build()
-                    client.executeAsync(req).use { resp ->
-                        SearchRateLimiter.assertNotRateLimited(name, resp)
-                        if (!resp.isSuccessful) {
-                            Logger.w("Jina", "search failed: ${resp.searchDiagnostic()} endpoint=$endpoint")
-                            emptyList()
-                        } else {
-                            parseResults(resp.body.string(), maxResults)
-                        }
+    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> = withContext(AppDispatchers.io) {
+        val endpoints = listOf("https://s.jinaai.cn/", "https://s.jina.ai/")
+        for (endpoint in endpoints) {
+            val result = resultOf {
+                val payload = kotlinx.serialization.json.buildJsonObject {
+                    put("q", kotlinx.serialization.json.JsonPrimitive(query))
+                    put("num", kotlinx.serialization.json.JsonPrimitive(maxResults))
+                }.toString()
+                val reqBuilder = Request.Builder().url(endpoint)
+                    .header("Content-Type", "application/json")
+                    .header("Accept", "application/json")
+                if (apiKey.isNotBlank()) reqBuilder.header("Authorization", "Bearer $apiKey")
+                val req = reqBuilder.post(payload.toRequestBody("application/json".toMediaType())).build()
+                client.executeAsync(req).use { resp ->
+                    SearchRateLimiter.assertNotRateLimited(name, resp)
+                    if (!resp.isSuccessful) {
+                        Logger.w("Jina", "search failed: ${resp.searchDiagnostic()} endpoint=$endpoint")
+                        emptyList()
+                    } else {
+                        parseResults(resp.body.string(), maxResults)
                     }
-                }.onError { _, t ->
-                    if (t is SearchRateLimitException) throw t
-                    Logger.w("Jina", "search error endpoint=$endpoint", t)
-                }.getOrNull().orEmpty()
-                if (result.isNotEmpty()) return@withContext result
-            }
-            emptyList()
+                }
+            }.onError { _, t ->
+                if (t is SearchRateLimitException) throw t
+                Logger.w("Jina", "search error endpoint=$endpoint", t)
+            }.getOrNull().orEmpty()
+            if (result.isNotEmpty()) return@withContext result
         }
+        emptyList()
+    }
 
     private fun parseResults(body: String, max: Int): List<WebSearchResult> {
         val json = Json { ignoreUnknownKeys = true }
@@ -658,37 +661,36 @@ class ZhipuSearchProvider(
 ) : WebSearchService {
     override val name: String = "Zhipu"
 
-    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> =
-        withContext(AppDispatchers.io) {
-            if (apiKey.isBlank()) {
-                Logger.w("Zhipu", "no API key configured, skip")
-                return@withContext emptyList()
-            }
-            resultOf {
-                val payload = kotlinx.serialization.json.buildJsonObject {
-                    put("search_query", kotlinx.serialization.json.JsonPrimitive(query))
-                    put("num", kotlinx.serialization.json.JsonPrimitive(maxResults))
-                }.toString()
-                val req = Request.Builder().url("$endpoint/web_search")
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer $apiKey")
-                    .post(payload.toRequestBody("application/json".toMediaType()))
-                    .build()
-                client.executeAsync(req).use { resp ->
-                    // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
-                    SearchRateLimiter.assertNotRateLimited(name, resp)
-                    if (!resp.isSuccessful) {
-                        Logger.w("Zhipu", "search failed: ${resp.searchDiagnostic()}")
-                        return@use emptyList()
-                    }
-                    parseResults(resp.body.string(), maxResults)
-                }
-            }.onError { _, t ->
-                // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
-                if (t is SearchRateLimitException) throw t
-                Logger.w("Zhipu", "search error", t)
-            }.getOrNull() ?: emptyList()
+    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> = withContext(AppDispatchers.io) {
+        if (apiKey.isBlank()) {
+            Logger.w("Zhipu", "no API key configured, skip")
+            return@withContext emptyList()
         }
+        resultOf {
+            val payload = kotlinx.serialization.json.buildJsonObject {
+                put("search_query", kotlinx.serialization.json.JsonPrimitive(query))
+                put("num", kotlinx.serialization.json.JsonPrimitive(maxResults))
+            }.toString()
+            val req = Request.Builder().url("$endpoint/web_search")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer $apiKey")
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .build()
+            client.executeAsync(req).use { resp ->
+                // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
+                SearchRateLimiter.assertNotRateLimited(name, resp)
+                if (!resp.isSuccessful) {
+                    Logger.w("Zhipu", "search failed: ${resp.searchDiagnostic()}")
+                    return@use emptyList()
+                }
+                parseResults(resp.body.string(), maxResults)
+            }
+        }.onError { _, t ->
+            // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
+            if (t is SearchRateLimitException) throw t
+            Logger.w("Zhipu", "search error", t)
+        }.getOrNull() ?: emptyList()
+    }
 
     private fun parseResults(body: String, max: Int): List<WebSearchResult> {
         val json = Json { ignoreUnknownKeys = true }
@@ -723,34 +725,33 @@ class BraveSearchProvider(
 ) : WebSearchService {
     override val name: String = "Brave"
 
-    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> =
-        withContext(AppDispatchers.io) {
-            if (apiKey.isBlank()) {
-                Logger.w("Brave", "no API key configured, skip")
-                return@withContext emptyList()
-            }
-            resultOf {
-                val url = "$endpoint/web/search?q=" +
-                    java.net.URLEncoder.encode(query, "UTF-8") + "&count=$maxResults"
-                val req = Request.Builder().url(url)
-                    .header("Accept", "application/json")
-                    .header("X-Subscription-Token", apiKey)
-                    .get().build()
-                client.executeAsync(req).use { resp ->
-                    // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
-                    SearchRateLimiter.assertNotRateLimited(name, resp)
-                    if (!resp.isSuccessful) {
-                        Logger.w("Brave", "search failed: ${resp.searchDiagnostic()}")
-                        return@use emptyList()
-                    }
-                    parseResults(resp.body.string(), maxResults)
-                }
-            }.onError { _, t ->
-                // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
-                if (t is SearchRateLimitException) throw t
-                Logger.w("Brave", "search error", t)
-            }.getOrNull() ?: emptyList()
+    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> = withContext(AppDispatchers.io) {
+        if (apiKey.isBlank()) {
+            Logger.w("Brave", "no API key configured, skip")
+            return@withContext emptyList()
         }
+        resultOf {
+            val url = "$endpoint/web/search?q=" +
+                java.net.URLEncoder.encode(query, "UTF-8") + "&count=$maxResults"
+            val req = Request.Builder().url(url)
+                .header("Accept", "application/json")
+                .header("X-Subscription-Token", apiKey)
+                .get().build()
+            client.executeAsync(req).use { resp ->
+                // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
+                SearchRateLimiter.assertNotRateLimited(name, resp)
+                if (!resp.isSuccessful) {
+                    Logger.w("Brave", "search failed: ${resp.searchDiagnostic()}")
+                    return@use emptyList()
+                }
+                parseResults(resp.body.string(), maxResults)
+            }
+        }.onError { _, t ->
+            // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
+            if (t is SearchRateLimitException) throw t
+            Logger.w("Brave", "search error", t)
+        }.getOrNull() ?: emptyList()
+    }
 
     private fun parseResults(body: String, max: Int): List<WebSearchResult> {
         val json = Json { ignoreUnknownKeys = true }
@@ -787,37 +788,36 @@ class SerperSearchProvider(
 ) : WebSearchService {
     override val name: String = "Serper"
 
-    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> =
-        withContext(AppDispatchers.io) {
-            if (apiKey.isBlank()) {
-                Logger.w("Serper", "no API key configured, skip")
-                return@withContext emptyList()
-            }
-            resultOf {
-                val payload = kotlinx.serialization.json.buildJsonObject {
-                    put("q", kotlinx.serialization.json.JsonPrimitive(query))
-                    put("num", kotlinx.serialization.json.JsonPrimitive(maxResults))
-                }.toString()
-                val req = Request.Builder().url("$endpoint/search")
-                    .header("Content-Type", "application/json")
-                    .header("X-API-KEY", apiKey)
-                    .post(payload.toRequestBody("application/json".toMediaType()))
-                    .build()
-                client.executeAsync(req).use { resp ->
-                    // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
-                    SearchRateLimiter.assertNotRateLimited(name, resp)
-                    if (!resp.isSuccessful) {
-                        Logger.w("Serper", "search failed: ${resp.searchDiagnostic()}")
-                        return@use emptyList()
-                    }
-                    parseResults(resp.body.string(), maxResults)
-                }
-            }.onError { _, t ->
-                // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
-                if (t is SearchRateLimitException) throw t
-                Logger.w("Serper", "search error", t)
-            }.getOrNull() ?: emptyList()
+    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> = withContext(AppDispatchers.io) {
+        if (apiKey.isBlank()) {
+            Logger.w("Serper", "no API key configured, skip")
+            return@withContext emptyList()
         }
+        resultOf {
+            val payload = kotlinx.serialization.json.buildJsonObject {
+                put("q", kotlinx.serialization.json.JsonPrimitive(query))
+                put("num", kotlinx.serialization.json.JsonPrimitive(maxResults))
+            }.toString()
+            val req = Request.Builder().url("$endpoint/search")
+                .header("Content-Type", "application/json")
+                .header("X-API-KEY", apiKey)
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .build()
+            client.executeAsync(req).use { resp ->
+                // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
+                SearchRateLimiter.assertNotRateLimited(name, resp)
+                if (!resp.isSuccessful) {
+                    Logger.w("Serper", "search failed: ${resp.searchDiagnostic()}")
+                    return@use emptyList()
+                }
+                parseResults(resp.body.string(), maxResults)
+            }
+        }.onError { _, t ->
+            // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
+            if (t is SearchRateLimitException) throw t
+            Logger.w("Serper", "search error", t)
+        }.getOrNull() ?: emptyList()
+    }
 
     private fun parseResults(body: String, max: Int): List<WebSearchResult> {
         val json = Json { ignoreUnknownKeys = true }
@@ -853,38 +853,37 @@ class BochaSearchProvider(
 ) : WebSearchService {
     override val name: String = "Bocha"
 
-    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> =
-        withContext(AppDispatchers.io) {
-            if (apiKey.isBlank()) {
-                Logger.w("Bocha", "no API key configured, skip")
-                return@withContext emptyList()
-            }
-            resultOf {
-                val payload = kotlinx.serialization.json.buildJsonObject {
-                    put("query", kotlinx.serialization.json.JsonPrimitive(query))
-                    put("count", kotlinx.serialization.json.JsonPrimitive(maxResults))
-                    put("summary", kotlinx.serialization.json.JsonPrimitive(true))
-                }.toString()
-                val req = Request.Builder().url("$endpoint/web-search")
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer $apiKey")
-                    .post(payload.toRequestBody("application/json".toMediaType()))
-                    .build()
-                client.executeAsync(req).use { resp ->
-                    // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
-                    SearchRateLimiter.assertNotRateLimited(name, resp)
-                    if (!resp.isSuccessful) {
-                        Logger.w("Bocha", "search failed: ${resp.searchDiagnostic()}")
-                        return@use emptyList()
-                    }
-                    parseResults(resp.body.string(), maxResults)
-                }
-            }.onError { _, t ->
-                // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
-                if (t is SearchRateLimitException) throw t
-                Logger.w("Bocha", "search error", t)
-            }.getOrNull() ?: emptyList()
+    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> = withContext(AppDispatchers.io) {
+        if (apiKey.isBlank()) {
+            Logger.w("Bocha", "no API key configured, skip")
+            return@withContext emptyList()
         }
+        resultOf {
+            val payload = kotlinx.serialization.json.buildJsonObject {
+                put("query", kotlinx.serialization.json.JsonPrimitive(query))
+                put("count", kotlinx.serialization.json.JsonPrimitive(maxResults))
+                put("summary", kotlinx.serialization.json.JsonPrimitive(true))
+            }.toString()
+            val req = Request.Builder().url("$endpoint/web-search")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer $apiKey")
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .build()
+            client.executeAsync(req).use { resp ->
+                // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
+                SearchRateLimiter.assertNotRateLimited(name, resp)
+                if (!resp.isSuccessful) {
+                    Logger.w("Bocha", "search failed: ${resp.searchDiagnostic()}")
+                    return@use emptyList()
+                }
+                parseResults(resp.body.string(), maxResults)
+            }
+        }.onError { _, t ->
+            // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
+            if (t is SearchRateLimitException) throw t
+            Logger.w("Bocha", "search error", t)
+        }.getOrNull() ?: emptyList()
+    }
 
     private fun parseResults(body: String, max: Int): List<WebSearchResult> {
         val json = Json { ignoreUnknownKeys = true }
@@ -923,37 +922,36 @@ class MetasoSearchProvider(
 ) : WebSearchService {
     override val name: String = "Metaso"
 
-    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> =
-        withContext(AppDispatchers.io) {
-            if (apiKey.isBlank()) {
-                Logger.w("Metaso", "no API key configured, skip")
-                return@withContext emptyList()
-            }
-            resultOf {
-                val payload = kotlinx.serialization.json.buildJsonObject {
-                    put("q", kotlinx.serialization.json.JsonPrimitive(query))
-                    put("num", kotlinx.serialization.json.JsonPrimitive(maxResults))
-                }.toString()
-                val req = Request.Builder().url("$endpoint/search")
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer $apiKey")
-                    .post(payload.toRequestBody("application/json".toMediaType()))
-                    .build()
-                client.executeAsync(req).use { resp ->
-                    // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
-                    SearchRateLimiter.assertNotRateLimited(name, resp)
-                    if (!resp.isSuccessful) {
-                        Logger.w("Metaso", "search failed: ${resp.searchDiagnostic()}")
-                        return@use emptyList()
-                    }
-                    parseResults(resp.body.string(), maxResults)
-                }
-            }.onError { _, t ->
-                // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
-                if (t is SearchRateLimitException) throw t
-                Logger.w("Metaso", "search error", t)
-            }.getOrNull() ?: emptyList()
+    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> = withContext(AppDispatchers.io) {
+        if (apiKey.isBlank()) {
+            Logger.w("Metaso", "no API key configured, skip")
+            return@withContext emptyList()
         }
+        resultOf {
+            val payload = kotlinx.serialization.json.buildJsonObject {
+                put("q", kotlinx.serialization.json.JsonPrimitive(query))
+                put("num", kotlinx.serialization.json.JsonPrimitive(maxResults))
+            }.toString()
+            val req = Request.Builder().url("$endpoint/search")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer $apiKey")
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .build()
+            client.executeAsync(req).use { resp ->
+                // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
+                SearchRateLimiter.assertNotRateLimited(name, resp)
+                if (!resp.isSuccessful) {
+                    Logger.w("Metaso", "search failed: ${resp.searchDiagnostic()}")
+                    return@use emptyList()
+                }
+                parseResults(resp.body.string(), maxResults)
+            }
+        }.onError { _, t ->
+            // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
+            if (t is SearchRateLimitException) throw t
+            Logger.w("Metaso", "search error", t)
+        }.getOrNull() ?: emptyList()
+    }
 
     private fun parseResults(body: String, max: Int): List<WebSearchResult> {
         val json = Json { ignoreUnknownKeys = true }
@@ -990,42 +988,47 @@ class ExaSearchProvider(
 ) : WebSearchService {
     override val name: String = "Exa"
 
-    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> =
-        withContext(AppDispatchers.io) {
-            if (apiKey.isBlank()) {
-                Logger.w("Exa", "no API key configured, skip")
-                return@withContext emptyList()
-            }
-            resultOf {
-                val payload = kotlinx.serialization.json.buildJsonObject {
-                    put("query", kotlinx.serialization.json.JsonPrimitive(query))
-                    put("numResults", kotlinx.serialization.json.JsonPrimitive(maxResults))
-                    put("contents", kotlinx.serialization.json.buildJsonObject {
-                        put("text", kotlinx.serialization.json.buildJsonObject {
-                            put("maxCharacters", kotlinx.serialization.json.JsonPrimitive(300))
-                        })
-                    })
-                }.toString()
-                val req = Request.Builder().url("$endpoint/search")
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer $apiKey")
-                    .post(payload.toRequestBody("application/json".toMediaType()))
-                    .build()
-                client.executeAsync(req).use { resp ->
-                    // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
-                    SearchRateLimiter.assertNotRateLimited(name, resp)
-                    if (!resp.isSuccessful) {
-                        Logger.w("Exa", "search failed: ${resp.searchDiagnostic()}")
-                        return@use emptyList()
-                    }
-                    parseResults(resp.body.string(), maxResults)
-                }
-            }.onError { _, t ->
-                // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
-                if (t is SearchRateLimitException) throw t
-                Logger.w("Exa", "search error", t)
-            }.getOrNull() ?: emptyList()
+    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> = withContext(AppDispatchers.io) {
+        if (apiKey.isBlank()) {
+            Logger.w("Exa", "no API key configured, skip")
+            return@withContext emptyList()
         }
+        resultOf {
+            val payload = kotlinx.serialization.json.buildJsonObject {
+                put("query", kotlinx.serialization.json.JsonPrimitive(query))
+                put("numResults", kotlinx.serialization.json.JsonPrimitive(maxResults))
+                put(
+                    "contents",
+                    kotlinx.serialization.json.buildJsonObject {
+                        put(
+                            "text",
+                            kotlinx.serialization.json.buildJsonObject {
+                                put("maxCharacters", kotlinx.serialization.json.JsonPrimitive(300))
+                            },
+                        )
+                    },
+                )
+            }.toString()
+            val req = Request.Builder().url("$endpoint/search")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer $apiKey")
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .build()
+            client.executeAsync(req).use { resp ->
+                // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
+                SearchRateLimiter.assertNotRateLimited(name, resp)
+                if (!resp.isSuccessful) {
+                    Logger.w("Exa", "search failed: ${resp.searchDiagnostic()}")
+                    return@use emptyList()
+                }
+                parseResults(resp.body.string(), maxResults)
+            }
+        }.onError { _, t ->
+            // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
+            if (t is SearchRateLimitException) throw t
+            Logger.w("Exa", "search error", t)
+        }.getOrNull() ?: emptyList()
+    }
 
     private fun parseResults(body: String, max: Int): List<WebSearchResult> {
         val json = Json { ignoreUnknownKeys = true }
@@ -1059,52 +1062,51 @@ class FirecrawlProvider(
 ) : WebSearchService {
     override val name: String = "Firecrawl"
 
-    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> =
-        withContext(AppDispatchers.io) {
-            // H-WS1: 用 resultOf 替代 try/catch,避免吞 CancellationException,与其他 provider 一致
-            resultOf {
-                val payload = buildJsonObject {
-                    put("query", JsonPrimitive(query))
-                    put("limit", JsonPrimitive(maxResults))
-                    put("lang", JsonPrimitive("en"))
-                }.toString()
+    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> = withContext(AppDispatchers.io) {
+        // H-WS1: 用 resultOf 替代 try/catch,避免吞 CancellationException,与其他 provider 一致
+        resultOf {
+            val payload = buildJsonObject {
+                put("query", JsonPrimitive(query))
+                put("limit", JsonPrimitive(maxResults))
+                put("lang", JsonPrimitive("en"))
+            }.toString()
 
-                val req = Request.Builder().url("$endpoint/search")
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer $apiKey")
-                    .post(payload.toRequestBody("application/json".toMediaType()))
-                    .build()
+            val req = Request.Builder().url("$endpoint/search")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer $apiKey")
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .build()
 
-                client.executeAsync(req).use { resp ->
-                    // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
-                    SearchRateLimiter.assertNotRateLimited(name, resp)
-                    if (!resp.isSuccessful) return@use emptyList()
-                    val body = resp.body.string()
-                    val json = Json { ignoreUnknownKeys = true }
-                    val root = json.parseToJsonElement(body) as? JsonObject ?: return@use emptyList()
-                    val data = root["data"]?.let { it as? JsonArray } ?: return@use emptyList()
-                    data.take(maxResults).mapNotNull { item ->
-                        val obj = item as? JsonObject ?: return@mapNotNull null
-                        val url = obj["url"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                        val title = obj["title"]?.jsonPrimitive?.contentOrNull
-                            ?: obj["metadata"]?.let { (it as? JsonObject)?.get("title") }
-                                ?.jsonPrimitive?.contentOrNull ?: url
-                        val snippet = obj["description"]?.jsonPrimitive?.contentOrNull
-                            ?: obj["markdown"]?.jsonPrimitive?.contentOrNull?.take(300) ?: ""
-                        WebSearchResult(
-                            title = stripHtmlSimple(title),
-                            url = url,
-                            snippet = if (snippet.length > 300) snippet.take(300) + "\u2026" else snippet,
-                            source = name,
-                        )
-                    }
+            client.executeAsync(req).use { resp ->
+                // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
+                SearchRateLimiter.assertNotRateLimited(name, resp)
+                if (!resp.isSuccessful) return@use emptyList()
+                val body = resp.body.string()
+                val json = Json { ignoreUnknownKeys = true }
+                val root = json.parseToJsonElement(body) as? JsonObject ?: return@use emptyList()
+                val data = root["data"]?.let { it as? JsonArray } ?: return@use emptyList()
+                data.take(maxResults).mapNotNull { item ->
+                    val obj = item as? JsonObject ?: return@mapNotNull null
+                    val url = obj["url"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                    val title = obj["title"]?.jsonPrimitive?.contentOrNull
+                        ?: obj["metadata"]?.let { (it as? JsonObject)?.get("title") }
+                            ?.jsonPrimitive?.contentOrNull ?: url
+                    val snippet = obj["description"]?.jsonPrimitive?.contentOrNull
+                        ?: obj["markdown"]?.jsonPrimitive?.contentOrNull?.take(300) ?: ""
+                    WebSearchResult(
+                        title = stripHtmlSimple(title),
+                        url = url,
+                        snippet = if (snippet.length > 300) snippet.take(300) + "\u2026" else snippet,
+                        source = name,
+                    )
                 }
-            }.onError { _, t ->
-                // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
-                if (t is SearchRateLimitException) throw t
-                Logger.w("Firecrawl", "search error", t)
-            }.getOrNull() ?: emptyList()
-        }
+            }
+        }.onError { _, t ->
+            // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
+            if (t is SearchRateLimitException) throw t
+            Logger.w("Firecrawl", "search error", t)
+        }.getOrNull() ?: emptyList()
+    }
 }
 
 /**
@@ -1131,52 +1133,51 @@ class PerplexitySearchProvider(
 ) : WebSearchService {
     override val name: String = "Perplexity"
 
-    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> =
-        withContext(AppDispatchers.io) {
-            if (apiKey.isBlank()) {
-                Logger.w("Perplexity", "no API key configured, skip")
-                return@withContext emptyList()
-            }
-            // H-WS1: 用 resultOf 替代 runCatching,避免吞 CancellationException
-            resultOf {
-                // 用 buildJsonObject 构造请求体,字符串转义由序列化库处理
-                val payload = kotlinx.serialization.json.buildJsonObject {
-                    put("model", kotlinx.serialization.json.JsonPrimitive("sonar-pro"))
-                    put(
-                        "messages",
-                        kotlinx.serialization.json.JsonArray(
-                            listOf(
-                                kotlinx.serialization.json.buildJsonObject {
-                                    put("role", kotlinx.serialization.json.JsonPrimitive("user"))
-                                    put("content", kotlinx.serialization.json.JsonPrimitive(query))
-                                },
-                            ),
-                        ),
-                    )
-                    put("return_citations", kotlinx.serialization.json.JsonPrimitive(true))
-                    put("return_images", kotlinx.serialization.json.JsonPrimitive(false))
-                }.toString()
-                val req = Request.Builder().url("$endpoint/chat/completions")
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer $apiKey")
-                    .post(payload.toRequestBody("application/json".toMediaType()))
-                    .build()
-                // M-WS2: 用 executeAsync(enqueue + suspendCancellableCoroutine)替代阻塞 execute()
-                client.executeAsync(req).use { resp ->
-                    // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
-                    SearchRateLimiter.assertNotRateLimited(name, resp)
-                    if (!resp.isSuccessful) {
-                        Logger.w("Perplexity", "search failed: ${resp.searchDiagnostic()}")
-                        return@use emptyList()
-                    }
-                    parseResults(resp.body.string(), maxResults)
-                }
-            }.onError { _, t ->
-                // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
-                if (t is SearchRateLimitException) throw t
-                Logger.w("Perplexity", "search error", t)
-            }.getOrNull() ?: emptyList()
+    override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> = withContext(AppDispatchers.io) {
+        if (apiKey.isBlank()) {
+            Logger.w("Perplexity", "no API key configured, skip")
+            return@withContext emptyList()
         }
+        // H-WS1: 用 resultOf 替代 runCatching,避免吞 CancellationException
+        resultOf {
+            // 用 buildJsonObject 构造请求体,字符串转义由序列化库处理
+            val payload = kotlinx.serialization.json.buildJsonObject {
+                put("model", kotlinx.serialization.json.JsonPrimitive("sonar-pro"))
+                put(
+                    "messages",
+                    kotlinx.serialization.json.JsonArray(
+                        listOf(
+                            kotlinx.serialization.json.buildJsonObject {
+                                put("role", kotlinx.serialization.json.JsonPrimitive("user"))
+                                put("content", kotlinx.serialization.json.JsonPrimitive(query))
+                            },
+                        ),
+                    ),
+                )
+                put("return_citations", kotlinx.serialization.json.JsonPrimitive(true))
+                put("return_images", kotlinx.serialization.json.JsonPrimitive(false))
+            }.toString()
+            val req = Request.Builder().url("$endpoint/chat/completions")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer $apiKey")
+                .post(payload.toRequestBody("application/json".toMediaType()))
+                .build()
+            // M-WS2: 用 executeAsync(enqueue + suspendCancellableCoroutine)替代阻塞 execute()
+            client.executeAsync(req).use { resp ->
+                // 429/402 限速检测：标记 provider 并抛 SearchRateLimitException（由 onError 重抛到 UI）
+                SearchRateLimiter.assertNotRateLimited(name, resp)
+                if (!resp.isSuccessful) {
+                    Logger.w("Perplexity", "search failed: ${resp.searchDiagnostic()}")
+                    return@use emptyList()
+                }
+                parseResults(resp.body.string(), maxResults)
+            }
+        }.onError { _, t ->
+            // 限速异常向上抛，供 UI 给用户友好提示；其余异常照旧吞掉返回空列表
+            if (t is SearchRateLimitException) throw t
+            Logger.w("Perplexity", "search error", t)
+        }.getOrNull() ?: emptyList()
+    }
 
     private fun parseResults(body: String, max: Int): List<WebSearchResult> {
         val json = Json { ignoreUnknownKeys = true }

@@ -32,7 +32,6 @@ interface EmbeddingProvider {
     suspend fun embed(texts: List<String>): List<FloatArray>
 
     /** 单条文本 embedding(便捷方法,内部调 [embed])。 */
-    suspend fun embed(text: String): FloatArray =
-        embed(listOf(text)).firstOrNull()
-            ?: throw IllegalStateException("Provider returned empty vector list")
+    suspend fun embed(text: String): FloatArray = embed(listOf(text)).firstOrNull()
+        ?: throw IllegalStateException("Provider returned empty vector list")
 }

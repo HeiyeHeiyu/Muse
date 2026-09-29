@@ -33,40 +33,37 @@ internal class McpFeishuTenantTokenClient(
      * @param appSecret 飞书应用 App Secret
      * @param now 当前时间,用于单元测试和计算过期时间
      */
-    suspend fun fetch(
-        appId: String,
-        appSecret: String,
-        now: Long = System.currentTimeMillis(),
-    ): McpTokenInfo? = withContext(Dispatchers.IO) {
-        if (appId.isBlank() || appSecret.isBlank()) return@withContext null
+    suspend fun fetch(appId: String, appSecret: String, now: Long = System.currentTimeMillis()): McpTokenInfo? =
+        withContext(Dispatchers.IO) {
+            if (appId.isBlank() || appSecret.isBlank()) return@withContext null
 
-        val body = buildJsonObject {
-            put("app_id", appId)
-            put("app_secret", appSecret)
-        }.toString().toRequestBody(JSON_MEDIA_TYPE)
-        val request = Request.Builder()
-            .url(endpoint)
-            .header("Content-Type", "application/json")
-            .header("Accept", "application/json")
-            .post(body)
-            .build()
+            val body = buildJsonObject {
+                put("app_id", appId)
+                put("app_secret", appSecret)
+            }.toString().toRequestBody(JSON_MEDIA_TYPE)
+            val request = Request.Builder()
+                .url(endpoint)
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .post(body)
+                .build()
 
-        try {
-            httpClient.newCall(request).execute().use { response ->
-                val responseBody = response.body.string()
-                if (!response.isSuccessful) {
-                    Logger.w(TAG, "飞书 TAT 获取失败: HTTP ${response.code}")
-                    return@withContext null
+            try {
+                httpClient.newCall(request).execute().use { response ->
+                    val responseBody = response.body.string()
+                    if (!response.isSuccessful) {
+                        Logger.w(TAG, "飞书 TAT 获取失败: HTTP ${response.code}")
+                        return@withContext null
+                    }
+                    parseTokenResponse(responseBody, now)
                 }
-                parseTokenResponse(responseBody, now)
+            } catch (ce: kotlinx.coroutines.CancellationException) {
+                throw ce
+            } catch (e: Exception) {
+                Logger.w(TAG, "飞书 TAT 获取异常: ${e.message}")
+                null
             }
-        } catch (ce: kotlinx.coroutines.CancellationException) {
-            throw ce
-        } catch (e: Exception) {
-            Logger.w(TAG, "飞书 TAT 获取异常: ${e.message}")
-            null
         }
-    }
 
     internal fun parseTokenResponse(body: String, now: Long): McpTokenInfo? {
         val json = runCatching {

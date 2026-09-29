@@ -42,10 +42,13 @@ class VadDetector(
 ) {
     /** 当前是否处于静音状态。 */
     @Volatile private var inSilence: Boolean = true
+
     /** 静音开始的 elapsedRealtime(进入静音时记录)。 */
     @Volatile private var silenceStartMs: Long = 0L
+
     /** 当前语音段开始的 elapsedRealtime(语音帧首次出现时记录)。 */
     @Volatile private var speechStartMs: Long = 0L
+
     /** 上一次触发后是否已重置(避免连续触发)。 */
     @Volatile private var triggered: Boolean = false
 
@@ -106,8 +109,10 @@ class VadDetector(
     companion object {
         /** 默认静音阈值(归一化 RMS,约 -46dB,适合 VOICE_COMMUNICATION 源)。 */
         const val DEFAULT_THRESHOLD = 0.05f
+
         /** 默认静音自动触发时长:1500ms。 */
         const val DEFAULT_SILENCE_DURATION_MS = 1_500L
+
         /** 默认最小语音时长:300ms。 */
         const val DEFAULT_MIN_SPEECH_DURATION_MS = 300L
     }

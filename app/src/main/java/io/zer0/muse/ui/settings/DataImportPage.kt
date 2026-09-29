@@ -1,10 +1,5 @@
 package io.zer0.muse.ui.settings
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.common.resultOf
-import io.zer0.common.Logger
-
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -24,27 +19,31 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import io.zer0.common.Logger
+import io.zer0.common.resultOf
 import io.zer0.muse.R
-import io.zer0.muse.data.`import`.ImportResult
-import io.zer0.muse.data.`import`.ThirdPartyImporter
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantRepository
+import io.zer0.muse.data.`import`.ImportResult
+import io.zer0.muse.data.`import`.ThirdPartyImporter
 import io.zer0.muse.data.session.SessionRepository
 import io.zer0.muse.importer.ConfigImporter
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.state.MuseLoadingState
-import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MuseShapes
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -65,9 +64,7 @@ import org.koin.compose.koinInject
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsDataImportPage(
-    onBack: () -> Unit,
-) {
+fun SettingsDataImportPage(onBack: () -> Unit) {
     val context = LocalContext.current
     val settings: SettingsRepository = koinInject()
     val assistantRepo: AssistantRepository = koinInject()
@@ -290,12 +287,7 @@ fun SettingsDataImportPage(
  * 导入来源卡片,含可折叠的导出步骤说明。
  */
 @Composable
-private fun ImportSourceCard(
-    title: String,
-    description: String,
-    steps: List<String>,
-    onSelect: () -> Unit,
-) {
+private fun ImportSourceCard(title: String, description: String, steps: List<String>, onSelect: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     val collapseText = stringResource(R.string.action_collapse)
     val expandText = stringResource(R.string.action_expand)

@@ -1,16 +1,9 @@
 package io.zer0.muse.ui.taskcard
 
 import android.content.Context
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.formatToolDuration
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.ui.theme.MuseMotion
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,9 +25,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,11 +37,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.R
+import io.zer0.muse.tools.DelegationChainTracker
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.formatToolDuration
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.state.MuseSpinner
+import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
 import io.zer0.muse.ui.theme.statusColors
-import io.zer0.muse.tools.DelegationChainTracker
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.uuid.Uuid
@@ -78,8 +78,11 @@ data class TaskCardData(
 ) {
     /** 整体进度(0..1),只算 SUCCESS。 */
     val progress: Float
-        get() = if (steps.isEmpty()) 0f
-        else steps.count { it.status == TaskStepStatus.SUCCESS }.toFloat() / steps.size
+        get() = if (steps.isEmpty()) {
+            0f
+        } else {
+            steps.count { it.status == TaskStepStatus.SUCCESS }.toFloat() / steps.size
+        }
 
     /** 是否全部到达终态(SUCCESS / FAILED / CANCELLED / TIMED_OUT)。 */
     val isAllDone: Boolean
@@ -109,11 +112,7 @@ data class TaskCardData(
          *
          * @param context 用于取字符串资源(标题)
          */
-        fun fromToolCalls(
-            context: Context,
-            assistantId: Uuid,
-            toolCalls: List<Pair<String, String>>,
-        ): TaskCardData {
+        fun fromToolCalls(context: Context, assistantId: Uuid, toolCalls: List<Pair<String, String>>): TaskCardData {
             val steps = toolCalls.mapIndexed { idx, (name, args) ->
                 val delegateArgs = if (name == "delegate_agent") {
                     parseDelegateAgentArgs(args)
@@ -201,7 +200,9 @@ enum class TaskStepStatus {
     CANCELLED,
 
     /** 工具执行超时,被强制终止。 */
-    TIMED_OUT;
+    TIMED_OUT,
+
+    ;
 
     /** 终态:状态不会再变化。 */
     val isTerminal: Boolean
@@ -407,13 +408,13 @@ fun TaskCard(
                                 .fillMaxWidth()
                                 .height(4.dp)
                                 .clip(MuseShapes.pill)
-                                .background(MaterialTheme.colorScheme.outlineVariant)
+                                .background(MaterialTheme.colorScheme.outlineVariant),
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth(data.progress)
                                     .fillMaxHeight()
-                                    .background(MaterialTheme.colorScheme.primary, MuseShapes.pill)
+                                    .background(MaterialTheme.colorScheme.primary, MuseShapes.pill),
                             )
                         }
                     }
@@ -510,10 +511,7 @@ private fun PhaseBadge(phase: TaskCardPhase, progress: Float) {
 
 /** 单步步骤行(含状态图标 + 标题 + 详情 + 结果 + 耗时 + 重试按钮)。 */
 @Composable
-private fun TaskStepRow(
-    step: TaskStep,
-    onRetry: () -> Unit,
-) {
+private fun TaskStepRow(step: TaskStep, onRetry: () -> Unit) {
     var isResultExpanded by remember { mutableStateOf(false) }
     val resultPreviewLength = 120
 
@@ -656,7 +654,7 @@ private fun TaskStepRow(
                         modifier = Modifier
                             .width(2.dp)
                             .fillMaxHeight()
-                            .background(MaterialTheme.colorScheme.outlineVariant)
+                            .background(MaterialTheme.colorScheme.outlineVariant),
                     )
                     Spacer(Modifier.width(14.dp))
                     Column(
@@ -731,8 +729,11 @@ private fun CompactStepRow(data: TaskCardData, modifier: Modifier = Modifier) {
                 imageVector = if (hasIssues) MuseIcons.alertTriangle else MuseIcons.circleCheck,
                 contentDescription = null,
                 modifier = Modifier.size(14.dp),
-                tint = if (hasIssues) MaterialTheme.statusColors.error
-                    else MaterialTheme.statusColors.success,
+                tint = if (hasIssues) {
+                    MaterialTheme.statusColors.error
+                } else {
+                    MaterialTheme.statusColors.success
+                },
             )
             Spacer(Modifier.size(6.dp))
             val summaryText = if (!hasIssues) {
@@ -788,12 +789,18 @@ private fun CompactStepRow(data: TaskCardData, modifier: Modifier = Modifier) {
             Spacer(Modifier.size(2.dp))
             // 缩写名称
             Text(
-                text = if (step.title.length > STEP_NAME_MAX_CHARS)
-                    step.title.take(STEP_NAME_MAX_CHARS) + "…" else step.title,
+                text = if (step.title.length > STEP_NAME_MAX_CHARS) {
+                    step.title.take(STEP_NAME_MAX_CHARS) + "…"
+                } else {
+                    step.title
+                },
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = if (step.status == TaskStepStatus.RUNNING) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (step.status == TaskStepStatus.RUNNING) colorScheme.onSurface
-                    else colorScheme.onSurfaceVariant,
+                color = if (step.status == TaskStepStatus.RUNNING) {
+                    colorScheme.onSurface
+                } else {
+                    colorScheme.onSurfaceVariant
+                },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

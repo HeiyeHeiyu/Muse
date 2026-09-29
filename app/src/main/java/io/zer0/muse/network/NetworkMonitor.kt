@@ -33,10 +33,12 @@ class NetworkMonitor(context: Context) {
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
 
     private val _isOnline = MutableStateFlow(checkOnline())
+
     /** 当前网络是否可用(含 INTERNET + VALIDATED 能力) */
     val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
 
     private val _onlineEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
+
     /** 网络从断开 → 恢复时发射一次 Unit(过滤初始在线和在线→在线的冗余事件) */
     val onlineEvents: SharedFlow<Unit> = _onlineEvents.asSharedFlow()
 

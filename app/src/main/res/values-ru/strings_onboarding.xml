@@ -48,7 +48,7 @@
     <string name="onboarding_provider_apikey_show">Показать ключ</string>
     <string name="onboarding_provider_apikey_hide">Скрыть ключ</string>
     <string name="onboarding_provider_test_button">Тестовое соединение</string>
-    <string name="onboarding_provider_test_success">Соединение успешное.</string>
+    <string name="onboarding_provider_test_success">Соединение установлено. Доступно моделей: %1$d.</string>
     <string name="onboarding_provider_skip">Пропустить и настроить позже</string>
     <string name="onboarding_provider_custom">Пользовательский (совместимый с OpenAI)</string>
     <string name="onboarding_provider_custom_baseurl_label">Пользовательский базовый URL-адрес</string>

@@ -4,11 +4,11 @@ import android.content.Context
 import androidx.room.withTransaction
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import kotlin.uuid.Uuid
-import io.zer0.muse.R
 
 /**
  * Phase 9.1 (M13): 文件夹仓库。
@@ -47,7 +47,7 @@ class FolderRepository(
                 createdAt = now,
                 updatedAt = now,
                 expanded = true,
-            )
+            ),
         )
         return id
     }

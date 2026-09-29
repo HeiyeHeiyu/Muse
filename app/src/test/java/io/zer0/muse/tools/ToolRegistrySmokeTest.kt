@@ -190,9 +190,14 @@ class ToolRegistrySmokeTest {
     fun `registry contains all documented built-in tool ids`() {
         val names = io.zer0.muse.tools.ToolRegistry.BUILT_IN_TOOL_IDS.toSet()
         val required = listOf(
-            "get_current_time", "calculator", "echo", "get_weather",
-            "browser_navigate", "browser_extract",
-            "schedule_reminder", "translate",
+            "get_current_time",
+            "calculator",
+            "echo",
+            "get_weather",
+            "browser_navigate",
+            "browser_extract",
+            "schedule_reminder",
+            "translate",
         )
         val missing = required.filterNot { it in names }
         assertTrue("缺少核心工具: $missing", missing.isEmpty())
@@ -211,8 +216,12 @@ class ToolRegistrySmokeTest {
          */
         val SELF_REGISTERED_IN_TOOL_REGISTRY: List<String> = listOf(
             "execute_javascript",
-            "browser_navigate", "browser_click", "browser_type",
-            "browser_extract", "browser_scroll_bottom", "browser_get_html",
+            "browser_navigate",
+            "browser_click",
+            "browser_type",
+            "browser_extract",
+            "browser_scroll_bottom",
+            "browser_get_html",
             "browser_snapshot",
         )
 

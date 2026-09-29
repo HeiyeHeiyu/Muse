@@ -20,12 +20,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,14 +32,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
 import io.zer0.muse.data.assistant.AssistantRepository
+import io.zer0.muse.data.subagent.SubagentSessionStore
+import io.zer0.muse.data.subagent.SubagentThreadStore
 import io.zer0.muse.tools.DeferredResultStore
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.media.AssistantAvatar
-import io.zer0.muse.data.subagent.SubagentSessionStore
-import io.zer0.muse.data.subagent.SubagentThreadStore
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseMotion
@@ -203,11 +203,7 @@ fun SubagentTaskListCard(
 }
 
 @Composable
-internal fun SubagentTaskDetailSheet(
-    threadId: String,
-    assistantId: String,
-    onDismiss: () -> Unit,
-) {
+internal fun SubagentTaskDetailSheet(threadId: String, assistantId: String, onDismiss: () -> Unit) {
     val sessionStore: SubagentSessionStore = koinInject()
     val assistantRepository: AssistantRepository = koinInject()
     val assistants by assistantRepository.observeAll.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -264,7 +260,10 @@ internal fun SubagentTaskDetailSheet(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             when {
                 loading -> {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MusePaddings.iconPadding)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(MusePaddings.iconPadding),
+                    ) {
                         MuseSpinner(
                             size = 18.dp,
                         )
@@ -272,7 +271,11 @@ internal fun SubagentTaskDetailSheet(
                     }
                 }
                 messages.isEmpty() -> {
-                    Text(stringResource(R.string.subagent_task_detail_empty), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(R.string.subagent_task_detail_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 else -> {
                     messages.forEach { msg ->
@@ -288,7 +291,13 @@ internal fun SubagentTaskDetailSheet(
                         ) {
                             Column(modifier = Modifier.padding(MusePaddings.cardInner)) {
                                 Text(
-                                    text = if (msg.role == io.zer0.ai.core.MessageRole.USER) stringResource(R.string.subagent_task_detail_user) else stringResource(R.string.subagent_task_detail_assistant),
+                                    text = if (msg.role == io.zer0.ai.core.MessageRole.USER) {
+                                        stringResource(
+                                            R.string.subagent_task_detail_user,
+                                        )
+                                    } else {
+                                        stringResource(R.string.subagent_task_detail_assistant)
+                                    },
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     fontWeight = FontWeight.Medium,
@@ -404,11 +413,7 @@ private fun SubagentTaskRow(
  * 这种情况理论上少见(任务与线程通常 1:1),仅作展示兜底。
  */
 @Composable
-private fun SubagentThreadRow(
-    threadId: String,
-    assistantId: String,
-    onClick: (() -> Unit)? = null,
-) {
+private fun SubagentThreadRow(threadId: String, assistantId: String, onClick: (() -> Unit)? = null) {
     val assistantRepository: AssistantRepository = koinInject()
     val assistants by assistantRepository.observeAll.collectAsStateWithLifecycle(initialValue = emptyList())
     val assistant = assistants.firstOrNull { it.id == assistantId }

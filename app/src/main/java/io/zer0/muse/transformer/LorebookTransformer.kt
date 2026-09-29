@@ -39,10 +39,7 @@ class LorebookTransformer(
 
     override val name: String = "Lorebook"
 
-    override suspend fun transform(
-        messages: List<UIMessage>,
-        context: TransformContext,
-    ): List<UIMessage> {
+    override suspend fun transform(messages: List<UIMessage>, context: TransformContext): List<UIMessage> {
         val entries = (context.extra("lorebook_entries") as? List<*>)?.filterIsInstance<LorebookEntity>() ?: return messages
         if (entries.isEmpty()) return messages
 

@@ -20,10 +20,7 @@ internal class PluginMarketInstaller(
     private val nowEpochMs: () -> Long = System::currentTimeMillis,
 ) {
 
-    suspend fun confirmAndInstall(
-        plan: PluginInstallPlan,
-        trustPublisher: Boolean,
-    ): Result<PluginManager.InstalledPlugin> {
+    suspend fun confirmAndInstall(plan: PluginInstallPlan, trustPublisher: Boolean): Result<PluginManager.InstalledPlugin> {
         if (plan.isExpired(nowEpochMs())) {
             return Result.failure(IllegalStateException("安装确认已过期，请重新下载"))
         }

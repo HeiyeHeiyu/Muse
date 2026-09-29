@@ -17,11 +17,7 @@ class VirtualDisplayClient(
     data class DisplayHandle(val displayId: Int, val width: Int, val height: Int)
 
     /** 确保服务端 + 虚拟屏就绪(同尺寸复用);失败携带可读原因。 */
-    suspend fun ensureDisplay(
-        width: Int = DEFAULT_WIDTH,
-        height: Int = DEFAULT_HEIGHT,
-        dpi: Int = DEFAULT_DPI,
-    ): Result<DisplayHandle> =
+    suspend fun ensureDisplay(width: Int = DEFAULT_WIDTH, height: Int = DEFAULT_HEIGHT, dpi: Int = DEFAULT_DPI): Result<DisplayHandle> =
         withContext(Dispatchers.IO) {
             val proxy = manager.ensureStarted().getOrElse { return@withContext Result.failure(it) }
             val id =
@@ -40,47 +36,41 @@ class VirtualDisplayClient(
         }
 
     /** 抓取一帧(JPEG 字节);失败返回 null。 */
-    suspend fun screenshot(displayId: Int = manager.lastDisplayId): ByteArray? =
-        withContext(Dispatchers.IO) {
-            val proxy = manager.ensureStarted().getOrNull() ?: return@withContext null
-            val id = if (displayId >= 0) displayId else manager.lastDisplayId
-            if (id < 0) return@withContext null
-            runCatching { proxy.requestScreenshot(id) }.getOrNull()
-        }
+    suspend fun screenshot(displayId: Int = manager.lastDisplayId): ByteArray? = withContext(Dispatchers.IO) {
+        val proxy = manager.ensureStarted().getOrNull() ?: return@withContext null
+        val id = if (displayId >= 0) displayId else manager.lastDisplayId
+        if (id < 0) return@withContext null
+        runCatching { proxy.requestScreenshot(id) }.getOrNull()
+    }
 
     /** 在虚拟屏里打开应用:优先走服务端 shell 身份启动,服务端不可用时回退本应用 shell 通道。 */
-    suspend fun openApp(
-        packageName: String,
-        displayId: Int = manager.lastDisplayId,
-    ): Boolean =
-        withContext(Dispatchers.IO) {
-            if (!PACKAGE_REGEX.matches(packageName) || displayId < 0) return@withContext false
-            manager.existingLiveProxy()?.let { proxy ->
-                return@withContext runCatching { proxy.launchApp(packageName, displayId) }.getOrDefault(false)
-            }
-            // 回退:本应用 shell 通道(Shizuku/root)
-            val resolved = manager.exec("cmd package resolve-activity --brief $packageName")
-            val component =
-                resolved.output
-                    .lineSequence()
-                    .map { it.trim() }
-                    .lastOrNull { it.contains('/') }
-                    ?: return@withContext false
-            // 防注入:组件名出现 shell 元字符直接拒绝(包名已白名单,这里是双保险)
-            if (component.any { it in INJECTION_CHARS }) return@withContext false
-            manager.exec("am start --display $displayId -n $component").exitCode == 0
+    suspend fun openApp(packageName: String, displayId: Int = manager.lastDisplayId): Boolean = withContext(Dispatchers.IO) {
+        if (!PACKAGE_REGEX.matches(packageName) || displayId < 0) return@withContext false
+        manager.existingLiveProxy()?.let { proxy ->
+            return@withContext runCatching { proxy.launchApp(packageName, displayId) }.getOrDefault(false)
         }
+        // 回退:本应用 shell 通道(Shizuku/root)
+        val resolved = manager.exec("cmd package resolve-activity --brief $packageName")
+        val component =
+            resolved.output
+                .lineSequence()
+                .map { it.trim() }
+                .lastOrNull { it.contains('/') }
+                ?: return@withContext false
+        // 防注入:组件名出现 shell 元字符直接拒绝(包名已白名单,这里是双保险)
+        if (component.any { it in INJECTION_CHARS }) return@withContext false
+        manager.exec("am start --display $displayId -n $component").exitCode == 0
+    }
 
     /** 销毁虚拟屏(服务端不存在时返回 false,不算错误)。 */
-    suspend fun destroy(displayId: Int = manager.lastDisplayId): Boolean =
-        withContext(Dispatchers.IO) {
-            val proxy = manager.existingLiveProxy() ?: return@withContext false
-            runCatching {
-                proxy.destroyDisplay(displayId)
-                if (displayId == manager.lastDisplayId) manager.lastDisplayId = -1
-                true
-            }.getOrDefault(false)
-        }
+    suspend fun destroy(displayId: Int = manager.lastDisplayId): Boolean = withContext(Dispatchers.IO) {
+        val proxy = manager.existingLiveProxy() ?: return@withContext false
+        runCatching {
+            proxy.destroyDisplay(displayId)
+            if (displayId == manager.lastDisplayId) manager.lastDisplayId = -1
+            true
+        }.getOrDefault(false)
+    }
 
     companion object {
         private const val DEFAULT_WIDTH = 720

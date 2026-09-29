@@ -279,7 +279,7 @@
     <string name="quick_notes_export_folder">Pasta: %1$s</string>
     <string name="quick_notes_export_updated_at">Atualizado: %1$s</string>
     <string name="quick_notes_delete_permanent_title">Excluir permanentemente</string>
-    <string name="quick_notes_delete_permanent_confirm">Isto não pode ser desfeito.</string>
+    <string name="quick_notes_delete_permanent_confirm">Isto não pode ser desfeito. Excluir "%1$s" permanentemente?</string>
     <string name="quick_notes_clear_trash">Limpar lixo</string>
     <string name="quick_notes_clear_trash_confirm">Isso excluirá permanentemente todas as notas %1$d da lixeira.</string>
     <string name="quick_notes_trash_count">Lixo: %1$d</string>

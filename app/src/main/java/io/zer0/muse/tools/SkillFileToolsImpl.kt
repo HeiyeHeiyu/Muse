@@ -3,15 +3,15 @@ package io.zer0.muse.tools
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
-import android.os.Environment
 import android.os.Build
+import android.os.Environment
 import android.provider.MediaStore
 import io.zer0.muse.R
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
-import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * P1-3b 拆域：Skill 文件/公共目录工具实现（从 SkillExecutor.kt 迁移）。
@@ -87,8 +87,11 @@ class SkillFileToolsImpl(private val context: Context, private val client: OkHtt
         val timestamp = System.currentTimeMillis()
         // v1.47: 返回内容预览(前 200 字符),让调用方能核对写入结果,而非只看到字节数盲信工具
         val previewLimit = 200
-        val preview = if (content.length <= previewLimit) content else
+        val preview = if (content.length <= previewLimit) {
+            content
+        } else {
             content.take(previewLimit) + context.getString(R.string.skill_write_preview_truncated, content.length)
+        }
         return context.getString(
             R.string.skill_write_result,
             file.length(),
@@ -360,7 +363,7 @@ class SkillFileToolsImpl(private val context: Context, private val client: OkHtt
                 // 若还能继续读,说明文件超过 1MB
                 if (reader.read() >= 0) truncated = true
                 if (truncated) {
-                    sb.append("\n... (已截断到 ${limit} 字符)")
+                    sb.append("\n... (已截断到 $limit 字符)")
                 }
                 sb.toString()
             }
@@ -476,9 +479,18 @@ class SkillFileToolsImpl(private val context: Context, private val client: OkHtt
     /** 查询单个公共目录的文件列表(MediaStore)。v1.47: 输出含 content:// URI,可直接喂给 read_public_file。 */
     fun queryPublicDir(directory: String, limit: Int): String {
         val collection = when (directory.lowercase()) {
-            "downloads" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) MediaStore.Downloads.EXTERNAL_CONTENT_URI else MediaStore.Files.getContentUri("external")
-            "documents" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
-                MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL) else MediaStore.Files.getContentUri("external")
+            "downloads" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI
+            } else {
+                MediaStore.Files.getContentUri(
+                    "external",
+                )
+            }
+            "documents" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
+            } else {
+                MediaStore.Files.getContentUri("external")
+            }
             else -> MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL)
         }
         // v1.47: 多查 _ID 列,用于拼出 content:// URI,让 list → read 能力对称
@@ -493,10 +505,14 @@ class SkillFileToolsImpl(private val context: Context, private val client: OkHtt
         val escapedDir = directory.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         val selection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ? ESCAPE '\\'"
-        } else null
+        } else {
+            null
+        }
         val selectionArgs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             arrayOf("%$escapedDir%")
-        } else null
+        } else {
+            null
+        }
         // v1.109 修复: LIMIT 加上限 200,防止 LLM 传超大值导致资源耗尽
         val safeLimit = limit.coerceIn(1, 200)
         val cursor = context.contentResolver.query(
@@ -516,5 +532,4 @@ class SkillFileToolsImpl(private val context: Context, private val client: OkHtt
             if (results.isEmpty()) context.getString(R.string.skill_dir_empty) else results.joinToString("\n")
         }
     }
-
 }

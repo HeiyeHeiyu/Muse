@@ -1,22 +1,10 @@
 @file:Suppress("FunctionNaming", "LongMethod", "LongParameterList", "CyclomaticComplexMethod", "TooManyFunctions", "ReturnCount", "TooGenericExceptionCaught", "SwallowedException", "MaxLineLength")
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
-
 package io.zer0.muse.ui
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseBottomSheet
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.surface.MuseDivider
-import io.zer0.muse.ui.theme.MuseMotion
-import kotlinx.serialization.json.JsonArray
-import io.zer0.muse.util.ShareIntentHelper
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,50 +20,56 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseBottomSheet
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.surface.CardGroup
+import io.zer0.muse.ui.common.surface.MuseDivider
 import io.zer0.muse.ui.markdown.MarkdownText
 import io.zer0.muse.ui.theme.MuseMonoFontFamily
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
-import io.zer0.muse.ui.common.surface.CardGroup
+import io.zer0.muse.util.ShareIntentHelper
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
 import java.time.Instant
 
 /**
  * P2: 通用内容编辑对话框。
  */
 @Composable
-internal fun FactEditDialog(
-    title: String,
-    initialContent: String,
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit,
-) {
+internal fun FactEditDialog(title: String, initialContent: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var text by remember(initialContent) { mutableStateOf(initialContent) }
 
     MuseDialog(
@@ -106,10 +100,7 @@ internal fun FactEditDialog(
  * 新增元事实对话框。
  */
 @Composable
-internal fun AddFactDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit,
-) {
+internal fun AddFactDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     FactEditDialog(
         title = stringResource(R.string.memory_add_fact_dialog_title),
         initialContent = "",
@@ -122,11 +113,7 @@ internal fun AddFactDialog(
  * v4: 重要程度选择对话框。
  */
 @Composable
-internal fun ImportanceSelectDialog(
-    currentImportance: Int,
-    onDismiss: () -> Unit,
-    onSelect: (Int) -> Unit,
-) {
+internal fun ImportanceSelectDialog(currentImportance: Int, onDismiss: () -> Unit, onSelect: (Int) -> Unit) {
     MuseDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.memory_importance_set_title),
@@ -162,12 +149,7 @@ internal fun ImportanceSelectDialog(
  * v4: 重要程度选项行。
  */
 @Composable
-internal fun ImportanceOptionRow(
-    title: String,
-    desc: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+internal fun ImportanceOptionRow(title: String, desc: String, selected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -401,7 +383,10 @@ internal fun MemoryDashboardCard(state: MemoryUiState) {
                             Spacer(Modifier.size(4.dp))
                             state.topSessions.take(3).forEachIndexed { index, (_, count) ->
                                 // U-9: 不展示裸 session id,改用序号"N 号会话"避免技术化诊断感
-                                DashboardMetricRow(label = stringResource(R.string.memory_stats_session_live, index + 1), value = stringResource(R.string.memory_stats_session_count, count))
+                                DashboardMetricRow(
+                                    label = stringResource(R.string.memory_stats_session_live, index + 1),
+                                    value = stringResource(R.string.memory_stats_session_count, count),
+                                )
                             }
                         }
                         if (state.dailyTrend.size >= 2) {
@@ -427,14 +412,26 @@ internal fun MemoryDashboardCard(state: MemoryUiState) {
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Text(
-                                text = if (healthExpanded) stringResource(R.string.memory_screen_collapse_steps) else stringResource(R.string.memory_screen_view_steps),
+                                text = if (healthExpanded) {
+                                    stringResource(
+                                        R.string.memory_screen_collapse_steps,
+                                    )
+                                } else {
+                                    stringResource(R.string.memory_screen_view_steps)
+                                },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.outline,
                                 modifier = Modifier.weight(1f),
                             )
                             Icon(
                                 imageVector = if (healthExpanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
-                                contentDescription = if (healthExpanded) stringResource(R.string.memory_screen_collapse) else stringResource(R.string.memory_screen_expand),
+                                contentDescription = if (healthExpanded) {
+                                    stringResource(
+                                        R.string.memory_screen_collapse,
+                                    )
+                                } else {
+                                    stringResource(R.string.memory_screen_expand)
+                                },
                                 tint = MaterialTheme.colorScheme.outline,
                                 modifier = Modifier.size(16.dp),
                             )
@@ -506,8 +503,8 @@ internal fun ImportancePieChart(distribution: Map<Int, Int>) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-            val typeChartCd = stringResource(R.string.memory_chart_type_distribution_cd)
-            Canvas(modifier = Modifier.size(80.dp).semantics { contentDescription = typeChartCd }) {
+        val typeChartCd = stringResource(R.string.memory_chart_type_distribution_cd)
+        Canvas(modifier = Modifier.size(80.dp).semantics { contentDescription = typeChartCd }) {
             var startAngle = -90f
             segments.forEach { (key, color, ratio) ->
                 if (ratio > 0f) {
@@ -588,11 +585,7 @@ internal fun TrendLineChart(dailyData: List<Pair<String, Int>>) {
  * dashboard 单行指标。
  */
 @Composable
-internal fun DashboardMetricRow(
-    label: String,
-    value: String,
-    valueColor: Color = MaterialTheme.colorScheme.onSurface,
-) {
+internal fun DashboardMetricRow(label: String, value: String, valueColor: Color = MaterialTheme.colorScheme.onSurface) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -618,10 +611,7 @@ internal fun DashboardMetricRow(
  * 单个记忆步骤的健康行。
  */
 @Composable
-internal fun HealthStepRow(
-    stepKey: String,
-    health: io.zer0.memory.ticker.MemoryTicker.StepHealth,
-) {
+internal fun HealthStepRow(stepKey: String, health: io.zer0.memory.ticker.MemoryTicker.StepHealth) {
     Column(modifier = Modifier.padding(vertical = MusePaddings.labelVerticalGap)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -635,7 +625,14 @@ internal fun HealthStepRow(
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = if (health.failCount > 0) stringResource(R.string.memory_screen_failed_times, health.failCount) else stringResource(R.string.memory_screen_normal),
+                text = if (health.failCount > 0) {
+                    stringResource(
+                        R.string.memory_screen_failed_times,
+                        health.failCount,
+                    )
+                } else {
+                    stringResource(R.string.memory_screen_normal)
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = if (health.failCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
             )
@@ -683,7 +680,13 @@ internal fun MemorySummaryCard(markdown: String) {
             trailingContent = {
                 Icon(
                     imageVector = if (expanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
-                    contentDescription = if (expanded) stringResource(R.string.memory_screen_collapse) else stringResource(R.string.memory_screen_expand),
+                    contentDescription = if (expanded) {
+                        stringResource(
+                            R.string.memory_screen_collapse,
+                        )
+                    } else {
+                        stringResource(R.string.memory_screen_expand)
+                    },
                     tint = MaterialTheme.colorScheme.outline,
                     modifier = Modifier.size(18.dp),
                 )
@@ -766,7 +769,13 @@ internal fun ExperienceLibraryCard(
                     }
                     Icon(
                         imageVector = if (expanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
-                        contentDescription = if (expanded) stringResource(R.string.memory_screen_collapse) else stringResource(R.string.memory_screen_expand),
+                        contentDescription = if (expanded) {
+                            stringResource(
+                                R.string.memory_screen_collapse,
+                            )
+                        } else {
+                            stringResource(R.string.memory_screen_expand)
+                        },
                         tint = MaterialTheme.colorScheme.outline,
                         modifier = Modifier.size(18.dp),
                     )
@@ -897,10 +906,7 @@ internal fun ExperienceEditDialog(
 
 // ── Phase 2 2D: Export helpers ──────────────────────────────────────────
 
-internal fun buildMemoryMarkdown(
-    facts: List<MemoryItem>,
-    summaries: List<MemoryItem>,
-): String {
+internal fun buildMemoryMarkdown(facts: List<MemoryItem>, summaries: List<MemoryItem>): String {
     val sb = StringBuilder()
     sb.appendLine("# Muse Memory Export")
     sb.appendLine()
@@ -925,10 +931,7 @@ internal fun buildMemoryMarkdown(
     return sb.toString()
 }
 
-internal fun buildMemoryJson(
-    facts: List<MemoryItem>,
-    summaries: List<MemoryItem>,
-): String {
+internal fun buildMemoryJson(facts: List<MemoryItem>, summaries: List<MemoryItem>): String {
     // 审计修复 (8.9): 完整 JSON 转义 — 原实现只处理 " 和 \n,
     // 反斜杠/\r/\t/控制字符不转义,内容含 C:\Users 之类即产出非法 JSON,
     // tags 也不转义直接拼接。改用 kotlinx.serialization 编码保证合法。
@@ -965,7 +968,6 @@ internal object MemoryExportHelpers {
         ShareIntentHelper.startChooserSafely(context, intent, "Share Memory Export")
     }
 }
-
 
 /**
  * 记忆「来龙去脉」面板 —— 列出该条事实的修订历史。

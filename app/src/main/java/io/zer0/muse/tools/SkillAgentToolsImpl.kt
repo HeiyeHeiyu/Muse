@@ -3,8 +3,8 @@ package io.zer0.muse.tools
 import android.content.Context
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
-import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.R
+import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.groupchat.GroupChatRepository
 import io.zer0.muse.schedule.GroupChatScheduler
 import io.zer0.muse.ui.taskcard.AgentPlan
@@ -38,11 +38,11 @@ class SkillAgentToolsImpl(
     private val activePlans: MutableMap<String, AgentPlan> =
         java.util.Collections.synchronizedMap(
             object : java.util.LinkedHashMap<String, AgentPlan>(
-                64, 0.75f, true,
+                64,
+                0.75f,
+                true,
             ) {
-                override fun removeEldestEntry(
-                    eldest: MutableMap.MutableEntry<String, AgentPlan>,
-                ): Boolean = size > 50
+                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, AgentPlan>): Boolean = size > 50
             },
         )
 
@@ -50,10 +50,9 @@ class SkillAgentToolsImpl(
     fun getActivePlans(): Map<String, AgentPlan> = synchronized(activePlans) { activePlans.toMap() }
 
     /** 读取指定会话的活跃计划，避免并行会话串台。 */
-    fun getActivePlans(sessionId: String): Map<String, AgentPlan> =
-        synchronized(activePlans) {
-            activePlans.toMap().filter { (_, plan) -> plan.sessionId == sessionId }
-        }
+    fun getActivePlans(sessionId: String): Map<String, AgentPlan> = synchronized(activePlans) {
+        activePlans.toMap().filter { (_, plan) -> plan.sessionId == sessionId }
+    }
 
     /**
      * 将消息历史重放出的计划回灌执行器缓存。
@@ -157,7 +156,9 @@ class SkillAgentToolsImpl(
                     startedAt = if (status == AgentPlanStepStatus.IN_PROGRESS) System.currentTimeMillis() else step.startedAt,
                     finishedAt = if (status == AgentPlanStepStatus.DONE || status == AgentPlanStepStatus.FAILED) System.currentTimeMillis() else step.finishedAt,
                 )
-            } else step
+            } else {
+                step
+            }
         }
         activePlans[planId] = plan.copy(steps = updatedSteps)
 

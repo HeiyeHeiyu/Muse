@@ -2,6 +2,7 @@ package io.zer0.muse.ui.qrcode
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.util.Base64
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.MultiFormatWriter
@@ -9,7 +10,6 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
-import android.util.Base64
 
 /**
  * v1.97: 二维码工具 — Provider 配置的二维码生成与解析。

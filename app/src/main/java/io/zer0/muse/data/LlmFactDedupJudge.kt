@@ -22,12 +22,7 @@ class LlmFactDedupJudge(
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    override suspend fun judge(
-        a: String,
-        b: String,
-        entityKeyA: String?,
-        entityKeyB: String?,
-    ): DedupVerdict {
+    override suspend fun judge(a: String, b: String, entityKeyA: String?, entityKeyB: String?): DedupVerdict {
         return try {
             val systemPrompt = buildSystemPrompt()
             val userContent = buildUserContent(a, b, entityKeyA, entityKeyB)

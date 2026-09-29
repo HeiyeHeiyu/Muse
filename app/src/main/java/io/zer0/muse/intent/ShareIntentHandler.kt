@@ -4,11 +4,11 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.data.assistant.AssistantCardExporter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Phase 8.10: Deep Link + 系统分享接收处理器。
@@ -39,50 +39,73 @@ class ShareIntentHandler(private val context: Context) {
     sealed class ShareResult {
         /** 打开指定会话。 */
         data class OpenSession(val sessionId: String) : ShareResult()
+
         /** 新建会话。 */
         object NewSession : ShareResult()
+
         /** 打开 Assistant 管理页。 */
         object OpenAssistants : ShareResult()
+
         /** 打开设置页。 */
         object OpenSettings : ShareResult()
+
         /** 打开会话列表(来自桌面小部件"最近会话")。 */
         object OpenChats : ShareResult()
+
         /** v1.64: 打开定时任务页(来自定时任务通知点击)。 */
         object OpenScheduledTasks : ShareResult()
+
         /** 打开指定定时任务并展开最近一次执行记录。 */
         data class OpenScheduledTask(val taskId: String) : ShareResult()
+
         /** 打开快速记录并展开指定笔记。 */
         data class OpenQuickNote(val noteId: String) : ShareResult()
+
         /** 打开聊天详情页(没有具体会话上下文的通知)。 */
         object OpenChat : ShareResult()
+
         /** 打开任务首页。 */
         object OpenHome : ShareResult()
+
         /** 打开设置-数据与备份。 */
         object OpenSettingsData : ShareResult()
+
         /** 打开设置-云备份。 */
         object OpenCloudBackup : ShareResult()
+
         /** 打开设置-外观/关于等通知目标。 */
         object OpenSettingsAbout : ShareResult()
+
         /** 打开设置-助手与 Agent。 */
         object OpenSettingsAgent : ShareResult()
+
         /** 打开设置-模型与服务。 */
         object OpenSettingsModel : ShareResult()
+
         /** 打开记忆中心。 */
         object OpenMemory : ShareResult()
+
         /** 打开知识库管理。 */
         object OpenKnowledge : ShareResult()
+
         /** 打开知识库集合管理。 */
         object OpenKnowledgeBases : ShareResult()
+
         /** v2.x: 导入角色包(.muse-assistant 文件被点开)。 */
         data class ImportAssistantCard(val uri: Uri) : ShareResult()
+
         /** Launcher 快捷方式:打开翻译页(来自 ACTION_TRANSLATE)。 */
         object OpenTranslate : ShareResult()
+
         /** Launcher 快捷方式:进入主页并触发语音输入(来自 ACTION_VOICE_INPUT)。 */
         object StartVoiceInput : ShareResult()
+
         /** v1.0.18: Launcher 快捷方式:打开快速记录页(来自 ACTION_QUICK_NOTES)。 */
         object OpenQuickNotes : ShareResult()
+
         /** 预填文本到输入框(来自分享/PROCESS_TEXT)。 */
         data class PrefillText(val text: String) : ShareResult()
+
         /** 无匹配 Intent。 */
         object None : ShareResult()
     }
@@ -184,7 +207,8 @@ class ShareIntentHandler(private val context: Context) {
         val stream = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
         } else {
-            @Suppress("DEPRECATION") intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
         }
         if (stream != null) {
             // H5-1: 文件 IO 放到 Dispatchers.IO,避免阻塞主线程
@@ -219,22 +243,30 @@ class ShareIntentHandler(private val context: Context) {
     /** 解析 ACTION_PROCESS_TEXT(长按选中文本 → 在 muse 中发送)。 */
     private fun parseProcessText(intent: Intent): ShareResult {
         val text = intent.getStringExtra(Intent.EXTRA_PROCESS_TEXT)
-        return if (text.isNullOrBlank()) ShareResult.None
-        else ShareResult.PrefillText(text.take(MAX_SHARE_TEXT_LEN))
+        return if (text.isNullOrBlank()) {
+            ShareResult.None
+        } else {
+            ShareResult.PrefillText(text.take(MAX_SHARE_TEXT_LEN))
+        }
     }
 
     companion object {
         private const val TAG = "ShareIntentHandler"
+
         /** muse:// scheme(AndroidManifest intent-filter 需匹配)。 */
         const val SCHEME = "muse"
+
         /** 分享文本最大长度(防止超大 Intent OOM)。 */
         private const val MAX_SHARE_TEXT_LEN = 10_000
+
         /** M4: sessionId 格式校验正则 — 防注入,只允许字母/数字/下划线/短横线,长度 1-64。 */
         private val SESSION_ID_REGEX = Regex("^[a-zA-Z0-9_-]{1,64}$")
+
         /** Phase 12: 桌面小部件 → MainActivity 启动 extra key(与 MuseQuickWidget 对齐)。 */
         const val EXTRA_WIDGET_ACTION = "widget_action"
         const val WIDGET_ACTION_NEW_SESSION = "new_session"
         const val WIDGET_ACTION_OPEN_CHATS = "open_chats"
+
         /** P3-16: 打开指定会话(配合 EXTRA_WIDGET_SESSION_ID 使用)。 */
         const val WIDGET_ACTION_OPEN_SESSION = "open_session"
         const val EXTRA_WIDGET_SESSION_ID = "widget_session_id"
@@ -244,6 +276,7 @@ class ShareIntentHandler(private val context: Context) {
         const val ACTION_TRANSLATE = "io.zer0.muse.ACTION_TRANSLATE"
         const val ACTION_VOICE_INPUT = "io.zer0.muse.ACTION_VOICE_INPUT"
         const val ACTION_SETTINGS = "io.zer0.muse.ACTION_SETTINGS"
+
         /** v1.0.18: 快速记录快捷方式 action。 */
         const val ACTION_QUICK_NOTES = "io.zer0.muse.ACTION_QUICK_NOTES"
     }

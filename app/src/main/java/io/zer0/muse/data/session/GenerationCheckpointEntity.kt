@@ -26,7 +26,7 @@ import androidx.room.Query
             parentColumns = ["id"],
             childColumns = ["sessionId"],
             onDelete = ForeignKey.CASCADE,
-        )
+        ),
     ],
     indices = [
         Index("sessionId"),
@@ -83,7 +83,7 @@ interface GenerationCheckpointDao {
     suspend fun deleteBySession(sessionId: String)
 
     @Query(
-        "SELECT COUNT(*) FROM messages WHERE sessionId = :sessionId AND role = 'ASSISTANT' AND createdAt > :afterCreatedAt"
+        "SELECT COUNT(*) FROM messages WHERE sessionId = :sessionId AND role = 'ASSISTANT' AND createdAt > :afterCreatedAt",
     )
     suspend fun countNewerAssistantMessages(sessionId: String, afterCreatedAt: Long): Int
 }

@@ -30,15 +30,13 @@ class MemorySpaceRepository(
      * 观察 Space 列表(含事实数量,Flow 形式)。
      * UI 通过此 Flow 实时刷新 Space 列表与统计。
      */
-    fun observeSpacesWithCount(): Flow<List<MemorySpaceWithCount>> =
-        spaceDao.observeAllWithCount()
+    fun observeSpacesWithCount(): Flow<List<MemorySpaceWithCount>> = spaceDao.observeAllWithCount()
 
     /**
      * 观察 Space 列表(不含事实数量,轻量)。
      * 用于切换器下拉,避免每次切换都做 LEFT JOIN COUNT。
      */
-    fun observeSpaces(): Flow<List<MemorySpaceEntity>> =
-        spaceDao.observeAll()
+    fun observeSpaces(): Flow<List<MemorySpaceEntity>> = spaceDao.observeAll()
 
     /** 列出所有 Space(含事实数量)。 */
     suspend fun listSpacesWithCount(): List<MemorySpaceWithCount> = withContext(Dispatchers.IO) {
@@ -63,11 +61,7 @@ class MemorySpaceRepository(
      * @param description 描述(可选)
      * @return 新建 Space 的 id(失败返回 null)
      */
-    suspend fun createSpace(
-        name: String,
-        icon: String? = null,
-        description: String = "",
-    ): String? = withContext(Dispatchers.IO) {
+    suspend fun createSpace(name: String, icon: String? = null, description: String = ""): String? = withContext(Dispatchers.IO) {
         val trimmedName = name.trim()
         if (trimmedName.isEmpty()) {
             Logger.w("MemorySpaceRepository", "createSpace: name is empty")
@@ -176,7 +170,7 @@ class MemorySpaceRepository(
                     description = "",
                     createdAt = now,
                     sortIndex = 0,
-                )
+                ),
             )
             Logger.i("MemorySpaceRepository", "Default space was missing, recreated")
         }

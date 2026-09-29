@@ -50,9 +50,8 @@ data class LicenseManifest(
     val dependencies: List<LicenseEntry>,
 ) {
     /** 按 licenseId 分组,用于在 UI 上"按协议聚合显示"。 */
-    fun groupedByLicense(): Map<String, List<LicenseEntry>> =
-        dependencies.groupBy { it.licenseId }
-            .toSortedMap(compareBy { it })
+    fun groupedByLicense(): Map<String, List<LicenseEntry>> = dependencies.groupBy { it.licenseId }
+        .toSortedMap(compareBy { it })
 
     /** 总数,UI 顶部 "共 N 个依赖" 用。 */
     val totalCount: Int get() = dependencies.size

@@ -6,9 +6,8 @@ import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.memory.fact.FactStore
 import io.zer0.muse.data.SettingsRepository
-import io.zer0.muse.data.routing.UtilityModelRouter
-import io.zer0.muse.data.routing.UtilityTier
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.emotion.MoodParser
@@ -18,8 +17,9 @@ import io.zer0.muse.data.milestone.MilestoneDao
 import io.zer0.muse.data.proactive.Mood
 import io.zer0.muse.data.proactive.ProactiveScoreEngine
 import io.zer0.muse.data.proactive.ScoreContext
+import io.zer0.muse.data.routing.UtilityModelRouter
+import io.zer0.muse.data.routing.UtilityTier
 import io.zer0.muse.data.session.SessionRepository
-import io.zer0.memory.fact.FactStore
 import io.zer0.muse.notification.MuseNotificationManager
 import io.zer0.muse.notification.MuseNotificationTarget
 import io.zer0.muse.util.GlobalCoroutineExceptionHandler
@@ -31,10 +31,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlin.random.Random
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlin.random.Random
 
 /**
  * 主动消息调度器(虚拟陪伴助手用)。
@@ -192,9 +192,7 @@ class ProactiveMessageRunner(
      *  - 已写 → 记录 idle
      * 巡检日志落盘,防重复。
      */
-    private suspend fun runNightPatrol(
-        config: io.zer0.muse.data.ProactiveMessageConfig,
-    ) {
+    private suspend fun runNightPatrol(config: io.zer0.muse.data.ProactiveMessageConfig) {
         // v1.0.74: 深夜自主行动开关(默认开;关掉则时段外完全跳过)
         val enabled = runCatching { settings.nightPatrolEnabledFlow.first() }.getOrDefault(true)
         if (!enabled) {
@@ -261,400 +259,401 @@ class ProactiveMessageRunner(
      *
      * @param forceSend v1.0.72: 测试模式,跳过时间窗口/每日上限/ScoreEngine/决策门槛
      */
-    private suspend fun executeProactiveCycle(
-        triggerSource: String,
-        suppressIfColdStart: Boolean = false,
-        forceSend: Boolean = false,
-    ) = triggerMutex.withLock {
-        // 问题6.2: 进入临界区先刷新当日计数(跨日重置 + 从 SP 读取持久化值)
-        refreshDailyCount()
+    private suspend fun executeProactiveCycle(triggerSource: String, suppressIfColdStart: Boolean = false, forceSend: Boolean = false) =
+        triggerMutex.withLock {
+            // 问题6.2: 进入临界区先刷新当日计数(跨日重置 + 从 SP 读取持久化值)
+            refreshDailyCount()
 
-        val config = settings.proactiveMessageConfigFlow.first()
-        // v1.0.72: 测试模式不受总开关限制(用户主动测试即使开关关闭也能触发)
-        if (!config.enabled && !forceSend) return@withLock
+            val config = settings.proactiveMessageConfigFlow.first()
+            // v1.0.72: 测试模式不受总开关限制(用户主动测试即使开关关闭也能触发)
+            if (!config.enabled && !forceSend) return@withLock
 
-        // v2.2.1: 测试发送前置自检 — 通知权限被关时明确告知(Android 13+ 通知被拒会静默不弹,用户无从排查)
-        if (forceSend && !androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()) {
-            Logger.w(TAG, "测试发送中止: 通知权限未开启")
-            lastCycleOutcome = "失败:通知权限未开启,请到系统设置允许 Muse 发送通知"
-            return@withLock
-        }
-
-        // v1.0.72: 测试模式跳过时间窗口检查(用户主动测试不应被时段挡住)
-        if (!forceSend) {
-            val calendar = java.util.Calendar.getInstance()
-            val currentHour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
-            val inWindow = if (config.allowedHourStart <= config.allowedHourEnd) {
-                // 普通时段:如 8-22
-                currentHour in config.allowedHourStart until config.allowedHourEnd
-            } else {
-                // 跨夜时段:如 22-8(22点到次日8点)
-                currentHour >= config.allowedHourStart || currentHour < config.allowedHourEnd
-            }
-            if (!inWindow) {
-                // v1.0.74: 深夜模式 — 不在允许时段时不做打扰性巡检,改为"深夜自主行动":
-                // 检查今天日记是否已写,没写则安静地写一篇(不推送通知)。
-                Logger.i(TAG, "当前 $currentHour:00 不在允许时段,尝试深夜自主行动(写日记,不推送)")
-                runNightPatrol(config)
+            // v2.2.1: 测试发送前置自检 — 通知权限被关时明确告知(Android 13+ 通知被拒会静默不弹,用户无从排查)
+            if (forceSend && !androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+                Logger.w(TAG, "测试发送中止: 通知权限未开启")
+                lastCycleOutcome = "失败:通知权限未开启,请到系统设置允许 Muse 发送通知"
                 return@withLock
             }
-        } else {
-            Logger.i(TAG, "测试发送模式:跳过时间窗口/间隔/上限/评分门槛")
-        }
 
-        val now = System.currentTimeMillis()
-        // v2.1: 自适应调度 — 替换 v1.30 的 ±randomOffsetMinutes 随机偏移,
-        // 改用"活跃度 + 对话连续性 + 情绪"三因子联合驱动(见 [computeNextTriggerTime])。
-        val baseIntervalMs = computeBaseIntervalMs(config)
-        val elapsed = now - config.lastTriggeredAt
+            // v1.0.72: 测试模式跳过时间窗口检查(用户主动测试不应被时段挡住)
+            if (!forceSend) {
+                val calendar = java.util.Calendar.getInstance()
+                val currentHour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+                val inWindow = if (config.allowedHourStart <= config.allowedHourEnd) {
+                    // 普通时段:如 8-22
+                    currentHour in config.allowedHourStart until config.allowedHourEnd
+                } else {
+                    // 跨夜时段:如 22-8(22点到次日8点)
+                    currentHour >= config.allowedHourStart || currentHour < config.allowedHourEnd
+                }
+                if (!inWindow) {
+                    // v1.0.74: 深夜模式 — 不在允许时段时不做打扰性巡检,改为"深夜自主行动":
+                    // 检查今天日记是否已写,没写则安静地写一篇(不推送通知)。
+                    Logger.i(TAG, "当前 $currentHour:00 不在允许时段,尝试深夜自主行动(写日记,不推送)")
+                    runNightPatrol(config)
+                    return@withLock
+                }
+            } else {
+                Logger.i(TAG, "测试发送模式:跳过时间窗口/间隔/上限/评分门槛")
+            }
 
-        // A-08: LLM 失败退避 — guaranteedSend 会绕过排期检查(见下方),若决策/生成
-        // 阶段失败后不设门槛,每分钟轮询都会重试(断网/服务故障时烧配额)。
-        // 失败后至少间隔一个 baseInterval 才允许再次尝试;测试发送(forceSend)不受限。
-        // B-12: 退避间隔随连续失败次数指数增长(1x/2x/4x/8x/16x),封顶 16 倍 —
-        // 原实现固定 baseInterval 无限重试,长时间故障下仍周期性烧配额。
-        val backoffMultiplier = 1 shl minOf(config.consecutiveFailures, 4)
-        if (!forceSend && config.lastFailedAt > 0 && now - config.lastFailedAt < baseIntervalMs * backoffMultiplier) {
-            val backoffMinutes = baseIntervalMs * backoffMultiplier / 60000
-            val sinceFailureMinutes = (now - config.lastFailedAt) / 60000
-            Logger.d(
-                TAG,
-                "主动消息失败退避中: 距上次失败 ${sinceFailureMinutes}min," +
-                    "间隔 ${backoffMinutes}min(连续失败 ${config.consecutiveFailures} 次),跳过",
-            )
-            return@withLock
-        }
+            val now = System.currentTimeMillis()
+            // v2.1: 自适应调度 — 替换 v1.30 的 ±randomOffsetMinutes 随机偏移,
+            // 改用"活跃度 + 对话连续性 + 情绪"三因子联合驱动(见 [computeNextTriggerTime])。
+            val baseIntervalMs = computeBaseIntervalMs(config)
+            val elapsed = now - config.lastTriggeredAt
 
-        // v1.0.72 保底机制: 距上次触发超过 24h 且未达每日上限时,
-        // 跳过排期/间隔/评分/决策门槛直接发送一条(仍受时间窗口 + 每日上限约束),
-        // 防止"评分永不过线导致永远不发"的死局。必须放在排期检查之前,
-        // 否则 nextTriggerAt 排期未到会先挡住轮询路径,保底永远走不到。
-        val guaranteedSend = !forceSend &&
-            config.lastTriggeredAt > 0 &&
-            (now - config.lastTriggeredAt) > GUARANTEED_INTERVAL_MS &&
-            todaySentCount < config.maxDailyMessages
-        if (guaranteedSend) {
-            // B-16: 24h 保底发送无视 LLM"不应发送"判断,与 USER_EXPLICIT_END 间隔拉长(1.5x)互相抵消 ——
-            // 用户刚说"晚安/拜拜"时,保底却无视对话结束信号直接打扰。
-            // 这里复用 activityProfile 持久化的最近对话结束类型(与 [computeNextTriggerTime] 同源,
-            // 由 ChatViewModel/本 Runner 更新):若为 USER_EXPLICIT_END 则豁免保底发送,
-            // 并重置 lastTriggeredAt 重启 24h 保底时钟,让自适应调度以 1.5x 间隔延迟下次评估,避免立即打扰。
-            if (activityProfile.getLastConversationEndType() == ConversationEndType.USER_EXPLICIT_END) {
-                Logger.i(TAG, "保底触发豁免: 用户最近明确结束对话(USER_EXPLICIT_END),跳过 24h 保底并重启保底时钟")
+            // A-08: LLM 失败退避 — guaranteedSend 会绕过排期检查(见下方),若决策/生成
+            // 阶段失败后不设门槛,每分钟轮询都会重试(断网/服务故障时烧配额)。
+            // 失败后至少间隔一个 baseInterval 才允许再次尝试;测试发送(forceSend)不受限。
+            // B-12: 退避间隔随连续失败次数指数增长(1x/2x/4x/8x/16x),封顶 16 倍 —
+            // 原实现固定 baseInterval 无限重试,长时间故障下仍周期性烧配额。
+            val backoffMultiplier = 1 shl minOf(config.consecutiveFailures, 4)
+            if (!forceSend && config.lastFailedAt > 0 && now - config.lastFailedAt < baseIntervalMs * backoffMultiplier) {
+                val backoffMinutes = baseIntervalMs * backoffMultiplier / 60000
+                val sinceFailureMinutes = (now - config.lastFailedAt) / 60000
+                Logger.d(
+                    TAG,
+                    "主动消息失败退避中: 距上次失败 ${sinceFailureMinutes}min," +
+                        "间隔 ${backoffMinutes}min(连续失败 ${config.consecutiveFailures} 次),跳过",
+                )
+                return@withLock
+            }
+
+            // v1.0.72 保底机制: 距上次触发超过 24h 且未达每日上限时,
+            // 跳过排期/间隔/评分/决策门槛直接发送一条(仍受时间窗口 + 每日上限约束),
+            // 防止"评分永不过线导致永远不发"的死局。必须放在排期检查之前,
+            // 否则 nextTriggerAt 排期未到会先挡住轮询路径,保底永远走不到。
+            val guaranteedSend = !forceSend &&
+                config.lastTriggeredAt > 0 &&
+                (now - config.lastTriggeredAt) > GUARANTEED_INTERVAL_MS &&
+                todaySentCount < config.maxDailyMessages
+            if (guaranteedSend) {
+                // B-16: 24h 保底发送无视 LLM"不应发送"判断,与 USER_EXPLICIT_END 间隔拉长(1.5x)互相抵消 ——
+                // 用户刚说"晚安/拜拜"时,保底却无视对话结束信号直接打扰。
+                // 这里复用 activityProfile 持久化的最近对话结束类型(与 [computeNextTriggerTime] 同源,
+                // 由 ChatViewModel/本 Runner 更新):若为 USER_EXPLICIT_END 则豁免保底发送,
+                // 并重置 lastTriggeredAt 重启 24h 保底时钟,让自适应调度以 1.5x 间隔延迟下次评估,避免立即打扰。
+                if (activityProfile.getLastConversationEndType() == ConversationEndType.USER_EXPLICIT_END) {
+                    Logger.i(TAG, "保底触发豁免: 用户最近明确结束对话(USER_EXPLICIT_END),跳过 24h 保底并重启保底时钟")
+                    saveProactiveSchedule(config, now, baseIntervalMs, updateLastTriggered = true)
+                    return@withLock
+                }
+                Logger.i(TAG, "保底触发: 距上次主动消息 ${(now - config.lastTriggeredAt) / 3_600_000}h,超过 24h,跳过排期/评分/决策直接发送")
+            }
+
+            // 事件触发路径不受间隔限制;poll / worker 路径仍受自适应间隔约束
+            val isEventTriggered = triggerSource != TRIGGER_SOURCE_POLL && triggerSource != TRIGGER_SOURCE_WORKER
+            // B8-01: 持久化排期优先 — 进程重启后直接按 nextTriggerAt 恢复,避免重新计算导致提前/延后
+            if (!isEventTriggered && !guaranteedSend && config.nextTriggerAt > now) {
+                Logger.d(TAG, "持久化排期未到期: 剩余 ${(config.nextTriggerAt - now) / 60000}min")
+                return@withLock
+            }
+            if (!isEventTriggered && !guaranteedSend) {
+                // 快速下限保护:elapsed < baseInterval × 0.3 时直接跳过(三因子最小乘积 ≈ 0.336),
+                // 避免每次轮询都触发自适应计算与日志
+                if (elapsed < baseIntervalMs * FAST_GUARD_RATIO) return@withLock
+                val nextTriggerTime = computeNextTriggerTime(config, baseIntervalMs)
+                if (now < nextTriggerTime) {
+                    Logger.d(TAG, "自适应间隔未到期: 剩余 ${(nextTriggerTime - now) / 60000}min")
+                    return@withLock
+                }
+            }
+
+            // v1.134 P2-2: 冷启动防打扰 — Worker 路径检测到长时间未触发(> 2× baseInterval)
+            // 时,不立即发送,仅更新 lastTriggeredAt 到当前时间,等下个 interval 再发。
+            if (suppressIfColdStart && config.lastTriggeredAt > 0 && elapsed > baseIntervalMs * 2) {
+                Logger.i(TAG, "冷启动检测:距上次触发 ${elapsed / 3600000}h,推迟到下个 interval 再发(避免打扰)")
                 saveProactiveSchedule(config, now, baseIntervalMs, updateLastTriggered = true)
                 return@withLock
             }
-            Logger.i(TAG, "保底触发: 距上次主动消息 ${(now - config.lastTriggeredAt) / 3_600_000}h,超过 24h,跳过排期/评分/决策直接发送")
-        }
 
-        // 事件触发路径不受间隔限制;poll / worker 路径仍受自适应间隔约束
-        val isEventTriggered = triggerSource != TRIGGER_SOURCE_POLL && triggerSource != TRIGGER_SOURCE_WORKER
-        // B8-01: 持久化排期优先 — 进程重启后直接按 nextTriggerAt 恢复,避免重新计算导致提前/延后
-        if (!isEventTriggered && !guaranteedSend && config.nextTriggerAt > now) {
-            Logger.d(TAG, "持久化排期未到期: 剩余 ${(config.nextTriggerAt - now) / 60000}min")
-            return@withLock
-        }
-        if (!isEventTriggered && !guaranteedSend) {
-            // 快速下限保护:elapsed < baseInterval × 0.3 时直接跳过(三因子最小乘积 ≈ 0.336),
-            // 避免每次轮询都触发自适应计算与日志
-            if (elapsed < baseIntervalMs * FAST_GUARD_RATIO) return@withLock
-            val nextTriggerTime = computeNextTriggerTime(config, baseIntervalMs)
-            if (now < nextTriggerTime) {
-                Logger.d(TAG, "自适应间隔未到期: 剩余 ${(nextTriggerTime - now) / 60000}min")
-                return@withLock
-            }
-        }
-
-        // v1.134 P2-2: 冷启动防打扰 — Worker 路径检测到长时间未触发(> 2× baseInterval)
-        // 时,不立即发送,仅更新 lastTriggeredAt 到当前时间,等下个 interval 再发。
-        if (suppressIfColdStart && config.lastTriggeredAt > 0 && elapsed > baseIntervalMs * 2) {
-            Logger.i(TAG, "冷启动检测:距上次触发 ${elapsed / 3600000}h,推迟到下个 interval 再发(避免打扰)")
-            saveProactiveSchedule(config, now, baseIntervalMs, updateLastTriggered = true)
-            return@withLock
-        }
-
-        // v2.0 5.6: 长时间沉默事件触发校验 — 仅当 elapsed > baseInterval × 1.5 时才允许 long_silence 事件触发
-        if (triggerSource == TRIGGER_SOURCE_LONG_SILENCE && elapsed < baseIntervalMs * 1.5f) {
-            Logger.i(TAG, "long_silence 事件未达 1.5× interval,跳过")
-            return@withLock
-        }
-
-        // 获取指定 Agent 助手(v1.27):优先用 config.agentId,否则 default,再否则第一个
-        val assistants = assistantRepository.observeAll.first()
-        val assistant = assistants.firstOrNull { it.id == config.agentId.takeIf { id -> id.isNotBlank() } }
-            ?: assistants.firstOrNull { it.id == "default" }
-            ?: assistants.firstOrNull()
-            ?: run {
-                lastCycleOutcome = "失败:没有可用助手"
+            // v2.0 5.6: 长时间沉默事件触发校验 — 仅当 elapsed > baseInterval × 1.5 时才允许 long_silence 事件触发
+            if (triggerSource == TRIGGER_SOURCE_LONG_SILENCE && elapsed < baseIntervalMs * 1.5f) {
+                Logger.i(TAG, "long_silence 事件未达 1.5× interval,跳过")
                 return@withLock
             }
 
-        // 取会话作为"当前会话"
-        val sessions = sessionRepository.observeSessions().first()
-        // B-14: 优先前台当前会话(settings.viewed_session_id)作为目标会话,避免后台定时任务
-        // 刷新其他会话 updatedAt 时把主动消息错误写进非当前会话(串会话)。
-        // 仅当 viewed 会话仍存在于 active 会话列表时才优先;否则回退到原启发式。
-        val viewedSessionId = settings.getViewedSessionId()
-        val preferredViewedSession = viewedSessionId?.let { vid -> sessions.firstOrNull { it.id == vid } }
-        // v1.95: 仅Agent会话可发主动消息(agentOnly=true时)
-        val targetSession = if (config.agentOnly) {
-            preferredViewedSession?.takeIf { it.isAgentSession }
-                ?: sessionRepository.getLatestAgentSession()
-                ?: sessions.firstOrNull()
-        } else {
-            preferredViewedSession ?: sessions.firstOrNull()
-        } ?: run {
-            lastCycleOutcome = "失败:没有可用会话"
-            return@withLock
-        }
+            // 获取指定 Agent 助手(v1.27):优先用 config.agentId,否则 default,再否则第一个
+            val assistants = assistantRepository.observeAll.first()
+            val assistant = assistants.firstOrNull { it.id == config.agentId.takeIf { id -> id.isNotBlank() } }
+                ?: assistants.firstOrNull { it.id == "default" }
+                ?: assistants.firstOrNull()
+                ?: run {
+                    lastCycleOutcome = "失败:没有可用助手"
+                    return@withLock
+                }
 
-        // B8-01: 会话级排期优先 — 会话已删除时根本不会出现在列表,排期随行清理
-        val sessionNext = targetSession.proactiveNextTriggerAt
-        if (!isEventTriggered && sessionNext != null && sessionNext > now) {
-            Logger.d(TAG, "会话排期未到期: 剩余 ${(sessionNext - now) / 60000}min")
-            return@withLock
-        }
+            // 取会话作为"当前会话"
+            val sessions = sessionRepository.observeSessions().first()
+            // B-14: 优先前台当前会话(settings.viewed_session_id)作为目标会话,避免后台定时任务
+            // 刷新其他会话 updatedAt 时把主动消息错误写进非当前会话(串会话)。
+            // 仅当 viewed 会话仍存在于 active 会话列表时才优先;否则回退到原启发式。
+            val viewedSessionId = settings.getViewedSessionId()
+            val preferredViewedSession = viewedSessionId?.let { vid -> sessions.firstOrNull { it.id == vid } }
+            // v1.95: 仅Agent会话可发主动消息(agentOnly=true时)
+            val targetSession = if (config.agentOnly) {
+                preferredViewedSession?.takeIf { it.isAgentSession }
+                    ?: sessionRepository.getLatestAgentSession()
+                    ?: sessions.firstOrNull()
+            } else {
+                preferredViewedSession ?: sessions.firstOrNull()
+            } ?: run {
+                lastCycleOutcome = "失败:没有可用会话"
+                return@withLock
+            }
 
-        // v2.2.1: 辅助模型分档 — 决策归「小工具」、生成归「大工具」(级联小工具;未绑定返回 null 回退主链路)
-        val decisionRoute = runCatching { utilityRouter.resolve(UtilityTier.SMALL) }.getOrNull()
-        val contentRoute = runCatching { utilityRouter.resolve(UtilityTier.LARGE) }.getOrNull()
+            // B8-01: 会话级排期优先 — 会话已删除时根本不会出现在列表,排期随行清理
+            val sessionNext = targetSession.proactiveNextTriggerAt
+            if (!isEventTriggered && sessionNext != null && sessionNext > now) {
+                Logger.d(TAG, "会话排期未到期: 剩余 ${(sessionNext - now) / 60000}min")
+                return@withLock
+            }
 
-        // B8-01: 模型不可用时跳过并重新排期,避免后台白耗 token
-        // v2.2.1: 辅助档位已绑定任一时,主模型缺失不再视为不可用(该档本身就是可用后备链路)。
-        if (settings.getSelectedModel() == null && decisionRoute == null && contentRoute == null) {
-            Logger.w(TAG, "主动消息跳过: 当前没有可用模型")
-            lastCycleOutcome = "失败:没有可用模型(请检查主对话模型或辅助模型设置)"
-            saveProactiveSchedule(config, now, baseIntervalMs, targetSession.id)
-            return@withLock
-        }
+            // v2.2.1: 辅助模型分档 — 决策归「小工具」、生成归「大工具」(级联小工具;未绑定返回 null 回退主链路)
+            val decisionRoute = runCatching { utilityRouter.resolve(UtilityTier.SMALL) }.getOrNull()
+            val contentRoute = runCatching { utilityRouter.resolve(UtilityTier.LARGE) }.getOrNull()
 
-        // v0.44: 取最近 10 条消息,过滤出最近 5 条 user/assistant 消息作为上下文
-        val allMessages = resultOf {
-            sessionRepository.observeMessages(targetSession.id).first()
-        }.getOrNull() ?: emptyList()
-        val recentMessages = allMessages
-            .filter { it.role == MessageRole.USER || it.role == MessageRole.ASSISTANT }
-            .takeLast(5)
+            // B8-01: 模型不可用时跳过并重新排期,避免后台白耗 token
+            // v2.2.1: 辅助档位已绑定任一时,主模型缺失不再视为不可用(该档本身就是可用后备链路)。
+            if (settings.getSelectedModel() == null && decisionRoute == null && contentRoute == null) {
+                Logger.w(TAG, "主动消息跳过: 当前没有可用模型")
+                lastCycleOutcome = "失败:没有可用模型(请检查主对话模型或辅助模型设置)"
+                saveProactiveSchedule(config, now, baseIntervalMs, targetSession.id)
+                return@withLock
+            }
 
-        // v2.0 5.1: 真实账户年龄(从首次启动时间计算)
-        val accountAgeDays = computeAccountAgeDays()
+            // v0.44: 取最近 10 条消息,过滤出最近 5 条 user/assistant 消息作为上下文
+            val allMessages = resultOf {
+                sessionRepository.observeMessages(targetSession.id).first()
+            }.getOrNull() ?: emptyList()
+            val recentMessages = allMessages
+                .filter { it.role == MessageRole.USER || it.role == MessageRole.ASSISTANT }
+                .takeLast(5)
 
-        // v2.0 5.2: 真实最近情绪(从 assistant 消息 <mood> 标签解析)
-        val recentMood = computeRecentMood(recentMessages)
-        // v2.1: 把最近情绪与对话结束类型持久化到活跃度画像,供下轮自适应调度读取
-        activityProfile.setLastKnownMood(recentMood.name)
-        val endType = detectConversationEndType(recentMessages)
-        activityProfile.setConversationEndType(endType)
+            // v2.0 5.1: 真实账户年龄(从首次启动时间计算)
+            val accountAgeDays = computeAccountAgeDays()
 
-        // v2.0 5.3 & 5.10: 巡检数据采集 — 自上次触发后是否有新记忆/里程碑/经验
-        val lastTriggeredAt = config.lastTriggeredAt
-        val hasNewMemories = checkHasNewMemories(lastTriggeredAt)
-        val hasNewMilestones = checkHasNewMilestones(lastTriggeredAt)
-        val hasNewTopics = checkHasNewTopics(lastTriggeredAt)
+            // v2.0 5.2: 真实最近情绪(从 assistant 消息 <mood> 标签解析)
+            val recentMood = computeRecentMood(recentMessages)
+            // v2.1: 把最近情绪与对话结束类型持久化到活跃度画像,供下轮自适应调度读取
+            activityProfile.setLastKnownMood(recentMood.name)
+            val endType = detectConversationEndType(recentMessages)
+            activityProfile.setConversationEndType(endType)
 
-        // v2.0 5.9: 用 config.maxDailyMessages 而非硬编码(预筛选前显式校验,
-        // 避免 ScoreEngine 内部硬编码 MAX_DAILY_MESSAGES 与配置脱节)
-        if (!forceSend && todaySentCount >= config.maxDailyMessages) {
-            Logger.i(TAG, "已达每日上限 ${config.maxDailyMessages},跳过")
-            return@withLock
-        }
+            // v2.0 5.3 & 5.10: 巡检数据采集 — 自上次触发后是否有新记忆/里程碑/经验
+            val lastTriggeredAt = config.lastTriggeredAt
+            val hasNewMemories = checkHasNewMemories(lastTriggeredAt)
+            val hasNewMilestones = checkHasNewMilestones(lastTriggeredAt)
+            val hasNewTopics = checkHasNewTopics(lastTriggeredAt)
 
-        // v1.0.72: 测试模式/保底模式跳过 ScoreEngine 预筛选(直接走 LLM 决策+生成)
-        if (!forceSend && !guaranteedSend) {
-            // v1.0.4: ProactiveScoreEngine 预筛选 — 评分低于阈值直接跳过 LLM 调用(节省 token)
-            val scoreCtx = ScoreContext(
-                hoursSinceLastMessage = (elapsed / 3_600_000f).coerceAtLeast(0f),
-                accountAgeDays = accountAgeDays,
+            // v2.0 5.9: 用 config.maxDailyMessages 而非硬编码(预筛选前显式校验,
+            // 避免 ScoreEngine 内部硬编码 MAX_DAILY_MESSAGES 与配置脱节)
+            if (!forceSend && todaySentCount >= config.maxDailyMessages) {
+                Logger.i(TAG, "已达每日上限 ${config.maxDailyMessages},跳过")
+                return@withLock
+            }
+
+            // v1.0.72: 测试模式/保底模式跳过 ScoreEngine 预筛选(直接走 LLM 决策+生成)
+            if (!forceSend && !guaranteedSend) {
+                // v1.0.4: ProactiveScoreEngine 预筛选 — 评分低于阈值直接跳过 LLM 调用(节省 token)
+                val scoreCtx = ScoreContext(
+                    hoursSinceLastMessage = (elapsed / 3_600_000f).coerceAtLeast(0f),
+                    accountAgeDays = accountAgeDays,
+                    recentMood = recentMood,
+                    todaySentCount = this.todaySentCount,
+                    hasNewMilestones = hasNewMilestones,
+                    hasNewMemories = hasNewMemories,
+                    hasNewTopics = hasNewTopics,
+                    // v2.0 5.9: 传入可配置的每日上限,替代 ScoreEngine 硬编码
+                    maxDailyMessages = config.maxDailyMessages,
+                )
+                if (!scoreEngine.shouldSend(scoreCtx)) {
+                    Logger.i(TAG, "ScoreEngine 预筛选未通过,跳过 LLM 调用")
+                    saveProactiveSchedule(config, now, baseIntervalMs, targetSession.id)
+                    return@withLock
+                }
+            }
+
+            // v2.0 5.5: 构造工作台巡检上下文(Heartbeat 模式)
+            val patrolContext = buildPatrolContext(
+                triggerSource = triggerSource,
+                recentMessages = recentMessages,
+                allMessages = allMessages,
+                lastTriggeredAt = lastTriggeredAt,
                 recentMood = recentMood,
-                todaySentCount = this.todaySentCount,
-                hasNewMilestones = hasNewMilestones,
                 hasNewMemories = hasNewMemories,
+                hasNewMilestones = hasNewMilestones,
                 hasNewTopics = hasNewTopics,
-                // v2.0 5.9: 传入可配置的每日上限,替代 ScoreEngine 硬编码
-                maxDailyMessages = config.maxDailyMessages,
+                accountAgeDays = accountAgeDays,
+                elapsedHours = elapsed / 3_600_000f,
+                assistantId = assistant.id,
             )
-            if (!scoreEngine.shouldSend(scoreCtx)) {
-                Logger.i(TAG, "ScoreEngine 预筛选未通过,跳过 LLM 调用")
-                saveProactiveSchedule(config, now, baseIntervalMs, targetSession.id)
+
+            // ── 阶段1:决策(只返回 shouldSend + reason + scenario,maxTokens 小,省 token)──
+            val decisionPrompt = buildDecisionPrompt(assistant, patrolContext)
+            val decisionCompletion = resultOf {
+                withTimeoutOrNull(LLM_TIMEOUT_MS) {
+                    // B-22: 与群聊生成共享并发限流,避免叠加触发 429
+                    GenerationGate.withPermit {
+                        chatService.completeText(
+                            messages = decisionPrompt,
+                            // v2.2.1: 决策归小工具档(未绑定 null → 主链路模型解析)
+                            model = decisionRoute?.second,
+                            providerConfig = decisionRoute?.first,
+                            // v2.0 5.9: 决策阶段用 temperature × 0.5(决策需要确定性)
+                            temperature = (config.temperature * 0.5f).coerceIn(0f, 2f),
+                            maxTokens = DECISION_MAX_TOKENS,
+                        )
+                    }
+                }
+            }.onError { msg, t ->
+                Logger.w(TAG, "主动消息决策 LLM 调用失败: ${t?.message ?: msg}")
+            }.getOrNull()
+            if (decisionCompletion == null) {
+                val routeName = decisionRoute?.second?.id ?: "主链路模型"
+                Logger.w(TAG, "主动消息决策 LLM 调用超时(${LLM_TIMEOUT_MS / 1000}s),跳过")
+                lastCycleOutcome = "失败:决策阶段超时或调用失败($routeName;上限 ${LLM_TIMEOUT_MS / 1000}s)"
+                // A-08: 记录失败时间,退避一个 interval 再重试(否则 guaranteedSend 每分钟重试)
+                // B-12: 递增连续失败计数,退避随次数指数增长
+                settings.saveProactiveMessageConfig(
+                    config.copy(lastFailedAt = now, consecutiveFailures = config.consecutiveFailures + 1),
+                )
                 return@withLock
             }
-        }
 
-        // v2.0 5.5: 构造工作台巡检上下文(Heartbeat 模式)
-        val patrolContext = buildPatrolContext(
-            triggerSource = triggerSource,
-            recentMessages = recentMessages,
-            allMessages = allMessages,
-            lastTriggeredAt = lastTriggeredAt,
-            recentMood = recentMood,
-            hasNewMemories = hasNewMemories,
-            hasNewMilestones = hasNewMilestones,
-            hasNewTopics = hasNewTopics,
-            accountAgeDays = accountAgeDays,
-            elapsedHours = elapsed / 3_600_000f,
-            assistantId = assistant.id,
-        )
+            val decision = parseDecision(decisionCompletion.text)
 
-        // ── 阶段1:决策(只返回 shouldSend + reason + scenario,maxTokens 小,省 token)──
-        val decisionPrompt = buildDecisionPrompt(assistant, patrolContext)
-        val decisionCompletion = resultOf {
-            withTimeoutOrNull(LLM_TIMEOUT_MS) {
-                // B-22: 与群聊生成共享并发限流,避免叠加触发 429
-                GenerationGate.withPermit {
-                    chatService.completeText(
-                        messages = decisionPrompt,
-                        // v2.2.1: 决策归小工具档(未绑定 null → 主链路模型解析)
-                        model = decisionRoute?.second,
-                        providerConfig = decisionRoute?.first,
-                        // v2.0 5.9: 决策阶段用 temperature × 0.5(决策需要确定性)
-                        temperature = (config.temperature * 0.5f).coerceIn(0f, 2f),
-                        maxTokens = DECISION_MAX_TOKENS,
-                    )
-                }
-            }
-        }.onError { msg, t ->
-            Logger.w(TAG, "主动消息决策 LLM 调用失败: ${t?.message ?: msg}")
-        }.getOrNull()
-        if (decisionCompletion == null) {
-            val routeName = decisionRoute?.second?.id ?: "主链路模型"
-            Logger.w(TAG, "主动消息决策 LLM 调用超时(${LLM_TIMEOUT_MS / 1000}s),跳过")
-            lastCycleOutcome = "失败:决策阶段超时或调用失败($routeName;上限 ${LLM_TIMEOUT_MS / 1000}s)"
-            // A-08: 记录失败时间,退避一个 interval 再重试(否则 guaranteedSend 每分钟重试)
-            // B-12: 递增连续失败计数,退避随次数指数增长
-            settings.saveProactiveMessageConfig(
-                config.copy(lastFailedAt = now, consecutiveFailures = config.consecutiveFailures + 1)
-            )
-            return@withLock
-        }
-
-        val decision = parseDecision(decisionCompletion.text)
-
-        if (!decision.shouldSend && !forceSend && !guaranteedSend) {
-            // shouldSend=false 也更新 lastTriggeredAt,避免频繁打扰 + 浪费 token
-            saveProactiveSchedule(config, now, baseIntervalMs, targetSession.id)
-            writePatrolLog("idle", "巡检判断无需发送, reason=${decision.reason}")
-            Logger.i(TAG, "Proactive message skipped (shouldSend=false), reason=${decision.reason}")
-            return@withLock
-        }
-        if (!decision.shouldSend && guaranteedSend) {
-            Logger.i(TAG, "保底发送: 决策 shouldSend=false 被忽略, reason=${decision.reason}")
-        }
-
-        // v1.0.72: 发送概率门槛(测试发送不受限)
-        if (!forceSend && !guaranteedSend && config.sendProbability < 100) {
-            val roll = Random.nextInt(100)
-            if (roll >= config.sendProbability) {
+            if (!decision.shouldSend && !forceSend && !guaranteedSend) {
+                // shouldSend=false 也更新 lastTriggeredAt,避免频繁打扰 + 浪费 token
                 saveProactiveSchedule(config, now, baseIntervalMs, targetSession.id)
-                Logger.i(TAG, "发送概率未命中: roll=$roll, probability=${config.sendProbability},跳过")
+                writePatrolLog("idle", "巡检判断无需发送, reason=${decision.reason}")
+                Logger.i(TAG, "Proactive message skipped (shouldSend=false), reason=${decision.reason}")
                 return@withLock
             }
-        }
+            if (!decision.shouldSend && guaranteedSend) {
+                Logger.i(TAG, "保底发送: 决策 shouldSend=false 被忽略, reason=${decision.reason}")
+            }
 
-        // ── 阶段2:生成(用大 maxTokens 生成正文,场景驱动长度)──
-        val contentPrompt = buildContentPrompt(assistant, patrolContext, decision)
-        val contentCompletion = resultOf {
-            withTimeoutOrNull(LLM_TIMEOUT_MS) {
-                // B-22: 与群聊生成共享并发限流
-                GenerationGate.withPermit {
-                    chatService.completeText(
-                        messages = contentPrompt,
-                        // v2.2.1: 生成归大工具档(留空自动级联小工具;全未绑定 → 主链路模型解析)
-                        model = contentRoute?.second,
-                        providerConfig = contentRoute?.first,
-                        // v2.0 5.9: 生成阶段用配置的 temperature
-                        temperature = config.temperature,
-                        maxTokens = CONTENT_MAX_TOKENS,
-                    )
+            // v1.0.72: 发送概率门槛(测试发送不受限)
+            if (!forceSend && !guaranteedSend && config.sendProbability < 100) {
+                val roll = Random.nextInt(100)
+                if (roll >= config.sendProbability) {
+                    saveProactiveSchedule(config, now, baseIntervalMs, targetSession.id)
+                    Logger.i(TAG, "发送概率未命中: roll=$roll, probability=${config.sendProbability},跳过")
+                    return@withLock
                 }
             }
-        }.onError { msg, t ->
-            Logger.w(TAG, "主动消息生成 LLM 调用失败: ${t?.message ?: msg}")
-        }.getOrNull()
-        if (contentCompletion == null) {
-            val routeName = contentRoute?.second?.id ?: "主链路模型"
-            Logger.w(TAG, "主动消息生成 LLM 调用超时(${LLM_TIMEOUT_MS / 1000}s),跳过")
-            lastCycleOutcome = "失败:生成阶段超时或调用失败($routeName;上限 ${LLM_TIMEOUT_MS / 1000}s)"
-            // A-08: 记录失败时间,退避一个 interval 再重试
-            // B-12: 递增连续失败计数,退避随次数指数增长
-            settings.saveProactiveMessageConfig(
-                config.copy(lastFailedAt = now, consecutiveFailures = config.consecutiveFailures + 1)
-            )
-            return@withLock
-        }
 
-        // v1.0.74 fix: 剥离 <think> 推理标签(中转站 R1 类模型会把思考写进 content)
-        val proactiveContent = io.zer0.muse.transformer.stripThinkTags(contentCompletion.text)
-        if (proactiveContent.isBlank()) {
-            saveProactiveSchedule(config, now, baseIntervalMs, targetSession.id)
-            Logger.i(TAG, "Proactive message skipped (empty content), reason=${decision.reason}")
-            lastCycleOutcome = "失败:模型返回空内容(可能被推理/思考占满输出)"
-            return@withLock
-        }
+            // ── 阶段2:生成(用大 maxTokens 生成正文,场景驱动长度)──
+            val contentPrompt = buildContentPrompt(assistant, patrolContext, decision)
+            val contentCompletion = resultOf {
+                withTimeoutOrNull(LLM_TIMEOUT_MS) {
+                    // B-22: 与群聊生成共享并发限流
+                    GenerationGate.withPermit {
+                        chatService.completeText(
+                            messages = contentPrompt,
+                            // v2.2.1: 生成归大工具档(留空自动级联小工具;全未绑定 → 主链路模型解析)
+                            model = contentRoute?.second,
+                            providerConfig = contentRoute?.first,
+                            // v2.0 5.9: 生成阶段用配置的 temperature
+                            temperature = config.temperature,
+                            maxTokens = CONTENT_MAX_TOKENS,
+                        )
+                    }
+                }
+            }.onError { msg, t ->
+                Logger.w(TAG, "主动消息生成 LLM 调用失败: ${t?.message ?: msg}")
+            }.getOrNull()
+            if (contentCompletion == null) {
+                val routeName = contentRoute?.second?.id ?: "主链路模型"
+                Logger.w(TAG, "主动消息生成 LLM 调用超时(${LLM_TIMEOUT_MS / 1000}s),跳过")
+                lastCycleOutcome = "失败:生成阶段超时或调用失败($routeName;上限 ${LLM_TIMEOUT_MS / 1000}s)"
+                // A-08: 记录失败时间,退避一个 interval 再重试
+                // B-12: 递增连续失败计数,退避随次数指数增长
+                settings.saveProactiveMessageConfig(
+                    config.copy(lastFailedAt = now, consecutiveFailures = config.consecutiveFailures + 1),
+                )
+                return@withLock
+            }
 
-        // v1.0.72: 测试模式只生成不落库,通过通知展示内容,避免污染用户会话
-        if (forceSend) {
+            // v1.0.74 fix: 剥离 <think> 推理标签(中转站 R1 类模型会把思考写进 content)
+            val proactiveContent = io.zer0.muse.transformer.stripThinkTags(contentCompletion.text)
+            if (proactiveContent.isBlank()) {
+                saveProactiveSchedule(config, now, baseIntervalMs, targetSession.id)
+                Logger.i(TAG, "Proactive message skipped (empty content), reason=${decision.reason}")
+                lastCycleOutcome = "失败:模型返回空内容(可能被推理/思考占满输出)"
+                return@withLock
+            }
+
+            // v1.0.72: 测试模式只生成不落库,通过通知展示内容,避免污染用户会话
+            if (forceSend) {
+                notificationManager.notifyProactiveMessage(
+                    assistant,
+                    proactiveContent,
+                    MuseNotificationTarget.Session(targetSession.id),
+                )
+                Logger.i(TAG, "[测试] Proactive message sent via notification, scenario=${decision.scenario}, reason=${decision.reason}")
+                lastCycleOutcome = "测试消息已发送,请查看通知栏"
+                // v2.2.1: 测试发送成功 = 链路可用 — 清零失败退避(指数封顶 16x≈32h),
+                // 避免修复配置后仍被历史失败的长退避压着不恢复
+                runCatching {
+                    settings.saveProactiveMessageConfig(config.copy(lastFailedAt = 0, consecutiveFailures = 0))
+                }.onFailure { e -> Logger.w(TAG, "测试发送后清零退避失败: ${e.message}", e) }
+                return@withLock
+            }
+
+            // 插入会话作为 assistant 消息
+            // B-13: 落库失败不推进排期 — 消息未写入时下轮重试(宁可重试也不丢消息);
+            // 原实现无 try,appendMessage 异常会中断整个巡检协程,排期/日志/计数全部跳过。
+            try {
+                sessionRepository.appendMessage(
+                    sessionId = targetSession.id,
+                    message = UIMessage(
+                        role = MessageRole.ASSISTANT,
+                        content = proactiveContent,
+                        createdAt = System.currentTimeMillis(),
+                    ),
+                )
+            } catch (e: Exception) {
+                Logger.e(TAG, "主动消息落库失败,不推进排期(下轮重试): ${e.message}", e)
+                return@withLock
+            }
+            // 更新 lastTriggeredAt(先更新再通知,即使通知失败也不影响下次间隔)
+            // v1.0.74 fix: 只有真正发送成功才刷新 lastTriggeredAt(保底 24h 判定依据)
+            // A-08: 发送成功后清零失败退避标记; B-12: 同时清零连续失败计数
+            // B-13: 排期持久化失败重试一次 — 消息已落库而排期未推进会导致下轮重发同一条
+            // (重复骚扰);两次都失败记 ERROR 供定位(DataStore 与 DB 无法跨存储事务)。
+            var scheduleSaved = false
+            repeat(2) {
+                if (scheduleSaved) return@repeat
+                val updatedConfig = config.copy(lastFailedAt = 0, consecutiveFailures = 0)
+                runCatching {
+                    saveProactiveSchedule(
+                        updatedConfig,
+                        now,
+                        baseIntervalMs,
+                        targetSession.id,
+                        updateLastTriggered = true,
+                    )
+                }.onSuccess { scheduleSaved = true }
+                    .onFailure { e -> Logger.w(TAG, "主动消息排期持久化失败(将重试): ${e.message}", e) }
+            }
+            if (!scheduleSaved) {
+                Logger.e(TAG, "主动消息排期持久化失败两次: 消息已落库但排期未推进,存在下轮重复发送风险(消息 id 可对照 patrol log)")
+            }
+            // v1.0.74: 巡检日志(记录发了什么,防重复)
+            writePatrolLog("sent_message", "主动消息:${decision.scenario} — ${proactiveContent.take(80)}")
+            // 问题6.2: 成功发送后递增当日计数并持久化,MAX_DAILY_MESSAGES 校验下次生效
+            incrementDailyCount()
+            // 弹通知(像收到即时消息一样,通知栏用助手头像)
             notificationManager.notifyProactiveMessage(
                 assistant,
                 proactiveContent,
                 MuseNotificationTarget.Session(targetSession.id),
             )
-            Logger.i(TAG, "[测试] Proactive message sent via notification, scenario=${decision.scenario}, reason=${decision.reason}")
-            lastCycleOutcome = "测试消息已发送,请查看通知栏"
-            // v2.2.1: 测试发送成功 = 链路可用 — 清零失败退避(指数封顶 16x≈32h),
-            // 避免修复配置后仍被历史失败的长退避压着不恢复
-            runCatching {
-                settings.saveProactiveMessageConfig(config.copy(lastFailedAt = 0, consecutiveFailures = 0))
-            }.onFailure { e -> Logger.w(TAG, "测试发送后清零退避失败: ${e.message}", e) }
-            return@withLock
+            Logger.i(TAG, "Proactive message sent to session ${targetSession.id}, scenario=${decision.scenario}, reason=${decision.reason}")
         }
-
-        // 插入会话作为 assistant 消息
-        // B-13: 落库失败不推进排期 — 消息未写入时下轮重试(宁可重试也不丢消息);
-        // 原实现无 try,appendMessage 异常会中断整个巡检协程,排期/日志/计数全部跳过。
-        try {
-            sessionRepository.appendMessage(
-                sessionId = targetSession.id,
-                message = UIMessage(
-                    role = MessageRole.ASSISTANT,
-                    content = proactiveContent,
-                    createdAt = System.currentTimeMillis(),
-                ),
-            )
-        } catch (e: Exception) {
-            Logger.e(TAG, "主动消息落库失败,不推进排期(下轮重试): ${e.message}", e)
-            return@withLock
-        }
-        // 更新 lastTriggeredAt(先更新再通知,即使通知失败也不影响下次间隔)
-        // v1.0.74 fix: 只有真正发送成功才刷新 lastTriggeredAt(保底 24h 判定依据)
-        // A-08: 发送成功后清零失败退避标记; B-12: 同时清零连续失败计数
-        // B-13: 排期持久化失败重试一次 — 消息已落库而排期未推进会导致下轮重发同一条
-        // (重复骚扰);两次都失败记 ERROR 供定位(DataStore 与 DB 无法跨存储事务)。
-        var scheduleSaved = false
-        repeat(2) {
-            if (scheduleSaved) return@repeat
-            val updatedConfig = config.copy(lastFailedAt = 0, consecutiveFailures = 0)
-            runCatching {
-                saveProactiveSchedule(
-                    updatedConfig, now, baseIntervalMs, targetSession.id, updateLastTriggered = true,
-                )
-            }.onSuccess { scheduleSaved = true }
-                .onFailure { e -> Logger.w(TAG, "主动消息排期持久化失败(将重试): ${e.message}", e) }
-        }
-        if (!scheduleSaved) {
-            Logger.e(TAG, "主动消息排期持久化失败两次: 消息已落库但排期未推进,存在下轮重复发送风险(消息 id 可对照 patrol log)")
-        }
-        // v1.0.74: 巡检日志(记录发了什么,防重复)
-        writePatrolLog("sent_message", "主动消息:${decision.scenario} — ${proactiveContent.take(80)}")
-        // 问题6.2: 成功发送后递增当日计数并持久化,MAX_DAILY_MESSAGES 校验下次生效
-        incrementDailyCount()
-        // 弹通知(像收到即时消息一样,通知栏用助手头像)
-        notificationManager.notifyProactiveMessage(
-            assistant,
-            proactiveContent,
-            MuseNotificationTarget.Session(targetSession.id),
-        )
-        Logger.i(TAG, "Proactive message sent to session ${targetSession.id}, scenario=${decision.scenario}, reason=${decision.reason}")
-    }
 
     // ══════════════════════════════════════════════════════════════════════
     // v2.0 5.1: accountAgeDays 从首次启动时间计算
@@ -914,8 +913,11 @@ class ProactiveMessageRunner(
                     // keywordsJson 是 JSON 数组字符串,简单解析
                     val keywords = parseKeywords(lorebook.keywordsJson)
                     keywords.any { kw ->
-                        if (lorebook.caseSensitive) scanText.contains(kw)
-                        else scanText.lowercase().contains(kw.lowercase())
+                        if (lorebook.caseSensitive) {
+                            scanText.contains(kw)
+                        } else {
+                            scanText.lowercase().contains(kw.lowercase())
+                        }
                     }
                 }
                 .take(3) // 最多注入 3 条避免上下文爆炸
@@ -946,10 +948,7 @@ class ProactiveMessageRunner(
      *  - 不要把巡检当作用户提问来回应
      *  - 独立判断是否需要主动发消息,不要向用户提问或等待回复
      */
-    private fun buildDecisionPrompt(
-        assistant: AssistantEntity,
-        patrol: PatrolContext,
-    ): List<UIMessage> {
+    private fun buildDecisionPrompt(assistant: AssistantEntity, patrol: PatrolContext): List<UIMessage> {
         val systemMsg = UIMessage(
             role = MessageRole.SYSTEM,
             content = buildString {
@@ -995,11 +994,7 @@ class ProactiveMessageRunner(
      *
      * 仅在阶段1 shouldSend=true 时调用,用大 maxTokens 生成正文。
      */
-    private fun buildContentPrompt(
-        assistant: AssistantEntity,
-        patrol: PatrolContext,
-        decision: ProactiveDecision,
-    ): List<UIMessage> {
+    private fun buildContentPrompt(assistant: AssistantEntity, patrol: PatrolContext, decision: ProactiveDecision): List<UIMessage> {
         val scenario = decision.scenario.ifBlank { "greeting" }
         val (minLen, maxLen) = when (scenario) {
             "reminder" -> 50 to 150
@@ -1157,12 +1152,14 @@ class ProactiveMessageRunner(
     companion object {
         private const val TAG = "ProactiveMsg"
         private const val POLL_INTERVAL_MS = 60_000L // 每分钟检查一次
+
         /** LLM 决策/生成调用超时(毫秒)。 */
         private const val LLM_TIMEOUT_MS = 60_000L
 
         // v2.0 5.4: 两阶段 maxTokens
         /** 阶段1 决策 JSON 最大 token(只返回 shouldSend+reason+scenario,省 token)。 */
         private const val DECISION_MAX_TOKENS = 100
+
         /** 阶段2 生成正文最大 token(支持故事类 200-500 字)。 */
         private const val CONTENT_MAX_TOKENS = 500
 
@@ -1179,6 +1176,7 @@ class ProactiveMessageRunner(
         // v2.1: 自适应调度相关常量
         /** 快速下限保护比例 — elapsed < baseInterval × 此值 时直接跳过自适应计算(三因子最小乘积 ≈ 0.336)。 */
         private const val FAST_GUARD_RATIO = 0.3f
+
         /** 自适应微抖动比例(±5%,在自适应结果上避免完全确定性)。 */
         private const val MICRO_JITTER_RATIO = 0.05f
 
@@ -1192,6 +1190,7 @@ class ProactiveMessageRunner(
         const val TRIGGER_SOURCE_RESUME = "app_resume"
         const val TRIGGER_SOURCE_LONG_SILENCE = "long_silence"
         const val TRIGGER_SOURCE_TASK_COMPLETE = "task_complete"
+
         /** v1.0.72: 设置页测试发送。 */
         const val TRIGGER_SOURCE_TEST = "test"
 
@@ -1203,9 +1202,7 @@ class ProactiveMessageRunner(
          * 最后按 [io.zer0.muse.data.ProactiveMessageConfig.randomOffsetMinutes]
          * 加一层指数分布偏移(均值 0,短偏移更常见),使发送时刻更自然。
          */
-        private fun computeBaseIntervalMs(
-            config: io.zer0.muse.data.ProactiveMessageConfig,
-        ): Long {
+        private fun computeBaseIntervalMs(config: io.zer0.muse.data.ProactiveMessageConfig): Long {
             return config.intervalMinutes.coerceAtLeast(15) * 60_000L
         }
 
@@ -1220,10 +1217,7 @@ class ProactiveMessageRunner(
          * @param random 随机源(测试注入)
          * @return 偏移毫秒数(负 = 提前,正 = 延后)
          */
-        internal fun exponentialOffsetMillis(
-            offsetMinutes: Int,
-            random: kotlin.random.Random = kotlin.random.Random,
-        ): Long {
+        internal fun exponentialOffsetMillis(offsetMinutes: Int, random: kotlin.random.Random = kotlin.random.Random): Long {
             if (offsetMinutes <= 0) return 0L
             val offsetMs = offsetMinutes * 60_000L
             val u = random.nextDouble().coerceIn(0.000001, 0.999999)
@@ -1312,19 +1306,16 @@ class ProactiveMessageRunner(
             "$ts"
         }
     }
-    private fun computeNextTriggerTime(
-        config: io.zer0.muse.data.ProactiveMessageConfig,
-        baseIntervalMs: Long,
-    ): Long {
+    private fun computeNextTriggerTime(config: io.zer0.muse.data.ProactiveMessageConfig, baseIntervalMs: Long): Long {
         val now = System.currentTimeMillis()
         val lastTriggeredAt = config.lastTriggeredAt
 
         // ── 对话连续性因子 ──
         val endType = activityProfile.getLastConversationEndType()
         val conversationFactor = when (endType) {
-            ConversationEndType.USER_EXPLICIT_END -> 1.5f      // 用户主动结束,别急着打扰
-            ConversationEndType.NATURAL_FADE -> 1.0f           // 自然结束,正常间隔
-            ConversationEndType.UNFINISHED_QUESTION -> 0.6f    // 有未答问题,赶紧跟进
+            ConversationEndType.USER_EXPLICIT_END -> 1.5f // 用户主动结束,别急着打扰
+            ConversationEndType.NATURAL_FADE -> 1.0f // 自然结束,正常间隔
+            ConversationEndType.UNFINISHED_QUESTION -> 0.6f // 有未答问题,赶紧跟进
         }
 
         // ── 情绪因子 ──
@@ -1356,7 +1347,7 @@ class ProactiveMessageRunner(
                 allowedHourStart = config.allowedHourStart,
                 allowedHourEnd = config.allowedHourEnd,
             )
-            Logger.d(TAG, "自适应延后: 目标小时=$targetHour 不活跃/非允许 → 下个活跃窗口 ${deferred}")
+            Logger.d(TAG, "自适应延后: 目标小时=$targetHour 不活跃/非允许 → 下个活跃窗口 $deferred")
             targetTime = deferred
         }
 

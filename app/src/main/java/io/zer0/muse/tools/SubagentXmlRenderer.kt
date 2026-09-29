@@ -52,14 +52,7 @@ object SubagentXmlRenderer {
      * @param result 工具执行结果
      * @param success 工具执行是否成功
      */
-    fun renderProgress(
-        round: Int,
-        maxToolCalls: Int,
-        toolName: String,
-        argsJson: String,
-        result: String,
-        success: Boolean,
-    ): String {
+    fun renderProgress(round: Int, maxToolCalls: Int, toolName: String, argsJson: String, result: String, success: Boolean): String {
         val escapedArgs = escapeXml(truncate(argsJson, ARGS_PREVIEW_CHARS))
         val escapedResult = escapeXml(truncate(result, PROGRESS_PREVIEW_CHARS))
         val successAttr = if (success) "true" else "false"

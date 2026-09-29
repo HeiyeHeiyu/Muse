@@ -75,11 +75,7 @@ class PluginCatalogTest {
         val publicKey: String,
     )
 
-    private fun signedCatalog(
-        sequence: Long = 1L,
-        expiresAt: Long = 10_000L,
-        entry: PluginCatalogEntry = baseEntry(),
-    ): Fixture {
+    private fun signedCatalog(sequence: Long = 1L, expiresAt: Long = 10_000L, entry: PluginCatalogEntry = baseEntry()): Fixture {
         val generator = KeyPairGenerator.getInstance("EC")
         generator.initialize(ECGenParameterSpec("secp256r1"))
         val pair = generator.generateKeyPair()

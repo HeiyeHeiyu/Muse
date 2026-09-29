@@ -2,12 +2,12 @@ package io.zer0.muse.data.chat
 
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
-import kotlin.uuid.Uuid
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.uuid.Uuid
 
 class ConversationTreeTest {
 
@@ -22,17 +22,23 @@ class ConversationTreeTest {
             variantCount = count,
         )
 
-    private fun assistant(content: String, group: String? = null, index: Int = 0, count: Int = 1, parentGroup: String? = null, at: Long = System.currentTimeMillis()) =
-        UIMessage(
-            id = Uuid.random(),
-            role = MessageRole.ASSISTANT,
-            content = content,
-            createdAt = at,
-            variantGroupId = group,
-            variantIndex = index,
-            variantCount = count,
-            parentGroupId = parentGroup,
-        )
+    private fun assistant(
+        content: String,
+        group: String? = null,
+        index: Int = 0,
+        count: Int = 1,
+        parentGroup: String? = null,
+        at: Long = System.currentTimeMillis(),
+    ) = UIMessage(
+        id = Uuid.random(),
+        role = MessageRole.ASSISTANT,
+        content = content,
+        createdAt = at,
+        variantGroupId = group,
+        variantIndex = index,
+        variantCount = count,
+        parentGroupId = parentGroup,
+    )
 
     @Test
     fun build_createsTwoLevelTree() {

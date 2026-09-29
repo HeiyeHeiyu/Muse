@@ -30,28 +30,26 @@ object PresetCharacters {
     )
 
     /** 将 PresetCharacter 转换为 AssistantEntity。 */
-    fun toEntity(preset: PresetCharacter, sortIndex: Int = 0): AssistantEntity =
-        AssistantEntity(
-            id = preset.id,
-            name = preset.name,
-            sortIndex = sortIndex,
-            createdAt = System.currentTimeMillis(),
-            updatedAt = System.currentTimeMillis(),
-            systemPrompt = preset.systemPrompt,
-            temperature = preset.recommendedTemperature,
-            topP = preset.recommendedTopP,
-            avatarEmoji = preset.avatarEmoji,
-            memoryEnabled = true,
-            useGlobalMemory = true,
-            enableRecentChatsReference = true,
-            enableTimeReminder = true,
-        )
+    fun toEntity(preset: PresetCharacter, sortIndex: Int = 0): AssistantEntity = AssistantEntity(
+        id = preset.id,
+        name = preset.name,
+        sortIndex = sortIndex,
+        createdAt = System.currentTimeMillis(),
+        updatedAt = System.currentTimeMillis(),
+        systemPrompt = preset.systemPrompt,
+        temperature = preset.recommendedTemperature,
+        topP = preset.recommendedTopP,
+        avatarEmoji = preset.avatarEmoji,
+        memoryEnabled = true,
+        useGlobalMemory = true,
+        enableRecentChatsReference = true,
+        enableTimeReminder = true,
+    )
 
     /** 根据 Onboarding 性格测试结果推荐角色 (按匹配度排序,返回前 3 个)。 */
-    fun recommend(trait1: Int, trait2: Int): List<PresetCharacter> =
-        all.sortedByDescending { ch ->
-            ch.matchingTraits.count { it.first == trait1 || it.second == trait2 }
-        }.take(3)
+    fun recommend(trait1: Int, trait2: Int): List<PresetCharacter> = all.sortedByDescending { ch ->
+        ch.matchingTraits.count { it.first == trait1 || it.second == trait2 }
+    }.take(3)
 
     // ── 全部角色 ──────────────────────────────────────────────────────────
 
@@ -394,6 +392,13 @@ object PresetCharacters {
     // ── 全部角色(必须放在所有角色定义之后,Kotlin 对象属性按声明顺序初始化) ──
 
     val all: List<PresetCharacter> = listOf(
-        XIAOYE, ACHENG, SHUCHONG, JINGZI, XINGCHEN, TIEJIANG, HUAYUAN, MUSE,
+        XIAOYE,
+        ACHENG,
+        SHUCHONG,
+        JINGZI,
+        XINGCHEN,
+        TIEJIANG,
+        HUAYUAN,
+        MUSE,
     )
 }

@@ -13,9 +13,9 @@ import io.zer0.ai.image.ImageService
 import io.zer0.common.AppDispatchers
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.session.SessionRepository
-import io.zer0.muse.R
 import io.zer0.muse.doc.OcrManager
 import io.zer0.muse.ui.ChatError
 import io.zer0.muse.ui.ChatErrorType
@@ -74,6 +74,7 @@ class ImageGenCoordinator(
     companion object {
         /** 图片缩放最长边(视觉模型不需要超清,控制 base64 体积)。 */
         private const val IMAGE_SCALE_TARGET = 1024
+
         /** 图片 JPEG 压缩质量(0-100)。 */
         private const val IMAGE_JPEG_QUALITY = 85
     }
@@ -172,7 +173,8 @@ class ImageGenCoordinator(
 
                 val bitmap: android.graphics.Bitmap? = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
                     val source = android.graphics.ImageDecoder.createSource(resolver, uri)
-                    android.graphics.ImageDecoder.decodeBitmap(source,
+                    android.graphics.ImageDecoder.decodeBitmap(
+                        source,
                         object : android.graphics.ImageDecoder.OnHeaderDecodedListener {
                             override fun onHeaderDecoded(
                                 decoder: android.graphics.ImageDecoder,
@@ -238,8 +240,12 @@ class ImageGenCoordinator(
         sessionId: String,
         addError: (ChatErrorType, String) -> Unit,
         updateAssistant: (
-            id: Uuid, content: String, reasoning: String?, imageBase64List: List<String>?,
-            imageUrls: List<String>?, isStreaming: Boolean,
+            id: Uuid,
+            content: String,
+            reasoning: String?,
+            imageBase64List: List<String>?,
+            imageUrls: List<String>?,
+            isStreaming: Boolean,
         ) -> Unit,
     ) {
         val userMsg = UIMessage(role = MessageRole.USER, content = "[绘图] $prompt")
@@ -287,7 +293,9 @@ class ImageGenCoordinator(
 
                 val explicitProvider = if (imageGenConfig.providerId.isNotBlank()) {
                     settings.getProviderById(imageGenConfig.providerId)
-                } else null
+                } else {
+                    null
+                }
 
                 val config = explicitProvider ?: settings.get()
                 val model = if (explicitProvider != null) {
@@ -386,7 +394,9 @@ class ImageGenCoordinator(
         if (urls.isEmpty()) {
             accessor.update {
                 it.copy(
-                    errors = listOf(ChatError(type = ChatErrorType.UNKNOWN, message = appContext.getString(R.string.err_image_gen_no_result))),
+                    errors = listOf(
+                        ChatError(type = ChatErrorType.UNKNOWN, message = appContext.getString(R.string.err_image_gen_no_result)),
+                    ),
                     isGeneratingImage = false,
                 )
             }
@@ -395,8 +405,11 @@ class ImageGenCoordinator(
         val md = urls.joinToString("\n\n") { "![]($it)" }
         accessor.updateMessages { messages ->
             messages.map { msg ->
-                if (msg.id == assistantId) msg.copy(content = md, imageUrls = urls)
-                else msg
+                if (msg.id == assistantId) {
+                    msg.copy(content = md, imageUrls = urls)
+                } else {
+                    msg
+                }
             }
         }
         accessor.update {
@@ -411,7 +424,10 @@ class ImageGenCoordinator(
                 sessionRepository.upsertMessage(sessionId, finalAssistant)
             } catch (e: Exception) {
                 Logger.e(tag, "generateImageViaOpenAi upsertMessage failed", e)
-                addError(ChatErrorType.UNKNOWN, appContext.getString(R.string.err_image_gen_save_failed, e.message ?: appContext.getString(R.string.err_chat_unknown)))
+                addError(
+                    ChatErrorType.UNKNOWN,
+                    appContext.getString(R.string.err_image_gen_save_failed, e.message ?: appContext.getString(R.string.err_chat_unknown)),
+                )
             }
         }
     }
@@ -425,12 +441,16 @@ class ImageGenCoordinator(
         model: Model,
         addError: (ChatErrorType, String) -> Unit,
         updateAssistant: (
-            id: Uuid, content: String, reasoning: String?, imageBase64List: List<String>?,
-            imageUrls: List<String>?, isStreaming: Boolean,
+            id: Uuid,
+            content: String,
+            reasoning: String?,
+            imageBase64List: List<String>?,
+            imageUrls: List<String>?,
+            isStreaming: Boolean,
         ) -> Unit,
     ) {
         val drawMessages = listOf(
-            UIMessage(role = MessageRole.USER, content = "请生成一张图片: $prompt")
+            UIMessage(role = MessageRole.USER, content = "请生成一张图片: $prompt"),
         )
         val flow = chatService.streamChat(
             messages = drawMessages,
@@ -479,7 +499,9 @@ class ImageGenCoordinator(
             }
             accessor.update {
                 it.copy(
-                    errors = listOf(ChatError(type = ChatErrorType.UNKNOWN, message = appContext.getString(R.string.err_image_gen_no_image))),
+                    errors = listOf(
+                        ChatError(type = ChatErrorType.UNKNOWN, message = appContext.getString(R.string.err_image_gen_no_image)),
+                    ),
                     isGeneratingImage = false,
                 )
             }
@@ -514,7 +536,10 @@ class ImageGenCoordinator(
                 sessionRepository.upsertMessage(sessionId, finalAssistant)
             } catch (e: Exception) {
                 Logger.e(tag, "generateImageViaGemini upsertMessage failed", e)
-                addError(ChatErrorType.UNKNOWN, appContext.getString(R.string.err_image_gen_save_failed, e.message ?: appContext.getString(R.string.err_chat_unknown)))
+                addError(
+                    ChatErrorType.UNKNOWN,
+                    appContext.getString(R.string.err_image_gen_save_failed, e.message ?: appContext.getString(R.string.err_chat_unknown)),
+                )
             }
         }
     }

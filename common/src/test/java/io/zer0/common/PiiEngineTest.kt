@@ -13,7 +13,14 @@ class PiiEngineTest {
         assertFalse(masked.contains("13800138000"))
         assertTrue(matches.any { it.type == PiiEngine.AppType.PHONE })
         assertEquals(input, PiiEngine.unmaskApp(masked, matches))
-        assertEquals("13800138000", input.substring(matches.first { it.type == PiiEngine.AppType.PHONE }.start..matches.first { it.type == PiiEngine.AppType.PHONE }.end - 1))
+        assertEquals(
+            "13800138000",
+            input.substring(
+                matches.first {
+                    it.type == PiiEngine.AppType.PHONE
+                }.start..matches.first { it.type == PiiEngine.AppType.PHONE }.end - 1,
+            ),
+        )
     }
 
     @Test

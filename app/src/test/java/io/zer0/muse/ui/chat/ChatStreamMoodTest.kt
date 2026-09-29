@@ -16,12 +16,12 @@ import io.zer0.muse.vision.VisionBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
-import kotlin.uuid.Uuid
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.uuid.Uuid
 
 /**
  * Mood 解析回归测试：验证流式收尾使用的同一更新入口会把 Mood 从正文/推理通道
@@ -82,24 +82,23 @@ class ChatStreamMoodTest {
         assertEquals("分析过程", updated.reasoning?.trim())
     }
 
-    private fun coordinator(accessor: MutableMessagesAccessor): ChatStreamCoordinator =
-        ChatStreamCoordinator(
-            accessor = accessor,
-            sessionRepository = mockk(relaxed = true),
-            memoryTicker = mockk(relaxed = true),
-            settings = mockk<SettingsRepository>(relaxed = true),
-            appContext = mockk(relaxed = true),
-            notificationManager = mockk<MuseNotificationManager>(relaxed = true),
-            assistantRepository = mockk<AssistantRepository>(relaxed = true),
-            visionBridge = mockk<VisionBridge>(relaxed = true),
-            toolRegistry = mockk<ToolRegistry>(relaxed = true),
-            skillRepository = mockk<SkillRepository>(relaxed = true),
-            idListJson = Json,
-            lorebookRepository = mockk<LorebookRepository>(relaxed = true),
-            promptInjectionRepository = mockk<PromptInjectionRepository>(relaxed = true),
-            transformerPipeline = mockk<TransformerPipeline>(relaxed = true),
-            hookRegistry = mockk<HookRegistry>(relaxed = true),
-        )
+    private fun coordinator(accessor: MutableMessagesAccessor): ChatStreamCoordinator = ChatStreamCoordinator(
+        accessor = accessor,
+        sessionRepository = mockk(relaxed = true),
+        memoryTicker = mockk(relaxed = true),
+        settings = mockk<SettingsRepository>(relaxed = true),
+        appContext = mockk(relaxed = true),
+        notificationManager = mockk<MuseNotificationManager>(relaxed = true),
+        assistantRepository = mockk<AssistantRepository>(relaxed = true),
+        visionBridge = mockk<VisionBridge>(relaxed = true),
+        toolRegistry = mockk<ToolRegistry>(relaxed = true),
+        skillRepository = mockk<SkillRepository>(relaxed = true),
+        idListJson = Json,
+        lorebookRepository = mockk<LorebookRepository>(relaxed = true),
+        promptInjectionRepository = mockk<PromptInjectionRepository>(relaxed = true),
+        transformerPipeline = mockk<TransformerPipeline>(relaxed = true),
+        hookRegistry = mockk<HookRegistry>(relaxed = true),
+    )
 
     private class MutableMessagesAccessor(
         initial: List<UIMessage>,

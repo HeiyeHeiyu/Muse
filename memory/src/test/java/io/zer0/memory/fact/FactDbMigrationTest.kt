@@ -117,11 +117,7 @@ class FactDbMigrationTest {
                         V7_INDICES.forEach { db.execSQL(it) }
                     }
 
-                    override fun onUpgrade(
-                        db: androidx.sqlite.db.SupportSQLiteDatabase,
-                        oldVersion: Int,
-                        newVersion: Int,
-                    ) {
+                    override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
                         // 由 Room migration 接管
                     }
                 })
@@ -139,7 +135,7 @@ class FactDbMigrationTest {
                 1, 'preference', 0.9, 'user_explicit',
                 NULL, NULL, NULL
             )
-            """.trimIndent()
+            """.trimIndent(),
         )
         helper.close()
 
@@ -158,7 +154,8 @@ class FactDbMigrationTest {
                 FactDb.MIGRATION_10_11,
                 FactDb.MIGRATION_11_12,
                 FactDb.MIGRATION_12_13,
-                    FactDb.MIGRATION_13_14,)
+                FactDb.MIGRATION_13_14,
+            )
             .allowMainThreadQueries()
             .build()
 
@@ -191,11 +188,7 @@ class FactDbMigrationTest {
                         V7_INDICES.forEach { db.execSQL(it) }
                     }
 
-                    override fun onUpgrade(
-                        db: androidx.sqlite.db.SupportSQLiteDatabase,
-                        oldVersion: Int,
-                        newVersion: Int,
-                    ) {
+                    override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
                     }
                 })
                 .build(),
@@ -213,7 +206,7 @@ class FactDbMigrationTest {
                 2, 'identity', 1.0, 'user_explicit',
                 '2027-07-28T00:00:00Z', '2026-07-28T11:00:00Z', '2026-07-28T12:00:00Z'
             )
-            """.trimIndent()
+            """.trimIndent(),
         )
         helper.close()
 
@@ -231,7 +224,8 @@ class FactDbMigrationTest {
                 FactDb.MIGRATION_10_11,
                 FactDb.MIGRATION_11_12,
                 FactDb.MIGRATION_12_13,
-                    FactDb.MIGRATION_13_14,)
+                FactDb.MIGRATION_13_14,
+            )
             .allowMainThreadQueries()
             .build()
 
@@ -239,7 +233,7 @@ class FactDbMigrationTest {
             """
             SELECT fact, importance, category, confidence, source, expires_at, last_confirmed_at, last_hit_at, scope
             FROM facts WHERE id = 42
-            """.trimIndent()
+            """.trimIndent(),
         ).use { cursor ->
             assertTrue(cursor.moveToFirst())
             assertEquals("生日: 1990-05-20", cursor.getString(0))
@@ -339,11 +333,7 @@ class FactDbMigrationTest {
                         db.execSQL("CREATE INDEX IF NOT EXISTS `idx_memory_links_scope` ON `memory_links` (`scope`)")
                     }
 
-                    override fun onUpgrade(
-                        db: androidx.sqlite.db.SupportSQLiteDatabase,
-                        oldVersion: Int,
-                        newVersion: Int,
-                    ) {
+                    override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
                     }
                 })
                 .build(),
@@ -363,7 +353,7 @@ class FactDbMigrationTest {
                 NULL, NULL, '2026-08-10T00:00:00Z',
                 'main', 'default', '2026-08-15T00:00:00Z'
             )
-            """.trimIndent()
+            """.trimIndent(),
         )
         helper.execSQL(
             """
@@ -378,17 +368,20 @@ class FactDbMigrationTest {
                 '2026-08-27T00:00:00Z', NULL, NULL,
                 'main', 'work', NULL
             )
-            """.trimIndent()
+            """.trimIndent(),
         )
         helper.execSQL(
-            "INSERT INTO facts_fts(fact_id, content_ngram) VALUES (1, '用户 喜欢 深色 模式'), (2, '下周 周三 交论 论文 初稿')"
+            "INSERT INTO facts_fts(fact_id, content_ngram) VALUES (1, '用户 喜欢 深色 模式'), (2, '下周 周三 交论 论文 初稿')",
         )
         helper.close()
 
         // 触发 11→12 迁移
         val db = Room.databaseBuilder(context, FactDb::class.java, dbFile.absolutePath)
-            .addMigrations(FactDb.MIGRATION_11_12, FactDb.MIGRATION_12_13,
-                    FactDb.MIGRATION_13_14,)
+            .addMigrations(
+                FactDb.MIGRATION_11_12,
+                FactDb.MIGRATION_12_13,
+                FactDb.MIGRATION_13_14,
+            )
             .allowMainThreadQueries()
             .build()
         db.openHelper.writableDatabase
@@ -405,7 +398,7 @@ class FactDbMigrationTest {
             """
             SELECT fact, importance, scope, space_id, pinned_at, expires_at, last_hit_at, entity_key
             FROM facts WHERE id = 1
-            """.trimIndent()
+            """.trimIndent(),
         ).use { cursor ->
             assertTrue("老数据应保留", cursor.moveToFirst())
             assertEquals("用户喜欢深色模式", cursor.getString(0))
@@ -427,14 +420,14 @@ class FactDbMigrationTest {
 
         // 4. 索引 idx_facts_entity_key 已建
         db.openHelper.writableDatabase.query(
-            "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_facts_entity_key'"
+            "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_facts_entity_key'",
         ).use { cursor ->
             assertTrue("idx_facts_entity_key 索引应存在", cursor.moveToFirst())
         }
 
         // 5. v13: fact_revisions 表已建(空表)
         db.openHelper.writableDatabase.query(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='fact_revisions'"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='fact_revisions'",
         ).use { cursor ->
             assertTrue("fact_revisions 表应存在", cursor.moveToFirst())
         }
@@ -525,11 +518,7 @@ class FactDbMigrationTest {
                         db.execSQL("CREATE INDEX IF NOT EXISTS `idx_memory_links_scope` ON `memory_links` (`scope`)")
                     }
 
-                    override fun onUpgrade(
-                        db: androidx.sqlite.db.SupportSQLiteDatabase,
-                        oldVersion: Int,
-                        newVersion: Int,
-                    ) {
+                    override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
                     }
                 })
                 .build(),
@@ -548,27 +537,29 @@ class FactDbMigrationTest {
                 NULL, NULL, '2026-08-10T00:00:00Z',
                 'main', 'default', NULL, '张三'
             )
-            """.trimIndent()
+            """.trimIndent(),
         )
         helper.close()
 
         val db = Room.databaseBuilder(context, FactDb::class.java, dbFile.absolutePath)
-            .addMigrations(FactDb.MIGRATION_12_13,
-                    FactDb.MIGRATION_13_14,)
+            .addMigrations(
+                FactDb.MIGRATION_12_13,
+                FactDb.MIGRATION_13_14,
+            )
             .allowMainThreadQueries()
             .build()
         db.openHelper.writableDatabase
 
         // fact_revisions 表存在
         db.openHelper.writableDatabase.query(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='fact_revisions'"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='fact_revisions'",
         ).use { cursor ->
             assertTrue("fact_revisions 表应存在", cursor.moveToFirst())
         }
 
         // 原 facts 数据无损(含 entity_key)
         db.openHelper.writableDatabase.query(
-            "SELECT fact, importance, entity_key FROM facts WHERE id = 1"
+            "SELECT fact, importance, entity_key FROM facts WHERE id = 1",
         ).use { cursor ->
             assertTrue("facts 数据应保留", cursor.moveToFirst())
             assertEquals("张三喜欢摄影", cursor.getString(0))
@@ -608,11 +599,7 @@ class FactDbMigrationTest {
                         db.execSQL("CREATE INDEX IF NOT EXISTS `idx_facts_session` ON `facts` (`session_id`)")
                     }
 
-                    override fun onUpgrade(
-                        db: androidx.sqlite.db.SupportSQLiteDatabase,
-                        oldVersion: Int,
-                        newVersion: Int,
-                    ) {
+                    override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
                     }
                 })
                 .build(),
@@ -620,7 +607,7 @@ class FactDbMigrationTest {
 
         helper.execSQL(
             "INSERT INTO facts (id, fact, tags, time, session_id, created_at) " +
-                "VALUES (1, '爱吃辣', '[\"偏好\"]', NULL, NULL, '2026-01-01T00:00:00Z')"
+                "VALUES (1, '爱吃辣', '[\"偏好\"]', NULL, NULL, '2026-01-01T00:00:00Z')",
         )
         helper.close()
 
@@ -629,7 +616,8 @@ class FactDbMigrationTest {
                 FactDb.MIGRATION_3_4, FactDb.MIGRATION_4_5, FactDb.MIGRATION_5_6,
                 FactDb.MIGRATION_6_7, FactDb.MIGRATION_7_8, FactDb.MIGRATION_8_9,
                 FactDb.MIGRATION_9_10, FactDb.MIGRATION_10_11, FactDb.MIGRATION_11_12, FactDb.MIGRATION_12_13,
-                    FactDb.MIGRATION_13_14,)
+                FactDb.MIGRATION_13_14,
+            )
             .allowMainThreadQueries()
             .build()
 
@@ -649,12 +637,12 @@ class FactDbMigrationTest {
 
         // 2. FTS 表已建
         db.openHelper.writableDatabase.query(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='facts_fts'"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='facts_fts'",
         ).use { cursor -> assertTrue("facts_fts 表应存在", cursor.moveToFirst()) }
 
         // 3. 历史数据无损 + 默认值正确
         db.openHelper.writableDatabase.query(
-            "SELECT fact, importance, category, confidence, source, scope FROM facts WHERE id = 1"
+            "SELECT fact, importance, category, confidence, source, scope FROM facts WHERE id = 1",
         ).use { cursor ->
             assertTrue("v3 存量事实应保留", cursor.moveToFirst())
             assertEquals("爱吃辣", cursor.getString(0))

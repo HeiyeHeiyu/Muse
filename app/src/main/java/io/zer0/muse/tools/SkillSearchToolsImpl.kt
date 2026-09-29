@@ -80,10 +80,7 @@ class SkillSearchToolsImpl(
      * @param clientBuilder 基于注入 chat client 的 newBuilder(用于覆盖超时等)
      * @return 最终命中的响应;访问方负责 use/close
      */
-    private fun executeWithHopGuard(
-        request: Request.Builder,
-        clientBuilder: OkHttpClient.Builder,
-    ): okhttp3.Response {
+    private fun executeWithHopGuard(request: Request.Builder, clientBuilder: OkHttpClient.Builder): okhttp3.Response {
         var redirects = 0
         var redirectReq = request
         while (true) {
@@ -208,10 +205,7 @@ class SkillSearchToolsImpl(
     /** 解析沙盒路径(限定 filesDir / cacheDir 下,防止路径穿越)。 */
 
     // H-SE1: 改用 resultOf{}(正确重抛 CancellationException)
-    fun applyHeaders(
-        req: Request.Builder,
-        headersJson: String,
-    ) {
+    fun applyHeaders(req: Request.Builder, headersJson: String) {
         resultOf {
             val obj = AppJson.decodeFromString(JsonObject.serializer(), headersJson)
             obj.forEach { (k, v) ->
@@ -228,10 +222,7 @@ class SkillSearchToolsImpl(
      * web_search — 用配置好的 WebSearchService(SearXNG/Tavily)搜索。
      * 让 LLM 主动决定何时搜索,而非每次对话都注入。
      */
-    suspend fun execWebSearch(
-        args: Map<String, String>,
-        turnKey: String = "default",
-    ): String {
+    suspend fun execWebSearch(args: Map<String, String>, turnKey: String = "default"): String {
         val service =
             webSearchService
                 ?: return context.getString(R.string.skill_web_search_not_configured)
@@ -290,10 +281,7 @@ class SkillSearchToolsImpl(
         return sb.toString().trimEnd()
     }
 
-    private fun formatCoordinatedSearchResponse(
-        response: io.zer0.muse.web.WebSearchResponse,
-        maxResults: Int,
-    ): String {
+    private fun formatCoordinatedSearchResponse(response: io.zer0.muse.web.WebSearchResponse, maxResults: Int): String {
         if (response.status != io.zer0.muse.web.WebSearchStatus.RESULTS || response.results.isEmpty()) {
             return when (response.status) {
                 io.zer0.muse.web.WebSearchStatus.BUDGET_EXCEEDED -> "搜索预算已用尽：本轮最多搜索 ${WebSearchPolicy().maxSearchesPerTurn} 次，请基于已有结果回答。"
@@ -369,11 +357,7 @@ class SkillSearchToolsImpl(
      * @param errorMsg 网络异常时的错误信息(httpCode < 0 时使用)
      * @return 降级摘要文本;若搜索服务未配置、搜索失败或无结果,返回 null(由调用方返回原错误)
      */
-    suspend fun degradeToSearchSummary(
-        url: String,
-        httpCode: Int,
-        errorMsg: String = "",
-    ): String? {
+    suspend fun degradeToSearchSummary(url: String, httpCode: Int, errorMsg: String = ""): String? {
         val service = webSearchService ?: return null
         val domain =
             resultOf { java.net.URI(url).host }

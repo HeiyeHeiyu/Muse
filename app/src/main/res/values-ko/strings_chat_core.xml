@@ -430,7 +430,7 @@
     <string name="chat_list_rename_session_title">채팅 이름 바꾸기</string>
     <string name="chat_list_confirm">좋아요</string>
     <string name="chat_list_delete_session_title">채팅 삭제</string>
-    <string name="chat_list_delete_session_confirm">이 작업은 취소할 수 없습니다.</string>
+    <string name="chat_list_delete_session_confirm">이 작업은 취소할 수 없습니다. "%1$s" 및 모든 메시지를 삭제할까요?</string>
     <string name="chat_list_deleted_toast">삭제됨</string>
 
     <!-- Folder rename/delete dialogs -->

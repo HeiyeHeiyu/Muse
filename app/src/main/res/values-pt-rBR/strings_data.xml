@@ -102,7 +102,7 @@
     <!-- ===== data/DocumentParser ===== -->
     <!-- Document parsing error messages (via Result.Error to UI) -->
     <string name="doc_err_open_pdf">Não é possível abrir o arquivo PDF</string>
-    <string name="doc_err_pdf_text_empty">A extração de texto do PDF está vazia (pode ser um PDF digitalizado, é necessário OCR).</string>
+    <string name="doc_err_pdf_text_empty">A extração de texto do PDF está vazia (pode ser um PDF digitalizado que requer OCR). Total de páginas: %1$d.</string>
     <string name="doc_err_docx_no_document">Não é possível ler DOCX: falta word/document.xml</string>
     <string name="doc_err_pptx_no_slides">Não é possível ler PPTX: nenhum slide encontrado</string>
     <string name="doc_err_xlsx_no_sheets">Não é possível ler XLSX: nenhuma planilha encontrada</string>

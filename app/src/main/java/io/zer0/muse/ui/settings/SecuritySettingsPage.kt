@@ -6,12 +6,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.runtime.getValue
-import io.zer0.muse.ui.common.form.MuseChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,12 +20,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.ShareTemplateConfig
+import io.zer0.muse.ui.common.form.MuseChip
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.settings.SectionLabel
-import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.settings.SettingsSwitchRow
+import io.zer0.muse.ui.theme.MusePaddings
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -36,15 +36,12 @@ import org.koin.compose.koinInject
  * 分享:导出对话时包含哪些内容、格式。
  */
 @Composable
-fun SecuritySettingsPage(
-    onBack: () -> Unit,
-) {
+fun SecuritySettingsPage(onBack: () -> Unit) {
     val settings: SettingsRepository = koinInject()
     val shareTemplate by settings.shareTemplateFlow.collectAsStateWithLifecycle(initialValue = ShareTemplateConfig())
     val scope = rememberCoroutineScope()
 
     SettingsSubPageScaffold(title = stringResource(R.string.settings_share_page_title), onBack = onBack) {
-
         // ── 分享模板(v2.0: 应用锁说明卡片已按用户要求移除,本页只保留分享能力)──
         item { SectionLabel(stringResource(R.string.settings_security_share_template_section)) }
         item {
@@ -139,6 +136,5 @@ fun SecuritySettingsPage(
                 }
             }
         }
-
     }
 }

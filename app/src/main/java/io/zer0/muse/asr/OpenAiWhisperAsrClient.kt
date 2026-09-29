@@ -5,6 +5,7 @@ import android.media.AudioRecord
 import android.os.SystemClock
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.asr.AudioAmplitude.appendAmplitude
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,7 +19,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import io.zer0.muse.asr.AudioAmplitude.appendAmplitude
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -118,7 +118,9 @@ class OpenAiWhisperAsrController(
                 threshold = config.vadThreshold,
                 silenceDurationMs = config.vadSilenceDurationMs,
             )
-        } else null
+        } else {
+            null
+        }
         _state.update {
             it.copy(
                 status = ASRStatus.Connecting,
@@ -242,58 +244,57 @@ class OpenAiWhisperAsrController(
      *  - prompt: 热词拼接(可选,Whisper 用此提升专有名词识别率)
      *  - response_format: json(便于解析)
      */
-    private suspend fun recognizeSegment(wavBytes: ByteArray): String? =
-        withContext(Dispatchers.IO) {
-            val wavBody = wavBytes.toRequestBody("audio/wav".toMediaType())
-            val multipart = MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("file", "audio.wav", wavBody)
-                .addFormDataPart("model", config.model.ifBlank { config.defaultModel() })
-                .addFormDataPart("response_format", "json")
-                .apply {
-                    config.language?.takeIf { it.isNotBlank() }?.let { addFormDataPart("language", it) }
-                    if (config.hotwords.isNotEmpty()) {
-                        val prompt = config.hotwords.joinToString(", ")
-                        if (prompt.isNotBlank()) addFormDataPart("prompt", prompt)
-                    }
-                }
-                .build()
-            val base = config.baseUrl.ifBlank { config.defaultBaseUrl().ifBlank { DEFAULT_BASE_URL } }
-            val request = Request.Builder()
-                .url(transcriptionEndpoint(base))
-                .header("Authorization", "Bearer ${config.apiKey}")
-                .post(multipart)
-                .build()
-            var lastError: String? = null
-            // F-34: 断线重连 — 网络/5xx/429 失败按指数退避补发同一段音频,上限 RECONNECT_MAX_ATTEMPTS。
-            for (attempt in 0 until AsrConstants.RECONNECT_MAX_ATTEMPTS) {
-                try {
-                    val result = client.newCall(request).execute().use { resp: Response ->
-                        if (!resp.isSuccessful) {
-                            lastError = "识别服务 HTTP ${resp.code}: ${resp.message}"
-                            Logger.w(TAG, "Whisper ASR HTTP ${resp.code}: ${resp.message}")
-                            if (resp.code !in 500..599 && resp.code != 429) {
-                                return@use null
-                            }
-                            null
-                        } else {
-                            parseTranscriptionResponse(resp.body.string())
-                        }
-                    }
-                    if (!result.isNullOrBlank()) return@withContext result
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: java.io.IOException) {
-                    lastError = e.message ?: "网络连接失败"
-                    Logger.w(TAG, "Whisper ASR 请求失败(attempt=${attempt + 1}): ${e.message}")
-                }
-                if (attempt + 1 < AsrConstants.RECONNECT_MAX_ATTEMPTS) {
-                    delay(AsrConstants.HTTP_RETRY_BACKOFF_MS * (attempt + 1))
+    private suspend fun recognizeSegment(wavBytes: ByteArray): String? = withContext(Dispatchers.IO) {
+        val wavBody = wavBytes.toRequestBody("audio/wav".toMediaType())
+        val multipart = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("file", "audio.wav", wavBody)
+            .addFormDataPart("model", config.model.ifBlank { config.defaultModel() })
+            .addFormDataPart("response_format", "json")
+            .apply {
+                config.language?.takeIf { it.isNotBlank() }?.let { addFormDataPart("language", it) }
+                if (config.hotwords.isNotEmpty()) {
+                    val prompt = config.hotwords.joinToString(", ")
+                    if (prompt.isNotBlank()) addFormDataPart("prompt", prompt)
                 }
             }
-            lastError?.let { setError("语音识别失败: $it") }
-            null
+            .build()
+        val base = config.baseUrl.ifBlank { config.defaultBaseUrl().ifBlank { DEFAULT_BASE_URL } }
+        val request = Request.Builder()
+            .url(transcriptionEndpoint(base))
+            .header("Authorization", "Bearer ${config.apiKey}")
+            .post(multipart)
+            .build()
+        var lastError: String? = null
+        // F-34: 断线重连 — 网络/5xx/429 失败按指数退避补发同一段音频,上限 RECONNECT_MAX_ATTEMPTS。
+        for (attempt in 0 until AsrConstants.RECONNECT_MAX_ATTEMPTS) {
+            try {
+                val result = client.newCall(request).execute().use { resp: Response ->
+                    if (!resp.isSuccessful) {
+                        lastError = "识别服务 HTTP ${resp.code}: ${resp.message}"
+                        Logger.w(TAG, "Whisper ASR HTTP ${resp.code}: ${resp.message}")
+                        if (resp.code !in 500..599 && resp.code != 429) {
+                            return@use null
+                        }
+                        null
+                    } else {
+                        parseTranscriptionResponse(resp.body.string())
+                    }
+                }
+                if (!result.isNullOrBlank()) return@withContext result
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: java.io.IOException) {
+                lastError = e.message ?: "网络连接失败"
+                Logger.w(TAG, "Whisper ASR 请求失败(attempt=${attempt + 1}): ${e.message}")
+            }
+            if (attempt + 1 < AsrConstants.RECONNECT_MAX_ATTEMPTS) {
+                delay(AsrConstants.HTTP_RETRY_BACKOFF_MS * (attempt + 1))
+            }
         }
+        lastError?.let { setError("语音识别失败: $it") }
+        null
+    }
 
     private fun transcriptionEndpoint(baseUrl: String): String {
         val base = baseUrl.trimEnd('/')
@@ -369,12 +370,16 @@ class OpenAiWhisperAsrController(
     companion object {
         private const val TAG = "OpenAiWhisperAsrController"
         private const val DEFAULT_BASE_URL = "https://api.openai.com/v1"
+
         /** 分段时间阈值:30 秒触发一次 flush。 */
         private const val SEGMENT_DURATION_MS = 30_000L
+
         /** 分段字节阈值:6MB 触发 flush(提前量,避免单段过大)。 */
         private const val MAX_SEGMENT_BYTES = 6 * 1024 * 1024
+
         /** 最短段字节数:16kHz/16bit/mono 下 100ms = 3200 bytes,短于此值跳过避免 400。 */
         private const val MIN_SEGMENT_BYTES = 3200
+
         /** VAD 触发 flush 的最短段字节数:避免过短段(500ms = 16000 bytes)。 */
         private const val MIN_VAD_FLUSH_BYTES = 16000
     }

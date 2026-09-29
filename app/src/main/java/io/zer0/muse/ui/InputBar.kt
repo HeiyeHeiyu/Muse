@@ -6,19 +6,10 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseAnchoredMenu
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.ui.common.surface.MuseListItem
-import io.zer0.muse.ui.theme.MuseAnimation
-import io.zer0.muse.ui.theme.MuseActionColors
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.horizontalScroll
@@ -34,10 +25,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +44,7 @@ import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -62,20 +56,26 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
 import io.zer0.ai.core.MessageRole
 import io.zer0.muse.R
 import io.zer0.muse.asr.ASRStatus
-import io.zer0.muse.ui.common.form.MuseChip
-import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
-import io.zer0.muse.ui.theme.MuseIconSizes
-import io.zer0.muse.ui.theme.MuseHaptics
+import io.zer0.muse.ui.common.form.MuseAnchoredMenu
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.state.MuseSpinner
+import io.zer0.muse.ui.common.surface.MuseListItem
+import io.zer0.muse.ui.theme.MuseActionColors
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseElevation
+import io.zer0.muse.ui.theme.MuseHaptics
+import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.huge
 import io.zer0.muse.ui.theme.pill
 import kotlinx.coroutines.delay
@@ -97,7 +97,7 @@ private fun extractInsertedSegment(oldText: String, newText: String): String {
     var suffix = 0
     while (suffix < minLen - prefix &&
         oldText[oldText.length - 1 - suffix] == newText[newText.length - 1 - suffix]
-    ) suffix++
+        ) suffix++
     return newText.substring(prefix, newText.length - suffix)
 }
 
@@ -125,10 +125,7 @@ private val MENTION_HIGHLIGHT_REGEX = Regex("@[\\u4e00-\\u9fa5\\w]+")
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
-internal fun InputBar(
-    state: MuseInputState = MuseInputState(),
-    callbacks: InputBarCallbacks = InputBarCallbacks(),
-) {
+internal fun InputBar(state: MuseInputState = MuseInputState(), callbacks: InputBarCallbacks = InputBarCallbacks()) {
     val hapticFeedback = LocalHapticFeedback.current
     val reducedMotion = MuseMotion.isReducedMotion()
     // B7-07: 从聚合状态/回调中解包,保持函数体原有逻辑不变
@@ -366,8 +363,11 @@ internal fun InputBar(
                         val removeInteractionSource = remember { MutableInteractionSource() }
                         val isRemovePressed by removeInteractionSource.collectIsPressedAsState()
                         val removeBgColor by animateColorAsState(
-                            targetValue = if (isRemovePressed) MaterialTheme.colorScheme.error.copy(alpha = 0.9f)
-                            else MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                            targetValue = if (isRemovePressed) {
+                                MaterialTheme.colorScheme.error.copy(alpha = 0.9f)
+                            } else {
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                            },
                             animationSpec = MuseMotion.tween(
                                 MuseAnimation.TACTILE_MS,
                                 easing = MuseAnimation.EaseOutCubic,
@@ -524,8 +524,11 @@ internal fun InputBar(
                     val removeVideoInteractionSource = remember { MutableInteractionSource() }
                     val isRemoveVideoPressed by removeVideoInteractionSource.collectIsPressedAsState()
                     val removeVideoBgColor by animateColorAsState(
-                        targetValue = if (isRemoveVideoPressed) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                        else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                        targetValue = if (isRemoveVideoPressed) {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        } else {
+                            MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+                        },
                         animationSpec = MuseMotion.tween(MuseAnimation.TACTILE_MS, easing = MuseAnimation.EaseOutCubic),
                         label = "removeVideoBg",
                     )
@@ -590,42 +593,45 @@ internal fun InputBar(
                         .padding(MusePaddings.bubbleInner),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(
-                            if (msg.role == MessageRole.USER) R.string.quote_label_user
-                            else R.string.quote_label_assistant
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        text = msg.content,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                // v1.0.72: 清除引用按钮 — 加大点击区(48dp) + 图标更大更清晰
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = onClearReply,
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = MuseIcons.x,
-                        contentDescription = stringResource(R.string.quote_clear),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(
+                                if (msg.role == MessageRole.USER) {
+                                    R.string.quote_label_user
+                                } else {
+                                    R.string.quote_label_assistant
+                                },
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            text = msg.content,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    // v1.0.72: 清除引用按钮 — 加大点击区(48dp) + 图标更大更清晰
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onClearReply,
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = MuseIcons.x,
+                            contentDescription = stringResource(R.string.quote_clear),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
                 }
             }
         }
@@ -723,160 +729,166 @@ internal fun InputBar(
                             modifier = Modifier.size(MuseIconSizes.iconMedium),
                         )
                     }
-                 if (showToolSheet) {
-                     val deepThinkingLabel = stringResource(R.string.chat_deep_thinking_cd)
-                     val deepThinkingTitle = if (isDeepThinkingEnabled) {
-                         val levelLabel = when (deepThinkingLevel) {
-                             // v1.0.72: 思考等级改中文(低/中/高/极高)
-                             io.zer0.ai.core.ReasoningLevel.LOW -> "低"
-                             io.zer0.ai.core.ReasoningLevel.MEDIUM -> "中"
-                             io.zer0.ai.core.ReasoningLevel.HIGH -> "高"
-                             io.zer0.ai.core.ReasoningLevel.XHIGH -> "极高"
-                             else -> "自动"
-                         }
-                         "$deepThinkingLabel · $levelLabel"
-                     } else {
-                         deepThinkingLabel
-                     }
-                     val toolEntries = buildList {
-                         add(
-                             ToolEntry(
-                                 // v2.x: 联网搜索图标修正为 globe(原 languages 是翻译语义)
-                                 icon = MuseIcons.globe,
-                                 title = stringResource(R.string.chat_web_search_cd),
-                                 isActive = isWebSearchEnabled,
-                                 showArrow = false,
-                                 onClick = {
-                                     MuseHaptics.light(hapticFeedback)
-                                     onToggleWebSearch()
-                                 },
-                             ),
-                         )
-                         add(
-                             ToolEntry(
-                                 icon = MuseIcons.brain,
-                                 title = deepThinkingTitle,
-                                 isActive = isDeepThinkingEnabled,
-                                 showArrow = false,
-                                 onClick = {
-                                     MuseHaptics.light(hapticFeedback)
-                                     onToggleDeepThinking()
-                                 },
-                                 onLongClick = {
-                                     // v2.x: 换等级用更重触感 + title 随等级即时更新(可见反馈)
-                                     MuseHaptics.medium(hapticFeedback)
-                                     onCycleDeepThinkingLevel()
-                                 },
-                             ),
-                         )
-                         add(
-                             ToolEntry(
-                                 icon = MuseIcons.paperclip,
-                                 title = stringResource(R.string.chat_tool_attachment),
-                                 onClick = {
-                                     MuseHaptics.light(hapticFeedback)
-                                     showToolSheet = false
-                                     onPickDocument()
-                                 },
-                             ),
-                         )
-                         add(
-                             ToolEntry(
-                                 icon = MuseIcons.book,
-                                 title = stringResource(R.string.chat_tool_knowledge),
-                                 subtitle = stringResource(R.string.chat_tool_knowledge_subtitle),
-                                 onClick = {
-                                     MuseHaptics.light(hapticFeedback)
-                                     showToolSheet = false
-                                     onPickKnowledge()
-                                 },
-                             ),
-                         )
-                         add(
-                             ToolEntry(
-                                 icon = MuseIcons.book,
-                                 title = stringResource(R.string.chat_prompt_templates_title),
-                                 subtitle = stringResource(R.string.chat_tool_prompt_template_subtitle),
-                                 onClick = {
-                                     MuseHaptics.light(hapticFeedback)
-                                     showToolSheet = false
-                                     onOpenPromptTemplates()
-                                 },
-                             ),
-                         )
-                         add(
-                             ToolEntry(
-                                 icon = MuseIcons.wrench,
-                                 title = stringResource(R.string.chat_tool_skills),
-                                 subtitle = stringResource(R.string.chat_tool_skills_subtitle),
-                                 onClick = {
-                                     MuseHaptics.light(hapticFeedback)
-                                     showToolSheet = false
-                                     onOpenSkills()
-                                 },
-                             ),
-                         )
-                         add(
-                             ToolEntry(
-                                 icon = MuseIcons.brush,
-                                 title = stringResource(R.string.chat_tool_draw_mode),
-                                 subtitle = if (isDrawMode) stringResource(R.string.chat_tool_draw_mode_subtitle_on) else stringResource(R.string.chat_tool_draw_mode_subtitle),
-                                 isActive = isDrawMode,
-                                 showArrow = !isDrawMode,
-                                 onClick = {
-                                     MuseHaptics.light(hapticFeedback)
-                                     showToolSheet = false
-                                     onToggleDrawMode()
-                                 },
-                             ),
-                         )
-                         if (assistants.isNotEmpty()) {
-                             add(
-                                 ToolEntry(
-                                     icon = MuseIcons.users,
-                                     title = stringResource(R.string.chat_delegate_action),
-                                     subtitle = stringResource(R.string.chat_tool_delegate_subtitle),
-                                     onClick = {
-                                         MuseHaptics.light(hapticFeedback)
-                                         showToolSheet = false
-                                         onDelegateToAssistant()
-                                     },
-                                 ),
-                             )
-                         }
-                         if (showRestartContext) {
-                             add(
-                                 ToolEntry(
-                                     icon = MuseIcons.refresh,
-                                     title = stringResource(R.string.chat_tool_restart_context),
-                                     subtitle = stringResource(R.string.chat_tool_restart_context_subtitle),
-                                     onClick = {
-                                         MuseHaptics.light(hapticFeedback)
-                                         showToolSheet = false
-                                         onRestartContext()
-                                     },
-                                 ),
-                             )
-                         }
-                     }
-                     MuseToolSheet(
-                         context = context,
-                         hapticFeedback = hapticFeedback,
-                         onPickImage = { asOcr ->
-                             showToolSheet = false
-                             onPickImage(asOcr)
-                         },
-                         onPickGalleryImage = { uri ->
-                             showToolSheet = false
-                             onPickGalleryImage(uri)
-                         },
-                         entries = toolEntries,
-                         onDismiss = { showToolSheet = false },
-                     )
+                    if (showToolSheet) {
+                        val deepThinkingLabel = stringResource(R.string.chat_deep_thinking_cd)
+                        val deepThinkingTitle = if (isDeepThinkingEnabled) {
+                            val levelLabel = when (deepThinkingLevel) {
+                                // v1.0.72: 思考等级改中文(低/中/高/极高)
+                                io.zer0.ai.core.ReasoningLevel.LOW -> "低"
+                                io.zer0.ai.core.ReasoningLevel.MEDIUM -> "中"
+                                io.zer0.ai.core.ReasoningLevel.HIGH -> "高"
+                                io.zer0.ai.core.ReasoningLevel.XHIGH -> "极高"
+                                else -> "自动"
+                            }
+                            "$deepThinkingLabel · $levelLabel"
+                        } else {
+                            deepThinkingLabel
+                        }
+                        val toolEntries = buildList {
+                            add(
+                                ToolEntry(
+                                    // v2.x: 联网搜索图标修正为 globe(原 languages 是翻译语义)
+                                    icon = MuseIcons.globe,
+                                    title = stringResource(R.string.chat_web_search_cd),
+                                    isActive = isWebSearchEnabled,
+                                    showArrow = false,
+                                    onClick = {
+                                        MuseHaptics.light(hapticFeedback)
+                                        onToggleWebSearch()
+                                    },
+                                ),
+                            )
+                            add(
+                                ToolEntry(
+                                    icon = MuseIcons.brain,
+                                    title = deepThinkingTitle,
+                                    isActive = isDeepThinkingEnabled,
+                                    showArrow = false,
+                                    onClick = {
+                                        MuseHaptics.light(hapticFeedback)
+                                        onToggleDeepThinking()
+                                    },
+                                    onLongClick = {
+                                        // v2.x: 换等级用更重触感 + title 随等级即时更新(可见反馈)
+                                        MuseHaptics.medium(hapticFeedback)
+                                        onCycleDeepThinkingLevel()
+                                    },
+                                ),
+                            )
+                            add(
+                                ToolEntry(
+                                    icon = MuseIcons.paperclip,
+                                    title = stringResource(R.string.chat_tool_attachment),
+                                    onClick = {
+                                        MuseHaptics.light(hapticFeedback)
+                                        showToolSheet = false
+                                        onPickDocument()
+                                    },
+                                ),
+                            )
+                            add(
+                                ToolEntry(
+                                    icon = MuseIcons.book,
+                                    title = stringResource(R.string.chat_tool_knowledge),
+                                    subtitle = stringResource(R.string.chat_tool_knowledge_subtitle),
+                                    onClick = {
+                                        MuseHaptics.light(hapticFeedback)
+                                        showToolSheet = false
+                                        onPickKnowledge()
+                                    },
+                                ),
+                            )
+                            add(
+                                ToolEntry(
+                                    icon = MuseIcons.book,
+                                    title = stringResource(R.string.chat_prompt_templates_title),
+                                    subtitle = stringResource(R.string.chat_tool_prompt_template_subtitle),
+                                    onClick = {
+                                        MuseHaptics.light(hapticFeedback)
+                                        showToolSheet = false
+                                        onOpenPromptTemplates()
+                                    },
+                                ),
+                            )
+                            add(
+                                ToolEntry(
+                                    icon = MuseIcons.wrench,
+                                    title = stringResource(R.string.chat_tool_skills),
+                                    subtitle = stringResource(R.string.chat_tool_skills_subtitle),
+                                    onClick = {
+                                        MuseHaptics.light(hapticFeedback)
+                                        showToolSheet = false
+                                        onOpenSkills()
+                                    },
+                                ),
+                            )
+                            add(
+                                ToolEntry(
+                                    icon = MuseIcons.brush,
+                                    title = stringResource(R.string.chat_tool_draw_mode),
+                                    subtitle = if (isDrawMode) {
+                                        stringResource(
+                                            R.string.chat_tool_draw_mode_subtitle_on,
+                                        )
+                                    } else {
+                                        stringResource(R.string.chat_tool_draw_mode_subtitle)
+                                    },
+                                    isActive = isDrawMode,
+                                    showArrow = !isDrawMode,
+                                    onClick = {
+                                        MuseHaptics.light(hapticFeedback)
+                                        showToolSheet = false
+                                        onToggleDrawMode()
+                                    },
+                                ),
+                            )
+                            if (assistants.isNotEmpty()) {
+                                add(
+                                    ToolEntry(
+                                        icon = MuseIcons.users,
+                                        title = stringResource(R.string.chat_delegate_action),
+                                        subtitle = stringResource(R.string.chat_tool_delegate_subtitle),
+                                        onClick = {
+                                            MuseHaptics.light(hapticFeedback)
+                                            showToolSheet = false
+                                            onDelegateToAssistant()
+                                        },
+                                    ),
+                                )
+                            }
+                            if (showRestartContext) {
+                                add(
+                                    ToolEntry(
+                                        icon = MuseIcons.refresh,
+                                        title = stringResource(R.string.chat_tool_restart_context),
+                                        subtitle = stringResource(R.string.chat_tool_restart_context_subtitle),
+                                        onClick = {
+                                            MuseHaptics.light(hapticFeedback)
+                                            showToolSheet = false
+                                            onRestartContext()
+                                        },
+                                    ),
+                                )
+                            }
+                        }
+                        MuseToolSheet(
+                            context = context,
+                            hapticFeedback = hapticFeedback,
+                            onPickImage = { asOcr ->
+                                showToolSheet = false
+                                onPickImage(asOcr)
+                            },
+                            onPickGalleryImage = { uri ->
+                                showToolSheet = false
+                                onPickGalleryImage(uri)
+                            },
+                            entries = toolEntries,
+                            onDismiss = { showToolSheet = false },
+                        )
                     }
                 }
 
-                 // v1.0.47 P5-4: 抽取 MessageInputField 子组件,隔离输入框高频重组,
+                // v1.0.47 P5-4: 抽取 MessageInputField 子组件,隔离输入框高频重组,
                 // 避免 onValueChange 触发整个 InputBar(含工具 Sheet/图片预览等)重组。
                 MessageInputField(
                     text = text,
@@ -902,7 +914,6 @@ internal fun InputBar(
                     expanded = showActionMenu,
                     onDismissRequest = { showActionMenu = false },
                 ) {
-
                     MuseListItem(
                         onClick = {
                             showActionMenu = false
@@ -917,7 +928,6 @@ internal fun InputBar(
                         },
                         headlineContent = { Text(stringResource(R.string.chat_input_action_fullscreen)) },
                     )
-                
                 }
                 // 右侧: 麦克风(空文本且无待发图片时) / 发送(有文本时) / 停止(流式中) / 插话(流式中输入非空)
                 val canInterject = text.isNotBlank() || pendingImages.isNotEmpty() || pendingVideo != null
@@ -946,7 +956,10 @@ internal fun InputBar(
                         Box(
                             modifier = Modifier
                                 .size(MuseIconSizes.stopButton)
-                                .graphicsLayer { scaleX = stopScale; scaleY = stopScale }
+                                .graphicsLayer {
+                                    scaleX = stopScale
+                                    scaleY = stopScale
+                                }
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.error),
                             contentAlignment = Alignment.Center,
@@ -998,7 +1011,10 @@ internal fun InputBar(
                             Box(
                                 modifier = Modifier
                                     .size(MuseIconSizes.stopButton)
-                                    .graphicsLayer { scaleX = enqueueScale; scaleY = enqueueScale }
+                                    .graphicsLayer {
+                                        scaleX = enqueueScale
+                                        scaleY = enqueueScale
+                                    }
                                     .clip(CircleShape)
                                     .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                                 contentAlignment = Alignment.Center,
@@ -1036,7 +1052,10 @@ internal fun InputBar(
                             Box(
                                 modifier = Modifier
                                     .size(MuseIconSizes.stopButton)
-                                    .graphicsLayer { scaleX = interjectScale; scaleY = interjectScale }
+                                    .graphicsLayer {
+                                        scaleX = interjectScale
+                                        scaleY = interjectScale
+                                    }
                                     .clip(CircleShape)
                                     .background(MuseActionColors.container),
                                 contentAlignment = Alignment.Center,
@@ -1056,10 +1075,14 @@ internal fun InputBar(
                     //   决定使用哪个识别器;InputBar 只负责手势交互)
                     val pulseScale by animateFloatAsState(
                         targetValue = if (isRecording && !reducedMotion) 1.25f else 1f,
-                        animationSpec = if (isRecording && !reducedMotion) infiniteRepeatable(
-                            animation = MuseMotion.tween(MuseAnimation.LOOP_NORMAL_MS, easing = FastOutSlowInEasing),
-                            repeatMode = RepeatMode.Reverse,
-                        ) else MuseMotion.tween(MuseAnimation.TACTILE_MS),
+                        animationSpec = if (isRecording && !reducedMotion) {
+                            infiniteRepeatable(
+                                animation = MuseMotion.tween(MuseAnimation.LOOP_NORMAL_MS, easing = FastOutSlowInEasing),
+                                repeatMode = RepeatMode.Reverse,
+                            )
+                        } else {
+                            MuseMotion.tween(MuseAnimation.TACTILE_MS)
+                        },
                         label = "micPulse",
                     )
                     // v1.79 (H-I2): 用 rememberUpdatedState 包装回调,
@@ -1123,14 +1146,12 @@ internal fun InputBar(
                             // v1.91: Stopping(收尾中)显示 loading,流式模式下 Listening 期间已有结果回填
                             asrStatus == ASRStatus.Stopping -> MuseSpinner(
                                 modifier = Modifier
-                                    
                                     .semantics { contentDescription = recognizingCd },
                                 size = MuseIconSizes.iconMedium,
                             )
                             // 任务 1: Reconnecting(断网重连中)显示 loading,提示用户网络恢复中
                             asrStatus == ASRStatus.Reconnecting -> MuseSpinner(
                                 modifier = Modifier
-                                    
                                     .semantics { contentDescription = recognizingCd },
                                 size = MuseIconSizes.iconMedium,
                             )
@@ -1177,12 +1198,18 @@ internal fun InputBar(
                         Box(
                             modifier = Modifier
                                 .size(MuseIconSizes.stopButton)
-                                .graphicsLayer { scaleX = sendScale; scaleY = sendScale }
+                                .graphicsLayer {
+                                    scaleX = sendScale
+                                    scaleY = sendScale
+                                }
                                 .clip(CircleShape)
                                 .background(
                                     // UI-FIX A: 可发送=实心，不可发送=不透明中性底（不再用 38% 半透明主色）
-                                    if (canSend) MuseActionColors.container
-                                    else MuseActionColors.neutralContainer
+                                    if (canSend) {
+                                        MuseActionColors.container
+                                    } else {
+                                        MuseActionColors.neutralContainer
+                                    },
                                 ),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -1518,8 +1545,11 @@ private fun QuickBarAction(
         label = "quickBarPress",
     )
     val bgColor by animateColorAsState(
-        targetValue = if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-        else MaterialTheme.colorScheme.surfaceVariant,
+        targetValue = if (active) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        },
         animationSpec = MuseMotion.tween(MuseAnimation.TACTILE_MS),
         label = "quickBarBg",
     )

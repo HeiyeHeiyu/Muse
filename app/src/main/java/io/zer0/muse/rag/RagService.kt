@@ -1,10 +1,10 @@
 package io.zer0.muse.rag
 
 import io.zer0.ai.core.RagCitation
+import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.Perf
 import io.zer0.common.resultOf
-import io.zer0.common.AppJson
 import io.zer0.muse.data.knowledge.KnowledgeChunkDao
 import io.zer0.muse.data.knowledge.KnowledgeChunkEntity
 import io.zer0.muse.data.knowledge.KnowledgeChunkFtsDao
@@ -171,6 +171,7 @@ class RagService(
     // 5 分钟过期,文档增删后最多 5 分钟同步;indexDocument/deleteDocIndex 时主动失效
     @Volatile
     private var cachedTitles: Map<String, String>? = null
+
     @Volatile
     private var cachedTitlesAt: Long = 0
     private val titlesMutex = kotlinx.coroutines.sync.Mutex()
@@ -294,10 +295,7 @@ class RagService(
      * 失败不抛异常(索引更新失败不影响 DB 已写入的 chunk,下次 App 启动会从 DB 重建)。
      * 累计 [SAVE_INTERVAL] 次后触发 [saveVectorIndex] 持久化。
      */
-    private suspend fun addChunksToVectorIndex(
-        entities: List<KnowledgeChunkEntity>,
-        embeddings: List<FloatArray>,
-    ) {
+    private suspend fun addChunksToVectorIndex(entities: List<KnowledgeChunkEntity>, embeddings: List<FloatArray>) {
         val vi = vectorIndex ?: return
         for ((idx, entity) in entities.withIndex()) {
             val vec = embeddings.getOrNull(idx) ?: continue
@@ -434,7 +432,10 @@ class RagService(
         )
         val chunks = chunker.split(content)
         if (chunks.isEmpty()) return@withContext 0
-        Logger.d("RagService", "文档 $docId 分块 ${chunks.size} 块(markdownAware=${ragConfig.markdownAware}, chunkByToken=${ragConfig.chunkByToken})")
+        Logger.d(
+            "RagService",
+            "文档 $docId 分块 ${chunks.size} 块(markdownAware=${ragConfig.markdownAware}, chunkByToken=${ragConfig.chunkByToken})",
+        )
         perfTimer.split("chunk")
 
         // 2. 批量 embedding
@@ -485,7 +486,7 @@ class RagService(
                 id = "chunk-$docId-$idx",
                 docId = docId,
                 content = chunk.content,
-                embedding = "",  // v1.133: 新数据只写 BLOB,JSON 列留空
+                embedding = "", // v1.133: 新数据只写 BLOB,JSON 列留空
                 embeddingBlob = VectorSearchService.floatArrayToBlob(embeddings[idx]),
                 chunkIndex = idx,
                 tokenCount = chunker.estimateTokens(chunk.content),
@@ -685,11 +686,7 @@ class RagService(
      *
      * 代码块/表格(metadata type=code/table)尊重结构语义,保持整体不切。
      */
-    private fun splitOversizedPlainChunk(
-        chunk: TextChunker.Chunk,
-        targetSize: Int,
-        overlap: Int,
-    ): List<TextChunker.Chunk> {
+    private fun splitOversizedPlainChunk(chunk: TextChunker.Chunk, targetSize: Int, overlap: Int): List<TextChunker.Chunk> {
         val type = chunk.metadata["type"]
         if (type == "code" || type == "table") return listOf(chunk)
         val limit = targetSize * 2
@@ -836,16 +833,14 @@ class RagService(
      * 查询失败时返回原列表(保持默认 false,行为安全 — 调用方按"非内部"处理,仅可能在
      * DB 故障时漏放内部文档,但 vectorResults 之前已被其他过滤层覆盖,影响可控)。
      */
-    private suspend fun applyIsInternal(
-        results: List<VectorSearchService.SearchResult>,
-    ): List<VectorSearchService.SearchResult> {
+    private suspend fun applyIsInternal(results: List<VectorSearchService.SearchResult>): List<VectorSearchService.SearchResult> {
         if (results.isEmpty()) return results
         val docIds = results.map { it.docId }.filter { it.isNotEmpty() }.distinct()
         if (docIds.isEmpty()) return results
         val docs = resultOf { docDao.getByIds(docIds) }
             .onError { msg, e -> Logger.w("RagService", "文档元数据批量查询失败: $msg", e) }
             .getOrNull()
-            ?: return results  // H-RAG-2: 查询失败时返回原始结果而非空列表,避免 RAG 完全失效
+            ?: return results // H-RAG-2: 查询失败时返回原始结果而非空列表,避免 RAG 完全失效
         if (docs.isEmpty()) return emptyList()
         val isInternalMap = docs.associate { it.id to it.isInternal }
         // chunk/HNSW/FTS 中残留但文档实体已删除的记录不得继续进入上下文。
@@ -857,10 +852,8 @@ class RagService(
     /**
      * v1.54: 构建注入文本(向后兼容)。新代码应使用 [buildInjectionContextWithCitations]。
      */
-    suspend fun buildInjectionContext(
-        query: String,
-        ragConfig: RagConfig,
-    ): String = buildInjectionContextWithCitations(query, ragConfig, scopeDocIds = null).text
+    suspend fun buildInjectionContext(query: String, ragConfig: RagConfig): String =
+        buildInjectionContextWithCitations(query, ragConfig, scopeDocIds = null).text
 
     /**
      * v1.133: 构建注入 — 返回 [RagInjection](含文本 + 引用列表)。
@@ -1165,8 +1158,10 @@ class RagService(
     /** v1.133: @mention 提取正则(与 ChatViewModel.KNOWLEDGE_MENTION_REGEX 同义,RagService 自用)。 */
     private companion object {
         val MENTION_REGEX = Regex("@[^\\s@]+")
+
         /** docTitle 缓存 TTL:5 分钟(文档增删时主动失效,无需等过期)。 */
         const val TITLES_TTL_MS = 5L * 60 * 1000
+
         /** v1.55: HNSW 索引自动保存阈值(累计新增 SAVE_INTERVAL 个 chunk 后触发一次 save)。 */
         const val SAVE_INTERVAL = 50
 
@@ -1175,18 +1170,19 @@ class RagService(
 
         /** v2.x: 流式索引滑窗大小(字符)。窗口越大内存峰值越高、窗口间切分越少。 */
         const val STREAM_WINDOW_CHARS = 200_000
+
         /** B-35: chunkMetaCache LRU 上限条数(约 20MB 量级,防止全量 content 常驻内存)。 */
         const val MAX_CHUNK_META = 2000
+
         /** v1.0.47: embedding 熔断时长 — 失败后 5 分钟内 retrieve 直接返回空,降级本地搜索。 */
         const val EMBEDDING_CIRCUIT_BREAKER_MS = 5L * 60 * 1000
     }
 
     /** v1.133: 计算 content 的 SHA-256 哈希(增量更新用)。 */
-    fun computeContentHash(content: String): String =
-        resultOf {
-            val md = MessageDigest.getInstance("SHA-256")
-            md.digest(content.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
-        }.getOrNull() ?: ""
+    fun computeContentHash(content: String): String = resultOf {
+        val md = MessageDigest.getInstance("SHA-256")
+        md.digest(content.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+    }.getOrNull() ?: ""
 
     /** v1.133: 把 chunk metadata Map 序列化为 JSON。 */
     private fun encodeMetadata(meta: Map<String, String>): String =

@@ -97,12 +97,7 @@ internal fun PendingQueueBar(
  * 纯图片条目文本为空,预览用占位文案 [R.string.chat_pending_image_only]。
  */
 @Composable
-private fun PendingQueueChip(
-    item: PendingMessage,
-    onSend: () -> Unit,
-    onEdit: () -> Unit,
-    onRemove: () -> Unit,
-) {
+private fun PendingQueueChip(item: PendingMessage, onSend: () -> Unit, onEdit: () -> Unit, onRemove: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shape = CircleShape,

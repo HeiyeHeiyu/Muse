@@ -26,8 +26,10 @@ class AgentConcurrencyLimiter(
     companion object {
         /** 既有实现:256;手机端保守取 8(本地模型并发能力有限)。 */
         const val DEFAULT_MAX_CONCURRENT = 8
+
         /** 单次应用生命周期内累计派发上限,防失控。 */
         const val DEFAULT_MAX_TOTAL = 200
+
         /** 等待槽位时的轮询间隔。 */
         private const val POLL_INTERVAL_MS = 100L
     }
@@ -49,7 +51,7 @@ class AgentConcurrencyLimiter(
             totalSpawned++
             if (totalSpawned > maxTotal) {
                 throw IllegalStateException(
-                    "子 agent 累计派发超过上限 $maxTotal(防失控 backstop)"
+                    "子 agent 累计派发超过上限 $maxTotal(防失控 backstop)",
                 )
             }
         }

@@ -39,10 +39,7 @@ import io.zer0.muse.ui.theme.MuseShapes
  * 无待办时不占任何空间。
  */
 @Composable
-fun SessionTodoBar(
-    sessionId: String,
-    modifier: Modifier = Modifier,
-) {
+fun SessionTodoBar(sessionId: String, modifier: Modifier = Modifier) {
     if (sessionId.isBlank()) return
     val todoList by remember(sessionId) { TodoTool.observeTodos(sessionId) }
         .collectAsStateWithLifecycle(initialValue = TodoTool.TodoList())

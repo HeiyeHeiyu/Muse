@@ -34,18 +34,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.zer0.muse.R
 import io.zer0.muse.data.moment.MomentCommentEntity
 import io.zer0.muse.data.moment.MomentEntity
 import io.zer0.muse.data.moment.MomentMessage
-import io.zer0.muse.R
+import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseBottomSheet
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.common.state.MuseErrorStateBox
-import io.zer0.muse.ui.common.form.MuseBottomSheet
-import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.theme.MusePaddings
 import kotlinx.coroutines.launch
 
 /**
@@ -235,8 +235,9 @@ fun MomentsScreen(
                 moments = moments.filter {
                     if (profileSenderType == "user") {
                         it.senderType == "user" || it.source == "user"
+                    } else {
+                        it.senderId == profileSenderId
                     }
-                    else it.senderId == profileSenderId
                 },
                 commentsByMoment = commentsByMoment,
                 favoriteMomentIds = favoriteMomentIds,
@@ -306,7 +307,7 @@ fun MomentsScreen(
                     onPickCover = {
                         coverLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     },
-                      onPublishMenu = { showPublishSheet = true },
+                    onPublishMenu = { showPublishSheet = true },
                     onOpenSelfProfile = {
                         profileSenderId = null
                         profileSenderType = "user"
@@ -424,33 +425,35 @@ fun MomentsScreen(
                     )
                 } else {
                     MomentFeedList(
-                    moments = moments.filter { moment ->
-                        val query = searchQuery.trim()
-                        (!favoritesOnly || moment.id in favoriteMomentIds) &&
-                            (query.isBlank() ||
-                                moment.content.contains(query, ignoreCase = true) ||
-                                moment.senderName.contains(query, ignoreCase = true) ||
-                                moment.type.contains(query, ignoreCase = true))
-                    },
-                    commentsByMoment = commentsByMoment,
-                    favoriteMomentIds = favoriteMomentIds,
-                    userAvatarUri = userAvatarUri,
-                    assistants = assistants,
-                    isLoading = isLoading,
-                    onToggleLike = onToggleLike,
-                    onToggleFavorite = { moment -> onToggleFavorite(moment.id) },
-                    onShare = ::shareMoment,
-                    onAddComment = onAddComment,
-                    onRefresh = onRefresh,
-                    targetMomentId = targetMomentId,
-                    onTargetMomentConsumed = { targetMomentId = null },
-                    onOpenProfile = { moment ->
-                        profileSenderId = moment.senderId
-                        profileSenderType = moment.senderType
-                        profileSenderName = moment.senderName
-                        page = "profile"
-                    },
-                    onDelete = { moment -> onDeleteMoment(moment) },
+                        moments = moments.filter { moment ->
+                            val query = searchQuery.trim()
+                            (!favoritesOnly || moment.id in favoriteMomentIds) &&
+                                (
+                                    query.isBlank() ||
+                                        moment.content.contains(query, ignoreCase = true) ||
+                                        moment.senderName.contains(query, ignoreCase = true) ||
+                                        moment.type.contains(query, ignoreCase = true)
+                                    )
+                        },
+                        commentsByMoment = commentsByMoment,
+                        favoriteMomentIds = favoriteMomentIds,
+                        userAvatarUri = userAvatarUri,
+                        assistants = assistants,
+                        isLoading = isLoading,
+                        onToggleLike = onToggleLike,
+                        onToggleFavorite = { moment -> onToggleFavorite(moment.id) },
+                        onShare = ::shareMoment,
+                        onAddComment = onAddComment,
+                        onRefresh = onRefresh,
+                        targetMomentId = targetMomentId,
+                        onTargetMomentConsumed = { targetMomentId = null },
+                        onOpenProfile = { moment ->
+                            profileSenderId = moment.senderId
+                            profileSenderType = moment.senderType
+                            profileSenderName = moment.senderName
+                            page = "profile"
+                        },
+                        onDelete = { moment -> onDeleteMoment(moment) },
                     )
                 }
             }

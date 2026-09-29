@@ -1,12 +1,12 @@
 package io.zer0.muse.ui
 
 import io.zer0.memory.fact.FactEntity
-import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.LocalDate
 class GreetingHelperTest {
 
     private fun fact(text: String, time: String? = null) = FactEntity(

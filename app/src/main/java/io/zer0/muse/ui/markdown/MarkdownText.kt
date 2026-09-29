@@ -5,10 +5,10 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,11 +38,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,21 +60,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
-import coil.compose.AsyncImage
-import java.io.File
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import io.zer0.common.resultOf
 import io.zer0.muse.R
-import io.zer0.muse.ui.common.feedback.MuseToast
-import io.zer0.muse.ui.theme.MuseMonoFontFamily
 import io.zer0.muse.common.markdown.FrontmatterParser
-import io.zer0.muse.ui.theme.MuseShapes
+import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.theme.MuseElevation
 import io.zer0.muse.ui.theme.MuseMarkdownRhythm
+import io.zer0.muse.ui.theme.MuseMonoFontFamily
 import io.zer0.muse.ui.theme.MusePaddings
+import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
-import io.zer0.common.resultOf
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import java.io.File
 
 // L-MD15 修复: 行号 gutter 宽度计算常量(原先 10dp/16dp 硬编码在 CodeBlockView 内)
 // 每位数字宽度 10dp,最小宽度 16dp(1 位数也保留对齐空间)
@@ -89,10 +89,12 @@ private const val GUTTER_MIN_WIDTH_DP = 16
 // L2 修复: 行内格式正则提升为文件级 private val,避免每次 parseInline 调用重新编译
 // 主正则: 链接 [text](url) 优先,其后才是 `code` / **bold** / *italic*
 private val INLINE_REGEX = Regex(
-    """\[(.+?)]\((.+?)\)|`(.+?)`|\*\*(.+?)\*\*|\*(.+?)\*"""
+    """\[(.+?)]\((.+?)\)|`(.+?)`|\*\*(.+?)\*\*|\*(.+?)\*""",
 )
+
 // L2 修复: [N] 引用编号正则 — 仅当 N 为正整数且非 [text](url) 形式
 private val CITATION_REGEX = Regex("""\[(\d+)]""")
+
 // v1.97: 纯文本 URL 自动识别(类似 既有实现 linkify)
 // 匹配 http/https 开头的 URL,到空白/引号/括号/中文标点结束
 // 既有实现 trimAutoLinkifiedSuffixes:排除尾部中文标点(。、,;!?」』)
@@ -183,7 +185,9 @@ fun MarkdownText(
     val bodyText = if (coverFrontmatter != null) FrontmatterParser.strip(text) else text
     val coverFile: File? = if (coverFrontmatter?.cover != null) {
         resolveCoverFile(coverFrontmatter.cover, coverResolver)
-    } else null
+    } else {
+        null
+    }
 
     // v1.101 (P9): 流式时把 parseMarkdown 移到后台线程,避免主线程高频正则解析。
     // 流式每 80ms 更新一次文本,原 remember(text) 会在主线程对全量文本(随消息增长
@@ -244,7 +248,7 @@ fun MarkdownText(
                         .background(
                             Brush.verticalGradient(
                                 listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f)),
-                            )
+                            ),
                         ),
                     contentAlignment = Alignment.BottomStart,
                 ) {
@@ -377,7 +381,16 @@ fun MarkdownText(
 
                 is MarkdownBlock.ListItem -> ListItemView(block, style, color, linkColor, codeBgColor, citationUrls, citationColor)
 
-                is MarkdownBlock.Quote -> QuoteView(block, style, color, linkColor, codeBgColor, quoteTextColor, citationUrls, citationColor)
+                is MarkdownBlock.Quote -> QuoteView(
+                    block,
+                    style,
+                    color,
+                    linkColor,
+                    codeBgColor,
+                    quoteTextColor,
+                    citationUrls,
+                    citationColor,
+                )
 
                 // Phase 8.6: LaTeX 公式块(JLatexMath 渲染)
                 // v1.97 (P2): 流式期间降级为纯文本,跳过 JLatexMath 渲染(重布局)
@@ -438,7 +451,8 @@ private fun isStructuralBlock(block: MarkdownBlock): Boolean = when (block) {
     is MarkdownBlock.Table,
     is MarkdownBlock.Quote,
     is MarkdownBlock.Formula,
-    MarkdownBlock.Divider -> true
+    MarkdownBlock.Divider,
+    -> true
     else -> false
 }
 
@@ -454,11 +468,7 @@ private fun isStructuralBlock(block: MarkdownBlock): Boolean = when (block) {
  *  6. 原文有空行 → [MuseMarkdownRhythm.paragraphGap];
  *  7. 同段落的软换行 → 0。
  */
-internal fun markdownBlockGap(
-    prev: MarkdownBlock?,
-    current: MarkdownBlock,
-    blankBetween: Boolean,
-): Dp = when {
+internal fun markdownBlockGap(prev: MarkdownBlock?, current: MarkdownBlock, blankBetween: Boolean): Dp = when {
     prev == null -> 0.dp
     current is MarkdownBlock.Heading -> MuseMarkdownRhythm.headingSpaceAbove
     prev is MarkdownBlock.Heading -> MuseMarkdownRhythm.headingSpaceBelow
@@ -473,11 +483,7 @@ internal fun markdownBlockGap(
  * 流式结束后由 [CodeBlockView] 接管完整渲染。
  */
 @Composable
-private fun StreamingCodePreview(
-    block: MarkdownBlock.CodeBlock,
-    style: TextStyle,
-    codeBgColor: Color,
-) {
+private fun StreamingCodePreview(block: MarkdownBlock.CodeBlock, style: TextStyle, codeBgColor: Color) {
     Surface(
         color = codeBgColor,
         // v2.x: 代码块圆角对齐设计稿"代码块=12dp"档(原 8dp 与行内代码同级,块感不足)
@@ -793,13 +799,25 @@ private fun CodeBlockView(block: MarkdownBlock.CodeBlock) {
                     ) {
                         Icon(
                             if (expanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
-                            contentDescription = if (expanded) stringResource(R.string.common_collapse) else stringResource(R.string.common_expand),
+                            contentDescription = if (expanded) {
+                                stringResource(
+                                    R.string.common_collapse,
+                                )
+                            } else {
+                                stringResource(R.string.common_expand)
+                            },
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(16.dp),
                         )
                         Spacer(Modifier.size(4.dp))
                         Text(
-                            text = if (expanded) stringResource(R.string.common_collapse) else stringResource(R.string.markdown_collapse_remaining, hiddenCount),
+                            text = if (expanded) {
+                                stringResource(
+                                    R.string.common_collapse,
+                                )
+                            } else {
+                                stringResource(R.string.markdown_collapse_remaining, hiddenCount)
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -928,7 +946,7 @@ fun parseInline(
                     SpanStyle(
                         color = linkColor,
                         textDecoration = TextDecoration.Underline,
-                    )
+                    ),
                 ) {
                     append(linkText)
                 }
@@ -940,7 +958,7 @@ fun parseInline(
                     SpanStyle(
                         fontFamily = MuseMonoFontFamily,
                         background = codeBgColor,
-                    )
+                    ),
                 ) {
                     append(match.groupValues[3])
                 }
@@ -1016,7 +1034,7 @@ private fun AnnotatedString.Builder.appendSegmentWithCitations(
             SpanStyle(
                 color = linkColor,
                 textDecoration = TextDecoration.Underline,
-            )
+            ),
         ) {
             append(url)
         }
@@ -1061,7 +1079,7 @@ private fun AnnotatedString.Builder.appendCitationOnly(
                 SpanStyle(
                     color = citationColor,
                     fontWeight = FontWeight.Bold,
-                )
+                ),
             ) {
                 append(cm.value)
             }

@@ -94,55 +94,53 @@ class FishAudioVoiceCloningProvider(
             }
         }
 
-    override suspend fun listClonedVoices(): Result<List<ClonedVoice>> =
-        withContext(kotlinx.coroutines.Dispatchers.IO) {
-            if (apiKey.isBlank()) return@withContext Result.Error("Fish Audio apiKey is empty")
-            resultOf {
-                val req = Request.Builder()
-                    .url("${baseUrl()}/voices?page_size=100")
-                    .header("Authorization", "Bearer ${apiKey.trim()}")
-                    .header("Accept", "application/json")
-                    .get()
-                    .build()
-                timedClient.newCall(req).execute().use { resp ->
-                    if (!resp.isSuccessful) {
-                        throw IOException("Fish Audio listVoices failed: HTTP ${resp.code}, body=${resp.body.string()}")
-                    }
-                    val root = parseJson(resp.body.string())
-                    val arr = root["items"] as? JsonArray
-                        ?: root["voices"] as? JsonArray
-                        ?: throw IOException("Fish Audio listVoices response missing items[]")
-                    arr.mapNotNull { item ->
-                        val obj = item as? JsonObject ?: return@mapNotNull null
-                        val voiceId = obj["voice_id"]?.jsonPrimitive?.contentOrNull
-                            ?: obj["id"]?.jsonPrimitive?.contentOrNull
-                            ?: return@mapNotNull null
-                        val voiceName = obj["name"]?.jsonPrimitive?.contentOrNull ?: voiceId
-                        ClonedVoice(voiceId = voiceId, name = voiceName, createdAt = 0L)
-                    }
+    override suspend fun listClonedVoices(): Result<List<ClonedVoice>> = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        if (apiKey.isBlank()) return@withContext Result.Error("Fish Audio apiKey is empty")
+        resultOf {
+            val req = Request.Builder()
+                .url("${baseUrl()}/voices?page_size=100")
+                .header("Authorization", "Bearer ${apiKey.trim()}")
+                .header("Accept", "application/json")
+                .get()
+                .build()
+            timedClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    throw IOException("Fish Audio listVoices failed: HTTP ${resp.code}, body=${resp.body.string()}")
+                }
+                val root = parseJson(resp.body.string())
+                val arr = root["items"] as? JsonArray
+                    ?: root["voices"] as? JsonArray
+                    ?: throw IOException("Fish Audio listVoices response missing items[]")
+                arr.mapNotNull { item ->
+                    val obj = item as? JsonObject ?: return@mapNotNull null
+                    val voiceId = obj["voice_id"]?.jsonPrimitive?.contentOrNull
+                        ?: obj["id"]?.jsonPrimitive?.contentOrNull
+                        ?: return@mapNotNull null
+                    val voiceName = obj["name"]?.jsonPrimitive?.contentOrNull ?: voiceId
+                    ClonedVoice(voiceId = voiceId, name = voiceName, createdAt = 0L)
                 }
             }
         }
+    }
 
-    override suspend fun deleteVoice(voiceId: String): Result<Unit> =
-        withContext(kotlinx.coroutines.Dispatchers.IO) {
-            if (apiKey.isBlank()) return@withContext Result.Error("Fish Audio apiKey is empty")
-            resultOf {
-                val req = Request.Builder()
-                    .url("${baseUrl()}/voices/$voiceId")
-                    .header("Authorization", "Bearer ${apiKey.trim()}")
-                    .header("Accept", "application/json")
-                    .delete()
-                    .build()
-                timedClient.newCall(req).execute().use { resp ->
-                    if (!resp.isSuccessful) {
-                        throw IOException("Fish Audio deleteVoice failed: HTTP ${resp.code}, body=${resp.body.string()}")
-                    }
-                    Logger.i(TAG, "Deleted voice: voiceId=$voiceId")
-                    Unit
+    override suspend fun deleteVoice(voiceId: String): Result<Unit> = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        if (apiKey.isBlank()) return@withContext Result.Error("Fish Audio apiKey is empty")
+        resultOf {
+            val req = Request.Builder()
+                .url("${baseUrl()}/voices/$voiceId")
+                .header("Authorization", "Bearer ${apiKey.trim()}")
+                .header("Accept", "application/json")
+                .delete()
+                .build()
+            timedClient.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    throw IOException("Fish Audio deleteVoice failed: HTTP ${resp.code}, body=${resp.body.string()}")
                 }
+                Logger.i(TAG, "Deleted voice: voiceId=$voiceId")
+                Unit
             }
         }
+    }
 
     private suspend fun isVoiceReady(voiceId: String): Boolean = runCatching {
         val req = Request.Builder()
@@ -161,16 +159,15 @@ class FishAudioVoiceCloningProvider(
 
     private fun baseUrl(): String = normalizeEndpoint(endpoint)
 
-    private fun parseJson(text: String): JsonObject =
-        Json { ignoreUnknownKeys = true }.parseToJsonElement(text) as? JsonObject
-            ?: throw IOException("Fish Audio response is not JSON")
+    private fun parseJson(text: String): JsonObject = Json { ignoreUnknownKeys = true }.parseToJsonElement(text) as? JsonObject
+        ?: throw IOException("Fish Audio response is not JSON")
 
     companion object {
         private const val TAG = "FishAudioVoiceClone"
         const val DEFAULT_ENDPOINT = "https://api.fish.audio/v1"
+
         /** B8-05: 归一化 Fish Audio 服务地址,便于纯单测。 */
-        internal fun normalizeEndpoint(endpoint: String): String =
-            endpoint.trim().trimEnd('/').ifBlank { DEFAULT_ENDPOINT }
+        internal fun normalizeEndpoint(endpoint: String): String = endpoint.trim().trimEnd('/').ifBlank { DEFAULT_ENDPOINT }
         private const val SAMPLE_MIME = "audio/mpeg"
         private const val SAMPLE_FILENAME = "sample.mp3"
         private const val TIMEOUT_SECONDS = 30L

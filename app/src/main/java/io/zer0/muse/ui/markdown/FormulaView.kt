@@ -51,10 +51,7 @@ private const val MAX_LATEX_LENGTH = 5000
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun FormulaView(
-    latex: String,
-    modifier: Modifier = Modifier,
-) {
+fun FormulaView(latex: String, modifier: Modifier = Modifier) {
     val onBackgroundColor = MaterialTheme.colorScheme.onBackground
     val textColorHex = String.format("#%06X", 0xFFFFFF and onBackgroundColor.toArgb())
     // L-MD14 修复: 错误色用 MaterialTheme.error 而非硬编码 #B00020
@@ -125,7 +122,7 @@ private fun buildHtml(latex: String, textColorHex: String, errorColorHex: String
         .replace("\"", "\\\"")
         .replace("\n", "\\n")
         .replace("\r", "")
-        .replace("</", "<\\/")  // 防 </script> 注入
+        .replace("</", "<\\/") // 防 </script> 注入
     return """
 <!DOCTYPE html>
 <html>

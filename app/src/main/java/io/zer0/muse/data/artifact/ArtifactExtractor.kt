@@ -1,8 +1,8 @@
 package io.zer0.muse.data.artifact
 
 import android.content.Context
-import kotlin.uuid.Uuid
 import io.zer0.muse.R
+import kotlin.uuid.Uuid
 
 /**
  * 从 AI 回复内容中抽取 `<artifact>` 标签,生成 [ArtifactEntity] 列表,
@@ -23,13 +23,13 @@ object ArtifactExtractor {
      */
     private val artifactTagRegex = Regex(
         """<artifact\b([^>]*)>(.*?)</artifact>""",
-        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
     )
 
     /** 匹配单个属性 `name="value"` 或 `name='value'`,忽略大小写。 */
     private val attrRegex = Regex(
         """\b(title|type|language)\s*=\s*["']([^"']*)["']""",
-        RegexOption.IGNORE_CASE
+        RegexOption.IGNORE_CASE,
     )
 
     /**

@@ -49,8 +49,7 @@ class PluginTrustStore internal constructor(
     fun list(): List<TrustedPublisher> = cached
 
     /** 查找指定发行者当前绑定的公钥。 */
-    fun find(publisherId: String): TrustedPublisher? =
-        cached.firstOrNull { it.publisherId == publisherId }
+    fun find(publisherId: String): TrustedPublisher? = cached.firstOrNull { it.publisherId == publisherId }
 
     /**
      * 明确登记发行者公钥。

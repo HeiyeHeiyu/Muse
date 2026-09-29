@@ -63,8 +63,7 @@ class WebSearchCoordinatorTest {
     fun `provider exception becomes failed response`() = runTest {
         val service = object : WebSearchService {
             override val name = "Broken"
-            override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> =
-                error("network down")
+            override suspend fun search(query: String, maxResults: Int): List<WebSearchResult> = error("network down")
         }
         val response = WebSearchCoordinator(service).search(WebSearchRequest("query"), "turn-1")
         assertEquals(WebSearchStatus.FAILED, response.status)

@@ -7,13 +7,11 @@ package io.zer0.muse.data.assistant
  * 任一字段都会让后续解析命中不存在的配置。这里清掉整对绑定，允许调用方回退
  * 到全局模型或重新选择可用 Provider。
  */
-internal fun clearProviderBindings(
-    assistants: List<AssistantEntity>,
-    deletedProviderId: String,
-): List<AssistantEntity> = assistants.map { assistant ->
-    if (assistant.providerId == deletedProviderId) {
-        assistant.copy(providerId = null, modelId = null)
-    } else {
-        assistant
+internal fun clearProviderBindings(assistants: List<AssistantEntity>, deletedProviderId: String): List<AssistantEntity> =
+    assistants.map { assistant ->
+        if (assistant.providerId == deletedProviderId) {
+            assistant.copy(providerId = null, modelId = null)
+        } else {
+            assistant
+        }
     }
-}

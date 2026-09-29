@@ -26,7 +26,7 @@ import androidx.room.Query
             parentColumns = ["id"],
             childColumns = ["sessionId"],
             onDelete = ForeignKey.CASCADE,
-        )
+        ),
     ],
     indices = [
         Index("sessionId"),

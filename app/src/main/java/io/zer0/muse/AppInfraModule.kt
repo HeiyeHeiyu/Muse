@@ -7,10 +7,10 @@ import io.zer0.muse.web.CompositeWebSearchService
 import io.zer0.muse.web.WebSearchConfig
 import io.zer0.muse.web.WebSearchService
 import io.zer0.muse.web.createWebSearchClient
+import kotlinx.coroutines.flow.first
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
-import kotlinx.coroutines.flow.first
 
 /**
  * P2-3 拆域：MCP / 视觉 / 备份 / 通知 / 更新 / Web / 记忆基础设施注册独立模块。
@@ -79,7 +79,7 @@ val appInfraModule = module {
             compiler = get(),
             deepProcessor = get(),
             dailyStateDao = get(),
-            getResetAt = { null },                         // Phase 3: 暂无记忆重置水印
+            getResetAt = { null }, // Phase 3: 暂无记忆重置水印
             isMemoryEnabled = { settings.isMemoryEnabled() },
             scope = get(),
             runtimeContext = io.zer0.memory.ticker.MemoryRuntimeContext(

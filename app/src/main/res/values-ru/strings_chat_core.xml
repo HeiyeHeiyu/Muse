@@ -430,7 +430,7 @@
     <string name="chat_list_rename_session_title">Переименовать чат</string>
     <string name="chat_list_confirm">ХОРОШО</string>
     <string name="chat_list_delete_session_title">Удалить чат</string>
-    <string name="chat_list_delete_session_confirm">Это действие невозможно отменить.</string>
+    <string name="chat_list_delete_session_confirm">Это действие нельзя отменить. Удалить «%1$s» и все сообщения?</string>
     <string name="chat_list_deleted_toast">Удалено</string>
 
     <!-- Folder rename/delete dialogs -->

@@ -21,8 +21,7 @@ data class ModelCatalog(
     val providers: Map<String, Map<String, ModelCatalogEntry>> = emptyMap(),
 ) {
     /** 查一个模型的能力条目;provider 或 model 不存在返回 null。 */
-    fun entryOf(providerId: String, modelId: String): ModelCatalogEntry? =
-        providers[providerId]?.get(modelId)
+    fun entryOf(providerId: String, modelId: String): ModelCatalogEntry? = providers[providerId]?.get(modelId)
 
     /**
      * 按模型 id 全局查（跨 provider 第一个命中）。
@@ -42,8 +41,7 @@ data class ModelCatalog(
     }
 
     /** 某 provider 下所有模型条目。 */
-    fun modelsOf(providerId: String): Map<String, ModelCatalogEntry> =
-        providers[providerId] ?: emptyMap()
+    fun modelsOf(providerId: String): Map<String, ModelCatalogEntry> = providers[providerId] ?: emptyMap()
 }
 
 /** 单个模型的能力画像。 */

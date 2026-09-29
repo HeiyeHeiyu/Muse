@@ -48,16 +48,15 @@ class AgentPlanHistoryTest {
         assertTrue(plans.isEmpty())
     }
 
-    private fun toolMessage(at: Long, name: String, arguments: String, result: String) =
-        UIMessage(
-            role = MessageRole.ASSISTANT,
-            content = "",
-            createdAt = at,
-            toolCallInfo = ToolCallInfo(
-                toolName = name,
-                arguments = arguments,
-                result = result,
-                isSuccess = true,
-            ),
-        )
+    private fun toolMessage(at: Long, name: String, arguments: String, result: String) = UIMessage(
+        role = MessageRole.ASSISTANT,
+        content = "",
+        createdAt = at,
+        toolCallInfo = ToolCallInfo(
+            toolName = name,
+            arguments = arguments,
+            result = result,
+            isSuccess = true,
+        ),
+    )
 }

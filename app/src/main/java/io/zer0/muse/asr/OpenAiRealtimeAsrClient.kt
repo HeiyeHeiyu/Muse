@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.media.AudioRecord
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.asr.AudioAmplitude.appendAmplitude
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -17,7 +18,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import io.zer0.muse.asr.AudioAmplitude.appendAmplitude
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -96,6 +96,7 @@ class OpenAiRealtimeAsrController(
 
     // 累积的最终结果(completed 事件的文本)+ 当前中间结果(delta 文本)
     private val completedTranscripts = StringBuilder()
+
     @Volatile private var currentDeltaText: String = ""
 
     // 可选本地 VAD(用户在 config 中显式启用)
@@ -104,14 +105,19 @@ class OpenAiRealtimeAsrController(
     // ── 任务 1:断网重连相关字段 ──────────────────────────────────────
     /** 已触发的重连次数(成功后清零)。 */
     private var reconnectAttempt = 0
+
     /** 重连期间缓冲的 PCM 音频帧(按入队顺序补发)。 */
     private val audioBuffer = ArrayDeque<ByteArray>()
+
     /** [audioBuffer] 锁,录音线程 addLast 与重连补发 removeFirst 互斥。 */
     private val audioBufferLock = Any()
+
     /** [audioBuffer] 当前累计字节数,用于 [MAX_AUDIO_BUFFER_BYTES] 上限判断。 */
     @Volatile private var audioBufferBytes = 0
+
     /** 当前调度的退避重连协程,dispose/stop/start 时需取消。 */
     private var reconnectJob: Job? = null
+
     /** dispose 标志,防止 dispose 后还在重连。 */
     private val isDisposed = AtomicBoolean(false)
 
@@ -129,7 +135,9 @@ class OpenAiRealtimeAsrController(
         if (_state.value.status == ASRStatus.Reconnecting) {
             cancelReconnect()
             recordJob?.cancel()
-            try { audioRecord?.stop() } catch (_: Throwable) { /* 已停止或未初始化 */ }
+            try {
+                audioRecord?.stop()
+            } catch (_: Throwable) { /* 已停止或未初始化 */ }
             audioRecord?.release()
             audioRecord = null
         }
@@ -143,7 +151,9 @@ class OpenAiRealtimeAsrController(
                 threshold = config.vadThreshold,
                 silenceDurationMs = config.vadSilenceDurationMs,
             )
-        } else null
+        } else {
+            null
+        }
         _state.update {
             it.copy(status = ASRStatus.Connecting, transcript = "", errorMessage = null, amplitudes = emptyList())
         }
@@ -322,7 +332,7 @@ class OpenAiRealtimeAsrController(
 
     /** 任务 1:重连成功回调 — 重置退避计数,补发缓冲的音频帧。 */
     private fun onReconnected() {
-        Logger.i(TAG, "重连成功,补发缓冲音频帧(${audioBuffer.size} 帧,${audioBufferBytes} 字节)")
+        Logger.i(TAG, "重连成功,补发缓冲音频帧(${audioBuffer.size} 帧,$audioBufferBytes 字节)")
         reconnectAttempt = 0
         _state.update { it.copy(status = ASRStatus.Listening, errorMessage = null) }
         flushAudioBuffer()
@@ -465,7 +475,7 @@ class OpenAiRealtimeAsrController(
                 audioBuffer.addLast(frame)
                 audioBufferBytes += frame.size
             } else {
-                Logger.w(TAG, "重连期间音频缓冲已满(${audioBufferBytes} 字节),丢帧")
+                Logger.w(TAG, "重连期间音频缓冲已满($audioBufferBytes 字节),丢帧")
             }
         }
     }
@@ -525,7 +535,9 @@ class OpenAiRealtimeAsrController(
         cancelReconnect()
         _state.update { it.copy(status = ASRStatus.Stopping) }
         // 先停 AudioRecord(解除 read 阻塞),再取消录音协程,最后释放
-        try { audioRecord?.stop() } catch (_: Throwable) { /* 已停止或未初始化 */ }
+        try {
+            audioRecord?.stop()
+        } catch (_: Throwable) { /* 已停止或未初始化 */ }
         recordJob?.cancel()
         audioRecord?.release()
         audioRecord = null
@@ -553,7 +565,9 @@ class OpenAiRealtimeAsrController(
         cancelReconnect()
         clearAudioBuffer()
         recordJob?.cancel()
-        try { audioRecord?.stop() } catch (_: Throwable) { /* 已停止或未初始化 */ }
+        try {
+            audioRecord?.stop()
+        } catch (_: Throwable) { /* 已停止或未初始化 */ }
         audioRecord?.release()
         audioRecord = null
         webSocket?.close(1000, "disposed")
@@ -581,7 +595,9 @@ class OpenAiRealtimeAsrController(
      */
     private fun releaseAudioRecord() {
         recordJob?.cancel()
-        try { audioRecord?.stop() } catch (_: Throwable) { /* 已停止或未初始化 */ }
+        try {
+            audioRecord?.stop()
+        } catch (_: Throwable) { /* 已停止或未初始化 */ }
         audioRecord?.release()
         audioRecord = null
     }
@@ -625,22 +641,28 @@ class OpenAiRealtimeAsrController(
         val modelName = config.model.ifBlank { config.defaultModel() }
         val session = buildJsonObject {
             put("input_audio_format", "pcm16")
-            put("input_audio_transcription", buildJsonObject {
-                put("model", modelName)
-                // 热词通过 prompt 传入(Realtime API 支持)
-                if (config.hotwords.isNotEmpty()) {
-                    val prompt = config.hotwords.joinToString(", ")
-                    if (prompt.isNotBlank()) put("prompt", prompt)
-                }
-                config.language?.takeIf { it.isNotBlank() }?.let { put("language", it) }
-            })
+            put(
+                "input_audio_transcription",
+                buildJsonObject {
+                    put("model", modelName)
+                    // 热词通过 prompt 传入(Realtime API 支持)
+                    if (config.hotwords.isNotEmpty()) {
+                        val prompt = config.hotwords.joinToString(", ")
+                        if (prompt.isNotBlank()) put("prompt", prompt)
+                    }
+                    config.language?.takeIf { it.isNotBlank() }?.let { put("language", it) }
+                },
+            )
             // 服务端 VAD(ServerVadThreshold 默认 0.5)
-            put("turn_detection", buildJsonObject {
-                put("type", "server_vad")
-                put("threshold", 0.5)
-                put("prefix_padding_ms", 300)
-                put("silence_duration_ms", 500)
-            })
+            put(
+                "turn_detection",
+                buildJsonObject {
+                    put("type", "server_vad")
+                    put("threshold", 0.5)
+                    put("prefix_padding_ms", 300)
+                    put("silence_duration_ms", 500)
+                },
+            )
         }
         val msg = buildJsonObject {
             put("type", "session.update")
@@ -667,31 +689,35 @@ class OpenAiRealtimeAsrController(
     }
 
     /** JsonObject 扩展工具(容错取值)。 */
-    private fun JsonObject.optString(key: String): String =
-        (this[key] as? JsonPrimitive)?.content ?: ""
+    private fun JsonObject.optString(key: String): String = (this[key] as? JsonPrimitive)?.content ?: ""
 
-    private fun JsonObject.optObject(key: String): JsonObject? =
-        this[key] as? JsonObject
+    private fun JsonObject.optObject(key: String): JsonObject? = this[key] as? JsonObject
 
     companion object {
         private const val TAG = "OpenAiRealtimeAsrController"
         private const val DEFAULT_REALTIME_ENDPOINT = "wss://api.openai.com/v1/realtime"
         private const val TIMEOUT_EVENT_MS = 5_000L
+
         /** 音频分块大小:100ms @ 16kHz 16-bit mono = 16000 * 2 * 0.1 = 3200 bytes。 */
         private const val AUDIO_CHUNK_BYTES = 3200
+
         /** WebSocket 发送队列背压上限(字节),超限丢帧避免内存堆积。 */
         private const val MAX_WEBSOCKET_QUEUE_BYTES = 100_000L
+
         /** stop() 等待收尾的超时,超时强制切 Idle。 */
         private const val STOP_TIMEOUT_MS = 5_000L
 
         // ── 任务 1:断网重连参数 ──
         /** 重连期间音频缓冲上限(字节),5MB 避免 OOM。 */
         private const val MAX_AUDIO_BUFFER_BYTES = 5 * 1024 * 1024
+
         // B-28: 重连成功后补发的最大音频长度。2 秒 @ 16kHz 16-bit mono = 2 * 16000 * 2 bytes ≈ 64KB。
         //     只补发最近这一段(而非整个 5MB 缓冲),避免旧音频污染全新服务端 VAD 会话。
         private const val MAX_REPLAY_BYTES = 2 * 16_000 * 2
+
         /** 最大重连尝试次数(超过此次数后切 Error 状态通知 UI)。 */
         private const val MAX_RECONNECT_ATTEMPTS = 5
+
         /** 单次重连最大退避延迟(毫秒),30s 封顶。 */
         private const val MAX_RECONNECT_DELAY_MS = 30_000L
     }
@@ -711,7 +737,9 @@ private class RealtimeSession(
 ) : WebSocketListener() {
 
     private val events = kotlinx.coroutines.channels.Channel<JsonObject>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+
     @Volatile private var closed = false
+
     /**
      * 任务 1:WebSocket 断线回调(onClosed/onFailure 都会触发)。
      * - code:正常关闭码;[FAILURE_CODE] 表示 onFailure
@@ -784,6 +812,7 @@ private class RealtimeSession(
 
     companion object {
         private const val TAG = "RealtimeSession"
+
         /** 任务 1:onFailure 时使用的 code 哨兵值(区分于正常关闭码 1000/1001 等)。 */
         const val FAILURE_CODE = -1
     }

@@ -430,7 +430,7 @@
     <string name="chat_list_rename_session_title">Renomear bate-papo</string>
     <string name="chat_list_confirm">OK</string>
     <string name="chat_list_delete_session_title">Excluir bate-papo</string>
-    <string name="chat_list_delete_session_confirm">Esta ação não pode ser desfeita.</string>
+    <string name="chat_list_delete_session_confirm">Esta ação não pode ser desfeita. Excluir "%1$s" e todas as mensagens?</string>
     <string name="chat_list_deleted_toast">Excluído</string>
 
     <!-- Folder rename/delete dialogs -->

@@ -18,7 +18,11 @@ object PiiGuard {
         PiiEngine.unmaskApp(text, matches.map { PiiEngine.AppMatch(toSharedType(it.type), it.original, it.masked, it.start, it.end) })
 
     private fun fromShared(match: PiiEngine.AppMatch) = PiiMatch(
-        PiiType.valueOf(match.type.name), match.original, match.masked, match.start, match.end,
+        PiiType.valueOf(match.type.name),
+        match.original,
+        match.masked,
+        match.start,
+        match.end,
     )
 
     private fun toSharedType(type: PiiType) = PiiEngine.AppType.valueOf(type.name)

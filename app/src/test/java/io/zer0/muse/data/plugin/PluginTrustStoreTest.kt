@@ -2,7 +2,6 @@ package io.zer0.muse.data.plugin
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull

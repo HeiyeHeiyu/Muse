@@ -144,11 +144,7 @@ object CodeExecutionTool {
      *  - logs: array — console 日志数组,每项为字符串
      *  - error: string? — 错误信息,执行成功时为 null
      */
-    private fun buildResult(
-        result: Any?,
-        logs: List<String>,
-        error: String?,
-    ): JsonObject = buildJsonObject {
+    private fun buildResult(result: Any?, logs: List<String>, error: String?): JsonObject = buildJsonObject {
         // result 始终为 string(任务要求);无返回值时用空字符串
         val resultStr = when (result) {
             null -> ""
@@ -157,9 +153,12 @@ object CodeExecutionTool {
         }
         put("result", resultStr)
         // logs 数组
-        put("logs", buildJsonArray {
-            logs.forEach { add(JsonPrimitive(it)) }
-        })
+        put(
+            "logs",
+            buildJsonArray {
+                logs.forEach { add(JsonPrimitive(it)) }
+            },
+        )
         // error 可为 null
         if (error != null) {
             put("error", error)

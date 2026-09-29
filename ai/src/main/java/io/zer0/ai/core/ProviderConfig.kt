@@ -107,14 +107,16 @@ data class ProviderConfig(
      * 提醒用户明文 HTTP 传输 apiKey 风险(默认值均已是 https,仅自定义 baseUrl 可能违规)。
      */
     fun resolvedBaseUrl(): String {
-        val resolved = normalizeKnownBaseUrl(baseUrl.trimEnd('/').ifBlank {
-            when (type) {
-                ProviderType.OPENAI -> DEFAULT_OPENAI_BASE_URL
-                ProviderType.ANTHROPIC -> DEFAULT_ANTHROPIC_BASE_URL
-                ProviderType.GEMINI -> DEFAULT_GEMINI_BASE_URL
-                ProviderType.OPENAI_RESPONSES -> DEFAULT_OPENAI_RESPONSES_BASE_URL
-            }
-        })
+        val resolved = normalizeKnownBaseUrl(
+            baseUrl.trimEnd('/').ifBlank {
+                when (type) {
+                    ProviderType.OPENAI -> DEFAULT_OPENAI_BASE_URL
+                    ProviderType.ANTHROPIC -> DEFAULT_ANTHROPIC_BASE_URL
+                    ProviderType.GEMINI -> DEFAULT_GEMINI_BASE_URL
+                    ProviderType.OPENAI_RESPONSES -> DEFAULT_OPENAI_RESPONSES_BASE_URL
+                }
+            },
+        )
         if (resolved.isNotEmpty() && !resolved.startsWith("https://", ignoreCase = true)) {
             io.zer0.common.Logger.w(
                 "ProviderConfig",
@@ -132,20 +134,18 @@ data class ProviderConfig(
      * `/models` may be discovered through the UI fallback while chat requests
      * are later sent to the host root and fail with HTTP 404.
      */
-    private fun normalizeKnownBaseUrl(url: String): String =
-        if (url.equals("https://api.siliconflow.cn", ignoreCase = true)) {
-            "$url/v1"
-        } else {
-            url
-        }
+    private fun normalizeKnownBaseUrl(url: String): String = if (url.equals("https://api.siliconflow.cn", ignoreCase = true)) {
+        "$url/v1"
+    } else {
+        url
+    }
 
     /**
      * 取特定配置,specific 为 null 时按 [type] 兜底(向后兼容旧数据)。
      * 这样调用方永远拿到非 null 的 [ProviderSpecificConfig],
      * 可以安全 `as ProviderSpecificConfig.Anthropic` 转换。
      */
-    fun resolvedSpecific(): ProviderSpecificConfig =
-        specific ?: ProviderSpecificConfig.defaultFor(type)
+    fun resolvedSpecific(): ProviderSpecificConfig = specific ?: ProviderSpecificConfig.defaultFor(type)
 
     /**
      * 派生 Provider 能力矩阵(compat)。
@@ -159,8 +159,7 @@ data class ProviderConfig(
      *   传入时按 model 进一步细化(如 deepseek-reasoner 关闭 tool calling);
      *   不传时仅按 type + baseUrl 派生。
      */
-    fun resolvedCompat(modelId: String? = null): ProviderCompat =
-        ProviderCompatRules.resolve(type, baseUrl, modelId)
+    fun resolvedCompat(modelId: String? = null): ProviderCompat = ProviderCompatRules.resolve(type, baseUrl, modelId)
 
     companion object {
         const val DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"

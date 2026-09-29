@@ -34,10 +34,13 @@ class ShellService : IShellService.Stub() {
 
     companion object {
         private const val TAG = "ShellService"
+
         /** AIDL 返回值的字段分隔符(null char,shell 输出中不会出现)。 */
         private const val FIELD_SEPARATOR = '\u0000'
+
         /** 命令执行超时 ms。 */
         private const val TIMEOUT_MS = 10_000L
+
         /** 防止异常命令把 UserService 内存和 Binder 回包撑爆。 */
         private const val MAX_OUTPUT_BYTES = 2 * 1024 * 1024
     }

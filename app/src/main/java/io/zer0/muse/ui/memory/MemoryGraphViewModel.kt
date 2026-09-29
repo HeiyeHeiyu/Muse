@@ -110,7 +110,7 @@ class MemoryGraphViewModel(
                 factStore.setPinned(factId, fact.pinnedAt == null)
             }
             _state.value = _state.value.copy(
-                nodes = _state.value.nodes.map { if (it.factId == factId) it.copy(isPinned = !it.isPinned) else it }
+                nodes = _state.value.nodes.map { if (it.factId == factId) it.copy(isPinned = !it.isPinned) else it },
             )
         }
     }
@@ -132,7 +132,7 @@ class MemoryGraphViewModel(
             withContext(Dispatchers.IO) { memoryLinkDao.insert(updated) }
             // 局部刷新
             _state.value = _state.value.copy(
-                edges = _state.value.edges.map { if (it.id == edgeId) it.copy(weight = updated.weight) else it }
+                edges = _state.value.edges.map { if (it.id == edgeId) it.copy(weight = updated.weight) else it },
             )
         }
     }

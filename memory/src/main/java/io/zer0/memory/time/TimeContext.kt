@@ -45,9 +45,8 @@ object TimeContext {
     private val summaryTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm", Locale.ROOT)
 
     /** 解析时区字符串，失败回退默认。 */
-    fun resolveTimeZone(raw: String?): ZoneId =
-        runCatching { ZoneId.of(raw?.takeIf { it.isNotBlank() } ?: DEFAULT_TIMEZONE) }
-            .getOrElse { ZoneId.of(DEFAULT_TIMEZONE) }
+    fun resolveTimeZone(raw: String?): ZoneId = runCatching { ZoneId.of(raw?.takeIf { it.isNotBlank() } ?: DEFAULT_TIMEZONE) }
+        .getOrElse { ZoneId.of(DEFAULT_TIMEZONE) }
 
     /** 逻辑日：04:00 之前算前一天。返回逻辑日的 00:00 起点。 */
     fun logicalDayFor(now: Instant = Instant.now(), zone: ZoneId = ZoneId.of(DEFAULT_TIMEZONE)): LogicalDay {
@@ -78,10 +77,7 @@ object TimeContext {
      * 从消息列表构建 source_time_range。
      * 返回 min/max timestamp 之间跨过的本地日期列表。
      */
-    fun sourceTimeRangeOf(
-        timestamps: List<String>,
-        zone: ZoneId = ZoneId.of(DEFAULT_TIMEZONE),
-    ): SourceTimeRange? {
+    fun sourceTimeRangeOf(timestamps: List<String>, zone: ZoneId = ZoneId.of(DEFAULT_TIMEZONE)): SourceTimeRange? {
         val instants = timestamps.mapNotNull { parseInstant(it) }
         if (instants.isEmpty()) return null
         val start = instants.min()
@@ -138,10 +134,7 @@ object TimeContext {
      *     —— 后者见 [isAcceptedFactDate]（C-03：放行"下周三"等近期未来，避免时间信息丢失）
      *  3. 跨多日且只有 HH:MM → null（无法定位是哪天）
      */
-    fun normalizeFactTimestamp(
-        value: String?,
-        ctx: FactTimeContext,
-    ): String? {
+    fun normalizeFactTimestamp(value: String?, ctx: FactTimeContext): String? {
         if (value.isNullOrBlank()) return null
         val v = value.trim()
 

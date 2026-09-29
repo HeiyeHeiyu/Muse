@@ -37,10 +37,7 @@ object SubagentCloseTool {
      * @param threadStore 子 agent 线程账本(持久化版)
      * @return 操作结果字符串
      */
-    suspend fun execute(
-        args: Map<String, String>,
-        threadStore: SubagentThreadStore,
-    ): String {
+    suspend fun execute(args: Map<String, String>, threadStore: SubagentThreadStore): String {
         val threadId = args["thread_id"]?.trim()
             ?: return "Error: thread_id is required."
         if (threadId.isBlank()) return "Error: thread_id is empty."
@@ -48,8 +45,9 @@ object SubagentCloseTool {
         val reason = args["reason"]?.trim()?.takeIf { it.isNotBlank() }
         val closed = threadStore.close(threadId)
         return when {
-            closed -> "Thread '$threadId' closed successfully." +
-                (reason?.let { " Reason: $it" } ?: "")
+            closed ->
+                "Thread '$threadId' closed successfully." +
+                    (reason?.let { " Reason: $it" } ?: "")
             else -> "Thread '$threadId' not found or already closed."
         }
     }

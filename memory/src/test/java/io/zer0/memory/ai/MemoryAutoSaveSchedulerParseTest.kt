@@ -1,5 +1,6 @@
 package io.zer0.memory.ai
 
+import androidx.test.core.app.ApplicationProvider
 import io.zer0.ai.core.Model
 import io.zer0.memory.fact.FactDbProvider
 import io.zer0.memory.llm.MemoryLlmClient
@@ -10,7 +11,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import androidx.test.core.app.ApplicationProvider
 
 /** 回归测试：LLM 显式返回 null 不应让整份 auto-save 分析结果失效。 */
 @RunWith(RobolectricTestRunner::class)

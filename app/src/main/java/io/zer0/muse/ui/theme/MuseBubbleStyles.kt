@@ -60,8 +60,7 @@ object MuseBubbleStyles {
 
     /** 气泡最大宽度(70% 屏宽,与群聊 maxBubbleWidth 一致)。 */
     @Composable
-    fun maxBubbleWidth(): Dp =
-        with(LocalConfiguration.current) { (screenWidthDp * MAX_WIDTH_FRACTION).dp }
+    fun maxBubbleWidth(): Dp = with(LocalConfiguration.current) { (screenWidthDp * MAX_WIDTH_FRACTION).dp }
 
     /** 用户气泡形状:主体圆角 [radiusDp](null 用 20dp 默认)+ 右下 6dp 尾巴。 */
     fun userBubbleShape(radiusDp: Float? = null): RoundedCornerShape {

@@ -63,7 +63,9 @@ interface ConversationTurnDao {
     @Query("UPDATE conversation_turns SET phase = :phase, updatedAt = :updatedAt WHERE turnId = :turnId")
     suspend fun updatePhase(turnId: String, phase: String, updatedAt: Long)
 
-    @Query("UPDATE conversation_turns SET phase = :phase, finishedAt = :finishedAt, updatedAt = :finishedAt WHERE turnId = :turnId AND finishedAt IS NULL")
+    @Query(
+        "UPDATE conversation_turns SET phase = :phase, finishedAt = :finishedAt, updatedAt = :finishedAt WHERE turnId = :turnId AND finishedAt IS NULL",
+    )
     suspend fun finishIfOpen(turnId: String, phase: String, finishedAt: Long): Int
 
     @Query("DELETE FROM conversation_turns WHERE sessionId = :sessionId")

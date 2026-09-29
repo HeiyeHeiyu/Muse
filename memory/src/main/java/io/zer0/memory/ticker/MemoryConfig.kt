@@ -94,7 +94,7 @@ data class MemoryConfig(
             if (lambda <= 0.0) return Float.MAX_VALUE
             val base = (config.baseImportance + if (hit) config.hitBonus else 0f).toDouble()
             val thr = config.compileThreshold.toDouble()
-            if (base <= thr) return 0f  // base 已低于阈值,立即全部淘汰
+            if (base <= thr) return 0f // base 已低于阈值,立即全部淘汰
             return (ln(base / thr) / lambda).toFloat()
         }
 
@@ -123,8 +123,18 @@ data class MemoryConfig(
             if (config.tokenBudget == 0) return ErrorCode.MEMORY_TOKEN_BUDGET_INVALID.toMessage("zero")
             if (config.decayPerDay < 0f) return ErrorCode.MEMORY_CONFIG_INVALID.toMessage("decayPerDay_negative", config.decayPerDay)
             if (config.hitBonus < 0f) return ErrorCode.MEMORY_CONFIG_INVALID.toMessage("hitBonus_negative", config.hitBonus)
-            if (config.baseImportance <= 0f) return ErrorCode.MEMORY_CONFIG_INVALID.toMessage("baseImportance_non_positive", config.baseImportance)
-            if (config.compileThreshold < 0f) return ErrorCode.MEMORY_CONFIG_INVALID.toMessage("compileThreshold_negative", config.compileThreshold)
+            if (config.baseImportance <= 0f) {
+                return ErrorCode.MEMORY_CONFIG_INVALID.toMessage(
+                    "baseImportance_non_positive",
+                    config.baseImportance,
+                )
+            }
+            if (config.compileThreshold < 0f) {
+                return ErrorCode.MEMORY_CONFIG_INVALID.toMessage(
+                    "compileThreshold_negative",
+                    config.compileThreshold,
+                )
+            }
             if (config.forgetSpeed < 0f) return ErrorCode.MEMORY_CONFIG_INVALID.toMessage("forgetSpeed_negative", config.forgetSpeed)
             if (config.compileThreshold >= config.baseImportance) {
                 return ErrorCode.MEMORY_CONFIG_INVALID.toMessage("threshold_ge_base", config.compileThreshold, config.baseImportance)

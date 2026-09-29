@@ -1,11 +1,11 @@
 package io.zer0.muse.tools
 
+import io.zer0.ai.ChatService
 import io.zer0.ai.core.ChatStreamEvent
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.ProviderError
-import io.zer0.ai.core.UIMessage
 import io.zer0.ai.core.ProviderException
-import io.zer0.ai.ChatService
+import io.zer0.ai.core.UIMessage
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.transformer.stripThinkTags
@@ -67,10 +67,7 @@ class TranslateToolsImpl {
 
     /** 流式收集翻译结果(completeText 不可用时的降级路径)。 */
     /** 流式收集翻译结果(completeText 不可用时的降级路径)。 */
-    suspend fun collectTranslateStream(
-        chatService: ChatService,
-        messages: List<UIMessage>,
-    ): String {
+    suspend fun collectTranslateStream(chatService: ChatService, messages: List<UIMessage>): String {
         val sb = StringBuilder()
         chatService.streamChat(messages = messages).collect { event ->
             when (event) {

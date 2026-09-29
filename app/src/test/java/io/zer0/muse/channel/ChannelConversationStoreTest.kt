@@ -12,12 +12,7 @@ import org.junit.Test
  * 原实现是"读快照 → 调 LLM → 整份覆盖回写",压缩期间新 append 的轮次会被丢掉。
  */
 class ChannelConversationStoreTest {
-    private fun seed(
-        channelId: String,
-        from: String,
-        count: Int,
-        prefix: String = "turn",
-    ): List<ChannelConversationStore.Turn> {
+    private fun seed(channelId: String, from: String, count: Int, prefix: String = "turn"): List<ChannelConversationStore.Turn> {
         ChannelConversationStore.clear(channelId, from)
         repeat(count) { i ->
             ChannelConversationStore.append(channelId, from, if (i % 2 == 0) "user" else "assistant", "$prefix-$i")

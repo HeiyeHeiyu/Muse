@@ -42,10 +42,7 @@ object ChatDisplayGrouper {
     /** 成组所需的最少连续条数。 */
     const val MIN_RUN_SIZE = 2
 
-    fun group(
-        messages: List<UIMessage>,
-        isGroupable: (UIMessage) -> Boolean,
-    ): List<ChatDisplayItem> {
+    fun group(messages: List<UIMessage>, isGroupable: (UIMessage) -> Boolean): List<ChatDisplayItem> {
         if (messages.isEmpty()) return emptyList()
 
         val result = ArrayList<ChatDisplayItem>(messages.size)

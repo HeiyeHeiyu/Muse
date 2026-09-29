@@ -90,7 +90,10 @@ class ChannelToolFactoryTest {
             senderAssistantId = "agent-1",
             onReply = {},
             onPass = {},
-            contextProvider = { limit -> seenLimit = limit; "hist-$limit" },
+            contextProvider = { limit ->
+                seenLimit = limit
+                "hist-$limit"
+            },
         )
         val readContext = exec.getValue("channel_read_context")
 

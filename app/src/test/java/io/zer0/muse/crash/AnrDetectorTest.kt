@@ -11,18 +11,14 @@ import org.junit.Test
  * 进程退后台被系统冻结 → 回前台解冻,首轮检查把整个后台时长当成"主线程无响应"。
  */
 class AnrDetectorTest {
-    private fun detector() =
-        AnrDetector(
-            timeoutMs = 5_000L,
-            expectedIntervalMs = 2_000L,
-            suspendToleranceMs = 3_000L,
-        )
+    private fun detector() = AnrDetector(
+        timeoutMs = 5_000L,
+        expectedIntervalMs = 2_000L,
+        suspendToleranceMs = 3_000L,
+    )
 
     /** 模拟一轮"按时醒来、主线程也执行了 ping"的正常检测。 */
-    private fun AnrDetector.tick(
-        nowMs: Long,
-        pongCount: Long,
-    ) = onCheck(nowMs = nowMs, postedAtMs = nowMs - 2_000L, pongCount = pongCount)
+    private fun AnrDetector.tick(nowMs: Long, pongCount: Long) = onCheck(nowMs = nowMs, postedAtMs = nowMs - 2_000L, pongCount = pongCount)
 
     @Test
     fun `心跳正常时不判定 ANR`() {

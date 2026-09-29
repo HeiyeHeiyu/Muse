@@ -279,7 +279,7 @@
     <string name="quick_notes_export_folder">Carpeta: %1$s</string>
     <string name="quick_notes_export_updated_at">Actualizado: %1$s</string>
     <string name="quick_notes_delete_permanent_title">Eliminar permanentemente</string>
-    <string name="quick_notes_delete_permanent_confirm">Esto no se puede deshacer.</string>
+    <string name="quick_notes_delete_permanent_confirm">Esto no se puede deshacer. ¿Eliminar permanentemente "%1$s"?</string>
     <string name="quick_notes_clear_trash">Limpiar la basura</string>
     <string name="quick_notes_clear_trash_confirm">Esto eliminará permanentemente todas las %1$d notas de la papelera.</string>
     <string name="quick_notes_trash_count">Papelera: %1$d</string>

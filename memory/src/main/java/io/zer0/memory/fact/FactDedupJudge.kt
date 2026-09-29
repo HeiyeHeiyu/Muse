@@ -23,12 +23,7 @@ interface FactDedupJudge {
      * @param entityKeyB 新事实的实体键(可空)
      * @return 判定结果;LLM 不可用/超时/解析失败时返回 same=false(宁可不合并)
      */
-    suspend fun judge(
-        a: String,
-        b: String,
-        entityKeyA: String?,
-        entityKeyB: String?,
-    ): DedupVerdict
+    suspend fun judge(a: String, b: String, entityKeyA: String?, entityKeyB: String?): DedupVerdict
 }
 
 /**
@@ -54,10 +49,5 @@ data class DedupVerdict(
 
 /** 无 LLM 时的默认实现(行为与未接入 judge 完全一致)。 */
 object NoopFactDedupJudge : FactDedupJudge {
-    override suspend fun judge(
-        a: String,
-        b: String,
-        entityKeyA: String?,
-        entityKeyB: String?,
-    ): DedupVerdict = DedupVerdict.NOT_SAME
+    override suspend fun judge(a: String, b: String, entityKeyA: String?, entityKeyB: String?): DedupVerdict = DedupVerdict.NOT_SAME
 }

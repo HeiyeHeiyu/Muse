@@ -1,9 +1,9 @@
 package io.zer0.muse.ui
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import android.content.Intent
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -36,8 +36,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -60,11 +60,11 @@ import io.zer0.muse.ui.common.surface.MuseListItem
 import io.zer0.muse.ui.settings.SettingsSubPageScaffold
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 /**
  * v1.0.4: 通知监听页 — 把 [MuseNotificationListenerService] 已有但未 UI 化的能力透出给用户。
@@ -84,9 +84,7 @@ import kotlinx.coroutines.launch
  *  6. 解释卡片:说明本功能用途、隐私边界(全部本地存储,不上报)
  */
 @Composable
-fun NotificationListenerScreen(
-    onBack: () -> Unit,
-) {
+fun NotificationListenerScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
@@ -135,10 +133,12 @@ fun NotificationListenerScreen(
             (packageFilter == null || record.packageName == packageFilter) &&
                 (!unreadOnly || !record.isRead) &&
                 (!activeOnly || record.isActive) &&
-                (normalizedQuery.isBlank() ||
-                    record.packageName.lowercase().contains(normalizedQuery) ||
-                    record.title.lowercase().contains(normalizedQuery) ||
-                    record.text.lowercase().contains(normalizedQuery))
+                (
+                    normalizedQuery.isBlank() ||
+                        record.packageName.lowercase().contains(normalizedQuery) ||
+                        record.title.lowercase().contains(normalizedQuery) ||
+                        record.text.lowercase().contains(normalizedQuery)
+                    )
         }
     }
 
@@ -257,8 +257,11 @@ fun NotificationListenerScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = stringResource(
-                                    if (notifEnabled) R.string.notif_permission_status_on
-                                    else R.string.notif_permission_status_off,
+                                    if (notifEnabled) {
+                                        R.string.notif_permission_status_on
+                                    } else {
+                                        R.string.notif_permission_status_off
+                                    },
                                 ),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
@@ -321,7 +324,6 @@ fun NotificationListenerScreen(
                                     expanded = packageMenuExpanded,
                                     onDismissRequest = { packageMenuExpanded = false },
                                 ) {
-
                                     MuseListItem(
                                         onClick = {
                                             packageFilter = null
@@ -338,25 +340,24 @@ fun NotificationListenerScreen(
                                             headlineContent = { Text(pkg) },
                                         )
                                     }
-                                
                                 }
                             }
                             MuseCapsuleButton(
                                 text = if (unreadOnly) {
-                                        stringResource(R.string.notif_listener_show_all)
-                                    } else {
-                                        stringResource(R.string.notif_listener_unread_only)
-                                    },
+                                    stringResource(R.string.notif_listener_show_all)
+                                } else {
+                                    stringResource(R.string.notif_listener_unread_only)
+                                },
                                 onClick = { unreadOnly = !unreadOnly },
                                 variant = IosCapsuleButtonVariant.Text,
                                 fillWidth = false,
                             )
                             MuseCapsuleButton(
                                 text = if (activeOnly) {
-                                        stringResource(R.string.notif_listener_show_history)
-                                    } else {
-                                        stringResource(R.string.notif_listener_active_only)
-                                    },
+                                    stringResource(R.string.notif_listener_show_history)
+                                } else {
+                                    stringResource(R.string.notif_listener_active_only)
+                                },
                                 onClick = { activeOnly = !activeOnly },
                                 variant = IosCapsuleButtonVariant.Text,
                                 fillWidth = false,
@@ -604,13 +605,7 @@ fun NotificationListenerScreen(
  * 状态行:授权状态徽章 + 最近通知数 + 刷新按钮。
  */
 @Composable
-private fun StatusRow(
-    connected: Boolean,
-    recentCount: Int,
-    activeCount: Int,
-    unreadCount: Int,
-    onRefresh: () -> Unit,
-) {
+private fun StatusRow(connected: Boolean, recentCount: Int, activeCount: Int, unreadCount: Int, onRefresh: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -621,7 +616,13 @@ private fun StatusRow(
         Spacer(Modifier.size(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = if (connected) stringResource(R.string.notif_listener_authorized) else stringResource(R.string.notif_listener_unauthorized),
+                text = if (connected) {
+                    stringResource(
+                        R.string.notif_listener_authorized,
+                    )
+                } else {
+                    stringResource(R.string.notif_listener_unauthorized)
+                },
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -677,12 +678,7 @@ private fun StatusBadge(connected: Boolean) {
  * 单条通知记录卡片。
  */
 @Composable
-private fun NotificationRecordItem(
-    record: NotificationRecord,
-    onClick: () -> Unit,
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun NotificationRecordItem(record: NotificationRecord, onClick: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
     val timeStr = remember(record.timestamp) {
         SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(record.timestamp))
     }

@@ -1,11 +1,11 @@
 package io.zer0.muse.data.moment
 
+import io.zer0.ai.core.MessageRole
+import io.zer0.ai.core.UIMessage
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.session.SessionRepository
-import io.zer0.ai.core.MessageRole
-import io.zer0.ai.core.UIMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.asSharedFlow
@@ -46,6 +46,7 @@ class MomentInteractionEngine(
     )
 
     private val _notices = kotlinx.coroutines.flow.MutableSharedFlow<InteractionNotice>(extraBufferCapacity = 8)
+
     /** 互动结果通知(UI 收集后弹横幅)。 */
     val notices: kotlinx.coroutines.flow.SharedFlow<InteractionNotice> = _notices.asSharedFlow()
 
@@ -63,8 +64,8 @@ class MomentInteractionEngine(
         scope.launch {
             runInteraction(
                 moment = moment,
-                author = null,  // 用户发布,author 为 null
-                isUserComment = false,  // 不是评论场景
+                author = null, // 用户发布,author 为 null
+                isUserComment = false, // 不是评论场景
                 source = source,
             )
         }
@@ -119,10 +120,7 @@ class MomentInteractionEngine(
         }
     }
 
-    private suspend fun sendPrivateMessageToMiniPhone(
-        moment: MomentEntity,
-        author: io.zer0.muse.data.assistant.AssistantEntity,
-    ) {
+    private suspend fun sendPrivateMessageToMiniPhone(moment: MomentEntity, author: io.zer0.muse.data.assistant.AssistantEntity) {
         // 40% 概率触发私信
         if (Random.nextFloat() >= 0.4f) return
 
@@ -271,13 +269,10 @@ class MomentInteractionEngine(
      * 用户评论 → 作者助手回复(必回,allowSkip=false)。
      * 失败时返回非 null,调用方可显示 Toast。
      */
-    private suspend fun runAuthorReply(
-        moment: MomentEntity,
-        userComment: String,
-    ): String? {
+    private suspend fun runAuthorReply(moment: MomentEntity, userComment: String): String? {
         val authorId = moment.senderId ?: return null
         val author = resultOf { assistantRepository.getById(authorId) }.getOrNull()
-            ?: return null  // 作者不存在,无法回复
+            ?: return null // 作者不存在,无法回复
 
         // 防死循环:只处理"用户主动评论",助手回复不触发新回复
         // (由调用方保证 isUserComment=true,此处不重复检查)
@@ -308,7 +303,7 @@ class MomentInteractionEngine(
         )
         if (comment != null) {
             Logger.i(TAG, "作者回复成功: moment=${moment.id}, author=${author.name}")
-            return null  // 成功
+            return null // 成功
         }
         Logger.w(TAG, "作者回复落库失败: moment=${moment.id}")
         return "REPLY_FAILED"

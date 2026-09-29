@@ -17,7 +17,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class DataCard(
-    val type: String,          // bar | line | donut
+    val type: String, // bar | line | donut
     val title: String = "",
     val labels: List<String> = emptyList(),
     val values: List<Float> = emptyList(),

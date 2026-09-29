@@ -85,10 +85,7 @@ class AccessibilityClient(private val context: Context) {
             }
         }
 
-        private fun normalizeClassName(
-            packageName: String,
-            rawClassName: String?,
-        ): String {
+        private fun normalizeClassName(packageName: String, rawClassName: String?): String {
             val className = rawClassName?.trim().orEmpty()
             return when {
                 className.isBlank() -> ""
@@ -109,10 +106,7 @@ class AccessibilityClient(private val context: Context) {
 
     private val providerConnection =
         object : ServiceConnection {
-            override fun onServiceConnected(
-                name: ComponentName?,
-                service: IBinder?,
-            ) {
+            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
                 val proxy = IAccessibilityProvider.Stub.asInterface(service)
                 providerProxy = proxy
                 runCatching {
@@ -137,11 +131,10 @@ class AccessibilityClient(private val context: Context) {
         }
 
     /** 独立 Provider APK 是否已安装(未装时仍可用应用内服务)。 */
-    fun isProviderInstalled(): Boolean =
-        runCatching {
-            @Suppress("DEPRECATION")
-            context.packageManager.getPackageInfo(PROVIDER_PACKAGE, 0)
-        }.isSuccess
+    fun isProviderInstalled(): Boolean = runCatching {
+        @Suppress("DEPRECATION")
+        context.packageManager.getPackageInfo(PROVIDER_PACKAGE, 0)
+    }.isSuccess
 
     /** 发起一次 Provider 绑定(幂等;仅当 APK 已安装)。 */
     private fun ensureProviderBound() {
@@ -166,14 +159,10 @@ class AccessibilityClient(private val context: Context) {
      * 无障碍服务是否已在系统设置中启用。
      * 独立 Provider 或应用内服务任一被授权即返回 true(迁移期两套授权并存)。
      */
-    fun isEnabled(): Boolean =
-        isServiceEnabledInSystem(context.packageName, SERVICE_CLASS_NAME) ||
-            isServiceEnabledInSystem(PROVIDER_PACKAGE, PROVIDER_SERVICE_CLASS)
+    fun isEnabled(): Boolean = isServiceEnabledInSystem(context.packageName, SERVICE_CLASS_NAME) ||
+        isServiceEnabledInSystem(PROVIDER_PACKAGE, PROVIDER_SERVICE_CLASS)
 
-    private fun isServiceEnabledInSystem(
-        packageName: String,
-        className: String,
-    ): Boolean {
+    private fun isServiceEnabledInSystem(packageName: String, className: String): Boolean {
         val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
         val managerResult =
             runCatching {
@@ -213,37 +202,21 @@ class AccessibilityClient(private val context: Context) {
 
     suspend fun getPageInfo(): String = withProvider(defaultOnError = "") { it.getUiHierarchy() }
 
-    suspend fun click(
-        x: Int,
-        y: Int,
-    ): Boolean = withProvider(defaultOnError = false) { it.performClick(x, y) }
+    suspend fun click(x: Int, y: Int): Boolean = withProvider(defaultOnError = false) { it.performClick(x, y) }
 
-    suspend fun longPress(
-        x: Int,
-        y: Int,
-    ): Boolean = withProvider(defaultOnError = false) { it.performLongPress(x, y) }
+    suspend fun longPress(x: Int, y: Int): Boolean = withProvider(defaultOnError = false) { it.performLongPress(x, y) }
 
     suspend fun globalAction(actionId: Int): Boolean = withProvider(defaultOnError = false) { it.execGlobalAction(actionId) }
 
-    suspend fun swipe(
-        startX: Int,
-        startY: Int,
-        endX: Int,
-        endY: Int,
-        duration: Long,
-    ): Boolean = withProvider(defaultOnError = false) { it.performSwipe(startX, startY, endX, endY, duration) }
+    suspend fun swipe(startX: Int, startY: Int, endX: Int, endY: Int, duration: Long): Boolean =
+        withProvider(defaultOnError = false) { it.performSwipe(startX, startY, endX, endY, duration) }
 
     suspend fun findFocusedNodeId(): String = withProvider(defaultOnError = "") { it.findFocusedNodeId() }
 
-    suspend fun setText(
-        nodeId: String,
-        text: String,
-    ): Boolean = withProvider(defaultOnError = false) { it.setTextOnNode(nodeId, text) }
+    suspend fun setText(nodeId: String, text: String): Boolean = withProvider(defaultOnError = false) { it.setTextOnNode(nodeId, text) }
 
-    suspend fun screenshot(
-        path: String,
-        format: String = "PNG",
-    ): Boolean = withProvider(defaultOnError = false) { it.takeScreenshot(path, format) }
+    suspend fun screenshot(path: String, format: String = "PNG"): Boolean =
+        withProvider(defaultOnError = false) { it.takeScreenshot(path, format) }
 
     /** R-SVC-02: 截图能力反射是否失败(仅应用内服务可观测;Provider 路径恒 false)。 */
     suspend fun screenshotCapabilityFailed(): Boolean = MuseAccessibilityService.instance?.isScreenshotCapabilityFailed() ?: false
@@ -258,10 +231,7 @@ class AccessibilityClient(private val context: Context) {
      *  2. 否则回落应用内静态实例;
      *  3. 均不可用或调用异常时返回 [defaultOnError](不抛出,保证工具链稳定)。
      */
-    private suspend fun <T> withProvider(
-        defaultOnError: T,
-        block: (A11yOps) -> T,
-    ): T {
+    private suspend fun <T> withProvider(defaultOnError: T, block: (A11yOps) -> T): T {
         ensureProviderBound()
         providerProxy?.let { proxy ->
             val remoteEnabled = runCatching { proxy.isAccessibilityServiceEnabled() }.getOrDefault(false)
@@ -290,37 +260,19 @@ class AccessibilityClient(private val context: Context) {
 
         fun getUiHierarchy(): String
 
-        fun performClick(
-            x: Int,
-            y: Int,
-        ): Boolean
+        fun performClick(x: Int, y: Int): Boolean
 
-        fun performLongPress(
-            x: Int,
-            y: Int,
-        ): Boolean
+        fun performLongPress(x: Int, y: Int): Boolean
 
         fun execGlobalAction(actionId: Int): Boolean
 
-        fun performSwipe(
-            startX: Int,
-            startY: Int,
-            endX: Int,
-            endY: Int,
-            duration: Long,
-        ): Boolean
+        fun performSwipe(startX: Int, startY: Int, endX: Int, endY: Int, duration: Long): Boolean
 
         fun findFocusedNodeId(): String
 
-        fun setTextOnNode(
-            nodeId: String,
-            text: String,
-        ): Boolean
+        fun setTextOnNode(nodeId: String, text: String): Boolean
 
-        fun takeScreenshot(
-            path: String,
-            format: String,
-        ): Boolean
+        fun takeScreenshot(path: String, format: String): Boolean
     }
 
     /** 应用内服务实现(同进程静态实例)。 */
@@ -331,37 +283,20 @@ class AccessibilityClient(private val context: Context) {
 
         override fun getUiHierarchy(): String = service.getUiHierarchy()
 
-        override fun performClick(
-            x: Int,
-            y: Int,
-        ): Boolean = service.performClick(x, y)
+        override fun performClick(x: Int, y: Int): Boolean = service.performClick(x, y)
 
-        override fun performLongPress(
-            x: Int,
-            y: Int,
-        ): Boolean = service.performLongPress(x, y)
+        override fun performLongPress(x: Int, y: Int): Boolean = service.performLongPress(x, y)
 
         override fun execGlobalAction(actionId: Int): Boolean = service.execGlobalAction(actionId)
 
-        override fun performSwipe(
-            startX: Int,
-            startY: Int,
-            endX: Int,
-            endY: Int,
-            duration: Long,
-        ): Boolean = service.performSwipe(startX, startY, endX, endY, duration)
+        override fun performSwipe(startX: Int, startY: Int, endX: Int, endY: Int, duration: Long): Boolean =
+            service.performSwipe(startX, startY, endX, endY, duration)
 
         override fun findFocusedNodeId(): String = service.findFocusedNodeId()
 
-        override fun setTextOnNode(
-            nodeId: String,
-            text: String,
-        ): Boolean = service.setTextOnNode(nodeId, text)
+        override fun setTextOnNode(nodeId: String, text: String): Boolean = service.setTextOnNode(nodeId, text)
 
-        override fun takeScreenshot(
-            path: String,
-            format: String,
-        ): Boolean = service.takeScreenshot(path, format)
+        override fun takeScreenshot(path: String, format: String): Boolean = service.takeScreenshot(path, format)
     }
 
     /** 独立 Provider 实现(跨进程 AIDL;performGlobalAction ←→ execGlobalAction 名称映射)。 */
@@ -372,37 +307,20 @@ class AccessibilityClient(private val context: Context) {
 
         override fun getUiHierarchy(): String = provider.uiHierarchy
 
-        override fun performClick(
-            x: Int,
-            y: Int,
-        ): Boolean = provider.performClick(x, y)
+        override fun performClick(x: Int, y: Int): Boolean = provider.performClick(x, y)
 
-        override fun performLongPress(
-            x: Int,
-            y: Int,
-        ): Boolean = provider.performLongPress(x, y)
+        override fun performLongPress(x: Int, y: Int): Boolean = provider.performLongPress(x, y)
 
         override fun execGlobalAction(actionId: Int): Boolean = provider.performGlobalAction(actionId)
 
-        override fun performSwipe(
-            startX: Int,
-            startY: Int,
-            endX: Int,
-            endY: Int,
-            duration: Long,
-        ): Boolean = provider.performSwipe(startX, startY, endX, endY, duration)
+        override fun performSwipe(startX: Int, startY: Int, endX: Int, endY: Int, duration: Long): Boolean =
+            provider.performSwipe(startX, startY, endX, endY, duration)
 
         override fun findFocusedNodeId(): String = provider.findFocusedNodeId()
 
-        override fun setTextOnNode(
-            nodeId: String,
-            text: String,
-        ): Boolean = provider.setTextOnNode(nodeId, text)
+        override fun setTextOnNode(nodeId: String, text: String): Boolean = provider.setTextOnNode(nodeId, text)
 
-        override fun takeScreenshot(
-            path: String,
-            format: String,
-        ): Boolean = provider.takeScreenshot(path, format)
+        override fun takeScreenshot(path: String, format: String): Boolean = provider.takeScreenshot(path, format)
     }
 
     /** 打开系统无障碍设置页(引导用户启用服务)。 */

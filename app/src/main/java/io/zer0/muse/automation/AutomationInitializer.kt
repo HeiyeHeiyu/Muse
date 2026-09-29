@@ -48,10 +48,7 @@ object AutomationInitializer {
      * @param context Application context
      * @param toolRegistry 全局工具注册器(AI 工具调用入口)
      */
-    fun initialize(
-        context: Context,
-        toolRegistry: ToolRegistry,
-    ) {
+    fun initialize(context: Context, toolRegistry: ToolRegistry) {
         if (_manager != null) return
         synchronized(this) {
             if (_manager != null) return

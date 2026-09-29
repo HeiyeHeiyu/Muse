@@ -4,7 +4,6 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.zer0.muse.tools.ToolRegistry
-import io.zer0.muse.ui.ChatUiState
 import io.zer0.muse.ui.taskcard.TaskCardData
 import io.zer0.muse.ui.taskcard.TaskCardPhase
 import io.zer0.muse.ui.taskcard.TaskStep
@@ -63,11 +62,7 @@ class ChatTaskCardCoordinatorRetryTest {
         accessor.snapshot.taskCards[CARD_ID]?.steps?.firstOrNull { it.id == stepId }
 
     /** 轮询等待步骤进入预期终态(重试在独立协程里执行)。 */
-    private suspend fun awaitStatus(
-        accessor: InMemoryChatStateAccessor,
-        stepId: String,
-        expected: TaskStepStatus,
-    ) {
+    private suspend fun awaitStatus(accessor: InMemoryChatStateAccessor, stepId: String, expected: TaskStepStatus) {
         withTimeout(AWAIT_TIMEOUT_MS) {
             while (stepOf(accessor, stepId)?.status != expected) {
                 delay(10)

@@ -15,11 +15,7 @@ object ProactiveWishTool {
         riskLevel = ToolRiskLevel.NORMAL,
     )
 
-    suspend fun execute(
-        args: Map<String, String>,
-        settings: SettingsRepository,
-        executionContext: ToolExecutionContext,
-    ): String {
+    suspend fun execute(args: Map<String, String>, settings: SettingsRepository, executionContext: ToolExecutionContext): String {
         val assistantId = executionContext.assistantId
             ?.takeIf { it.isNotBlank() }
             ?: executionContext.scope.takeIf { it.isNotBlank() && it != "main" }

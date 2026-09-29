@@ -3,7 +3,6 @@ package io.zer0.muse.ui.model
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,15 +19,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseSwitch
 import androidx.compose.material3.Text
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.navigation.MuseTopBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,9 +33,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import io.zer0.muse.data.ModelProfile
 import io.zer0.muse.R
+import io.zer0.muse.data.ModelProfile
 import io.zer0.muse.data.SettingsRepository
+import io.zer0.muse.ui.common.form.MuseSwitch
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.theme.MuseShapes
@@ -50,10 +49,7 @@ import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ModelProfilesScreen(
-    onBack: () -> Unit,
-    settings: SettingsRepository = koinInject(),
-) {
+fun ModelProfilesScreen(onBack: () -> Unit, settings: SettingsRepository = koinInject()) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val providers by settings.providersFlow.collectAsStateWithLifecycle(initialValue = null)
@@ -119,7 +115,11 @@ fun ModelProfilesScreen(
                                 modelId = model.id,
                                 modelName = model.name,
                                 profile = profiles?.get(model.id) ?: ModelProfile(),
-                                onToggleShow = { show -> scope.launch { settings.saveModelProfile(model.id, ModelProfile(profiles?.get(model.id)?.avatarUrl ?: "", show)) } },
+                                onToggleShow = { show ->
+                                    scope.launch {
+                                        settings.saveModelProfile(model.id, ModelProfile(profiles?.get(model.id)?.avatarUrl ?: "", show))
+                                    }
+                                },
                                 onPickImage = {
                                     pendingModelId = model.id
                                     imageLauncher.launch("image/*")
@@ -152,7 +152,9 @@ private fun ModelProfileRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Box(
-                modifier = Modifier.size(48.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onPickImage),
+                modifier = Modifier.size(
+                    48.dp,
+                ).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onPickImage),
                 contentAlignment = Alignment.Center,
             ) {
                 if (profile.avatarUrl.isNotBlank()) {
@@ -169,4 +171,3 @@ private fun ModelProfileRow(
         }
     }
 }
-

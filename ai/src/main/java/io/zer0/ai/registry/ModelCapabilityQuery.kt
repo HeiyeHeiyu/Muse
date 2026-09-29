@@ -49,11 +49,7 @@ data class ModelCapabilitySnapshot(
  */
 object ModelCapabilityQuery {
 
-    fun snapshot(
-        modelId: String,
-        compat: ProviderCompat? = null,
-        providerSupportsNonStreaming: Boolean? = null,
-    ): ModelCapabilitySnapshot {
+    fun snapshot(modelId: String, compat: ProviderCompat? = null, providerSupportsNonStreaming: Boolean? = null): ModelCapabilitySnapshot {
         val definitions = ModelRegistry.resolveDefinitions(modelId)
         val known = definitions.isNotEmpty()
         val abilities = definitions.flatMap { it.abilities }.toSet()
@@ -95,10 +91,7 @@ object ModelCapabilityQuery {
      * (所有内置 Provider 的 streamChat/completeText 都有实现),差异集中在
      * json_mode 等参数级支持,由 [ProviderCompat] 提供;无 compat 时 UNKNOWN。
      */
-    private fun triStateCompat(
-        compat: ProviderCompat?,
-        supported: (ProviderCompat) -> Boolean,
-    ): CapabilitySupport = when {
+    private fun triStateCompat(compat: ProviderCompat?, supported: (ProviderCompat) -> Boolean): CapabilitySupport = when {
         compat == null -> CapabilitySupport.UNKNOWN
         supported(compat) -> CapabilitySupport.SUPPORTED
         else -> CapabilitySupport.UNSUPPORTED

@@ -53,10 +53,7 @@ class AgentRouter(
      * @param task 用户任务描述
      * @param excludeAssistantId 排除的助手 id(通常是当前主助手,避免自委托)
      */
-    suspend fun route(
-        task: String,
-        excludeAssistantId: String? = null,
-    ): RouteResult {
+    suspend fun route(task: String, excludeAssistantId: String? = null): RouteResult {
         val assistants = assistantRepository.getAll()
             .filter { it.id != excludeAssistantId }
         val config = settingsRepository.multiAgentConfigCache
@@ -81,7 +78,11 @@ class AgentRouter(
             val nameScore = if (team.name.isNotBlank() && normalizedTask.contains(team.name.lowercase())) 0.6f else 0f
             val descScore = if (team.description.isNotBlank() &&
                 team.description.lowercase().splitAny(taskCapabilities).isNotEmpty()
-            ) 0.3f else 0f
+            ) {
+                0.3f
+            } else {
+                0f
+            }
             val capScore = computeCoverageScore(teamCaps, taskCapabilities)
             team to (nameScore + descScore + capScore)
         }
@@ -92,11 +93,19 @@ class AgentRouter(
             val caps = AgentCapability.fromEntity(assistant)
             val nameScore = if (assistant.name.isNotBlank() &&
                 normalizedTask.contains(assistant.name.lowercase())
-            ) 0.8f else 0f
+            ) {
+                0.8f
+            } else {
+                0f
+            }
             val capScore = computeCoverageScore(caps, taskCapabilities)
             val systemPromptScore = if (assistant.systemPrompt.isNotBlank() &&
                 assistant.systemPrompt.lowercase().splitAny(taskCapabilities).isNotEmpty()
-            ) 0.2f else 0f
+            ) {
+                0.2f
+            } else {
+                0f
+            }
             assistant to (nameScore + capScore + systemPromptScore)
         }
         val bestAssistant = assistantScores.maxByOrNull { it.second }
@@ -111,7 +120,9 @@ class AgentRouter(
                     confidence = score.coerceIn(0f, 1f),
                     reason = "团队「${team.name}」的能力覆盖该任务",
                 )
-            } else null
+            } else {
+                null
+            }
         }
 
         val assistantResult = bestAssistant?.let { (assistant, score) ->
@@ -123,7 +134,9 @@ class AgentRouter(
                     confidence = score.coerceIn(0f, 1f),
                     reason = "助手「${assistant.name}」的能力标签匹配该任务",
                 )
-            } else null
+            } else {
+                null
+            }
         }
 
         return when {
@@ -174,10 +187,7 @@ class AgentRouter(
      * @param excludeAssistantId 排除的助手 id(通常是当前主助手,避免自委托)
      * @return 路由结果,[RouteResult.source] = "llm" 表示 LLM 路由命中,"rule" 表示降级回规则路由
      */
-    suspend fun routeWithLlm(
-        task: String,
-        excludeAssistantId: String? = null,
-    ): RouteResult {
+    suspend fun routeWithLlm(task: String, excludeAssistantId: String? = null): RouteResult {
         // chatService 未注入:无法走 LLM 路由,直接降级
         if (chatService == null) return route(task, excludeAssistantId)
 
@@ -216,7 +226,7 @@ $task
 $roster
 
 候选 ID:
-""".trimIndent()
+        """.trimIndent()
 
         return try {
             // v2.x: 轻量分类优先走辅助模型路由「小工具」档(留空回退主对话模型)
@@ -296,10 +306,7 @@ $roster
      * - 每命中一个任务所需能力 +0.25
      * - 助手额外能力不扣分,但超过 3 个额外能力 penalize 0.05 避免过泛
      */
-    private fun computeCoverageScore(
-        agentCaps: List<String>,
-        taskCaps: List<String>,
-    ): Float {
+    private fun computeCoverageScore(agentCaps: List<String>, taskCaps: List<String>): Float {
         if (taskCaps.isEmpty()) return 0.1f
         val matched = taskCaps.count { it in agentCaps }
         val coverage = matched.toFloat() / taskCaps.size

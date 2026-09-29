@@ -264,11 +264,7 @@ class ChannelAutoReply(
      * v2.0.1: 视觉降级 — 把图片经视觉模型转为文字描述(结果缓存回 Turn,每张图只分析一次)。
      * 失败时返回占位文本(不缓存,下次触发重试)。
      */
-    private suspend fun resolveImageContent(
-        config: ChannelConfig,
-        from: String,
-        turn: ChannelConversationStore.Turn,
-    ): String {
+    private suspend fun resolveImageContent(config: ChannelConfig, from: String, turn: ChannelConversationStore.Turn): String {
         if (turn.mediaDescription.isNotBlank()) return turn.mediaDescription
         val prepared = runCatching {
             visionBridge.prepare(

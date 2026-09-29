@@ -1,6 +1,6 @@
 @file:Suppress("FunctionNaming", "LongMethod", "LongParameterList", "UnusedParameter")
-package io.zer0.muse.ui.translate
 
+package io.zer0.muse.ui.translate
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -311,8 +311,8 @@ internal fun CustomStyleDialog(
                                         icon = MuseIcons.trash,
                                         onClick = { onRemove(cs.name) },
                                         contentDescription = stringResource(
-                                                R.string.translate_page_custom_style_remove,
-                                            ),
+                                            R.string.translate_page_custom_style_remove,
+                                        ),
                                         tint = MaterialTheme.colorScheme.outline,
                                         size = MuseIconSizes.touchTarget,
                                         iconSize = MuseIconSizes.iconSmall,
@@ -441,8 +441,8 @@ internal fun GlossaryDialog(
                                         icon = MuseIcons.trash,
                                         onClick = { onRemove(src) },
                                         contentDescription = stringResource(
-                                                R.string.translate_page_glossary_remove,
-                                            ),
+                                            R.string.translate_page_glossary_remove,
+                                        ),
                                         tint = MaterialTheme.colorScheme.outline,
                                         size = MuseIconSizes.touchTarget,
                                         iconSize = MuseIconSizes.iconSmall,

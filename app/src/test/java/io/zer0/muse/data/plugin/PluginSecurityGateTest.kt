@@ -112,7 +112,7 @@ class PluginSecurityGateTest {
         val trustedKeys = mapOf(envelope.publisherId to envelope.publicKey)
 
         val changedEntry = PluginSecurityGate.review(
-            signed.package_.copy(entryCode = "function hello() { return 'changed'; }")
+            signed.package_.copy(entryCode = "function hello() { return 'changed'; }"),
         )
         val changedManifest = PluginSecurityGate.review(
             signed.package_.copy(manifest = signed.package_.manifest.copy(description = "changed")),
@@ -159,7 +159,7 @@ class PluginSecurityGateTest {
     fun installIdentityChangesWhenEntryCodeChanges() {
         val original = PluginSecurityGate.review(packageOf()).preview
         val changed = PluginSecurityGate.review(
-            packageOf(entryCode = "function hello() { return 'changed'; }")
+            packageOf(entryCode = "function hello() { return 'changed'; }"),
         ).preview
 
         assertFalse(PluginSecurityGate.hasSameInstallIdentity(original, changed))
@@ -253,10 +253,7 @@ class PluginSecurityGateTest {
         val package_: PluginPackageLoader.LoadedPluginPackage,
     )
 
-    private fun signedPackage(
-        publisherId: String = "publisher.test",
-        toolCards: Map<String, String> = emptyMap(),
-    ): SignedFixture {
+    private fun signedPackage(publisherId: String = "publisher.test", toolCards: Map<String, String> = emptyMap()): SignedFixture {
         val generator = KeyPairGenerator.getInstance("EC")
         generator.initialize(ECGenParameterSpec("secp256r1"))
         val keyPair = generator.generateKeyPair()

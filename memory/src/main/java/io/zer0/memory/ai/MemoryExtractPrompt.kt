@@ -28,10 +28,7 @@ object MemoryExtractPrompt {
      * @param existingFactsPreview 已有事实预览(可选,用于去重/合并/更新参考)
      *        格式: "- {title}: {content}" 每行一条,最多 20 条
      */
-    fun buildSystemPrompt(
-        locale: String = "zh-CN",
-        existingFactsPreview: String? = null,
-    ): String {
+    fun buildSystemPrompt(locale: String = "zh-CN", existingFactsPreview: String? = null): String {
         val isZh = locale.startsWith("zh")
 
         val existingSection = if (!existingFactsPreview.isNullOrBlank()) {
@@ -58,7 +55,9 @@ Check for duplicates/conflicts with existing memories when extracting:
  - If no duplicate with existing, put it in extractedEntities
                 """.trimIndent()
             }
-        } else ""
+        } else {
+            ""
+        }
 
         if (isZh) {
             return """

@@ -2,15 +2,14 @@ package io.zer0.muse.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import io.zer0.common.AppJson
 import io.zer0.muse.ui.theme.CustomTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
-
 
 /**
  * P2-2 拆分：外观/主题子仓库。
@@ -37,22 +36,40 @@ class AppearanceSettingsStore(private val context: Context) {
     val customThemesFlow: Flow<List<CustomTheme>> = store.data.map { prefs ->
         decodePrefsOrNull(prefs[KEY_CUSTOM_THEMES], ListSerializer(CustomTheme.serializer()), "CustomThemes") ?: emptyList()
     }
+
     /** E2: 自定义正文字体文件绝对路径(filesDir/fonts/ 下);null 表示使用系统默认字体。 */
     val customFontPathFlow: Flow<String?> = store.data.map { prefs -> prefs[KEY_CUSTOM_FONT_PATH] }
+
     /** H5: 高对比主题开关 — 增强前景/背景对比,面向弱视用户(a11y 策略)。 */
     val highContrastFlow: Flow<Boolean> = store.data.map { prefs -> prefs[KEY_HIGH_CONTRAST] ?: false }
 
-    suspend fun saveThemeMode(mode: String) { store.edit { it[KEY_THEME_MODE] = mode } }
-    suspend fun saveThemeId(id: String) { store.edit { it[KEY_THEME_ID] = id } }
-    suspend fun saveDarkThemeId(id: String) { store.edit { it[KEY_DARK_THEME_ID] = id } }
+    suspend fun saveThemeMode(mode: String) {
+        store.edit { it[KEY_THEME_MODE] = mode }
+    }
+    suspend fun saveThemeId(id: String) {
+        store.edit { it[KEY_THEME_ID] = id }
+    }
+    suspend fun saveDarkThemeId(id: String) {
+        store.edit { it[KEY_DARK_THEME_ID] = id }
+    }
     suspend fun saveThemeSchedule(config: ThemeScheduleConfig) {
         store.edit { it[KEY_THEME_SCHEDULE] = AppJson.encodeToString(ThemeScheduleConfig.serializer(), config) }
     }
-    suspend fun saveDynamicColor(enabled: Boolean) { store.edit { it[KEY_DYNAMIC_COLOR] = enabled } }
-    suspend fun saveFontSizeScale(scale: String) { store.edit { it[KEY_FONT_SIZE_SCALE] = scale } }
-    suspend fun saveDefaultHomePage(page: Int) { store.edit { it[KEY_DEFAULT_HOME_PAGE] = page.coerceIn(0, 2) } }
-    suspend fun markOnboardingShown() { store.edit { it[KEY_ONBOARDING_SHOWN] = true } }
-    suspend fun saveAsrTipShown(shown: Boolean) { store.edit { it[KEY_ASR_TIP_SHOWN] = shown } }
+    suspend fun saveDynamicColor(enabled: Boolean) {
+        store.edit { it[KEY_DYNAMIC_COLOR] = enabled }
+    }
+    suspend fun saveFontSizeScale(scale: String) {
+        store.edit { it[KEY_FONT_SIZE_SCALE] = scale }
+    }
+    suspend fun saveDefaultHomePage(page: Int) {
+        store.edit { it[KEY_DEFAULT_HOME_PAGE] = page.coerceIn(0, 2) }
+    }
+    suspend fun markOnboardingShown() {
+        store.edit { it[KEY_ONBOARDING_SHOWN] = true }
+    }
+    suspend fun saveAsrTipShown(shown: Boolean) {
+        store.edit { it[KEY_ASR_TIP_SHOWN] = shown }
+    }
     suspend fun saveCustomThemes(themes: List<CustomTheme>) {
         store.edit { it[KEY_CUSTOM_THEMES] = AppJson.encodeToString(ListSerializer(CustomTheme.serializer()), themes) }
     }
@@ -61,8 +78,11 @@ class AppearanceSettingsStore(private val context: Context) {
             if (path == null) prefs.remove(KEY_CUSTOM_FONT_PATH) else prefs[KEY_CUSTOM_FONT_PATH] = path
         }
     }
+
     /** H5: 保存高对比主题开关。 */
-    suspend fun saveHighContrast(enabled: Boolean) { store.edit { it[KEY_HIGH_CONTRAST] = enabled } }
+    suspend fun saveHighContrast(enabled: Boolean) {
+        store.edit { it[KEY_HIGH_CONTRAST] = enabled }
+    }
 
     suspend fun upsertCustomTheme(theme: CustomTheme) {
         store.edit { prefs ->

@@ -84,11 +84,7 @@ class HookRegistry {
      * @param block 对每个 Hook 执行的函数,接收 (hook, accumulator) 返回新的 accumulator
      * @return 最终的累加结果
      */
-    suspend fun <T : SkillHook, R> execute(
-        type: KClass<T>,
-        initial: R,
-        block: suspend (hook: T, acc: R) -> R,
-    ): R {
+    suspend fun <T : SkillHook, R> execute(type: KClass<T>, initial: R, block: suspend (hook: T, acc: R) -> R): R {
         val hooks = getHooks(type)
         if (hooks.isEmpty()) return initial
         var acc = initial
@@ -102,7 +98,7 @@ class HookRegistry {
             } catch (err: Exception) {
                 val summary = "${err::class.simpleName}: ${err.message?.take(200)}"
                 Logger.e(TAG, "Hook ${hook::class.simpleName}#${hook.id} failed, skipping: $summary", err)
-                acc  // 失败则跳过,保留前一步结果
+                acc // 失败则跳过,保留前一步结果
             }
         }
         return acc
@@ -111,10 +107,7 @@ class HookRegistry {
     /**
      * 执行无返回值的 Hook 链(仅副作用,如通知/日志)。
      */
-    suspend fun <T : SkillHook> executeNoResult(
-        type: KClass<T>,
-        block: suspend (hook: T) -> Unit,
-    ) {
+    suspend fun <T : SkillHook> executeNoResult(type: KClass<T>, block: suspend (hook: T) -> Unit) {
         val hooks = getHooks(type)
         for (hook in hooks) {
             try {

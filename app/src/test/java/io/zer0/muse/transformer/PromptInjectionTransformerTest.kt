@@ -23,9 +23,9 @@ class PromptInjectionTransformerTest {
         priority: Int = 0,
         insertionPosition: String = "after_system",
         enabled: Boolean = true,
-    mode: String = "default",
-) = PromptInjectionEntity(
-    mode = mode,
+        mode: String = "default",
+    ) = PromptInjectionEntity(
+        mode = mode,
         id = name,
         name = name,
         content = content,
@@ -59,9 +59,11 @@ class PromptInjectionTransformerTest {
             UIMessage(role = MessageRole.USER, content = "你好"),
         )
         val context = TransformContext(
-            extras = mapOf("prompt_injections" to listOf(
-                makeInjection(insertionPosition = "before_system"),
-            )),
+            extras = mapOf(
+                "prompt_injections" to listOf(
+                    makeInjection(insertionPosition = "before_system"),
+                ),
+            ),
         )
         val result = transformer.transform(messages, context)
 
@@ -102,10 +104,12 @@ class PromptInjectionTransformerTest {
             UIMessage(role = MessageRole.USER, content = "你好"),
         )
         val context = TransformContext(
-            extras = mapOf("prompt_injections" to listOf(
-                makeInjection(name = "low", priority = 1, content = "低优先级"),
-                makeInjection(name = "high", priority = 10, content = "高优先级"),
-            )),
+            extras = mapOf(
+                "prompt_injections" to listOf(
+                    makeInjection(name = "low", priority = 1, content = "低优先级"),
+                    makeInjection(name = "high", priority = 10, content = "高优先级"),
+                ),
+            ),
         )
         val result = transformer.transform(messages, context)
 

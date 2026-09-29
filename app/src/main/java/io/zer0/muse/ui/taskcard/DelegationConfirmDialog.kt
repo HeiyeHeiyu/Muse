@@ -1,12 +1,6 @@
 package io.zer0.muse.ui.taskcard
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.theme.MuseAnimation
-import io.zer0.muse.ui.theme.MuseMotion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -28,12 +22,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,20 +42,26 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.zer0.muse.R
 import io.zer0.muse.tools.DelegationPauseManager
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.surface.MuseDialogWindowEffect
+import io.zer0.muse.ui.common.surface.museModalScrimColor
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseDialogSizes
 import io.zer0.muse.ui.theme.MuseElevation
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.huge
 import io.zer0.muse.ui.theme.semiLarge
-import io.zer0.muse.ui.common.surface.MuseDialogWindowEffect
-import io.zer0.muse.ui.common.surface.museModalScrimColor
 
 // CMP-08: 弹窗内边距 / 元素间距 / 最大宽度统一走主题令牌(与 MuseDialog 同源),
 // 仅内容区最大高度因含中间结果预览而比 MuseDialog 更高,保留本文件局部档位。
 /** 弹窗内容区最大高度(比 [MuseDialogSizes.contentMaxHeight] 高一档,容纳中间结果预览)。 */
 private val DialogContentMaxHeight = 460.dp
+
 /** 中间结果预览字数上限(超出折叠 + 展开按钮)。 */
 private const val INTERMEDIATE_PREVIEW_CHARS = 500
 
@@ -80,10 +81,7 @@ private const val INTERMEDIATE_PREVIEW_CHARS = 500
  * @param onSubmit 用户决策回调,携带 [DelegationPauseManager.PauseResponse]
  */
 @Composable
-fun DelegationConfirmDialog(
-    pauseRequest: DelegationPauseManager.PauseRequest?,
-    onSubmit: (DelegationPauseManager.PauseResponse) -> Unit,
-) {
+fun DelegationConfirmDialog(pauseRequest: DelegationPauseManager.PauseRequest?, onSubmit: (DelegationPauseManager.PauseResponse) -> Unit) {
     if (pauseRequest == null) return
 
     Dialog(
@@ -126,13 +124,13 @@ fun DelegationConfirmDialog(
                         onClick = {},
                     ),
             ) {
-            DelegationConfirmDialogContent(
-                pauseRequest = pauseRequest,
-                onSubmit = onSubmit,
-                onCancel = {
-                    onSubmit(DelegationPauseManager.PauseResponse(DelegationPauseManager.PauseDecision.CANCEL))
-                },
-            )
+                DelegationConfirmDialogContent(
+                    pauseRequest = pauseRequest,
+                    onSubmit = onSubmit,
+                    onCancel = {
+                        onSubmit(DelegationPauseManager.PauseResponse(DelegationPauseManager.PauseDecision.CANCEL))
+                    },
+                )
             }
         }
     }
@@ -347,10 +345,7 @@ private fun DelegationConfirmDialogContent(
  * 信息标签块:label(灰小字) + value(onSurface 正文),左对齐。
  */
 @Composable
-private fun InfoLabelBlock(
-    label: String,
-    value: String,
-) {
+private fun InfoLabelBlock(label: String, value: String) {
     Column(verticalArrangement = Arrangement.spacedBy(MusePaddings.tightGap)) {
         Text(
             text = label,
@@ -369,12 +364,7 @@ private fun InfoLabelBlock(
  * 全宽胶囊按钮(复用 MuseDialog 按钮视觉风格:48dp 高 + 24dp 圆角 + 按压透明度变化)。
  */
 @Composable
-private fun DelegationDialogButton(
-    text: String,
-    backgroundColor: Color,
-    contentColor: Color,
-    onClick: () -> Unit,
-) {
+private fun DelegationDialogButton(text: String, backgroundColor: Color, contentColor: Color, onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -396,7 +386,10 @@ private fun DelegationDialogButton(
                 role = Role.Button,
                 onClick = onClick,
             )
-            .graphicsLayer { scaleX = scale; scaleY = scale },
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            },
         contentAlignment = Alignment.Center,
     ) {
         Text(

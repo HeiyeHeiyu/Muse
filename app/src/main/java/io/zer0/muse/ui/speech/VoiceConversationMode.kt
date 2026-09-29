@@ -8,20 +8,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.ui.theme.MuseAnimation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,8 +40,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,6 +61,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
 import io.zer0.muse.ui.ChatViewModel
 import io.zer0.muse.ui.common.form.MuseSelectionSheet
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.state.MuseSpinner
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
@@ -111,10 +111,7 @@ enum class VoiceConversationState {
  * @param viewModel 聊天 ViewModel,提供状态流和控制入口
  */
 @Composable
-fun VoiceConversationMode(
-    onClose: () -> Unit,
-    viewModel: ChatViewModel,
-) {
+fun VoiceConversationMode(onClose: () -> Unit, viewModel: ChatViewModel) {
     val context = LocalContext.current
     val conversationState by viewModel.voiceConversationState.collectAsStateWithLifecycle()
     val transcript by viewModel.voiceConversationTranscript.collectAsStateWithLifecycle()
@@ -277,11 +274,7 @@ fun VoiceConversationMode(
  * - SPEAKING:扬声器图标 + 波形动画
  */
 @Composable
-private fun VoiceConversationMainButton(
-    state: VoiceConversationState,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun VoiceConversationMainButton(state: VoiceConversationState, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val primary = MaterialTheme.colorScheme.primary
     val onPrimary = MaterialTheme.colorScheme.onPrimary
     val error = MaterialTheme.colorScheme.error
@@ -303,20 +296,20 @@ private fun VoiceConversationMainButton(
         1f
     }
 
-        // v1.0.92: 按压反馈 — 与弹窗按钮一致的 0.97 缩放手感
-        val mainButtonInteraction = remember { MutableInteractionSource() }
-        val isMainPressed by mainButtonInteraction.collectIsPressedAsState()
-        val pressScale by animateFloatAsState(
-            targetValue = if (isMainPressed) 0.96f else 1f,
-            animationSpec = MuseMotion.tween(MuseAnimation.FAST_MS),
-            label = "voiceMainPress",
-        )
+    // v1.0.92: 按压反馈 — 与弹窗按钮一致的 0.97 缩放手感
+    val mainButtonInteraction = remember { MutableInteractionSource() }
+    val isMainPressed by mainButtonInteraction.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (isMainPressed) 0.96f else 1f,
+        animationSpec = MuseMotion.tween(MuseAnimation.FAST_MS),
+        label = "voiceMainPress",
+    )
 
-        // 主按钮背景色:LISTENING 用 error(红,录音中提示),SPEAKING 用 primary,其他用 primary
-        val buttonColor = when (state) {
-            VoiceConversationState.LISTENING -> error
-            else -> primary
-        }
+    // 主按钮背景色:LISTENING 用 error(红,录音中提示),SPEAKING 用 primary,其他用 primary
+    val buttonColor = when (state) {
+        VoiceConversationState.LISTENING -> error
+        else -> primary
+    }
 
     val stateCd = stateAccessibilityLabel(state)
     Column(
@@ -492,7 +485,9 @@ private fun VoiceConversationStatusPanel(
                         Spacer(Modifier.height(MusePaddings.contentGap))
                         val progress = if (playbackDurationMs > 0) {
                             (playbackPositionMs.toFloat() / playbackDurationMs).coerceIn(0f, 1f)
-                        } else 0f
+                        } else {
+                            0f
+                        }
                         val progressLabel = if (playbackTotalChunks > 1) {
                             "${playbackChunkIndex + 1}/$playbackTotalChunks"
                         } else {
@@ -546,11 +541,7 @@ private fun ListeningWaveform(amplitudes: List<Float>) {
  * 切换语音 Bottom Sheet 内容:列出系统 TTS 可用声音,点击即切换。
  */
 @Composable
-private fun VoicePickerContent(
-    voices: List<android.speech.tts.Voice>,
-    currentVoiceName: String,
-    onSelect: (String) -> Unit,
-) {
+private fun VoicePickerContent(voices: List<android.speech.tts.Voice>, currentVoiceName: String, onSelect: (String) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -582,8 +573,11 @@ private fun VoicePickerContent(
                             Text(
                                 text = voice.name,
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurface,
+                                color = if (isSelected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                             )
                             Text(

@@ -219,7 +219,7 @@
     <string name="recently_deleted_auto_clear">Excluído automaticamente após 7 dias</string>
 
     <string name="chat_draft_label">Rascunho</string>
-    <string name="chat_list_archive_confirm">Este bate-papo será arquivado e ocultado da lista.</string>
+    <string name="chat_list_archive_confirm">Arquivar o chat "%1$s"? Ele pode ser restaurado do arquivo.</string>
     <string name="chat_list_archive_confirm_button">Arquivo</string>
     <string name="chat_list_archive_title">Arquivar bate-papo</string>
     <string name="chat_list_section_in_progress">Em andamento</string>
@@ -241,14 +241,14 @@
     <string name="err_image_empty_response">A geração de imagens retornou uma resposta vazia.</string>
     <string name="err_image_invalid_uri">URI ou caminho de imagem inválido.</string>
     <string name="err_image_no_results">Nenhuma imagem foi gerada.</string>
-    <string name="err_image_reference_download_failed">Falha ao baixar a imagem de referência.</string>
-    <string name="err_image_reference_too_large">A imagem de referência é muito grande.</string>
-    <string name="err_image_response_too_large">A imagem gerada é muito grande para ser exibida.</string>
-    <string name="err_image_unsupported_model">O modelo selecionado não suporta geração de imagens.</string>
+    <string name="err_image_reference_download_failed">Falha ao baixar a imagem de referência. (%1$s)</string>
+    <string name="err_image_reference_too_large">A imagem de referência é muito grande. (%1$s)</string>
+    <string name="err_image_response_too_large">A imagem gerada é muito grande para ser exibida. (%1$s)</string>
+    <string name="err_image_unsupported_model">O modelo selecionado não suporta geração de imagens. (%1$s)</string>
     <string name="err_invalid_argument">Argumento inválido fornecido.</string>
-    <string name="err_invalid_response">Resposta inválida do servidor.</string>
-    <string name="err_memory_config_invalid">A configuração da memória é inválida.</string>
-    <string name="err_memory_token_budget_invalid">Orçamento de token de memória inválido.</string>
+    <string name="err_invalid_response">Resposta inválida do servidor. (%1$s)</string>
+    <string name="err_memory_config_invalid">A configuração da memória é inválida. (%1$s)</string>
+    <string name="err_memory_token_budget_invalid">Orçamento de token de memória inválido. (%1$s)</string>
     <string name="err_network_error">Erro de rede.</string>
     <string name="err_no_model_selected">Nenhum modelo selecionado.</string>
     <string name="err_no_provider_configured">Nenhum provedor configurado.</string>
@@ -261,8 +261,8 @@
     <string name="err_resource_exhausted">Recurso esgotado.</string>
     <string name="err_service_unavailable">O serviço está temporariamente indisponível.</string>
     <string name="err_stream_interrupted">A transmissão foi interrompida.</string>
-    <string name="err_vertex_ai_config_invalid">A configuração da Vertex AI é inválida.</string>
-    <string name="err_vertex_ai_token_failed">Falha ao obter o token de acesso da Vertex AI.</string>
+    <string name="err_vertex_ai_config_invalid">A configuração da Vertex AI é inválida. (%1$s)</string>
+    <string name="err_vertex_ai_token_failed">Falha ao obter o token de acesso da Vertex AI. (%1$s)</string>
 
     <!-- Assistant detail: capabilities -->
     <string name="assistant_detail_capabilities_title">Capacidades</string>

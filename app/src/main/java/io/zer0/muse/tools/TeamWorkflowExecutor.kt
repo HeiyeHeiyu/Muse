@@ -106,7 +106,7 @@ class TeamWorkflowExecutor(
         }
 
         // v1.0.53 Phase 2: 生成/复用 runId,建立 nodeSeq 映射 + 计算 expectedKeys
-        val effectiveRunId = runId ?: "workflow-${startedAt}-${(100..999).random()}"
+        val effectiveRunId = runId ?: "workflow-$startedAt-${(100..999).random()}"
         val nodeSeqMap: Map<String, Int> = nodes.mapIndexed { idx, node -> node.id to idx }.toMap()
         val expectedKeys: Map<Int, String> = if (journal != null && resume) {
             nodes.associate { node ->
@@ -115,7 +115,9 @@ class TeamWorkflowExecutor(
                 val identity = "${node.id}|${node.assistantId}|${node.taskTemplate}"
                 seq to journal.computeKey(prompt, identity)
             }
-        } else emptyMap()
+        } else {
+            emptyMap()
+        }
 
         // H-TWE1: 用 ConcurrentHashMap 替代 mutableMapOf,async 并发写入安全
         val executed = java.util.concurrent.ConcurrentHashMap<String, DelegationContract.DelegationResult>()
@@ -170,10 +172,12 @@ class TeamWorkflowExecutor(
                 val resp = pauseManager.awaitPauseDecision(pauseReq, pausePolicy)
                 when (resp.decision) {
                     DelegationPauseManager.PauseDecision.CANCEL,
-                    DelegationPauseManager.PauseDecision.REJECT ->
+                    DelegationPauseManager.PauseDecision.REJECT,
+                    ->
                         return errorResult(parentRequestId, "用户取消团队工作流", startedAt)
                     DelegationPauseManager.PauseDecision.APPROVE,
-                    DelegationPauseManager.PauseDecision.MODIFY -> { /* 继续 */ }
+                    DelegationPauseManager.PauseDecision.MODIFY,
+                    -> { /* 继续 */ }
                 }
             }
 
@@ -226,7 +230,8 @@ class TeamWorkflowExecutor(
                                 pending.remove(node)
                             }
                             DelegationPauseManager.PauseDecision.APPROVE,
-                            DelegationPauseManager.PauseDecision.MODIFY -> { /* 继续执行 */ }
+                            DelegationPauseManager.PauseDecision.MODIFY,
+                            -> { /* 继续执行 */ }
                         }
                     }
                     // 如果所有 ready 节点都被拒绝,继续下一轮
@@ -298,9 +303,9 @@ class TeamWorkflowExecutor(
         // - 仅当 mode==CONDITIONAL 且有前置依赖且 chatService 可用时,才做 LLM 判断
         // - LLM 回答 NO 则跳过此节点(记录为 skipped),不执行 delegate
         // - chatService 为 null 或 LLM 调用异常时降级为直接执行(避免误跳过)
-        if (node.mode == DelegationContract.TeamWorkflowNode.Mode.CONDITIONAL
-            && node.dependsOn.isNotEmpty()
-            && chatService != null
+        if (node.mode == DelegationContract.TeamWorkflowNode.Mode.CONDITIONAL &&
+            node.dependsOn.isNotEmpty() &&
+            chatService != null
         ) {
             val shouldExecute = evaluateConditional(node, executed)
             if (!shouldExecute) {
@@ -360,7 +365,15 @@ class TeamWorkflowExecutor(
         )
 
         // v1.0.53 Phase 2: 记录委派节点结果到 journal(delegation 类,工具结果可缓存)
-        recordToJournal(runId, nodeSeq, task, node, result.resultText, if (result.success) "done" else "failed", WorkflowJournal.NODE_KIND_DELEGATION)
+        recordToJournal(
+            runId,
+            nodeSeq,
+            task,
+            node,
+            result.resultText,
+            if (result.success) "done" else "failed",
+            WorkflowJournal.NODE_KIND_DELEGATION,
+        )
         return result
     }
 
@@ -421,7 +434,8 @@ class TeamWorkflowExecutor(
         }
         return """$base
 
-$dependencySummary""".trimIndent()
+$dependencySummary
+        """.trimIndent()
     }
 
     private fun buildNodeContext(
@@ -553,11 +567,7 @@ $dependencySummary""".trimIndent()
         }
     }
 
-    private fun errorResult(
-        requestId: String,
-        error: String,
-        startedAt: Long,
-    ): DelegationContract.DelegationResult {
+    private fun errorResult(requestId: String, error: String, startedAt: Long): DelegationContract.DelegationResult {
         val finishedAt = System.currentTimeMillis()
         return DelegationContract.DelegationResult(
             requestId = requestId,
@@ -578,9 +588,7 @@ $dependencySummary""".trimIndent()
      * - resultText 留空,自然被 [aggregateResults] 的 `it.resultText.isNotBlank()` 过滤
      * - requestId 加入 [skippedRequestIds],供 [buildSubResultTree] 把 status 标记为 "skipped"
      */
-    private fun skippedResult(
-        requestId: String,
-    ): DelegationContract.DelegationResult {
+    private fun skippedResult(requestId: String): DelegationContract.DelegationResult {
         val now = System.currentTimeMillis()
         return DelegationContract.DelegationResult(
             requestId = requestId,
@@ -623,7 +631,8 @@ $dependencySummary""".trimIndent()
 前置结果:
 $previousResults
 
-只回答 YES 或 NO,不要解释。""".trimIndent()
+只回答 YES 或 NO,不要解释。
+        """.trimIndent()
 
         val messages = listOf(
             UIMessage(
@@ -642,7 +651,7 @@ $previousResults
             )
         }.onError { msg, t ->
             Logger.w("TeamWorkflowExecutor", "CONDITIONAL 条件判断 LLM 调用失败,默认执行: $msg", t)
-        }.getOrNull() ?: return true  // chatService 为 null 或调用异常,默认执行
+        }.getOrNull() ?: return true // chatService 为 null 或调用异常,默认执行
 
         val text = completion.text.trim().uppercase()
         // 优先匹配 NO(避免 "YES, but..." 之类同时含 YES/NO 时误判为 NO)

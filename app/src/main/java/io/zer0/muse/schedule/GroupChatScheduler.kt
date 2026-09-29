@@ -15,20 +15,14 @@ import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.data.AgentTeam
 import io.zer0.muse.data.SettingsRepository
-import io.zer0.muse.data.subagent.SubagentThreadStore
-import io.zer0.muse.util.MusePatterns
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.groupchat.GroupChatEntity
 import io.zer0.muse.data.groupchat.GroupChatGenerationLedgerEntity
 import io.zer0.muse.data.groupchat.GroupChatMemoryRepository
-import io.zer0.muse.ui.groupchat.FileAttachment
 import io.zer0.muse.data.groupchat.GroupChatMessageEntity
 import io.zer0.muse.data.groupchat.GroupChatRepository
+import io.zer0.muse.data.subagent.SubagentThreadStore
 import io.zer0.muse.rag.RagConfig
 import io.zer0.muse.rag.RagService
 import io.zer0.muse.tools.DelegationChainTracker
@@ -44,7 +38,9 @@ import io.zer0.muse.tools.channel.ChannelToolFactory
 import io.zer0.muse.tools.channel.GroupChatToolPolicy
 import io.zer0.muse.transformer.SystemPromptAssembler
 import io.zer0.muse.ui.groupchat.AgentActivityStatus
+import io.zer0.muse.ui.groupchat.FileAttachment
 import io.zer0.muse.ui.groupchat.GroupChatActivityHub
+import io.zer0.muse.util.MusePatterns
 import io.zer0.muse.vision.VisionBridge
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -52,14 +48,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
-import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -189,9 +189,8 @@ class GroupChatScheduler(
 
     /** v1.111: 是否有指定群聊的活跃生成(用于防重入)。v1.113: 改为按 chatId 精确检查。
      *  审查修复 (2.0 A-14): 检查全部功能 key(任一功能进行中都视为活跃)。 */
-    fun hasActiveGeneration(chatId: String): Boolean =
-        listOf(GC_KEY_RR, GC_KEY_WHISPER, GC_KEY_VOTE, GC_KEY_SUMMARY, GC_KEY_REGENERATE)
-            .any { chatGenerationManager.isStreaming(groupGenKey(chatId, it)) }
+    fun hasActiveGeneration(chatId: String): Boolean = listOf(GC_KEY_RR, GC_KEY_WHISPER, GC_KEY_VOTE, GC_KEY_SUMMARY, GC_KEY_REGENERATE)
+        .any { chatGenerationManager.isStreaming(groupGenKey(chatId, it)) }
     // ── B5-02: 群聊生成账本 ─────────────────────────────────────────────
 
     private suspend fun saveLedger(
@@ -243,6 +242,7 @@ class GroupChatScheduler(
         const val GC_KEY_VOTE = "vote"
         const val GC_KEY_SUMMARY = "summary"
         const val GC_KEY_REGENERATE = "regenerate"
+
         /** B-16: 群聊 channel 三件套(结果以 USER 消息/退出方式回填,不进 assistant tool_calls)。 */
         val CHANNEL_TOOL_NAMES = setOf("channel_reply", "channel_pass", "channel_read_context")
 
@@ -263,30 +263,41 @@ class GroupChatScheduler(
             }
             return (0 until count).map { baseRoles[it % baseRoles.size] }
         }
+
         /** 单个 agent 的 LLM 调用超时(毫秒)。 */
         private const val AGENT_TIMEOUT_MS = 60_000L
+
         /** 单轮 LLM 决策超时(防止一个慢流式把 60s 总预算吃光)。 */
         private const val AGENT_ROUND_TIMEOUT_MS = 20_000L
+
         /** 群聊默认不注入常规工具，只保留 channel_* 三件套，避免小模型空 tool call 风暴。 */
         private const val ENABLE_GROUP_CHAT_REGULAR_TOOLS = false
+
         /** 默认上下文消息条数。 */
         private const val DEFAULT_CONTEXT_SIZE = 20
+
         /** LLM 返回此标记表示跳过本轮发言。 */
         private const val PASS_MARKER = "[PASS]"
+
         /** 默认采样温度。 */
         private const val DEFAULT_TEMPERATURE = 0.7f
+
         /** 默认最大 token 数。 */
         private const val DEFAULT_MAX_TOKENS = 1000
+
         /** v1.97: 单成员最大调用次数(含决策修复重试),防死循环。 */
         private const val MAX_INVOCATIONS_PER_MEMBER = 2
+
         /**
          * ActivityHub: 终态(NO_REPLY/ERROR/REPLYING)回退到 IDLE 的延迟(ms)。
          *
          * 让用户看得到"谁跳过/出错/回复了"再隐藏 chip,3s 足够扫一眼又不至于残留太久。
          */
         private const val ACTIVITY_IDLE_DELAY_MS = 3000L
+
         /** v1.97: @mention 正则 — 匹配 @name 形式,name 为非空白非标点字符序列。 */
         private val MENTION_REGEX = Regex("@([^\\s@,，。.!！?？:：;；()（）\\[\\]【】]+)")
+
         /**
          * v1.0.53 Phase 5: channel_* 工具决策轮次上限。
          *
@@ -295,6 +306,7 @@ class GroupChatScheduler(
          * 第 2 轮仍不决策 → 视为 implicitPass(对齐实现说明 implicitPass)。
          */
         private const val MAX_CHANNEL_DECISION_ROUNDS = 2
+
         /**
          * v1.0.53 Phase 5: 连续不决策的降级阈值。
          *
@@ -353,8 +365,7 @@ class GroupChatScheduler(
      * v1.0.53 Phase 5: 判断成员是否已降级(本场群聊连续不决策)。
      * 已降级成员在未被 @ 提及时直接跳过,不调用 LLM。
      */
-    private fun isDemoted(chatId: String, assistantId: String): Boolean =
-        demotedMembers[chatId]?.contains(assistantId) == true
+    private fun isDemoted(chatId: String, assistantId: String): Boolean = demotedMembers[chatId]?.contains(assistantId) == true
 
     /**
      * v1.0.53 Phase 5: 记录成员本轮 PASS,达到阈值则降级。
@@ -362,7 +373,12 @@ class GroupChatScheduler(
      * @param implicit v1.0.53: true 表示 API 故障/超时导致的被动跳过,不参与降级计数
      *                 (避免商汤限流时 agent 被误降级成"仅@才发言")。
      */
-    private fun recordPassAndMaybeDemote(chatId: String, assistantId: String, implicit: Boolean = false, assistantName: String = assistantId) {
+    private fun recordPassAndMaybeDemote(
+        chatId: String,
+        assistantId: String,
+        implicit: Boolean = false,
+        assistantName: String = assistantId,
+    ) {
         if (implicit) {
             Logger.i(TAG, "Agent「$assistantName」本轮被动跳过(implicit, API 故障/超时),不参与降级计数")
             return
@@ -432,7 +448,9 @@ class GroupChatScheduler(
                         kotlinx.serialization.builtins.ListSerializer(FileAttachment.serializer()),
                         fileAttachments,
                     )
-                } else "[]"
+                } else {
+                    "[]"
+                }
                 groupChatRepository.sendMessage(
                     chatId = chatId,
                     senderType = "user",
@@ -442,7 +460,6 @@ class GroupChatScheduler(
                     imageBase64Json = imageBase64Json,
                     fileAttachmentsJson = fileAttachmentsJson,
                 )
-
 
                 // 新的一轮生成会取代旧的中断轮次,先清理残留账本
                 resultOf { groupChatRepository.deleteGenerationLedgersByChatId(chatId) }
@@ -840,17 +857,24 @@ class GroupChatScheduler(
                             parentSessionId = "agent_phone:$chatId",
                             assistantId = targetAssistantId,
                             label = "whisper:${chat.name}:${assistant.name}",
-                        ).first  // 取 threadId
+                        ).first // 取 threadId
                     }.getOrNull()
-                } else null
+                } else {
+                    null
+                }
 
                 // 把用户悄悄话持久化到 ThreadStore(便于续接)
                 if (threadStore != null && whisperThreadId != null) {
                     resultOf {
-                        threadStore.appendMessages(whisperThreadId, listOf(UIMessage(
-                            role = MessageRole.USER,
-                            content = text,
-                        )))
+                        threadStore.appendMessages(
+                            whisperThreadId,
+                            listOf(
+                                UIMessage(
+                                    role = MessageRole.USER,
+                                    content = text,
+                                ),
+                            ),
+                        )
                     }.onError { msg, _ -> Logger.w(TAG, "whisper 用户消息持久化失败: $msg") }
                 }
 
@@ -909,10 +933,15 @@ class GroupChatScheduler(
                         // v1.0.53 Phase 5: 把 agent 回复也持久化到 ThreadStore
                         if (threadStore != null && whisperThreadId != null) {
                             resultOf {
-                                threadStore.appendMessages(whisperThreadId, listOf(UIMessage(
-                                    role = MessageRole.ASSISTANT,
-                                    content = replyText,
-                                )))
+                                threadStore.appendMessages(
+                                    whisperThreadId,
+                                    listOf(
+                                        UIMessage(
+                                            role = MessageRole.ASSISTANT,
+                                            content = replyText,
+                                        ),
+                                    ),
+                                )
                             }.onError { msg, _ -> Logger.w(TAG, "whisper agent 回复持久化失败: $msg") }
                         }
                     }
@@ -1144,17 +1173,17 @@ class GroupChatScheduler(
     /** v2.x: 该群聊轮转是否处于暂停。 */
     fun isRoundPaused(chatId: String): Boolean = chatId in pausedRounds
 
-     /**
-      * 触发群聊 Agent 轮转发言。
-      *
-      * v1.97 改进(按 既有实现-orig):
-      *  - @mention 解析:从最近用户消息中提取 @agentName,被提及的 agent 优先发言
-      *  - 决策修复:被 @提及的 agent 如果返回 [PASS],重试一次提示"你被@提及了"
-      *  - Guard limit:单成员最多 MAX_INVOCATIONS_PER_MEMBER 次调用,防死循环
-      *
-      * @param chatId 群聊 id
-      * @return 本轮所有 agent 的回复列表(已保存到 DB)
-      */
+    /**
+     * 触发群聊 Agent 轮转发言。
+     *
+     * v1.97 改进(按 既有实现-orig):
+     *  - @mention 解析:从最近用户消息中提取 @agentName,被提及的 agent 优先发言
+     *  - 决策修复:被 @提及的 agent 如果返回 [PASS],重试一次提示"你被@提及了"
+     *  - Guard limit:单成员最多 MAX_INVOCATIONS_PER_MEMBER 次调用,防死循环
+     *
+     * @param chatId 群聊 id
+     * @return 本轮所有 agent 的回复列表(已保存到 DB)
+     */
 
     suspend fun triggerAgentRoundRobin(
         chatId: String,
@@ -1177,7 +1206,9 @@ class GroupChatScheduler(
         // B5-02: 加载群聊生成账本(重放时使用)
         var ledger = if (ledgerId != null) {
             resultOf { groupChatRepository.getGenerationLedger(ledgerId) }.getOrNull()
-        } else null
+        } else {
+            null
+        }
         // 改造 1: 检测 chat.teamId — 关联了团队且团队有 workflow 时,委托给 TeamWorkflowExecutor
         // 执行并行/条件/聚合编排(用户在 MultiAgentSettingsPage 配置的工作流不再失效)。
         // teamId 为空或团队无 workflow 时,保持现有串行轮转逻辑(向后兼容)。
@@ -1203,7 +1234,6 @@ class GroupChatScheduler(
 
         // v2.x: 根据讨论模式分流
         when (chat.discussionMode) {
-
             "auto" -> return@withContext executeAutoDiscussion(chat, chatId, onSpeakerChange, ledger?.id, startRound, startMemberIndex)
             "debate" -> return@withContext executeDebate(chat, chatId, onSpeakerChange, ledger?.id, startMemberIndex)
             "host" -> return@withContext executeHostMode(chat, chatId, onSpeakerChange, ledger?.id, startMemberIndex)
@@ -1221,7 +1251,10 @@ class GroupChatScheduler(
         val observerIds = groupChatRepository.parseObserverIds(chat)
         val assistants = memberIds.mapNotNull { id ->
             resultOf { assistantRepository.getById(id) }.getOrNull()
-                ?: run { Logger.w(TAG, "Agent $id 不存在,跳过"); null }
+                ?: run {
+                    Logger.w(TAG, "Agent $id 不存在,跳过")
+                    null
+                }
         }.filterNot { it.id in observerIds }
         if (assistants.isEmpty()) {
             Logger.w(TAG, "群聊「${chat.name}」无有效发言成员,跳过轮转")
@@ -1337,7 +1370,6 @@ class GroupChatScheduler(
         Logger.i(TAG, "群聊「${chat.name}」本轮轮转完成,${replies.size}/${assistants.size} 个 agent 发言")
         replies
     }
-
 
     /**
      * 改造 1: 委托给 TeamWorkflowExecutor 执行团队工作流。
@@ -1465,7 +1497,9 @@ class GroupChatScheduler(
         // B5-02: 加载/恢复账本,重放时沿用已记录的有序成员列表
         var ledger = if (ledgerId != null) {
             resultOf { groupChatRepository.getGenerationLedger(ledgerId) }.getOrNull()
-        } else null
+        } else {
+            null
+        }
         val ledgerMemberIds = parseLedgerMemberIds(ledger)
         val orderedAssistants = if (ledgerMemberIds != null) {
             ledgerMemberIds.mapNotNull { id -> assistants.firstOrNull { it.id == id } }
@@ -1506,7 +1540,10 @@ class GroupChatScheduler(
                 onSpeakerChange?.invoke(assistant)
 
                 val result = invokeAgent(
-                    chat, chatId, assistant, memberNames,
+                    chat,
+                    chatId,
+                    assistant,
+                    memberNames,
                     isMentioned = isMentioned,
                     isRepair = false,
                 )
@@ -1590,7 +1627,9 @@ class GroupChatScheduler(
         // B5-02: 加载/恢复账本
         var ledger = if (ledgerId != null) {
             resultOf { groupChatRepository.getGenerationLedger(ledgerId) }.getOrNull()
-        } else null
+        } else {
+            null
+        }
         val ledgerMemberIds = parseLedgerMemberIds(ledger)
         val orderedAssistants = if (ledgerMemberIds != null) {
             ledgerMemberIds.mapNotNull { id -> assistants.firstOrNull { it.id == id } }
@@ -1634,7 +1673,10 @@ class GroupChatScheduler(
             onSpeakerChange?.invoke(assistant)
 
             val result = invokeAgentForDebate(
-                chat, chatId, assistant, memberNames,
+                chat,
+                chatId,
+                assistant,
+                memberNames,
                 role = role,
                 speakerIndex = index,
                 totalSpeakers = orderedAssistants.size,
@@ -1725,7 +1767,9 @@ class GroupChatScheduler(
         // B5-02: 加载/恢复账本,已记录的派发计划直接续跑,不再重复分析
         var ledger = if (ledgerId != null) {
             resultOf { groupChatRepository.getGenerationLedger(ledgerId) }.getOrNull()
-        } else null
+        } else {
+            null
+        }
 
         activityHub.clear(chatId)
 
@@ -1938,7 +1982,7 @@ class GroupChatScheduler(
                 timestamp = System.currentTimeMillis(),
                 mood = extractedMood,
                 reasoning = extractedReasoning,
-            )
+            ),
         )
     }
 
@@ -1968,7 +2012,7 @@ class GroupChatScheduler(
                     chatName = chatName,
                     members = memberNames,
                     currentAgentName = assistant.name,
-                )
+                ),
             )
             appendLine()
             appendLine(GROUP_CHAT_MOOD_SECTION)
@@ -2151,7 +2195,9 @@ class GroupChatScheduler(
         // B5-02: 加载/恢复账本
         var ledger = if (ledgerId != null) {
             resultOf { groupChatRepository.getGenerationLedger(ledgerId) }.getOrNull()
-        } else null
+        } else {
+            null
+        }
         val ledgerMemberIds = parseLedgerMemberIds(ledger)
         val orderedAssistants = if (ledgerMemberIds != null) {
             ledgerMemberIds.mapNotNull { id -> assistants.firstOrNull { it.id == id } }
@@ -2201,16 +2247,14 @@ class GroupChatScheduler(
 
         replies
     }
+
     /**
      * v1.97: 从最近消息中解析 @mention,返回被提及的 assistant id 列表。
      *
      * 匹配规则:在最近用户消息中查找 @name,name 与 assistant.name 或 assistant.id 匹配。
      * 按 既有实现-orig 的 channel-mentions.ts:支持中英文标点边界,按名称长度降序匹配。
      */
-    private fun parseMentions(
-        recentMessages: List<GroupChatMessageEntity>,
-        assistants: List<AssistantEntity>,
-    ): Set<String> {
+    private fun parseMentions(recentMessages: List<GroupChatMessageEntity>, assistants: List<AssistantEntity>): Set<String> {
         // 取最近一条用户消息
         val lastUserMsg = recentMessages.lastOrNull { it.senderType == "user" } ?: return emptySet()
         val text = lastUserMsg.body
@@ -2532,7 +2576,7 @@ class GroupChatScheduler(
         //  - 任意轮 reply/pass 即退出;未调 read_context 也退出(implicit pass)
         //  - 流式错误(HTTP 500 / 网络异常)→ 立即返回 Error(不等超时)
         //  - 单轮超时 → implicitPass,不再让一个慢流式吃掉整个 60s 总预算
-        var streamErrorMessage: String? = null  // 流式错误(非超时)
+        var streamErrorMessage: String? = null // 流式错误(非超时)
         var roundTimedOut = false
         // v1.x: 跨轮累积流式思考过程(最终回复的深度思考块)
         val accumulatedReasoning = StringBuilder()
@@ -2629,10 +2673,12 @@ class GroupChatScheduler(
                         val args = parseToolArgs(tc.arguments)
                         val result = toolExecutors["channel_read_context"]?.invoke(args) ?: "(无上下文)"
                         // 把 read_context 结果回填为 user 消息,让 LLM 下一轮据此决策
-                        workingMessages.add(UIMessage(
-                            role = MessageRole.USER,
-                            content = "【channel_read_context 结果】\n$result\n\n请基于以上完整上下文,调用 channel_reply 发言或 channel_pass 跳过。",
-                        ))
+                        workingMessages.add(
+                            UIMessage(
+                                role = MessageRole.USER,
+                                content = "【channel_read_context 结果】\n$result\n\n请基于以上完整上下文,调用 channel_reply 发言或 channel_pass 跳过。",
+                            ),
+                        )
                         calledReadContext = true
                     }
                     // 常规工具调用 — 结果只回填当前成员上下文,不进入群聊消息表
@@ -2669,8 +2715,8 @@ class GroupChatScheduler(
             }
 
             // 决策完成?
-            if (replyContent != null) break      // 已发言
-            if (passReason != null) break        // 已跳过
+            if (replyContent != null) break // 已发言
+            if (passReason != null) break // 已跳过
             if (!calledReadContext) {
                 // 未调 read_context 也未决策 — 检查是否有文本输出(兼容旧 [PASS] 文本协议)
                 if (rawText.isBlank() || rawText == PASS_MARKER) {
@@ -2747,7 +2793,9 @@ class GroupChatScheduler(
                 ListSerializer(String.serializer()),
                 generatedMediaImages.map { normalizeGroupChatMediaRef(it) },
             )
-        } else "[]"
+        } else {
+            "[]"
+        }
         val msgId = groupChatRepository.sendMessage(
             chatId = chatId,
             senderType = "assistant",
@@ -2798,7 +2846,7 @@ class GroupChatScheduler(
                 timestamp = System.currentTimeMillis(),
                 mood = extractedMood,
                 reasoning = extractedReasoning,
-            )
+            ),
         )
     }
 
@@ -2850,11 +2898,7 @@ class GroupChatScheduler(
      * @param replyText agent 回复正文
      * @return 摘要文本(限 300 字以内)
      */
-    private fun buildGroupChatMemorySummary(
-        chatName: String,
-        assistant: AssistantEntity,
-        replyText: String,
-    ): String {
+    private fun buildGroupChatMemorySummary(chatName: String, assistant: AssistantEntity, replyText: String): String {
         val preview = replyText.take(200)
         return "在群聊「$chatName」中,${assistant.name} 回复:$preview"
     }
@@ -2901,14 +2945,12 @@ class GroupChatScheduler(
      * 的路径共用。非目标 agent 看不到私信内容(违反"仅目标 AI 可见"的产品承诺)。
      * 可见性规则见 [buildMessages] 内注释。
      */
-    private fun visibleMessagesFor(
-        recentMessages: List<GroupChatMessageEntity>,
-        assistantId: String,
-    ): List<GroupChatMessageEntity> = recentMessages.filter { msg ->
-        msg.whisperTargetId == null ||
-            msg.whisperTargetId == assistantId ||
-            (msg.senderId == assistantId && msg.whisperTargetId == "local_user")
-    }
+    private fun visibleMessagesFor(recentMessages: List<GroupChatMessageEntity>, assistantId: String): List<GroupChatMessageEntity> =
+        recentMessages.filter { msg ->
+            msg.whisperTargetId == null ||
+                msg.whisperTargetId == assistantId ||
+                (msg.senderId == assistantId && msg.whisperTargetId == "local_user")
+        }
 
     private suspend fun buildMessages(
         chat: GroupChatEntity,
@@ -2944,7 +2986,7 @@ class GroupChatScheduler(
                     chatName = chatName,
                     members = memberNames,
                     currentAgentName = assistant.name,
-                )
+                ),
             )
             appendLine()
             appendLine(GROUP_CHAT_MOOD_SECTION)
@@ -3006,19 +3048,25 @@ class GroupChatScheduler(
             // v1.0.53 Phase 5: channel_* 工具已接入,告知 LLM 必须通过工具决策
             // 旧版"不要输出 channel_* 工具调用文本"的提示已废弃(工具已真正注册并传给 streamChat)
             appendLine()
-            appendLine("【决策工具】你已获得 channel_reply / channel_pass / channel_read_context 三个工具。" +
-                "本轮必须调用其中之一表态:")
+            appendLine(
+                "【决策工具】你已获得 channel_reply / channel_pass / channel_read_context 三个工具。" +
+                    "本轮必须调用其中之一表态:",
+            )
             appendLine("- 想发言:调用 channel_reply(content=你的回复),content 中先写 <mood>...</mood> 再写正文")
             appendLine("- 不发言:调用 channel_pass(reason=可选原因)")
             appendLine("- 需要更多上下文:调用 channel_read_context(limit=条数,默认20,最多50)")
             appendLine("不要直接输出回复文本,也不要输出 [PASS],必须通过工具调用表态。")
-            appendLine("【发言积极性】默认应该回复:当有人发言(包括简单问候/晚安/寒暄)时,你应当回应," +
-                "哪怕只是一句简短回应;channel_pass 只用于你真的无话可说或话题与你完全无关时," +
-                "不要因为觉得没必要而沉默——群聊的意义就是互动,回应是义务。")
+            appendLine(
+                "【发言积极性】默认应该回复:当有人发言(包括简单问候/晚安/寒暄)时,你应当回应," +
+                    "哪怕只是一句简短回应;channel_pass 只用于你真的无话可说或话题与你完全无关时," +
+                    "不要因为觉得没必要而沉默——群聊的意义就是互动,回应是义务。",
+            )
             // v2.x: 避免重复引导 — 让成员先读本轮已有发言, 减少同质化复读
-            appendLine("【避免重复】发言前先浏览本轮前面成员说过的内容:" +
-                "如果观点与已有发言高度重合,优先补充新角度/新证据/不同意见,或调用 channel_pass 跳过;" +
-                "与其复读他人,宁可简短也不要重复。")
+            appendLine(
+                "【避免重复】发言前先浏览本轮前面成员说过的内容:" +
+                    "如果观点与已有发言高度重合,优先补充新角度/新证据/不同意见,或调用 channel_pass 跳过;" +
+                    "与其复读他人,宁可简短也不要重复。",
+            )
             // v2.x: 发言长度档位(brief/standard/detailed) — 群设置控制
             when (chat.replyLengthMode) {
                 "brief" -> appendLine("【发言长度】本轮要求简短发言:一两句话直击要点,不要展开铺陈。")

@@ -33,11 +33,7 @@ class UiAgentRunner(
      * @param maxSteps 最大步数(3..[HARD_MAX_STEPS],默认 15)
      * @param onProgress 每步进度回调(IO 线程)
      */
-    suspend fun run(
-        task: String,
-        maxSteps: Int = DEFAULT_MAX_STEPS,
-        onProgress: (String) -> Unit = {},
-    ): RunResult {
+    suspend fun run(task: String, maxSteps: Int = DEFAULT_MAX_STEPS, onProgress: (String) -> Unit = {}): RunResult {
         val steps = maxSteps.coerceIn(3, HARD_MAX_STEPS)
         val history = StringBuilder()
         repeat(steps) { index ->
@@ -136,14 +132,7 @@ class UiAgentRunner(
 
     // ── 视觉提示词 ───────────────────────────────────────────────────────
 
-    private fun buildPrompt(
-        task: String,
-        step: Int,
-        maxSteps: Int,
-        history: String,
-        width: Int,
-        height: Int,
-    ): String = buildString {
+    private fun buildPrompt(task: String, step: Int, maxSteps: Int, history: String, width: Int, height: Int): String = buildString {
         appendLine("你是手机操作代理:查看截图,为完成用户任务决定下一个动作。")
         appendLine("任务:$task")
         appendLine("这是第 $step/$maxSteps 步。屏幕分辨率:${width}x$height(坐标直接使用该分辨率的像素值)。")

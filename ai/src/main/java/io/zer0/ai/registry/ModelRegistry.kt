@@ -24,29 +24,36 @@ object ModelRegistry {
 
     private val GPT4O = defineModel {
         tokens("gpt", "4", "o")
-        visionInput(); toolAbility()
+        visionInput()
+        toolAbility()
     }
     private val GPT_4_1 = defineModel {
         tokens("gpt", "4", "1")
-        visionInput(); toolAbility()
+        visionInput()
+        toolAbility()
     }
     private val OPENAI_O_MODELS = defineModel {
         tokens(tokenRegex("^o$"), tokenRegex("^\\d+$"))
-        visionInput(); toolReasoningAbility()
+        visionInput()
+        toolReasoningAbility()
     }
+
     // v1.0.8: GPT-5 系列(旗舰 / mini / nano / codex 等)
     private val GPT_5 = defineModel {
         tokens("gpt", "5")
         notTokens(".")
-        visionInput(); toolReasoningAbility()
+        visionInput()
+        toolReasoningAbility()
     }
     private val GPT_5_1 = defineModel {
         tokens("gpt", "5", "1")
-        visionInput(); toolReasoningAbility()
+        visionInput()
+        toolReasoningAbility()
     }
     private val GPT_5_4 = defineModel {
         tokens("gpt", "5", "4")
-        visionInput(); toolReasoningAbility()
+        visionInput()
+        toolReasoningAbility()
     }
     private val GPT_5_CODEX = defineModel {
         tokens("gpt", "5", "codex")
@@ -54,7 +61,8 @@ object ModelRegistry {
     }
     private val GPT_4_TURBO = defineModel {
         tokens("gpt", "4", "turbo")
-        visionInput(); toolAbility()
+        visionInput()
+        toolAbility()
     }
     private val GPT_4 = defineModel {
         tokens("gpt", "4")
@@ -66,7 +74,8 @@ object ModelRegistry {
 
     private val CLAUDE_3_5_SONNET = defineModel {
         tokens("claude", "3", "5", "sonnet")
-        visionInput(); toolAbility()
+        visionInput()
+        toolAbility()
     }
     private val CLAUDE_3_5_HAIKU = defineModel {
         tokens("claude", "3", "5", "haiku")
@@ -74,61 +83,78 @@ object ModelRegistry {
     }
     private val CLAUDE_3_7 = defineModel {
         tokens("claude", "3", "7")
-        visionInput(); toolReasoningAbility()
+        visionInput()
+        toolReasoningAbility()
     }
     private val CLAUDE_4 = defineModel {
         tokens("claude", "4")
         notTokens("5")
-        visionInput(); toolReasoningAbility()
+        visionInput()
+        toolReasoningAbility()
     }
     private val CLAUDE_4_5 = defineModel {
         tokens("claude", "4", "5")
-        visionInput(); toolReasoningAbility()
+        visionInput()
+        toolReasoningAbility()
     }
     private val CLAUDE_OPUS = defineModel {
         tokens("claude", "opus")
-        visionInput(); toolReasoningAbility()
+        visionInput()
+        toolReasoningAbility()
     }
     private val CLAUDE_SONNET = defineModel {
         tokens("claude", "sonnet")
-        visionInput(); toolAbility()
+        visionInput()
+        toolAbility()
     }
 
     // ─── Google Gemini ───
 
     private val GEMINI_2_0_FLASH = defineModel {
         tokens("gemini", "2", "0", "flash")
-        visionInput(); toolAbility(); visionGrounding("gemini")
+        visionInput()
+        toolAbility()
+        visionGrounding("gemini")
     }
     private val GEMINI_2_5_FLASH = defineModel {
         tokens("gemini", "2", "5", "flash")
-        visionInput(); toolReasoningAbility(); visionGrounding("gemini")
+        visionInput()
+        toolReasoningAbility()
+        visionGrounding("gemini")
     }
     private val GEMINI_2_5_PRO = defineModel {
         tokens("gemini", "2", "5", "pro")
-        visionInput(); toolReasoningAbility(); visionGrounding("gemini")
+        visionInput()
+        toolReasoningAbility()
+        visionGrounding("gemini")
     }
     private val GEMINI_1_5_PRO = defineModel {
         tokens("gemini", "1", "5", "pro")
-        visionInput(); toolAbility(); visionGrounding("gemini")
+        visionInput()
+        toolAbility()
+        visionGrounding("gemini")
     }
     private val GEMINI_1_5_FLASH = defineModel {
         tokens("gemini", "1", "5", "flash")
-        visionInput(); toolAbility(); visionGrounding("gemini")
+        visionInput()
+        toolAbility()
+        visionGrounding("gemini")
     }
     private val GEMINI_PRO = defineModel {
         tokens("gemini", "pro")
         notTokens("1")
         notTokens("2")
         notTokens("3")
-        visionInput(); toolAbility()
+        visionInput()
+        toolAbility()
     }
     private val GEMINI_FLASH = defineModel {
         tokens("gemini", "flash")
         notTokens("1")
         notTokens("2")
         notTokens("3")
-        visionInput(); toolAbility()
+        visionInput()
+        toolAbility()
     }
 
     // ─── DeepSeek ───
@@ -149,6 +175,7 @@ object ModelRegistry {
         tokens("deepseek", "reasoner")
         reasoningAbility()
     }
+
     // v1.0.8: DeepSeek V4 系列(含 flash / pro 等变体)
     private val DEEPSEEK_V4 = defineModel {
         tokens("deepseek", "v", "4")
@@ -175,21 +202,25 @@ object ModelRegistry {
     }
     private val QWEN_3_5 = defineModel {
         tokens("qwen", "3", "5")
-        visionInput(); toolReasoningAbility()
+        visionInput()
+        toolReasoningAbility()
     }
     private val QWEN_VL = defineModel {
         tokens("qwen", "vl")
-        visionInput(); visionGrounding("qwen")
+        visionInput()
+        visionGrounding("qwen")
     }
     private val QWEN_QWQ = defineModel {
         tokens("qwq")
         reasoningAbility()
     }
+
     // v1.0.1 (P3): Qwen2-VL 系列(开源视觉模型,中转站常见)
     // v1.0.4: 支持 grounding(qwen 格式 bbox_2d + point_2d)
     private val QWEN2_VL = defineModel {
         tokens("qwen", "2", "vl")
-        visionInput(); visionGrounding("qwen")
+        visionInput()
+        visionGrounding("qwen")
     }
 
     // ─── 其他 ───
@@ -206,11 +237,14 @@ object ModelRegistry {
         tokens("glm", "3")
         toolAbility()
     }
+
     // v1.0.1 (P3): GLM-4V 系列(智谱视觉模型,中转站常见)
     private val GLM_4V = defineModel {
         tokens("glm", "4", "v")
-        visionInput(); toolAbility()
+        visionInput()
+        toolAbility()
     }
+
     // v1.0.1 (P3): GLM-V 系列(智谱视觉模型简写,如 glm-v-4plus)
     private val GLM_V = defineModel {
         tokens("glm", "v")
@@ -220,10 +254,12 @@ object ModelRegistry {
         tokens("doubao", "pro")
         toolAbility()
     }
+
     // v1.0.1 (P3): Doubao Vision 系列(火山引擎视觉模型)
     private val DOUBAO_VISION = defineModel {
         tokens("doubao", "vision")
-        visionInput(); toolAbility()
+        visionInput()
+        toolAbility()
     }
     private val MINIMAX = defineModel {
         tokens("minimax", "abab")
@@ -231,8 +267,10 @@ object ModelRegistry {
     }
     private val MINIMAX_M3 = defineModel {
         tokens("minimax", "m", "3")
-        visionInput(); toolAbility()
+        visionInput()
+        toolAbility()
     }
+
     // v1.0.8: MiniMax M2.5 / M2.7 / M1 系列
     private val MINIMAX_M2_5 = defineModel {
         tokens("minimax", "m", "2", "5")
@@ -248,22 +286,27 @@ object ModelRegistry {
     }
     private val GROK = defineModel {
         tokens("grok")
-        visionInput(); toolAbility()
+        visionInput()
+        toolAbility()
     }
     private val KIMI = defineModel {
         tokens("kimi", "moonshot")
         toolAbility()
     }
+
     // v1.0.8: Kimi K2 系列(如 kimi-k2, kimi-k2.5, kimi-k2.7 等)
     private val KIMI_K2 = defineModel {
         tokens("kimi", "k", "2")
         toolReasoningAbility()
     }
+
     // v1.0.53: Kimi K2.6 — 多模态版本(视觉+文本输入),精确规则分数高于 KIMI_K2,不会误伤 k2/k2.5
     private val KIMI_K2_6 = defineModel {
         tokens("kimi", "k", "2", "6")
-        visionInput(); toolReasoningAbility()
+        visionInput()
+        toolReasoningAbility()
     }
+
     // v1.0.1 (P3): Kimi Vision(Moonshot 视觉模型,如 moonshot-v1-8k-vision-preview)
     private val KIMI_VISION = defineModel {
         tokens("kimi", "vision")
@@ -279,33 +322,39 @@ object ModelRegistry {
     }
     private val MISTRAL_LARGE = defineModel {
         tokens("mistral", "large")
-        visionInput(); toolAbility()
+        visionInput()
+        toolAbility()
     }
     private val MISTRAL = defineModel {
         tokens("mistral")
         notTokens("large")
         toolAbility()
     }
+
     // v1.0.1 (P3): InternVL 系列(开源视觉模型,OpenRouter/HuggingFace 常见)
     private val INTERN_VL = defineModel {
         tokens("intern", "vl")
         visionInput()
     }
+
     // v1.0.1 (P3): CogVLM 系列(清华开源视觉模型)
     private val COG_VLM = defineModel {
         tokens("cog", "vlm")
         visionInput()
     }
+
     // v1.0.1 (P3): Step-VL 系列(阶跃星辰视觉模型)
     private val STEP_VL = defineModel {
         tokens("step", "vl")
         visionInput()
     }
+
     // v1.0.1 (P3): LLaVA 系列(开源视觉模型)
     private val LLAVA = defineModel {
         tokens("llava")
         visionInput()
     }
+
     // v1.0.1 (P3): Pixtral 系列(Mistral 视觉模型)
     private val PIXTRAL = defineModel {
         tokens("pixtral")
@@ -393,8 +442,7 @@ object ModelRegistry {
     /**
      * 解析模型 ID 对应的能力。
      */
-    fun resolveAbilities(modelId: String): Set<ModelAbility> =
-        resolveDefinitions(modelId).flatMap { it.abilities }.toSet()
+    fun resolveAbilities(modelId: String): Set<ModelAbility> = resolveDefinitions(modelId).flatMap { it.abilities }.toSet()
 
     /**
      * 解析模型 ID 对应的输入模态。
@@ -417,20 +465,17 @@ object ModelRegistry {
     /**
      * 检查模型是否支持视觉输入。
      */
-    fun supportsVision(modelId: String): Boolean =
-        "image" in resolveInputModalities(modelId)
+    fun supportsVision(modelId: String): Boolean = "image" in resolveInputModalities(modelId)
 
     /**
      * 检查模型是否支持工具调用。
      */
-    fun supportsToolCalling(modelId: String): Boolean =
-        ModelAbility.TOOL in resolveAbilities(modelId)
+    fun supportsToolCalling(modelId: String): Boolean = ModelAbility.TOOL in resolveAbilities(modelId)
 
     /**
      * 检查模型是否支持推理/思考。
      */
-    fun supportsReasoning(modelId: String): Boolean =
-        ModelAbility.REASONING in resolveAbilities(modelId)
+    fun supportsReasoning(modelId: String): Boolean = ModelAbility.REASONING in resolveAbilities(modelId)
 
     /**
      * 用注册表解析出的能力增强 [Model]。
@@ -473,10 +518,7 @@ object ModelRegistry {
     }
 
     /** 把目录条目应用到模型:目录字段优先,缺失字段保留原值。 */
-    private fun applyCatalogEntry(
-        model: Model,
-        entry: io.zer0.ai.core.ModelCatalogEntry,
-    ): Model {
+    private fun applyCatalogEntry(model: Model, entry: io.zer0.ai.core.ModelCatalogEntry): Model {
         val abilities = buildSet {
             // v2.1.0 修复(用户反馈:deepseek 系模型 Agent 工具调用全线静默失效):
             // 目录数百条目中仅极少数声明了 toolUse,而 ToolUseSpec.supportsTools
@@ -600,11 +642,15 @@ object ModelRegistry {
             // 异常2: 上游声明 supportsVision=true 但 KnownModels 标记为纯文本
             if (model.supportsVision && knownInfo?.inputModalities?.isNotEmpty() == true &&
                 Modality.IMAGE !in knownInfo.inputModalities
-            ) suspicious = true
+            ) {
+                suspicious = true
+            }
             // 异常3: 上游声明 supportsVideo=true 但 KnownModels 未标记 video 输出
             if (model.supportsVideo && knownInfo?.outputModalities?.isNotEmpty() == true &&
                 Modality.VIDEO !in knownInfo.outputModalities
-            ) suspicious = true
+            ) {
+                suspicious = true
+            }
             // 异常4: 上游声明 maxOutputTokens=0(明显错误)
             if (model.maxOutputTokens != null && model.maxOutputTokens <= 0) suspicious = true
             // 异常5: 输出上限不可能大于上下文窗口；只标记可疑，不静默改写用户目录。

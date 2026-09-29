@@ -28,9 +28,9 @@ import io.zer0.muse.ui.PromptInjectionScreen
 import io.zer0.muse.ui.QuickMessageScreen
 import io.zer0.muse.ui.SkillScreen
 import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.media.WindowWidthClass
 import io.zer0.muse.ui.common.media.rememberWindowWidthClass
+import io.zer0.muse.ui.common.state.MuseEmptyState
 
 /**
  * 助手域 NavGraph — 包含助手管理、助手详情及 5 个子页、收藏夹、世界书、
@@ -40,10 +40,7 @@ import io.zer0.muse.ui.common.media.rememberWindowWidthClass
  * 所有 composable 统一使用 [MuseTransitions.horizontalPushEnter] / [horizontalPushPopExit] 过渡。
  * ASSISTANTS 页在 Expanded 模式下使用双列布局(左列表 + 右详情)。
  */
-fun NavGraphBuilder.assistantNavGraph(
-    navController: NavHostController,
-    sharedViewModel: ChatViewModel,
-) {
+fun NavGraphBuilder.assistantNavGraph(navController: NavHostController, sharedViewModel: ChatViewModel) {
     composable<AssistantsRoute>(
         enterTransition = { MuseTransitions.horizontalPushEnter() },
         popExitTransition = { MuseTransitions.horizontalPushPopExit() },

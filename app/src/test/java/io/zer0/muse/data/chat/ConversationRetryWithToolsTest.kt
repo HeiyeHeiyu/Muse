@@ -3,11 +3,11 @@ package io.zer0.muse.data.chat
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.ToolCallInfo
 import io.zer0.ai.core.UIMessage
-import kotlin.uuid.Uuid
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.uuid.Uuid
 
 /**
  * v1.0.92: 工具调用参与时的重试树行为 (回归测试)。

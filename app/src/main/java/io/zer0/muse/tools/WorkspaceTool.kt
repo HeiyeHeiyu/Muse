@@ -27,20 +27,30 @@ object WorkspaceTool {
 
     /** workspace_list 工具名。 */
     const val NAME_LIST = "workspace_list"
+
     /** workspace_read 工具名。 */
     const val NAME_READ = "workspace_read"
+
     /** workspace_write 工具名。 */
     const val NAME_WRITE = "workspace_write"
+
     /** workspace_delete 工具名。 */
     const val NAME_DELETE = "workspace_delete"
+
     /** workspace_mkdir 工具名。 */
     const val NAME_MKDIR = "workspace_mkdir"
+
     /** workspace_move 工具名。 */
     const val NAME_MOVE = "workspace_move"
 
     /** 全部工具名(便于同步到 [ToolRegistry.BUILT_IN_TOOL_IDS])。 */
     val ALL_TOOL_NAMES: List<String> = listOf(
-        NAME_LIST, NAME_READ, NAME_WRITE, NAME_DELETE, NAME_MKDIR, NAME_MOVE,
+        NAME_LIST,
+        NAME_READ,
+        NAME_WRITE,
+        NAME_DELETE,
+        NAME_MKDIR,
+        NAME_MOVE,
     )
 
     /**
@@ -134,9 +144,13 @@ object WorkspaceTool {
                     val path = args["path"]?.trim() ?: ""
                     when (val r = manager.listDir(path)) {
                         is WorkspaceManager.ListResult.Success -> {
-                            if (r.entries.isEmpty()) "(empty)" else r.entries.joinToString("\n") { e ->
-                                val type = if (e.isDirectory) "dir" else "file"
-                                "${e.name} | $type | ${e.size} | ${e.lastModified}"
+                            if (r.entries.isEmpty()) {
+                                "(empty)"
+                            } else {
+                                r.entries.joinToString("\n") { e ->
+                                    val type = if (e.isDirectory) "dir" else "file"
+                                    "${e.name} | $type | ${e.size} | ${e.lastModified}"
+                                }
                             }
                         }
                         is WorkspaceManager.ListResult.Error -> "Error: ${r.message}"
@@ -206,7 +220,9 @@ class WorkspaceToolsRegistrar(
     private val toolRegistry: ToolRegistry,
     private val workspaceManager: WorkspaceManager,
 ) {
-    init { registerAll() }
+    init {
+        registerAll()
+    }
 
     /** 注册全部 6 个工作区工具。 */
     fun registerAll() {

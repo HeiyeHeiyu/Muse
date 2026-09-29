@@ -11,11 +11,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.feedback.MuseDialog
-import androidx.compose.ui.res.stringResource
+import io.zer0.muse.ui.theme.MusePaddings
 
 /**
  * 统一的短表单弹窗。

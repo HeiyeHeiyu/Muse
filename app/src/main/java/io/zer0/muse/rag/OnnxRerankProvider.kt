@@ -40,40 +40,41 @@ class OnnxRerankProvider(
 ) : RerankProvider {
 
     @Volatile private var session: OrtSession? = null
+
     @Volatile private var env: OrtEnvironment? = null
+
     @Volatile private var vocab: Map<String, Int>? = null
+
     @Volatile private var cachedInputNames: List<String>? = null
+
     @Volatile private var cachedOutputNames: List<String>? = null
     private val mutex = Mutex()
 
-    override suspend fun rerank(
-        query: String,
-        candidates: List<RerankCandidate>,
-        topK: Int,
-    ): List<RerankResult> = withContext(Dispatchers.Default) {
-        if (candidates.isEmpty()) return@withContext emptyList()
+    override suspend fun rerank(query: String, candidates: List<RerankCandidate>, topK: Int): List<RerankResult> =
+        withContext(Dispatchers.Default) {
+            if (candidates.isEmpty()) return@withContext emptyList()
 
-        if (modelPath.isBlank() || !File(modelPath).exists()) {
-            throw IllegalStateException(
-                "ONNX rerank model not found: '$modelPath'. " +
-                    "Please place a rerank .onnx file at filesDir/muse_onnx/rerank.onnx, " +
-                    "or switch rerankProvider to '' (local heuristic) / 'cohere' / 'jina'.",
-            )
-        }
-        ensureInitialized()
-        val activeSession = session ?: throw IllegalStateException("ONNX rerank session init failed")
-        val activeVocab = vocab ?: throw IllegalStateException("ONNX rerank vocab load failed")
-        val activeEnv = env ?: throw IllegalStateException("ONNX rerank env not available")
-        val inputNames = cachedInputNames ?: throw IllegalStateException("input names not cached")
-        val outputNames = cachedOutputNames ?: throw IllegalStateException("output names not cached")
+            if (modelPath.isBlank() || !File(modelPath).exists()) {
+                throw IllegalStateException(
+                    "ONNX rerank model not found: '$modelPath'. " +
+                        "Please place a rerank .onnx file at filesDir/muse_onnx/rerank.onnx, " +
+                        "or switch rerankProvider to '' (local heuristic) / 'cohere' / 'jina'.",
+                )
+            }
+            ensureInitialized()
+            val activeSession = session ?: throw IllegalStateException("ONNX rerank session init failed")
+            val activeVocab = vocab ?: throw IllegalStateException("ONNX rerank vocab load failed")
+            val activeEnv = env ?: throw IllegalStateException("ONNX rerank env not available")
+            val inputNames = cachedInputNames ?: throw IllegalStateException("input names not cached")
+            val outputNames = cachedOutputNames ?: throw IllegalStateException("output names not cached")
 
-        // 批量评分
-        val scored = candidates.map { c ->
-            val score = scoreSingle(activeEnv, activeSession, activeVocab, inputNames, outputNames, query, c.content)
-            RerankResult(c.chunkId, c.docId, c.docTitle, c.content, c.chunkIndex, score)
+            // 批量评分
+            val scored = candidates.map { c ->
+                val score = scoreSingle(activeEnv, activeSession, activeVocab, inputNames, outputNames, query, c.content)
+                RerankResult(c.chunkId, c.docId, c.docTitle, c.content, c.chunkIndex, score)
+            }
+            scored.sortedByDescending { it.score }.take(topK)
         }
-        scored.sortedByDescending { it.score }.take(topK)
-    }
 
     /** 单个 (query, candidate) 评分:拼接 → 分词 → ONNX 推理 → sigmoid 归一化。 */
     private fun scoreSingle(
@@ -221,12 +222,7 @@ class OnnxRerankProvider(
         return inputIds to attentionMask
     }
 
-    private fun assignInput(
-        inputNames: List<String>,
-        candidate: String,
-        tensor: OnnxTensor,
-        inputs: MutableMap<String, OnnxTensor>,
-    ) {
+    private fun assignInput(inputNames: List<String>, candidate: String, tensor: OnnxTensor, inputs: MutableMap<String, OnnxTensor>) {
         if (inputNames.contains(candidate)) inputs[candidate] = tensor
     }
 

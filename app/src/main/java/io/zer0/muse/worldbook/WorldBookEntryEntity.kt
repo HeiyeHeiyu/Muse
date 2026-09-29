@@ -70,11 +70,11 @@ data class WorldBookEntryEntity(
 enum class WorldBookInjectTarget(val storage: String) {
     SYSTEM("system"),
     USER("user"),
-    ASSISTANT("assistant");
+    ASSISTANT("assistant"),
+    ;
 
     companion object {
-        fun fromStorage(raw: String?): WorldBookInjectTarget =
-            entries.firstOrNull { it.storage == raw } ?: SYSTEM
+        fun fromStorage(raw: String?): WorldBookInjectTarget = entries.firstOrNull { it.storage == raw } ?: SYSTEM
     }
 }
 
@@ -84,10 +84,10 @@ enum class WorldBookInjectTarget(val storage: String) {
 enum class WorldBookInjectPosition(val storage: String) {
     PREPEND("prepend"),
     APPEND("append"),
-    AT_DEPTH("at_depth");
+    AT_DEPTH("at_depth"),
+    ;
 
     companion object {
-        fun fromStorage(raw: String?): WorldBookInjectPosition =
-            entries.firstOrNull { it.storage == raw } ?: APPEND
+        fun fromStorage(raw: String?): WorldBookInjectPosition = entries.firstOrNull { it.storage == raw } ?: APPEND
     }
 }

@@ -129,7 +129,10 @@ class BackupService(
      */
     private val singleJsonMaxBytes: Long = MAX_SINGLE_JSON_BACKUP_BYTES,
 ) {
-    private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
+    private val json = Json {
+        prettyPrint = true
+        ignoreUnknownKeys = true
+    }
 
     /** F-27: 自动备份恢复的互斥锁,防止并发恢复/备份互相踩库文件。 */
     private val autoRestoreLock = Any()
@@ -200,21 +203,20 @@ class BackupService(
     )
 
     /** 空备份保护需要覆盖所有导出表,不能只检查 sessions/messages。 */
-    private fun Backup.hasAnyData(): Boolean =
-        sessions.isNotEmpty() || messages.isNotEmpty() || sessionSummaries.isNotEmpty() ||
-            dailyStates.isNotEmpty() || compiledSections.isNotEmpty() || scopedCompiledSections.isNotEmpty() ||
-            facts.isNotEmpty() || assistants.isNotEmpty() || lorebooks.isNotEmpty() || skills.isNotEmpty() ||
-            artifacts.isNotEmpty() || quickMessages.isNotEmpty() || promptInjections.isNotEmpty() ||
-            folders.isNotEmpty() || groupChats.isNotEmpty() || groupChatMessages.isNotEmpty() ||
-            scheduledTasks.isNotEmpty() || scheduledTaskExecutions.isNotEmpty() || knowledgeDocs.isNotEmpty() ||
-            knowledgeChunks.isNotEmpty() || experiences.isNotEmpty() || milestones.isNotEmpty() ||
-            agentMessages.isNotEmpty() || moments.isNotEmpty() || momentComments.isNotEmpty() ||
-            momentLikes.isNotEmpty() || quickNotes.isNotEmpty() || worldBookEntries.isNotEmpty() ||
-            conversationEvents.isNotEmpty() || conversationTurns.isNotEmpty() || messageParts.isNotEmpty() ||
-            messageOutboxes.isNotEmpty() || diaries.isNotEmpty() || scopedFacts.isNotEmpty() ||
-            translateHistories.isNotEmpty() || knowledgeBases.isNotEmpty() || subagentThreads.isNotEmpty() ||
-            toolRounds.isNotEmpty() || sessionBranchHeads.isNotEmpty() || groupChatMemories.isNotEmpty() ||
-            settingsSnapshot.isNotEmpty()
+    private fun Backup.hasAnyData(): Boolean = sessions.isNotEmpty() || messages.isNotEmpty() || sessionSummaries.isNotEmpty() ||
+        dailyStates.isNotEmpty() || compiledSections.isNotEmpty() || scopedCompiledSections.isNotEmpty() ||
+        facts.isNotEmpty() || assistants.isNotEmpty() || lorebooks.isNotEmpty() || skills.isNotEmpty() ||
+        artifacts.isNotEmpty() || quickMessages.isNotEmpty() || promptInjections.isNotEmpty() ||
+        folders.isNotEmpty() || groupChats.isNotEmpty() || groupChatMessages.isNotEmpty() ||
+        scheduledTasks.isNotEmpty() || scheduledTaskExecutions.isNotEmpty() || knowledgeDocs.isNotEmpty() ||
+        knowledgeChunks.isNotEmpty() || experiences.isNotEmpty() || milestones.isNotEmpty() ||
+        agentMessages.isNotEmpty() || moments.isNotEmpty() || momentComments.isNotEmpty() ||
+        momentLikes.isNotEmpty() || quickNotes.isNotEmpty() || worldBookEntries.isNotEmpty() ||
+        conversationEvents.isNotEmpty() || conversationTurns.isNotEmpty() || messageParts.isNotEmpty() ||
+        messageOutboxes.isNotEmpty() || diaries.isNotEmpty() || scopedFacts.isNotEmpty() ||
+        translateHistories.isNotEmpty() || knowledgeBases.isNotEmpty() || subagentThreads.isNotEmpty() ||
+        toolRounds.isNotEmpty() || sessionBranchHeads.isNotEmpty() || groupChatMemories.isNotEmpty() ||
+        settingsSnapshot.isNotEmpty()
 
     /**
      * 导出全部会话 + 消息 + memory 数据到指定 URI。
@@ -309,10 +311,7 @@ class BackupService(
     }
 
     /** 从已定位到正文开头的 reader 导入单 JSON 或 NDJSON。 */
-    private suspend fun importReader(
-        context: Context,
-        reader: java.io.BufferedReader,
-    ): Pair<Int, Int> {
+    private suspend fun importReader(context: Context, reader: java.io.BufferedReader): Pair<Int, Int> {
         reader.use { source ->
             val firstLine = generateSequence { source.readLine() }
                 .firstOrNull { !it.isNullOrBlank() }
@@ -683,10 +682,13 @@ class BackupService(
             val line = buildJsonObject {
                 put("type", "scopedFact")
                 put("scope", id)
-                put("data", json.encodeToJsonElement(
-                    ListSerializer(FactEntity.serializer()),
-                    readScopedFacts(id),
-                ))
+                put(
+                    "data",
+                    json.encodeToJsonElement(
+                        ListSerializer(FactEntity.serializer()),
+                        readScopedFacts(id),
+                    ),
+                )
             }
             writer.write(line.toString())
             writer.newLine()
@@ -696,13 +698,16 @@ class BackupService(
         if (settingsSnapshot.isNotEmpty()) {
             val line = buildJsonObject {
                 put("type", "settings")
-                put("data", json.encodeToJsonElement(
-                    MapSerializer(
-                        String.serializer(),
-                        String.serializer(),
+                put(
+                    "data",
+                    json.encodeToJsonElement(
+                        MapSerializer(
+                            String.serializer(),
+                            String.serializer(),
+                        ),
+                        settingsSnapshot,
                     ),
-                    settingsSnapshot,
-                ))
+                )
             }
             writer.write(line.toString())
             writer.newLine()
@@ -935,272 +940,444 @@ class BackupService(
                 db.sessionBranchHeadDao().deleteAll()
                 db.groupChatMemoryDao().deleteAll()
 
-            // 2. 逐行解析 + 分批插入(仍在 db.withTransaction 事务内,任一失败整体回滚)
-        remaining.forEachIndexed { idx, line ->
-            if (line.isBlank()) return@forEachIndexed
-            // 只把单行格式错误视为可跳过;数据库插入/事务异常必须继续向外抛出,
-            // 这样外层 MuseDb 事务才能真正回滚,不会出现“导入成功但数据半缺失”。
-            val obj = resultOf { json.decodeFromString(JsonObject.serializer(), line) }
-                .onError { msg, t ->
-                    Logger.w("BackupService", "第 ${idx + 1} 行 JSON 解析失败,跳过: ${t?.message ?: msg}", t)
-                }
-                .getOrNull()
-                ?: return@forEachIndexed
-            val type = obj["type"]?.let { (it as? JsonPrimitive)?.content }
-                ?: return@forEachIndexed
-            if (type != "meta" && type in typeToMetaKey) {
-                require(obj["data"] != null) { "备份记录缺少 data: $type" }
-                val key = typeToMetaKey.getValue(type)
-                actualCounts[key] = (actualCounts[key] ?: 0) + 1
-            }
-            when (type) {
-                    "meta" -> { /* version/exportedAt 元信息,流式插入不需要 */ }
-                "fileStore" -> {
-                    val name = obj["name"]?.let { (it as? JsonPrimitive)?.content }
-                    val content = obj["content"]?.let { (it as? JsonPrimitive)?.content }
-                    if (!name.isNullOrBlank() && content != null) fileStoreBuf[name] = content
-                }
-                    "session" -> obj["data"]?.let {
-                        // v2.x 导入预热:恢复的会话首轮以全量历史构建上下文一次
-                        sessionBuf.add(
-                            json.decodeFromJsonElement(SessionEntity.serializer(), it)
-                                .copy(warmupPending = true),
-                        )
-                        if (sessionBuf.size >= IMPORT_BATCH) {
-                            sessionCount += sessionBuf.size
-                            flushBatch(sessionBuf) { batch -> db.withTransaction { batch.forEach { db.sessionDao().insert(it) } } }
+                // 2. 逐行解析 + 分批插入(仍在 db.withTransaction 事务内,任一失败整体回滚)
+                remaining.forEachIndexed { idx, line ->
+                    if (line.isBlank()) return@forEachIndexed
+                    // 只把单行格式错误视为可跳过;数据库插入/事务异常必须继续向外抛出,
+                    // 这样外层 MuseDb 事务才能真正回滚,不会出现“导入成功但数据半缺失”。
+                    val obj = resultOf { json.decodeFromString(JsonObject.serializer(), line) }
+                        .onError { msg, t ->
+                            Logger.w("BackupService", "第 ${idx + 1} 行 JSON 解析失败,跳过: ${t?.message ?: msg}", t)
                         }
+                        .getOrNull()
+                        ?: return@forEachIndexed
+                    val type = obj["type"]?.let { (it as? JsonPrimitive)?.content }
+                        ?: return@forEachIndexed
+                    if (type != "meta" && type in typeToMetaKey) {
+                        require(obj["data"] != null) { "备份记录缺少 data: $type" }
+                        val key = typeToMetaKey.getValue(type)
+                        actualCounts[key] = (actualCounts[key] ?: 0) + 1
                     }
-                    "message" -> obj["data"]?.let {
-                        messageBuf.add(json.decodeFromJsonElement(MessageEntity.serializer(), it))
-                        if (messageBuf.size >= IMPORT_BATCH) {
-                            messageCount += messageBuf.size
-                            flushBatch(messageBuf) { batch -> db.withTransaction { batch.forEach { db.messageDao().upsert(it) } } }
+                    when (type) {
+                        "meta" -> { /* version/exportedAt 元信息,流式插入不需要 */ }
+                        "fileStore" -> {
+                            val name = obj["name"]?.let { (it as? JsonPrimitive)?.content }
+                            val content = obj["content"]?.let { (it as? JsonPrimitive)?.content }
+                            if (!name.isNullOrBlank() && content != null) fileStoreBuf[name] = content
                         }
-                    }
-                    "summary" -> obj["data"]?.let {
-                        summaryBuf.add(json.decodeFromJsonElement(SessionSummaryEntity.serializer(), it))
-                        // C-10: memory/fact 缓冲只在 MuseDb 事务成功后于各自独立事务内统一提交,
-                        // 不再在 MuseDb 事务内循环中提前 flush(旧实现会在 MuseDb 回滚时留下已提交的 memory 半状态)。
-                    }
-                    "dailyState" -> obj["data"]?.let {
-                        dailyBuf.add(json.decodeFromJsonElement(DailyStateEntity.serializer(), it))
-                    }
-                    "compiledSection" -> obj["data"]?.let {
-                        compiledBuf.add(json.decodeFromJsonElement(CompiledSectionEntity.serializer(), it))
-                    }
-                    "scopedCompiledSection" -> obj["data"]?.let {
-                        scopedCompiledBuf.add(json.decodeFromJsonElement(ScopedCompiledSectionEntity.serializer(), it))
-                    }
-                    "fact" -> obj["data"]?.let {
-                        factBuf.add(json.decodeFromJsonElement(FactEntity.serializer(), it))
-                    }
-                    // v3: 扩展表类型
-                    "assistant" -> obj["data"]?.let {
-                        assistantBuf.add(json.decodeFromJsonElement(AssistantEntity.serializer(), it))
-                        if (assistantBuf.size >= IMPORT_BATCH) flushBatch(assistantBuf) { batch -> db.withTransaction { db.assistantDao().insertAll(batch) } }
-                    }
-                    "lorebook" -> obj["data"]?.let {
-                        lorebookBuf.add(json.decodeFromJsonElement(LorebookEntity.serializer(), it))
-                        if (lorebookBuf.size >= IMPORT_BATCH) flushBatch(lorebookBuf) { batch -> db.withTransaction { db.lorebookDao().insertAll(batch) } }
-                    }
-                    "skill" -> obj["data"]?.let {
-                        skillBuf.add(json.decodeFromJsonElement(SkillEntity.serializer(), it))
-                        if (skillBuf.size >= IMPORT_BATCH) flushBatch(skillBuf) { batch -> db.withTransaction { batch.forEach { db.skillDao().upsert(it) } } }
-                    }
-                    "artifact" -> obj["data"]?.let {
-                        artifactBuf.add(json.decodeFromJsonElement(ArtifactEntity.serializer(), it))
-                        if (artifactBuf.size >= IMPORT_BATCH) flushBatch(artifactBuf) { batch -> db.withTransaction { batch.forEach { db.artifactDao().upsert(it) } } }
-                    }
-                    "quickMessage" -> obj["data"]?.let {
-                        quickMsgBuf.add(json.decodeFromJsonElement(QuickMessageEntity.serializer(), it))
-                        if (quickMsgBuf.size >= IMPORT_BATCH) flushBatch(quickMsgBuf) { batch -> db.withTransaction { db.quickMessageDao().insertAll(batch) } }
-                    }
-                    "promptInjection" -> obj["data"]?.let {
-                        promptInjBuf.add(json.decodeFromJsonElement(PromptInjectionEntity.serializer(), it))
-                        if (promptInjBuf.size >= IMPORT_BATCH) flushBatch(promptInjBuf) { batch -> db.withTransaction { db.promptInjectionDao().insertAll(batch) } }
-                    }
-                    "folder" -> obj["data"]?.let {
-                        folderBuf.add(json.decodeFromJsonElement(FolderEntity.serializer(), it))
-                        if (folderBuf.size >= IMPORT_BATCH) flushBatch(folderBuf) { batch -> db.withTransaction { batch.forEach { db.folderDao().insert(it) } } }
-                    }
-                    "groupChat" -> obj["data"]?.let {
-                        groupChatBuf.add(json.decodeFromJsonElement(GroupChatEntity.serializer(), it))
-                        if (groupChatBuf.size >= IMPORT_BATCH) flushBatch(groupChatBuf) { batch -> db.withTransaction { batch.forEach { db.groupChatDao().upsert(it) } } }
-                    }
-                    "groupChatMessage" -> obj["data"]?.let {
-                        groupChatMsgBuf.add(json.decodeFromJsonElement(GroupChatMessageEntity.serializer(), it))
-                        if (groupChatMsgBuf.size >= IMPORT_BATCH) flushBatch(groupChatMsgBuf) { batch -> db.withTransaction { db.groupChatMessageDao().insertAll(batch) } }
-                    }
-                    "scheduledTask" -> obj["data"]?.let {
-                        schedTaskBuf.add(json.decodeFromJsonElement(ScheduledTaskEntity.serializer(), it))
-                        if (schedTaskBuf.size >= IMPORT_BATCH) flushBatch(schedTaskBuf) { batch -> db.withTransaction { batch.forEach { db.scheduledTaskDao().upsert(it) } } }
-                    }
-                    "scheduledTaskExecution" -> obj["data"]?.let {
-                        schedExecBuf.add(json.decodeFromJsonElement(ScheduledTaskExecutionEntity.serializer(), it))
-                        if (schedExecBuf.size >= IMPORT_BATCH) flushBatch(schedExecBuf) { batch -> db.withTransaction { batch.forEach { db.scheduledTaskExecutionDao().insert(it) } } }
-                    }
-                    "knowledgeDoc" -> obj["data"]?.let {
-                        knowDocBuf.add(json.decodeFromJsonElement(KnowledgeDocEntity.serializer(), it))
-                        if (knowDocBuf.size >= IMPORT_BATCH) flushBatch(knowDocBuf) { batch -> db.withTransaction { batch.forEach { db.knowledgeDocDao().upsert(it) } } }
-                    }
-                    "knowledgeChunk" -> obj["data"]?.let {
-                        knowChunkBuf.add(json.decodeFromJsonElement(KnowledgeChunkEntity.serializer(), it))
-                        if (knowChunkBuf.size >= IMPORT_BATCH) flushBatch(knowChunkBuf) { batch -> db.withTransaction { db.knowledgeChunkDao().insertAll(batch) } }
-                    }
-                    "experience" -> obj["data"]?.let {
-                        experienceBuf.add(json.decodeFromJsonElement(ExperienceEntity.serializer(), it))
-                        if (experienceBuf.size >= IMPORT_BATCH) flushBatch(experienceBuf) { batch -> db.withTransaction { batch.forEach { db.experienceDao().upsert(it) } } }
-                    }
-                    "milestone" -> obj["data"]?.let {
-                        milestoneBuf.add(json.decodeFromJsonElement(MilestoneEntity.serializer(), it))
-                        if (milestoneBuf.size >= IMPORT_BATCH) flushBatch(milestoneBuf) { batch -> db.withTransaction { batch.forEach { db.milestoneDao().upsert(it) } } }
-                    }
-                    "agentMessage" -> obj["data"]?.let {
-                        agentMsgBuf.add(json.decodeFromJsonElement(AgentMessageEntity.serializer(), it))
-                        if (agentMsgBuf.size >= IMPORT_BATCH) flushBatch(agentMsgBuf) { batch -> db.withTransaction { batch.forEach { db.agentMessageDao().upsert(it) } } }
-                    }
-                    // v1.0.74: 朋友圈三表
-                    "moment" -> obj["data"]?.let {
-                        momentBuf.add(json.decodeFromJsonElement(MomentEntity.serializer(), it))
-                        if (momentBuf.size >= IMPORT_BATCH) flushBatch(momentBuf) { batch -> db.withTransaction { batch.forEach { db.momentDao().insertMoment(it) } } }
-                    }
-                    "momentComment" -> obj["data"]?.let {
-                        momentCommentBuf.add(json.decodeFromJsonElement(MomentCommentEntity.serializer(), it))
-                        if (momentCommentBuf.size >= IMPORT_BATCH) flushBatch(momentCommentBuf) { batch -> db.withTransaction { batch.forEach { db.momentDao().insertComment(it) } } }
-                    }
-                    "momentLike" -> obj["data"]?.let {
-                        momentLikeBuf.add(json.decodeFromJsonElement(MomentLikeEntity.serializer(), it))
-                        if (momentLikeBuf.size >= IMPORT_BATCH) flushBatch(momentLikeBuf) { batch -> db.withTransaction { batch.forEach { db.momentDao().addLike(it) } } }
-                    }
-                    // P0-10: 此前缺失的实体
-                    "quickNote" -> obj["data"]?.let {
-                        quickNoteBuf.add(json.decodeFromJsonElement(io.zer0.muse.data.quicknote.QuickNoteEntity.serializer(), it))
-                        if (quickNoteBuf.size >= IMPORT_BATCH) flushBatch(quickNoteBuf) { batch -> db.withTransaction { batch.forEach { db.quickNoteDao().upsert(it) } } }
-                    }
-                    "worldBookEntry" -> obj["data"]?.let {
-                        worldBookBuf.add(json.decodeFromJsonElement(io.zer0.muse.worldbook.WorldBookEntryEntity.serializer(), it))
-                        if (worldBookBuf.size >= IMPORT_BATCH) flushBatch(worldBookBuf) { batch -> db.withTransaction { batch.forEach { db.worldBookDao().upsert(it) } } }
-                    }
-                    "conversationEvent" -> obj["data"]?.let {
-                        convEventBuf.add(json.decodeFromJsonElement(ConversationEventEntity.serializer(), it))
-                        if (convEventBuf.size >= IMPORT_BATCH) flushBatch(convEventBuf) { batch -> db.withTransaction { db.conversationEventDao().insertAll(batch) } }
-                    }
-                    "conversationTurn" -> obj["data"]?.let {
-                        convTurnBuf.add(json.decodeFromJsonElement(ConversationTurnEntity.serializer(), it))
-                        if (convTurnBuf.size >= IMPORT_BATCH) flushBatch(convTurnBuf) { batch -> db.withTransaction { batch.forEach { db.conversationTurnDao().upsert(it) } } }
-                    }
-                    "messagePart" -> obj["data"]?.let {
-                        messagePartBuf.add(json.decodeFromJsonElement(MessagePartEntity.serializer(), it))
-                        if (messagePartBuf.size >= IMPORT_BATCH) flushBatch(messagePartBuf) { batch -> db.withTransaction { db.messagePartDao().upsertAll(batch) } }
-                    }
-                    "messageOutbox" -> obj["data"]?.let {
-                        messageOutboxBuf.add(json.decodeFromJsonElement(MessageOutboxEntity.serializer(), it))
-                        if (messageOutboxBuf.size >= IMPORT_BATCH) flushBatch(messageOutboxBuf) { batch -> db.withTransaction { batch.forEach { db.messageOutboxDao().upsert(it) } } }
-                    }
-                    "diary" -> obj["data"]?.let {
-                        diaryBuf.add(json.decodeFromJsonElement(io.zer0.muse.data.diary.DiaryEntity.serializer(), it))
-                        if (diaryBuf.size >= IMPORT_BATCH) flushBatch(diaryBuf) { batch -> db.withTransaction { batch.forEach { db.diaryDao().upsert(it) } } }
-                    }
-                    "translateHistory" -> obj["data"]?.let {
-                        translateHistoryBuf.add(json.decodeFromJsonElement(TranslateHistoryEntity.serializer(), it))
-                        if (translateHistoryBuf.size >= IMPORT_BATCH) flushBatch(translateHistoryBuf) { batch -> db.withTransaction { batch.forEach { db.translateHistoryDao().insert(it) } } }
-                    }
-                    "knowledgeBase" -> obj["data"]?.let {
-                        knowledgeBaseBuf.add(json.decodeFromJsonElement(KnowledgeBaseEntity.serializer(), it))
-                        if (knowledgeBaseBuf.size >= IMPORT_BATCH) flushBatch(knowledgeBaseBuf) { batch -> db.withTransaction { batch.forEach { db.knowledgeBaseDao().upsert(it) } } }
-                    }
-                    "subagentThread" -> obj["data"]?.let {
-                        subagentThreadBuf.add(json.decodeFromJsonElement(SubagentThreadEntity.serializer(), it))
-                        if (subagentThreadBuf.size >= IMPORT_BATCH) flushBatch(subagentThreadBuf) { batch -> db.withTransaction { batch.forEach { db.subagentThreadDao().upsert(it) } } }
-                    }
-                    "toolRound" -> obj["data"]?.let {
-                        toolRoundBuf.add(json.decodeFromJsonElement(ToolRoundEntity.serializer(), it))
-                        if (toolRoundBuf.size >= IMPORT_BATCH) flushBatch(toolRoundBuf) { batch -> db.withTransaction { db.toolRoundDao().upsertAll(batch) } }
-                    }
-                    "sessionBranchHead" -> obj["data"]?.let {
-                        sessionBranchHeadBuf.add(json.decodeFromJsonElement(SessionBranchHeadEntity.serializer(), it))
-                        if (sessionBranchHeadBuf.size >= IMPORT_BATCH) flushBatch(sessionBranchHeadBuf) { batch -> db.withTransaction { batch.forEach { db.sessionBranchHeadDao().upsert(it) } } }
-                    }
-                    "groupChatMemory" -> obj["data"]?.let {
-                        groupChatMemoryBuf.add(json.decodeFromJsonElement(GroupChatMemoryEntity.serializer(), it))
-                        if (groupChatMemoryBuf.size >= IMPORT_BATCH) flushBatch(groupChatMemoryBuf) { batch -> db.withTransaction { batch.forEach { db.groupChatMemoryDao().insert(it) } } }
-                    }
-                    "scopedFact" -> {
-                        val scope = (obj["scope"] as? JsonPrimitive)?.contentOrNull ?: return@forEachIndexed
-                        val facts = obj["data"]?.let {
-                            json.decodeFromJsonElement(
-                                ListSerializer(FactEntity.serializer()),
+                        "session" -> obj["data"]?.let {
+                            // v2.x 导入预热:恢复的会话首轮以全量历史构建上下文一次
+                            sessionBuf.add(
+                                json.decodeFromJsonElement(SessionEntity.serializer(), it)
+                                    .copy(warmupPending = true),
+                            )
+                            if (sessionBuf.size >= IMPORT_BATCH) {
+                                sessionCount += sessionBuf.size
+                                flushBatch(sessionBuf) { batch -> db.withTransaction { batch.forEach { db.sessionDao().insert(it) } } }
+                            }
+                        }
+                        "message" -> obj["data"]?.let {
+                            messageBuf.add(json.decodeFromJsonElement(MessageEntity.serializer(), it))
+                            if (messageBuf.size >= IMPORT_BATCH) {
+                                messageCount += messageBuf.size
+                                flushBatch(messageBuf) { batch -> db.withTransaction { batch.forEach { db.messageDao().upsert(it) } } }
+                            }
+                        }
+                        "summary" -> obj["data"]?.let {
+                            summaryBuf.add(json.decodeFromJsonElement(SessionSummaryEntity.serializer(), it))
+                            // C-10: memory/fact 缓冲只在 MuseDb 事务成功后于各自独立事务内统一提交,
+                            // 不再在 MuseDb 事务内循环中提前 flush(旧实现会在 MuseDb 回滚时留下已提交的 memory 半状态)。
+                        }
+                        "dailyState" -> obj["data"]?.let {
+                            dailyBuf.add(json.decodeFromJsonElement(DailyStateEntity.serializer(), it))
+                        }
+                        "compiledSection" -> obj["data"]?.let {
+                            compiledBuf.add(json.decodeFromJsonElement(CompiledSectionEntity.serializer(), it))
+                        }
+                        "scopedCompiledSection" -> obj["data"]?.let {
+                            scopedCompiledBuf.add(json.decodeFromJsonElement(ScopedCompiledSectionEntity.serializer(), it))
+                        }
+                        "fact" -> obj["data"]?.let {
+                            factBuf.add(json.decodeFromJsonElement(FactEntity.serializer(), it))
+                        }
+                        // v3: 扩展表类型
+                        "assistant" -> obj["data"]?.let {
+                            assistantBuf.add(json.decodeFromJsonElement(AssistantEntity.serializer(), it))
+                            if (assistantBuf.size >= IMPORT_BATCH) {
+                                flushBatch(
+                                    assistantBuf,
+                                ) { batch -> db.withTransaction { db.assistantDao().insertAll(batch) } }
+                            }
+                        }
+                        "lorebook" -> obj["data"]?.let {
+                            lorebookBuf.add(json.decodeFromJsonElement(LorebookEntity.serializer(), it))
+                            if (lorebookBuf.size >= IMPORT_BATCH) {
+                                flushBatch(
+                                    lorebookBuf,
+                                ) { batch -> db.withTransaction { db.lorebookDao().insertAll(batch) } }
+                            }
+                        }
+                        "skill" -> obj["data"]?.let {
+                            skillBuf.add(json.decodeFromJsonElement(SkillEntity.serializer(), it))
+                            if (skillBuf.size >= IMPORT_BATCH) {
+                                flushBatch(
+                                    skillBuf,
+                                ) { batch -> db.withTransaction { batch.forEach { db.skillDao().upsert(it) } } }
+                            }
+                        }
+                        "artifact" -> obj["data"]?.let {
+                            artifactBuf.add(json.decodeFromJsonElement(ArtifactEntity.serializer(), it))
+                            if (artifactBuf.size >= IMPORT_BATCH) {
+                                flushBatch(artifactBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.artifactDao().upsert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "quickMessage" -> obj["data"]?.let {
+                            quickMsgBuf.add(json.decodeFromJsonElement(QuickMessageEntity.serializer(), it))
+                            if (quickMsgBuf.size >= IMPORT_BATCH) {
+                                flushBatch(
+                                    quickMsgBuf,
+                                ) { batch -> db.withTransaction { db.quickMessageDao().insertAll(batch) } }
+                            }
+                        }
+                        "promptInjection" -> obj["data"]?.let {
+                            promptInjBuf.add(json.decodeFromJsonElement(PromptInjectionEntity.serializer(), it))
+                            if (promptInjBuf.size >= IMPORT_BATCH) {
+                                flushBatch(
+                                    promptInjBuf,
+                                ) { batch -> db.withTransaction { db.promptInjectionDao().insertAll(batch) } }
+                            }
+                        }
+                        "folder" -> obj["data"]?.let {
+                            folderBuf.add(json.decodeFromJsonElement(FolderEntity.serializer(), it))
+                            if (folderBuf.size >= IMPORT_BATCH) {
+                                flushBatch(
+                                    folderBuf,
+                                ) { batch -> db.withTransaction { batch.forEach { db.folderDao().insert(it) } } }
+                            }
+                        }
+                        "groupChat" -> obj["data"]?.let {
+                            groupChatBuf.add(json.decodeFromJsonElement(GroupChatEntity.serializer(), it))
+                            if (groupChatBuf.size >= IMPORT_BATCH) {
+                                flushBatch(groupChatBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.groupChatDao().upsert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "groupChatMessage" -> obj["data"]?.let {
+                            groupChatMsgBuf.add(json.decodeFromJsonElement(GroupChatMessageEntity.serializer(), it))
+                            if (groupChatMsgBuf.size >= IMPORT_BATCH) {
+                                flushBatch(groupChatMsgBuf) { batch ->
+                                    db.withTransaction {
+                                        db.groupChatMessageDao().insertAll(batch)
+                                    }
+                                }
+                            }
+                        }
+                        "scheduledTask" -> obj["data"]?.let {
+                            schedTaskBuf.add(json.decodeFromJsonElement(ScheduledTaskEntity.serializer(), it))
+                            if (schedTaskBuf.size >= IMPORT_BATCH) {
+                                flushBatch(schedTaskBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.scheduledTaskDao().upsert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "scheduledTaskExecution" -> obj["data"]?.let {
+                            schedExecBuf.add(json.decodeFromJsonElement(ScheduledTaskExecutionEntity.serializer(), it))
+                            if (schedExecBuf.size >= IMPORT_BATCH) {
+                                flushBatch(schedExecBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.scheduledTaskExecutionDao().insert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "knowledgeDoc" -> obj["data"]?.let {
+                            knowDocBuf.add(json.decodeFromJsonElement(KnowledgeDocEntity.serializer(), it))
+                            if (knowDocBuf.size >= IMPORT_BATCH) {
+                                flushBatch(knowDocBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.knowledgeDocDao().upsert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "knowledgeChunk" -> obj["data"]?.let {
+                            knowChunkBuf.add(json.decodeFromJsonElement(KnowledgeChunkEntity.serializer(), it))
+                            if (knowChunkBuf.size >= IMPORT_BATCH) {
+                                flushBatch(
+                                    knowChunkBuf,
+                                ) { batch -> db.withTransaction { db.knowledgeChunkDao().insertAll(batch) } }
+                            }
+                        }
+                        "experience" -> obj["data"]?.let {
+                            experienceBuf.add(json.decodeFromJsonElement(ExperienceEntity.serializer(), it))
+                            if (experienceBuf.size >= IMPORT_BATCH) {
+                                flushBatch(experienceBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.experienceDao().upsert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "milestone" -> obj["data"]?.let {
+                            milestoneBuf.add(json.decodeFromJsonElement(MilestoneEntity.serializer(), it))
+                            if (milestoneBuf.size >= IMPORT_BATCH) {
+                                flushBatch(milestoneBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.milestoneDao().upsert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "agentMessage" -> obj["data"]?.let {
+                            agentMsgBuf.add(json.decodeFromJsonElement(AgentMessageEntity.serializer(), it))
+                            if (agentMsgBuf.size >= IMPORT_BATCH) {
+                                flushBatch(agentMsgBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.agentMessageDao().upsert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        // v1.0.74: 朋友圈三表
+                        "moment" -> obj["data"]?.let {
+                            momentBuf.add(json.decodeFromJsonElement(MomentEntity.serializer(), it))
+                            if (momentBuf.size >= IMPORT_BATCH) {
+                                flushBatch(momentBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.momentDao().insertMoment(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "momentComment" -> obj["data"]?.let {
+                            momentCommentBuf.add(json.decodeFromJsonElement(MomentCommentEntity.serializer(), it))
+                            if (momentCommentBuf.size >= IMPORT_BATCH) {
+                                flushBatch(momentCommentBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.momentDao().insertComment(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "momentLike" -> obj["data"]?.let {
+                            momentLikeBuf.add(json.decodeFromJsonElement(MomentLikeEntity.serializer(), it))
+                            if (momentLikeBuf.size >= IMPORT_BATCH) {
+                                flushBatch(momentLikeBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.momentDao().addLike(it) }
+                                    }
+                                }
+                            }
+                        }
+                        // P0-10: 此前缺失的实体
+                        "quickNote" -> obj["data"]?.let {
+                            quickNoteBuf.add(json.decodeFromJsonElement(io.zer0.muse.data.quicknote.QuickNoteEntity.serializer(), it))
+                            if (quickNoteBuf.size >= IMPORT_BATCH) {
+                                flushBatch(quickNoteBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.quickNoteDao().upsert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "worldBookEntry" -> obj["data"]?.let {
+                            worldBookBuf.add(json.decodeFromJsonElement(io.zer0.muse.worldbook.WorldBookEntryEntity.serializer(), it))
+                            if (worldBookBuf.size >= IMPORT_BATCH) {
+                                flushBatch(worldBookBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.worldBookDao().upsert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "conversationEvent" -> obj["data"]?.let {
+                            convEventBuf.add(json.decodeFromJsonElement(ConversationEventEntity.serializer(), it))
+                            if (convEventBuf.size >= IMPORT_BATCH) {
+                                flushBatch(convEventBuf) { batch ->
+                                    db.withTransaction {
+                                        db.conversationEventDao().insertAll(batch)
+                                    }
+                                }
+                            }
+                        }
+                        "conversationTurn" -> obj["data"]?.let {
+                            convTurnBuf.add(json.decodeFromJsonElement(ConversationTurnEntity.serializer(), it))
+                            if (convTurnBuf.size >= IMPORT_BATCH) {
+                                flushBatch(convTurnBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.conversationTurnDao().upsert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "messagePart" -> obj["data"]?.let {
+                            messagePartBuf.add(json.decodeFromJsonElement(MessagePartEntity.serializer(), it))
+                            if (messagePartBuf.size >= IMPORT_BATCH) {
+                                flushBatch(
+                                    messagePartBuf,
+                                ) { batch -> db.withTransaction { db.messagePartDao().upsertAll(batch) } }
+                            }
+                        }
+                        "messageOutbox" -> obj["data"]?.let {
+                            messageOutboxBuf.add(json.decodeFromJsonElement(MessageOutboxEntity.serializer(), it))
+                            if (messageOutboxBuf.size >= IMPORT_BATCH) {
+                                flushBatch(messageOutboxBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.messageOutboxDao().upsert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "diary" -> obj["data"]?.let {
+                            diaryBuf.add(json.decodeFromJsonElement(io.zer0.muse.data.diary.DiaryEntity.serializer(), it))
+                            if (diaryBuf.size >= IMPORT_BATCH) {
+                                flushBatch(
+                                    diaryBuf,
+                                ) { batch -> db.withTransaction { batch.forEach { db.diaryDao().upsert(it) } } }
+                            }
+                        }
+                        "translateHistory" -> obj["data"]?.let {
+                            translateHistoryBuf.add(json.decodeFromJsonElement(TranslateHistoryEntity.serializer(), it))
+                            if (translateHistoryBuf.size >= IMPORT_BATCH) {
+                                flushBatch(translateHistoryBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.translateHistoryDao().insert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "knowledgeBase" -> obj["data"]?.let {
+                            knowledgeBaseBuf.add(json.decodeFromJsonElement(KnowledgeBaseEntity.serializer(), it))
+                            if (knowledgeBaseBuf.size >= IMPORT_BATCH) {
+                                flushBatch(knowledgeBaseBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.knowledgeBaseDao().upsert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "subagentThread" -> obj["data"]?.let {
+                            subagentThreadBuf.add(json.decodeFromJsonElement(SubagentThreadEntity.serializer(), it))
+                            if (subagentThreadBuf.size >= IMPORT_BATCH) {
+                                flushBatch(subagentThreadBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.subagentThreadDao().upsert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "toolRound" -> obj["data"]?.let {
+                            toolRoundBuf.add(json.decodeFromJsonElement(ToolRoundEntity.serializer(), it))
+                            if (toolRoundBuf.size >= IMPORT_BATCH) {
+                                flushBatch(
+                                    toolRoundBuf,
+                                ) { batch -> db.withTransaction { db.toolRoundDao().upsertAll(batch) } }
+                            }
+                        }
+                        "sessionBranchHead" -> obj["data"]?.let {
+                            sessionBranchHeadBuf.add(json.decodeFromJsonElement(SessionBranchHeadEntity.serializer(), it))
+                            if (sessionBranchHeadBuf.size >= IMPORT_BATCH) {
+                                flushBatch(sessionBranchHeadBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.sessionBranchHeadDao().upsert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "groupChatMemory" -> obj["data"]?.let {
+                            groupChatMemoryBuf.add(json.decodeFromJsonElement(GroupChatMemoryEntity.serializer(), it))
+                            if (groupChatMemoryBuf.size >= IMPORT_BATCH) {
+                                flushBatch(groupChatMemoryBuf) { batch ->
+                                    db.withTransaction {
+                                        batch.forEach { db.groupChatMemoryDao().insert(it) }
+                                    }
+                                }
+                            }
+                        }
+                        "scopedFact" -> {
+                            val scope = (obj["scope"] as? JsonPrimitive)?.contentOrNull ?: return@forEachIndexed
+                            val facts = obj["data"]?.let {
+                                json.decodeFromJsonElement(
+                                    ListSerializer(FactEntity.serializer()),
+                                    it,
+                                )
+                            } ?: return@forEachIndexed
+                            scopedFactBuf.getOrPut(scope) { mutableListOf() }.addAll(facts)
+                        }
+                        "settings" -> obj["data"]?.let {
+                            settingsSnapshot = json.decodeFromJsonElement(
+                                MapSerializer(
+                                    String.serializer(),
+                                    String.serializer(),
+                                ),
                                 it,
                             )
-                        } ?: return@forEachIndexed
-                        scopedFactBuf.getOrPut(scope) { mutableListOf() }.addAll(facts)
+                        }
                     }
-                    "settings" -> obj["data"]?.let {
-                        settingsSnapshot = json.decodeFromJsonElement(
-                            MapSerializer(
-                                String.serializer(),
-                                String.serializer(),
-                            ),
-                            it,
-                        )
+                }
+
+                // B-34: 在 MuseDb 事务提交前核对 meta 声明计数，截断或丢行的备份整体回滚。
+                expectedCounts.forEach { (key, expected) ->
+                    val actual = actualCounts[key] ?: 0
+                    check(actual == expected) {
+                        "备份记录数不一致: $key 声明 $expected, 实际 $actual"
                     }
-            }
-        }
+                }
 
-        // B-34: 在 MuseDb 事务提交前核对 meta 声明计数，截断或丢行的备份整体回滚。
-        expectedCounts.forEach { (key, expected) ->
-            val actual = actualCounts[key] ?: 0
-            check(actual == expected) {
-                "备份记录数不一致: $key 声明 $expected, 实际 $actual"
-            }
-        }
-
-        // 3. flush 剩余 buffer(C-10: memory/fact 缓冲这里不再 flush,
-        // 统一在 MuseDb 事务成功后的独立事务内一次性 deleteAll + 插入)。
-        if (sessionBuf.isNotEmpty()) {
-            sessionCount += sessionBuf.size
-            flushBatch(sessionBuf) { batch -> db.withTransaction { batch.forEach { db.sessionDao().insert(it) } } }
-        }
-        if (messageBuf.isNotEmpty()) {
-            messageCount += messageBuf.size
-            flushBatch(messageBuf) { batch -> db.withTransaction { batch.forEach { db.messageDao().upsert(it) } } }
-        }
-        // v3: flush 扩展表
-        flushBatch(assistantBuf) { batch -> db.withTransaction { db.assistantDao().insertAll(batch) } }
-        flushBatch(lorebookBuf) { batch -> db.withTransaction { db.lorebookDao().insertAll(batch) } }
-        flushBatch(skillBuf) { batch -> db.withTransaction { batch.forEach { db.skillDao().upsert(it) } } }
-        flushBatch(artifactBuf) { batch -> db.withTransaction { batch.forEach { db.artifactDao().upsert(it) } } }
-        flushBatch(quickMsgBuf) { batch -> db.withTransaction { db.quickMessageDao().insertAll(batch) } }
-        flushBatch(promptInjBuf) { batch -> db.withTransaction { db.promptInjectionDao().insertAll(batch) } }
-        flushBatch(folderBuf) { batch -> db.withTransaction { batch.forEach { db.folderDao().insert(it) } } }
-        flushBatch(groupChatBuf) { batch -> db.withTransaction { batch.forEach { db.groupChatDao().upsert(it) } } }
-        flushBatch(groupChatMsgBuf) { batch -> db.withTransaction { db.groupChatMessageDao().insertAll(batch) } }
-        flushBatch(schedTaskBuf) { batch -> db.withTransaction { batch.forEach { db.scheduledTaskDao().upsert(it) } } }
-        flushBatch(schedExecBuf) { batch -> db.withTransaction { batch.forEach { db.scheduledTaskExecutionDao().insert(it) } } }
-        flushBatch(knowDocBuf) { batch -> db.withTransaction { batch.forEach { db.knowledgeDocDao().upsert(it) } } }
-        flushBatch(knowChunkBuf) { batch -> db.withTransaction { db.knowledgeChunkDao().insertAll(batch) } }
-        flushBatch(experienceBuf) { batch -> db.withTransaction { batch.forEach { db.experienceDao().upsert(it) } } }
-        flushBatch(milestoneBuf) { batch -> db.withTransaction { batch.forEach { db.milestoneDao().upsert(it) } } }
-        flushBatch(agentMsgBuf) { batch -> db.withTransaction { batch.forEach { db.agentMessageDao().upsert(it) } } }
-        // v1.0.74: 朋友圈三表
-        flushBatch(momentBuf) { batch -> db.withTransaction { batch.forEach { db.momentDao().insertMoment(it) } } }
-        flushBatch(momentCommentBuf) { batch -> db.withTransaction { batch.forEach { db.momentDao().insertComment(it) } } }
-        flushBatch(momentLikeBuf) { batch -> db.withTransaction { batch.forEach { db.momentDao().addLike(it) } } }
-        // P0-10: 此前缺失的实体
-        flushBatch(quickNoteBuf) { batch -> db.withTransaction { batch.forEach { db.quickNoteDao().upsert(it) } } }
-        flushBatch(worldBookBuf) { batch -> db.withTransaction { batch.forEach { db.worldBookDao().upsert(it) } } }
-        flushBatch(convEventBuf) { batch -> db.withTransaction { db.conversationEventDao().insertAll(batch) } }
-        flushBatch(convTurnBuf) { batch -> db.withTransaction { batch.forEach { db.conversationTurnDao().upsert(it) } } }
-        flushBatch(messagePartBuf) { batch -> db.withTransaction { db.messagePartDao().upsertAll(batch) } }
-        flushBatch(messageOutboxBuf) { batch -> db.withTransaction { batch.forEach { db.messageOutboxDao().upsert(it) } } }
-        flushBatch(diaryBuf) { batch -> db.withTransaction { batch.forEach { db.diaryDao().upsert(it) } } }
-        flushBatch(translateHistoryBuf) { batch -> db.withTransaction { batch.forEach { db.translateHistoryDao().insert(it) } } }
-        flushBatch(knowledgeBaseBuf) { batch -> db.withTransaction { batch.forEach { db.knowledgeBaseDao().upsert(it) } } }
-        flushBatch(subagentThreadBuf) { batch -> db.withTransaction { batch.forEach { db.subagentThreadDao().upsert(it) } } }
-        flushBatch(toolRoundBuf) { batch -> db.withTransaction { db.toolRoundDao().upsertAll(batch) } }
-        flushBatch(sessionBranchHeadBuf) { batch -> db.withTransaction { batch.forEach { db.sessionBranchHeadDao().upsert(it) } } }
-        flushBatch(groupChatMemoryBuf) { batch -> db.withTransaction { batch.forEach { db.groupChatMemoryDao().insert(it) } } }
+                // 3. flush 剩余 buffer(C-10: memory/fact 缓冲这里不再 flush,
+                // 统一在 MuseDb 事务成功后的独立事务内一次性 deleteAll + 插入)。
+                if (sessionBuf.isNotEmpty()) {
+                    sessionCount += sessionBuf.size
+                    flushBatch(sessionBuf) { batch -> db.withTransaction { batch.forEach { db.sessionDao().insert(it) } } }
+                }
+                if (messageBuf.isNotEmpty()) {
+                    messageCount += messageBuf.size
+                    flushBatch(messageBuf) { batch -> db.withTransaction { batch.forEach { db.messageDao().upsert(it) } } }
+                }
+                // v3: flush 扩展表
+                flushBatch(assistantBuf) { batch -> db.withTransaction { db.assistantDao().insertAll(batch) } }
+                flushBatch(lorebookBuf) { batch -> db.withTransaction { db.lorebookDao().insertAll(batch) } }
+                flushBatch(skillBuf) { batch -> db.withTransaction { batch.forEach { db.skillDao().upsert(it) } } }
+                flushBatch(artifactBuf) { batch -> db.withTransaction { batch.forEach { db.artifactDao().upsert(it) } } }
+                flushBatch(quickMsgBuf) { batch -> db.withTransaction { db.quickMessageDao().insertAll(batch) } }
+                flushBatch(promptInjBuf) { batch -> db.withTransaction { db.promptInjectionDao().insertAll(batch) } }
+                flushBatch(folderBuf) { batch -> db.withTransaction { batch.forEach { db.folderDao().insert(it) } } }
+                flushBatch(groupChatBuf) { batch -> db.withTransaction { batch.forEach { db.groupChatDao().upsert(it) } } }
+                flushBatch(groupChatMsgBuf) { batch -> db.withTransaction { db.groupChatMessageDao().insertAll(batch) } }
+                flushBatch(schedTaskBuf) { batch -> db.withTransaction { batch.forEach { db.scheduledTaskDao().upsert(it) } } }
+                flushBatch(schedExecBuf) { batch -> db.withTransaction { batch.forEach { db.scheduledTaskExecutionDao().insert(it) } } }
+                flushBatch(knowDocBuf) { batch -> db.withTransaction { batch.forEach { db.knowledgeDocDao().upsert(it) } } }
+                flushBatch(knowChunkBuf) { batch -> db.withTransaction { db.knowledgeChunkDao().insertAll(batch) } }
+                flushBatch(experienceBuf) { batch -> db.withTransaction { batch.forEach { db.experienceDao().upsert(it) } } }
+                flushBatch(milestoneBuf) { batch -> db.withTransaction { batch.forEach { db.milestoneDao().upsert(it) } } }
+                flushBatch(agentMsgBuf) { batch -> db.withTransaction { batch.forEach { db.agentMessageDao().upsert(it) } } }
+                // v1.0.74: 朋友圈三表
+                flushBatch(momentBuf) { batch -> db.withTransaction { batch.forEach { db.momentDao().insertMoment(it) } } }
+                flushBatch(momentCommentBuf) { batch -> db.withTransaction { batch.forEach { db.momentDao().insertComment(it) } } }
+                flushBatch(momentLikeBuf) { batch -> db.withTransaction { batch.forEach { db.momentDao().addLike(it) } } }
+                // P0-10: 此前缺失的实体
+                flushBatch(quickNoteBuf) { batch -> db.withTransaction { batch.forEach { db.quickNoteDao().upsert(it) } } }
+                flushBatch(worldBookBuf) { batch -> db.withTransaction { batch.forEach { db.worldBookDao().upsert(it) } } }
+                flushBatch(convEventBuf) { batch -> db.withTransaction { db.conversationEventDao().insertAll(batch) } }
+                flushBatch(convTurnBuf) { batch -> db.withTransaction { batch.forEach { db.conversationTurnDao().upsert(it) } } }
+                flushBatch(messagePartBuf) { batch -> db.withTransaction { db.messagePartDao().upsertAll(batch) } }
+                flushBatch(messageOutboxBuf) { batch -> db.withTransaction { batch.forEach { db.messageOutboxDao().upsert(it) } } }
+                flushBatch(diaryBuf) { batch -> db.withTransaction { batch.forEach { db.diaryDao().upsert(it) } } }
+                flushBatch(translateHistoryBuf) { batch -> db.withTransaction { batch.forEach { db.translateHistoryDao().insert(it) } } }
+                flushBatch(knowledgeBaseBuf) { batch -> db.withTransaction { batch.forEach { db.knowledgeBaseDao().upsert(it) } } }
+                flushBatch(subagentThreadBuf) { batch -> db.withTransaction { batch.forEach { db.subagentThreadDao().upsert(it) } } }
+                flushBatch(toolRoundBuf) { batch -> db.withTransaction { db.toolRoundDao().upsertAll(batch) } }
+                flushBatch(sessionBranchHeadBuf) { batch -> db.withTransaction { batch.forEach { db.sessionBranchHeadDao().upsert(it) } } }
+                flushBatch(groupChatMemoryBuf) { batch -> db.withTransaction { batch.forEach { db.groupChatMemoryDao().insert(it) } } }
             } // 审计 0.5: MuseDb 大事务闭合(失败整体回滚,含清空)
 
             // C-10: memory/fact 依赖独立数据库,无法与 MuseDb 跨库原子。
@@ -1749,7 +1926,10 @@ class BackupService(
                 return null
             }
             resultOf { BackupCrypto.decrypt(data, config.backupPassword) }
-                .onError { msg, t -> Logger.w("BackupService", "云端备份解密失败(密码错误?)", t); return null }
+                .onError { msg, t ->
+                    Logger.w("BackupService", "云端备份解密失败(密码错误?)", t)
+                    return null
+                }
                 .getOrNull() ?: return null
         } else {
             data
@@ -2104,39 +2284,37 @@ class BackupService(
      * 与副本，供下一次启动继续诊断/处理。
      */
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun rollbackAfterRestoreFailure(
-        entry: RestoreJournal.Entry,
-        originalError: Throwable,
-    ): Boolean = withContext(kotlinx.coroutines.NonCancellable) {
-        val recovery = restoreStagingStore.readRecoveryPoint(entry)
-        if (recovery == null) {
-            Logger.e("BackupService", "恢复失败且找不到持久化 recovery point: ${originalError.message}", originalError)
-            return@withContext false
+    private suspend fun rollbackAfterRestoreFailure(entry: RestoreJournal.Entry, originalError: Throwable): Boolean =
+        withContext(kotlinx.coroutines.NonCancellable) {
+            val recovery = restoreStagingStore.readRecoveryPoint(entry)
+            if (recovery == null) {
+                Logger.e("BackupService", "恢复失败且找不到持久化 recovery point: ${originalError.message}", originalError)
+                return@withContext false
+            }
+            try {
+                Logger.w("BackupService", "恢复失败,回滚到持久化 recovery point: ${originalError.message}", originalError)
+                var rollbackJournal = restoreJournal.advance(entry, RestoreJournal.Phase.ROLLING_BACK)
+                applyBackupInternal(recovery)
+                sessionRepository.rebuildFtsIndex()
+                rollbackJournal = restoreJournal.advance(
+                    rollbackJournal,
+                    RestoreJournal.Phase.ROLLING_BACK,
+                    completedStores = setOf(
+                        RestoreJournal.Store.MUSE_DB,
+                        RestoreJournal.Store.MEMORY_DB,
+                        RestoreJournal.Store.FACT_DB,
+                        RestoreJournal.Store.SETTINGS,
+                        RestoreJournal.Store.FTS,
+                    ),
+                )
+                restoreJournal.complete(rollbackJournal)
+                restoreStagingStore.cleanup(rollbackJournal)
+                true
+            } catch (rollbackError: Exception) {
+                Logger.e("BackupService", "恢复点回滚失败,保留账本和副本: ${rollbackError.message}", rollbackError)
+                false
+            }
         }
-        try {
-            Logger.w("BackupService", "恢复失败,回滚到持久化 recovery point: ${originalError.message}", originalError)
-            var rollbackJournal = restoreJournal.advance(entry, RestoreJournal.Phase.ROLLING_BACK)
-            applyBackupInternal(recovery)
-            sessionRepository.rebuildFtsIndex()
-            rollbackJournal = restoreJournal.advance(
-                rollbackJournal,
-                RestoreJournal.Phase.ROLLING_BACK,
-                completedStores = setOf(
-                    RestoreJournal.Store.MUSE_DB,
-                    RestoreJournal.Store.MEMORY_DB,
-                    RestoreJournal.Store.FACT_DB,
-                    RestoreJournal.Store.SETTINGS,
-                    RestoreJournal.Store.FTS,
-                ),
-            )
-            restoreJournal.complete(rollbackJournal)
-            restoreStagingStore.cleanup(rollbackJournal)
-            true
-        } catch (rollbackError: Exception) {
-            Logger.e("BackupService", "恢复点回滚失败,保留账本和副本: ${rollbackError.message}", rollbackError)
-            false
-        }
-    }
 
     /**
      * 启动时恢复上次被进程终止的跨存储导入。

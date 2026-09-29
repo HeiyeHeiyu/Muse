@@ -51,8 +51,7 @@ class MemoryStepBackoff(
     fun failureCount(stepKey: String): Int = states[stepKey]?.consecutiveFailures ?: 0
 
     /** 距下次允许运行还剩多少毫秒(观测/测试用;不在退避时为 0)。 */
-    fun remainingBackoffMs(stepKey: String): Long =
-        ((states[stepKey]?.nextAllowedAt ?: 0L) - clock()).coerceAtLeast(0L)
+    fun remainingBackoffMs(stepKey: String): Long = ((states[stepKey]?.nextAllowedAt ?: 0L) - clock()).coerceAtLeast(0L)
 
     companion object {
         /** 基础退避 30 分钟。 */

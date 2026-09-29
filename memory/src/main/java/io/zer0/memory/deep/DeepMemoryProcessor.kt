@@ -49,12 +49,17 @@ class DeepMemoryProcessor(
         const val MAX_CONCURRENT = 3
         const val MAX_RETRIES = 3
         const val FACT_EXTRACTION_MAX_TOKENS = 4096
+
         // 连续 daily 失败达此上限后 markProcessed,不再重试(避免浪费 LLM 调用)
         const val MAX_DAILY_FAILURES = 3
     }
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
     private val concurrency = Semaphore(MAX_CONCURRENT)
+
     // session → 连续 daily 失败次数,成功时清除,达 MAX_DAILY_FAILURES 后 markProcessed 跳过
     private val failureCounts = ConcurrentHashMap<String, Int>()
 
@@ -207,7 +212,10 @@ class DeepMemoryProcessor(
                 }
                 if (guardedFacts.isEmpty()) {
                     // LLM 合法判定无事实 → markProcessed,下次不再处理
-                    Logger.d("DeepMemoryProcessor", "fact extraction returned empty (rawLen=${rawResult.length}, session=${summary.sessionId.take(8)}…)")
+                    Logger.d(
+                        "DeepMemoryProcessor",
+                        "fact extraction returned empty (rawLen=${rawResult.length}, session=${summary.sessionId.take(8)}…)",
+                    )
                     failureCounts.remove(summary.sessionId)
                     summaryManager.markProcessed(summary.sessionId)
                     return 0
@@ -259,7 +267,10 @@ class DeepMemoryProcessor(
                 throw e
             } catch (e: Exception) {
                 lastError = e
-                Logger.w("DeepMemoryProcessor", "fact extraction attempt ${attempt + 1}/$MAX_RETRIES failed for ${summary.sessionId.take(8)}…: ${e.message}")
+                Logger.w(
+                    "DeepMemoryProcessor",
+                    "fact extraction attempt ${attempt + 1}/$MAX_RETRIES failed for ${summary.sessionId.take(8)}…: ${e.message}",
+                )
                 // v1.78 (M6): 指数退避,避免 LLM 限流时立即重试加剧限流
                 if (attempt < MAX_RETRIES - 1) {
                     delay(1000L * (1L shl attempt)) // 1s, 2s, 4s
@@ -315,10 +326,7 @@ class DeepMemoryProcessor(
     }
 
     /** 构建 time context 文本(供 LLM 参考)。 */
-    private fun renderTimeContext(
-        summary: SessionSummaryManager.SummaryData,
-        isZh: Boolean,
-    ): String {
+    private fun renderTimeContext(summary: SessionSummaryManager.SummaryData, isZh: Boolean): String {
         val range = summary.sourceTimeRange ?: return if (isZh) "（无时间信息）" else "(no time info)"
         val localDatesLabel = if (isZh) "本地日期" else "Local dates"
         val timezoneLabel = if (isZh) "时区" else "Timezone"
@@ -346,8 +354,11 @@ class DeepMemoryProcessor(
         s = s.replace(Regex("<think(?:ing)?>[\\s\\S]*?</think(?:ing)?>", RegexOption.IGNORE_CASE), "")
         // 2. 去 ```json ... ``` 围栏
         val fenceMatch = Regex("""```(?:json)?\s*\n([\s\S]*?)\n```""").find(s)
-        if (fenceMatch != null) s = fenceMatch.groupValues[1]
-        else s = s.trim()
+        if (fenceMatch != null) {
+            s = fenceMatch.groupValues[1]
+        } else {
+            s = s.trim()
+        }
 
         // 3. 提取 JSON 数组(若不以 [ 开头,扫描括号深度)
         if (!s.startsWith("[")) {
@@ -365,7 +376,10 @@ class DeepMemoryProcessor(
             json.decodeFromString(ListSerializer(FactDto.serializer()), s)
         }.getOrElse {
             // v1.0.51: JSON 解析失败 → 返回 null,调用方不 markProcessed,下次 daily 重试
-            Logger.w("DeepMemoryProcessor", "fact extraction JSON 解析失败 (rawLen=${raw.length}, session=${summary.sessionId.take(8)}…): ${it.message}")
+            Logger.w(
+                "DeepMemoryProcessor",
+                "fact extraction JSON 解析失败 (rawLen=${raw.length}, session=${summary.sessionId.take(8)}…): ${it.message}",
+            )
             return null
         }
 
@@ -404,7 +418,10 @@ class DeepMemoryProcessor(
         var escape = false
         for (i in start until s.length) {
             val c = s[i]
-            if (escape) { escape = false; continue }
+            if (escape) {
+                escape = false
+                continue
+            }
             if (inString) {
                 when (c) {
                     '\\' -> escape = true

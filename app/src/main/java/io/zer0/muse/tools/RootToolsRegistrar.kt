@@ -31,8 +31,7 @@ class RootToolsRegistrar(
         registerAll()
     }
 
-    private fun tierUnavailable(): String =
-        "设备命令通道不可用:需要 Shizuku 或 Root 授权(设置 → 权限配置向导),当前两档均未就绪"
+    private fun tierUnavailable(): String = "设备命令通道不可用:需要 Shizuku 或 Root 授权(设置 → 权限配置向导),当前两档均未就绪"
 
     /** 执行一条设备命令;[tier] 前缀便于模型与用户区分走的是哪档。 */
     private suspend fun runCommand(command: String): Pair<String, io.zer0.muse.automation.executors.ShellExecutor.ExecDetail>? =
@@ -176,7 +175,13 @@ class RootToolsRegistrar(
                     .distinct()
                     .sorted()
                     .toList()
-                if (packages.isEmpty()) "No packages found" else "[$tier] Found ${packages.size} packages:\n${packages.take(50).joinToString("\n")}"
+                if (packages.isEmpty()) {
+                    "No packages found"
+                } else {
+                    "[$tier] Found ${packages.size} packages:\n${packages.take(
+                        50,
+                    ).joinToString("\n")}"
+                }
             }
         }
 

@@ -1,7 +1,7 @@
 package io.zer0.muse.ui.moment
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -42,18 +42,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.zer0.muse.R
+import io.zer0.muse.data.moment.MomentCommentEntity
+import io.zer0.muse.data.moment.MomentEntity
+import io.zer0.muse.data.moment.images
 import io.zer0.muse.ui.common.form.MuseAnchoredMenu
 import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.surface.MuseListItem
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
-import io.zer0.muse.data.moment.MomentCommentEntity
-import io.zer0.muse.data.moment.MomentEntity
-import io.zer0.muse.data.moment.images
-import io.zer0.muse.ui.common.form.MuseTextField
 
 /**
  * v1.0.74: 朋友圈动态卡片 — 朋友圈布局。
@@ -187,14 +187,12 @@ fun MomentCard(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 size = MuseIconSizes.touchTarget,
                                 modifier = Modifier
-                                    
                                     .padding(MusePaddings.tinyGap),
                             )
                             MuseAnchoredMenu(
                                 expanded = showMoreMenu,
                                 onDismissRequest = { showMoreMenu = false },
                             ) {
-
                                 MuseListItem(
                                     onClick = {
                                         showMoreMenu = false
@@ -207,7 +205,6 @@ fun MomentCard(
                                         )
                                     },
                                 )
-                            
                             }
                         }
                     }
@@ -482,11 +479,7 @@ fun MomentCard(
  * - 其他: 3x3(最多 9 张)
  */
 @Composable
-fun MomentImageGrid(
-    images: List<String>,
-    modifier: Modifier = Modifier,
-    onImageClick: (Int) -> Unit = {},
-) {
+fun MomentImageGrid(images: List<String>, modifier: Modifier = Modifier, onImageClick: (Int) -> Unit = {}) {
     val count = images.size.coerceAtMost(9)
     when (count) {
         1 -> {

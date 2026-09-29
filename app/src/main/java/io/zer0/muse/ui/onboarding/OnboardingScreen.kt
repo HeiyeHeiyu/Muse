@@ -8,9 +8,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,33 +32,25 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.layout.ContentScale
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseSwitch
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.ui.theme.MuseShapes
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -78,10 +70,18 @@ import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.preset.PresetProviders
 import io.zer0.muse.data.provider.ProviderModelFetcher
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseSwitch
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.settings.ModelAbilityChips
-import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MusePaddings
+import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.PresetThemes
 import io.zer0.muse.ui.theme.pill
 import io.zer0.muse.ui.theme.semiLarge
@@ -359,11 +359,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
 
 // ── 顶部进度圆点 ──────────────────────────────────────────────
 @Composable
-private fun ProgressDots(
-    currentPage: Int,
-    pageCount: Int,
-    modifier: Modifier = Modifier,
-) {
+private fun ProgressDots(currentPage: Int, pageCount: Int, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.Center,
@@ -540,10 +536,7 @@ private data class FeatureItem(
 
 // ── 步骤 1：语言 ────────────────────────────────────────────────
 @Composable
-private fun StepLanguage(
-    selectedLanguage: String,
-    onLanguageSelected: (String) -> Unit,
-) {
+private fun StepLanguage(selectedLanguage: String, onLanguageSelected: (String) -> Unit) {
     val languages = listOf(
         "zh" to stringResource(R.string.onboarding_lang_zh),
         "zh-TW" to stringResource(R.string.onboarding_lang_zh_tw),
@@ -583,10 +576,7 @@ private fun StepLanguage(
 
 // ── 步骤 6：外观 ────────────────────────────────────────────────
 @Composable
-private fun StepTheme(
-    selectedThemeId: String,
-    onThemeSelected: (String) -> Unit,
-) {
+private fun StepTheme(selectedThemeId: String, onThemeSelected: (String) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -630,11 +620,7 @@ private fun StepTheme(
 }
 
 @Composable
-private fun LanguageCard(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun LanguageCard(label: String, selected: Boolean, onClick: () -> Unit) {
     val containerColor = MaterialTheme.colorScheme.surfaceContainer
     val borderColor = if (selected) {
         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -713,8 +699,11 @@ private fun ThemeColorBlock(
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                 ),
-                color = if (selected) MaterialTheme.colorScheme.onSurface
-                else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -724,12 +713,7 @@ private fun ThemeColorBlock(
 
 // ── 步骤 2：你的名字 ──────────────────────────────────────────
 @Composable
-private fun StepNames(
-    userName: String,
-    onUserNameChange: (String) -> Unit,
-    agentName: String,
-    onAgentNameChange: (String) -> Unit,
-) {
+private fun StepNames(userName: String, onUserNameChange: (String) -> Unit, agentName: String, onAgentNameChange: (String) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -788,10 +772,7 @@ private fun StepNames(
 
 // ── 步骤 3：记忆 ────────────────────────────────────────────────
 @Composable
-private fun StepMemory(
-    memoryEnabled: Boolean,
-    onMemoryEnabledChange: (Boolean) -> Unit,
-) {
+private fun StepMemory(memoryEnabled: Boolean, onMemoryEnabledChange: (Boolean) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -953,15 +934,18 @@ private fun StepProviderConfig(
             trailingIcon = {
                 MuseTactileButton(
                     icon = if (apiKeyVisible) {
-                            MuseIcons.eyeOff
-                        } else {
-                            MuseIcons.eye
-                        },
+                        MuseIcons.eyeOff
+                    } else {
+                        MuseIcons.eye
+                    },
                     onClick = onToggleApiKeyVisible,
                     contentDescription = stringResource(
-                            if (apiKeyVisible) R.string.onboarding_provider_apikey_hide
-                            else R.string.onboarding_provider_apikey_show,
-                        ),
+                        if (apiKeyVisible) {
+                            R.string.onboarding_provider_apikey_hide
+                        } else {
+                            R.string.onboarding_provider_apikey_show
+                        },
+                    ),
                 )
             },
             modifier = Modifier.fillMaxWidth(),
@@ -1152,11 +1136,7 @@ private fun StepSelectModel(
 }
 
 @Composable
-private fun ModelItem(
-    model: Model,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun ModelItem(model: Model, selected: Boolean, onClick: () -> Unit) {
     val containerColor = MaterialTheme.colorScheme.surfaceContainer
     val borderColor = if (selected) {
         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -1212,10 +1192,26 @@ private fun ModelItem(
 @Composable
 private fun StepComplete() {
     val tutorials = listOf(
-        FeatureItem(MuseIcons.chat, stringResource(R.string.onboarding_tutorial_chat_title), stringResource(R.string.onboarding_tutorial_chat_desc)),
-        FeatureItem(MuseIcons.user, stringResource(R.string.onboarding_tutorial_assistant_title), stringResource(R.string.onboarding_tutorial_assistant_desc)),
-        FeatureItem(MuseIcons.wrench, stringResource(R.string.onboarding_tutorial_tools_title), stringResource(R.string.onboarding_tutorial_tools_desc)),
-        FeatureItem(MuseIcons.cloudUpload, stringResource(R.string.onboarding_tutorial_backup_title), stringResource(R.string.onboarding_tutorial_backup_desc)),
+        FeatureItem(
+            MuseIcons.chat,
+            stringResource(R.string.onboarding_tutorial_chat_title),
+            stringResource(R.string.onboarding_tutorial_chat_desc),
+        ),
+        FeatureItem(
+            MuseIcons.user,
+            stringResource(R.string.onboarding_tutorial_assistant_title),
+            stringResource(R.string.onboarding_tutorial_assistant_desc),
+        ),
+        FeatureItem(
+            MuseIcons.wrench,
+            stringResource(R.string.onboarding_tutorial_tools_title),
+            stringResource(R.string.onboarding_tutorial_tools_desc),
+        ),
+        FeatureItem(
+            MuseIcons.cloudUpload,
+            stringResource(R.string.onboarding_tutorial_backup_title),
+            stringResource(R.string.onboarding_tutorial_backup_desc),
+        ),
     )
 
     Column(
@@ -1411,13 +1407,7 @@ private fun SecondaryPillButton(
 // ── 底部按钮 ──────────────────────────────────────────────────
 
 @Composable
-private fun BottomButtons(
-    currentPage: Int,
-    canGoNext: Boolean,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    onComplete: () -> Unit,
-) {
+private fun BottomButtons(currentPage: Int, canGoNext: Boolean, onPrevious: () -> Unit, onNext: () -> Unit, onComplete: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,

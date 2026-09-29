@@ -34,9 +34,11 @@ internal class StreamRunState(
      * 供 AuditLogPage 按 traceId 检索整条调用链。
      */
     val traceId: String = kotlin.uuid.Uuid.random().toString()
+
     /** shadow 回合身份，与 provider 的 streamId 分离，旧事件不能跨回合写入。 */
     val turnId: String = kotlin.uuid.Uuid.random().toString()
     val streamId: String = kotlin.uuid.Uuid.random().toString()
+
     /** 跨生成、LLM 流和工具执行共享的代际身份。traceId 作为本次生成的唯一 generationId。 */
     val generationIdentity: io.zer0.muse.session.GenerationIdentity
         get() = io.zer0.muse.session.GenerationIdentity(
@@ -54,21 +56,25 @@ internal class StreamRunState(
     var assistant: AssistantEntity? = null
 
 /**
- * v1.0.79 (F-1): 会话内手动切换的模型 id(覆盖助手专属模型)。
- * 用户在会话里主动切换模型时写入,模型解析优先于 assistant.modelId;
- * 仅内存态,切会话/重启后回到助手专属模型。
- */
-var sessionModelOverride: String? = null
+     * v1.0.79 (F-1): 会话内手动切换的模型 id(覆盖助手专属模型)。
+     * 用户在会话里主动切换模型时写入,模型解析优先于 assistant.modelId;
+     * 仅内存态,切会话/重启后回到助手专属模型。
+     */
+    var sessionModelOverride: String? = null
+
     /** 会话级 Provider 覆盖，与 sessionModelOverride 成对解析。 */
     var sessionProviderOverride: String? = null
+
     /** 当前请求的自动任务路由;只对本轮生效,不污染会话级手动选择。 */
     var taskRouteSelection: io.zer0.muse.data.SettingsRepository.TaskRouteSelection? = null
+
     /** 生成启动时捕获的全局回退配置，防止切页后从新会话 UI 快照取错模型。 */
     var fallbackModelId: String? = null
     var fallbackProviderId: String? = null
     var requestedReasoningLevel: ReasoningLevel = ReasoningLevel.OFF
     var effectiveTemperature: Float = 0f
     var contextSize: Int = 20
+
     /** v2.x 导入预热:本轮为导入会话首轮,历史走全量 + token 预算截断(见 WarmupHistory)。 */
     var warmupActive: Boolean = false
     var rawHistory: List<UIMessage> = emptyList()
@@ -78,6 +84,7 @@ var sessionModelOverride: String? = null
     var systemMessages: List<UIMessage> = emptyList()
     var prefixMessages: List<UIMessage> = emptyList()
     var pendingRagCitations: List<RagCitation> = emptyList()
+
     /**
      * P3-10: 压缩/截断后本轮 payload 仍超出模型上下文上限 — 置位后由 launchStream 拒绝发送,
      * 避免发出必然 400 的请求。仅本轮有效。
@@ -86,6 +93,7 @@ var sessionModelOverride: String? = null
 
     // Phase D: applyTransformers
     var transformedMessages: List<UIMessage> = emptyList()
+
     // v1.x: 三钩子接入 — 保存 applyTransformers 构造的 context,
     // 供后续 applyVisualTransform / applyOnGenerationFinish 复用,避免重复构造
     var transformContext: TransformContext? = null
@@ -95,9 +103,11 @@ var sessionModelOverride: String? = null
     var skillMap: Map<String, SkillEntity> = emptyMap()
     var routeSnapshot: io.zer0.muse.tools.ToolRouteSnapshot =
         io.zer0.muse.tools.RouteTable.snapshot(emptyList(), emptyList())
+
     // C-12: 主模型(可能支持视觉)—— 供视觉辅助判定与最终回复轮使用
     var effectiveModel: Model? = null
     var effectiveProviderConfig: ProviderConfig? = null
+
     // C-12: 工具模型(用户配置的轻量 toolModel,可为 null)——
     //  仅"工具轮"(上一轮结果含 toolCalls 的续接轮)使用,最终回复轮切回主模型,
     //  避免主模型支持视觉也被 toolModel 降级为纯文本路由。
@@ -115,6 +125,7 @@ var sessionModelOverride: String? = null
     var totalCharCount: Int = 0
     var totalToolCallCount: Int = 0
     var firstTokenTime: Long = 0L
+
     /**
      * v2.0: 本代生成中推给 UI 的刷新次数(内容/思考/图片)。
      * 仅用于 debug 日志与长回复节拍调优,不参与业务逻辑。
@@ -141,6 +152,5 @@ var sessionModelOverride: String? = null
      */
     var generationSerial: Long = 0L
 
-    fun unmaskPii(text: String): String =
-        if (piiMatches.isEmpty()) text else PiiGuard.unmask(text, piiMatches)
+    fun unmaskPii(text: String): String = if (piiMatches.isEmpty()) text else PiiGuard.unmask(text, piiMatches)
 }

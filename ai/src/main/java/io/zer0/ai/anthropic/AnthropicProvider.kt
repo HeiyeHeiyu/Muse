@@ -1,11 +1,8 @@
 package io.zer0.ai.anthropic
 
-import io.zer0.common.ErrorCode
-import io.zer0.common.toMessage
 import io.zer0.ai.core.ChatCompletion
 import io.zer0.ai.core.ChatRequest
 import io.zer0.ai.core.ChatStreamEvent
-import io.zer0.ai.core.UsageTokens
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.Model
 import io.zer0.ai.core.ModelContextWindowRegistry
@@ -16,14 +13,17 @@ import io.zer0.ai.core.ProviderException
 import io.zer0.ai.core.ProviderHttpSupport
 import io.zer0.ai.core.ProviderPayloadNormalizer
 import io.zer0.ai.core.ProviderSpecificConfig
-import io.zer0.ai.core.toProviderException
 import io.zer0.ai.core.ReasoningLevel
 import io.zer0.ai.core.ToolCall
 import io.zer0.ai.core.ToolDefinition
 import io.zer0.ai.core.UIMessage
+import io.zer0.ai.core.UsageTokens
+import io.zer0.ai.core.toProviderException
 import io.zer0.common.AppJson
+import io.zer0.common.ErrorCode
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.common.toMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
@@ -95,7 +95,8 @@ class AnthropicProvider(
         // 消除 callbackFlow 固定 64 容量在快速生产/慢消费下的静默丢片(与 OpenAI 同方案)。
         // v1.0.5: Provider 出口兜底 — 先对 UIMessage 列表做通用清理(对齐 既有实现 normalizeProviderPayload)
         val normalizedMessages = ProviderPayloadNormalizer.normalizeMessages(
-            request.messages, request.model,
+            request.messages,
+            request.model,
         )
         val (system, messages) = splitSystem(normalizedMessages, request.model)
         val body = buildRequestBody(
@@ -167,9 +168,11 @@ class AnthropicProvider(
                             switchToNextKey()
                         ) {
                             retryCount++
-                            Logger.i("AnthropicProvider",
+                            Logger.i(
+                                "AnthropicProvider",
                                 "streamChat onOpen 429 限流,已切换到下一个 key,立即重试 " +
-                                    "($retryCount/$maxRetries)")
+                                    "($retryCount/$maxRetries)",
+                            )
                             eventSource.cancel()
                             call.cancel()
                             producerScope.launch {
@@ -183,16 +186,20 @@ class AnthropicProvider(
                         ) {
                             retryCount++
                             // v1.0.1 (P1): 加 jitter(0~499ms),与 OpenAI 对齐
-                            val baseDelay = 1000L shl (retryCount - 1)  // 1s / 2s / 4s
+                            val baseDelay = 1000L shl (retryCount - 1) // 1s / 2s / 4s
                             val delayMs = baseDelay + kotlin.random.Random.nextLong(0, 500)
                             // v1.0.1: 429 限流优先用 Retry-After 头
                             val retryAfter = if (code == 429) {
                                 response.header("Retry-After")?.toIntOrNull()?.let { it * 1000L }
-                            } else null
+                            } else {
+                                null
+                            }
                             val finalDelay = retryAfter ?: delayMs
-                            Logger.w("AnthropicProvider",
+                            Logger.w(
+                                "AnthropicProvider",
                                 "streamChat onOpen retryable HTTP $code, " +
-                                    "retry $retryCount/$maxRetries after ${finalDelay}ms")
+                                    "retry $retryCount/$maxRetries after ${finalDelay}ms",
+                            )
                             eventSource.cancel()
                             call.cancel()
                             producerScope.launch {
@@ -215,12 +222,7 @@ class AnthropicProvider(
                     }
                 }
 
-                override fun onEvent(
-                    eventSource: EventSource,
-                    id: String?,
-                    type: String?,
-                    data: String,
-                ) {
+                override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
                     if (data.isBlank()) return
                     // L-ANT1: 用 resultOf 替代 runCatching,正确传播 CancellationException
                     val chunk = resultOf {
@@ -233,9 +235,11 @@ class AnthropicProvider(
                             val usage = chunk.message?.usage
                             if (usage != null) {
                                 inputUsage = usage
-                                Logger.d("AnthropicProvider",
+                                Logger.d(
+                                    "AnthropicProvider",
                                     "message_start: input=${usage.input_tokens} output=${usage.output_tokens} " +
-                                        "cache_read=${usage.cache_read_input_tokens} cache_creation=${usage.cache_creation_input_tokens}")
+                                        "cache_read=${usage.cache_read_input_tokens} cache_creation=${usage.cache_creation_input_tokens}",
+                                )
                             }
                         }
                         // H-ANT2 / L-ANT2: content_block_start 跟踪 block 类型,tool_use 发 ToolCallDelta
@@ -246,11 +250,13 @@ class AnthropicProvider(
                                 blockContext[idx] = block
                                 if (block.type == "tool_use") {
                                     anyDeltaSent.set(true)
-                                    trySend(ChatStreamEvent.ToolCallDelta(
-                                        index = idx,
-                                        id = block.id,
-                                        name = block.name,
-                                    ))
+                                    trySend(
+                                        ChatStreamEvent.ToolCallDelta(
+                                            index = idx,
+                                            id = block.id,
+                                            name = block.name,
+                                        ),
+                                    )
                                 }
                             }
                         }
@@ -294,21 +300,25 @@ class AnthropicProvider(
                             }
                             val deltaUsage = chunk.usage
                             if (deltaUsage != null) {
-                                trySend(ChatStreamEvent.UsageDelta(
-                                    UsageTokens(
-                                        promptTokens = inputUsage?.input_tokens ?: 0,
-                                        completionTokens = deltaUsage.output_tokens,
-                                        cachedTokens = (inputUsage?.cache_read_input_tokens ?: 0) +
-                                            (inputUsage?.cache_creation_input_tokens ?: 0),
+                                trySend(
+                                    ChatStreamEvent.UsageDelta(
+                                        UsageTokens(
+                                            promptTokens = inputUsage?.input_tokens ?: 0,
+                                            completionTokens = deltaUsage.output_tokens,
+                                            cachedTokens = (inputUsage?.cache_read_input_tokens ?: 0) +
+                                                (inputUsage?.cache_creation_input_tokens ?: 0),
+                                        ),
                                     ),
-                                ))
+                                )
                             }
                         }
                         // L-ANT6: message_stop 兜底 Done 再 close(M-ANT1: 仅此处发 Done)
                         "message_stop" -> {
                             if (signatureAccumulator.isNotEmpty()) {
-                                Logger.d("AnthropicProvider",
-                                    "streamChat signature accumulated: ${signatureAccumulator.length} chars")
+                                Logger.d(
+                                    "AnthropicProvider",
+                                    "streamChat signature accumulated: ${signatureAccumulator.length} chars",
+                                )
                             }
                             finished.set(true)
                             trySend(ChatStreamEvent.Done(pendingStopReason))
@@ -340,30 +350,29 @@ class AnthropicProvider(
                     close()
                 }
 
-                override fun onFailure(
-                    eventSource: EventSource,
-                    t: Throwable?,
-                    response: Response?,
-                ) {
+                override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
                     if (request.abortSignal.aborted) {
                         Logger.d("AnthropicProvider", "streamChat aborted by user")
                         finished.set(true)
-                        close(); return
+                        close()
+                        return
                     }
                     val code = response?.code
                     // v1.0.1 (P1): 重试条件对齐 OpenAI/Gemini — 429/408/5xx/IOException 均重试
                     //   原 Anthropic 仅重试 529/503,429 限流和 IOException 不会被重试
-                    val isRetryable = (code != null && (code == 429 || code == 408 || code == 503 || code == 529 || code in 500..599))
-                        || (t is java.io.IOException)
+                    val isRetryable = (code != null && (code == 429 || code == 408 || code == 503 || code == 529 || code in 500..599)) ||
+                        (t is java.io.IOException)
                     // v1.0.1 (P0): 429 限流时先尝试切换 key(多 key 场景)
                     if (code == 429 && !anyDeltaSent.get() && retryCount < maxRetries &&
                         !request.abortSignal.aborted && !producerScope.isClosedForSend &&
                         switchToNextKey()
                     ) {
                         retryCount++
-                        Logger.i("AnthropicProvider",
+                        Logger.i(
+                            "AnthropicProvider",
                             "streamChat onFailure 429 限流,已切换到下一个 key,立即重试 " +
-                                "($retryCount/$maxRetries)")
+                                "($retryCount/$maxRetries)",
+                        )
                         eventSource.cancel()
                         producerScope.launch {
                             if (request.abortSignal.aborted || producerScope.isClosedForSend) return@launch
@@ -377,17 +386,19 @@ class AnthropicProvider(
                     ) {
                         retryCount++
                         // v1.0.1 (P1): 加 jitter(0~499ms),与 OpenAI 对齐(原 Anthropic 无 jitter)
-                        val baseDelay = 1000L shl (retryCount - 1)  // 1s / 2s / 4s
+                        val baseDelay = 1000L shl (retryCount - 1) // 1s / 2s / 4s
                         var delayMs = baseDelay + kotlin.random.Random.nextLong(0, 500)
                         // v1.0.1: 429 限流优先用 Retry-After 头
                         if (code == 429) {
                             delayMs = response?.header("Retry-After")?.toIntOrNull()
                                 ?.let { it * 1000L } ?: delayMs
                         }
-                        Logger.w("AnthropicProvider",
+                        Logger.w(
+                            "AnthropicProvider",
                             "streamChat retryable failure(code=$code t=${t?.message}), " +
                                 "retry $retryCount/$maxRetries after ${delayMs}ms, " +
-                                "accumulated=${accumulatedContent.length} chars, anyDeltaSent=${anyDeltaSent.get()}")
+                                "accumulated=${accumulatedContent.length} chars, anyDeltaSent=${anyDeltaSent.get()}",
+                        )
                         eventSource.cancel()
                         producerScope.launch {
                             delay(delayMs)
@@ -435,7 +446,8 @@ class AnthropicProvider(
     private suspend fun completeTextImpl(request: ChatRequest, keySwitchDepth: Int = 0): ChatCompletion = withContext(Dispatchers.IO) {
         // v1.0.5: Provider 出口兜底 — 先对 UIMessage 列表做通用清理(对齐 既有实现 normalizeProviderPayload)
         val normalizedMessages = ProviderPayloadNormalizer.normalizeMessages(
-            request.messages, request.model,
+            request.messages,
+            request.model,
         )
         val (system, messages) = splitSystem(normalizedMessages, request.model)
         val body = buildRequestBody(
@@ -562,13 +574,17 @@ class AnthropicProvider(
             .filter { it.isNotBlank() }
         val cacheControl = if (anthropicConfig.promptCaching) {
             AnthropicCacheControl(ttl = anthropicConfig.promptCacheTtl.takeIf { it.isNotBlank() })
-        } else null
+        } else {
+            null
+        }
 
         val system = systemParts.takeIf { it.isNotEmpty() }?.let {
-            listOf(AnthropicSystemBlock(
-                text = it.joinToString("\n\n"),
-                cache_control = cacheControl,
-            ))
+            listOf(
+                AnthropicSystemBlock(
+                    text = it.joinToString("\n\n"),
+                    cache_control = cacheControl,
+                ),
+            )
         }
 
         val rest = messages
@@ -578,7 +594,7 @@ class AnthropicProvider(
                 val anthropicRole = when (msg.role) {
                     MessageRole.USER, MessageRole.TOOL -> "user"
                     MessageRole.ASSISTANT -> "assistant"
-                    MessageRole.SYSTEM -> "user"  // 不会到达(SYSTEM 已在前面过滤),编译完整性
+                    MessageRole.SYSTEM -> "user" // 不会到达(SYSTEM 已在前面过滤),编译完整性
                 }
                 // M-ANT7: TOOL 消息构造 tool_result;ASSISTANT toolCalls 构造 tool_use
                 // M-ANT6: 图片 media_type 从 base64 magic bytes 推断
@@ -586,11 +602,13 @@ class AnthropicProvider(
                     msg.role == MessageRole.TOOL && msg.toolCallId != null -> {
                         // M-ANT7: 标准 tool_result content block
                         buildJsonArray {
-                            add(buildJsonObject {
-                                put("type", "tool_result")
-                                put("tool_use_id", msg.toolCallId)
-                                put("content", msg.content)
-                            })
+                            add(
+                                buildJsonObject {
+                                    put("type", "tool_result")
+                                    put("tool_use_id", msg.toolCallId)
+                                    put("content", msg.content)
+                                },
+                            )
                         }
                     }
                     msg.role == MessageRole.ASSISTANT -> {
@@ -600,36 +618,44 @@ class AnthropicProvider(
                             // 在 content 数组首位插入 {type:"thinking", thinking, signature} block,
                             // 让服务端可验证前序思考的完整性,避免每次重新生成 thinking。
                             if (!msg.reasoning.isNullOrBlank() && !msg.thinkingSignature.isNullOrBlank()) {
-                                add(buildJsonObject {
-                                    put("type", "thinking")
-                                    put("thinking", msg.reasoning)
-                                    put("signature", msg.thinkingSignature)
-                                })
+                                add(
+                                    buildJsonObject {
+                                        put("type", "thinking")
+                                        put("thinking", msg.reasoning)
+                                        put("signature", msg.thinkingSignature)
+                                    },
+                                )
                             } else if (!msg.reasoning.isNullOrBlank()) {
                                 // 有思考文本但无 signature(如旧版响应),仍发 thinking block 但不带 signature。
                                 // 无 signature 时服务端会重新生成 thinking,但思考文本可供参考。
-                                add(buildJsonObject {
-                                    put("type", "thinking")
-                                    put("thinking", msg.reasoning)
-                                })
+                                add(
+                                    buildJsonObject {
+                                        put("type", "thinking")
+                                        put("thinking", msg.reasoning)
+                                    },
+                                )
                             }
                             if (msg.content.isNotBlank()) {
-                                add(buildJsonObject {
-                                    put("type", "text")
-                                    put("text", msg.content)
-                                })
+                                add(
+                                    buildJsonObject {
+                                        put("type", "text")
+                                        put("text", msg.content)
+                                    },
+                                )
                             }
                             if (!msg.toolCalls.isNullOrEmpty()) {
                                 msg.toolCalls.forEach { tc ->
                                     val inputJson = resultOf {
                                         AppJson.parseToJsonElement(tc.arguments.ifBlank { "{}" })
                                     }.getOrNull() ?: buildJsonObject {}
-                                    add(buildJsonObject {
-                                        put("type", "tool_use")
-                                        put("id", tc.id)
-                                        put("name", tc.name)
-                                        put("input", inputJson)
-                                    })
+                                    add(
+                                        buildJsonObject {
+                                            put("type", "tool_use")
+                                            put("id", tc.id)
+                                            put("name", tc.name)
+                                            put("input", inputJson)
+                                        },
+                                    )
                                 }
                             }
                         }
@@ -641,10 +667,12 @@ class AnthropicProvider(
                         // ]
                         buildJsonArray {
                             if (msg.content.isNotBlank()) {
-                                add(buildJsonObject {
-                                    put("type", "text")
-                                    put("text", msg.content)
-                                })
+                                add(
+                                    buildJsonObject {
+                                        put("type", "text")
+                                        put("text", msg.content)
+                                    },
+                                )
                             }
                             // 审计修复 (7.4): 限制视觉输入 — 对齐 OpenAI(最多 4 张,单张 ≤2MB)。
                             // 原实现全量发送,历史消息携带大量图片时请求体几十 MB,中转站超时。
@@ -656,14 +684,19 @@ class AnthropicProvider(
                                         Logger.w("AnthropicProvider", "drop oversize image (${b64.length} chars)")
                                         return@forEach
                                     }
-                                    add(buildJsonObject {
-                                        put("type", "image")
-                                        put("source", buildJsonObject {
-                                            put("type", "base64")
-                                            put("media_type", inferImageMediaType(b64))
-                                            put("data", b64)
-                                        })
-                                    })
+                                    add(
+                                        buildJsonObject {
+                                            put("type", "image")
+                                            put(
+                                                "source",
+                                                buildJsonObject {
+                                                    put("type", "base64")
+                                                    put("media_type", inferImageMediaType(b64))
+                                                    put("data", b64)
+                                                },
+                                            )
+                                        },
+                                    )
                                 }
                         }
                     }
@@ -688,8 +721,12 @@ class AnthropicProvider(
                 rest.mapIndexed { idx, msg ->
                     if (idx == lastUserIdx) msg.copy(cache_control = cacheControl) else msg
                 }
-            } else rest
-        } else rest
+            } else {
+                rest
+            }
+        } else {
+            rest
+        }
 
         return system to withLastCached
     }
@@ -726,7 +763,7 @@ class AnthropicProvider(
         var afterId: String? = null
         var hasMore = false
         var pageCount = 0
-        val maxPages = 20  // 安全上限,防止异常响应导致无限循环
+        val maxPages = 20 // 安全上限,防止异常响应导致无限循环
 
         do {
             // M-ANT5: 用 HttpUrl.Builder.addQueryParameter 对 after_id 做 URL 编码,
@@ -799,10 +836,11 @@ class AnthropicProvider(
         // 映射 ReasoningLevel → thinking 字段
         val thinking: AnthropicThinking? = reasoningLevel?.let { level ->
             when (level) {
-                ReasoningLevel.OFF -> null  // 显式关闭,不发 thinking 字段
-                ReasoningLevel.AUTO -> null  // 自动,让服务端决定
+                ReasoningLevel.OFF -> null // 显式关闭,不发 thinking 字段
+                ReasoningLevel.AUTO -> null // 自动,让服务端决定
                 ReasoningLevel.LOW, ReasoningLevel.MEDIUM,
-                ReasoningLevel.HIGH, ReasoningLevel.XHIGH ->
+                ReasoningLevel.HIGH, ReasoningLevel.XHIGH,
+                ->
                     level.budgetTokens?.let { AnthropicThinking(budget_tokens = it) }
             }
         }
@@ -830,8 +868,10 @@ class AnthropicProvider(
                         AppJson.parseToJsonElement(td.parametersJsonSchema)
                     }.getOrNull() ?: buildJsonObject {},
                 )
-            }?.takeIf { it.isNotEmpty() }  // v1.0.5: stripEmptyTools — 空 tools 列表改 null,避免 `"tools": []` 被拒绝
-        } else null
+            }?.takeIf { it.isNotEmpty() } // v1.0.5: stripEmptyTools — 空 tools 列表改 null,避免 `"tools": []` 被拒绝
+        } else {
+            null
+        }
 
         val payload = AnthropicRequest(
             model = model,
@@ -932,8 +972,10 @@ class AnthropicProvider(
         const val BETA_INTERLEAVED_THINKING = "interleaved-thinking-2025-05-14"
         const val BETA_EXTENDED_CACHE_TTL = "extended-cache-ttl-2025-04-11"
         val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+
         // completeText 429 切换 key 最大次数,防止无限递归
         const val MAX_KEY_SWITCHES = 3
+
         // E-P2: 视觉输入限制,与 OpenAI 对齐(最多 4 张,单张 base64 ≤2MB)
         const val MAX_VISION_IMAGES = 4
         const val MAX_IMAGE_BASE64_LEN = 2 * 1024 * 1024

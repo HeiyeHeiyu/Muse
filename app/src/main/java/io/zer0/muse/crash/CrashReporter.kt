@@ -49,6 +49,7 @@ interface CrashReporter {
 object CrashReporterFactory {
     /** 邮件上报方式标识。 */
     const val METHOD_EMAIL = "email"
+
     /** Webhook 上报方式标识。 */
     const val METHOD_WEBHOOK = "webhook"
 
@@ -61,17 +62,12 @@ object CrashReporterFactory {
      * @param webhookUrl Webhook URL(method=webhook 时使用)
      * @param client Webhook 上报使用的 OkHttpClient(共享 chat client 即可)
      */
-    fun create(
-        context: Context,
-        method: String,
-        emailRecipient: String,
-        webhookUrl: String,
-        client: OkHttpClient,
-    ): CrashReporter = when (method) {
-        METHOD_EMAIL -> EmailCrashReporter(context, emailRecipient)
-        METHOD_WEBHOOK -> WebhookCrashReporter(webhookUrl, client)
-        else -> NoopCrashReporter
-    }
+    fun create(context: Context, method: String, emailRecipient: String, webhookUrl: String, client: OkHttpClient): CrashReporter =
+        when (method) {
+            METHOD_EMAIL -> EmailCrashReporter(context, emailRecipient)
+            METHOD_WEBHOOK -> WebhookCrashReporter(webhookUrl, client)
+            else -> NoopCrashReporter
+        }
 }
 
 /**
@@ -162,6 +158,7 @@ class WebhookCrashReporter(
 
     // 独立 scope:Webhook 上报失败不能影响调用方协程,SupervisorJob 保证子协程异常不传播
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     // 覆盖超时:webhook 服务响应时间不可控,设短一些避免后台协程长期挂起
     private val httpclient = client.newBuilder()
         .connectTimeout(15, TimeUnit.SECONDS)

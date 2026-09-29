@@ -45,11 +45,7 @@ internal class SkillBridgeHttpClient(
      *   closed validation.
      * @throws IOException for transport failures and malformed redirect responses.
      */
-    fun get(
-        startUrl: String,
-        maxSize: Int,
-        maxRedirects: Int = MAX_REDIRECTS,
-    ): Result {
+    fun get(startUrl: String, maxSize: Int, maxRedirects: Int = MAX_REDIRECTS): Result {
         var current = startUrl
         repeat(maxRedirects + 1) {
             val request = try {
@@ -87,11 +83,7 @@ internal class SkillBridgeHttpClient(
      * The byte variant exists for binary artifacts (plugin packages): decoding to UTF-8 would
      * corrupt ZIP payloads. Size, redirect, DNS, proxy, and route policy are identical to [get].
      */
-    fun getBytes(
-        startUrl: String,
-        maxSize: Int,
-        maxRedirects: Int = MAX_REDIRECTS,
-    ): ByteResult {
+    fun getBytes(startUrl: String, maxSize: Int, maxRedirects: Int = MAX_REDIRECTS): ByteResult {
         var current = startUrl
         repeat(maxRedirects + 1) {
             val request = try {
@@ -129,12 +121,7 @@ internal class SkillBridgeHttpClient(
      * Size, DNS, proxy, and route policy are identical to [get]; redirects are reported as errors
      * so a POST body is never silently replayed to a different origin.
      */
-    fun post(
-        startUrl: String,
-        body: String,
-        contentType: String,
-        maxSize: Int,
-    ): Result {
+    fun post(startUrl: String, body: String, contentType: String, maxSize: Int): Result {
         val request = try {
             Request.Builder()
                 .url(startUrl)
@@ -209,10 +196,7 @@ internal class SkillBridgeHttpClient(
         return addresses.distinctBy { it.address.contentHashCode() }
     }
 
-    private fun connectionValidationInterceptor(
-        host: String,
-        addresses: List<InetAddress>,
-    ): Interceptor = Interceptor { chain ->
+    private fun connectionValidationInterceptor(host: String, addresses: List<InetAddress>): Interceptor = Interceptor { chain ->
         val before = connectedAddressOrThrow(chain, host, addresses)
         onConnectionValidated(before)
         val response = chain.proceed(chain.request())
@@ -226,11 +210,7 @@ internal class SkillBridgeHttpClient(
         response
     }
 
-    private fun connectedAddressOrThrow(
-        chain: Interceptor.Chain,
-        host: String,
-        addresses: List<InetAddress>,
-    ): InetAddress {
+    private fun connectedAddressOrThrow(chain: Interceptor.Chain, host: String, addresses: List<InetAddress>): InetAddress {
         val connection = chain.connection()
             ?: throw PinnedAddressException(chain.request().url.toString(), "连接建立后无法取得连接信息")
         val route = connection.route()
@@ -307,8 +287,7 @@ internal class SkillBridgeHttpClient(
             .callTimeout(20, TimeUnit.SECONDS)
             .build()
 
-        fun sameAddress(first: InetAddress, second: InetAddress): Boolean =
-            first.address.contentEquals(second.address)
+        fun sameAddress(first: InetAddress, second: InetAddress): Boolean = first.address.contentEquals(second.address)
 
         @Suppress("ComplexCondition")
         fun isPublicAddress(address: InetAddress): Boolean {
@@ -329,9 +308,8 @@ internal class SkillBridgeHttpClient(
                 !address.isMulticastAddress
         }
 
-        private fun isV4Mapped(bytes: ByteArray): Boolean =
-            bytes.size == 16 && bytes.copyOfRange(0, 10).all { it == 0.toByte() } &&
-                bytes[10] == 0xFF.toByte() && bytes[11] == 0xFF.toByte()
+        private fun isV4Mapped(bytes: ByteArray): Boolean = bytes.size == 16 && bytes.copyOfRange(0, 10).all { it == 0.toByte() } &&
+            bytes[10] == 0xFF.toByte() && bytes[11] == 0xFF.toByte()
 
         private fun isPrivateIpv4(first: Int, second: Int): Boolean = when {
             first == 0 -> true

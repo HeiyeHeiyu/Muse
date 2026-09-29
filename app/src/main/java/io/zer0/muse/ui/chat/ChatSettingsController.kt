@@ -40,8 +40,11 @@ class ChatSettingsController(
             it.copy(
                 isDrawMode = newMode,
                 // 退出绘图模式时清空临时参考图
-                imageGenParams = if (!newMode) it.imageGenParams.copy(referenceImageUri = null)
-                else it.imageGenParams,
+                imageGenParams = if (!newMode) {
+                    it.imageGenParams.copy(referenceImageUri = null)
+                } else {
+                    it.imageGenParams
+                },
             )
         }
     }
@@ -129,7 +132,7 @@ class ChatSettingsController(
                 val msg = t?.message ?: appContext.getString(R.string.err_chat_fetch_models_failed)
                 accessor.update {
                     it.copy(
-                        fetchModelsError = resolveFetchModelsError(msg)
+                        fetchModelsError = resolveFetchModelsError(msg),
                     )
                 }
             }

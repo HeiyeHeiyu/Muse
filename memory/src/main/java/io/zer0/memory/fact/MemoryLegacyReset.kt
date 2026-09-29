@@ -16,10 +16,7 @@ object MemoryLegacyReset {
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     /** 标记指定数据库发生归档重建。 */
-    fun mark(
-        context: Context,
-        dbName: String,
-    ) {
+    fun mark(context: Context, dbName: String) {
         prefs(context).edit().putBoolean(dbName, true).apply()
     }
 
@@ -37,10 +34,7 @@ object MemoryLegacyReset {
     }
 
     /** v2.2.1: 记录最近一次从归档恢复的事实条数(供记忆页提示;一次消费)。 */
-    fun noteRecovered(
-        context: Context,
-        count: Int,
-    ) {
+    fun noteRecovered(context: Context, count: Int) {
         prefs(context).edit().putInt(KEY_RECOVERED_COUNT, count).apply()
     }
 
@@ -54,16 +48,11 @@ object MemoryLegacyReset {
     }
 
     /** v2.2.1: 该库是否已尝试过误归档恢复(每库只尝试一次,防反复扫描备份)。 */
-    fun isRecoveryAttempted(
-        context: Context,
-        dbName: String,
-    ): Boolean = prefs(context).getBoolean("${INTERNAL_PREFIX}recovery_attempted_$dbName", false)
+    fun isRecoveryAttempted(context: Context, dbName: String): Boolean =
+        prefs(context).getBoolean("${INTERNAL_PREFIX}recovery_attempted_$dbName", false)
 
     /** v2.2.1: 标记该库已尝试过误归档恢复。 */
-    fun markRecoveryAttempted(
-        context: Context,
-        dbName: String,
-    ) {
+    fun markRecoveryAttempted(context: Context, dbName: String) {
         prefs(context).edit().putBoolean("${INTERNAL_PREFIX}recovery_attempted_$dbName", true).apply()
     }
 

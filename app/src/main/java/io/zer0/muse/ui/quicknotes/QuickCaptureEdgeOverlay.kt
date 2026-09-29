@@ -1,10 +1,5 @@
 package io.zer0.muse.ui.quicknotes
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.theme.MuseMotion
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -36,9 +31,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,8 +50,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.R
+import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
@@ -67,11 +67,7 @@ import kotlinx.coroutines.delay
  * 这是应用内实现,不申请悬浮窗权限,不会抢占其他 App 的系统手势。
  */
 @Composable
-internal fun QuickCaptureEdgeOverlay(
-    enabled: Boolean,
-    viewModel: QuickNotesViewModel,
-    modifier: Modifier = Modifier,
-) {
+internal fun QuickCaptureEdgeOverlay(enabled: Boolean, viewModel: QuickNotesViewModel, modifier: Modifier = Modifier) {
     if (!enabled) return
 
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -243,10 +239,7 @@ internal fun QuickCaptureEdgeOverlay(
 }
 
 @Composable
-private fun QuickCaptureEdgeHandle(
-    onOpen: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun QuickCaptureEdgeHandle(onOpen: () -> Unit, modifier: Modifier = Modifier) {
     var dragDistance = 0f
     Box(
         modifier = modifier

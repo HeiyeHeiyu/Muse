@@ -33,10 +33,7 @@ class PromptInjectionTransformer : Transformer {
 
     override val name: String = "PromptInjection"
 
-    override suspend fun transform(
-        messages: List<UIMessage>,
-        context: TransformContext,
-    ): List<UIMessage> {
+    override suspend fun transform(messages: List<UIMessage>, context: TransformContext): List<UIMessage> {
         // extra 契约: key="prompt_injections",值为 List<PromptInjectionEntity>。
         // 泛型 erasure 下 as? List<*> 无法在运行期校验元素类型,延迟的 ClassCastException
         // 风险由调用方保证类型契约承担。

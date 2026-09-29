@@ -2,11 +2,11 @@ package io.zer0.muse.automation.executors
 
 import android.content.Context
 import android.os.Build
+import io.zer0.common.Logger
 import io.zer0.muse.automation.core.AutomationExecutor
 import io.zer0.muse.automation.core.PermissionLevel
 import io.zer0.muse.automation.core.ScreenInfo
 import io.zer0.muse.automation.core.UiNode
-import io.zer0.common.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -102,19 +102,15 @@ open class ShellExecutor(
 
     // ── 输入动作 ──────────────────────────────────────────────
 
-    override suspend fun tap(x: Int, y: Int): Boolean =
-        exec("input tap $x $y").isSuccess
+    override suspend fun tap(x: Int, y: Int): Boolean = exec("input tap $x $y").isSuccess
 
     override suspend fun longPress(x: Int, y: Int, durationMs: Long): Boolean = withContext(Dispatchers.IO) {
         // input swipe 同坐标 + 时长 模拟长按
         exec("input swipe $x $y $x $y $durationMs").isSuccess
     }
 
-    override suspend fun swipe(
-        x1: Int, y1: Int,
-        x2: Int, y2: Int,
-        durationMs: Long,
-    ): Boolean = exec("input swipe $x1 $y1 $x2 $y2 $durationMs").isSuccess
+    override suspend fun swipe(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Long): Boolean =
+        exec("input swipe $x1 $y1 $x2 $y2 $durationMs").isSuccess
 
     override suspend fun inputText(text: String): Boolean = withContext(Dispatchers.IO) {
         // input text 不支持中文;且把文本直接拼进 sh -c 存在命令注入风险。
@@ -139,16 +135,14 @@ open class ShellExecutor(
         }
     }
 
-    override suspend fun pressKey(keyCode: Int): Boolean =
-        exec("input keyevent $keyCode").isSuccess
+    override suspend fun pressKey(keyCode: Int): Boolean = exec("input keyevent $keyCode").isSuccess
 
-    override suspend fun launchApp(packageName: String): Boolean =
-        if (!PACKAGE_NAME_REGEX.matches(packageName)) {
-            Logger.w(TAG, "launchApp 拒绝非法包名(可能含 shell 元字符): $packageName")
-            false
-        } else {
-            exec("monkey -p $packageName -c android.intent.category.LAUNCHER 1").isSuccess
-        }
+    override suspend fun launchApp(packageName: String): Boolean = if (!PACKAGE_NAME_REGEX.matches(packageName)) {
+        Logger.w(TAG, "launchApp 拒绝非法包名(可能含 shell 元字符): $packageName")
+        false
+    } else {
+        exec("monkey -p $packageName -c android.intent.category.LAUNCHER 1").isSuccess
+    }
 
     override suspend fun openNotifications(): Boolean = withContext(Dispatchers.IO) {
         // 展开通知栏: cmd statusbar expand-notifications (API 24+) 或 service call
@@ -272,8 +266,7 @@ open class ShellExecutor(
         val nodeRegex = Regex("<node\\b([^>]*?)/?>")
         for (match in nodeRegex.findAll(xml)) {
             val attrs = match.groupValues[1]
-            fun attr(name: String): String? =
-                Regex("$name=\"([^\"]*)\"").find(attrs)?.groupValues?.get(1)
+            fun attr(name: String): String? = Regex("$name=\"([^\"]*)\"").find(attrs)?.groupValues?.get(1)
 
             val text = attr("text")?.takeIf { it.isNotBlank() }
             val desc = attr("content-desc")?.takeIf { it.isNotBlank() }
@@ -290,8 +283,10 @@ open class ShellExecutor(
             val bounds = attr("bounds")?.let { b ->
                 Regex("\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]").find(b)?.let { m ->
                     intArrayOf(
-                        m.groupValues[1].toInt(), m.groupValues[2].toInt(),
-                        m.groupValues[3].toInt(), m.groupValues[4].toInt(),
+                        m.groupValues[1].toInt(),
+                        m.groupValues[2].toInt(),
+                        m.groupValues[3].toInt(),
+                        m.groupValues[4].toInt(),
                     )
                 }
             }
@@ -322,8 +317,10 @@ open class ShellExecutor(
 
     companion object {
         private const val TAG = "ShellExec"
+
         /** shell 元字符:出现在插值文本中即视为命令注入风险,改用剪贴板路径绕过内插。 */
         private val SHELL_META_REGEX = Regex("[\$`;&|<>]")
+
         /** 合法包名白名单(仅字母数字点下划线),拒绝含 shell 元字符的包名注入。 */
         private val PACKAGE_NAME_REGEX = Regex("^[a-zA-Z][a-zA-Z0-9_.]*\$")
     }

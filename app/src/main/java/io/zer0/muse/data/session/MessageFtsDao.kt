@@ -16,7 +16,8 @@ interface MessageFtsDao {
 
     /** FTS4 ngram 全文搜索(JOIN messages + sessions)。 */
     @SkipQueryVerification
-    @Query("""
+    @Query(
+        """
         SELECT
             m.id as messageId,
             m.sessionId as sessionId,
@@ -30,12 +31,14 @@ interface MessageFtsDao {
         WHERE content_ngram MATCH :matchQuery
         ORDER BY m.createdAt DESC
         LIMIT 50
-    """)
+    """,
+    )
     suspend fun searchFts(matchQuery: String): List<MessageSearchJoin>
 
     /** FTS5 原文全文搜索(JOIN messages rowid + sessions)。 */
     @SkipQueryVerification
-    @Query("""
+    @Query(
+        """
         SELECT
             m.id as messageId,
             m.sessionId as sessionId,
@@ -49,7 +52,8 @@ interface MessageFtsDao {
         WHERE messages_fts MATCH :matchQuery
         ORDER BY m.createdAt DESC
         LIMIT 50
-    """)
+    """,
+    )
     suspend fun searchFts5(matchQuery: String): List<MessageSearchJoin>
 
     /** 插入 FTS4 ngram 索引。 */

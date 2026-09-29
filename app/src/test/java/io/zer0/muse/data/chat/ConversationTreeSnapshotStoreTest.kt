@@ -5,13 +5,13 @@ import androidx.test.core.app.ApplicationProvider
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
 import kotlinx.coroutines.runBlocking
-import kotlin.uuid.Uuid
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import kotlin.uuid.Uuid
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
@@ -19,28 +19,26 @@ class ConversationTreeSnapshotStoreTest {
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
-    private fun user(content: String, group: String, index: Int, count: Int, at: Long) =
-        UIMessage(
-            id = Uuid.random(),
-            role = MessageRole.USER,
-            content = content,
-            createdAt = at,
-            variantGroupId = group,
-            variantIndex = index,
-            variantCount = count,
-        )
+    private fun user(content: String, group: String, index: Int, count: Int, at: Long) = UIMessage(
+        id = Uuid.random(),
+        role = MessageRole.USER,
+        content = content,
+        createdAt = at,
+        variantGroupId = group,
+        variantIndex = index,
+        variantCount = count,
+    )
 
-    private fun assistant(content: String, group: String, parent: String, index: Int, count: Int, at: Long) =
-        UIMessage(
-            id = Uuid.random(),
-            role = MessageRole.ASSISTANT,
-            content = content,
-            createdAt = at,
-            variantGroupId = group,
-            variantIndex = index,
-            variantCount = count,
-            parentGroupId = parent,
-        )
+    private fun assistant(content: String, group: String, parent: String, index: Int, count: Int, at: Long) = UIMessage(
+        id = Uuid.random(),
+        role = MessageRole.ASSISTANT,
+        content = content,
+        createdAt = at,
+        variantGroupId = group,
+        variantIndex = index,
+        variantCount = count,
+        parentGroupId = parent,
+    )
 
     @Test
     fun snapshot_roundTripsSelection() = runBlocking {

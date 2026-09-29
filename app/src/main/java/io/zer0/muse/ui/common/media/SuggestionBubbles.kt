@@ -39,11 +39,7 @@ import io.zer0.muse.ui.theme.MusePaddings
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SuggestionBubbles(
-    suggestions: List<String>,
-    onSuggestionClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun SuggestionBubbles(suggestions: List<String>, onSuggestionClick: (String) -> Unit, modifier: Modifier = Modifier) {
     if (suggestions.isEmpty()) return
 
     val colorScheme = MaterialTheme.colorScheme

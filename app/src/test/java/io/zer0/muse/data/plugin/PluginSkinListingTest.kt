@@ -312,11 +312,7 @@ class PluginSkinListingTest {
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private fun bubbleSkin(
-        id: String,
-        schemaVersion: Int = 1,
-        style: BubbleRoleStyle = validStyle,
-    ): BubbleSkin = BubbleSkin(
+    private fun bubbleSkin(id: String, schemaVersion: Int = 1, style: BubbleRoleStyle = validStyle): BubbleSkin = BubbleSkin(
         schemaVersion = schemaVersion,
         id = id,
         name = "Skin $id",
@@ -324,8 +320,7 @@ class PluginSkinListingTest {
         dark = mapOf(BubbleRole.USER to style, BubbleRole.ASSISTANT to style),
     )
 
-    private fun encode(skin: BubbleSkin): String =
-        AppJson.encodeToString(BubbleSkin.serializer(), skin)
+    private fun encode(skin: BubbleSkin): String = AppJson.encodeToString(BubbleSkin.serializer(), skin)
 
     private fun tool(name: String, functionName: String): ToolDeclaration = ToolDeclaration(
         name = name,
@@ -335,10 +330,7 @@ class PluginSkinListingTest {
         functionName = functionName,
     )
 
-    private suspend fun installTrusted(
-        manager: PluginManager,
-        file: File,
-    ): PluginManager.InstalledPlugin {
+    private suspend fun installTrusted(manager: PluginManager, file: File): PluginManager.InstalledPlugin {
         val preview = manager.reviewFromFile(file).getOrThrow().preview
         val result = manager.installConfirmedFromFile(file, preview)
         assertTrue("install failed: ${result.exceptionOrNull()}", result.isSuccess)
@@ -411,11 +403,7 @@ class PluginSkinListingTest {
         )
     }
 
-    private fun writeZip(
-        manifestJson: String,
-        entryCode: String,
-        extraFiles: Map<String, String>,
-    ): File {
+    private fun writeZip(manifestJson: String, entryCode: String, extraFiles: Map<String, String>): File {
         val bytes = ByteArrayOutputStream().use { bos ->
             ZipOutputStream(bos).use { zos ->
                 fun put(name: String, content: String) {
@@ -436,8 +424,7 @@ class PluginSkinListingTest {
     }
 
     /** 真实 DAO 对未占用的 id 返回 null;relaxed mock 默认返回非空 mock,会误触发冲突检测。 */
-    private fun skillRepoMock(): SkillRepository =
-        mockk<SkillRepository>(relaxed = true).also { repo ->
-            coEvery { repo.getById(any()) } returns null
-        }
+    private fun skillRepoMock(): SkillRepository = mockk<SkillRepository>(relaxed = true).also { repo ->
+        coEvery { repo.getById(any()) } returns null
+    }
 }

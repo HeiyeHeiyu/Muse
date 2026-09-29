@@ -13,18 +13,15 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,10 +36,13 @@ import io.zer0.ai.core.ModelVerification
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ProviderType
 import io.zer0.muse.R
+import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.common.surface.MuseCardPress
-import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
@@ -141,9 +141,11 @@ internal fun ModelSwitchSheet(
                     providers.forEach { provider ->
                         val isSelected = provider.id == activeProviderId
                         Surface(
-                            color = if (isSelected)
+                            color = if (isSelected) {
                                 MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.surfaceVariant,
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            },
                             shape = MuseShapes.large,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -165,9 +167,11 @@ internal fun ModelSwitchSheet(
                                     text = provider.displayName.ifBlank { provider.id },
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                    color = if (isSelected)
+                                    color = if (isSelected) {
                                         MaterialTheme.colorScheme.onPrimaryContainer
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
                                     modifier = Modifier.weight(1f),
                                 )
                                 // v1.0.18: SiliconFlow 免费供应商(未填 key)追加「免费」徽章
@@ -232,7 +236,7 @@ internal fun ModelSwitchSheet(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                            .padding(vertical = MusePaddings.tightGap),
+                        .padding(vertical = MusePaddings.tightGap),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -261,11 +265,19 @@ internal fun ModelSwitchSheet(
                                 )
                             }
                             Text(
-                                text = if (isFetchingModels) stringResource(R.string.model_switch_fetching) else stringResource(R.string.model_switch_refresh),
+                                text = if (isFetchingModels) {
+                                    stringResource(
+                                        R.string.model_switch_fetching,
+                                    )
+                                } else {
+                                    stringResource(R.string.model_switch_refresh)
+                                },
                                 style = MaterialTheme.typography.labelMedium,
-                                color = if (isFetchingModels)
+                                color = if (isFetchingModels) {
                                     MaterialTheme.colorScheme.onSurfaceVariant
-                                else MaterialTheme.colorScheme.primary,
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                },
                             )
                         }
                     }
@@ -286,9 +298,11 @@ internal fun ModelSwitchSheet(
                                 fetchModelsError ?: stringResource(R.string.model_switch_no_models)
                             },
                             style = MaterialTheme.typography.bodyMedium,
-                            color = if (fetchModelsError != null)
+                            color = if (fetchModelsError != null) {
                                 MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.outline,
+                            } else {
+                                MaterialTheme.colorScheme.outline
+                            },
                         )
                         // v1.0.4 (P2): 拉取失败时就近显示"重试"按钮,避免用户还得去找顶部刷新按钮
                         if (fetchModelsError != null && !isFetchingModels) {
@@ -436,7 +450,10 @@ internal fun ModelSwitchSheet(
                                 ModelRow(
                                     model = model,
                                     isSelected = model.id == effectiveModelId,
-                                    onClick = { onPickModel(model.id); onDismiss() },
+                                    onClick = {
+                                        onPickModel(model.id)
+                                        onDismiss()
+                                    },
                                     hasNativeWebSearch = providerSupportsNativeWebSearch(activeProvider.type),
                                 )
                             }
@@ -463,12 +480,7 @@ internal fun ModelSwitchSheet(
  * @param onToggle 点击切换折叠状态
  */
 @Composable
-private fun GroupHeader(
-    groupName: String,
-    modelCount: Int,
-    isCollapsed: Boolean,
-    onToggle: () -> Unit,
-) {
+private fun GroupHeader(groupName: String, modelCount: Int, isCollapsed: Boolean, onToggle: () -> Unit) {
     MuseCardPress(
         onClick = onToggle,
         shape = MuseShapes.medium,
@@ -491,8 +503,11 @@ private fun GroupHeader(
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Icon(
-                imageVector = if (isCollapsed) MuseIcons.chevronDown
-                else MuseIcons.chevronUp,
+                imageVector = if (isCollapsed) {
+                    MuseIcons.chevronDown
+                } else {
+                    MuseIcons.chevronUp
+                },
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(MuseIconSizes.iconMedium),
@@ -536,9 +551,11 @@ private fun ModelRow(
                     text = if (isDefaultFallback) stringResource(R.string.model_switch_default, model.name) else model.name,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                    color = if (isSelected)
+                    color = if (isSelected) {
                         MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurface,
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

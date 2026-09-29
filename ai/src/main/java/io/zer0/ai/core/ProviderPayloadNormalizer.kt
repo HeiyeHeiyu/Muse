@@ -199,11 +199,7 @@ object ProviderPayloadNormalizer {
     /**
      * 从文本中删除媒体附件标记,并规整多余空行。
      */
-    private fun stripMediaMarkers(
-        text: String,
-        stripImage: Boolean,
-        stripVideo: Boolean,
-    ): String {
+    private fun stripMediaMarkers(text: String, stripImage: Boolean, stripVideo: Boolean): String {
         if (text.isEmpty()) return text
         var result = text
         if (stripImage) result = result.replace(ATTACHED_IMAGE_MARKER_RE, "")

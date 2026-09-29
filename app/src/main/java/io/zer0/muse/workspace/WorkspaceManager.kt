@@ -186,8 +186,11 @@ class WorkspaceManager(private val context: Context) {
             ?: return@withContext OpResult.Error("非法路径: $relativePath")
         try {
             if (file.exists()) {
-                if (file.isDirectory) OpResult.Success
-                else OpResult.Error("目标已存在且不是目录: $relativePath")
+                if (file.isDirectory) {
+                    OpResult.Success
+                } else {
+                    OpResult.Error("目标已存在且不是目录: $relativePath")
+                }
             } else {
                 if (file.mkdirs()) OpResult.Success else OpResult.Error("目录创建失败")
             }
@@ -258,11 +261,7 @@ class WorkspaceManager(private val context: Context) {
      * @param targetDirectory 工作区内目标目录,空串表示根目录
      * @param displayName 可选目标文件名,为空时从 ContentResolver 查询
      */
-    suspend fun importFile(
-        uri: Uri,
-        targetDirectory: String,
-        displayName: String? = null,
-    ): FileImportResult = withContext(Dispatchers.IO) {
+    suspend fun importFile(uri: Uri, targetDirectory: String, displayName: String? = null): FileImportResult = withContext(Dispatchers.IO) {
         val directory = resolveSafe(
             targetDirectory,
             allowRoot = true,
@@ -341,12 +340,7 @@ class WorkspaceManager(private val context: Context) {
      * @param mustBeDirectory 是否必须为目录(若为 true,则存在的文件不算目录会失败)
      * @return 解析后的 [File],失败返回 null
      */
-    private fun resolveSafe(
-        path: String,
-        allowRoot: Boolean,
-        mustExist: Boolean,
-        mustBeDirectory: Boolean,
-    ): File? {
+    private fun resolveSafe(path: String, allowRoot: Boolean, mustExist: Boolean, mustBeDirectory: Boolean): File? {
         val trimmed = path.trim().trim('/')
         if (trimmed.isEmpty()) {
             if (!allowRoot) return null
@@ -400,7 +394,9 @@ class WorkspaceManager(private val context: Context) {
             if (cursor.moveToFirst()) {
                 val index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
                 if (index >= 0) cursor.getString(index) else null
-            } else null
+            } else {
+                null
+            }
         }
     }.onFailure { Logger.w(TAG, "读取导入文件名失败: ${it.message}") }.getOrNull()
 

@@ -26,8 +26,7 @@ class UtilityModelRouterTest {
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
-    private fun newRepository(): SettingsRepository =
-        SettingsRepository(context, mockk(relaxed = true))
+    private fun newRepository(): SettingsRepository = SettingsRepository(context, mockk(relaxed = true))
 
     /** 生成唯一 Provider id,避免测试间 DataStore 残留串扰。 */
     private fun uniqueId(prefix: String): String = "$prefix-${System.nanoTime()}"

@@ -81,7 +81,7 @@ internal data class AnthropicSystemBlock(
 @Serializable
 internal data class AnthropicCacheControl(
     val type: String = "ephemeral",
-    @SerialName("ttl") val ttl: String? = null,  // "5m" / "1h",不传走默认 5m
+    @SerialName("ttl") val ttl: String? = null, // "5m" / "1h",不传走默认 5m
 )
 
 /**
@@ -97,8 +97,8 @@ internal data class AnthropicThinking(
 
 @Serializable
 internal data class AnthropicMessage(
-    val role: String,  // "user" / "assistant"
-    val content: JsonElement,  // Phase 8.6: 纯文本 JsonPrimitive 或多模态 JsonArray
+    val role: String, // "user" / "assistant"
+    val content: JsonElement, // Phase 8.6: 纯文本 JsonPrimitive 或多模态 JsonArray
     val cache_control: AnthropicCacheControl? = null,
 )
 
@@ -116,11 +116,11 @@ internal data class AnthropicCompletionResponse(
  */
 @Serializable
 internal data class AnthropicContentBlock(
-    val type: String,  // "text" / "thinking" / "tool_use" / "tool_result"
+    val type: String, // "text" / "thinking" / "tool_use" / "tool_result"
     val text: String = "",
-    val id: String? = null,          // tool_use 块的工具调用 id
-    val name: String? = null,        // tool_use 块的函数名
-    val input: JsonElement? = null,  // tool_use 块的输入参数
+    val id: String? = null, // tool_use 块的工具调用 id
+    val name: String? = null, // tool_use 块的函数名
+    val input: JsonElement? = null, // tool_use 块的输入参数
 )
 
 // ── 流式事件 DTO ──
@@ -138,11 +138,11 @@ internal data class AnthropicContentBlock(
 internal data class AnthropicStreamEvent(
     val type: String,
     val delta: AnthropicDelta? = null,
-    val index: Int? = null,                            // content_block_start/stop 的 block 下标
-    val content_block: AnthropicContentBlock? = null,  // content_block_start 的块信息
-    val message: AnthropicMessageStart? = null,        // message_start 的消息体(含 usage)
-    val usage: AnthropicUsage? = null,                 // message_delta 的 usage
-    val error: AnthropicErrorDetail? = null,           // error 事件的错误详情
+    val index: Int? = null, // content_block_start/stop 的 block 下标
+    val content_block: AnthropicContentBlock? = null, // content_block_start 的块信息
+    val message: AnthropicMessageStart? = null, // message_start 的消息体(含 usage)
+    val usage: AnthropicUsage? = null, // message_delta 的 usage
+    val error: AnthropicErrorDetail? = null, // error 事件的错误详情
 )
 
 /**
@@ -179,9 +179,9 @@ internal data class AnthropicUsage(
 internal data class AnthropicDelta(
     val type: String? = null,
     val text: String? = null,
-    val thinking: String? = null,          // thinking_delta 的思考内容
-    val partial_json: String? = null,      // input_json_delta 的工具参数增量
-    val signature: String? = null,         // signature_delta 的签名增量
+    val thinking: String? = null, // thinking_delta 的思考内容
+    val partial_json: String? = null, // input_json_delta 的工具参数增量
+    val signature: String? = null, // signature_delta 的签名增量
     val stop_reason: String? = null,
 )
 
@@ -230,5 +230,5 @@ internal data class AnthropicModelInfo(
 internal fun AnthropicUsage.toUsageTokens(): io.zer0.ai.core.UsageTokens = io.zer0.ai.core.UsageTokens(
     promptTokens = input_tokens,
     completionTokens = output_tokens,
-    reasoningTokens = 0,  // Anthropic 不单独计 reasoning tokens
+    reasoningTokens = 0, // Anthropic 不单独计 reasoning tokens
 )

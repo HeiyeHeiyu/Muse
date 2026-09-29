@@ -58,6 +58,7 @@ data class ResolvedBubbleStyle(
 
 object BubbleSkinValidator {
     const val CURRENT_SCHEMA = 1
+
     /**
      * 正文与气泡底色之间的最低 WCAG 对比度。
      *
@@ -90,11 +91,7 @@ object BubbleSkinValidator {
 
     fun isValid(skin: BubbleSkin): Boolean = validate(skin).isEmpty()
 
-    private fun validateRoles(
-        roles: Map<BubbleRole, BubbleRoleStyle>,
-        mode: String,
-        errors: MutableList<String>,
-    ) {
+    private fun validateRoles(roles: Map<BubbleRole, BubbleRoleStyle>, mode: String, errors: MutableList<String>) {
         roles.forEach { (role, style) ->
             if (style.radiusDp !in MIN_RADIUS_DP..MAX_RADIUS_DP) errors += "$mode/$role radius out of range"
             if (style.paddingHorizontalDp !in MIN_PADDING_DP..MAX_PADDING_DP) errors += "$mode/$role horizontal padding out of range"
@@ -129,16 +126,11 @@ object BubbleSkinValidator {
         return 0.2126 * red + 0.7152 * green + 0.0722 * blue
     }
 
-    private fun linearize(channel: Double): Double =
-        if (channel <= 0.03928) channel / 12.92 else ((channel + 0.055) / 1.055).pow(2.4)
+    private fun linearize(channel: Double): Double = if (channel <= 0.03928) channel / 12.92 else ((channel + 0.055) / 1.055).pow(2.4)
 }
 
 object BubbleSkinResolver {
-    fun resolve(
-        skin: BubbleSkin?,
-        role: BubbleRole,
-        darkTheme: Boolean,
-    ): ResolvedBubbleStyle {
+    fun resolve(skin: BubbleSkin?, role: BubbleRole, darkTheme: Boolean): ResolvedBubbleStyle {
         val fallback = defaultSkin(darkTheme)
         val candidate = skin?.takeIf(BubbleSkinValidator::isValid)
         val styles = if (darkTheme) candidate?.dark.orEmpty() else candidate?.light.orEmpty()

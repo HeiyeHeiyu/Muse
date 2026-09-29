@@ -228,7 +228,10 @@ class ResultTest {
     fun `map 失败时不调用 transform`() {
         var transformCalled = false
         val result: Result<Int> = resultOf { throw RuntimeException("err") }
-        result.map { transformCalled = true; it }
+        result.map {
+            transformCalled = true
+            it
+        }
         assertFalse(transformCalled)
     }
 
@@ -314,6 +317,5 @@ class ResultTest {
     // ── 辅助函数 ────────────────────────────────────────────────────────
 
     /** 从 [Result] 中取出 Error 实例(测试辅助,假定调用者已知是 Error)。 */
-    private fun <T> err(result: Result<T>): Result.Error =
-        (result as? Result.Error) ?: error("预期 Error,实际 $result")
+    private fun <T> err(result: Result<T>): Result.Error = (result as? Result.Error) ?: error("预期 Error,实际 $result")
 }

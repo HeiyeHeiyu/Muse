@@ -16,8 +16,7 @@ class ConversationService(
         sessionRepository.upsertConversationTurn(turn)
     }
 
-    suspend fun record(event: ConversationEventDraft): Boolean =
-        sessionRepository.recordConversationEvent(event)
+    suspend fun record(event: ConversationEventDraft): Boolean = sessionRepository.recordConversationEvent(event)
 
     suspend fun finishTurn(turnId: String, phase: String = "COMPLETED") {
         sessionRepository.finishConversationTurn(turnId, phase)

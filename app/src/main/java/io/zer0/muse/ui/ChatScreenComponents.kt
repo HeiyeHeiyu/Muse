@@ -20,42 +20,42 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.ui.common.surface.MuseDivider
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.zer0.muse.ui.common.media.AssistantAvatar
 import io.zer0.muse.R
 import io.zer0.muse.data.assistant.AssistantEntity
-import io.zer0.muse.ui.theme.MuseShapes
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.media.AssistantAvatar
+import io.zer0.muse.ui.common.state.MuseSpinner
+import io.zer0.muse.ui.common.surface.MuseDivider
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseAvatarSize
 import io.zer0.muse.ui.theme.MuseDateFormats
-import io.zer0.muse.ui.theme.semiLarge
-import io.zer0.muse.ui.theme.MusePaddings
-import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MusePaddings
+import io.zer0.muse.ui.theme.MuseShapes
+import io.zer0.muse.ui.theme.semiLarge
 
 /**
  * v0.29 P0-1: 空聊天引导 — 轻量居中提示 + 建议 prompt 胶囊。
@@ -82,8 +82,11 @@ internal fun EmptyChatGuide(
     ) {
         // 头像:助手有自定义头像(图片或 Emoji)用助手头像,否则用项目图标
         val currentAssistant = assistant
-        val avatarCd = if (currentAssistant != null) stringResource(R.string.chat_avatar_assistant_cd)
-        else stringResource(R.string.chat_avatar_muse_cd)
+        val avatarCd = if (currentAssistant != null) {
+            stringResource(R.string.chat_avatar_assistant_cd)
+        } else {
+            stringResource(R.string.chat_avatar_muse_cd)
+        }
         Box(
             modifier = Modifier
                 .size(64.dp)
@@ -143,8 +146,11 @@ internal fun EmptyChatGuide(
                     modifier = Modifier
                         .size(10.dp)
                         .background(
-                            color = if (ignoreMemory) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                            color = if (ignoreMemory) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                            },
                             shape = CircleShape,
                         ),
                 )
@@ -459,10 +465,7 @@ internal fun ImageGenerationPlaceholder() {
 
 /** reduced-motion 下的图片/视频生成占位,保持语义但不运行 shimmer。 */
 @Composable
-private fun StaticGenerationPlaceholder(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    text: String,
-) {
+private fun StaticGenerationPlaceholder(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

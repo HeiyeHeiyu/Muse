@@ -442,8 +442,7 @@ data class ConversationTree(
         val currentVariant: UserVariant?
             get() = variants.getOrNull(selectIndex)
 
-        fun selectVariant(index: Int): UserNode =
-            copy(selectIndex = index.coerceIn(0, variants.lastIndex))
+        fun selectVariant(index: Int): UserNode = copy(selectIndex = index.coerceIn(0, variants.lastIndex))
     }
 
     /** 用户版本：一条用户消息 + 它自己的助手回复组。 */
@@ -461,8 +460,7 @@ data class ConversationTree(
         val currentVariant: UIMessage?
             get() = variants.getOrNull(selectIndex)
 
-        fun selectVariant(index: Int): AssistantNode =
-            copy(selectIndex = index.coerceIn(0, variants.lastIndex))
+        fun selectVariant(index: Int): AssistantNode = copy(selectIndex = index.coerceIn(0, variants.lastIndex))
     }
 
     companion object {
@@ -610,10 +608,7 @@ data class ConversationTree(
             }
         }
 
-        private fun mergeUserVariants(
-            existing: List<UserVariant>,
-            incoming: List<UserVariant>,
-        ): List<UserVariant> {
+        private fun mergeUserVariants(existing: List<UserVariant>, incoming: List<UserVariant>): List<UserVariant> {
             val merged = LinkedHashMap<String, UserVariant>()
             (existing + incoming).forEach { variant ->
                 merged[variant.message.id.toString()] = variant
@@ -638,11 +633,7 @@ data class ConversationTree(
  *        否则"摘要 + 原文"会同时留在上下文里(token 双计)，压缩等于白做。
  *        (调用方从 `io.zer0.muse.transformer.CompressionSummaryStore` 取;缺省空集 = 旧行为。)
  */
-fun mergeRebuildMessages(
-    tree: ConversationTree,
-    current: List<UIMessage>,
-    summarizedIds: Set<String> = emptySet(),
-): List<UIMessage> {
+fun mergeRebuildMessages(tree: ConversationTree, current: List<UIMessage>, summarizedIds: Set<String> = emptySet()): List<UIMessage> {
     // Snapshot 只保存分支选择。SnapshotStore 为了还原树形结构会构造 createdAt=0、
     // content 为空、随机 id 的虚拟用户节点；这些节点绝不能混入真实消息，否则会被
     // 排到列表最前面，表现为“旧消息跑到最前面”。

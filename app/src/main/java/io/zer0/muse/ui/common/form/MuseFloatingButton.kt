@@ -2,8 +2,8 @@ package io.zer0.muse.ui.common.form
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -25,11 +25,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
-import io.zer0.muse.ui.theme.MuseElevation
 import io.zer0.muse.ui.theme.MuseActionColors
+import io.zer0.muse.ui.theme.MuseElevation
 import io.zer0.muse.ui.theme.MuseIconSizes
-import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.huge
 
 /**
@@ -104,7 +104,10 @@ fun MuseFloatingButton(
                 role = Role.Button,
                 onClick = onClick,
             )
-            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .semantics {
                 role = Role.Button
                 if (contentDescription != null) this.contentDescription = contentDescription
@@ -116,7 +119,7 @@ fun MuseFloatingButton(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = null,  // 已在 semantics 提供
+                contentDescription = null, // 已在 semantics 提供
                 modifier = Modifier.size(iconSize),
             )
         }

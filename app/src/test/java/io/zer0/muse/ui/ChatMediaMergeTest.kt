@@ -19,8 +19,13 @@ class ChatMediaMergeTest {
         imageUrls: List<String> = emptyList(),
         imageBase64List: List<String> = emptyList(),
         videoFileUri: String? = null,
-    ) = UIMessage(role = MessageRole.ASSISTANT, content = "回复正文", imageUrls = imageUrls,
-        imageBase64List = imageBase64List, videoFileUri = videoFileUri)
+    ) = UIMessage(
+        role = MessageRole.ASSISTANT,
+        content = "回复正文",
+        imageUrls = imageUrls,
+        imageBase64List = imageBase64List,
+        videoFileUri = videoFileUri,
+    )
 
     @Test
     fun `finalAssistant 自带媒体时以其为准`() {

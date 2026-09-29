@@ -19,11 +19,7 @@ import io.zer0.muse.data.artifact.ArtifactEntity
  * 尾部用 "+N" 卡片折叠,点击后展开全部(保证被折叠的产物仍可访问)。
  */
 @Composable
-fun ArtifactCardList(
-    artifacts: List<ArtifactEntity>,
-    onArtifactClick: (ArtifactEntity) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun ArtifactCardList(artifacts: List<ArtifactEntity>, onArtifactClick: (ArtifactEntity) -> Unit, modifier: Modifier = Modifier) {
     // 以首条产物 id 作为保存键:消息切换(列表内容变化)时重置展开态
     var expanded by rememberSaveable(artifacts.firstOrNull()?.id) { mutableStateOf(false) }
     val visible = if (expanded) artifacts else artifacts.take(MAX_VISIBLE_ARTIFACT_CARDS)

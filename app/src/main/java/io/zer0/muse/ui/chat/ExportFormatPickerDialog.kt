@@ -12,8 +12,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.R
 import io.zer0.muse.data.export.ExportFormat
@@ -45,10 +45,7 @@ import io.zer0.muse.ui.common.form.MuseCapsuleTab
  * @param onFormatSelected 用户确认导出格式后的回调
  */
 @Composable
-fun ExportFormatPickerDialog(
-    onDismiss: () -> Unit,
-    onFormatSelected: (ExportFormat) -> Unit,
-) {
+fun ExportFormatPickerDialog(onDismiss: () -> Unit, onFormatSelected: (ExportFormat) -> Unit) {
     // 当前选中的格式索引,默认 Markdown
     var selectedIndex by remember { mutableStateOf(0) }
     val formats = listOf(ExportFormat.MARKDOWN, ExportFormat.HTML, ExportFormat.PDF)

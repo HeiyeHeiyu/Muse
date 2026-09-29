@@ -223,10 +223,7 @@ private fun WarningHeader() {
  * 中部崩溃信息卡片 — 崩溃时间 + 堆栈摘要(等宽字体 + 垂直滚动)。
  */
 @Composable
-private fun CrashInfoCard(
-    crashTime: String?,
-    crashTrace: String?,
-) {
+private fun CrashInfoCard(crashTime: String?, crashTrace: String?) {
     Surface(
         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
         shape = MuseShapes.medium,

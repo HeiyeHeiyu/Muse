@@ -88,8 +88,7 @@ class TermuxChannel private constructor(private val context: Context) {
         context.packageManager.getPackageInfo(PKG, 0)
     }.isSuccess
 
-    fun hasPermission(): Boolean =
-        context.checkSelfPermission(PERMISSION) == PackageManager.PERMISSION_GRANTED
+    fun hasPermission(): Boolean = context.checkSelfPermission(PERMISSION) == PackageManager.PERMISSION_GRANTED
 
     /**
      * 完整链路探测:实际执行一条 echo 标记命令,验证 allow-external-apps 等配置。
@@ -112,11 +111,7 @@ class TermuxChannel private constructor(private val context: Context) {
      * @param timeoutMs 等待上限(含 Termux 侧排队时间)
      * @param workdir 工作目录(默认 Termux home)
      */
-    suspend fun exec(
-        command: String,
-        timeoutMs: Long = DEFAULT_TIMEOUT_MS,
-        workdir: String? = null,
-    ): ExecResult {
+    suspend fun exec(command: String, timeoutMs: Long = DEFAULT_TIMEOUT_MS, workdir: String? = null): ExecResult {
         if (!isInstalled()) return ExecResult(-1, "", "", "未安装 Termux")
         if (!hasPermission()) return ExecResult(-1, "", "", "缺少 Termux 调用权限")
         ensureReceiver()
@@ -215,10 +210,9 @@ class TermuxChannel private constructor(private val context: Context) {
         @Volatile
         private var instance: TermuxChannel? = null
 
-        fun get(context: Context): TermuxChannel =
-            instance ?: synchronized(this) {
-                instance ?: TermuxChannel(context.applicationContext).also { instance = it }
-            }
+        fun get(context: Context): TermuxChannel = instance ?: synchronized(this) {
+            instance ?: TermuxChannel(context.applicationContext).also { instance = it }
+        }
 
         /** 执行结果中间态。 */
         data class TermuxResult(

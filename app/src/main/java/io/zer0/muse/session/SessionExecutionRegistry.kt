@@ -76,17 +76,15 @@ class SessionExecutionRegistry(
 
     /** 活跃记录(非终态);热路径只遍历此表。 */
     private val active = ConcurrentHashMap<String, Registered>()
+
     /** 终态历史记录;只保留诊断所需的有限窗口,由 [prune] 裁剪。 */
     private val history = ConcurrentHashMap<String, Registered>()
+
     /** 每个 session 最近登记的 generation；用于拒绝旧代晚到事件。 */
     private val latestGenerationBySession = ConcurrentHashMap<String, String>()
 
     /** 登记一个执行资源，返回稳定资源 ID。 */
-    fun register(
-        identity: GenerationIdentity,
-        kind: ExecutionKind,
-        cancel: (() -> Unit)? = null,
-    ): String {
+    fun register(identity: GenerationIdentity, kind: ExecutionKind, cancel: (() -> Unit)? = null): String {
         val id = "exec-${UUID.randomUUID()}"
         active[id] = Registered(
             record = ExecutionRecord(id = id, identity = identity, kind = kind, startedAt = nowMs()),
@@ -121,11 +119,10 @@ class SessionExecutionRegistry(
     }
 
     /** 请求取消指定 session 下的全部非终态资源。 */
-    fun requestCancelForSession(sessionId: String, reason: String = "session_cancelled"): List<String> =
-        active.values
-            .map { it.record }
-            .filter { it.identity.sessionId == sessionId && it.state !in TERMINAL_STATES }
-            .mapNotNull { record -> record.id.takeIf { requestCancel(it, reason) } }
+    fun requestCancelForSession(sessionId: String, reason: String = "session_cancelled"): List<String> = active.values
+        .map { it.record }
+        .filter { it.identity.sessionId == sessionId && it.state !in TERMINAL_STATES }
+        .mapNotNull { record -> record.id.takeIf { requestCancel(it, reason) } }
 
     /**
      * 只允许当前 generation 更新当前状态；旧代晚到事件返回 false。
@@ -135,13 +132,12 @@ class SessionExecutionRegistry(
      * 且有测试覆盖（[SessionExecutionRegistryTest] / [SessionExecutionRegistryPruningTest]）。
      * 因此保留 API 而不删除——接线的价值高于删掉的整洁，谁要接入工具回写路径可以直接用。
      */
-    fun isCurrent(identity: GenerationIdentity): Boolean =
-        latestGenerationBySession[identity.sessionId] == identity.generationId &&
-            active.values.any { registered ->
-                registered.record.identity.sessionId == identity.sessionId &&
-                    registered.record.identity.generationId == identity.generationId &&
-                    registered.record.state in ACTIVE_STATES
-            }
+    fun isCurrent(identity: GenerationIdentity): Boolean = latestGenerationBySession[identity.sessionId] == identity.generationId &&
+        active.values.any { registered ->
+            registered.record.identity.sessionId == identity.sessionId &&
+                registered.record.identity.generationId == identity.generationId &&
+                registered.record.state in ACTIVE_STATES
+        }
 
     /** 判断两个事件是否属于同一代。 */
     fun matches(left: GenerationIdentity, right: GenerationIdentity): Boolean =
@@ -174,8 +170,11 @@ class SessionExecutionRegistry(
 
     /** 标记资源已取消；适用于 cancel handle 完成回调。 */
     fun markCancelled(id: String): Boolean = update(id) { record ->
-        if (record.state in TERMINAL_STATES) record
-        else record.copy(state = ExecutionState.CANCELLED, finishedAt = nowMs())
+        if (record.state in TERMINAL_STATES) {
+            record
+        } else {
+            record.copy(state = ExecutionState.CANCELLED, finishedAt = nowMs())
+        }
     } != null
 
     /** 获取资源当前状态；未知资源(含已裁剪历史)返回 null。 */

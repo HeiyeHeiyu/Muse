@@ -125,11 +125,7 @@ fun ArchivedChatsScreen(
 }
 
 @Composable
-private fun ArchivedChatRow(
-    session: SessionEntity,
-    onOpen: () -> Unit,
-    onUnarchive: () -> Unit,
-) {
+private fun ArchivedChatRow(session: SessionEntity, onOpen: () -> Unit, onUnarchive: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MuseShapes.medium,
@@ -167,9 +163,7 @@ private fun ArchivedChatRow(
     }
 }
 
-private fun formatTime(timestamp: Long): String =
-    java.text.SimpleDateFormat(
-        io.zer0.muse.ui.theme.MuseDateFormats.DATE_TIME_SHORT,
-        java.util.Locale.getDefault(),
-    ).format(java.util.Date(timestamp))
-
+private fun formatTime(timestamp: Long): String = java.text.SimpleDateFormat(
+    io.zer0.muse.ui.theme.MuseDateFormats.DATE_TIME_SHORT,
+    java.util.Locale.getDefault(),
+).format(java.util.Date(timestamp))

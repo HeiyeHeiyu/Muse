@@ -49,8 +49,7 @@ class SessionAttachmentService(
     val attachmentsFlow: StateFlow<List<SessionAttachment>> = _attachmentsFlow.asStateFlow()
 
     /** 获取指定会话的附件列表。 */
-    fun attachmentsBySession(sessionId: String): List<SessionAttachment> =
-        sessionAttachments[sessionId]?.toList() ?: emptyList()
+    fun attachmentsBySession(sessionId: String): List<SessionAttachment> = sessionAttachments[sessionId]?.toList() ?: emptyList()
 
     /**
      * 索引一个会话附件。
@@ -66,11 +65,7 @@ class SessionAttachmentService(
      * @param content 附件文本内容(已由 DocumentParser 解析)
      * @return attachmentId(可用于后续状态查询)
      */
-    fun indexSessionAttachment(
-        sessionId: String,
-        name: String,
-        content: String,
-    ): String {
+    fun indexSessionAttachment(sessionId: String, name: String, content: String): String {
         val attachmentId = UUID.randomUUID().toString()
         val docId = SessionAttachment.buildDocId(sessionId, attachmentId)
         val attachment = SessionAttachment(
@@ -158,11 +153,7 @@ class SessionAttachmentService(
     }
 
     /** 更新指定附件的状态(内存)。 */
-    private fun updateAttachment(
-        attachmentId: String,
-        sessionId: String,
-        transform: (SessionAttachment) -> SessionAttachment,
-    ) {
+    private fun updateAttachment(attachmentId: String, sessionId: String, transform: (SessionAttachment) -> SessionAttachment) {
         sessionAttachments[sessionId]?.let { list ->
             synchronized(list) {
                 val idx = list.indexOfFirst { it.id == attachmentId }

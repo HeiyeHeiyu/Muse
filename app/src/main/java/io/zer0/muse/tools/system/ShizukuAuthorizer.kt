@@ -7,16 +7,16 @@ import android.content.pm.PackageManager
 import android.os.IBinder
 import io.zer0.common.Logger
 import io.zer0.muse.BuildConfig
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import rikka.shizuku.Shizuku
 import kotlin.coroutines.resume
 
@@ -156,33 +156,33 @@ class ShizukuAuthorizer(
         return try {
             withTimeout(PERMISSION_TIMEOUT_MS) {
                 suspendCancellableCoroutine { cont ->
-            val listener = object : Shizuku.OnRequestPermissionResultListener {
-                override fun onRequestPermissionResult(requestCode: Int, grantResult: Int) {
-                    if (requestCode == PERMISSION_REQUEST_CODE) {
-                        val granted = grantResult == PackageManager.PERMISSION_GRANTED
-                        // 必须移除监听器,避免泄漏与重复回调
-                        Shizuku.removeRequestPermissionResultListener(this)
-                        if (cont.isActive) cont.resume(granted)
+                    val listener = object : Shizuku.OnRequestPermissionResultListener {
+                        override fun onRequestPermissionResult(requestCode: Int, grantResult: Int) {
+                            if (requestCode == PERMISSION_REQUEST_CODE) {
+                                val granted = grantResult == PackageManager.PERMISSION_GRANTED
+                                // 必须移除监听器,避免泄漏与重复回调
+                                Shizuku.removeRequestPermissionResultListener(this)
+                                if (cont.isActive) cont.resume(granted)
+                            }
+                        }
+                    }
+                    Shizuku.addRequestPermissionResultListener(listener)
+                    cont.invokeOnCancellation {
+                        Shizuku.removeRequestPermissionResultListener(listener)
+                    }
+                    try {
+                        Shizuku.requestPermission(PERMISSION_REQUEST_CODE)
+                    } catch (e: Throwable) {
+                        Shizuku.removeRequestPermissionResultListener(listener)
+                        Logger.w(TAG, "Shizuku.requestPermission 失败: ${e.message}")
+                        if (cont.isActive) cont.resume(false)
                     }
                 }
             }
-            Shizuku.addRequestPermissionResultListener(listener)
-            cont.invokeOnCancellation {
-                Shizuku.removeRequestPermissionResultListener(listener)
-            }
-            try {
-                Shizuku.requestPermission(PERMISSION_REQUEST_CODE)
-            } catch (e: Throwable) {
-                Shizuku.removeRequestPermissionResultListener(listener)
-                Logger.w(TAG, "Shizuku.requestPermission 失败: ${e.message}")
-                if (cont.isActive) cont.resume(false)
-            }
+        } catch (e: TimeoutCancellationException) {
+            Logger.w(TAG, "Shizuku 授权等待超时")
+            false
         }
-        }
-    } catch (e: TimeoutCancellationException) {
-        Logger.w(TAG, "Shizuku 授权等待超时")
-        false
-    }
     }
 
     /**

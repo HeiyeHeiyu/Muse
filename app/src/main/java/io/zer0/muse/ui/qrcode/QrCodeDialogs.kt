@@ -45,10 +45,7 @@ import kotlinx.coroutines.withContext
  * @param onDismiss 关闭回调
  */
 @Composable
-fun QrCodeShareDialog(
-    content: String,
-    onDismiss: () -> Unit,
-) {
+fun QrCodeShareDialog(content: String, onDismiss: () -> Unit) {
     var bitmap by remember(content) { mutableStateOf<Bitmap?>(null) }
     LaunchedEffect(content) {
         bitmap = withContext(Dispatchers.Default) {
@@ -102,10 +99,7 @@ fun QrCodeShareDialog(
  * @param onResult 扫描成功回调,返回解析后的二维码原始内容
  */
 @Composable
-fun QrCodeScanDialog(
-    onDismiss: () -> Unit,
-    onResult: (String) -> Unit,
-) {
+fun QrCodeScanDialog(onDismiss: () -> Unit, onResult: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var scanning by remember { mutableStateOf(false) }
@@ -125,7 +119,7 @@ fun QrCodeScanDialog(
                     // 替代每次 new ImageLoader(context),避免绕过内存/磁盘缓存。
                     // 同时加 .size(1024) 约束,防止大图全分辨率解码(扫码只需 1024px 足够)。
                     val bmp = context.imageLoader.execute(
-                        ImageRequest.Builder(context).data(uri).size(1024).build()
+                        ImageRequest.Builder(context).data(uri).size(1024).build(),
                     ).drawable?.toBitmap()
                     if (bmp != null) QrCodeScanner.scanFromBitmap(bmp) else null
                 }.getOrNull()
@@ -157,12 +151,18 @@ fun QrCodeScanDialog(
                     imageVector = MuseIcons.photoLibrary,
                     contentDescription = null,
                     modifier = Modifier.size(48.dp),
-                    tint = if (scanning) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.outline,
+                    tint = if (scanning) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.outline
+                    },
                 )
                 Text(
-                    text = if (scanning) stringResource(R.string.qr_scan_scanning)
-                    else stringResource(R.string.qr_scan_pick_image),
+                    text = if (scanning) {
+                        stringResource(R.string.qr_scan_scanning)
+                    } else {
+                        stringResource(R.string.qr_scan_pick_image)
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

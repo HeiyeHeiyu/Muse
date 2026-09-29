@@ -6,6 +6,8 @@ import io.zer0.ai.core.UIMessage
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.R
+import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.tools.SkillExecutor
 import io.zer0.muse.tools.ToolRegistry
 import kotlinx.coroutines.flow.Flow
@@ -18,8 +20,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.intOrNull
-import io.zer0.muse.R
-import io.zer0.muse.data.SettingsRepository
 import java.io.File
 
 /**
@@ -132,7 +132,7 @@ class AssistantRepository(
                 reasoningLevel = ReasoningLevel.OFF.name,
                 skillIdsJson = serializeStringList(allSkillIds),
                 toolIdsJson = serializeStringList(allToolIds),
-            )
+            ),
         )
         // v1.97: 老用户 prompt 迁移 — 检测 default 助手是否还在用旧版 prompt,
         // 若是则自动升级到新版三层人设(仅当 prompt 精确匹配旧版常量时才升级,
@@ -378,10 +378,7 @@ TA 闹着玩的时候你接梗、吐槽、抬杠都行;TA 真的需要帮忙的�
      * @param baseConfig 全局 RAG 配置(从 SettingsRepository.getRagConfig() 取)
      * @return 合并后的 RagConfig;若 entity.ragConfigOverride 为 null/空/解析失败,直接返回 baseConfig
      */
-    fun mergeRagConfigOverride(
-        entity: AssistantEntity,
-        baseConfig: io.zer0.muse.rag.RagConfig,
-    ): io.zer0.muse.rag.RagConfig {
+    fun mergeRagConfigOverride(entity: AssistantEntity, baseConfig: io.zer0.muse.rag.RagConfig): io.zer0.muse.rag.RagConfig {
         val raw = entity.ragConfigOverride?.takeIf { it.isNotBlank() && it != "null" } ?: return baseConfig
         return runCatching {
             val obj = AppJson.parseToJsonElement(raw).let {
@@ -420,8 +417,7 @@ TA 闹着玩的时候你接梗、吐槽、抬杠都行;TA 真的需要帮忙的�
     }
 
     /** 把 [AssistantEntity.customHeadersJson] 反序列化为 Map。 */
-    fun parseCustomHeaders(entity: AssistantEntity): Map<String, String> =
-        parseStringMap(entity.customHeadersJson)
+    fun parseCustomHeaders(entity: AssistantEntity): Map<String, String> = parseStringMap(entity.customHeadersJson)
 
     /** 把 [AssistantEntity.customBodiesJson] 反序列化为 Map<String, JsonElement>。 */
     fun parseCustomBodies(entity: AssistantEntity): Map<String, JsonElement> {
@@ -469,8 +465,7 @@ TA 闹着玩的时候你接梗、吐槽、抬杠都行;TA 真的需要帮忙的�
     }
 
     /** 便捷构造:把字段序列化为 JSON 字符串。 */
-    fun serializeStringList(list: List<String>): String =
-        AppJson.encodeToString(ListSerializer(String.serializer()), list)
+    fun serializeStringList(list: List<String>): String = AppJson.encodeToString(ListSerializer(String.serializer()), list)
 
     fun serializeStringMap(map: Map<String, String>): String =
         AppJson.encodeToString(MapSerializer(String.serializer(), String.serializer()), map)

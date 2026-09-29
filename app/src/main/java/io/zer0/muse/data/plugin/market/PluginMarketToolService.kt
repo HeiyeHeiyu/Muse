@@ -256,10 +256,7 @@ internal class PluginMarketToolService(
     }
 
     /** 未受信任发行者的待确认信息；模型应展示给用户后再带 `trust_publisher=true` 重试。 */
-    private fun publisherTrustPrompt(
-        decision: PluginSecurityGate.Decision,
-        entry: PluginCatalogEntry,
-    ): String {
+    private fun publisherTrustPrompt(decision: PluginSecurityGate.Decision, entry: PluginCatalogEntry): String {
         val capabilities = (decision.preview.capabilities + decision.preview.permissions).distinct()
         return buildString {
             appendLine("需要用户确认信任发行者后才能安装（本机第一次安装该发行者的插件）。")

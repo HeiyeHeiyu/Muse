@@ -127,12 +127,7 @@ sealed class ProviderError {
          * @param retryAfterSec Retry-After 头秒数(由调用方解析后传入,避免本类依赖 OkHttp)
          * @param throwable 原始异常
          */
-        fun from(
-            code: Int?,
-            body: String,
-            retryAfterSec: Int? = null,
-            throwable: Throwable? = null,
-        ): ProviderError {
+        fun from(code: Int?, body: String, retryAfterSec: Int? = null, throwable: Throwable? = null): ProviderError {
             // 1. IOException 优先归为 Network(即使 code 非 null,如 SSE 中断后 IOException)
             if (throwable is IOException) {
                 return Network(
@@ -266,7 +261,10 @@ val ChatStreamEvent.Error.providerError: ProviderError?
  * `(throwable as? ProviderException)?.providerError` 生效。保留作为向后兼容兜底,
  * 供未迁移的 Provider 使用。
  */
-@Deprecated("Provider 应直接抛 ProviderException,用 (throwable as? ProviderException)?.providerError 替代字符串推断", ReplaceWith("(throwable as? ProviderException)?.providerError"))
+@Deprecated(
+    "Provider 应直接抛 ProviderException,用 (throwable as? ProviderException)?.providerError 替代字符串推断",
+    ReplaceWith("(throwable as? ProviderException)?.providerError"),
+)
 fun inferFromMessage(message: String, throwable: Throwable?): ProviderError? {
     if (message.isBlank() && throwable == null) return null
     val msg = message.lowercase()
@@ -284,7 +282,7 @@ fun inferFromMessage(message: String, throwable: Throwable?): ProviderError? {
             ProviderError.ServerError(httpCode = 529, displayMessage = message, cause = throwable)
         msg.contains("400") || msg.contains("422") || msg.contains("404") ->
             ProviderError.InvalidRequest(displayMessage = message, cause = throwable)
-        else -> null  // 不强推断为 Unknown,让上层保留原行为
+        else -> null // 不强推断为 Unknown,让上层保留原行为
     }
 }
 
@@ -321,33 +319,39 @@ fun ErrorCode.toProviderError(vararg args: Any?): ProviderError {
         ErrorCode.IMAGE_INVALID_URI,
         ErrorCode.VERTEX_AI_CONFIG_INVALID,
         ErrorCode.MEMORY_CONFIG_INVALID,
-        ErrorCode.MEMORY_TOKEN_BUDGET_INVALID -> ProviderError.InvalidRequest(displayMessage = message)
+        ErrorCode.MEMORY_TOKEN_BUDGET_INVALID,
+        -> ProviderError.InvalidRequest(displayMessage = message)
 
         // 认证错误 (不可重试)
         ErrorCode.AUTH_FAILED,
         ErrorCode.IMAGE_API_KEY_MISSING,
-        ErrorCode.VERTEX_AI_TOKEN_FAILED -> ProviderError.AuthError(displayMessage = message)
+        ErrorCode.VERTEX_AI_TOKEN_FAILED,
+        -> ProviderError.AuthError(displayMessage = message)
 
         // 限流/资源耗尽 (可重试)
         ErrorCode.RATE_LIMITED,
         ErrorCode.RESOURCE_EXHAUSTED,
         ErrorCode.IMAGE_RESPONSE_TOO_LARGE,
-        ErrorCode.IMAGE_REFERENCE_TOO_LARGE -> ProviderError.RateLimit(displayMessage = message)
+        ErrorCode.IMAGE_REFERENCE_TOO_LARGE,
+        -> ProviderError.RateLimit(displayMessage = message)
 
         // 服务端错误 (可重试)
         ErrorCode.SERVICE_UNAVAILABLE,
         ErrorCode.OVERLOADED,
-        ErrorCode.API_ERROR -> ProviderError.ServerError(httpCode = 500, displayMessage = message)
+        ErrorCode.API_ERROR,
+        -> ProviderError.ServerError(httpCode = 500, displayMessage = message)
 
         // 网络/超时 (可重试)
         ErrorCode.REQUEST_TIMEOUT,
         ErrorCode.STREAM_INTERRUPTED,
         ErrorCode.NETWORK_ERROR,
-        ErrorCode.IMAGE_REFERENCE_DOWNLOAD_FAILED -> ProviderError.Network(displayMessage = message)
+        ErrorCode.IMAGE_REFERENCE_DOWNLOAD_FAILED,
+        -> ProviderError.Network(displayMessage = message)
 
         // 权限 (不可重试,归为 AuthError)
         ErrorCode.PERMISSION_DENIED,
-        ErrorCode.PRECONDITION_FAILED -> ProviderError.AuthError(displayMessage = message)
+        ErrorCode.PRECONDITION_FAILED,
+        -> ProviderError.AuthError(displayMessage = message)
 
         // 图像生成失败 (其他,不可重试)
         ErrorCode.IMAGE_GEN_FAILED -> ProviderError.Unknown(displayMessage = message)
@@ -367,5 +371,4 @@ fun ErrorCode.toProviderError(vararg args: Any?): ProviderError {
  * throw errorCode.toProviderException("empty_body", resp.code)
  * ```
  */
-fun ErrorCode.toProviderException(vararg args: Any?): ProviderException =
-    ProviderException(toProviderError(*args))
+fun ErrorCode.toProviderException(vararg args: Any?): ProviderException = ProviderException(toProviderError(*args))

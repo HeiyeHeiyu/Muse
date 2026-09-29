@@ -45,7 +45,9 @@ internal class ChatGenerationState {
 
     var toolGenerationToken: Long
         get() = toolGenerationTokenCounter.get()
-        set(value) { toolGenerationTokenCounter.set(value) }
+        set(value) {
+            toolGenerationTokenCounter.set(value)
+        }
 
     /** 原子递增并返回新令牌,供 exec* 代际切换使用。 */
     fun nextToolGenerationToken(): Long = toolGenerationTokenCounter.incrementAndGet()
@@ -58,10 +60,13 @@ internal class ChatGenerationState {
     // 全局默认与会话覆盖分开保存；聊天页切换只改当前 session 的覆盖，不反写全局设置。
     @Volatile
     var globalSelectedModelId: String? = null
+
     @Volatile
     var globalActiveProviderId: String? = null
+
     @Volatile
     var sessionModelOverrides: Map<String, String> = emptyMap()
+
     @Volatile
     var sessionProviderOverrides: Map<String, String> = emptyMap()
 
@@ -72,6 +77,7 @@ internal class ChatGenerationState {
     // v1.135: 当前工具调用轮次对应的助手消息 id,供 exec* 媒体工具更新消息媒体字段。
     @Volatile
     var toolAssistantId: Uuid? = null
+
     // 审计修复 (S-01): toolAssistantId 对应的生成会话 id,与 toolAssistantId 同生命周期。
     @Volatile
     var activeToolSessionId: String? = null

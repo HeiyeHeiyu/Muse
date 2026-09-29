@@ -19,18 +19,20 @@ class DelegationPauseManager {
 
     /** 暂停决策类型。 */
     enum class PauseDecision {
-        APPROVE,        // 批准继续
-        MODIFY,         // 修改后继续(携带新输入)
-        REJECT,         // 拒绝并终止
-        CANCEL,         // 取消整个委派
+        APPROVE, // 批准继续
+        MODIFY, // 修改后继续(携带新输入)
+        REJECT, // 拒绝并终止
+        CANCEL, // 取消整个委派
     }
 
     /** awaitPauseDecision 的结构化结束原因。 */
     enum class PauseOutcome {
         /** 用户提交了正常决策。 */
         DECIDED,
+
         /** 等待超过策略配置的超时时间。 */
         TIMED_OUT,
+
         /** 等待因委派取消或管理器清理而结束。 */
         CANCELLED,
         ;
@@ -38,6 +40,7 @@ class DelegationPauseManager {
         companion object {
             /** 兼容常见命名的超时别名。 */
             val TIMEOUT: PauseOutcome get() = TIMED_OUT
+
             /** 兼容美式拼写的取消别名。 */
             val CANCELED: PauseOutcome get() = CANCELLED
         }
@@ -49,10 +52,10 @@ class DelegationPauseManager {
         val taskId: String,
         val taskTitle: String,
         val taskDescription: String,
-        val targetType: String,         // "assistant" | "team"
+        val targetType: String, // "assistant" | "team"
         val targetName: String,
-        val reason: String,             // 为什么需要确认
-        val intermediateResult: String? = null,  // 中间结果(可选)
+        val reason: String, // 为什么需要确认
+        val intermediateResult: String? = null, // 中间结果(可选)
         val options: List<PauseOption> = listOf(PauseOption.APPROVE, PauseOption.REJECT),
         /** 所属父委派 requestId;根委派为 null。 */
         val parentRequestId: String? = null,
@@ -76,7 +79,7 @@ class DelegationPauseManager {
     /** 用户的响应。 */
     data class PauseResponse(
         val decision: PauseDecision,
-        val modifiedInput: String? = null,  // MODIFY 时的修改后输入
+        val modifiedInput: String? = null, // MODIFY 时的修改后输入
         /** 结构化结束原因;旧构造调用默认表示用户提交了决策。 */
         val outcome: PauseOutcome = PauseOutcome.DECIDED,
         /** 超时或取消等非正常结束时的可测试诊断信息。 */
@@ -86,11 +89,11 @@ class DelegationPauseManager {
     /** 暂停点配置策略。 */
     @Serializable
     data class PausePolicy(
-        val pauseBeforeTeam: Boolean = false,        // 团队工作流执行前
-        val pauseBeforeEachMember: Boolean = false,  // 团队每个成员执行前
+        val pauseBeforeTeam: Boolean = false, // 团队工作流执行前
+        val pauseBeforeEachMember: Boolean = false, // 团队每个成员执行前
         val pauseOnIntermediateResult: Boolean = false, // 中间结果产出后
-        val pauseOnHighRisk: Boolean = true,         // 高风险任务前(默认开启)
-        val autoTimeoutSec: Int = 300,               // 暂停等待超时(秒),超时自动拒绝
+        val pauseOnHighRisk: Boolean = true, // 高风险任务前(默认开启)
+        val autoTimeoutSec: Int = 300, // 暂停等待超时(秒),超时自动拒绝
     )
 
     /** 当前活跃的暂停请求(requestId -> PauseRequest)。 */
@@ -208,10 +211,7 @@ class DelegationPauseManager {
         }
     }
 
-    private fun removePendingRequest(
-        requestId: String,
-        deferred: CompletableDeferred<PauseResponse>,
-    ) {
+    private fun removePendingRequest(requestId: String, deferred: CompletableDeferred<PauseResponse>) {
         synchronized(stateLock) {
             pendingResponses.remove(requestId, deferred)
             _activePauses.value = _activePauses.value - requestId
@@ -239,10 +239,7 @@ class DelegationPauseManager {
     }
 
     /** 判断自身或其父委派链是否已被取消。 */
-    private fun isCancellationRequested(
-        requestId: String,
-        parentRequestId: String?,
-    ): Boolean {
+    private fun isCancellationRequested(requestId: String, parentRequestId: String?): Boolean {
         if (cancelledRequests.contains(requestId)) return true
         var currentParent = parentRequestId
         while (currentParent != null) {

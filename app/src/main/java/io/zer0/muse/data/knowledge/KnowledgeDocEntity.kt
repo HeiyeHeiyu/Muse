@@ -22,7 +22,7 @@ data class KnowledgeDocEntity(
     val title: String,
     @ColumnInfo(defaultValue = "") val content: String = "",
     @ColumnInfo(name = "file_path", defaultValue = "") val filePath: String = "",
-    @ColumnInfo(name = "file_type", defaultValue = "") val fileType: String = "",  // pdf/txt/md
+    @ColumnInfo(name = "file_type", defaultValue = "") val fileType: String = "", // pdf/txt/md
     @ColumnInfo(name = "created_at", defaultValue = "0") val createdAt: Long = System.currentTimeMillis(),
     @ColumnInfo(name = "updated_at", defaultValue = "0") val updatedAt: Long = System.currentTimeMillis(),
     /** v1.54: 分块数(0 表示尚未索引,>0 表示已分块并生成 embedding)。 */

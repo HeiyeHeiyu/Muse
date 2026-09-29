@@ -1,8 +1,8 @@
 package io.zer0.muse.data.milestone
 
-import io.zer0.muse.data.session.SessionDao
-import io.zer0.muse.data.session.MessageDao
 import io.zer0.common.Logger
+import io.zer0.muse.data.session.MessageDao
+import io.zer0.muse.data.session.SessionDao
 
 /**
  * Phase 2 2B: 里程碑检查器 — 在消息发送/会话创建时检查是否触发里程碑。
@@ -83,12 +83,7 @@ class MilestoneChecker(
         }
     }
 
-    private suspend fun insertIfNew(
-        condition: String,
-        triggerValue: Long,
-        assistantId: String?,
-        sessionId: String,
-    ) {
+    private suspend fun insertIfNew(condition: String, triggerValue: Long, assistantId: String?, sessionId: String) {
         val existing = milestoneDao.findByCondition(condition)
         if (existing != null) return
 
@@ -101,7 +96,7 @@ class MilestoneChecker(
                 message = def.messageTemplate,
                 assistantId = assistantId,
                 sessionId = sessionId,
-            )
+            ),
         )
         Logger.i(TAG, "Milestone triggered: $condition (value=$triggerValue)")
     }

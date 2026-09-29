@@ -27,8 +27,7 @@ object RollingSummaryFormat {
     private fun isZh(locale: String): Boolean = locale.startsWith("zh")
 
     /** 按 locale 取 facts 段标题文本。 */
-    fun getFactSectionTitle(locale: String = "zh-CN"): String =
-        if (isZh(locale)) FACT_SECTION_TITLES[0] else FACT_SECTION_TITLES[1]
+    fun getFactSectionTitle(locale: String = "zh-CN"): String = if (isZh(locale)) FACT_SECTION_TITLES[0] else FACT_SECTION_TITLES[1]
 
     /** 按 locale 取 timeline 段标题文本。 */
     fun getTimelineSectionTitle(locale: String = "zh-CN"): String =
@@ -78,11 +77,7 @@ $requirements
     }
 
     /** 格式修复调用的动态输入：失败原因 + 待修复草稿。 */
-    fun buildRepairInput(
-        locale: String = "zh-CN",
-        issues: List<String> = emptyList(),
-        summaryText: String = "",
-    ): String {
+    fun buildRepairInput(locale: String = "zh-CN", issues: List<String> = emptyList(), summaryText: String = ""): String {
         val zh = isZh(locale)
         val issuesLabel = if (zh) "## 校验失败原因" else "## Validation Failures"
         val draftLabel = if (zh) "## 待修复草稿" else "## Draft To Repair"
@@ -139,8 +134,7 @@ $requirements
     }
 
     /** 提取摘要中的 facts 段正文。 */
-    fun extractFactSection(markdown: String): String =
-        extractMarkdownSection(markdown, FACT_SECTION_TITLES)
+    fun extractFactSection(markdown: String): String = extractMarkdownSection(markdown, FACT_SECTION_TITLES)
 
     /** facts 段正文是否是显式空标记(- 无 / - None)。 */
     fun isEmptyFactSection(text: String): Boolean {

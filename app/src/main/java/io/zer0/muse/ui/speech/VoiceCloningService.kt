@@ -80,11 +80,7 @@ class VoiceCloningService(
      * @param name 语音名称
      * @param sampleAudioBase64 样本音频 base64
      */
-    suspend fun cloneVoice(
-        providerId: String,
-        name: String,
-        sampleAudioBase64: String,
-    ): Result<String> = withContext(AppDispatchers.io) {
+    suspend fun cloneVoice(providerId: String, name: String, sampleAudioBase64: String): Result<String> = withContext(AppDispatchers.io) {
         val provider = providers[providerId]
         if (provider == null) {
             Logger.w(TAG, "未知 voice cloning provider: $providerId")
@@ -94,24 +90,22 @@ class VoiceCloningService(
     }
 
     /** 列出指定 Provider 的已克隆语音。 */
-    suspend fun listClonedVoices(providerId: String): Result<List<ClonedVoice>> =
-        withContext(AppDispatchers.io) {
-            val provider = providers[providerId]
-            if (provider == null) {
-                Logger.w(TAG, "未知 voice cloning provider: $providerId")
-                return@withContext Result.Error("Unknown provider: $providerId")
-            }
-            provider.listClonedVoices()
+    suspend fun listClonedVoices(providerId: String): Result<List<ClonedVoice>> = withContext(AppDispatchers.io) {
+        val provider = providers[providerId]
+        if (provider == null) {
+            Logger.w(TAG, "未知 voice cloning provider: $providerId")
+            return@withContext Result.Error("Unknown provider: $providerId")
         }
+        provider.listClonedVoices()
+    }
 
     /** 删除指定 Provider 的克隆语音。 */
-    suspend fun deleteVoice(providerId: String, voiceId: String): Result<Unit> =
-        withContext(AppDispatchers.io) {
-            val provider = providers[providerId]
-            if (provider == null) {
-                Logger.w(TAG, "未知 voice cloning provider: $providerId")
-                return@withContext Result.Error("Unknown provider: $providerId")
-            }
-            provider.deleteVoice(voiceId)
+    suspend fun deleteVoice(providerId: String, voiceId: String): Result<Unit> = withContext(AppDispatchers.io) {
+        val provider = providers[providerId]
+        if (provider == null) {
+            Logger.w(TAG, "未知 voice cloning provider: $providerId")
+            return@withContext Result.Error("Unknown provider: $providerId")
         }
+        provider.deleteVoice(voiceId)
+    }
 }

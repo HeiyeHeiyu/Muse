@@ -95,31 +95,28 @@ class ToolOrchestratorReadOnlyParallelTest {
         reasoningLevel = ReasoningLevel.OFF,
     )
 
-    private fun toolRound(toolCalls: List<ToolCall>): StreamRoundResult.Success =
-        StreamRoundResult.Success(
-            assistantMessage = UIMessage(
-                role = MessageRole.ASSISTANT,
-                content = "",
-                toolCalls = toolCalls,
-            ),
-            hasToolCalls = toolCalls.isNotEmpty(),
-            contentLength = 0,
-            firstTokenTime = 0L,
-        )
+    private fun toolRound(toolCalls: List<ToolCall>): StreamRoundResult.Success = StreamRoundResult.Success(
+        assistantMessage = UIMessage(
+            role = MessageRole.ASSISTANT,
+            content = "",
+            toolCalls = toolCalls,
+        ),
+        hasToolCalls = toolCalls.isNotEmpty(),
+        contentLength = 0,
+        firstTokenTime = 0L,
+    )
 
-    private fun finalRound(): StreamRoundResult.Success =
-        StreamRoundResult.Success(
-            assistantMessage = UIMessage(role = MessageRole.ASSISTANT, content = "done"),
-            hasToolCalls = false,
-            contentLength = 0,
-            firstTokenTime = 0L,
-        )
+    private fun finalRound(): StreamRoundResult.Success = StreamRoundResult.Success(
+        assistantMessage = UIMessage(role = MessageRole.ASSISTANT, content = "done"),
+        hasToolCalls = false,
+        contentLength = 0,
+        firstTokenTime = 0L,
+    )
 
     private class FakeToolLoopHost(
         private val results: ArrayDeque<StreamRoundResult>,
     ) : ToolLoopHost {
-        override suspend fun streamRound(params: StreamRoundParams): StreamRoundResult =
-            results.removeFirst()
+        override suspend fun streamRound(params: StreamRoundParams): StreamRoundResult = results.removeFirst()
 
         override suspend fun requestToolApproval(
             toolName: String,
@@ -207,9 +204,18 @@ class ToolOrchestratorReadOnlyParallelTest {
             ),
         )
         // 第一个调用最慢,完成顺序与回填顺序相反
-        coEvery { registry.executeFromJson("get_current_time", any()) } coAnswers { delay(250); "slow" }
-        coEvery { registry.executeFromJson("web_fetch", any()) } coAnswers { delay(100); "fast" }
-        coEvery { registry.executeFromJson("read_file", any()) } coAnswers { delay(20); "quick" }
+        coEvery { registry.executeFromJson("get_current_time", any()) } coAnswers {
+            delay(250)
+            "slow"
+        }
+        coEvery { registry.executeFromJson("web_fetch", any()) } coAnswers {
+            delay(100)
+            "fast"
+        }
+        coEvery { registry.executeFromJson("read_file", any()) } coAnswers {
+            delay(20)
+            "quick"
+        }
 
         val history = mutableListOf<UIMessage>()
         val result = orchestrator(parallelReadOnlyTools = true).runLoop(params(), history, host, accessor, coordinator)

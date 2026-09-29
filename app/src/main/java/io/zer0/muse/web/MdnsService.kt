@@ -89,6 +89,7 @@ class MdnsService(private val context: Context) {
     companion object {
         private const val TAG = "MdnsService"
         private const val DEFAULT_SERVICE_NAME = "muse-web"
+
         /** NSD 服务类型(HTTP over TCP)。 */
         private const val SERVICE_TYPE = "_http._tcp."
     }

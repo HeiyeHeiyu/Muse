@@ -136,7 +136,7 @@ abstract class ProviderHttpSupport(
         }
         val failedKey = currentApiKey
         keyRoulette.markFailed(config.id, failedKey, hardBlock = hardBlock)
-        currentApiKey = ""  // 重置,下次 effectiveApiKey 会重新选取
+        currentApiKey = "" // 重置,下次 effectiveApiKey 会重新选取
         val newKey = effectiveApiKey()
         return newKey != failedKey
     }
@@ -189,8 +189,7 @@ abstract class ProviderHttpSupport(
         }
     }
 
-    private fun hasMultipleKeys(): Boolean =
-        config.apiKey.contains(',') || config.apiKey.contains('\n')
+    private fun hasMultipleKeys(): Boolean = config.apiKey.contains(',') || config.apiKey.contains('\n')
 
     companion object {
         /** 错误体最大截取长度(防止超大 HTML 错误页撑爆日志/UI)。 */

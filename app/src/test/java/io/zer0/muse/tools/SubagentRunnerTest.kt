@@ -73,8 +73,12 @@ class SubagentRunnerTest {
         val longArgs = "x".repeat(600)
         val longResult = "y".repeat(500)
         val xml = SubagentXmlRenderer.renderProgress(
-            round = 1, maxToolCalls = 8,
-            toolName = "test", argsJson = longArgs, result = longResult, success = true,
+            round = 1,
+            maxToolCalls = 8,
+            toolName = "test",
+            argsJson = longArgs,
+            result = longResult,
+            success = true,
         )
         assertTrue(xml.contains("truncated"))
     }
@@ -82,7 +86,9 @@ class SubagentRunnerTest {
     @Test
     fun `renderResult success produces correct XML`() {
         val xml = SubagentXmlRenderer.renderResult(
-            success = true, rounds = 2, toolCalls = 2,
+            success = true,
+            rounds = 2,
+            toolCalls = 2,
             summary = "任务完成,找到 3 条结果",
         )
         assertTrue(xml.contains("<subagent_result success=\"true\""))
@@ -95,8 +101,11 @@ class SubagentRunnerTest {
     @Test
     fun `renderResult failure includes error and partial summary`() {
         val xml = SubagentXmlRenderer.renderResult(
-            success = false, rounds = 1, toolCalls = 0,
-            summary = "部分结果", error = "超时",
+            success = false,
+            rounds = 1,
+            toolCalls = 0,
+            summary = "部分结果",
+            error = "超时",
         )
         assertTrue(xml.contains("success=\"false\""))
         assertTrue(xml.contains("[FAILED]"))
@@ -116,7 +125,10 @@ class SubagentRunnerTest {
     fun `renderResult truncates long summary`() {
         val longSummary = "z".repeat(5000)
         val xml = SubagentXmlRenderer.renderResult(
-            success = true, rounds = 1, toolCalls = 0, summary = longSummary,
+            success = true,
+            rounds = 1,
+            toolCalls = 0,
+            summary = longSummary,
         )
         assertTrue(xml.contains("truncated"))
     }
@@ -125,7 +137,15 @@ class SubagentRunnerTest {
 
     @Test
     fun `run returns error when task is blank`() = runTest {
-        val runner = SubagentRunner(mockk(relaxed = true), mockk(relaxed = true), mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
+        val runner =
+            SubagentRunner(
+                mockk(relaxed = true),
+                mockk(relaxed = true),
+                mockThreadStore(),
+                mockLimiter(),
+                mockk(relaxed = true),
+                ToolApprovalRouter(),
+            )
         val result = runner.run(SubagentRunner.Params(task = ""))
         assertFalse(result.success)
         assertNotNull(result.error)
@@ -133,7 +153,15 @@ class SubagentRunnerTest {
 
     @Test
     fun `run returns error when task is whitespace only`() = runTest {
-        val runner = SubagentRunner(mockk(relaxed = true), mockk(relaxed = true), mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
+        val runner =
+            SubagentRunner(
+                mockk(relaxed = true),
+                mockk(relaxed = true),
+                mockThreadStore(),
+                mockLimiter(),
+                mockk(relaxed = true),
+                ToolApprovalRouter(),
+            )
         val result = runner.run(SubagentRunner.Params(task = "   "))
         assertFalse(result.success)
     }
@@ -148,7 +176,8 @@ class SubagentRunnerTest {
             mockChatService.completeText(any(), any(), any(), any(), any(), any(), any(), any())
         } returns ChatCompletion(text = "完成", finishReason = "stop")
 
-        val runner = SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
+        val runner =
+            SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
         // 超出硬上限 20,应被截断到 20(不会报错)
         val result = runner.run(SubagentRunner.Params(task = "测试", maxToolCalls = 100))
         assertTrue(result.success)
@@ -173,7 +202,8 @@ class SubagentRunnerTest {
             mockChatService.completeText(any(), any(), any(), any(), any(), any(), any(), any())
         } returns ChatCompletion(text = "完成", finishReason = "stop")
 
-        val runner = SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
+        val runner =
+            SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
         val result = runner.run(SubagentRunner.Params(task = "测试"))
         assertTrue(result.success)
         // 验证 listToolsAsToolDefinitions 被调用时只传入 web_search(HIGH 工具被过滤)
@@ -197,7 +227,8 @@ class SubagentRunnerTest {
             mockChatService.completeText(any(), any(), any(), any(), any(), any(), any(), any())
         } returns ChatCompletion(text = "完成", finishReason = "stop")
 
-        val runner = SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
+        val runner =
+            SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
         val result = runner.run(SubagentRunner.Params(task = "测试"))
         assertTrue(result.success)
     }
@@ -214,7 +245,8 @@ class SubagentRunnerTest {
             mockChatService.completeText(any(), any(), any(), any(), any(), any(), any(), any())
         } returns ChatCompletion(text = "这是最终总结", finishReason = "stop")
 
-        val runner = SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
+        val runner =
+            SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
         val result = runner.run(SubagentRunner.Params(task = "直接回答任务"))
 
         assertTrue(result.success)
@@ -248,7 +280,8 @@ class SubagentRunnerTest {
         )
         coEvery { mockToolRegistry.executeFromJson("echo", any()) } returns "hi"
 
-        val runner = SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
+        val runner =
+            SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
         val result = runner.run(SubagentRunner.Params(task = "调用 echo 工具", maxToolCalls = 5))
 
         assertTrue(result.success)
@@ -285,7 +318,8 @@ class SubagentRunnerTest {
         } returns ChatCompletion(text = "配额耗尽总结", finishReason = "stop")
         coEvery { mockToolRegistry.executeFromJson("echo", any()) } returns "loop"
 
-        val runner = SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
+        val runner =
+            SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
         val result = runner.run(SubagentRunner.Params(task = "循环调用", maxToolCalls = 2))
 
         assertTrue(result.success)
@@ -313,7 +347,8 @@ class SubagentRunnerTest {
             ),
         )
 
-        val runner = SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
+        val runner =
+            SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
         val result = runner.run(SubagentRunner.Params(task = "测试"))
 
         assertTrue(result.success)
@@ -343,7 +378,8 @@ class SubagentRunnerTest {
             ChatCompletion(text = "总结", finishReason = "stop"),
         )
 
-        val runner = SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
+        val runner =
+            SubagentRunner(mockChatService, mockToolRegistry, mockThreadStore(), mockLimiter(), mockk(relaxed = true), ToolApprovalRouter())
         val result = runner.run(SubagentRunner.Params(task = "测试", maxToolCalls = 3))
 
         assertTrue(result.success)

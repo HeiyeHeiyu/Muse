@@ -30,14 +30,12 @@ class SecureKeyStoreTest {
     }
 
     private class FakeCipher : SecureKeyCipher {
-        override suspend fun encrypt(plain: String): String =
-            if (plain.isEmpty()) plain else "fake:${plain.reversed()}"
+        override suspend fun encrypt(plain: String): String = if (plain.isEmpty()) plain else "fake:${plain.reversed()}"
         override suspend fun decrypt(stored: String): String =
             if (stored.startsWith("fake:")) stored.removePrefix("fake:").reversed() else stored
 
         /** Phase 3 (P1): "fake:broken" 模拟密钥失效/数据损坏 → 显式 null。 */
-        override suspend fun decryptOrNull(stored: String): String? =
-            if (stored == "fake:broken") null else decrypt(stored)
+        override suspend fun decryptOrNull(stored: String): String? = if (stored == "fake:broken") null else decrypt(stored)
     }
 
     @Test

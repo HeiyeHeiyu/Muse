@@ -14,10 +14,7 @@ import io.zer0.ai.core.splitContextWindow
  *
  * 供 resolveHistory(每轮生成)与 pre-send 预警截断(近 token 上限时)共用。
  */
-internal fun buildContextWindow(
-    history: List<UIMessage>,
-    maxSize: Int,
-): List<UIMessage> {
+internal fun buildContextWindow(history: List<UIMessage>, maxSize: Int): List<UIMessage> {
     val (dropped, kept) = history.splitContextWindow(maxSize)
     if (dropped.isEmpty()) return kept
     val digest = ContextHistoryDigest.build(dropped)

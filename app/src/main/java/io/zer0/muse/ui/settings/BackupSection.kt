@@ -1,22 +1,11 @@
 package io.zer0.muse.ui.settings
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.contentDescription
-import io.zer0.common.Logger
-import io.zer0.common.resultOf
-import io.zer0.muse.ui.common.feedback.MuseToast
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseSpinner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -24,29 +13,37 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.zer0.common.Logger
+import io.zer0.common.resultOf
+import io.zer0.muse.R
 import io.zer0.muse.backup.BackupService
 import io.zer0.muse.backup.CloudBackupConfig
-import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
-import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.settings.ChevronRight
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.settings.SettingsItemRow
-import io.zer0.muse.ui.common.settings.SettingsSwitchRow
-import io.zer0.muse.ui.common.settings.ChevronRight
 import io.zer0.muse.ui.common.settings.StatusDot
+import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.theme.MuseDateFormats
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -75,7 +72,7 @@ internal fun BackupSection(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val cloudConfig by settings.cloudBackupConfigFlow.collectAsStateWithLifecycle(
-        initialValue = CloudBackupConfig()
+        initialValue = CloudBackupConfig(),
     )
     // P3-4: 云备份配置与自动同步间隔编辑收敛到独立「云备份」页(CloudBackupPage)。
     // v2.x: 首页整组收敛为单行入口(状态展示 + 导航),开关与快捷操作统一在云备份页。
@@ -279,8 +276,11 @@ internal fun BackupSection(
                     icon = if (isSuccess) MuseIcons.check else MuseIcons.x,
                     title = logFmt.format(Date(log.createdAt)) + " · " +
                         stringResource(
-                            if (isSuccess) R.string.settings_backup_log_success
-                            else R.string.settings_backup_log_failed,
+                            if (isSuccess) {
+                                R.string.settings_backup_log_success
+                            } else {
+                                R.string.settings_backup_log_failed
+                            },
                         ),
                     // 成功显示备份体量;失败显示错误摘要(errorMessage 为英文诊断串,
                     // 缺失时回退失败文案,便于用户理解而非显示空行)
@@ -400,12 +400,26 @@ internal fun BackupSection(
         MuseDialog(
             // 返回只关闭进度展示，导出/导入任务继续运行。
             onDismissRequest = { localBackupDialogVisible = false },
-            title = if (exporting) stringResource(R.string.settings_backup_exporting) else stringResource(R.string.settings_backup_importing),
+            title = if (exporting) {
+                stringResource(
+                    R.string.settings_backup_exporting,
+                )
+            } else {
+                stringResource(R.string.settings_backup_importing)
+            },
             content = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     MuseSpinner()
                     Spacer(modifier = Modifier.width(16.dp))
-                    Text(if (exporting) stringResource(R.string.settings_backup_exporting_data) else stringResource(R.string.settings_backup_importing_data))
+                    Text(
+                        if (exporting) {
+                            stringResource(
+                                R.string.settings_backup_exporting_data,
+                            )
+                        } else {
+                            stringResource(R.string.settings_backup_importing_data)
+                        },
+                    )
                 }
             },
             onConfirm = null,

@@ -23,6 +23,7 @@ import io.zer0.common.Logger
 class PromptTemplateLoader(private val context: Context) {
 
     private val engine = PebbleTemplateEngine()
+
     // M-TPL6: 多协程并发访问(如 buildStaticSnapshot 内多次 render),用 ConcurrentHashMap 保证线程安全
     // v1.0.51: cache key 改为 "{name}_{locale}" 以支持 locale 维度缓存
     private val cache = java.util.concurrent.ConcurrentHashMap<String, String>()
@@ -53,11 +54,8 @@ class PromptTemplateLoader(private val context: Context) {
      * @param context 模板变量上下文(可选)
      * @param fallback 文件加载失败时的默认值
      */
-    fun render(
-        name: String,
-        context: Map<String, Any?> = emptyMap(),
-        fallback: String = "",
-    ): String = render(name, locale = null, context, fallback)
+    fun render(name: String, context: Map<String, Any?> = emptyMap(), fallback: String = ""): String =
+        render(name, locale = null, context, fallback)
 
     /**
      * v1.0.51: 加载并渲染指定模板(带 locale 回落)。
@@ -72,12 +70,7 @@ class PromptTemplateLoader(private val context: Context) {
      * @param context 模板变量上下文(可选)
      * @param fallback 文件加载失败时的默认值
      */
-    fun render(
-        name: String,
-        locale: String?,
-        context: Map<String, Any?> = emptyMap(),
-        fallback: String = "",
-    ): String {
+    fun render(name: String, locale: String?, context: Map<String, Any?> = emptyMap(), fallback: String = ""): String {
         val templateText = loadTemplate(name, locale) ?: return fallback
         return try {
             engine.render(templateText, context)

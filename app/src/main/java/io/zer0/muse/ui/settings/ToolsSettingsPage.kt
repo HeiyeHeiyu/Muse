@@ -30,11 +30,11 @@ import io.zer0.muse.tools.ToolApprovalPolicy
 import io.zer0.muse.tools.ToolConfigStore
 import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.tools.ToolRiskLevel
+import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
-import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.theme.MuseMonoFontFamily
 import io.zer0.muse.ui.theme.statusColors
 import kotlinx.coroutines.launch
@@ -62,9 +62,7 @@ import org.koin.compose.koinInject
  * 风格与 [ChatSettingsPage] 一致(SettingsSubPageScaffold + SettingsGroup + MuseCapsuleTab)。
  */
 @Composable
-fun ToolsSettingsPage(
-    onBack: () -> Unit,
-) {
+fun ToolsSettingsPage(onBack: () -> Unit) {
     val toolRegistry: ToolRegistry = koinInject()
     val toolConfigStore: ToolConfigStore = koinInject()
     val scope = rememberCoroutineScope()
@@ -80,10 +78,13 @@ fun ToolsSettingsPage(
 
     // 按搜索词过滤工具(空查询时返回全部)
     val filteredTools = remember(searchQuery, tools) {
-        if (searchQuery.isBlank()) tools
-        else tools.filter { tool ->
-            tool.name.contains(searchQuery, ignoreCase = true) ||
-                tool.description.contains(searchQuery, ignoreCase = true)
+        if (searchQuery.isBlank()) {
+            tools
+        } else {
+            tools.filter { tool ->
+                tool.name.contains(searchQuery, ignoreCase = true) ||
+                    tool.description.contains(searchQuery, ignoreCase = true)
+            }
         }
     }
 

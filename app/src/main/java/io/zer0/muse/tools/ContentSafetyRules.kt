@@ -45,8 +45,10 @@ object ContentSafetyRules {
                     Regex("""https?://""").containsMatchIn(input)
                 // 4) 通用 URL 外发含敏感词
                 val hasUrlWithSensitive = Regex("""https?://[^\s`'")\]]+""").findAll(input)
-                    .any { it.value.contains("token") || it.value.contains("secret") ||
-                           it.value.contains("key=") || it.value.contains("auth") }
+                    .any {
+                        it.value.contains("token") || it.value.contains("secret") ||
+                            it.value.contains("key=") || it.value.contains("auth")
+                    }
                 hasDangerousProcess || hasCookieExfil || hasFetchExfil ||
                     hasWsExfil || hasBeacon || hasUrlWithSensitive
             },
@@ -82,6 +84,5 @@ object ContentSafetyRules {
      * @param toolName 工具名
      * @param input 输入内容(参数值拼接)
      */
-    fun check(toolName: String, input: String): ContentSafetyRule? =
-        RULES.firstOrNull { it.toolName == toolName && it.matcher(input) }
+    fun check(toolName: String, input: String): ContentSafetyRule? = RULES.firstOrNull { it.toolName == toolName && it.matcher(input) }
 }

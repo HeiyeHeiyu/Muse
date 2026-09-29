@@ -60,13 +60,17 @@ interface MessageProcessingPlugin : SkillHook {
      * 用户消息发送前调用。
      * @return 修改后的消息内容;返回 null 表示拦截该消息(不发送)
      */
-    suspend fun onUserMessageSend(message: String): String? { return message }
+    suspend fun onUserMessageSend(message: String): String? {
+        return message
+    }
 
     /**
      * AI 消息渲染前调用(可做最终内容修改,如脱敏/格式化)。
      * @return 修改后的内容
      */
-    suspend fun onAssistantMessageRender(content: String): String { return content }
+    suspend fun onAssistantMessageRender(content: String): String {
+        return content
+    }
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -93,7 +97,9 @@ data class PromptContext(
  * @return 追加到系统提示末尾的内容(空串表示不追加)
  */
 interface SystemPromptComposeHook : SkillHook {
-    suspend fun afterComposeSystemPrompt(context: PromptContext): String { return "" }
+    suspend fun afterComposeSystemPrompt(context: PromptContext): String {
+        return ""
+    }
 }
 
 /**
@@ -108,7 +114,9 @@ interface ToolPromptComposeHook : SkillHook {
      * @param tools 当前工具列表
      * @return 修改后的工具列表
      */
-    suspend fun filterToolPromptItems(tools: List<ToolPromptItem>): List<ToolPromptItem> { return tools }
+    suspend fun filterToolPromptItems(tools: List<ToolPromptItem>): List<ToolPromptItem> {
+        return tools
+    }
 }
 
 /**
@@ -165,6 +173,7 @@ interface PromptFinalizeHook : SkillHook {
 sealed class ToolCallAction {
     /** 允许执行 */
     object Allow : ToolCallAction()
+
     /** 拦截执行,返回自定义结果给 LLM */
     data class Block(val reason: String, val fakeResult: String? = null) : ToolCallAction()
 }
@@ -224,11 +233,15 @@ interface SummaryGenerateHook : SkillHook {
      * 准备摘要提示词前调用,可修改待压缩的历史消息。
      * @return 修改后的历史消息
      */
-    suspend fun beforePrepareSummaryPrompt(history: List<UIMessage>): List<UIMessage> { return history }
+    suspend fun beforePrepareSummaryPrompt(history: List<UIMessage>): List<UIMessage> {
+        return history
+    }
 
     /**
      * 摘要生成后调用,可修改最终摘要内容。
      * @return 修改后的摘要
      */
-    suspend fun afterGenerateSummary(summary: String): String { return summary }
+    suspend fun afterGenerateSummary(summary: String): String {
+        return summary
+    }
 }

@@ -12,16 +12,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.navigation.MuseTopBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -31,12 +28,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
-import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.data.session.SessionEntity
 import io.zer0.muse.data.session.SessionRepository
-import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.museAnimateItem
+import io.zer0.muse.ui.common.navigation.MuseTopBar
+import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.surface.MuseSurface
 import io.zer0.muse.ui.theme.MuseDateFormats
 import io.zer0.muse.ui.theme.MuseShapes
@@ -49,10 +49,7 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-fun RecentlyDeletedScreen(
-    onBack: () -> Unit,
-    sessionRepository: SessionRepository = koinInject(),
-) {
+fun RecentlyDeletedScreen(onBack: () -> Unit, sessionRepository: SessionRepository = koinInject()) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val deletedSessions by sessionRepository.observeDeletedSessions()
@@ -93,17 +90,17 @@ fun RecentlyDeletedScreen(
             ) {
                 items(deletedSessions, key = { it.id }) { session ->
                     Box(modifier = museAnimateItem()) {
-                    DeletedSessionCard(
-                        session = session,
-                        dateFormat = dateFormat,
-                        onRestore = {
-                            scope.launch {
-                                withContext(Dispatchers.IO) { sessionRepository.restoreSession(session.id) }
-                                MuseToast.show(context.getString(R.string.recently_deleted_restore_done))
-                            }
-                        },
-                        onPermanentDelete = { pendingPermanentDeleteId = session.id },
-                    )
+                        DeletedSessionCard(
+                            session = session,
+                            dateFormat = dateFormat,
+                            onRestore = {
+                                scope.launch {
+                                    withContext(Dispatchers.IO) { sessionRepository.restoreSession(session.id) }
+                                    MuseToast.show(context.getString(R.string.recently_deleted_restore_done))
+                                }
+                            },
+                            onPermanentDelete = { pendingPermanentDeleteId = session.id },
+                        )
                     }
                 }
             }
@@ -140,7 +137,7 @@ private fun DeletedSessionCard(
         shape = MuseShapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
-Row(
+        Row(
             modifier = Modifier.padding(14.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {

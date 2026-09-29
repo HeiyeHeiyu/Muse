@@ -91,8 +91,7 @@ class PluginVersionStore(
         )
     }
 
-    fun find(pluginId: String, version: String): RetainedPluginVersion? =
-        list(pluginId).firstOrNull { it.version == version }
+    fun find(pluginId: String, version: String): RetainedPluginVersion? = list(pluginId).firstOrNull { it.version == version }
 
     fun delete(pluginId: String, version: String) {
         runCatching {
@@ -143,8 +142,7 @@ class PluginVersionStore(
 
     private fun pluginIdDirectory(pluginId: String): File = File(root, pluginId)
 
-    private fun versionDirectory(pluginId: String, version: String): File =
-        File(pluginIdDirectory(pluginId), version)
+    private fun versionDirectory(pluginId: String, version: String): File = File(pluginIdDirectory(pluginId), version)
 
     private fun requireValidId(pluginId: String) {
         require(ID_REGEX.matches(pluginId)) { "插件 id 非法: $pluginId" }

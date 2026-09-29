@@ -2,12 +2,6 @@ package io.zer0.muse.ui.speech
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseProgressBar
-import io.zer0.muse.ui.theme.MuseAnimation
-import io.zer0.muse.ui.theme.MuseMotion
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -25,10 +19,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,7 +36,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.state.MuseProgressBar
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import org.koin.compose.koinInject
 
 /**
@@ -60,10 +60,7 @@ import org.koin.compose.koinInject
  * @param modifier 外部对齐 + padding(由调用方指定位置)
  */
 @Composable
-fun TtsControllerWidget(
-    modifier: Modifier = Modifier,
-    ttsManager: TtsManager = koinInject(),
-) {
+fun TtsControllerWidget(modifier: Modifier = Modifier, ttsManager: TtsManager = koinInject()) {
     val state by ttsManager.playbackState.collectAsStateWithLifecycle()
     val visible = state.status != PlaybackStatus.Idle
 
@@ -97,10 +94,14 @@ fun TtsControllerWidget(
                     isPlaying = state.status == PlaybackStatus.Playing,
                     audioProgress = if (state.durationMs > 0) {
                         (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f)
-                    } else 0f,
+                    } else {
+                        0f
+                    },
                     chunkProgress = if (state.totalChunks > 0) {
                         (state.currentChunkIndex.toFloat() / state.totalChunks).coerceIn(0f, 1f)
-                    } else 0f,
+                    } else {
+                        0f
+                    },
                     onClick = {
                         if (state.status == PlaybackStatus.Playing) {
                             ttsManager.pause()
@@ -206,8 +207,11 @@ fun TtsControllerWidget(
                     onClick = { expanded = !expanded },
                 ) {
                     Icon(
-                        imageVector = if (expanded) MuseIcons.chevronLeft
-                                       else MuseIcons.chevronRight,
+                        imageVector = if (expanded) {
+                            MuseIcons.chevronLeft
+                        } else {
+                            MuseIcons.chevronRight
+                        },
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(20.dp),
@@ -231,12 +235,7 @@ fun TtsControllerWidget(
  * @param onClick 点击回调(切换播放/暂停)
  */
 @Composable
-private fun CircleProgressButton(
-    isPlaying: Boolean,
-    audioProgress: Float,
-    chunkProgress: Float,
-    onClick: () -> Unit,
-) {
+private fun CircleProgressButton(isPlaying: Boolean, audioProgress: Float, chunkProgress: Float, onClick: () -> Unit) {
     val progressSpec = MuseMotion.tween<Float>(
         durationMillis = MuseAnimation.FAST_NORMAL_MS,
         easing = MuseAnimation.EaseOutCubic,
@@ -292,11 +291,7 @@ private fun CircleProgressButton(
  * @param content 内容(Icon / Text)
  */
 @Composable
-private fun CircleIconButton(
-    contentDescription: String,
-    onClick: () -> Unit,
-    content: @Composable () -> Unit,
-) {
+private fun CircleIconButton(contentDescription: String, onClick: () -> Unit, content: @Composable () -> Unit) {
     Box(
         modifier = Modifier
             .size(MuseIconSizes.touchTarget)

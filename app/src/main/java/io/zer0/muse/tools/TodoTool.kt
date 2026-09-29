@@ -40,8 +40,7 @@ object TodoTool {
     val todosFlow: StateFlow<Map<String, TodoList>> = _todosFlow.asStateFlow()
 
     /** v1.0.92: 订阅指定会话的待办列表(无内容时为空列表)。 */
-    fun observeTodos(sessionId: String): Flow<TodoList> =
-        _todosFlow.map { it[sessionId] ?: TodoList() }
+    fun observeTodos(sessionId: String): Flow<TodoList> = _todosFlow.map { it[sessionId] ?: TodoList() }
 
     private fun publish() {
         _todosFlow.value = sessionTodos.toMap()
@@ -68,17 +67,20 @@ object TodoTool {
             ?: return "Error: todos parameter is required."
 
         val todos = try {
-            AppJson.decodeFromString(TodoList.serializer(), TodoList.serializer().let {
-                // 先解析为数组再包装
-                val arr = AppJson.decodeFromString(
-                    kotlinx.serialization.builtins.ListSerializer(TodoItem.serializer()),
-                    todosJson,
-                )
-                AppJson.encodeToString(
-                    TodoList.serializer(),
-                    TodoList(arr),
-                )
-            })
+            AppJson.decodeFromString(
+                TodoList.serializer(),
+                TodoList.serializer().let {
+                    // 先解析为数组再包装
+                    val arr = AppJson.decodeFromString(
+                        kotlinx.serialization.builtins.ListSerializer(TodoItem.serializer()),
+                        todosJson,
+                    )
+                    AppJson.encodeToString(
+                        TodoList.serializer(),
+                        TodoList(arr),
+                    )
+                },
+            )
         } catch (e: Exception) {
             // 尝试作为包装对象解析
             try {
@@ -103,7 +105,9 @@ object TodoTool {
         val inProgressCount = counts.getValue("in_progress")
         val warning = if (inProgressCount > 1) {
             "Warning: multiple in_progress items ($inProgressCount). Convention: only one at a time."
-        } else null
+        } else {
+            null
+        }
 
         return buildString {
             append("Todo list updated: $total total, ")

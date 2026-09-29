@@ -44,15 +44,13 @@ class StreamingTurnBuffer(
     private var finished = false
 
     /** 追加文本 delta；返回 false 表示事件被拒绝或重复。 */
-    fun appendText(sequenceInStream: Long, delta: String): Boolean =
-        append(sequenceInStream, "text", delta)
+    fun appendText(sequenceInStream: Long, delta: String): Boolean = append(sequenceInStream, "text", delta)
 
     /** 兼容没有 sequence 的旧 provider，使用本地递增序号。 */
     fun appendText(delta: String): Boolean = appendText(nextSequence, delta)
 
     /** 追加 reasoning delta。 */
-    fun appendReasoning(sequenceInStream: Long, delta: String): Boolean =
-        append(sequenceInStream, "reasoning", delta)
+    fun appendReasoning(sequenceInStream: Long, delta: String): Boolean = append(sequenceInStream, "reasoning", delta)
 
     /** 追加工具 part。 */
     fun appendTool(sequenceInStream: Long, toolName: String, metadataJson: String): Boolean =

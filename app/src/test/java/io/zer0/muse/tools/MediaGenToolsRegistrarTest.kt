@@ -3,9 +3,6 @@ package io.zer0.muse.tools
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import io.mockk.mockk
-import io.zer0.ai.image.ImageService
-import io.zer0.ai.video.VideoGenerationService
-import io.zer0.muse.data.SettingsRepository
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull

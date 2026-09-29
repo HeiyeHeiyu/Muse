@@ -8,7 +8,7 @@ class WebSearchQueryNormalizerTest {
     fun `removes malformed smart quotes and outer ascii quotes`() {
         assertEquals(
             "ornith1.5-35ba3b 模型 OR model",
-            WebSearchQueryNormalizer.normalize("\"\"ornith1.5-35ba3b”模型 OR model\"")
+            WebSearchQueryNormalizer.normalize("\"\"ornith1.5-35ba3b”模型 OR model\""),
         )
     }
 

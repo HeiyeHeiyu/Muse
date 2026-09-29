@@ -15,7 +15,9 @@ interface TranslateHistoryDao {
     @Query("SELECT * FROM translate_history WHERE favorite = 1 ORDER BY created_at DESC")
     fun observeFavorites(): Flow<List<TranslateHistoryEntity>>
 
-    @Query("SELECT * FROM translate_history WHERE source_text LIKE '%' || :keyword || '%' OR translated_text LIKE '%' || :keyword || '%' ORDER BY created_at DESC LIMIT :limit")
+    @Query(
+        "SELECT * FROM translate_history WHERE source_text LIKE '%' || :keyword || '%' OR translated_text LIKE '%' || :keyword || '%' ORDER BY created_at DESC LIMIT :limit",
+    )
     suspend fun search(keyword: String, limit: Int = 50): List<TranslateHistoryEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

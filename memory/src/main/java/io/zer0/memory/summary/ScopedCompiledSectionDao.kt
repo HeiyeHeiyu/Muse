@@ -22,19 +22,14 @@ interface ScopedCompiledSectionDao {
             "ON CONFLICT(section_key, scope, space_id) DO UPDATE SET " +
             "content = :content, fingerprint = :fingerprint, updated_at = :now",
     )
-    suspend fun updateContent(
-        key: String,
-        scope: String,
-        spaceId: String,
-        content: String,
-        fingerprint: String?,
-        now: String,
-    )
+    suspend fun updateContent(key: String, scope: String, spaceId: String, content: String, fingerprint: String?, now: String)
 
     @Query("UPDATE compiled_sections_scoped SET content = '', fingerprint = NULL, updated_at = :now")
     suspend fun clearAll(now: String)
 
-    @Query("UPDATE compiled_sections_scoped SET content = '', fingerprint = NULL, updated_at = :now WHERE section_key = :key AND scope = :scope AND space_id = :spaceId")
+    @Query(
+        "UPDATE compiled_sections_scoped SET content = '', fingerprint = NULL, updated_at = :now WHERE section_key = :key AND scope = :scope AND space_id = :spaceId",
+    )
     suspend fun clearByKey(key: String, scope: String, spaceId: String, now: String)
 
     @Query("DELETE FROM compiled_sections_scoped")

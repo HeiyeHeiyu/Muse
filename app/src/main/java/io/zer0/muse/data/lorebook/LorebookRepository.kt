@@ -61,16 +61,19 @@ class LorebookRepository(
     fun matchAgainst(entries: List<LorebookEntity>, text: String): List<LorebookEntity> {
         if (entries.isEmpty() || text.isBlank()) return emptyList()
         return entries
-            .filter { it.enabled }  // L-LB10: 防御性过滤
+            .filter { it.enabled } // L-LB10: 防御性过滤
             .filter { entry ->
                 val keywords = parseKeywords(entry.keywordsJson)
                 if (keywords.isEmpty()) return@filter false
                 keywords.any { kw ->
-                    if (kw.isBlank()) false
-                    else matchKeyword(text, kw, entry.caseSensitive, entry.wholeWord)
+                    if (kw.isBlank()) {
+                        false
+                    } else {
+                        matchKeyword(text, kw, entry.caseSensitive, entry.wholeWord)
+                    }
                 }
             }
-            .sortedWith(compareByDescending<LorebookEntity> { it.priority }.thenBy { it.name })  // M-LB2
+            .sortedWith(compareByDescending<LorebookEntity> { it.priority }.thenBy { it.name }) // M-LB2
     }
 
     /**
@@ -88,8 +91,11 @@ class LorebookRepository(
             pattern.containsMatchIn(text)
         } else {
             // 子串匹配(向后兼容)
-            if (caseSensitive) text.contains(keyword)
-            else text.contains(keyword, ignoreCase = true)
+            if (caseSensitive) {
+                text.contains(keyword)
+            } else {
+                text.contains(keyword, ignoreCase = true)
+            }
         }
     }
 
@@ -99,6 +105,7 @@ class LorebookRepository(
 
         private val json = Json { ignoreUnknownKeys = true }
         private val stringListSerializer = ListSerializer(String.serializer())
+
         // L-LB5: keywordsJson 解析缓存,避免每次 matchAgainst 重复解析
         private val keywordsCache = ConcurrentHashMap<String, List<String>>()
 
@@ -107,18 +114,16 @@ class LorebookRepository(
          * L-LB5: 以 keywordsJson 字符串为 key 缓存解析结果,避免重复解析。
          * L-DAO2: 解析失败时 Logger.w 记录(而非静默返回 emptyList)。
          */
-        fun parseKeywords(keywordsJson: String): List<String> =
-            keywordsCache.computeIfAbsent(keywordsJson) {
-                runCatching { json.decodeFromString(stringListSerializer, it) }
-                    .getOrElse { e ->
-                        Logger.w("LorebookRepository", "keywordsJson 解析失败: ${e.message}, 返回 emptyList (raw=$keywordsJson)")
-                        emptyList()
-                    }
-            }
+        fun parseKeywords(keywordsJson: String): List<String> = keywordsCache.computeIfAbsent(keywordsJson) {
+            runCatching { json.decodeFromString(stringListSerializer, it) }
+                .getOrElse { e ->
+                    Logger.w("LorebookRepository", "keywordsJson 解析失败: ${e.message}, 返回 emptyList (raw=$keywordsJson)")
+                    emptyList()
+                }
+        }
 
         /** 编码 List<String> 为 keywordsJson。 */
-        fun encodeKeywords(keywords: List<String>): String =
-            runCatching { json.encodeToString(stringListSerializer, keywords) }
-                .getOrDefault("[]")
+        fun encodeKeywords(keywords: List<String>): String = runCatching { json.encodeToString(stringListSerializer, keywords) }
+            .getOrDefault("[]")
     }
 }

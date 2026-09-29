@@ -76,147 +76,145 @@ class GenericOpenAiVideoProvider(
      *  - 含 video URL(无 task_id) → isAsync=false,直接返回 videoUrl
      *  - 含 task_id / id(无 video URL) → isAsync=true,缓存上下文供 poll 使用
      */
-    override suspend fun submit(request: VideoGenRequest): VideoSubmitResult =
-        withContext(Dispatchers.IO) {
-            resultOf {
-                if (request.apiKey.isBlank()) {
-                    error("视频生成 API Key 为空")
+    override suspend fun submit(request: VideoGenRequest): VideoSubmitResult = withContext(Dispatchers.IO) {
+        resultOf {
+            if (request.apiKey.isBlank()) {
+                error("视频生成 API Key 为空")
+            }
+            if (request.prompt.isBlank()) {
+                error("Prompt 为空")
+            }
+
+            val baseUrl = (request.baseUrl ?: DEFAULT_BASE_URL).trimEnd('/')
+            val path = request.videoGenerationsPath?.trim()?.trim('/')?.ifBlank { DEFAULT_PATH }
+                ?: DEFAULT_PATH
+            val url = "$baseUrl/$path"
+
+            val body = buildRequestBody(request)
+            val httpRequest = Request.Builder()
+                .url(url)
+                .header("Authorization", "Bearer ${request.apiKey}")
+                .header("Content-Type", "application/json")
+                .post(body.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            Logger.i(
+                TAG,
+                "submit: model=${request.model} baseUrl=$baseUrl path=$path",
+            )
+
+            exec(httpRequest).use { resp ->
+                val respBody = readBody(resp)
+                if (!resp.isSuccessful) {
+                    val apiMsg = parseApiErrorMessage(respBody)
+                    error(
+                        "视频生成请求失败: HTTP ${resp.code}" +
+                            (apiMsg?.let { ": $it" } ?: if (respBody.isNotBlank()) ": $respBody" else ""),
+                    )
                 }
-                if (request.prompt.isBlank()) {
-                    error("Prompt 为空")
-                }
 
-                val baseUrl = (request.baseUrl ?: DEFAULT_BASE_URL).trimEnd('/')
-                val path = request.videoGenerationsPath?.trim()?.trim('/')?.ifBlank { DEFAULT_PATH }
-                    ?: DEFAULT_PATH
-                val url = "$baseUrl/$path"
+                val root = json.parseToJsonElement(respBody).jsonObject
 
-                val body = buildRequestBody(request)
-                val httpRequest = Request.Builder()
-                    .url(url)
-                    .header("Authorization", "Bearer ${request.apiKey}")
-                    .header("Content-Type", "application/json")
-                    .post(body.toRequestBody("application/json".toMediaType()))
-                    .build()
-
-                Logger.i(
-                    TAG,
-                    "submit: model=${request.model} baseUrl=$baseUrl path=$path",
-                )
-
-                exec(httpRequest).use { resp ->
-                    val respBody = readBody(resp)
-                    if (!resp.isSuccessful) {
-                        val apiMsg = parseApiErrorMessage(respBody)
-                        error(
-                            "视频生成请求失败: HTTP ${resp.code}" +
-                                (apiMsg?.let { ": $it" } ?: if (respBody.isNotBlank()) ": $respBody" else ""),
-                        )
-                    }
-
-                    val root = json.parseToJsonElement(respBody).jsonObject
-
-                    // 优先尝试同步结果:响应体中直接包含 video URL
-                    val syncVideoUrl = extractVideoUrl(root)
-                    if (syncVideoUrl != null) {
-                        Logger.i(TAG, "submit 同步返回视频: url=$syncVideoUrl")
-                        return@use VideoSubmitResult(
-                            // 同步任务用 URL 派生 taskId,便于日志关联;不会进入 poll
-                            taskId = "$SYNC_PREFIX${System.nanoTime()}",
-                            videoUrl = syncVideoUrl,
-                            isAsync = false,
-                            modelName = request.model,
-                        )
-                    }
-
-                    // 否则按异步任务处理:解析 task_id / id
-                    val taskId = root["task_id"]?.jsonPrimitive?.content
-                        ?: root["id"]?.jsonPrimitive?.content
-                        ?: root["task"]?.jsonPrimitive?.content
-                        ?: error("视频生成响应中未找到视频 URL 或 task_id: $respBody")
-
-                    taskContext[taskId] = TaskContext(
-                        apiKey = request.apiKey,
-                        baseUrl = baseUrl,
-                        path = path,
+                // 优先尝试同步结果:响应体中直接包含 video URL
+                val syncVideoUrl = extractVideoUrl(root)
+                if (syncVideoUrl != null) {
+                    Logger.i(TAG, "submit 同步返回视频: url=$syncVideoUrl")
+                    return@use VideoSubmitResult(
+                        // 同步任务用 URL 派生 taskId,便于日志关联;不会进入 poll
+                        taskId = "$SYNC_PREFIX${System.nanoTime()}",
+                        videoUrl = syncVideoUrl,
+                        isAsync = false,
                         modelName = request.model,
                     )
-                    Logger.i(TAG, "submit 异步任务: taskId=$taskId")
-                    VideoSubmitResult(taskId = taskId, isAsync = true, modelName = request.model)
                 }
-            }.getOrThrow()
-        }
+
+                // 否则按异步任务处理:解析 task_id / id
+                val taskId = root["task_id"]?.jsonPrimitive?.content
+                    ?: root["id"]?.jsonPrimitive?.content
+                    ?: root["task"]?.jsonPrimitive?.content
+                    ?: error("视频生成响应中未找到视频 URL 或 task_id: $respBody")
+
+                taskContext[taskId] = TaskContext(
+                    apiKey = request.apiKey,
+                    baseUrl = baseUrl,
+                    path = path,
+                    modelName = request.model,
+                )
+                Logger.i(TAG, "submit 异步任务: taskId=$taskId")
+                VideoSubmitResult(taskId = taskId, isAsync = true, modelName = request.model)
+            }
+        }.getOrThrow()
+    }
 
     /**
      * 查询异步任务状态。
      *
      * GET {baseUrl}{path}/{taskId}
      */
-    override suspend fun poll(taskId: String): VideoPollResult =
-        withContext(Dispatchers.IO) {
-            val r = resultOf {
-                val ctx = taskContext[taskId]
-                if (ctx == null) {
-                    return@resultOf VideoPollResult(
-                        status = PollStatus.FAILED,
-                        errorMessage = "GenericOpenAi poll 缺少任务上下文(taskId=$taskId, 可能是同步任务被误调 poll)",
-                    )
-                }
-
-                val url = "${ctx.baseUrl}/${ctx.path}/${taskId.encodeUrlPathSegment()}"
-                val httpRequest = Request.Builder()
-                    .url(url)
-                    .header("Authorization", "Bearer ${ctx.apiKey}")
-                    .get()
-                    .build()
-
-                exec(httpRequest).use { resp ->
-                    val respBody = readBody(resp)
-                    if (!resp.isSuccessful) {
-                        // HTTP 错误不直接判失败,交给上层重试机制处理
-                        return@use VideoPollResult(
-                            status = PollStatus.PENDING,
-                            errorMessage = "GenericOpenAi poll HTTP ${resp.code}: $respBody",
-                        )
-                    }
-                    val root = json.parseToJsonElement(respBody).jsonObject
-                    val statusStr = root["status"]?.jsonPrimitive?.content?.lowercase()
-                        ?: root["state"]?.jsonPrimitive?.content?.lowercase()
-                        ?: "unknown"
-                    val status = mapStatus(statusStr)
-
-                    when (status) {
-                        PollStatus.SUCCESS -> {
-                            val videoUrl = extractVideoUrl(root)
-                            taskContext.remove(taskId)
-                            if (videoUrl == null) {
-                                VideoPollResult(
-                                    status = PollStatus.PENDING,
-                                    errorMessage = "GenericOpenAi 状态为成功但未找到视频 URL: $respBody",
-                                )
-                            } else {
-                                VideoPollResult(status = status, videoUrl = videoUrl)
-                            }
-                        }
-                        PollStatus.FAILED -> {
-                            val errMsg = root["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content
-                                ?: root["message"]?.jsonPrimitive?.content
-                                ?: "GenericOpenAi 视频生成失败(status=$statusStr)"
-                            taskContext.remove(taskId)
-                            VideoPollResult(status = status, errorMessage = errMsg)
-                        }
-                        PollStatus.PENDING -> VideoPollResult(status = status)
-                    }
-                }
-            }
-            when (r) {
-                is io.zer0.common.Result.Success -> r.data
-                is io.zer0.common.Result.Error -> VideoPollResult(
-                    status = PollStatus.PENDING,
-                    errorMessage = "GenericOpenAi poll 异常: ${r.throwable?.message ?: r.throwable?.toString() ?: r.message}",
+    override suspend fun poll(taskId: String): VideoPollResult = withContext(Dispatchers.IO) {
+        val r = resultOf {
+            val ctx = taskContext[taskId]
+            if (ctx == null) {
+                return@resultOf VideoPollResult(
+                    status = PollStatus.FAILED,
+                    errorMessage = "GenericOpenAi poll 缺少任务上下文(taskId=$taskId, 可能是同步任务被误调 poll)",
                 )
             }
+
+            val url = "${ctx.baseUrl}/${ctx.path}/${taskId.encodeUrlPathSegment()}"
+            val httpRequest = Request.Builder()
+                .url(url)
+                .header("Authorization", "Bearer ${ctx.apiKey}")
+                .get()
+                .build()
+
+            exec(httpRequest).use { resp ->
+                val respBody = readBody(resp)
+                if (!resp.isSuccessful) {
+                    // HTTP 错误不直接判失败,交给上层重试机制处理
+                    return@use VideoPollResult(
+                        status = PollStatus.PENDING,
+                        errorMessage = "GenericOpenAi poll HTTP ${resp.code}: $respBody",
+                    )
+                }
+                val root = json.parseToJsonElement(respBody).jsonObject
+                val statusStr = root["status"]?.jsonPrimitive?.content?.lowercase()
+                    ?: root["state"]?.jsonPrimitive?.content?.lowercase()
+                    ?: "unknown"
+                val status = mapStatus(statusStr)
+
+                when (status) {
+                    PollStatus.SUCCESS -> {
+                        val videoUrl = extractVideoUrl(root)
+                        taskContext.remove(taskId)
+                        if (videoUrl == null) {
+                            VideoPollResult(
+                                status = PollStatus.PENDING,
+                                errorMessage = "GenericOpenAi 状态为成功但未找到视频 URL: $respBody",
+                            )
+                        } else {
+                            VideoPollResult(status = status, videoUrl = videoUrl)
+                        }
+                    }
+                    PollStatus.FAILED -> {
+                        val errMsg = root["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content
+                            ?: root["message"]?.jsonPrimitive?.content
+                            ?: "GenericOpenAi 视频生成失败(status=$statusStr)"
+                        taskContext.remove(taskId)
+                        VideoPollResult(status = status, errorMessage = errMsg)
+                    }
+                    PollStatus.PENDING -> VideoPollResult(status = status)
+                }
+            }
         }
+        when (r) {
+            is io.zer0.common.Result.Success -> r.data
+            is io.zer0.common.Result.Error -> VideoPollResult(
+                status = PollStatus.PENDING,
+                errorMessage = "GenericOpenAi poll 异常: ${r.throwable?.message ?: r.throwable?.toString() ?: r.message}",
+            )
+        }
+    }
 
     /**
      * 构造请求体 JSON。
@@ -303,20 +301,19 @@ class GenericOpenAiVideoProvider(
         return String(bytes, Charsets.UTF_8)
     }
 
-    private suspend fun exec(request: Request): Response =
-        suspendCancellableCoroutine { cont ->
-            val call = client.newCall(request)
-            cont.invokeOnCancellation { runCatching { call.cancel() } }
-            call.enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    if (cont.isActive) cont.resumeWithException(e)
-                }
+    private suspend fun exec(request: Request): Response = suspendCancellableCoroutine { cont ->
+        val call = client.newCall(request)
+        cont.invokeOnCancellation { runCatching { call.cancel() } }
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                if (cont.isActive) cont.resumeWithException(e)
+            }
 
-                override fun onResponse(call: Call, response: Response) {
-                    if (cont.isActive) cont.resume(response) else response.close()
-                }
-            })
-        }
+            override fun onResponse(call: Call, response: Response) {
+                if (cont.isActive) cont.resume(response) else response.close()
+            }
+        })
+    }
 
     companion object {
         private const val TAG = "GenericOpenAiVideoProvider"
@@ -342,5 +339,4 @@ class GenericOpenAiVideoProvider(
 }
 
 /** String 扩展:URL 路径段编码(避免特殊字符破坏请求)。 */
-private fun String.encodeUrlPathSegment(): String =
-    java.net.URLEncoder.encode(this, "UTF-8").replace("+", "%20")
+private fun String.encodeUrlPathSegment(): String = java.net.URLEncoder.encode(this, "UTF-8").replace("+", "%20")

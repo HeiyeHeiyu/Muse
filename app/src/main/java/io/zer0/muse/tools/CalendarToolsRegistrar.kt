@@ -85,7 +85,10 @@ class CalendarToolsRegistrar(
             try {
                 cr.query(
                     android.provider.CalendarContract.Events.CONTENT_URI,
-                    projection, selection, selectionArgs, sortOrder,
+                    projection,
+                    selection,
+                    selectionArgs,
+                    sortOrder,
                 )?.use { cursor ->
                     val titleIdx = cursor.getColumnIndexOrThrow(android.provider.CalendarContract.Events.TITLE)
                     val startIdx = cursor.getColumnIndexOrThrow(android.provider.CalendarContract.Events.DTSTART)
@@ -190,7 +193,9 @@ class CalendarToolsRegistrar(
             )?.use { cursor ->
                 if (cursor.moveToFirst()) {
                     cursor.getLong(cursor.getColumnIndexOrThrow(android.provider.CalendarContract.Calendars._ID))
-                } else null
+                } else {
+                    null
+                }
             }
         }.getOrNull()
     }

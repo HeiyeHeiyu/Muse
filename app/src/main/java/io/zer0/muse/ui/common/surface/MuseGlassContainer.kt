@@ -54,7 +54,7 @@ fun MuseGlassContainer(
             .clip(shape)
             .border(width = 1.dp, color = borderColor, shape = shape)
             .then(
-                if (blurRadius > 0.dp) Modifier.blur(blurRadius) else Modifier
+                if (blurRadius > 0.dp) Modifier.blur(blurRadius) else Modifier,
             ),
     ) {
         // 半透明背景层
@@ -63,7 +63,7 @@ fun MuseGlassContainer(
                 .matchParentSize()
                 .drawBehind {
                     drawRect(color = glassBg)
-                }
+                },
         )
         content()
     }

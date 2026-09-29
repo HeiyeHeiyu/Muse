@@ -43,36 +43,36 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import io.zer0.ai.core.RagCitation
 import io.zer0.muse.R
 import io.zer0.muse.ui.chat.ToolCallVisuals
 import io.zer0.muse.ui.chat.ToolResultRenderer
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.markdown.RichContentCard
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.media.AttachmentChip
 import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.ui.theme.MuseElevation
+import io.zer0.muse.ui.markdown.RichContentCard
 import io.zer0.muse.ui.theme.MuseAnimation
-import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MuseElevation
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
-import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -91,13 +91,7 @@ import org.json.JSONObject
  * 结果文本中若包含沙盒内文件路径,会渲染为可点击的附件芯片(见 [AttachmentChip])。
  */
 @Composable
-internal fun ToolCallCard(
-    toolName: String,
-    arguments: String,
-    result: String,
-    isSuccess: Boolean,
-    modifier: Modifier = Modifier,
-) {
+internal fun ToolCallCard(toolName: String, arguments: String, result: String, isSuccess: Boolean, modifier: Modifier = Modifier) {
     var expanded by rememberSaveable { mutableStateOf(false) }
 
     // v2.0: 插件工具卡 — 插件为该工具声明自定义 HTML 卡片时提供查看入口
@@ -204,8 +198,11 @@ internal fun ToolCallCard(
                     Text(
                         text = summary,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (hasFailed) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (hasFailed) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -320,13 +317,7 @@ internal fun ToolCallCard(
 }
 
 /** v2.0: 把工具调用数据注入插件卡片 HTML(前置脚本,只读)。 */
-private fun buildToolCardHtml(
-    html: String,
-    toolName: String,
-    arguments: String,
-    result: String,
-    isSuccess: Boolean,
-): String {
+private fun buildToolCardHtml(html: String, toolName: String, arguments: String, result: String, isSuccess: Boolean): String {
     val argsElement = runCatching {
         io.zer0.common.AppJson.parseToJsonElement(arguments)
     }.getOrNull() ?: kotlinx.serialization.json.JsonPrimitive(arguments)
@@ -425,21 +416,30 @@ private fun ResultSection(result: String, hasFailed: Boolean) {
                     showFullResult -> Text(
                         text = result,
                         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                        color = if (hasFailed) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (hasFailed) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                     )
                     else -> Text(
                         text = result.take(RESULT_PREVIEW_CHARS) + "…",
                         style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                        color = if (hasFailed) MaterialTheme.colorScheme.error
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (hasFailed) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                     )
                 }
                 if (isTruncated) {
                     Text(
                         text = stringResource(
-                            if (showFullResult) R.string.chat_tool_result_collapse
-                            else R.string.chat_tool_result_expand,
+                            if (showFullResult) {
+                                R.string.chat_tool_result_collapse
+                            } else {
+                                R.string.chat_tool_result_expand
+                            },
                             result.length,
                         ),
                         style = MaterialTheme.typography.labelSmall,
@@ -474,7 +474,10 @@ private fun parseParamRows(arguments: String): List<Pair<String, String>> {
         val v = obj.opt(k)
         if (v == null || v == JSONObject.NULL) continue
         val display = when (v) {
-            is String -> v.ifBlank { continue; "" }
+            is String -> v.ifBlank {
+                continue
+                ""
+            }
             is Boolean, is Number -> v.toString()
             is JSONArray -> "[${v.length()} 项]"
             is JSONObject -> "{…}"
@@ -612,10 +615,7 @@ internal fun RagCitationChips(
 
 /** 展开的引用详情:片段标题 + 摘要 + 分数 + 动作行(打开文档 / 复制摘要)。 */
 @Composable
-private fun RagCitationDetail(
-    citation: RagCitation,
-    onOpenDocument: ((RagCitation) -> Unit)?,
-) {
+private fun RagCitationDetail(citation: RagCitation, onOpenDocument: ((RagCitation) -> Unit)?) {
     val context = LocalContext.current
     Surface(
         shape = MuseShapes.small,
@@ -680,10 +680,7 @@ private fun RagCitationDetail(
 
 /** 引用详情内的文本动作按钮。 */
 @Composable
-private fun RagCitationAction(
-    text: String,
-    onClick: () -> Unit,
-) {
+private fun RagCitationAction(text: String, onClick: () -> Unit) {
     Text(
         text = text,
         style = MaterialTheme.typography.labelSmall,
@@ -696,11 +693,7 @@ private fun RagCitationAction(
 }
 
 @Composable
-private fun RagCitationChip(
-    citation: RagCitation,
-    isExpanded: Boolean,
-    onClick: () -> Unit,
-) {
+private fun RagCitationChip(citation: RagCitation, isExpanded: Boolean, onClick: () -> Unit) {
     val chipDescription = stringResource(
         R.string.chat_citation_chip_a11y,
         citation.index,
@@ -709,10 +702,16 @@ private fun RagCitationChip(
     )
     Surface(
         shape = MuseShapes.pill,
-        color = if (isExpanded) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = if (isExpanded) MaterialTheme.colorScheme.onPrimaryContainer
-                       else MaterialTheme.colorScheme.onSurfaceVariant,
+        color = if (isExpanded) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        },
+        contentColor = if (isExpanded) {
+            MaterialTheme.colorScheme.onPrimaryContainer
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
         modifier = Modifier
             .clickable(onClick = onClick)
             .semantics { contentDescription = chipDescription },
@@ -794,8 +793,11 @@ private fun TaskProgressBadge(
     modifier: Modifier = Modifier,
 ) {
     val hasFailed = phase == io.zer0.muse.ui.taskcard.TaskCardPhase.DONE && successCount < total
-    val badgeColor = if (hasFailed) MaterialTheme.colorScheme.error
-                     else MaterialTheme.colorScheme.primary
+    val badgeColor = if (hasFailed) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
     Surface(
         modifier = modifier.width(36.dp),
         shape = MuseShapes.pill,
@@ -828,4 +830,3 @@ private fun TaskProgressBadge(
         }
     }
 }
-

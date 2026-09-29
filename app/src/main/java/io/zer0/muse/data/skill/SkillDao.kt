@@ -72,11 +72,7 @@ interface SkillDao {
     suspend fun delete(id: String)
 
     @Query("UPDATE skills SET enabled = :enabled, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun setEnabled(
-        id: String,
-        enabled: Boolean,
-        updatedAt: Long,
-    )
+    suspend fun setEnabled(id: String, enabled: Boolean, updatedAt: Long)
 
     @Query("SELECT * FROM skills")
     suspend fun getAll(): List<SkillEntity>

@@ -37,8 +37,8 @@ import io.zer0.muse.R
 import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.surface.MuseDialogWindowEffect
 import io.zer0.muse.ui.common.media.LifecycleAwareWebViewContainer
+import io.zer0.muse.ui.common.surface.MuseDialogWindowEffect
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
@@ -181,8 +181,7 @@ internal fun RichContentCard(
  * 支持全屏预览的富内容语言(html/svg 走外部导航预览;chart/mermaid 走卡片内全屏对话框)。
  * Phase 2: 从原"仅 html/svg"扩展到 chart/mermaid。
  */
-internal fun richContentSupportsPreview(language: String): Boolean =
-    language.lowercase().trim() in RICH_PREVIEW_LANGUAGES
+internal fun richContentSupportsPreview(language: String): Boolean = language.lowercase().trim() in RICH_PREVIEW_LANGUAGES
 
 /** 全屏预览语言集合。 */
 private val RICH_PREVIEW_LANGUAGES = setOf("html", "svg", "chart", "mermaid")
@@ -194,12 +193,11 @@ private val RICH_PREVIEW_LANGUAGES = setOf("html", "svg", "chart", "mermaid")
 internal val RICH_LOCAL_PREVIEW_LANGUAGES = setOf("chart", "mermaid")
 
 /** 生成卡片内全屏预览用 HTML(与卡片渲染使用同一构建函数)。 */
-private fun buildLocalPreviewHtml(language: String, content: String, errorPrefix: String): String =
-    when (language.lowercase().trim()) {
-        "chart" -> buildChartHtml(content, errorPrefix)
-        "mermaid" -> buildMermaidHtml(content, errorPrefix)
-        else -> content
-    }
+private fun buildLocalPreviewHtml(language: String, content: String, errorPrefix: String): String = when (language.lowercase().trim()) {
+    "chart" -> buildChartHtml(content, errorPrefix)
+    "mermaid" -> buildMermaidHtml(content, errorPrefix)
+    else -> content
+}
 
 /** 复制富内容源码到剪贴板,并 Toast 反馈。 */
 private fun copyRichContentSource(context: Context, source: String) {
@@ -215,11 +213,7 @@ private fun copyRichContentSource(context: Context, source: String) {
  * 因此 chart(Chart.js)/mermaid(mermaid.js)的本地 vendor 脚本可正常加载。
  */
 @Composable
-private fun RichContentFullscreenPreview(
-    title: String,
-    html: String,
-    onDismiss: () -> Unit,
-) {
+private fun RichContentFullscreenPreview(title: String, html: String, onDismiss: () -> Unit) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(

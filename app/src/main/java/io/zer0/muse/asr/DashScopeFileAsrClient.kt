@@ -117,17 +117,26 @@ class DashScopeFileAsrClient(
         resultOf {
             val requestBody = buildJsonObject {
                 put("model", config.model.ifBlank { "paraformer-v2" })
-                put("input", buildJsonObject {
-                    put("file_urls", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive(audioUrl))))
-                })
-                put("parameters", buildJsonObject {
-                    put("language_hints", kotlinx.serialization.json.JsonArray(
-                        (config.language?.takeIf { it.isNotBlank() }?.split(",") ?: listOf("zh"))
-                            .map { JsonPrimitive(it.trim()) }
-                    ))
-                    put("disfluency_removal_enabled", true)
-                    put("phrase_id", JsonPrimitive(""))
-                })
+                put(
+                    "input",
+                    buildJsonObject {
+                        put("file_urls", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive(audioUrl))))
+                    },
+                )
+                put(
+                    "parameters",
+                    buildJsonObject {
+                        put(
+                            "language_hints",
+                            kotlinx.serialization.json.JsonArray(
+                                (config.language?.takeIf { it.isNotBlank() }?.split(",") ?: listOf("zh"))
+                                    .map { JsonPrimitive(it.trim()) },
+                            ),
+                        )
+                        put("disfluency_removal_enabled", true)
+                        put("phrase_id", JsonPrimitive(""))
+                    },
+                )
             }
             val req = Request.Builder()
                 .url(SUBMIT_ENDPOINT)

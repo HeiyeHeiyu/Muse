@@ -144,7 +144,10 @@ fun MuseTactileButton(
                 .size(effectiveVisual)
                 .clip(CircleShape)
                 .background(boxColor)
-                .graphicsLayer { scaleX = scale; scaleY = scale },
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                },
             contentAlignment = Alignment.Center,
         ) {
             Icon(

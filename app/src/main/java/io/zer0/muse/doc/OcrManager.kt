@@ -78,10 +78,12 @@ class OcrManager {
             val input = context.contentResolver.openInputStream(uri) ?: return@runCatching 0
             input.use { stream ->
                 val exif = android.media.ExifInterface(stream)
-                when (exif.getAttributeInt(
-                    android.media.ExifInterface.TAG_ORIENTATION,
-                    android.media.ExifInterface.ORIENTATION_NORMAL,
-                )) {
+                when (
+                    exif.getAttributeInt(
+                        android.media.ExifInterface.TAG_ORIENTATION,
+                        android.media.ExifInterface.ORIENTATION_NORMAL,
+                    )
+                ) {
                     android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90
                     android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180
                     android.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270

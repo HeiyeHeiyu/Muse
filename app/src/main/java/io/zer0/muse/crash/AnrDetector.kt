@@ -53,11 +53,7 @@ internal class AnrDetector(
      * @param postedAtMs 本轮投递 ping 的时刻(同上时钟)
      * @param pongCount 主线程已执行的 ping 次数(单调递增)
      */
-    fun onCheck(
-        nowMs: Long,
-        postedAtMs: Long,
-        pongCount: Long,
-    ): Decision {
+    fun onCheck(nowMs: Long, postedAtMs: Long, pongCount: Long): Decision {
         val overshootMs = nowMs - postedAtMs - expectedIntervalMs
         val suspended = overshootMs > suspendToleranceMs
         val alive = pongCount > lastPongCount

@@ -38,12 +38,11 @@ class AutomationManagerRootRequestTest {
         )
     }
 
-    private fun manager(root: RootExecutor, shizuku: ShizukuAuthorizer = shizukuMock()): AutomationManager =
-        AutomationManager(
-            context = context,
-            shizukuAuthorizer = shizuku,
-            rootExecutor = root,
-        )
+    private fun manager(root: RootExecutor, shizuku: ShizukuAuthorizer = shizukuMock()): AutomationManager = AutomationManager(
+        context = context,
+        shizukuAuthorizer = shizuku,
+        rootExecutor = root,
+    )
 
     @Test
     fun `request without su binary returns no su reason and keeps root disabled`() = runTest {

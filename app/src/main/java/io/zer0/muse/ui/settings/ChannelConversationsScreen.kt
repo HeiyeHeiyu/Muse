@@ -45,10 +45,7 @@ import java.util.Locale
  * 每个联系人一段对话,支持展开查看最近消息,可"重启上下文"(清空该对话历史与摘要)。
  */
 @Composable
-fun ChannelConversationsScreen(
-    channelId: String,
-    onBack: () -> Unit,
-) {
+fun ChannelConversationsScreen(channelId: String, onBack: () -> Unit) {
     val conversations by ChannelConversationStore.conversations.collectAsStateWithLifecycle()
     val entries = remember(conversations, channelId) {
         conversations
@@ -129,11 +126,7 @@ fun ChannelConversationsScreen(
 
 /** 单个联系人的对话卡:头部 + 摘要/预览 + 展开明细 + 重启上下文。 */
 @Composable
-private fun ConversationCard(
-    from: String,
-    conversation: ChannelConversationStore.Conversation,
-    onReset: () -> Unit,
-) {
+private fun ConversationCard(from: String, conversation: ChannelConversationStore.Conversation, onReset: () -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     val turns = conversation.turns
     val lastTurn = turns.lastOrNull()
@@ -248,8 +241,7 @@ private fun ConversationCard(
 }
 
 /** 联系人 id 展示美化 — 过长时保留首尾。 */
-private fun prettifyContact(raw: String): String =
-    if (raw.length <= 24) raw else raw.take(12) + "…" + raw.takeLast(6)
+private fun prettifyContact(raw: String): String = if (raw.length <= 24) raw else raw.take(12) + "…" + raw.takeLast(6)
 
 /** v2.0.1: 展开时最多显示的轮次数。 */
 private const val EXPANDED_TURNS = 30

@@ -311,10 +311,7 @@ abstract class FactDb : RoomDatabase() {
          * R-DB-03: 归档早期 v1/v2 或损坏的 facts 数据库。
          * 归档为 <name>.bak 后由 Room 重建空库,避免打开时崩溃。
          */
-        private fun archiveLegacyOrCorruptDatabase(
-            context: Context,
-            name: String,
-        ) {
+        private fun archiveLegacyOrCorruptDatabase(context: Context, name: String) {
             val file = context.getDatabasePath(name)
             if (!file.exists()) return
 
@@ -338,10 +335,7 @@ abstract class FactDb : RoomDatabase() {
          * 这里在 Room 打开前检查版本: 高于迁移链覆盖(高版本降级)或版本异常时,
          * 先重命名 .bak 保留数据,Room 再重建空库,数据可恢复。
          */
-        private fun archiveUnknownVersionDatabase(
-            context: Context,
-            name: String,
-        ) {
+        private fun archiveUnknownVersionDatabase(context: Context, name: String) {
             val file = context.getDatabasePath(name)
             if (!file.exists()) return
             val version =
@@ -364,12 +358,7 @@ abstract class FactDb : RoomDatabase() {
          * 打不开时,将 -wal/-shm 一并改名随备份保留,避免历史"只保主文件、WAL 数据被删"
          * 的静默数据丢失。归档后标记 [MemoryLegacyReset] 供 UI 提示。
          */
-        private fun archiveDatabaseFiles(
-            context: Context,
-            file: File,
-            bak: File,
-            name: String,
-        ) {
+        private fun archiveDatabaseFiles(context: Context, file: File, bak: File, name: String) {
             val checkpointed =
                 try {
                     SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READWRITE).use { db ->
@@ -410,10 +399,7 @@ abstract class FactDb : RoomDatabase() {
          *
          * @return 恢复的事实条数;未执行/未找到时为 null
          */
-        private fun recoverFromMisarchivedBackup(
-            context: Context,
-            name: String,
-        ): Int? {
+        private fun recoverFromMisarchivedBackup(context: Context, name: String): Int? {
             if (MemoryLegacyReset.isRecoveryAttempted(context, name)) return null
             if (!MemoryLegacyReset.hasPending(context)) return null
 
@@ -463,30 +449,25 @@ abstract class FactDb : RoomDatabase() {
         }
 
         /** 读取数据库文件中 facts 表行数;不可读时返回 0。 */
-        private fun countFacts(file: File): Int =
-            try {
-                SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
-                    db.rawQuery("SELECT COUNT(*) FROM facts", null).use { cursor ->
-                        if (cursor.moveToFirst()) cursor.getInt(0) else 0
-                    }
+        private fun countFacts(file: File): Int = try {
+            SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+                db.rawQuery("SELECT COUNT(*) FROM facts", null).use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getInt(0) else 0
                 }
-            } catch (_: Exception) {
-                0
             }
+        } catch (_: Exception) {
+            0
+        }
 
         /** 读取数据库 user_version;不可读时返回 null。 */
-        private fun readVersion(file: File): Int? =
-            try {
-                SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { it.version }
-            } catch (_: Exception) {
-                null
-            }
+        private fun readVersion(file: File): Int? = try {
+            SQLiteDatabase.openDatabase(file.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { it.version }
+        } catch (_: Exception) {
+            null
+        }
 
         /** 为归档选择不覆盖已有备份的目标路径。 */
-        private fun nextBackupFile(
-            file: File,
-            preferredName: String,
-        ): File {
+        private fun nextBackupFile(file: File, preferredName: String): File {
             val parent = file.parentFile ?: error("数据库文件缺少父目录: ${file.absolutePath}")
             val preferred = File(parent, preferredName)
             if (!preferred.exists()) return preferred
@@ -499,10 +480,7 @@ abstract class FactDb : RoomDatabase() {
         }
 
         /** 单例数据库实例。全局唯一,内存数据库失败时回退。 */
-        fun create(
-            context: Context,
-            name: String = "facts.db",
-        ): FactDb {
+        fun create(context: Context, name: String = "facts.db"): FactDb {
             archiveLegacyOrCorruptDatabase(context, name)
             archiveUnknownVersionDatabase(context, name)
             // v2.2.1: 版本守卫缺陷修复后,顺带把被误归档的历史真库迁回(仅一次)

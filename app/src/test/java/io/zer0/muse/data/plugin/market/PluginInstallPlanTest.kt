@@ -44,19 +44,25 @@ class PluginInstallPlanTest {
         val coordinator = coordinator(fixture.publicKey)
 
         val wrongArtifact = coordinator.preparePlan(
-            fixture.signed, "safe-plugin", staged,
+            fixture.signed,
+            "safe-plugin",
+            staged,
             artifactSha256 = "d".repeat(64),
             reviewedPackage = review("1.0.0", "c".repeat(64)),
             nowEpochMs = 1_000L,
         )
         val wrongContent = coordinator.preparePlan(
-            fixture.signed, "safe-plugin", staged,
+            fixture.signed,
+            "safe-plugin",
+            staged,
             artifactSha256 = "b".repeat(64),
             reviewedPackage = review("1.0.0", "e".repeat(64)),
             nowEpochMs = 1_000L,
         )
         val wrongVersion = coordinator.preparePlan(
-            fixture.signed, "safe-plugin", staged,
+            fixture.signed,
+            "safe-plugin",
+            staged,
             artifactSha256 = "b".repeat(64),
             reviewedPackage = review("2.0.0", "c".repeat(64)),
             nowEpochMs = 1_000L,
@@ -78,7 +84,10 @@ class PluginInstallPlanTest {
         val rolledBack = PluginInstallCoordinator(
             trustRootKeys = mapOf("root-1" to fixture.publicKey),
             lastAcceptedSequence = { _ -> 6L },
-        ).preparePlan(            fixture.signed, "safe-plugin", staged,
+        ).preparePlan(
+            fixture.signed,
+            "safe-plugin",
+            staged,
             artifactSha256 = "b".repeat(64),
             reviewedPackage = review("1.0.0", "c".repeat(64)),
             nowEpochMs = 1_000L,

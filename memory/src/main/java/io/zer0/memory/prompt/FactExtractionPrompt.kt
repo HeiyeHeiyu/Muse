@@ -13,10 +13,7 @@ object FactExtractionPrompt {
     const val TEMPLATE_VERSION = "fact-extraction.v4"
     const val CACHE_GROUP = "memory.extract_facts"
 
-    fun buildSystemPrompt(
-        locale: String = "zh-CN",
-        hasPrevious: Boolean = false,
-    ): String {
+    fun buildSystemPrompt(locale: String = "zh-CN", hasPrevious: Boolean = false): String {
         val isZh = locale.startsWith("zh")
 
         if (isZh) {
@@ -193,6 +190,6 @@ Output a strict JSON array only, without markdown code fences:
   {"fact": "Thesis draft is due next Wednesday", "tags": ["academic", "plan"], "time": null, "importance": 1, "category": "goal", "confidence": 1.0, "source": "user_explicit", "entity_key": null},
   {"fact": "Mr. Zhang prefers American coffee", "tags": ["coffee"], "time": null, "importance": 0, "category": "preference", "confidence": 1.0, "source": "user_explicit", "entity_key": "Zhang San"}
 ]
-            """.trimIndent()
+        """.trimIndent()
     }
 }

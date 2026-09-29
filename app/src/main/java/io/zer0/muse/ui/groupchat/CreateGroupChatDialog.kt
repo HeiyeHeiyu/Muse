@@ -9,15 +9,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseChip
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -26,6 +24,8 @@ import io.zer0.muse.R
 import io.zer0.muse.data.AgentTeam
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseTextField
 
 /**
  * 新建群聊对话框。
@@ -191,11 +191,11 @@ fun CreateGroupChatDialog(
                     contentPadding = PaddingValues(horizontal = 2.dp),
                 ) {
                     item(key = "no_team") {
-                    MuseChip(
-                        selected = selectedTeamId == null,
-                        onClick = { selectedTeamId = null },
-                        label = stringResource(R.string.groupchat_no_team),
-                    )
+                        MuseChip(
+                            selected = selectedTeamId == null,
+                            onClick = { selectedTeamId = null },
+                            label = stringResource(R.string.groupchat_no_team),
+                        )
                     }
                     items(teams, key = { it.id }) { team ->
                         val selected = selectedTeamId == team.id

@@ -2,15 +2,6 @@
 
 package io.zer0.muse.ui.settings
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.surface.MuseSurface
-import io.zer0.muse.ui.theme.MuseIconSizes
-
-import androidx.compose.foundation.layout.defaultMinSize
-
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,6 +14,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -30,23 +22,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import io.zer0.muse.ui.common.form.MuseChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.ai.core.ProviderConfig
@@ -58,19 +51,24 @@ import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.tools.DelegationContract
 import io.zer0.muse.ui.ModelSwitchSheet
+import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseDropdown
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.media.AssistantAvatar
 import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
-import io.zer0.muse.ui.common.state.MuseEmptyState
-import io.zer0.muse.ui.common.form.MuseDropdown
-import io.zer0.muse.ui.common.form.MuseTextField
-import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.settings.SettingsItemRow
 import io.zer0.muse.ui.common.settings.SettingsSliderRow
 import io.zer0.muse.ui.common.settings.SettingsSwitchRow
+import io.zer0.muse.ui.common.state.MuseEmptyState
+import io.zer0.muse.ui.common.surface.MuseSurface
 import io.zer0.muse.ui.theme.MuseHaptics
+import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
 import kotlinx.coroutines.launch
@@ -87,9 +85,7 @@ import java.util.UUID
  *  - 底部「新建团队」胶囊按钮
  */
 @Composable
-fun MultiAgentSettingsPage(
-    onBack: () -> Unit,
-) {
+fun MultiAgentSettingsPage(onBack: () -> Unit) {
     val settings: SettingsRepository = koinInject()
     val assistantRepository: AssistantRepository = koinInject()
     val config by settings.multiAgentConfigFlow.collectAsStateWithLifecycle(initialValue = MultiAgentConfig())
@@ -350,11 +346,7 @@ fun MultiAgentSettingsPage(
  * 注意:此函数只在 UI 层做名称展示,LlmAggregator.resolveReviewModel() 在调用时会做
  * 同样的查找并降级处理,二者查找逻辑保持一致。
  */
-private fun resolveReviewModelName(
-    reviewModelId: String?,
-    providers: List<ProviderConfig>,
-    activeProviderId: String?,
-): String {
+private fun resolveReviewModelName(reviewModelId: String?, providers: List<ProviderConfig>, activeProviderId: String?): String {
     if (reviewModelId.isNullOrBlank()) return "默认模型"
     // 优先在激活 Provider 中查找(最常见情况)
     val activeProvider = providers.firstOrNull { it.id == activeProviderId }
@@ -375,13 +367,7 @@ private fun resolveReviewModelName(
  * 团队卡片:名称 + 描述 + 成员头像(最多 3 个,+N) + 删除按钮。
  */
 @Composable
-private fun TeamCard(
-    team: AgentTeam,
-    assistants: List<AssistantEntity>,
-    onClick: () -> Unit,
-    onDelete: () -> Unit,
-
-) {
+private fun TeamCard(team: AgentTeam, assistants: List<AssistantEntity>, onClick: () -> Unit, onDelete: () -> Unit) {
     val haptic = LocalHapticFeedback.current
     val unnamedTeam = stringResource(R.string.settings_multi_agent_unnamed_team)
     val members = remember(team.memberIds, assistants) {
@@ -401,7 +387,7 @@ private fun TeamCard(
         shape = MuseShapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
     ) {
-Row(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
@@ -452,9 +438,7 @@ Row(
  * 成员头像行:最多显示前 3 个头像,其余用 +N 圆形徽标。
  */
 @Composable
-private fun MemberAvatarRow(
-    members: List<AssistantEntity>,
-) {
+private fun MemberAvatarRow(members: List<AssistantEntity>) {
     val shown = members.take(3)
     val overflow = members.size - shown.size
 
@@ -503,12 +487,7 @@ private fun MemberAvatarRow(
  *  为工作流编排的首选入口,用户体验连贯(无需跳转全屏页)。
  */
 @Composable
-private fun TeamEditDialog(
-    team: AgentTeam,
-    assistants: List<AssistantEntity>,
-    onDismiss: () -> Unit,
-    onSave: (AgentTeam) -> Unit,
-) {
+private fun TeamEditDialog(team: AgentTeam, assistants: List<AssistantEntity>, onDismiss: () -> Unit, onSave: (AgentTeam) -> Unit) {
     // 前端修复 (持久化-9): 表单草稿改 rememberSaveable,key 用 team.id(稳定标识)而非 team 实例;
     // String 字段(name/description)直接 saveable
     var name by rememberSaveable(team.id) { mutableStateOf(team.name) }
@@ -521,7 +500,13 @@ private fun TeamEditDialog(
 
     MuseDialog(
         onDismissRequest = onDismiss,
-        title = if (team.id.isBlank()) stringResource(R.string.settings_multi_agent_new_team) else stringResource(R.string.settings_multi_agent_edit_team),
+        title = if (team.id.isBlank()) {
+            stringResource(
+                R.string.settings_multi_agent_new_team,
+            )
+        } else {
+            stringResource(R.string.settings_multi_agent_edit_team)
+        },
         content = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -539,7 +524,9 @@ private fun TeamEditDialog(
                     isError = nameError,
                     supportingText = if (nameError) {
                         { Text(stringResource(R.string.settings_multi_agent_team_name_empty)) }
-                    } else null,
+                    } else {
+                        null
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 MuseTextField(
@@ -588,7 +575,9 @@ private fun TeamEditDialog(
                                             modifier = Modifier.size(16.dp),
                                         )
                                     }
-                                } else null,
+                                } else {
+                                    null
+                                },
                             )
                         }
                     }
@@ -633,7 +622,9 @@ private fun TeamEditDialog(
                                         modifier = Modifier.size(16.dp),
                                     )
                                 }
-                            } else null,
+                            } else {
+                                null
+                            },
                         )
                     }
                 }
@@ -694,7 +685,7 @@ private fun TeamEditDialog(
                     description = description.trim(),
                     memberIds = assistants.filter { it.id in selectedIds }.map { it.id },
                     workflow = workflow,
-                )
+                ),
             )
         },
         dismissText = stringResource(R.string.settings_multi_agent_cancel),
@@ -864,7 +855,9 @@ private fun WorkflowNodeEditDialog(
                                         modifier = Modifier.size(16.dp),
                                     )
                                 }
-                            } else null,
+                            } else {
+                                null
+                            },
                         )
                     }
                 }
@@ -900,7 +893,9 @@ private fun WorkflowNodeEditDialog(
                                             modifier = Modifier.size(16.dp),
                                         )
                                     }
-                                } else null,
+                                } else {
+                                    null
+                                },
                             )
                         }
                     }
@@ -916,7 +911,7 @@ private fun WorkflowNodeEditDialog(
                     assistantId = assistantId,
                     mode = mode,
                     dependsOn = dependencies.toList(),
-                )
+                ),
             )
         },
         dismissText = stringResource(R.string.action_cancel),
@@ -952,16 +947,13 @@ private fun modeShortName(mode: DelegationContract.TeamWorkflowNode.Mode): Strin
  * 与 [SettingsSwitchRow] 同样的 padding,使其在 [SettingsGroup] 内视觉对齐。
  */
 @Composable
-private fun DelegationTimeoutSliderRow(
-    timeoutSec: Int,
-    onValueChange: (Int) -> Unit,
-) {
+private fun DelegationTimeoutSliderRow(timeoutSec: Int, onValueChange: (Int) -> Unit) {
     val secUnit = stringResource(R.string.delegation_pause_sec)
     SettingsSliderRow(
         title = stringResource(R.string.delegation_pause_timeout),
         value = timeoutSec.toFloat(),
         valueRange = 60f..600f,
-        steps = 17,  // 60, 90, ..., 600 共 19 个取值,steps = 19 - 2 = 17
+        steps = 17, // 60, 90, ..., 600 共 19 个取值,steps = 19 - 2 = 17
         valueText = "$timeoutSec $secUnit",
         onValueChange = { v -> onValueChange(v.toInt()) },
     )

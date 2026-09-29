@@ -26,7 +26,7 @@ data class ScheduledTaskExecutionEntity(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "task_id") val taskId: String,
     @ColumnInfo(name = "executed_at") val executedAt: Long = System.currentTimeMillis(),
-    @ColumnInfo(defaultValue = "success") val status: String = "success",  // success / failed
+    @ColumnInfo(defaultValue = "success") val status: String = "success", // success / failed
     @ColumnInfo(name = "reply_summary", defaultValue = "") val replySummary: String = "",
     @ColumnInfo(name = "error_message", defaultValue = "") val errorMessage: String = "",
 )

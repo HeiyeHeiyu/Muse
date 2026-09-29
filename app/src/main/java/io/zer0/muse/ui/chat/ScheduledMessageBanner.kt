@@ -1,9 +1,5 @@
 package io.zer0.muse.ui.chat
 
-import io.zer0.muse.R
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.theme.MuseMotion
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -19,9 +15,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import io.zer0.muse.R
 import io.zer0.muse.data.schedule.PendingMessage
-import io.zer0.muse.ui.theme.MuseShapes
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.theme.MuseDateFormats
+import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MuseShapes
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -33,11 +33,7 @@ import java.util.Locale
  * @param onCancel 取消某条定时消息的回调
  */
 @Composable
-fun ScheduledMessageBanner(
-    pendingMessages: List<PendingMessage>,
-    onCancel: (String) -> Unit = {},
-    modifier: Modifier = Modifier,
-) {
+fun ScheduledMessageBanner(pendingMessages: List<PendingMessage>, onCancel: (String) -> Unit = {}, modifier: Modifier = Modifier) {
     AnimatedVisibility(
         visible = pendingMessages.isNotEmpty(),
         enter = MuseMotion.verticalSlideFadeEnter(initialOffsetY = { -it }),

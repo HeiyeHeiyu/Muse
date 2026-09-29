@@ -23,72 +23,67 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class A11yProviderInstrumentedTest {
     @Test
-    fun provider_bridge_serves_ui_operations() =
-        runBlocking {
-            val context = InstrumentationRegistry.getInstrumentation().targetContext
-            val client = AccessibilityClient(context)
+    fun provider_bridge_serves_ui_operations() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val client = AccessibilityClient(context)
 
-            assumeTrue("独立 Provider APK 未安装,跳过", client.isProviderInstalled())
-            assumeTrue(
-                "独立 Provider 无障碍服务未在系统设置启用,跳过",
-                isServiceEnabled(context, AccessibilityClient.PROVIDER_PACKAGE),
-            )
+        assumeTrue("独立 Provider APK 未安装,跳过", client.isProviderInstalled())
+        assumeTrue(
+            "独立 Provider 无障碍服务未在系统设置启用,跳过",
+            isServiceEnabled(context, AccessibilityClient.PROVIDER_PACKAGE),
+        )
 
-            // ColorOS 等定制 ROM 的后台限制(WIU 逻辑)会拒绝后台应用跨应用绑定。
-            // 测试前把自身活动拉到前台,模拟真实使用场景(用户打开应用时绑定)。
-            bringSelfToFront(context)
+        // ColorOS 等定制 ROM 的后台限制(WIU 逻辑)会拒绝后台应用跨应用绑定。
+        // 测试前把自身活动拉到前台,模拟真实使用场景(用户打开应用时绑定)。
+        bringSelfToFront(context)
 
-            // 绑定是异步的: 轮询等待桥接就绪(binder 到达后 isConnected 转 true)
-            var connected = false
-            for (attempt in 0 until 24) {
-                if (client.isConnected()) {
-                    connected = true
-                    break
-                }
-                Thread.sleep(250)
+        // 绑定是异步的: 轮询等待桥接就绪(binder 到达后 isConnected 转 true)
+        var connected = false
+        for (attempt in 0 until 24) {
+            if (client.isConnected()) {
+                connected = true
+                break
             }
-            assertTrue("Provider 桥接未在 6s 内就绪", connected)
-
-            assertReadable(context, client)
+            Thread.sleep(250)
         }
+        assertTrue("Provider 桥接未在 6s 内就绪", connected)
+
+        assertReadable(context, client)
+    }
 
     @Test
-    fun in_app_service_serves_ui_operations_when_provider_off() =
-        runBlocking {
-            val context = InstrumentationRegistry.getInstrumentation().targetContext
-            val client = AccessibilityClient(context)
+    fun in_app_service_serves_ui_operations_when_provider_off() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val client = AccessibilityClient(context)
 
-            assumeTrue(
-                "应用内无障碍服务未在系统设置启用,跳过",
-                isServiceEnabled(context, context.packageName),
-            )
-            assumeTrue(
-                "独立 Provider 仍被启用(路由优先于应用内服务),跳过",
-                !isServiceEnabled(context, AccessibilityClient.PROVIDER_PACKAGE),
-            )
+        assumeTrue(
+            "应用内无障碍服务未在系统设置启用,跳过",
+            isServiceEnabled(context, context.packageName),
+        )
+        assumeTrue(
+            "独立 Provider 仍被启用(路由优先于应用内服务),跳过",
+            !isServiceEnabled(context, AccessibilityClient.PROVIDER_PACKAGE),
+        )
 
-            bringSelfToFront(context)
+        bringSelfToFront(context)
 
-            var connected = false
-            for (attempt in 0 until 40) {
-                if (client.isConnected()) {
-                    connected = true
-                    break
-                }
-                Thread.sleep(250)
+        var connected = false
+        for (attempt in 0 until 40) {
+            if (client.isConnected()) {
+                connected = true
+                break
             }
-            // instrument 启动会 force-stop 应用,部分 ROM 不会把应用内无障碍服务重绑进测试进程;
-            // 该场景跳过而非判失败(跨进程 Provider 路径另有 provider_bridge 用例硬覆盖)。
-            assumeTrue("应用内无障碍服务未在测试进程内就绪(force-stop 重绑限制),跳过", connected)
-
-            assertReadable(context, client)
+            Thread.sleep(250)
         }
+        // instrument 启动会 force-stop 应用,部分 ROM 不会把应用内无障碍服务重绑进测试进程;
+        // 该场景跳过而非判失败(跨进程 Provider 路径另有 provider_bridge 用例硬覆盖)。
+        assumeTrue("应用内无障碍服务未在测试进程内就绪(force-stop 重绑限制),跳过", connected)
+
+        assertReadable(context, client)
+    }
 
     /** 读屏可读性断言: 当前 Activity 组件名 + 非空 UI 层级(带重试,窗口状态可能滞后)。 */
-    private suspend fun assertReadable(
-        context: Context,
-        client: AccessibilityClient,
-    ) {
+    private suspend fun assertReadable(context: Context, client: AccessibilityClient) {
         var activity = ""
         for (attempt in 0 until 6) {
             activity = client.currentActivityName()
@@ -118,10 +113,7 @@ class A11yProviderInstrumentedTest {
     }
 
     /** 通过 Secure 设置解析指定包的无障碍服务是否启用(不依赖内部实现)。 */
-    private fun isServiceEnabled(
-        context: Context,
-        packageName: String,
-    ): Boolean {
+    private fun isServiceEnabled(context: Context, packageName: String): Boolean {
         val enabled =
             runCatching {
                 Settings.Secure.getString(

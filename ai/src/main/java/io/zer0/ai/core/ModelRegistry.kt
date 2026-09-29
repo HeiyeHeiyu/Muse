@@ -247,6 +247,7 @@ object ModelRegistry {
 
     private class ModelGroupBuilder {
         private val members = mutableListOf<ModelDefinition>()
+
         /** 添加成员,接受 ModelDefinition 或嵌套 ModelGroup(自动展开)。 */
         fun add(vararg items: Matchable) {
             items.forEach { item ->
@@ -261,11 +262,9 @@ object ModelRegistry {
     }
 
     // ── DSL 入口 ──
-    private fun defineModel(block: ModelDefinitionBuilder.() -> Unit): ModelDefinition =
-        ModelDefinitionBuilder().apply(block).build()
+    private fun defineModel(block: ModelDefinitionBuilder.() -> Unit): ModelDefinition = ModelDefinitionBuilder().apply(block).build()
 
-    private fun defineGroup(block: ModelGroupBuilder.() -> Unit): ModelGroup =
-        ModelGroupBuilder().apply(block).build()
+    private fun defineGroup(block: ModelGroupBuilder.() -> Unit): ModelGroup = ModelGroupBuilder().apply(block).build()
 
     /** 正则 TokenSpec。 */
     fun tokenRegex(pattern: String): TokenSpec = TokenRegex(pattern.toRegex(RegexOption.IGNORE_CASE))
@@ -285,6 +284,7 @@ object ModelRegistry {
         visionInput()
         toolAbility()
     }
+
     /** OpenAI o 系列推理模型(o1/o3/o4-mini 等)。 */
     private val _OPENAI_O_MODELS = defineModel {
         tokens(tokenRegex("^o$"), tokenRegex("^\\d+$"))
@@ -475,8 +475,14 @@ object ModelRegistry {
     }
     val CLAUDE_SERIES: Matchable = defineGroup {
         add(
-            CLAUDE_SONNET_3_5, CLAUDE_SONNET_3_7, CLAUDE_4, CLAUDE_4_5,
-            CLAUDE_SONNET_4_6, CLAUDE_OPUS_4_6, CLAUDE_OPUS_4_7, CLAUDE_OPUS_4_8,
+            CLAUDE_SONNET_3_5,
+            CLAUDE_SONNET_3_7,
+            CLAUDE_4,
+            CLAUDE_4_5,
+            CLAUDE_SONNET_4_6,
+            CLAUDE_OPUS_4_6,
+            CLAUDE_OPUS_4_7,
+            CLAUDE_OPUS_4_8,
         )
     }
 
@@ -555,6 +561,7 @@ object ModelRegistry {
         visionInput()
         toolReasoningAbility()
     }
+
     /** Qwen-MT 翻译专用模型,无工具/推理能力。 */
     private val _QWEN_MT = defineModel {
         tokens("qwen", "mt")
@@ -781,14 +788,12 @@ object ModelRegistry {
     /**
      * 查询输入模态。未命中返回空集合(由调用方决定兜底,通常默认 ["text"])。
      */
-    fun lookupInputModalities(modelId: String): Set<String> =
-        resolveModels(modelId).flatMap { it.inputModalities }.toSet()
+    fun lookupInputModalities(modelId: String): Set<String> = resolveModels(modelId).flatMap { it.inputModalities }.toSet()
 
     /**
      * 查询输出模态。未命中返回空集合。
      */
-    fun lookupOutputModalities(modelId: String): Set<String> =
-        resolveModels(modelId).flatMap { it.outputModalities }.toSet()
+    fun lookupOutputModalities(modelId: String): Set<String> = resolveModels(modelId).flatMap { it.outputModalities }.toSet()
 
     /**
      * 查询能力。未命中返回空集合。
@@ -805,26 +810,22 @@ object ModelRegistry {
     /**
      * 判断 modelId 是否支持视觉输入。
      */
-    fun supportsVisionInput(modelId: String): Boolean =
-        "image" in lookupInputModalities(modelId)
+    fun supportsVisionInput(modelId: String): Boolean = "image" in lookupInputModalities(modelId)
 
     /**
      * 判断 modelId 是否支持图像输出(绘图模型)。
      */
-    fun supportsImageOutput(modelId: String): Boolean =
-        "image" in lookupOutputModalities(modelId)
+    fun supportsImageOutput(modelId: String): Boolean = "image" in lookupOutputModalities(modelId)
 
     /**
      * 判断 modelId 是否支持工具调用。
      */
-    fun supportsToolCalling(modelId: String): Boolean =
-        ModelAbility.TOOL in lookupAbilities(modelId)
+    fun supportsToolCalling(modelId: String): Boolean = ModelAbility.TOOL in lookupAbilities(modelId)
 
     /**
      * 判断 modelId 是否支持推理链。
      */
-    fun supportsReasoning(modelId: String): Boolean =
-        ModelAbility.REASONING in lookupAbilities(modelId)
+    fun supportsReasoning(modelId: String): Boolean = ModelAbility.REASONING in lookupAbilities(modelId)
 
     /**
      * 判断 modelId 是否匹配指定模型族(如 [GPT_SERIES] / [CLAUDE_SERIES] / [GEMINI_SERIES])。

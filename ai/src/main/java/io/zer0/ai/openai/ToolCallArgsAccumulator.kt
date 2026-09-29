@@ -32,6 +32,7 @@ import kotlinx.serialization.json.buildJsonObject
 internal class ToolCallArgsAccumulator {
 
     private val buffer = StringBuilder()
+
     /** 是否发生过多个完整 JSON 对象分片合并。 */
     private var mergedObjects = false
 
@@ -124,9 +125,11 @@ internal class ToolCallArgsAccumulator {
         for (i in text.indices) {
             val c = text[i]
             if (inString) {
-                if (escape) escape = false
-                else if (c == '\\') escape = true
-                else if (c == '"') inString = false
+                if (escape) {
+                    escape = false
+                } else if (c == '\\') {
+                    escape = true
+                } else if (c == '"') inString = false
                 continue
             }
             when (c) {

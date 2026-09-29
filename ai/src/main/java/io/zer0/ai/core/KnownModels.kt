@@ -117,743 +117,977 @@ object KnownModels {
 
     private val known: Map<String, KnownModelInfo> = buildMap {
         // ── OpenAI 系列 ──
-        put("gpt-4o", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 16384,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 2.50,
-            pricingCompletionPer1M = 10.00,
-            description = "OpenAI GPT-4o 多模态旗舰",
-        ))
-        put("gpt-4o-mini", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 16384,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 0.15,
-            pricingCompletionPer1M = 0.60,
-            description = "OpenAI GPT-4o mini 轻量版",
-        ))
-        put("gpt-4-turbo", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 4096,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 10.00,
-            pricingCompletionPer1M = 30.00,
-            description = "OpenAI GPT-4 Turbo",
-        ))
-        put("gpt-4", KnownModelInfo(
-            contextWindow = 8192,
-            maxOutputTokens = 4096,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 30.00,
-            pricingCompletionPer1M = 60.00,
-            description = "OpenAI GPT-4 原始版(8K)",
-        ))
-        put("gpt-3.5-turbo", KnownModelInfo(
-            contextWindow = 16385,
-            maxOutputTokens = 4096,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 0.50,
-            pricingCompletionPer1M = 1.50,
-            description = "OpenAI GPT-3.5 Turbo",
-        ))
-        put("o1", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 100000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 15.00,
-            pricingCompletionPer1M = 60.00,
-            description = "OpenAI o1 推理模型",
-        ))
-        put("o1-mini", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 65536,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = REASONING_ONLY,
-            pricingPromptPer1M = 3.00,
-            pricingCompletionPer1M = 12.00,
-            description = "OpenAI o1-mini 推理模型",
-        ))
-        put("o1-pro", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 100000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 150.00,
-            pricingCompletionPer1M = 600.00,
-            description = "OpenAI o1-pro 高性能推理",
-        ))
-        put("o3", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 100000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 10.00,
-            pricingCompletionPer1M = 40.00,
-            description = "OpenAI o3 推理模型",
-        ))
-        put("o3-mini", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 100000,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 1.10,
-            pricingCompletionPer1M = 4.40,
-            description = "OpenAI o3-mini 推理模型",
-        ))
-        put("o4-mini", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 100000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 1.10,
-            pricingCompletionPer1M = 4.40,
-            description = "OpenAI o4-mini 推理模型",
-        ))
-        put("gpt-5", KnownModelInfo(
-            contextWindow = 400000,
-            maxOutputTokens = 128000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 5.00,
-            pricingCompletionPer1M = 15.00,
-            description = "OpenAI GPT-5 旗舰",
-        ))
-        put("gpt-5-mini", KnownModelInfo(
-            contextWindow = 400000,
-            maxOutputTokens = 128000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 0.50,
-            pricingCompletionPer1M = 1.50,
-            description = "OpenAI GPT-5 mini",
-        ))
+        put(
+            "gpt-4o",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 16384,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 2.50,
+                pricingCompletionPer1M = 10.00,
+                description = "OpenAI GPT-4o 多模态旗舰",
+            ),
+        )
+        put(
+            "gpt-4o-mini",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 16384,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 0.15,
+                pricingCompletionPer1M = 0.60,
+                description = "OpenAI GPT-4o mini 轻量版",
+            ),
+        )
+        put(
+            "gpt-4-turbo",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 4096,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 10.00,
+                pricingCompletionPer1M = 30.00,
+                description = "OpenAI GPT-4 Turbo",
+            ),
+        )
+        put(
+            "gpt-4",
+            KnownModelInfo(
+                contextWindow = 8192,
+                maxOutputTokens = 4096,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 30.00,
+                pricingCompletionPer1M = 60.00,
+                description = "OpenAI GPT-4 原始版(8K)",
+            ),
+        )
+        put(
+            "gpt-3.5-turbo",
+            KnownModelInfo(
+                contextWindow = 16385,
+                maxOutputTokens = 4096,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 0.50,
+                pricingCompletionPer1M = 1.50,
+                description = "OpenAI GPT-3.5 Turbo",
+            ),
+        )
+        put(
+            "o1",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 100000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 15.00,
+                pricingCompletionPer1M = 60.00,
+                description = "OpenAI o1 推理模型",
+            ),
+        )
+        put(
+            "o1-mini",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 65536,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = REASONING_ONLY,
+                pricingPromptPer1M = 3.00,
+                pricingCompletionPer1M = 12.00,
+                description = "OpenAI o1-mini 推理模型",
+            ),
+        )
+        put(
+            "o1-pro",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 100000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 150.00,
+                pricingCompletionPer1M = 600.00,
+                description = "OpenAI o1-pro 高性能推理",
+            ),
+        )
+        put(
+            "o3",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 100000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 10.00,
+                pricingCompletionPer1M = 40.00,
+                description = "OpenAI o3 推理模型",
+            ),
+        )
+        put(
+            "o3-mini",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 100000,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 1.10,
+                pricingCompletionPer1M = 4.40,
+                description = "OpenAI o3-mini 推理模型",
+            ),
+        )
+        put(
+            "o4-mini",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 100000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 1.10,
+                pricingCompletionPer1M = 4.40,
+                description = "OpenAI o4-mini 推理模型",
+            ),
+        )
+        put(
+            "gpt-5",
+            KnownModelInfo(
+                contextWindow = 400000,
+                maxOutputTokens = 128000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 5.00,
+                pricingCompletionPer1M = 15.00,
+                description = "OpenAI GPT-5 旗舰",
+            ),
+        )
+        put(
+            "gpt-5-mini",
+            KnownModelInfo(
+                contextWindow = 400000,
+                maxOutputTokens = 128000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 0.50,
+                pricingCompletionPer1M = 1.50,
+                description = "OpenAI GPT-5 mini",
+            ),
+        )
         // v1.0.6: 新增 GPT-5.1 / Codex(对齐 既有实现 known-models)
-        put("gpt-5.1", KnownModelInfo(
-            contextWindow = 400000,
-            maxOutputTokens = 128000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 5.00,
-            pricingCompletionPer1M = 15.00,
-            description = "OpenAI GPT-5.1",
-        ))
-        put("gpt-5-codex", KnownModelInfo(
-            contextWindow = 400000,
-            maxOutputTokens = 128000,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            description = "OpenAI GPT-5 Codex 代码模型",
-        ))
+        put(
+            "gpt-5.1",
+            KnownModelInfo(
+                contextWindow = 400000,
+                maxOutputTokens = 128000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 5.00,
+                pricingCompletionPer1M = 15.00,
+                description = "OpenAI GPT-5.1",
+            ),
+        )
+        put(
+            "gpt-5-codex",
+            KnownModelInfo(
+                contextWindow = 400000,
+                maxOutputTokens = 128000,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                description = "OpenAI GPT-5 Codex 代码模型",
+            ),
+        )
 
         // ── Anthropic Claude 系列 ──
-        put("claude-3-opus", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 4096,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 15.00,
-            pricingCompletionPer1M = 75.00,
-            description = "Anthropic Claude 3 Opus",
-        ))
-        put("claude-3-sonnet", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 4096,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 3.00,
-            pricingCompletionPer1M = 15.00,
-            description = "Anthropic Claude 3 Sonnet",
-        ))
-        put("claude-3-haiku", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 4096,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 0.25,
-            pricingCompletionPer1M = 1.25,
-            description = "Anthropic Claude 3 Haiku",
-        ))
-        put("claude-3.5-sonnet", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 8192,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 3.00,
-            pricingCompletionPer1M = 15.00,
-            description = "Anthropic Claude 3.5 Sonnet",
-        ))
-        put("claude-3.5-haiku", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 8192,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 0.80,
-            pricingCompletionPer1M = 4.00,
-            description = "Anthropic Claude 3.5 Haiku",
-        ))
-        put("claude-3.7-sonnet", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 64000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 3.00,
-            pricingCompletionPer1M = 15.00,
-            description = "Anthropic Claude 3.7 Sonnet(扩展思考)",
-        ))
-        put("claude-sonnet-4", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 64000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 3.00,
-            pricingCompletionPer1M = 15.00,
-            description = "Anthropic Claude Sonnet 4",
-        ))
-        put("claude-opus-4", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 32000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 15.00,
-            pricingCompletionPer1M = 75.00,
-            description = "Anthropic Claude Opus 4",
-        ))
+        put(
+            "claude-3-opus",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 4096,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 15.00,
+                pricingCompletionPer1M = 75.00,
+                description = "Anthropic Claude 3 Opus",
+            ),
+        )
+        put(
+            "claude-3-sonnet",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 4096,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 3.00,
+                pricingCompletionPer1M = 15.00,
+                description = "Anthropic Claude 3 Sonnet",
+            ),
+        )
+        put(
+            "claude-3-haiku",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 4096,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 0.25,
+                pricingCompletionPer1M = 1.25,
+                description = "Anthropic Claude 3 Haiku",
+            ),
+        )
+        put(
+            "claude-3.5-sonnet",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 8192,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 3.00,
+                pricingCompletionPer1M = 15.00,
+                description = "Anthropic Claude 3.5 Sonnet",
+            ),
+        )
+        put(
+            "claude-3.5-haiku",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 8192,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 0.80,
+                pricingCompletionPer1M = 4.00,
+                description = "Anthropic Claude 3.5 Haiku",
+            ),
+        )
+        put(
+            "claude-3.7-sonnet",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 64000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 3.00,
+                pricingCompletionPer1M = 15.00,
+                description = "Anthropic Claude 3.7 Sonnet(扩展思考)",
+            ),
+        )
+        put(
+            "claude-sonnet-4",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 64000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 3.00,
+                pricingCompletionPer1M = 15.00,
+                description = "Anthropic Claude Sonnet 4",
+            ),
+        )
+        put(
+            "claude-opus-4",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 32000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 15.00,
+                pricingCompletionPer1M = 75.00,
+                description = "Anthropic Claude Opus 4",
+            ),
+        )
         // v1.0.6: 新增 Claude 4.5 / 4.1 系列(对齐 既有实现 known-models)
-        put("claude-sonnet-4-5", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 64000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 3.00,
-            pricingCompletionPer1M = 15.00,
-            description = "Anthropic Claude Sonnet 4.5",
-        ))
-        put("claude-opus-4-1", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 32000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 15.00,
-            pricingCompletionPer1M = 75.00,
-            description = "Anthropic Claude Opus 4.1",
-        ))
-        put("claude-haiku-4-5", KnownModelInfo(
-            contextWindow = 200000,
-            maxOutputTokens = 16384,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 1.00,
-            pricingCompletionPer1M = 5.00,
-            description = "Anthropic Claude Haiku 4.5",
-        ))
+        put(
+            "claude-sonnet-4-5",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 64000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 3.00,
+                pricingCompletionPer1M = 15.00,
+                description = "Anthropic Claude Sonnet 4.5",
+            ),
+        )
+        put(
+            "claude-opus-4-1",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 32000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 15.00,
+                pricingCompletionPer1M = 75.00,
+                description = "Anthropic Claude Opus 4.1",
+            ),
+        )
+        put(
+            "claude-haiku-4-5",
+            KnownModelInfo(
+                contextWindow = 200000,
+                maxOutputTokens = 16384,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 1.00,
+                pricingCompletionPer1M = 5.00,
+                description = "Anthropic Claude Haiku 4.5",
+            ),
+        )
 
         // ── Google Gemini 系列 ──
-        put("gemini-1.5-pro", KnownModelInfo(
-            contextWindow = 2000000,
-            maxOutputTokens = 8192,
-            inputModalities = setOf(Modality.TEXT, Modality.IMAGE, Modality.AUDIO, Modality.VIDEO, Modality.FILE),
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 1.25,
-            pricingCompletionPer1M = 5.00,
-            description = "Google Gemini 1.5 Pro(2M 上下文)",
-        ))
-        put("gemini-1.5-flash", KnownModelInfo(
-            contextWindow = 1000000,
-            maxOutputTokens = 8192,
-            inputModalities = setOf(Modality.TEXT, Modality.IMAGE, Modality.AUDIO, Modality.VIDEO, Modality.FILE),
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 0.075,
-            pricingCompletionPer1M = 0.30,
-            description = "Google Gemini 1.5 Flash",
-        ))
-        put("gemini-2.0-flash", KnownModelInfo(
-            contextWindow = 1000000,
-            maxOutputTokens = 8192,
-            inputModalities = setOf(Modality.TEXT, Modality.IMAGE, Modality.AUDIO, Modality.VIDEO, Modality.FILE),
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 0.10,
-            pricingCompletionPer1M = 0.40,
-            description = "Google Gemini 2.0 Flash",
-        ))
-        put("gemini-2.5-pro", KnownModelInfo(
-            contextWindow = 2000000,
-            maxOutputTokens = 8192,
-            inputModalities = setOf(Modality.TEXT, Modality.IMAGE, Modality.AUDIO, Modality.VIDEO, Modality.FILE),
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 1.25,
-            pricingCompletionPer1M = 10.00,
-            description = "Google Gemini 2.5 Pro",
-        ))
-        put("gemini-2.5-flash", KnownModelInfo(
-            contextWindow = 1000000,
-            maxOutputTokens = 65536,
-            inputModalities = setOf(Modality.TEXT, Modality.IMAGE, Modality.AUDIO, Modality.VIDEO, Modality.FILE),
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 0.30,
-            pricingCompletionPer1M = 2.50,
-            description = "Google Gemini 2.5 Flash",
-        ))
+        put(
+            "gemini-1.5-pro",
+            KnownModelInfo(
+                contextWindow = 2000000,
+                maxOutputTokens = 8192,
+                inputModalities = setOf(Modality.TEXT, Modality.IMAGE, Modality.AUDIO, Modality.VIDEO, Modality.FILE),
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 1.25,
+                pricingCompletionPer1M = 5.00,
+                description = "Google Gemini 1.5 Pro(2M 上下文)",
+            ),
+        )
+        put(
+            "gemini-1.5-flash",
+            KnownModelInfo(
+                contextWindow = 1000000,
+                maxOutputTokens = 8192,
+                inputModalities = setOf(Modality.TEXT, Modality.IMAGE, Modality.AUDIO, Modality.VIDEO, Modality.FILE),
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 0.075,
+                pricingCompletionPer1M = 0.30,
+                description = "Google Gemini 1.5 Flash",
+            ),
+        )
+        put(
+            "gemini-2.0-flash",
+            KnownModelInfo(
+                contextWindow = 1000000,
+                maxOutputTokens = 8192,
+                inputModalities = setOf(Modality.TEXT, Modality.IMAGE, Modality.AUDIO, Modality.VIDEO, Modality.FILE),
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 0.10,
+                pricingCompletionPer1M = 0.40,
+                description = "Google Gemini 2.0 Flash",
+            ),
+        )
+        put(
+            "gemini-2.5-pro",
+            KnownModelInfo(
+                contextWindow = 2000000,
+                maxOutputTokens = 8192,
+                inputModalities = setOf(Modality.TEXT, Modality.IMAGE, Modality.AUDIO, Modality.VIDEO, Modality.FILE),
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 1.25,
+                pricingCompletionPer1M = 10.00,
+                description = "Google Gemini 2.5 Pro",
+            ),
+        )
+        put(
+            "gemini-2.5-flash",
+            KnownModelInfo(
+                contextWindow = 1000000,
+                maxOutputTokens = 65536,
+                inputModalities = setOf(Modality.TEXT, Modality.IMAGE, Modality.AUDIO, Modality.VIDEO, Modality.FILE),
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 0.30,
+                pricingCompletionPer1M = 2.50,
+                description = "Google Gemini 2.5 Flash",
+            ),
+        )
 
         // ── DeepSeek 系列 ──
-        put("deepseek-chat", KnownModelInfo(
-            contextWindow = 64000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 0.27,
-            pricingCompletionPer1M = 1.10,
-            description = "DeepSeek V3 通用对话",
-        ))
-        put("deepseek-reasoner", KnownModelInfo(
-            contextWindow = 64000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = REASONING_ONLY,
-            pricingPromptPer1M = 0.55,
-            pricingCompletionPer1M = 2.19,
-            description = "DeepSeek R1 推理模型",
-        ))
-        put("deepseek-coder", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "DeepSeek Coder 代码模型",
-        ))
+        put(
+            "deepseek-chat",
+            KnownModelInfo(
+                contextWindow = 64000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 0.27,
+                pricingCompletionPer1M = 1.10,
+                description = "DeepSeek V3 通用对话",
+            ),
+        )
+        put(
+            "deepseek-reasoner",
+            KnownModelInfo(
+                contextWindow = 64000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = REASONING_ONLY,
+                pricingPromptPer1M = 0.55,
+                pricingCompletionPer1M = 2.19,
+                description = "DeepSeek R1 推理模型",
+            ),
+        )
+        put(
+            "deepseek-coder",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "DeepSeek Coder 代码模型",
+            ),
+        )
 
         // ── Moonshot / Kimi 系列 ──
-        put("moonshot-v1-8k", KnownModelInfo(
-            contextWindow = 8000,
-            maxOutputTokens = 2048,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "Moonshot v1 8K 上下文",
-        ))
-        put("moonshot-v1-32k", KnownModelInfo(
-            contextWindow = 32000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "Moonshot v1 32K 上下文",
-        ))
-        put("moonshot-v1-128k", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "Moonshot v1 128K 上下文",
-        ))
-        put("kimi-k2", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            description = "Moonshot Kimi K2",
-        ))
+        put(
+            "moonshot-v1-8k",
+            KnownModelInfo(
+                contextWindow = 8000,
+                maxOutputTokens = 2048,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "Moonshot v1 8K 上下文",
+            ),
+        )
+        put(
+            "moonshot-v1-32k",
+            KnownModelInfo(
+                contextWindow = 32000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "Moonshot v1 32K 上下文",
+            ),
+        )
+        put(
+            "moonshot-v1-128k",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "Moonshot v1 128K 上下文",
+            ),
+        )
+        put(
+            "kimi-k2",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                description = "Moonshot Kimi K2",
+            ),
+        )
         // v1.0.53: Kimi K2.6 — 多模态版本(视觉+文本),支持工具+推理。
         // 修正:此前误标 TEXT_IN 导致中转站即使声明多模态也被 v1.137 纠错逻辑覆盖为纯文本,
         // 图片只能走视觉辅助而不能直发。
-        put("kimi-k2.6", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 8192,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            description = "Moonshot Kimi K2.6(多模态)",
-        ))
-        put("kimi-k1", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = REASONING_ONLY,
-            description = "Moonshot Kimi K1",
-        ))
+        put(
+            "kimi-k2.6",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 8192,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                description = "Moonshot Kimi K2.6(多模态)",
+            ),
+        )
+        put(
+            "kimi-k1",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = REASONING_ONLY,
+                description = "Moonshot Kimi K1",
+            ),
+        )
 
         // ── 通义 Qwen 系列 ──
-        put("qwen-max", KnownModelInfo(
-            contextWindow = 32000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "通义千问 Max 旗舰",
-        ))
-        put("qwen-plus", KnownModelInfo(
-            contextWindow = 131072,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "通义千问 Plus",
-        ))
-        put("qwen-turbo", KnownModelInfo(
-            contextWindow = 1000000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "通义千问 Turbo",
-        ))
-        put("qwen3-235b", KnownModelInfo(
-            contextWindow = 131072,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            description = "通义千问 3 235B",
-        ))
-        put("qwen2.5-72b", KnownModelInfo(
-            contextWindow = 131072,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "通义千问 2.5 72B",
-        ))
-        put("qwen2.5-coder", KnownModelInfo(
-            contextWindow = 131072,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "通义千问 2.5 Coder 代码模型",
-        ))
+        put(
+            "qwen-max",
+            KnownModelInfo(
+                contextWindow = 32000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "通义千问 Max 旗舰",
+            ),
+        )
+        put(
+            "qwen-plus",
+            KnownModelInfo(
+                contextWindow = 131072,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "通义千问 Plus",
+            ),
+        )
+        put(
+            "qwen-turbo",
+            KnownModelInfo(
+                contextWindow = 1000000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "通义千问 Turbo",
+            ),
+        )
+        put(
+            "qwen3-235b",
+            KnownModelInfo(
+                contextWindow = 131072,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                description = "通义千问 3 235B",
+            ),
+        )
+        put(
+            "qwen2.5-72b",
+            KnownModelInfo(
+                contextWindow = 131072,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "通义千问 2.5 72B",
+            ),
+        )
+        put(
+            "qwen2.5-coder",
+            KnownModelInfo(
+                contextWindow = 131072,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "通义千问 2.5 Coder 代码模型",
+            ),
+        )
 
         // ── 字节豆包 Doubao 系列 ──
-        put("doubao-pro", KnownModelInfo(
-            contextWindow = 32000,
-            maxOutputTokens = 4096,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "字节豆包 Pro",
-        ))
-        put("doubao-lite", KnownModelInfo(
-            contextWindow = 32000,
-            maxOutputTokens = 4096,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "字节豆包 Lite",
-        ))
-        put("doubao-1.6", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 8192,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            description = "字节豆包 1.6",
-        ))
-        put("doubao-1.5-pro", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 8192,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "字节豆包 1.5 Pro",
-        ))
+        put(
+            "doubao-pro",
+            KnownModelInfo(
+                contextWindow = 32000,
+                maxOutputTokens = 4096,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "字节豆包 Pro",
+            ),
+        )
+        put(
+            "doubao-lite",
+            KnownModelInfo(
+                contextWindow = 32000,
+                maxOutputTokens = 4096,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "字节豆包 Lite",
+            ),
+        )
+        put(
+            "doubao-1.6",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 8192,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                description = "字节豆包 1.6",
+            ),
+        )
+        put(
+            "doubao-1.5-pro",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 8192,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "字节豆包 1.5 Pro",
+            ),
+        )
 
         // ── 智谱 GLM 系列 ──
-        put("glm-4-plus", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 4096,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "智谱 GLM-4-Plus",
-        ))
-        put("glm-4-air", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 4096,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "智谱 GLM-4-Air(轻量)",
-        ))
-        put("glm-4-flash", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 4096,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "智谱 GLM-4-Flash(免费)",
-        ))
-        put("glm-4.5", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            description = "智谱 GLM-4.5",
-        ))
+        put(
+            "glm-4-plus",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 4096,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "智谱 GLM-4-Plus",
+            ),
+        )
+        put(
+            "glm-4-air",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 4096,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "智谱 GLM-4-Air(轻量)",
+            ),
+        )
+        put(
+            "glm-4-flash",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 4096,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "智谱 GLM-4-Flash(免费)",
+            ),
+        )
+        put(
+            "glm-4.5",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                description = "智谱 GLM-4.5",
+            ),
+        )
 
         // ── Mistral 系列 ──
-        put("mistral-large", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 2.00,
-            pricingCompletionPer1M = 6.00,
-            description = "Mistral Large 2",
-        ))
-        put("mistral-medium", KnownModelInfo(
-            contextWindow = 32000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 0.40,
-            pricingCompletionPer1M = 1.20,
-            description = "Mistral Medium",
-        ))
-        put("mistral-small", KnownModelInfo(
-            contextWindow = 32000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 0.20,
-            pricingCompletionPer1M = 0.60,
-            description = "Mistral Small",
-        ))
-        put("codestral", KnownModelInfo(
-            contextWindow = 32000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 0.30,
-            pricingCompletionPer1M = 0.90,
-            description = "Mistral Codestral 代码模型",
-        ))
-        put("pixtral", KnownModelInfo(
-            contextWindow = 128000,
-            maxOutputTokens = 8192,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 0.15,
-            pricingCompletionPer1M = 0.15,
-            description = "Mistral Pixtral 多模态",
-        ))
+        put(
+            "mistral-large",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 2.00,
+                pricingCompletionPer1M = 6.00,
+                description = "Mistral Large 2",
+            ),
+        )
+        put(
+            "mistral-medium",
+            KnownModelInfo(
+                contextWindow = 32000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 0.40,
+                pricingCompletionPer1M = 1.20,
+                description = "Mistral Medium",
+            ),
+        )
+        put(
+            "mistral-small",
+            KnownModelInfo(
+                contextWindow = 32000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 0.20,
+                pricingCompletionPer1M = 0.60,
+                description = "Mistral Small",
+            ),
+        )
+        put(
+            "codestral",
+            KnownModelInfo(
+                contextWindow = 32000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 0.30,
+                pricingCompletionPer1M = 0.90,
+                description = "Mistral Codestral 代码模型",
+            ),
+        )
+        put(
+            "pixtral",
+            KnownModelInfo(
+                contextWindow = 128000,
+                maxOutputTokens = 8192,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 0.15,
+                pricingCompletionPer1M = 0.15,
+                description = "Mistral Pixtral 多模态",
+            ),
+        )
 
         // ── xAI Grok 系列 ──
-        put("grok-2", KnownModelInfo(
-            contextWindow = 131072,
-            maxOutputTokens = 8192,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            pricingPromptPer1M = 2.00,
-            pricingCompletionPer1M = 10.00,
-            description = "xAI Grok 2",
-        ))
-        put("grok-3", KnownModelInfo(
-            contextWindow = 131072,
-            maxOutputTokens = 8192,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            pricingPromptPer1M = 3.00,
-            pricingCompletionPer1M = 15.00,
-            description = "xAI Grok 3",
-        ))
-        put("grok-4", KnownModelInfo(
-            contextWindow = 256000,
-            maxOutputTokens = 8192,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            description = "xAI Grok 4",
-        ))
+        put(
+            "grok-2",
+            KnownModelInfo(
+                contextWindow = 131072,
+                maxOutputTokens = 8192,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                pricingPromptPer1M = 2.00,
+                pricingCompletionPer1M = 10.00,
+                description = "xAI Grok 2",
+            ),
+        )
+        put(
+            "grok-3",
+            KnownModelInfo(
+                contextWindow = 131072,
+                maxOutputTokens = 8192,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                pricingPromptPer1M = 3.00,
+                pricingCompletionPer1M = 15.00,
+                description = "xAI Grok 3",
+            ),
+        )
+        put(
+            "grok-4",
+            KnownModelInfo(
+                contextWindow = 256000,
+                maxOutputTokens = 8192,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                description = "xAI Grok 4",
+            ),
+        )
         // v1.0.6: 新增 Grok 4.5 / 4.3 系列(对齐 既有实现 known-models,主要走 xAI OAuth Responses)
-        put("grok-4.5", KnownModelInfo(
-            contextWindow = 500000,
-            maxOutputTokens = 128000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            description = "xAI Grok 4.5",
-        ))
-        put("grok-4.5-latest", KnownModelInfo(
-            contextWindow = 500000,
-            maxOutputTokens = 128000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            description = "xAI Grok 4.5 Latest",
-        ))
-        put("grok-build-latest", KnownModelInfo(
-            contextWindow = 500000,
-            maxOutputTokens = 128000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            description = "xAI Grok Build Latest",
-        ))
-        put("grok-4.3", KnownModelInfo(
-            contextWindow = 1000000,
-            maxOutputTokens = 128000,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            description = "xAI Grok 4.3(1M 上下文)",
-        ))
+        put(
+            "grok-4.5",
+            KnownModelInfo(
+                contextWindow = 500000,
+                maxOutputTokens = 128000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                description = "xAI Grok 4.5",
+            ),
+        )
+        put(
+            "grok-4.5-latest",
+            KnownModelInfo(
+                contextWindow = 500000,
+                maxOutputTokens = 128000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                description = "xAI Grok 4.5 Latest",
+            ),
+        )
+        put(
+            "grok-build-latest",
+            KnownModelInfo(
+                contextWindow = 500000,
+                maxOutputTokens = 128000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                description = "xAI Grok Build Latest",
+            ),
+        )
+        put(
+            "grok-4.3",
+            KnownModelInfo(
+                contextWindow = 1000000,
+                maxOutputTokens = 128000,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                description = "xAI Grok 4.3(1M 上下文)",
+            ),
+        )
 
         // ── MiniMax abab 系列 ──
-        put("abab6.5", KnownModelInfo(
-            contextWindow = 245768,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "MiniMax abab6.5",
-        ))
-        put("abab7", KnownModelInfo(
-            contextWindow = 245768,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "MiniMax abab7",
-        ))
-        put("minimax-m3", KnownModelInfo(
-            contextWindow = 1000000,
-            maxOutputTokens = 8192,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = TOOL_ONLY,
-            description = "MiniMax M3 视觉模型",
-        ))
+        put(
+            "abab6.5",
+            KnownModelInfo(
+                contextWindow = 245768,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "MiniMax abab6.5",
+            ),
+        )
+        put(
+            "abab7",
+            KnownModelInfo(
+                contextWindow = 245768,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "MiniMax abab7",
+            ),
+        )
+        put(
+            "minimax-m3",
+            KnownModelInfo(
+                contextWindow = 1000000,
+                maxOutputTokens = 8192,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = TOOL_ONLY,
+                description = "MiniMax M3 视觉模型",
+            ),
+        )
 
         // ── 思必驰 Agnes 系列 ──
         // v1.0.8: Agnes chat / image / video 模型(对齐 PresetProviders.agnes)
-        put("agnes-2.0-flash", KnownModelInfo(
-            contextWindow = 131072,
-            maxOutputTokens = 8192,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL),
-            description = "Agnes 2.0 Flash 多模态对话",
-        ))
-        put("agnes-2.0-pro", KnownModelInfo(
-            contextWindow = 131072,
-            maxOutputTokens = 8192,
-            inputModalities = VISION_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL),
-            description = "Agnes 2.0 Pro 多模态对话",
-        ))
+        put(
+            "agnes-2.0-flash",
+            KnownModelInfo(
+                contextWindow = 131072,
+                maxOutputTokens = 8192,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL),
+                description = "Agnes 2.0 Flash 多模态对话",
+            ),
+        )
+        put(
+            "agnes-2.0-pro",
+            KnownModelInfo(
+                contextWindow = 131072,
+                maxOutputTokens = 8192,
+                inputModalities = VISION_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL),
+                description = "Agnes 2.0 Pro 多模态对话",
+            ),
+        )
         // 生图模型:context=0(不适用),仅输出 image 模态
-        put("agnes-image-2.1-flash", KnownModelInfo(
-            contextWindow = 0,
-            maxOutputTokens = null,
-            inputModalities = emptySet(),
-            outputModalities = setOf(Modality.IMAGE),
-            abilities = emptySet(),
-            description = "Agnes Image 2.1 Flash 文生图模型",
-        ))
+        put(
+            "agnes-image-2.1-flash",
+            KnownModelInfo(
+                contextWindow = 0,
+                maxOutputTokens = null,
+                inputModalities = emptySet(),
+                outputModalities = setOf(Modality.IMAGE),
+                abilities = emptySet(),
+                description = "Agnes Image 2.1 Flash 文生图模型",
+            ),
+        )
         // 视频模型:context=0(不适用),仅输出 video 模态
-        put("agnes-video-v2.0", KnownModelInfo(
-            contextWindow = 0,
-            maxOutputTokens = null,
-            inputModalities = emptySet(),
-            outputModalities = setOf(Modality.VIDEO),
-            abilities = emptySet(),
-            description = "Agnes Video 2.0 文生视频模型",
-        ))
+        put(
+            "agnes-video-v2.0",
+            KnownModelInfo(
+                contextWindow = 0,
+                maxOutputTokens = null,
+                inputModalities = emptySet(),
+                outputModalities = setOf(Modality.VIDEO),
+                abilities = emptySet(),
+                description = "Agnes Video 2.0 文生视频模型",
+            ),
+        )
 
         // ── 近期新模型补全(2025-08 后陆续上线)──
         // DeepSeek V4 系列(对齐 ModelContextWindowRegistry 精确匹配)
-        put("deepseek-v4", KnownModelInfo(
-            contextWindow = 1000000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            description = "DeepSeek V4 旗舰(1M 上下文)",
-        ))
-        put("deepseek-v4-pro", KnownModelInfo(
-            contextWindow = 1000000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            description = "DeepSeek V4 Pro",
-        ))
-        put("deepseek-v4-flash", KnownModelInfo(
-            contextWindow = 1000000,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL),
-            description = "DeepSeek V4 Flash 轻量版",
-        ))
+        put(
+            "deepseek-v4",
+            KnownModelInfo(
+                contextWindow = 1000000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                description = "DeepSeek V4 旗舰(1M 上下文)",
+            ),
+        )
+        put(
+            "deepseek-v4-pro",
+            KnownModelInfo(
+                contextWindow = 1000000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                description = "DeepSeek V4 Pro",
+            ),
+        )
+        put(
+            "deepseek-v4-flash",
+            KnownModelInfo(
+                contextWindow = 1000000,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL),
+                description = "DeepSeek V4 Flash 轻量版",
+            ),
+        )
         // 通义 Qwen3-Max 旗舰
-        put("qwen3-max", KnownModelInfo(
-            contextWindow = 131072,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL, REASONING),
-            description = "通义千问 3 Max 旗舰",
-        ))
-        put("qwen3-coder-plus", KnownModelInfo(
-            contextWindow = 1048576,
-            maxOutputTokens = 8192,
-            inputModalities = TEXT_IN,
-            outputModalities = TEXT_OUT,
-            abilities = setOf(TOOL),
-            description = "通义千问 3 Coder Plus 代码模型",
-        ))
+        put(
+            "qwen3-max",
+            KnownModelInfo(
+                contextWindow = 131072,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL, REASONING),
+                description = "通义千问 3 Max 旗舰",
+            ),
+        )
+        put(
+            "qwen3-coder-plus",
+            KnownModelInfo(
+                contextWindow = 1048576,
+                maxOutputTokens = 8192,
+                inputModalities = TEXT_IN,
+                outputModalities = TEXT_OUT,
+                abilities = setOf(TOOL),
+                description = "通义千问 3 Coder Plus 代码模型",
+            ),
+        )
     }
 
     // ──────────────────────────────────────────────────────────────

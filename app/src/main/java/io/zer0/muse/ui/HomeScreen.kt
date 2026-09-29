@@ -1,13 +1,5 @@
 package io.zer0.muse.ui
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseCapsuleTab
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.util.ShareIntentHelper
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -19,12 +11,14 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.KeyEventType
@@ -45,23 +39,29 @@ import io.zer0.common.Logger
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.ui.common.MuseFloatingActionItem
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseCapsuleTab
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.media.DesktopShortcuts
 import io.zer0.muse.ui.common.media.WindowWidthClass
+import io.zer0.muse.ui.common.media.rememberDesktopShortcutsEnabled
+import io.zer0.muse.ui.common.media.rememberWindowWidthClass
 import io.zer0.muse.ui.common.navigation.MuseTopBarIconButton
 import io.zer0.muse.ui.common.navigation.MuseTopBarMenu
 import io.zer0.muse.ui.common.surface.MusePageScaffold
-import io.zer0.muse.ui.common.media.rememberDesktopShortcutsEnabled
-import io.zer0.muse.ui.common.media.rememberWindowWidthClass
 import io.zer0.muse.ui.groupchat.GroupChatListScreen
-import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseActionColors
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
 import io.zer0.muse.ui.theme.semiLarge
 import io.zer0.muse.update.UpdateChecker
 import io.zer0.muse.update.UpdateNotifier
+import io.zer0.muse.util.ShareIntentHelper
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -308,10 +308,13 @@ fun HomeScreen(
             val ignoredUpdateVersion by settings.ignoredUpdateVersionFlow.collectAsStateWithLifecycle(initialValue = null)
             val currentVersionName = remember { UpdateNotifier.getCurrentVersionName(context) }
             val release = remember(releaseJson, bannerDismissed, ignoredUpdateVersion, currentVersionName) {
-                if (bannerDismissed || releaseJson.isNullOrBlank()) null
-                else parseReleaseInfo(releaseJson)?.takeIf { info ->
-                    info.tagName != ignoredUpdateVersion &&
-                        UpdateNotifier.compareVersions(currentVersionName, info.tagName) < 0
+                if (bannerDismissed || releaseJson.isNullOrBlank()) {
+                    null
+                } else {
+                    parseReleaseInfo(releaseJson)?.takeIf { info ->
+                        info.tagName != ignoredUpdateVersion &&
+                            UpdateNotifier.compareVersions(currentVersionName, info.tagName) < 0
+                    }
                 }
             }
             if (release != null) {
@@ -338,29 +341,95 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize().weight(1f),
                 userScrollEnabled = true,
             ) { page ->
-            when (page) {
-                // Tab 0 "任务": 任务列表(用户日常工作调研)
-                // 点击会话只切换 currentSessionId,不跳转到 Agent Tab
-                // C4: 宽屏(Expanded)双栏 — 左会话列表(400dp)+ 右消息同屏;
-                //     窄屏保持原交互(点击任务 push 独立聊天详情页)
-                0 -> {
-                    if (isWideTasks) {
-                        Row(modifier = Modifier.fillMaxSize()) {
+                when (page) {
+                    // Tab 0 "任务": 任务列表(用户日常工作调研)
+                    // 点击会话只切换 currentSessionId,不跳转到 Agent Tab
+                    // C4: 宽屏(Expanded)双栏 — 左会话列表(400dp)+ 右消息同屏;
+                    //     窄屏保持原交互(点击任务 push 独立聊天详情页)
+                    0 -> {
+                        if (isWideTasks) {
+                            Row(modifier = Modifier.fillMaxSize()) {
+                                ChatListScreen(
+                                    sessions = state.sessions,
+                                    folders = state.folders,
+                                    currentSessionId = state.currentSessionId,
+                                    onSelect = { id ->
+                                        // C4: 宽屏右栏 ChatScreen 跟随 currentSessionId 就地显示,不 push
+                                        viewModel.switchSession(id)
+                                    },
+                                    onCreate = {
+                                        viewModel.createNewSession()
+                                    },
+                                    onDelete = viewModel::deleteSession,
+                                    onRename = { session ->
+                                        viewModel.renameSession(session.id, session.title)
+                                    },
+                                    onRenameTo = { session, newName ->
+                                        viewModel.renameSession(session.id, newName)
+                                    },
+                                    onTogglePinned = viewModel::togglePinned,
+                                    onReorderPinned = viewModel::reorderPinnedSessions,
+                                    onMoveSessionToFolder = viewModel::moveSessionToFolder,
+                                    onCreateFolder = viewModel::createFolder,
+                                    onRenameFolder = viewModel::renameFolder,
+                                    onDeleteFolder = viewModel::deleteFolder,
+                                    onToggleFolderExpanded = viewModel::toggleFolderExpanded,
+                                    assistants = state.assistants,
+                                    currentAssistant = state.currentAssistant,
+                                    archivedSessions = state.archivedSessions,
+                                    onArchive = { id -> viewModel.setSessionArchived(id, true) },
+                                    onUnarchive = { id -> viewModel.setSessionArchived(id, false) },
+                                    onOpenScheduledTasks = onOpenScheduledTasks,
+                                    onOpenQuickNotes = onOpenQuickNotes,
+                                    onOpenQuickTranslate = onOpenQuickTranslate,
+                                    onOpenKnowledgeBase = onOpenKnowledgeBase,
+                                    onOpenRecentlyDeleted = onOpenRecentlyDeleted,
+                                    onOpenAssistants = onOpenAssistants,
+                                    // v2.x: 伙伴横排 — 以指定助手开新聊天(宽屏双栏就地切新会话)
+                                    onOpenAssistantChat = { id ->
+                                        viewModel.createNewSession(assistantIdOverride = id)
+                                    },
+                                    onCreateWithText = { text ->
+                                        viewModel.sendToNewChat(text)
+                                    },
+                                    isSessionsLoading = state.isSessionsLoading,
+                                    sessionsError = state.sessionsError,
+                                    onRetryLoadSessions = viewModel::retryLoadSessions,
+                                    modifier = Modifier.fillMaxSize().width(400.dp),
+                                )
+                                VerticalDivider(
+                                    modifier = Modifier.fillMaxHeight().width(1.dp),
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                                )
+                                // C4: 右栏消息 — onBack=null 不显示返回按钮,复用共享 ChatViewModel 单例
+                                ChatScreen(
+                                    onOpenAssistants = onOpenAssistants,
+                                    isAgentMode = false,
+                                    onHtmlPreview = onHtmlPreview,
+                                    onOpenSkills = onOpenSkills,
+                                    onOpenPromptTemplateManager = onOpenPromptTemplateManager,
+                                    modifier = Modifier.fillMaxSize().weight(1f),
+                                )
+                            }
+                        } else {
                             ChatListScreen(
                                 sessions = state.sessions,
                                 folders = state.folders,
                                 currentSessionId = state.currentSessionId,
                                 onSelect = { id ->
-                                    // C4: 宽屏右栏 ChatScreen 跟随 currentSessionId 就地显示,不 push
+                                    // v0.27: 点击任务项 → 切换会话 + push 到聊天详情页
                                     viewModel.switchSession(id)
+                                    onOpenChat()
                                 },
                                 onCreate = {
-                                    viewModel.createNewSession()
+                                    // v0.27: 新任务 → 创建会话 + push 到聊天详情页
+                                    viewModel.createNewSession(onReady = onOpenChat)
                                 },
                                 onDelete = viewModel::deleteSession,
                                 onRename = { session ->
                                     viewModel.renameSession(session.id, session.title)
                                 },
+                                // v1.48: 修复会话重命名失效 bug — 旧实现传 session.title(原名),改为传用户输入的 newName
                                 onRenameTo = { session, newName ->
                                     viewModel.renameSession(session.id, newName)
                                 },
@@ -382,107 +451,41 @@ fun HomeScreen(
                                 onOpenKnowledgeBase = onOpenKnowledgeBase,
                                 onOpenRecentlyDeleted = onOpenRecentlyDeleted,
                                 onOpenAssistants = onOpenAssistants,
-                                // v2.x: 伙伴横排 — 以指定助手开新聊天(宽屏双栏就地切新会话)
+                                // v2.x: 伙伴横排 — 以指定助手开新聊天并进入聊天页
                                 onOpenAssistantChat = { id ->
-                                    viewModel.createNewSession(assistantIdOverride = id)
+                                    viewModel.createNewSession(onReady = onOpenChat, assistantIdOverride = id)
                                 },
                                 onCreateWithText = { text ->
-                                    viewModel.sendToNewChat(text)
+                                    if (isWideTasks) {
+                                        viewModel.sendToNewChat(text)
+                                    } else {
+                                        viewModel.sendToNewChat(text, onReady = onOpenChat)
+                                    }
                                 },
                                 isSessionsLoading = state.isSessionsLoading,
                                 sessionsError = state.sessionsError,
                                 onRetryLoadSessions = viewModel::retryLoadSessions,
-                                modifier = Modifier.fillMaxSize().width(400.dp),
-                            )
-                            VerticalDivider(
-                                modifier = Modifier.fillMaxHeight().width(1.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                            )
-                            // C4: 右栏消息 — onBack=null 不显示返回按钮,复用共享 ChatViewModel 单例
-                            ChatScreen(
-                                onOpenAssistants = onOpenAssistants,
-                                isAgentMode = false,
-                                onHtmlPreview = onHtmlPreview,
-                                onOpenSkills = onOpenSkills,
-                                onOpenPromptTemplateManager = onOpenPromptTemplateManager,
-                                modifier = Modifier.fillMaxSize().weight(1f),
+                                modifier = Modifier.fillMaxSize(),
                             )
                         }
-                    } else {
-                        ChatListScreen(
-                            sessions = state.sessions,
-                            folders = state.folders,
-                            currentSessionId = state.currentSessionId,
-                            onSelect = { id ->
-                                // v0.27: 点击任务项 → 切换会话 + push 到聊天详情页
-                                viewModel.switchSession(id)
-                                onOpenChat()
-                            },
-                            onCreate = {
-                                // v0.27: 新任务 → 创建会话 + push 到聊天详情页
-                                viewModel.createNewSession(onReady = onOpenChat)
-                            },
-                            onDelete = viewModel::deleteSession,
-                            onRename = { session ->
-                                viewModel.renameSession(session.id, session.title)
-                            },
-                            // v1.48: 修复会话重命名失效 bug — 旧实现传 session.title(原名),改为传用户输入的 newName
-                            onRenameTo = { session, newName ->
-                                viewModel.renameSession(session.id, newName)
-                            },
-                            onTogglePinned = viewModel::togglePinned,
-                            onReorderPinned = viewModel::reorderPinnedSessions,
-                            onMoveSessionToFolder = viewModel::moveSessionToFolder,
-                            onCreateFolder = viewModel::createFolder,
-                            onRenameFolder = viewModel::renameFolder,
-                            onDeleteFolder = viewModel::deleteFolder,
-                            onToggleFolderExpanded = viewModel::toggleFolderExpanded,
-                            assistants = state.assistants,
-                            currentAssistant = state.currentAssistant,
-                            archivedSessions = state.archivedSessions,
-                            onArchive = { id -> viewModel.setSessionArchived(id, true) },
-                            onUnarchive = { id -> viewModel.setSessionArchived(id, false) },
-                            onOpenScheduledTasks = onOpenScheduledTasks,
-                            onOpenQuickNotes = onOpenQuickNotes,
-                            onOpenQuickTranslate = onOpenQuickTranslate,
-                            onOpenKnowledgeBase = onOpenKnowledgeBase,
-                            onOpenRecentlyDeleted = onOpenRecentlyDeleted,
-                            onOpenAssistants = onOpenAssistants,
-                            // v2.x: 伙伴横排 — 以指定助手开新聊天并进入聊天页
-                            onOpenAssistantChat = { id ->
-                                viewModel.createNewSession(onReady = onOpenChat, assistantIdOverride = id)
-                            },
-                            onCreateWithText = { text ->
-                                if (isWideTasks) {
-                                    viewModel.sendToNewChat(text)
-                                } else {
-                                    viewModel.sendToNewChat(text, onReady = onOpenChat)
-                                }
-                            },
-                            isSessionsLoading = state.isSessionsLoading,
-                            sessionsError = state.sessionsError,
-                            onRetryLoadSessions = viewModel::retryLoadSessions,
-                            modifier = Modifier.fillMaxSize(),
-                        )
                     }
+                    // Tab 1 "Agent": 长效日常聊天搭子
+                    // 独立聊天区域,不依赖任务 Tab 的会话选择
+                    // M-CS6: 移除多余的 Column 包裹 — ChatScreen 内部已用 fillMaxSize 自撑,Column 仅增加一层无意义嵌套
+                    1 -> ChatScreen(
+                        onOpenAssistants = onOpenAssistants,
+                        isAgentMode = true,
+                        onHtmlPreview = onHtmlPreview,
+                        onOpenSkills = onOpenSkills,
+                        onOpenPromptTemplateManager = onOpenPromptTemplateManager,
+                    )
+                    // Tab 2 "群聊": 多 Agent 群聊列表
+                    // 点击群聊卡片 → 跳转到群聊详情页(通过 NavHost 路由)
+                    2 -> GroupChatListScreen(
+                        onOpenChat = onOpenGroupChat,
+                    )
                 }
-                // Tab 1 "Agent": 长效日常聊天搭子
-                // 独立聊天区域,不依赖任务 Tab 的会话选择
-                // M-CS6: 移除多余的 Column 包裹 — ChatScreen 内部已用 fillMaxSize 自撑,Column 仅增加一层无意义嵌套
-                1 -> ChatScreen(
-                    onOpenAssistants = onOpenAssistants,
-                    isAgentMode = true,
-                    onHtmlPreview = onHtmlPreview,
-                    onOpenSkills = onOpenSkills,
-                    onOpenPromptTemplateManager = onOpenPromptTemplateManager,
-                )
-                // Tab 2 "群聊": 多 Agent 群聊列表
-                // 点击群聊卡片 → 跳转到群聊详情页(通过 NavHost 路由)
-                2 -> GroupChatListScreen(
-                    onOpenChat = onOpenGroupChat,
-                )
             }
-        }
         }
 
         // v1.41: Agent Tab 模型切换面板

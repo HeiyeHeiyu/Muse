@@ -25,14 +25,20 @@ typealias ChannelToolFn = suspend (Map<String, String>) -> String
 fun ToolRegistry.ToolDef.toToolDefinition(): ToolDefinition {
     val schema = buildJsonObject {
         put("type", "object")
-        put("properties", buildJsonObject {
-            parameters.forEach { (name, desc) ->
-                put(name, buildJsonObject {
-                    put("type", parameterTypes[name] ?: "string")
-                    put("description", desc)
-                })
-            }
-        })
+        put(
+            "properties",
+            buildJsonObject {
+                parameters.forEach { (name, desc) ->
+                    put(
+                        name,
+                        buildJsonObject {
+                            put("type", parameterTypes[name] ?: "string")
+                            put("description", desc)
+                        },
+                    )
+                }
+            },
+        )
         if (required.isNotEmpty()) {
             put("required", JsonArray(required.map { JsonPrimitive(it) }))
         }

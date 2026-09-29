@@ -33,7 +33,11 @@ class PinnedMemoryStore(
         private const val MD_FILE = "pinned.md"
     }
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+        prettyPrint = true
+    }
     private val jsonFile = File(storageDir, JSON_FILE)
     private val mdFile = File(storageDir, MD_FILE)
 
@@ -42,8 +46,10 @@ class PinnedMemoryStore(
     // 无缓存时每次读双文件(JSON + Markdown 合并),高频对话下无谓磁盘 I/O。
     @Volatile
     private var cacheJsonMtime: Long = -1L
+
     @Volatile
     private var cacheMdMtime: Long = -1L
+
     @Volatile
     private var cachedEntries: List<PinnedEntry>? = null
 

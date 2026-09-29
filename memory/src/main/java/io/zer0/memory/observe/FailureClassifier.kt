@@ -30,7 +30,7 @@ object FailureClassifier {
     /** 可重试的消息特征(小写匹配)。 */
     private val RETRYABLE_PATTERNS = listOf(
         "http 429",
-        "http 5",          // 5xx 服务端临时错误
+        "http 5", // 5xx 服务端临时错误
         "timeout",
         "timed out",
         "rate limit",

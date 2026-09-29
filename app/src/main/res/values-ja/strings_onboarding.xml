@@ -48,7 +48,7 @@
     <string name="onboarding_provider_apikey_show">キーを表示</string>
     <string name="onboarding_provider_apikey_hide">キーを隠す</string>
     <string name="onboarding_provider_test_button">テスト接続</string>
-    <string name="onboarding_provider_test_success">接続に成功しました。</string>
+    <string name="onboarding_provider_test_success">接続に成功しました。利用可能なモデル数: %1$d。</string>
     <string name="onboarding_provider_skip">スキップして後で設定する</string>
     <string name="onboarding_provider_custom">カスタム（OpenAI互換）</string>
     <string name="onboarding_provider_custom_baseurl_label">カスタムベースURL</string>

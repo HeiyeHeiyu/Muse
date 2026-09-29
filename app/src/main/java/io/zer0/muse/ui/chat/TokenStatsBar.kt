@@ -55,7 +55,9 @@ fun TokenStatsBar(
     }
     val ratio = if (contextWindow > 0) {
         (used.toFloat() / contextWindow).coerceIn(0f, 1f)
-    } else 0f
+    } else {
+        0f
+    }
 
     Row(
         modifier = modifier

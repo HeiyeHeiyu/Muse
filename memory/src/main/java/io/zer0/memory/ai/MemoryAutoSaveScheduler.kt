@@ -52,18 +52,25 @@ class MemoryAutoSaveScheduler(
     companion object {
         /** LLM 最大 token(memory extract 需要输出结构化 JSON,给足空间)。 */
         const val EXTRACT_MAX_TOKENS = 4096
+
         /** 自动分类批量大小的上限。 */
         const val CATEGORIZE_BATCH_SIZE = 10
+
         /** 自动分类 LLM 最大 token。 */
         const val CATEGORIZE_MAX_TOKENS = 2048
+
         /** 对话历史最大条数(避免超长输入)。 */
         const val MAX_HISTORY_MESSAGES = 30
+
         /** 对话历史单条最大字符数(截断超长消息)。 */
         const val MAX_MESSAGE_CHARS = 500
+
         /** 已有事实预览最大条数(给 LLM 做去重参考)。 */
         const val MAX_EXISTING_FACTS_PREVIEW = 20
+
         /** 并发控制:同时只允许一个 autoSave 分析(避免 LLM 限流)。 */
         const val MAX_CONCURRENT_ANALYSIS = 1
+
         /** 触发 autoSave 的对话轮数间隔。 */
         const val AUTO_SAVE_TURN_INTERVAL = 10
     }
@@ -207,7 +214,9 @@ class MemoryAutoSaveScheduler(
 
         // 1. 构建已有事实预览(取最近 MAX_EXISTING_FACTS_PREVIEW 条)
         val existingFacts = factStore.getByScopeAndSpace(scope, spaceId)
-        val existingPreview = if (existingFacts.isEmpty()) null else {
+        val existingPreview = if (existingFacts.isEmpty()) {
+            null
+        } else {
             existingFacts.take(MAX_EXISTING_FACTS_PREVIEW).joinToString("\n") { f ->
                 "- ${f.fact.take(60)}"
             }
@@ -283,8 +292,11 @@ class MemoryAutoSaveScheduler(
         s = s.replace(Regex("<think(?:ing)?>[\\s\\S]*?</think(?:ing)?>", RegexOption.IGNORE_CASE), "")
         // 2. 去 ```json ... ``` 围栏
         val fenceMatch = Regex("""```(?:json)?\s*\n([\s\S]*?)\n```""").find(s)
-        if (fenceMatch != null) s = fenceMatch.groupValues[1]
-        else s = s.trim()
+        if (fenceMatch != null) {
+            s = fenceMatch.groupValues[1]
+        } else {
+            s = s.trim()
+        }
 
         // 3. 提取 JSON 对象
         if (!s.startsWith("{")) {
@@ -327,18 +339,18 @@ class MemoryAutoSaveScheduler(
             val facts = analysis.extractedEntities
                 .filter { it.content.isNotBlank() }
                 .map { entity ->
-                FactStore.Fact(
-                    fact = entity.content,
-                    tags = entity.tags,
-                    sessionId = sessionId,
-                    importance = floatImportanceToInt(entity.importance),
-                    category = entity.folderPath?.takeIf { it.isNotBlank() } ?: "general",
-                    confidence = entity.credibility.coerceIn(0f, 1f),
-                    source = "inferred",
-                    // v12: 提取阶段给出的实体归一化键,写入时按实体键精确去重
-                    entityKey = entity.entityKey,
-                )
-            }
+                    FactStore.Fact(
+                        fact = entity.content,
+                        tags = entity.tags,
+                        sessionId = sessionId,
+                        importance = floatImportanceToInt(entity.importance),
+                        category = entity.folderPath?.takeIf { it.isNotBlank() } ?: "general",
+                        confidence = entity.credibility.coerceIn(0f, 1f),
+                        source = "inferred",
+                        // v12: 提取阶段给出的实体归一化键,写入时按实体键精确去重
+                        entityKey = entity.entityKey,
+                    )
+                }
             extracted = if (facts.isEmpty()) 0 else factStore.addBatch(facts, scope, spaceId)
         }
 
@@ -580,8 +592,11 @@ class MemoryAutoSaveScheduler(
         var s = raw
         s = s.replace(Regex("<think(?:ing)?>[\\s\\S]*?</think(?:ing)?>", RegexOption.IGNORE_CASE), "")
         val fenceMatch = Regex("""```(?:json)?\s*\n([\s\S]*?)\n```""").find(s)
-        if (fenceMatch != null) s = fenceMatch.groupValues[1]
-        else s = s.trim()
+        if (fenceMatch != null) {
+            s = fenceMatch.groupValues[1]
+        } else {
+            s = s.trim()
+        }
 
         if (!s.startsWith("[")) {
             val start = s.indexOf('[')

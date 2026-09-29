@@ -81,9 +81,9 @@ import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 
 /** B7-07: 加号工具面板的数据驱动条目。 */
 internal data class ToolEntry(
@@ -124,9 +124,9 @@ internal fun MuseToolSheet(
         bottomContentSpacing = 0.dp,
     ) {
         Text(
-                    text = stringResource(R.string.chat_tools_pick_content),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline,
+            text = stringResource(R.string.chat_tools_pick_content),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.outline,
         )
 
         Spacer(Modifier.height(MusePaddings.contentGap))
@@ -441,8 +441,11 @@ private fun QuickAttachTab(
         label = "quickTabCircle",
     )
     val contentColor by animateColorAsState(
-        targetValue = if (isActive) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.onSurface,
+        targetValue = if (isActive) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurface
+        },
         animationSpec = MuseMotion.tween(MuseAnimation.TACTILE_MS),
         label = "quickTabContent",
     )
@@ -452,11 +455,13 @@ private fun QuickAttachTab(
                 scaleX = pressScale
                 scaleY = pressScale
             }
-            .heightIn(min = when {
-                dense -> 64.dp
-                compact -> 48.dp
-                else -> 72.dp
-            })
+            .heightIn(
+                min = when {
+                    dense -> 64.dp
+                    compact -> 48.dp
+                    else -> 72.dp
+                },
+            )
             .clip(if (compact) MuseShapes.pill else MuseShapes.large)
             // v2.x: 背景在 clickable 之前;按压反馈走缩放+颜色(自绘,与全局去 ripple 决策一致)
             .background(containerColor)
@@ -550,11 +555,7 @@ private fun QuickAttachTab(
 
 /** 最近相册图片缩略图,支持多选并显示选择顺序。 */
 @Composable
-private fun GalleryThumbnail(
-    uri: Uri,
-    selectionIndex: Int,
-    onClick: () -> Unit,
-) {
+private fun GalleryThumbnail(uri: Uri, selectionIndex: Int, onClick: () -> Unit) {
     val shape = MuseShapes.extraLarge
     Box(
         modifier = Modifier
@@ -609,10 +610,7 @@ private fun GalleryThumbnail(
  * 点击预览格触发 [onTap](由调用方启动系统相机拍照)。
  */
 @Composable
-private fun CameraLivePreviewBox(
-    modifier: Modifier,
-    onTap: () -> Unit,
-) {
+private fun CameraLivePreviewBox(modifier: Modifier, onTap: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentOnTap by rememberUpdatedState(onTap)
@@ -659,12 +657,7 @@ private fun CameraLivePreviewBox(
 
 /** B7-07: 工具菜单中的媒体快捷卡片。 */
 @Composable
-private fun ToolMediaCard(
-    icon: ImageVector,
-    label: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
+private fun ToolMediaCard(icon: ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Surface(
         shape = MuseShapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.78f),

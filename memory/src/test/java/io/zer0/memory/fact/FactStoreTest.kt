@@ -260,13 +260,15 @@ class FactStoreTest {
     fun `applyDecay preserves critical facts with importance 2`() = runTest {
         // 直接通过 DAO 插入一条 100 天前的关键事实
         val oldDate = Instant.now().minus(100, ChronoUnit.DAYS).toString()
-        dao.insert(FactEntity(
-            fact = "青霉素过敏(关键)",
-            tags = "[]",
-            createdAt = oldDate,
-            importance = 2, // 关键,永不衰减
-            lastHitAt = null,
-        ))
+        dao.insert(
+            FactEntity(
+                fact = "青霉素过敏(关键)",
+                tags = "[]",
+                createdAt = oldDate,
+                importance = 2, // 关键,永不衰减
+                lastHitAt = null,
+            ),
+        )
         store.rebuildFtsIndex()
 
         val deleted = store.applyDecay(MemoryConfig())
@@ -278,13 +280,15 @@ class FactStoreTest {
     fun `applyDecay deletes old non-critical facts beyond cutoff`() = runTest {
         // 默认 cutoffDays ≈ 40 天,插入 50 天前的普通事实
         val oldDate = Instant.now().minus(50, ChronoUnit.DAYS).toString()
-        dao.insert(FactEntity(
-            fact = "50天前的普通事实",
-            tags = "[]",
-            createdAt = oldDate,
-            importance = 0,
-            lastHitAt = null,
-        ))
+        dao.insert(
+            FactEntity(
+                fact = "50天前的普通事实",
+                tags = "[]",
+                createdAt = oldDate,
+                importance = 0,
+                lastHitAt = null,
+            ),
+        )
         store.rebuildFtsIndex()
 
         val deleted = store.applyDecay(MemoryConfig())
@@ -296,13 +300,15 @@ class FactStoreTest {
     fun `applyDecay keeps recent facts within cutoff`() = runTest {
         // 插入 5 天前的普通事实(远小于 40 天 cutoff)
         val recentDate = Instant.now().minus(5, ChronoUnit.DAYS).toString()
-        dao.insert(FactEntity(
-            fact = "近期普通事实",
-            tags = "[]",
-            createdAt = recentDate,
-            importance = 0,
-            lastHitAt = null,
-        ))
+        dao.insert(
+            FactEntity(
+                fact = "近期普通事实",
+                tags = "[]",
+                createdAt = recentDate,
+                importance = 0,
+                lastHitAt = null,
+            ),
+        )
         store.rebuildFtsIndex()
 
         val deleted = store.applyDecay(MemoryConfig())
@@ -316,13 +322,15 @@ class FactStoreTest {
         // 默认 hitBonus=5 → cutoff ≈ 60 天,50 < 60 应保留
         val oldCreated = Instant.now().minus(50, ChronoUnit.DAYS).toString()
         val recentHit = Instant.now().minus(5, ChronoUnit.DAYS).toString()
-        dao.insert(FactEntity(
-            fact = "50天前创建但5天前命中",
-            tags = "[]",
-            createdAt = oldCreated,
-            importance = 0,
-            lastHitAt = recentHit, // 已命中,按 lastHitAt 判断
-        ))
+        dao.insert(
+            FactEntity(
+                fact = "50天前创建但5天前命中",
+                tags = "[]",
+                createdAt = oldCreated,
+                importance = 0,
+                lastHitAt = recentHit, // 已命中,按 lastHitAt 判断
+            ),
+        )
         store.rebuildFtsIndex()
 
         val deleted = store.applyDecay(MemoryConfig())
@@ -335,23 +343,27 @@ class FactStoreTest {
         val oldDate = Instant.now().minus(50, ChronoUnit.DAYS).toString()
 
         // main scope: 旧普通事实
-        dao.insert(FactEntity(
-            fact = "main scope 旧事实",
-            tags = "[]",
-            createdAt = oldDate,
-            importance = 0,
-            lastHitAt = null,
-            scope = "main",
-        ))
+        dao.insert(
+            FactEntity(
+                fact = "main scope 旧事实",
+                tags = "[]",
+                createdAt = oldDate,
+                importance = 0,
+                lastHitAt = null,
+                scope = "main",
+            ),
+        )
         // assistant-A scope: 同样旧的普通事实
-        dao.insert(FactEntity(
-            fact = "assistant-A scope 旧事实",
-            tags = "[]",
-            createdAt = oldDate,
-            importance = 0,
-            lastHitAt = null,
-            scope = "assistant-A",
-        ))
+        dao.insert(
+            FactEntity(
+                fact = "assistant-A scope 旧事实",
+                tags = "[]",
+                createdAt = oldDate,
+                importance = 0,
+                lastHitAt = null,
+                scope = "assistant-A",
+            ),
+        )
         store.rebuildFtsIndex()
 
         // 仅衰减 main scope
@@ -433,7 +445,7 @@ class FactStoreTest {
     fun `setImportance updates importance and clamps to 0-2`() = runTest {
         val id = store.add(FactStore.Fact(fact = "测试", importance = 0))
 
-        assertTrue(store.setImportance(id, 5))  // 超界应 clamp 到 2
+        assertTrue(store.setImportance(id, 5)) // 超界应 clamp 到 2
         assertEquals(2, store.getById(id)!!.importance)
 
         assertTrue(store.setImportance(id, -3)) // 超界应 clamp 到 0

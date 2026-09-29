@@ -46,82 +46,121 @@ data object CoverManagerRoute
 
 @Serializable
 data object SettingsRoute
+
 @Serializable
 data object AccountRoute
+
 @Serializable
 data object SettingsModelRoute
+
 @Serializable
 data object SettingsWebSearchRoute
+
 @Serializable
 data object SettingsAsrRoute
+
 @Serializable
 data object SettingsMcpRoute
+
 @Serializable
 data object SettingsAssistantResourcesRoute
+
 @Serializable
 data object UserProfileEditRoute
+
 @Serializable
 data object SettingsDataRoute
+
 @Serializable
 data object SettingsCloudBackupRoute
+
 @Serializable
 data object SettingsAppearanceRoute
+
 @Serializable
 data object SettingsAboutRoute
+
 @Serializable
 data object SettingsChatRoute
+
 @Serializable
 data object ToolsSettingsRoute
+
 @Serializable
 data object SettingsAutomationRoute
+
 @Serializable
 data object SettingsMemoryRoute
+
 @Serializable
 data object SettingsMemoryConfigRoute
+
 @Serializable
 data object SettingsMemorySpaceRoute
+
 @Serializable
 data object SettingsMediaRoute
+
 @Serializable
 data object SettingsExperimentsRoute
+
 @Serializable
 data object SettingsRagRoute
+
 @Serializable
 data object SettingsVisionRoute
+
 @Serializable
 data object SettingsDataImportRoute
+
 @Serializable
 data object SettingsCrashReportRoute
+
 @Serializable
 data object SettingsTutorialRoute
+
 @Serializable
 data object SettingsSecurityRoute
+
 @Serializable
 data object SettingsProxyRoute
+
 @Serializable
 data object SettingsMultiAgentRoute
+
 @Serializable
 data object SettingsAgentRoute
- @Serializable
+
+@Serializable
 data object SettingsProactiveRoute
+
 @Serializable
 data object LicensesRoute
+
 @Serializable
 data object DebugRoute
+
 @Serializable
 data object TerminalRoute
+
 @Serializable
 data object ComponentGalleryRoute
+
 @Serializable
 data object AuditLogRoute
+
 @Serializable
 data object WorkspaceRoute
+
 @Serializable
 data object ArtifactCenterRoute
+
 @Serializable
 data object ConnectionCenterRoute
+
 @Serializable
 data object PluginManageRoute
+
 @Serializable
 data object KnowledgeBaseManageRoute
 
@@ -130,9 +169,6 @@ data object SettingsTaskRoutingRoute
 
 @Serializable
 data object SettingsPermissionWizardRoute
-
-
-
 
 @Serializable
 data object AssistantsRoute
@@ -233,6 +269,7 @@ data object TranslateRoute
 
 @Serializable
 data object RecentlyDeletedRoute
+
 @Serializable
 data object ArchivedChatsRoute
 

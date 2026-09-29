@@ -231,7 +231,10 @@ class ChatEventNormalizationTest {
             ChatStreamEvent.ContentDelta("最终"),
             ChatStreamEvent.ContentDelta("答案"),
             ChatStreamEvent.ToolCallDelta(
-                index = 0, id = "call_1", name = "lookup", argumentsDelta = "{\"q\":",
+                index = 0,
+                id = "call_1",
+                name = "lookup",
+                argumentsDelta = "{\"q\":",
             ),
             ChatStreamEvent.ToolCallDelta(index = 0, argumentsDelta = "\"muse\"}"),
             ChatStreamEvent.UsageDelta(UsageTokens(promptTokens = 10, completionTokens = 20)),

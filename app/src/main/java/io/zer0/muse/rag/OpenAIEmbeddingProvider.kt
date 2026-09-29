@@ -60,8 +60,11 @@ class OpenAIEmbeddingProvider(
 
     private val embeddingsPath: String by lazy {
         val specific = config.resolvedSpecific()
-        if (specific is ProviderSpecificConfig.OpenAI) specific.embeddingsPath.ifBlank { "/embeddings" }
-        else "/embeddings"
+        if (specific is ProviderSpecificConfig.OpenAI) {
+            specific.embeddingsPath.ifBlank { "/embeddings" }
+        } else {
+            "/embeddings"
+        }
     }
 
     private val mediaType = "application/json; charset=utf-8".toMediaType()
@@ -114,7 +117,7 @@ class OpenAIEmbeddingProvider(
             m.contains("text-embedding-3-large") -> 3072
             m.contains("text-embedding-3-small") -> 1536
             m.contains("text-embedding-ada") -> 1536
-            m.contains("embedding-2") -> 1024       // 智谱 embedding-2
+            m.contains("embedding-2") -> 1024 // 智谱 embedding-2
             m.contains("text-embedding-v3") -> 1024 // 通义 text-embedding-v3
             m.contains("bge-large") -> 1024
             m.contains("bge-small") -> 512
@@ -128,11 +131,11 @@ class OpenAIEmbeddingProvider(
         io.zer0.ai.core.ProviderType.OPENAI, io.zer0.ai.core.ProviderType.OPENAI_RESPONSES -> "text-embedding-3-small"
         io.zer0.ai.core.ProviderType.ANTHROPIC ->
             throw IllegalStateException(
-                "Anthropic does not provide an OpenAI-compatible embedding API. Please specify an embedding model in RAG settings or switch to an OpenAI-compatible Provider"
+                "Anthropic does not provide an OpenAI-compatible embedding API. Please specify an embedding model in RAG settings or switch to an OpenAI-compatible Provider",
             )
         io.zer0.ai.core.ProviderType.GEMINI ->
             throw IllegalStateException(
-                "Gemini's embedding API is not fully compatible with OpenAI's. Please specify an embedding model in RAG settings or switch to an OpenAI-compatible Provider"
+                "Gemini's embedding API is not fully compatible with OpenAI's. Please specify an embedding model in RAG settings or switch to an OpenAI-compatible Provider",
             )
     }
 }

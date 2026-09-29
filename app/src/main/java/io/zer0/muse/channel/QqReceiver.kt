@@ -134,13 +134,7 @@ class QqReceiver(
     }
 
     /** 帧状态机(op: 10 Hello / 11 心跳 ACK / 0 事件 / 7 重连 / 9 无效会话)。 */
-    private fun handleFrame(
-        webSocket: WebSocket,
-        text: String,
-        accessToken: String,
-        heartbeatInterval: AtomicLong,
-        lastSeq: AtomicLong,
-    ) {
+    private fun handleFrame(webSocket: WebSocket, text: String, accessToken: String, heartbeatInterval: AtomicLong, lastSeq: AtomicLong) {
         val obj = AppJson.parseToJsonElement(text).jsonObject
         val op = obj["op"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: return
         when (op) {

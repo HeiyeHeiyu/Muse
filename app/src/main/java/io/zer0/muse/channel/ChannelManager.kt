@@ -91,9 +91,10 @@ class ChannelManager(context: Context) {
                 .mapCatching { "tenant_access_token 获取成功" }
             ChannelPlatform.QQ -> QqClient.fetchAccessToken(config.appId.trim(), config.appSecret.trim())
                 .map { "access_token 获取成功" }
-            ChannelPlatform.DINGTALK -> DingtalkClient
-                .fetchAccessToken(config.appId.trim(), config.appSecret.trim(), config.dingtalkApiBase)
-                .map { "access_token 获取成功" }
+            ChannelPlatform.DINGTALK ->
+                DingtalkClient
+                    .fetchAccessToken(config.appId.trim(), config.appSecret.trim(), config.dingtalkApiBase)
+                    .map { "access_token 获取成功" }
             ChannelPlatform.TELEGRAM -> TelegramClient.getMe(config.appSecret.trim())
             ChannelPlatform.WECLAW -> Result.success("微信渠道由扫码绑定完成,无需单独检测")
         }

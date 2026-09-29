@@ -158,15 +158,14 @@ class MemoryStepRunner(
         }
     }
 
-    private fun bump(stepKey: String, success: Boolean): StepCounters =
-        counters.compute(stepKey) { _, prev ->
-            val base = prev ?: StepCounters()
-            base.copy(
-                total = base.total + 1,
-                successes = base.successes + if (success) 1 else 0,
-                failures = base.failures + if (success) 0 else 1,
-            )
-        } ?: StepCounters()
+    private fun bump(stepKey: String, success: Boolean): StepCounters = counters.compute(stepKey) { _, prev ->
+        val base = prev ?: StepCounters()
+        base.copy(
+            total = base.total + 1,
+            successes = base.successes + if (success) 1 else 0,
+            failures = base.failures + if (success) 0 else 1,
+        )
+    } ?: StepCounters()
 }
 
 /** 单步累计计数。 */

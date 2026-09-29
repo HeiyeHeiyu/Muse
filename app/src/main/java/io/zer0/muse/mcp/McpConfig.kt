@@ -33,14 +33,19 @@ enum class McpTransportType { SSE, STREAMABLE_HTTP }
 enum class McpConnectionState {
     /** 未连接(初始 / 已关闭)。 */
     DISCONNECTED,
+
     /** 正在连接(握手 initialize 中)。 */
     CONNECTING,
+
     /** 已连接(initialize 成功,可收发请求)。 */
     CONNECTED,
+
     /** 正在重连(指数退避中)。 */
     RECONNECTING,
+
     /** 连接失败(超过最大重试次数)。 */
     FAILED,
+
     /** Phase 10.4: 需要重新 OAuth 授权(token 过期且 refresh 失败)。 */
     NEEDS_AUTH,
 }
@@ -119,12 +124,10 @@ data class McpTokenInfo(
     val scope: String = "",
 ) {
     /** 是否已过期(留 30s 提前量,避免请求时刚好过期)。 */
-    fun isExpired(now: Long = System.currentTimeMillis()): Boolean =
-        expiresAt in 1..(now + 30_000L)
+    fun isExpired(now: Long = System.currentTimeMillis()): Boolean = expiresAt in 1..(now + 30_000L)
 
     /** 是否有效(有 accessToken 且未过期)。 */
-    fun isValid(now: Long = System.currentTimeMillis()): Boolean =
-        accessToken.isNotBlank() && !isExpired(now)
+    fun isValid(now: Long = System.currentTimeMillis()): Boolean = accessToken.isNotBlank() && !isExpired(now)
 
     /** 是否可刷新(有 refreshToken)。 */
     fun canRefresh(): Boolean = refreshToken.isNotBlank()

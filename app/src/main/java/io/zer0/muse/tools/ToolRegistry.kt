@@ -150,10 +150,7 @@ class ToolRegistry(
      * @param def 工具定义
      * @param fn 执行函数
      */
-    fun register(
-        def: ToolDef,
-        fn: ToolFn,
-    ) {
+    fun register(def: ToolDef, fn: ToolFn) {
         tools[def.name] = fn
         contextTools.remove(def.name)
         outcomeTools.remove(def.name)
@@ -163,10 +160,7 @@ class ToolRegistry(
     }
 
     /** 注册需要宿主会话 scope/space 边界的工具。 */
-    fun registerWithContext(
-        def: ToolDef,
-        fn: ContextToolFn,
-    ) {
+    fun registerWithContext(def: ToolDef, fn: ContextToolFn) {
         contextTools[def.name] = fn
         tools.remove(def.name)
         outcomeTools.remove(def.name)
@@ -179,10 +173,7 @@ class ToolRegistry(
      * v1.0.53: 注册结构化结果工具(返回 [ToolOutcome])。
      * 优先于旧 String 通道;同名的 String 注册会覆盖回旧通道。
      */
-    fun registerOutcome(
-        def: ToolDef,
-        fn: ToolOutcomeFn,
-    ) {
+    fun registerOutcome(def: ToolDef, fn: ToolOutcomeFn) {
         outcomeTools[def.name] = fn
         tools.remove(def.name)
         jsonTools.remove(def.name)
@@ -196,10 +187,7 @@ class ToolRegistry(
      * MCP 的 inputSchema 允许 number / boolean / array / object 参数;
      * 普通 [ToolFn] 为兼容内置工具会把参数压成 String,因此 MCP 工具必须走此通道。
      */
-    internal fun registerJson(
-        def: ToolDef,
-        fn: JsonToolFn,
-    ) {
+    internal fun registerJson(def: ToolDef, fn: JsonToolFn) {
         jsonTools[def.name] = fn
         tools.remove(def.name)
         outcomeTools.remove(def.name)
@@ -290,45 +278,44 @@ class ToolRegistry(
      *
      * @param enabledToolIds 启用的工具 id 列表;null 或空列表表示全部启用
      */
-    fun listToolsAsToolDefinitions(enabledToolIds: List<String>? = null): List<ToolDefinition> =
-        listTools(enabledToolIds).map { def ->
-            val schema =
-                def.rawParametersJsonSchema
-                    ?.takeIf { raw -> runCatching { AppJson.decodeFromString(JsonObject.serializer(), raw) }.isSuccess }
-                    ?.let { raw -> AppJson.decodeFromString(JsonObject.serializer(), raw) }
-                    ?: buildJsonObject {
-                        put("type", "object")
+    fun listToolsAsToolDefinitions(enabledToolIds: List<String>? = null): List<ToolDefinition> = listTools(enabledToolIds).map { def ->
+        val schema =
+            def.rawParametersJsonSchema
+                ?.takeIf { raw -> runCatching { AppJson.decodeFromString(JsonObject.serializer(), raw) }.isSuccess }
+                ?.let { raw -> AppJson.decodeFromString(JsonObject.serializer(), raw) }
+                ?: buildJsonObject {
+                    put("type", "object")
+                    put(
+                        "properties",
+                        buildJsonObject {
+                            def.parameters.forEach { (name, desc) ->
+                                put(
+                                    name,
+                                    buildJsonObject {
+                                        put("type", def.parameterTypes[name] ?: "string")
+                                        put("description", desc)
+                                    },
+                                )
+                            }
+                        },
+                    )
+                    if (def.required.isNotEmpty()) {
                         put(
-                            "properties",
-                            buildJsonObject {
-                                def.parameters.forEach { (name, desc) ->
-                                    put(
-                                        name,
-                                        buildJsonObject {
-                                            put("type", def.parameterTypes[name] ?: "string")
-                                            put("description", desc)
-                                        },
-                                    )
-                                }
-                            },
+                            "required",
+                            kotlinx.serialization.json.JsonArray(
+                                def.required.map { JsonPrimitive(it) },
+                            ),
                         )
-                        if (def.required.isNotEmpty()) {
-                            put(
-                                "required",
-                                kotlinx.serialization.json.JsonArray(
-                                    def.required.map { JsonPrimitive(it) },
-                                ),
-                            )
-                        }
                     }
-            ToolDefinition(
-                name = def.name,
-                description = def.description,
-                parametersJsonSchema = AppJson.encodeToString(JsonObject.serializer(), schema),
-            )
-            // v1.0.4 修复 HTTP 400 "Tool names must be unique":
-            // 防御性按 name 去重,即使 ToolRegistry 内部因多 Registrar 注册同名工具也能拦截。
-        }.distinctBy { it.name }
+                }
+        ToolDefinition(
+            name = def.name,
+            description = def.description,
+            parametersJsonSchema = AppJson.encodeToString(JsonObject.serializer(), schema),
+        )
+        // v1.0.4 修复 HTTP 400 "Tool names must be unique":
+        // 防御性按 name 去重,即使 ToolRegistry 内部因多 Registrar 注册同名工具也能拦截。
+    }.distinctBy { it.name }
 
     /**
      * 执行工具(对标 MCP tools/call)。
@@ -340,11 +327,8 @@ class ToolRegistry(
      * @param args 参数 map
      * @return 执行结果字符串;工具不存在或参数错误返回错误信息
      */
-    suspend fun execute(
-        name: String,
-        args: Map<String, String>,
-        cancellationToken: () -> Boolean = { false },
-    ): ToolOutcome = executeInternal(name, args, null, cancellationToken)
+    suspend fun execute(name: String, args: Map<String, String>, cancellationToken: () -> Boolean = { false }): ToolOutcome =
+        executeInternal(name, args, null, cancellationToken)
 
     /** 带宿主上下文执行工具；需要隔离边界的工具必须走此入口。 */
     suspend fun execute(
@@ -434,22 +418,12 @@ class ToolRegistry(
      * @param argumentsJson LLM 返回的参数 JSON 字符串(如 {"expression":"1+2*3"})
      * @return 执行结果字符串
      */
-    suspend fun executeFromJson(
-        name: String,
-        argumentsJson: String,
-    ): String = executeFromJsonInternal(name, argumentsJson, null)
+    suspend fun executeFromJson(name: String, argumentsJson: String): String = executeFromJsonInternal(name, argumentsJson, null)
 
-    suspend fun executeFromJson(
-        name: String,
-        argumentsJson: String,
-        executionContext: ToolExecutionContext,
-    ): String = executeFromJsonInternal(name, argumentsJson, executionContext)
+    suspend fun executeFromJson(name: String, argumentsJson: String, executionContext: ToolExecutionContext): String =
+        executeFromJsonInternal(name, argumentsJson, executionContext)
 
-    private suspend fun executeFromJsonInternal(
-        name: String,
-        argumentsJson: String,
-        executionContext: ToolExecutionContext?,
-    ): String {
+    private suspend fun executeFromJsonInternal(name: String, argumentsJson: String, executionContext: ToolExecutionContext?): String {
         // M-TR1: 改用 resultOf{}(正确重抛 CancellationException)
         val obj =
             resultOf {
@@ -529,10 +503,9 @@ class ToolRegistry(
         }
     }
 
-    private fun stringArgsToJson(args: Map<String, String>): JsonObject =
-        buildJsonObject {
-            args.forEach { (key, value) -> put(key, JsonPrimitive(value)) }
-        }
+    private fun stringArgsToJson(args: Map<String, String>): JsonObject = buildJsonObject {
+        args.forEach { (key, value) -> put(key, JsonPrimitive(value)) }
+    }
 
     /**
      * v1.x: 容错解析工具参数 JSON。

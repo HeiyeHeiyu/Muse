@@ -28,12 +28,12 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
 import io.zer0.muse.R
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.navigation.MuseTopBar
+import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.media.LifecycleAwareWebView
 import io.zer0.muse.ui.common.media.LifecycleAwareWebViewFactory
-import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.navigation.MuseTopBar
 
 /**
  * HTML 全屏预览页 — 在 WebView 中渲染 LLM 输出的 HTML / SVG 代码。
@@ -153,10 +153,7 @@ fun HtmlPreviewScreen(
                             setBackgroundColor(android.graphics.Color.TRANSPARENT)
                             // 拦截所有外部导航(只放行 about:blank / data:),防止 <a> 跳转
                             webViewClient = object : WebViewClient() {
-                                override fun shouldOverrideUrlLoading(
-                                    view: WebView?,
-                                    request: WebResourceRequest?,
-                                ): Boolean {
+                                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                                     val url = request?.url ?: return true
                                     val scheme = url.scheme?.lowercase() ?: return true
                                     // 仅允许 about: 和 data: 协议,其余一律拦截

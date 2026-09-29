@@ -114,7 +114,7 @@ private data class Token(val type: TokenType, val content: String, val line: Int
 private class Lexer(private val src: String) {
     private val out = mutableListOf<Token>()
     private var i = 0
-    private var line = 1  // L-PE9: 行号追踪(1-based)
+    private var line = 1 // L-PE9: 行号追踪(1-based)
 
     fun tokenize(): List<Token> {
         val text = StringBuilder()
@@ -132,7 +132,7 @@ private class Lexer(private val src: String) {
                 }
                 match("{#") -> {
                     flushText(text)
-                    readUntil("#}")  // 注释丢弃
+                    readUntil("#}") // 注释丢弃
                 }
                 else -> {
                     if (src[i] == '\n') line++
@@ -160,14 +160,14 @@ private class Lexer(private val src: String) {
             if (c == '\'' || c == '"') {
                 // 跳过字符串字面量(不识别引号内的定界符)
                 val quote = c
-                i++  // 消耗开头引号
+                i++ // 消耗开头引号
                 while (i < src.length && src[i] != quote) {
                     if (src[i] == '\n') line++
                     if (src[i] == '\\' && i + 1 < src.length) i += 2 else i++
                 }
                 if (i < src.length) {
                     if (src[i] == '\n') line++
-                    i++  // 消耗结尾引号
+                    i++ // 消耗结尾引号
                 }
             } else {
                 if (c == '\n') line++
@@ -194,14 +194,17 @@ private class Lexer(private val src: String) {
 private sealed class Node {
     /** 纯文本节点。 */
     data class Text(val text: String) : Node()
+
     /** 表达式输出节点。 */
     data class Output(val expr: Expr) : Node()
+
     /**
      * if/elif/else 条件节点。
      * - branches 是 (条件?, body) 列表,条件为 null 表示 else 分支
      * - 求值时按顺序找第一个条件为真的分支,执行其 body
      */
     data class If(val branches: List<Pair<Expr?, List<Node>>>) : Node()
+
     /**
      * for 循环节点。
      * - item 是循环变量名
@@ -209,6 +212,7 @@ private sealed class Node {
      * - body 是循环体(可访问 item 和 loop 变量)
      */
     data class For(val item: String, val list: Expr, val body: List<Node>) : Node()
+
     /** Phase 12: {% set var = expr %} ???????*/
     data class Set(val name: String, val value: Expr) : Node()
 }
@@ -216,14 +220,19 @@ private sealed class Node {
 private sealed class Expr {
     /** 字面量(字符串/数字/布尔/null)。 */
     data class Literal(val value: Any?) : Expr()
+
     /** 变量路径(如 user.name → ["user", "name"])。 */
     data class Var(val path: List<String>) : Expr()
+
     /** 过滤器调用(input | filter_name(args))。 */
     data class Filter(val input: Expr, val name: String, val args: List<Expr>) : Expr()
+
     /** 二元运算(==/!=/>/</>=/<=/and/or)。 */
     data class Binary(val op: String, val left: Expr, val right: Expr) : Expr()
+
     /** 一元运算(not)。 */
     data class Unary(val op: String, val operand: Expr) : Expr()
+
     /** 测试(is defined / is empty / is null / is even / is odd)。 */
     data class Test(val operand: Expr, val name: String, val negated: Boolean) : Expr()
 }
@@ -241,7 +250,7 @@ private sealed class Expr {
  */
 private class Parser(private val tokens: List<Token>) {
     private var i = 0
-    private var depth = 0  // M-PE1: 嵌套深度追踪
+    private var depth = 0 // M-PE1: 嵌套深度追踪
 
     fun parse(): List<Node> = parseNodes(stopOn = null)
 
@@ -268,11 +277,11 @@ private class Parser(private val tokens: List<Token>) {
                         if (stopOn != null && stopOn(keyword)) return nodes
                         when (keyword) {
                             "if" -> {
-                                i++  // 消耗 if token
+                                i++ // 消耗 if token
                                 nodes.add(parseIf(t))
                             }
                             "for" -> {
-                                i++  // 消耗 for token
+                                i++ // 消耗 for token
                                 nodes.add(parseFor(t))
                             }
                             "set" -> {
@@ -304,18 +313,18 @@ private class Parser(private val tokens: List<Token>) {
             val kw = content.split(WHITESPACE_REGEX).first()
             when (kw) {
                 "elif" -> {
-                    i++  // 消耗 elif token
+                    i++ // 消耗 elif token
                     val cond = ExprParser(content.removePrefix("elif").trim()).parse()
                     val body = parseNodes(stopOn = { it == "elif" || it == "else" || it == "endif" })
                     branches.add(cond to body)
                 }
                 "else" -> {
-                    i++  // 消耗 else token
+                    i++ // 消耗 else token
                     val body = parseNodes(stopOn = { it == "endif" })
                     branches.add(null to body)
                 }
                 "endif" -> {
-                    i++  // 消耗 endif token
+                    i++ // 消耗 endif token
                     break
                 }
                 else -> break
@@ -435,13 +444,13 @@ private class ExprParser(private val src: String) {
         var left = parsePrimary()
         skipSpace()
         while (pos < src.length && src[pos] == '|') {
-            pos++  // 消耗 |
+            pos++ // 消耗 |
             skipSpace()
             val name = readWord()
             val args = mutableListOf<Expr>()
             skipSpace()
             if (pos < src.length && src[pos] == '(') {
-                pos++  // 消耗 (
+                pos++ // 消耗 (
                 skipSpace()
                 while (pos < src.length && src[pos] != ')') {
                     args.add(parsePrimary())
@@ -451,7 +460,7 @@ private class ExprParser(private val src: String) {
                         skipSpace()
                     }
                 }
-                if (pos < src.length && src[pos] == ')') pos++  // 消耗 )
+                if (pos < src.length && src[pos] == ')') pos++ // 消耗 )
             }
             left = Expr.Filter(left, name, args)
             skipSpace()
@@ -471,24 +480,33 @@ private class ExprParser(private val src: String) {
         }
         // 括号分组
         if (c == '(') {
-            pos++  // 消耗 (
+            pos++ // 消耗 (
             val e = parseOr()
             skipSpace()
-            if (pos < src.length && src[pos] == ')') pos++  // 消耗 )
+            if (pos < src.length && src[pos] == ')') pos++ // 消耗 )
             return e
         }
         // 关键字 / 变量路径
         val word = peekWord()
         when (word) {
-            "true" -> { pos += 4; return Expr.Literal(true) }
-            "false" -> { pos += 5; return Expr.Literal(false) }
-            "null", "none" -> { pos += 4; return Expr.Literal(null) }
+            "true" -> {
+                pos += 4
+                return Expr.Literal(true)
+            }
+            "false" -> {
+                pos += 5
+                return Expr.Literal(false)
+            }
+            "null", "none" -> {
+                pos += 4
+                return Expr.Literal(null)
+            }
         }
         if (word.isNotEmpty() && (word.first().isLetter() || word.first() == '_')) {
             pos += word.length
             val path = mutableListOf(word)
             while (pos < src.length && src[pos] == '.') {
-                pos++  // 消耗 .
+                pos++ // 消耗 .
                 val seg = readWord()
                 path.add(seg)
             }
@@ -522,7 +540,7 @@ private class ExprParser(private val src: String) {
 
     private fun readString(): String {
         val quote = src[pos]
-        pos++  // 消耗开头引号
+        pos++ // 消耗开头引号
         val sb = StringBuilder()
         while (pos < src.length && src[pos] != quote) {
             if (src[pos] == '\\' && pos + 1 < src.length) {
@@ -538,7 +556,7 @@ private class ExprParser(private val src: String) {
             }
             pos++
         }
-        if (pos < src.length) pos++  // 消耗结尾引号
+        if (pos < src.length) pos++ // 消耗结尾引号
         return sb.toString()
     }
 
@@ -592,7 +610,7 @@ private class ExprParser(private val src: String) {
  */
 private class Evaluator(root: Map<String, Any?>) {
     private val scopeStack = ArrayDeque<Map<String, Any?>>()
-    private var depth = 0  // M-PE1: 嵌套深度追踪
+    private var depth = 0 // M-PE1: 嵌套深度追踪
 
     init {
         scopeStack.addLast(root)
@@ -759,7 +777,9 @@ private class Evaluator(root: Map<String, Any?>) {
         // 本实现对 null/空字符串/空集合都回退(向后兼容现有模板,改动语义可能破坏已有模板)
         "default" -> if (input == null || input == "" || (input is Collection<*> && input.isEmpty())) {
             args.firstOrNull()
-        } else input
+        } else {
+            input
+        }
         "trim" -> input?.toString()?.trim()
         "first" -> when (input) {
             is List<*> -> input.firstOrNull()
@@ -783,7 +803,9 @@ private class Evaluator(root: Map<String, Any?>) {
         "replace" -> {
             if (args.size >= 2) {
                 input?.toString()?.replace(args[0].toString(), args[1].toString())
-            } else input
+            } else {
+                input
+            }
         }
         "capitalize" -> input?.toString()?.replaceFirstChar { it.uppercase() }
         "abs" -> (input as? Number)?.let { kotlin.math.abs(it.toDouble()) }
@@ -802,7 +824,7 @@ private class Evaluator(root: Map<String, Any?>) {
                 (a?.toString() ?: "").compareTo(b?.toString() ?: "")
             }
         }
-        else -> input  // 未知过滤器原样返回
+        else -> input // 未知过滤器原样返回
     }
 
     private fun truthy(v: Any?): Boolean = when (v) {

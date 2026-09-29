@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.common.resultOf
+import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.session.MessageDao
@@ -23,7 +24,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
-import io.zer0.muse.R
 
 /**
  * v1.104 U8: 统计页时间范围筛选枚举。
@@ -37,7 +37,10 @@ import io.zer0.muse.R
  * 图表卡片(模型/助手/小时/Top 会话/热力图)保持全量历史,以保证趋势完整性。
  */
 enum class StatsTimeRange {
-    ALL_TIME, THIS_MONTH, THIS_WEEK, TODAY
+    ALL_TIME,
+    THIS_MONTH,
+    THIS_WEEK,
+    TODAY,
 }
 
 /**
@@ -195,8 +198,10 @@ class StatsViewModel(
 
                 // 反查名称用:providers(含 model 列表)+ 助手名映射
                 val providers = resultOf { settingsRepository.providersFlow.first() }.getOrNull() ?: emptyList()
-                val assistantNames = (resultOf { assistantRepository.getAll() }
-                    .getOrNull() ?: emptyList())
+                val assistantNames = (
+                    resultOf { assistantRepository.getAll() }
+                        .getOrNull() ?: emptyList()
+                    )
                     .associate { it.id to it.name }
 
                 // 反查 Top 会话标题(sessionDao.getById 是 suspend,在 IO 内顺序调用,最多 10 次无 N+1 顾虑)
@@ -322,26 +327,28 @@ class StatsViewModel(
                 )
             }
 
-            _state.update { StatsUiState(
-                isLoading = false,
-                timeRange = currentRange,
-                messagesPerDay = userPerDay,
-                totalSessions = raw.sessionCount,
-                totalMessages = totalAll,
-                totalAiMessages = totalAi,
-                totalUserMessages = totalUser,
-                mostActiveDay = mostActive,
-                streakDays = streak,
-                avgMessagesPerDay = avgPerDay,
-                messagesThisWeek = messagesThisWeek,
-                messagesThisMonth = messagesThisMonth,
-                totalCharsReceived = io.ext.totalAssistantChars,
-                weeklyTrend = weeklyTrend,
-                modelCounts = modelUsages,
-                assistantCounts = assistantUsages,
-                hourlyDistribution = hourlyDistribution,
-                topSessions = topSessionInfos,
-            ) }
+            _state.update {
+                StatsUiState(
+                    isLoading = false,
+                    timeRange = currentRange,
+                    messagesPerDay = userPerDay,
+                    totalSessions = raw.sessionCount,
+                    totalMessages = totalAll,
+                    totalAiMessages = totalAi,
+                    totalUserMessages = totalUser,
+                    mostActiveDay = mostActive,
+                    streakDays = streak,
+                    avgMessagesPerDay = avgPerDay,
+                    messagesThisWeek = messagesThisWeek,
+                    messagesThisMonth = messagesThisMonth,
+                    totalCharsReceived = io.ext.totalAssistantChars,
+                    weeklyTrend = weeklyTrend,
+                    modelCounts = modelUsages,
+                    assistantCounts = assistantUsages,
+                    hourlyDistribution = hourlyDistribution,
+                    topSessions = topSessionInfos,
+                )
+            }
         }
     }
 

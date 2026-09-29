@@ -28,5 +28,4 @@ internal fun shouldRetryToolChoiceCompatibility(
  * M2.4: 转换逻辑下沉到 ai 模块([ChatCompletion.toEventSequence]),
  * 本函数保留为兼容入口,保证既有调用方(chat UI/测试)无需改动。
  */
-internal fun completionToStreamEvents(completion: ChatCompletion): List<ChatStreamEvent> =
-    completion.toEventSequence()
+internal fun completionToStreamEvents(completion: ChatCompletion): List<ChatStreamEvent> = completion.toEventSequence()

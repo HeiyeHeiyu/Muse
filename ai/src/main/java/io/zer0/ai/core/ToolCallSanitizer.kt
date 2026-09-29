@@ -14,31 +14,29 @@ import kotlinx.serialization.json.buildJsonObject
  */
 object ToolCallSanitizer {
 
-    fun isValid(toolCall: ToolCall): Boolean =
-        toolCall.name.isNotBlank() && toolCall.arguments.isNotBlank()
+    fun isValid(toolCall: ToolCall): Boolean = toolCall.name.isNotBlank() && toolCall.arguments.isNotBlank()
 
     /**
      * 清洗 tool calls：
      *  - 空工具名仍丢弃
      *  - 非法/空 arguments 尝试修复；无法修复时改成 `{}`，不丢调用
      */
-    fun sanitize(toolCalls: List<ToolCall>): List<ToolCall> =
-        toolCalls.mapNotNull { tc ->
-            if (tc.name.isBlank()) {
-                safeWarn("丢弃工具调用：name 为空, id=${tc.id}")
-                return@mapNotNull null
-            }
-            val repaired = repairArguments(tc.arguments)
-            if (repaired == null) {
-                safeWarn("工具参数无法解析,保留调用并降级为 {}: tool=${tc.name}, id=${tc.id}, raw=${tc.arguments.take(240)}")
-                tc.copy(arguments = "{}")
-            } else {
-                if (repaired != tc.arguments) {
-                    safeWarn("工具参数已修复: tool=${tc.name}, id=${tc.id}, before=${tc.arguments.take(160)}, after=${repaired.take(160)}")
-                }
-                tc.copy(arguments = repaired)
-            }
+    fun sanitize(toolCalls: List<ToolCall>): List<ToolCall> = toolCalls.mapNotNull { tc ->
+        if (tc.name.isBlank()) {
+            safeWarn("丢弃工具调用：name 为空, id=${tc.id}")
+            return@mapNotNull null
         }
+        val repaired = repairArguments(tc.arguments)
+        if (repaired == null) {
+            safeWarn("工具参数无法解析,保留调用并降级为 {}: tool=${tc.name}, id=${tc.id}, raw=${tc.arguments.take(240)}")
+            tc.copy(arguments = "{}")
+        } else {
+            if (repaired != tc.arguments) {
+                safeWarn("工具参数已修复: tool=${tc.name}, id=${tc.id}, before=${tc.arguments.take(160)}, after=${repaired.take(160)}")
+            }
+            tc.copy(arguments = repaired)
+        }
+    }
 
     private fun safeWarn(message: String) {
         runCatching { Logger.w("ToolCallSanitizer", message) }
@@ -86,9 +84,11 @@ object ToolCallSanitizer {
         var escaped = false
         text.forEachIndexed { index, c ->
             if (inString) {
-                if (escaped) escaped = false
-                else if (c == '\\') escaped = true
-                else if (c == '"') inString = false
+                if (escaped) {
+                    escaped = false
+                } else if (c == '\\') {
+                    escaped = true
+                } else if (c == '"') inString = false
                 return@forEachIndexed
             }
             when (c) {
@@ -116,9 +116,11 @@ object ToolCallSanitizer {
         var escaped = false
         text.forEach { c ->
             if (inString) {
-                if (escaped) escaped = false
-                else if (c == '\\') escaped = true
-                else if (c == '"') inString = false
+                if (escaped) {
+                    escaped = false
+                } else if (c == '\\') {
+                    escaped = true
+                } else if (c == '"') inString = false
                 return@forEach
             }
             when (c) {

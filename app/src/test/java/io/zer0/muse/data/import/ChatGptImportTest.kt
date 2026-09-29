@@ -7,16 +7,16 @@ import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.session.MessageImageStore
 import io.zer0.muse.data.session.MuseDb
 import io.zer0.muse.data.session.SessionRepository
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
-import kotlinx.coroutines.runBlocking
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.File
 
 /**
  * v1.0.74: ChatGPT 导出导入测试。
@@ -116,12 +116,15 @@ class ChatGptImportTest {
         val result = ThirdPartyImporter.importChatGPT(
             context = ApplicationProvider.getApplicationContext(),
             conversationsJson = sample,
-            settings = io.zer0.muse.data.SettingsRepository(ApplicationProvider.getApplicationContext(), io.zer0.muse.data.audit.AuditLogger(db.auditLogDao())),
+            settings = io.zer0.muse.data.SettingsRepository(
+                ApplicationProvider.getApplicationContext(),
+                io.zer0.muse.data.audit.AuditLogger(db.auditLogDao()),
+            ),
             assistantRepo = assistantRepo,
             sessionRepo = sessionRepo,
         )
 
-        println("DEBUG result: ${result}")
+        println("DEBUG result: $result")
         assertTrue("不应有错误: ${result.errors}", result.errors.isEmpty())
         assertEquals("应导入 1 个会话", 1, result.conversationsImported)
         assertEquals("应导入 3 条消息(system 跳过)", 3, result.messagesImported)
@@ -154,7 +157,10 @@ class ChatGptImportTest {
         val result = ThirdPartyImporter.importChatGPT(
             context = ApplicationProvider.getApplicationContext(),
             conversationsJson = sample,
-            settings = io.zer0.muse.data.SettingsRepository(ApplicationProvider.getApplicationContext(), io.zer0.muse.data.audit.AuditLogger(db.auditLogDao())),
+            settings = io.zer0.muse.data.SettingsRepository(
+                ApplicationProvider.getApplicationContext(),
+                io.zer0.muse.data.audit.AuditLogger(db.auditLogDao()),
+            ),
             assistantRepo = assistantRepo,
             sessionRepo = sessionRepo,
         )
@@ -190,7 +196,10 @@ class ChatGptImportTest {
         val result = ThirdPartyImporter.importChatGPT(
             context = ApplicationProvider.getApplicationContext(),
             conversationsJson = sample,
-            settings = io.zer0.muse.data.SettingsRepository(ApplicationProvider.getApplicationContext(), io.zer0.muse.data.audit.AuditLogger(db.auditLogDao())),
+            settings = io.zer0.muse.data.SettingsRepository(
+                ApplicationProvider.getApplicationContext(),
+                io.zer0.muse.data.audit.AuditLogger(db.auditLogDao()),
+            ),
             assistantRepo = assistantRepo,
             sessionRepo = sessionRepo,
         )

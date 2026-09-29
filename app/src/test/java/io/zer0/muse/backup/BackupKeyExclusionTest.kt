@@ -15,7 +15,10 @@ import org.junit.Test
  */
 class BackupKeyExclusionTest {
 
-    private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
+    private val json = Json {
+        prettyPrint = true
+        ignoreUnknownKeys = true
+    }
 
     @Test
     fun `serialized backup does not contain api key plaintext`() {
@@ -45,8 +48,7 @@ class BackupKeyExclusionTest {
         val original = SecureKeyStore.delegate
         try {
             SecureKeyStore.delegate = object : SecureKeyCipher {
-                override suspend fun encrypt(plain: String): String =
-                    if (plain.isEmpty()) plain else "enc_v1:${plain.reversed()}"
+                override suspend fun encrypt(plain: String): String = if (plain.isEmpty()) plain else "enc_v1:${plain.reversed()}"
                 override suspend fun decrypt(stored: String): String =
                     if (stored.startsWith("enc_v1:")) stored.removePrefix("enc_v1:").reversed() else stored
             }

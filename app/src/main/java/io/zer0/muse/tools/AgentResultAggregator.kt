@@ -155,7 +155,9 @@ object AgentResultAggregator {
 
         val conflicts = if (winnerRatio < 0.5f) {
             listOf("投票未形成明显多数:最高票 ${winner.value.size}/$total (${"%.0f".format(winnerRatio * 100)}%)")
-        } else emptyList()
+        } else {
+            emptyList()
+        }
 
         val output = buildString {
             appendLine("投票结果(共 $total 票):")
@@ -175,9 +177,11 @@ object AgentResultAggregator {
 
     /** 专家评审:选择内容最长或置信度最高的结果作为权威答案。 */
     private fun expertReview(candidates: List<Candidate>): Aggregation {
-        val best = candidates.maxWithOrNull(compareBy<Candidate> {
-            it.confidence ?: 0f
-        }.thenBy { it.content.length }) ?: candidates.first()
+        val best = candidates.maxWithOrNull(
+            compareBy<Candidate> {
+                it.confidence ?: 0f
+            }.thenBy { it.content.length },
+        ) ?: candidates.first()
 
         val output = buildString {
             appendLine("专家评审结果(选自 ${best.source}):")

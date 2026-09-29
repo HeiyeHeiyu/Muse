@@ -48,8 +48,11 @@ class ChatAudioCoordinatorVoiceTest {
     @Test
     fun `every api provider uses api recording`() {
         listOf(
-            AsrProviderType.DASHSCOPE, AsrProviderType.STEP,
-            AsrProviderType.OPENAI_WHISPER, AsrProviderType.OPENAI_REALTIME, AsrProviderType.AGNES,
+            AsrProviderType.DASHSCOPE,
+            AsrProviderType.STEP,
+            AsrProviderType.OPENAI_WHISPER,
+            AsrProviderType.OPENAI_REALTIME,
+            AsrProviderType.AGNES,
         ).forEach { p ->
             assertTrue("$p 应走 API 录音路径(P2-17)", coordinator(p).shouldUseApiRecording())
         }

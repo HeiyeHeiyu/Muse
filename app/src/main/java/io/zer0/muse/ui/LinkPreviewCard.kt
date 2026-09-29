@@ -36,8 +36,8 @@ import io.zer0.common.Result
 import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.surface.MuseSurface
-import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.MusePaddings
+import io.zer0.muse.ui.theme.MuseShapes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -185,13 +185,12 @@ private suspend fun fetchLinkPreview(url: String): LinkPreviewData = withContext
 }
 
 /** og:image 会被 Coil 二次抓取,同样拒绝内网/非公网图片地址。 */
-private fun sanitizeImageUrl(imageUrl: String): String =
-    if (imageUrl.isNotBlank() && SsrfGuard.isBlocked(imageUrl)) {
-        Logger.w(TAG, "fetchLinkPreview 拒绝内网图片地址: $imageUrl")
-        ""
-    } else {
-        imageUrl
-    }
+private fun sanitizeImageUrl(imageUrl: String): String = if (imageUrl.isNotBlank() && SsrfGuard.isBlocked(imageUrl)) {
+    Logger.w(TAG, "fetchLinkPreview 拒绝内网图片地址: $imageUrl")
+    ""
+} else {
+    imageUrl
+}
 
 /** 仅发起 HEAD 跟随重定向,返回最终落地 URL(失败则回退原 URL)。 */
 private fun followRedirect(url: String): String {
@@ -253,10 +252,7 @@ fun rememberLinkPreviews(text: String): List<LinkPreviewData> {
 }
 
 @Composable
-fun LinkPreviewCard(
-    preview: LinkPreviewData,
-    modifier: Modifier = Modifier,
-) {
+fun LinkPreviewCard(preview: LinkPreviewData, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     // Phase 2: 统一走项目容器基元 [MuseSurface],保留原 Card 的小圆角、
     // surfaceVariant 半透明底色与整卡打开链接的点击行为。

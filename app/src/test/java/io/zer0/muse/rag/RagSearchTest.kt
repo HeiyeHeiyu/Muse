@@ -54,11 +54,7 @@ class RagSearchTest {
 
     // ── RRF 融合 ────────────────────────────────────────────────────────────
 
-    private fun searchResult(
-        chunkId: String,
-        score: Float,
-        docId: String = "doc-$chunkId",
-    ) = VectorSearchService.SearchResult(
+    private fun searchResult(chunkId: String, score: Float, docId: String = "doc-$chunkId") = VectorSearchService.SearchResult(
         docId = docId,
         docTitle = "title-$chunkId",
         chunkContent = "content-$chunkId",
@@ -101,7 +97,10 @@ class RagSearchTest {
         val service = HybridSearchService(fts, vector, bm25MetaResolver = { ids ->
             ids.associateWith { id ->
                 HybridSearchService.ChunkMeta(
-                    docId = "doc-c", docTitle = "精确命中文档", content = "BM25-only 精确命中内容", chunkIndex = 2,
+                    docId = "doc-c",
+                    docTitle = "精确命中文档",
+                    content = "BM25-only 精确命中内容",
+                    chunkIndex = 2,
                 )
             }
         })
@@ -121,7 +120,7 @@ class RagSearchTest {
         coEvery { fts.searchBm25(any(), any()) } returns listOf(
             KnowledgeChunkFtsHit(chunkId = "c", score = -20.0),
         )
-        val service = HybridSearchService(fts, vector)  // resolver = null
+        val service = HybridSearchService(fts, vector) // resolver = null
         val results = service.hybridSearch("x", floatArrayOf(0f), topK = 5, threshold = 0.3f, mmrLambda = 0f)
         assertTrue("无可解析元数据时应跳过(旧行为)", results.isEmpty())
     }

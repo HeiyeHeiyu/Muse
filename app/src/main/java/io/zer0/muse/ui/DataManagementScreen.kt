@@ -13,35 +13,35 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.navigation.MuseTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import io.zer0.muse.R
-import io.zer0.muse.data.session.SessionRepository
-import io.zer0.muse.ui.common.feedback.MuseDialog
-import io.zer0.muse.ui.common.feedback.MuseToast
-import io.zer0.muse.ui.common.surface.MuseSurface
-import io.zer0.muse.ui.theme.MuseShapes
+import io.zer0.common.Logger
+import io.zer0.memory.compile.MemoryCompiler
 import io.zer0.memory.compile.MemoryFileWriter
 import io.zer0.memory.fact.FactDbProvider
 import io.zer0.memory.fact.FactStore
 import io.zer0.memory.summary.SessionSummaryManager
-import io.zer0.memory.compile.MemoryCompiler
-import io.zer0.common.Logger
+import io.zer0.muse.R
+import io.zer0.muse.data.session.SessionRepository
+import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.navigation.MuseTopBar
+import io.zer0.muse.ui.common.surface.MuseSurface
+import io.zer0.muse.ui.theme.MuseShapes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -104,8 +104,12 @@ fun DataManagementScreen(
                     shape = MuseShapes.medium,
                     color = MaterialTheme.colorScheme.surfaceVariant,
                 ) {
-Column(modifier = Modifier.padding(16.dp)) {
-                        Text(stringResource(R.string.data_management_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            stringResource(R.string.data_management_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
                         Spacer(Modifier.height(12.dp))
                         StatRow(stringResource(R.string.data_management_sessions), "$sessionCount")
                         StatRow(stringResource(R.string.data_management_messages), "$messageCount")
@@ -152,7 +156,8 @@ Column(modifier = Modifier.padding(16.dp)) {
                 scope.launch {
                     withContext(Dispatchers.IO) { sessionRepository.hardDeleteAllSessions() }
                     MuseToast.show(context.getString(R.string.data_management_clear_chats_done))
-                    sessionCount = 0; messageCount = 0
+                    sessionCount = 0
+                    messageCount = 0
                 }
             },
             destructive = true,
@@ -245,4 +250,3 @@ private fun getDirSize(dir: File): Long {
     }
     return size
 }
-

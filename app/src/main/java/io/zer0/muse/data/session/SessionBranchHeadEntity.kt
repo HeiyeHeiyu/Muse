@@ -39,7 +39,9 @@ interface SessionBranchHeadDao {
     @Query("SELECT * FROM session_branch_heads WHERE sessionId = :sessionId LIMIT 1")
     suspend fun get(sessionId: String): SessionBranchHeadEntity?
 
-    @Query("UPDATE session_branch_heads SET headMessageId = :headMessageId, nextCommitSeq = :nextCommitSeq, projectionVersion = projectionVersion + 1, updatedAt = :updatedAt WHERE sessionId = :sessionId")
+    @Query(
+        "UPDATE session_branch_heads SET headMessageId = :headMessageId, nextCommitSeq = :nextCommitSeq, projectionVersion = projectionVersion + 1, updatedAt = :updatedAt WHERE sessionId = :sessionId",
+    )
     suspend fun updateHead(sessionId: String, headMessageId: String?, nextCommitSeq: Long, updatedAt: Long): Int
 
     @Query("DELETE FROM session_branch_heads WHERE sessionId = :sessionId")

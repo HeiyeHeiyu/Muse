@@ -118,8 +118,7 @@ class ConversationSessionManager(
     fun runtime(sessionId: String): SessionRuntime? = sessions[sessionId]
 
     /** M1.1: 获取或创建会话运行时 — 同一 sessionId 永远复用同一实例。 */
-    fun getOrCreateRuntime(sessionId: String): SessionRuntime =
-        sessions.computeIfAbsent(sessionId) { SessionRuntime(it) }
+    fun getOrCreateRuntime(sessionId: String): SessionRuntime = sessions.computeIfAbsent(sessionId) { SessionRuntime(it) }
 
     /**
      * M1.1: 生成链路开启新 turn 的便捷入口 — 运行时不存在时自动创建,

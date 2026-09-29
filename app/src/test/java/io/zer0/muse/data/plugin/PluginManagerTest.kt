@@ -190,7 +190,8 @@ class PluginManagerTest {
     fun install_rejectsExternalFullAccessTrustClaim() = runBlocking {
         val skillRepo = skillRepoMock()
         val manager = PluginManager(context, skillRepo)
-        val result = draftInstall(manager,
+        val result = draftInstall(
+            manager,
             zip(
                 manifest = """
                     {
@@ -521,10 +522,7 @@ class PluginManagerTest {
     }
 
     /** installFromFile 已删除：以「先预览、后按禁用草稿安装」的现行入口等价替代。 */
-    private suspend fun draftInstall(
-        manager: PluginManager,
-        file: File,
-    ): Result<PluginManager.InstalledPlugin> {
+    private suspend fun draftInstall(manager: PluginManager, file: File): Result<PluginManager.InstalledPlugin> {
         val decision = manager.reviewFromFile(file)
         val preview = decision.getOrElse { error -> return Result.failure(error) }.preview
         return manager.installDraftFromFile(file, preview)
@@ -644,8 +642,7 @@ class PluginManagerTest {
 
         override suspend fun listEnabled(): List<SkillEntity> = rows.values.filter { it.enabled }
 
-        override suspend fun listEnabledByIds(ids: List<String>): List<SkillEntity> =
-            rows.values.filter { it.enabled && it.id in ids }
+        override suspend fun listEnabledByIds(ids: List<String>): List<SkillEntity> = rows.values.filter { it.enabled && it.id in ids }
 
         override suspend fun getById(id: String): SkillEntity? = rows[id]
 

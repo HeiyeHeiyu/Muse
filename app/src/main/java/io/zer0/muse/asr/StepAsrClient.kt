@@ -5,6 +5,7 @@ import android.media.AudioRecord
 import android.os.SystemClock
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.asr.AudioAmplitude.appendAmplitude
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,7 +19,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import io.zer0.muse.asr.AudioAmplitude.appendAmplitude
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -72,6 +72,7 @@ class StepAsrController(
     private val pcmBuffer = ByteArrayOutputStream()
     private val bufferLock = Any()
     private var totalTranscript = StringBuilder()
+
     // B-29: 连续识别失败计数,达到上限后丢弃该段,避免无限回写堆积。
     private var consecutiveFlushFailures = 0
 
@@ -227,8 +228,8 @@ class StepAsrController(
         synchronized(bufferLock) {
             val current = pcmBuffer.toByteArray()
             pcmBuffer.reset()
-            pcmBuffer.write(pcm)       // 旧段在前,保留供下次 flush 时重新识别
-            pcmBuffer.write(current)   // 其后拼接录音线程已累积的新帧
+            pcmBuffer.write(pcm) // 旧段在前,保留供下次 flush 时重新识别
+            pcmBuffer.write(current) // 其后拼接录音线程已累积的新帧
         }
     }
 
@@ -236,53 +237,52 @@ class StepAsrController(
      * 调用 Step OpenAI Whisper 兼容端点识别一段 WAV 音频。
      * 复用原 StepAsrClient 的 multipart 逻辑。
      */
-    private suspend fun recognizeSegment(wavBytes: ByteArray): String? =
-        withContext(Dispatchers.IO) {
-            val wavBody = wavBytes.toRequestBody("audio/wav".toMediaType())
-            val multipart = MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("file", "audio.wav", wavBody)
-                .addFormDataPart("model", config.model.ifBlank { config.defaultModel() })
-                .apply {
-                    config.language?.takeIf { it.isNotBlank() }?.let { addFormDataPart("language", it) }
-                }
-                .build()
-            val request = Request.Builder()
-                .url(transcriptionEndpoint())
-                .header("Authorization", "Bearer ${config.apiKey}")
-                .post(multipart)
-                .build()
-            var lastError: String? = null
-            // F-34: 断线重连 — 网络/5xx/429 失败按指数退避补发同一段音频,上限 RECONNECT_MAX_ATTEMPTS。
-            for (attempt in 0 until AsrConstants.RECONNECT_MAX_ATTEMPTS) {
-                try {
-                    val result = client.newCall(request).execute().use { resp: Response ->
-                        if (!resp.isSuccessful) {
-                            lastError = "识别服务 HTTP ${resp.code}: ${resp.message}"
-                            Logger.w(TAG, "Step ASR HTTP ${resp.code}: ${resp.message}")
-                            // 4xx(尤其 401/403/413)重试没有意义;5xx/429 留给下一次短重试。
-                            if (resp.code !in 500..599 && resp.code != 429) {
-                                return@use null
-                            }
-                            null
-                        } else {
-                            parseTranscriptionResponse(resp.body.string())
-                        }
-                    }
-                    if (!result.isNullOrBlank()) return@withContext result
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: java.io.IOException) {
-                    lastError = e.message ?: "网络连接失败"
-                    Logger.w(TAG, "Step ASR 请求失败(attempt=${attempt + 1}): ${e.message}")
-                }
-                if (attempt + 1 < AsrConstants.RECONNECT_MAX_ATTEMPTS) {
-                    delay(AsrConstants.HTTP_RETRY_BACKOFF_MS * (attempt + 1))
-                }
+    private suspend fun recognizeSegment(wavBytes: ByteArray): String? = withContext(Dispatchers.IO) {
+        val wavBody = wavBytes.toRequestBody("audio/wav".toMediaType())
+        val multipart = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("file", "audio.wav", wavBody)
+            .addFormDataPart("model", config.model.ifBlank { config.defaultModel() })
+            .apply {
+                config.language?.takeIf { it.isNotBlank() }?.let { addFormDataPart("language", it) }
             }
-            lastError?.let { setError("语音识别失败: $it") }
-            null
+            .build()
+        val request = Request.Builder()
+            .url(transcriptionEndpoint())
+            .header("Authorization", "Bearer ${config.apiKey}")
+            .post(multipart)
+            .build()
+        var lastError: String? = null
+        // F-34: 断线重连 — 网络/5xx/429 失败按指数退避补发同一段音频,上限 RECONNECT_MAX_ATTEMPTS。
+        for (attempt in 0 until AsrConstants.RECONNECT_MAX_ATTEMPTS) {
+            try {
+                val result = client.newCall(request).execute().use { resp: Response ->
+                    if (!resp.isSuccessful) {
+                        lastError = "识别服务 HTTP ${resp.code}: ${resp.message}"
+                        Logger.w(TAG, "Step ASR HTTP ${resp.code}: ${resp.message}")
+                        // 4xx(尤其 401/403/413)重试没有意义;5xx/429 留给下一次短重试。
+                        if (resp.code !in 500..599 && resp.code != 429) {
+                            return@use null
+                        }
+                        null
+                    } else {
+                        parseTranscriptionResponse(resp.body.string())
+                    }
+                }
+                if (!result.isNullOrBlank()) return@withContext result
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: java.io.IOException) {
+                lastError = e.message ?: "网络连接失败"
+                Logger.w(TAG, "Step ASR 请求失败(attempt=${attempt + 1}): ${e.message}")
+            }
+            if (attempt + 1 < AsrConstants.RECONNECT_MAX_ATTEMPTS) {
+                delay(AsrConstants.HTTP_RETRY_BACKOFF_MS * (attempt + 1))
+            }
         }
+        lastError?.let { setError("语音识别失败: $it") }
+        null
+    }
 
     private fun transcriptionEndpoint(): String {
         val base = baseUrl.trimEnd('/')
@@ -350,12 +350,16 @@ class StepAsrController(
     companion object {
         private const val TAG = "StepAsrController"
         private const val DEFAULT_BASE_URL = "https://api.stepfun.com"
+
         /** 分段时间阈值:30 秒触发一次 flush。 */
         private const val SEGMENT_DURATION_MS = 30_000L
+
         /** 分段字节阈值:6MB 触发 flush(提前量,避免单段过大)。 */
         private const val MAX_SEGMENT_BYTES = 6 * 1024 * 1024
+
         /** 最短段字节数:16kHz/16bit/mono 下 100ms = 3200 bytes,短于此值跳过避免 400。 */
         private const val MIN_SEGMENT_BYTES = 3200
+
         // B-29: 单段连续识别失败上限,达到后丢弃该段,防止无限回写导致缓冲堆积。3 次覆盖网络抖动+2次瞬态。
         private const val MAX_CONSECUTIVE_FLUSH_FAILURES = 3
     }
@@ -387,8 +391,8 @@ internal object PcmWavConverter {
 
         // fmt 子块
         dos.writeBytes("fmt ")
-        dos.writeIntLittleEndian(16)        // PCM 格式子块大小
-        dos.writeShortLittleEndian(1)       // 音频格式 = 1 (PCM)
+        dos.writeIntLittleEndian(16) // PCM 格式子块大小
+        dos.writeShortLittleEndian(1) // 音频格式 = 1 (PCM)
         dos.writeShortLittleEndian(channels)
         dos.writeIntLittleEndian(sampleRate)
         dos.writeIntLittleEndian(byteRate)

@@ -17,14 +17,14 @@ import io.zer0.common.resultOf
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.util.retryOnNetworkError
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -42,15 +42,10 @@ import kotlinx.serialization.json.jsonPrimitive
 class VisionAnalysisException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /** 正文为空时保留 provider 返回的 reasoning，避免视觉模型结果被误判为空。 */
-internal fun effectiveVisionResponseText(text: String, reasoningContent: String?): String =
-    text.ifBlank { reasoningContent.orEmpty() }
+internal fun effectiveVisionResponseText(text: String, reasoningContent: String?): String = text.ifBlank { reasoningContent.orEmpty() }
 
 /** 为视觉能力不匹配提供可诊断的供应商、模型和注册表原因。 */
-internal fun visionUnsupportedReason(
-    providerName: String,
-    modelId: String,
-    inputModalities: Set<String>,
-): String {
+internal fun visionUnsupportedReason(providerName: String, modelId: String, inputModalities: Set<String>): String {
     val detected = inputModalities.sorted().joinToString(", ").ifBlank { "unknown" }
     return "供应商 $providerName 的模型 $modelId 不支持图片输入(已识别能力: $detected, 请更换真正支持视觉输入的模型)"
 }
@@ -325,10 +320,7 @@ class VisionBridge(
      * @return 视觉描述文本(含 `<vision-context>` 标签)
      * @throws VisionAnalysisException 禁用、未配置、模型不支持视觉或分析失败时抛出
      */
-    private suspend fun analyzeImage(
-        preparedImage: VisionImagePreprocessor.PreparedImage,
-        userRequest: String = "",
-    ): String {
+    private suspend fun analyzeImage(preparedImage: VisionImagePreprocessor.PreparedImage, userRequest: String = ""): String {
         // 1-3. 解析视觉模型与供应商(视觉辅助开关 / 模型配置 / 视觉能力三道检查)
         val (visionModel, visionProvider) = resolveVisionModelStrict()
 
@@ -390,11 +382,7 @@ class VisionBridge(
      *
      * @throws VisionAnalysisException 视觉未启用/未配置/模型不支持视觉/调用失败时抛出
      */
-    suspend fun askWithImage(
-        prompt: String,
-        imageBase64: String,
-        timeoutMs: Long = ANALYSIS_TIMEOUT_MS,
-    ): String {
+    suspend fun askWithImage(prompt: String, imageBase64: String, timeoutMs: Long = ANALYSIS_TIMEOUT_MS): String {
         val (visionModel, visionProvider) = resolveVisionModelStrict()
         val userMessage = UIMessage(
             role = MessageRole.USER,
@@ -439,8 +427,11 @@ class VisionBridge(
             }
 
         val visionModel = ModelRegistry.enhanceModel(rawVisionModel)
-        Logger.i(TAG, "视觉分析[配置]: model=${visionModel.id} supportsVision=${visionModel.supportsVisionInput()} " +
-            "inputModalities=${visionModel.inputModalities}")
+        Logger.i(
+            TAG,
+            "视觉分析[配置]: model=${visionModel.id} supportsVision=${visionModel.supportsVisionInput()} " +
+                "inputModalities=${visionModel.inputModalities}",
+        )
 
         if (!visionModel.supportsVisionInput()) {
             throw VisionAnalysisException(
@@ -529,7 +520,9 @@ class VisionBridge(
                 primitives.take(MAX_VISUAL_PRIMITIVES).forEachIndexed { idx, prim ->
                     val normalized = normalizePrimitive(prim, caps)
                     if (normalized != null) {
-                        builder.append("- v${idx + 1} | type: ${normalized.type} | ${if (normalized.type == "point") "point" else "box"}: ${normalized.point ?: normalized.box} | ref: ${normalized.ref} | confidence: ${normalized.confidence}\n")
+                        builder.append(
+                            "- v${idx + 1} | type: ${normalized.type} | ${if (normalized.type == "point") "point" else "box"}: ${normalized.point ?: normalized.box} | ref: ${normalized.ref} | confidence: ${normalized.confidence}\n",
+                        )
                     }
                 }
                 builder.append("</visual-primitives>")
@@ -610,7 +603,9 @@ class VisionBridge(
                         // v1.0.7: point 输出 2 元组 "[x, y]"(对齐 既有实现 point primitive),
                         // 原版误把点复制成 4 元组 "[x, y, x, y]" 当 box,文本模型无法正确解析点坐标
                         NormalizedPrimitive("point", "[$x, $y]", "[$x, $y]", ref, confidence)
-                    } else null
+                    } else {
+                        null
+                    }
                 }
             }
             "anchor" -> {
@@ -625,7 +620,9 @@ class VisionBridge(
                         val y = center[1].jsonPrimitive.intOrNull ?: return null
                         // v1.0.7: point 输出 2 元组(同 qwen 分支修复)
                         NormalizedPrimitive(role, "[$x, $y]", "[$x, $y]", ref, confidence)
-                    } else null
+                    } else {
+                        null
+                    }
                 }
             }
             else -> {
@@ -670,11 +667,7 @@ class VisionBridge(
     /**
      * v1.0.2 (P3): 调用视觉模型,优先 completeText,不支持时降级 streamChat。
      */
-    private suspend fun callVisionModel(
-        userMessage: UIMessage,
-        visionModel: Model,
-        visionProvider: ProviderConfig,
-    ): String {
+    private suspend fun callVisionModel(userMessage: UIMessage, visionModel: Model, visionProvider: ProviderConfig): String {
         return try {
             val completion = chatService.completeText(
                 messages = listOf(userMessage),
@@ -695,11 +688,7 @@ class VisionBridge(
     /**
      * v1.0.2 (P3): 通过 streamChat 收集完整响应文本(降级路径)。
      */
-    private suspend fun collectStreamText(
-        userMessage: UIMessage,
-        visionModel: Model,
-        visionProvider: ProviderConfig,
-    ): String {
+    private suspend fun collectStreamText(userMessage: UIMessage, visionModel: Model, visionProvider: ProviderConfig): String {
         val builder = StringBuilder()
         val reasoningBuilder = StringBuilder()
         chatService.streamChat(
@@ -808,7 +797,7 @@ class VisionBridge(
                         try {
                             // v1.0.5: 缓存 key 用 CacheKey 数据类,字段语义明确
                             val cacheKey = VisionCache.CacheKey(
-                                imageHash = "",  // get() 内部会算
+                                imageHash = "", // get() 内部会算
                                 modelId = visionModelId,
                                 userRequestHash = userRequestHash,
                                 promptVersion = VISION_PROMPT_VERSION,
@@ -816,7 +805,9 @@ class VisionBridge(
 
                             val cached = if (sessionId != null && visionModelId.isNotBlank()) {
                                 visionCache.get(sessionId, prepared.base64, cacheKey)
-                            } else null
+                            } else {
+                                null
+                            }
 
                             if (cached != null) {
                                 Logger.d(TAG, "第 ${index + 1}/${preparedImages.size} 张图片命中视觉缓存")

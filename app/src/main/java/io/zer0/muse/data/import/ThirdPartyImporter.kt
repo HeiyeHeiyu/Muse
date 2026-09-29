@@ -10,10 +10,12 @@ import io.zer0.ai.core.ProviderType
 import io.zer0.ai.core.UIMessage
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
+import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.session.SessionRepository
+import io.zer0.muse.util.copyZipEntryWithLimit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -24,13 +26,10 @@ import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-
 import kotlinx.serialization.json.jsonPrimitive
-import kotlin.uuid.Uuid
 import java.nio.charset.StandardCharsets
-import io.zer0.muse.R
-import io.zer0.muse.util.copyZipEntryWithLimit
 import java.util.zip.ZipInputStream
+import kotlin.uuid.Uuid
 
 /**
  * v1.61-A: 第三方数据导入结果。
@@ -120,8 +119,11 @@ object ThirdPartyImporter {
             }
             tempFile.delete()
             return@withContext importJsonText(
-                ctx, text,
-                settings, assistantRepo, sessionRepo,
+                ctx,
+                text,
+                settings,
+                assistantRepo,
+                sessionRepo,
                 fallbackProvider = "openai",
             )
         }
@@ -202,27 +204,27 @@ object ThirdPartyImporter {
                     ctx,
                     settingsJson,
                     chatsJson,
-                settings,
-                assistantRepo,
-                sessionRepo,
-            )
-            settingsJson != null -> importRikkaHub(
-                ctx,
-                settingsJson,
-                settings,
-                assistantRepo,
-                sessionRepo,
-            )
-            conversationsJson != null -> importConversationsJson(
-                ctx,
-                conversationsJson,
-                settings,
-                assistantRepo,
-                sessionRepo,
-            )
-            else -> ImportResult(
-                errors = listOf(context.getString(R.string.import_error_unknown_format)),
-            )
+                    settings,
+                    assistantRepo,
+                    sessionRepo,
+                )
+                settingsJson != null -> importRikkaHub(
+                    ctx,
+                    settingsJson,
+                    settings,
+                    assistantRepo,
+                    sessionRepo,
+                )
+                conversationsJson != null -> importConversationsJson(
+                    ctx,
+                    conversationsJson,
+                    settings,
+                    assistantRepo,
+                    sessionRepo,
+                )
+                else -> ImportResult(
+                    errors = listOf(context.getString(R.string.import_error_unknown_format)),
+                )
             }
         } finally {
             // 清理解压的临时文件
@@ -550,7 +552,7 @@ object ThirdPartyImporter {
                         branchIds.add(cursor)
                         cursor = parsed[cursor]?.parent
                     }
-                    branchIds.reverse()  // 根 → 叶子
+                    branchIds.reverse() // 根 → 叶子
 
                     val nodes = branchIds.mapNotNull { parsed[it]?.msg }
                     if (nodes.isEmpty()) continue

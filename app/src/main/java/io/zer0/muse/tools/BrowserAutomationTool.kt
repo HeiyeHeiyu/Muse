@@ -1,7 +1,7 @@
 package io.zer0.muse.tools
 
-import io.zer0.common.Logger
 import io.zer0.common.AppJson
+import io.zer0.common.Logger
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.encodeToString
@@ -149,11 +149,7 @@ object BrowserAutomationTool {
      * @param browserManager 浏览器管理器单例
      * @return JSON 字符串,包含 success 字段(true/false)与 data/error 字段
      */
-    fun executeFromArgs(
-        toolName: String,
-        args: Map<String, String>,
-        browserManager: BrowserManager,
-    ): String = runBlocking {
+    fun executeFromArgs(toolName: String, args: Map<String, String>, browserManager: BrowserManager): String = runBlocking {
         try {
             when (toolName) {
                 TOOL_NAVIGATE -> {
@@ -250,11 +246,7 @@ object BrowserAutomationTool {
      *  - data: String? — 成功时的返回值(导航/点击/输入为提示文本;提取为内容;get_html 为 HTML 源码)
      *  - error: String? — 失败时的错误信息
      */
-    private fun buildResult(
-        success: Boolean,
-        data: String? = null,
-        error: String? = null,
-    ): String {
+    private fun buildResult(success: Boolean, data: String? = null, error: String? = null): String {
         val obj: JsonObject = buildJsonObject {
             put("success", JsonPrimitive(success))
             if (data != null) {
@@ -314,11 +306,10 @@ object BrowserAutomationTool {
 })()"""
 
     /** v1.0.92: numberId 模式点击脚本。 */
-    private fun buildNumberedClickJs(index: Int): String =
-        "(function(){var el=(window.__museEls||[])[$index];" +
-            "if(!el){return 'MISS';}" +
-            "try{el.scrollIntoView({block:'center'});}catch(e){/* scroll is best-effort */}" +
-            "el.click();return 'OK';})()"
+    private fun buildNumberedClickJs(index: Int): String = "(function(){var el=(window.__museEls||[])[$index];" +
+        "if(!el){return 'MISS';}" +
+        "try{el.scrollIntoView({block:'center'});}catch(e){/* scroll is best-effort */}" +
+        "el.click();return 'OK';})()"
 
     /** v1.0.92: numberId 模式输入脚本(text 经 JSON 编码防注入)。 */
     private fun buildNumberedTypeJs(index: Int, text: String): String {

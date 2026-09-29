@@ -1,9 +1,6 @@
 package io.zer0.muse.data.plugin.market
 
 import io.zer0.muse.tools.script.SkillBridgeHttpClient
-import java.net.InetAddress
-import java.security.MessageDigest
-import java.util.concurrent.TimeUnit
 import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -16,7 +13,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.File
+import java.net.InetAddress
 import java.nio.file.Files
+import java.security.MessageDigest
+import java.util.concurrent.TimeUnit
 
 /**
  * 市场下载客户端定向测试：通过受控出口（MockWebServer + 注入 DNS/地址策略）确认
@@ -87,19 +87,18 @@ class PluginDownloadClientTest {
         assertTrue(staging.listFiles().isNullOrEmpty())
     }
 
-    private fun client(addressAllowed: (InetAddress) -> Boolean = { true }): PluginDownloadClient =
-        PluginDownloadClient(
-            httpClient = SkillBridgeHttpClient(
-                baseClient = OkHttpClient.Builder()
-                    .connectTimeout(5, TimeUnit.SECONDS)
-                    .readTimeout(5, TimeUnit.SECONDS)
-                    .callTimeout(10, TimeUnit.SECONDS)
-                    .build(),
-                dns = Dns { listOf(loopback) },
-                addressAllowed = addressAllowed,
-            ),
-            stagingDir = staging,
-        )
+    private fun client(addressAllowed: (InetAddress) -> Boolean = { true }): PluginDownloadClient = PluginDownloadClient(
+        httpClient = SkillBridgeHttpClient(
+            baseClient = OkHttpClient.Builder()
+                .connectTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(5, TimeUnit.SECONDS)
+                .callTimeout(10, TimeUnit.SECONDS)
+                .build(),
+            dns = Dns { listOf(loopback) },
+            addressAllowed = addressAllowed,
+        ),
+        stagingDir = staging,
+    )
 
     private fun entry(artifactSha256: String): PluginCatalogEntry = PluginCatalogEntry(
         id = "safe-plugin",

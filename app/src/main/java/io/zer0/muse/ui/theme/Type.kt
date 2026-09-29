@@ -95,20 +95,20 @@ val MuseTypography: Typography = Typography(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
-        lineHeight = 25.6.sp,  // 1.6 倍行高,长文阅读舒适
+        lineHeight = 25.6.sp, // 1.6 倍行高,长文阅读舒适
         letterSpacing = 0.1.sp,
     ),
     bodyMedium = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
-        lineHeight = 22.4.sp,  // 1.6 倍行高
+        lineHeight = 22.4.sp, // 1.6 倍行高
     ),
     bodySmall = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
         fontSize = 13.sp,
-        lineHeight = 20.8.sp,  // L-TP3: 1.6 倍行高,与 bodyLarge/bodyMedium 体系一致
+        lineHeight = 20.8.sp, // L-TP3: 1.6 倍行高,与 bodyLarge/bodyMedium 体系一致
     ),
 
     // ── 标签层(按钮 / Tab / 操作行) ────────────────────────────────────
@@ -128,7 +128,7 @@ val MuseTypography: Typography = Typography(
     labelSmall = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,  // 紧凑标签也保持可读，不低于 12sp
+        fontSize = 12.sp, // 紧凑标签也保持可读，不低于 12sp
         lineHeight = 17.sp,
     ),
 )
@@ -198,7 +198,7 @@ fun Typography.withFontFamily(family: FontFamily): Typography = copy(
 fun Typography.scaled(scale: String): Typography {
     val factor = when (scale) {
         "small" -> 0.85f
-        "medium" -> 1.0f  // v1.0.47: 显式列出默认档位,避免 medium 走 else 被当"未知"告警刷屏
+        "medium" -> 1.0f // v1.0.47: 显式列出默认档位,避免 medium 走 else 被当"未知"告警刷屏
         "large" -> 1.15f
         "xlarge" -> 1.3f
         else -> {

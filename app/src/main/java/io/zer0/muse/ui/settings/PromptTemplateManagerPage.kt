@@ -47,9 +47,7 @@ import org.koin.compose.koinInject
  * 保存走 [SettingsRepository.savePromptTemplates],重启后保留。
  */
 @Composable
-fun PromptTemplateManagerPage(
-    onBack: () -> Unit,
-) {
+fun PromptTemplateManagerPage(onBack: () -> Unit) {
     val settings: SettingsRepository = koinInject()
     val templates by settings.promptTemplatesFlow.collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()
@@ -215,7 +213,6 @@ fun PromptTemplateManagerPage(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
-                    
                     .padding(MusePaddings.bubbleInner),
             )
         }
@@ -225,8 +222,11 @@ fun PromptTemplateManagerPage(
         MuseDialog(
             onDismissRequest = { editing = null },
             title = stringResource(
-                if (isNew) R.string.prompt_template_manager_add
-                else R.string.prompt_template_manager_edit
+                if (isNew) {
+                    R.string.prompt_template_manager_add
+                } else {
+                    R.string.prompt_template_manager_edit
+                },
             ),
             content = {
                 Column(
@@ -277,8 +277,11 @@ fun PromptTemplateManagerPage(
                         )
                     }
                     persist(
-                        if (isNew) templates + saved
-                        else templates.map { if (it.id == saved.id) saved else it }
+                        if (isNew) {
+                            templates + saved
+                        } else {
+                            templates.map { if (it.id == saved.id) saved else it }
+                        },
                     )
                 }
                 editing = null

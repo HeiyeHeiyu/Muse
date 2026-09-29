@@ -19,24 +19,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import compose.icons.tablericons.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Surface
-import io.zer0.muse.ui.common.form.MuseSwitch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import compose.icons.tablericons.Search
 import io.zer0.ai.core.Model
 import io.zer0.ai.core.ModelAbility
 import io.zer0.ai.core.ModelContextWindowRegistry
@@ -52,8 +48,12 @@ import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ProviderType
 import io.zer0.common.AppJson
 import io.zer0.muse.R
-import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseSwitch
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MusePaddings
@@ -155,16 +155,10 @@ internal fun ModelsTab(
             },
         )
     }
-
 }
 
 @Composable
-internal fun ModelAbilityEditorDialog(
-    model: Model,
-    onDismiss: () -> Unit,
-    onSave: (Model) -> Unit,
-    onDelete: () -> Unit,
-) {
+internal fun ModelAbilityEditorDialog(model: Model, onDismiss: () -> Unit, onSave: (Model) -> Unit, onDelete: () -> Unit) {
     var supportsTools by remember { mutableStateOf(model.abilities.contains(ModelAbility.TOOL) || model.abilities.isEmpty()) }
     var supportsReasoning by remember { mutableStateOf(model.abilities.contains(ModelAbility.REASONING) || model.abilities.isEmpty()) }
     var supportsStreaming by remember { mutableStateOf(model.supportsStreaming) }
@@ -215,7 +209,10 @@ internal fun ModelAbilityEditorDialog(
                 AbilitySwitchRow(stringResource(R.string.settings_provider_ability_tools), supportsTools) { supportsTools = it }
                 AbilitySwitchRow(stringResource(R.string.settings_provider_ability_reasoning), supportsReasoning) { supportsReasoning = it }
                 AbilitySwitchRow(stringResource(R.string.settings_provider_ability_streaming), supportsStreaming) { supportsStreaming = it }
-                AbilitySwitchRow(stringResource(R.string.settings_provider_ability_image_output), supportsImageOutput) { supportsImageOutput = it }
+                AbilitySwitchRow(
+                    stringResource(R.string.settings_provider_ability_image_output),
+                    supportsImageOutput,
+                ) { supportsImageOutput = it }
                 AbilitySwitchRow(stringResource(R.string.settings_provider_ability_vision), supportsVision) { supportsVision = it }
                 AbilitySwitchRow(stringResource(R.string.settings_provider_ability_video), supportsVideo) { supportsVideo = it }
                 Spacer(Modifier.size(MusePaddings.itemGap))
@@ -269,7 +266,7 @@ internal fun ModelAbilityEditorDialog(
                     inputModalities = newInput,
                     contextWindow = contextWindow.toIntOrNull(),
                     maxOutputTokens = maxOutputTokens.toIntOrNull(),
-                )
+                ),
             )
         },
         dismissText = stringResource(R.string.settings_common_cancel),
@@ -278,11 +275,7 @@ internal fun ModelAbilityEditorDialog(
 }
 
 @Composable
-internal fun AbilitySwitchRow(
-    label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
+internal fun AbilitySwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -493,7 +486,13 @@ internal fun FetchedModelsPickerSheet(
                     )
                     Icon(
                         imageVector = if (groupExpanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
-                        contentDescription = if (groupExpanded) stringResource(R.string.settings_common_collapse) else stringResource(R.string.settings_common_expand),
+                        contentDescription = if (groupExpanded) {
+                            stringResource(
+                                R.string.settings_common_collapse,
+                            )
+                        } else {
+                            stringResource(R.string.settings_common_expand)
+                        },
                         tint = MaterialTheme.colorScheme.outline,
                         modifier = Modifier.size(MuseIconSizes.iconMedium),
                     )
@@ -520,8 +519,11 @@ internal fun FetchedModelsPickerSheet(
                                 modifier = Modifier
                                     .size(22.dp)
                                     .background(
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                                        color = if (isSelected) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                                        },
                                         shape = CircleShape,
                                     ),
                                 contentAlignment = Alignment.Center,
@@ -585,9 +587,9 @@ internal fun FetchedModelsPickerSheet(
             onConfirm(
                 filtered.filter { selected[it.id] == true }.map { m ->
                     m.copy(
-                        contextWindow = m.contextWindow ?: ModelContextWindowRegistry.lookup(m.id)
+                        contextWindow = m.contextWindow ?: ModelContextWindowRegistry.lookup(m.id),
                     )
-                }
+                },
             )
         },
         dismissText = stringResource(R.string.settings_common_cancel),

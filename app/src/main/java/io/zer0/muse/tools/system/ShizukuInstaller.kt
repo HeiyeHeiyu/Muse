@@ -82,6 +82,7 @@ class ShizukuInstaller(private val context: Context) {
     sealed class EnsureResult {
         /** Shizuku APK 已安装(但不代表服务已运行,需启动 Shizuku 应用)。 */
         object Installed : EnsureResult()
+
         /** Shizuku 未安装,需引导下载。 */
         object NeedsInstall : EnsureResult()
     }

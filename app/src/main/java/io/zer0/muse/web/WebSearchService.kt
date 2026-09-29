@@ -1,5 +1,7 @@
 package io.zer0.muse.web
 
+import io.zer0.muse.data.ProxyConfig
+import io.zer0.muse.data.SecureKeyStore
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.Serializable
 import okhttp3.Call
@@ -8,8 +10,6 @@ import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import io.zer0.muse.data.ProxyConfig
-import io.zer0.muse.data.SecureKeyStore
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.util.concurrent.TimeUnit
@@ -69,11 +69,8 @@ interface WebSearchService {
      *
      * @param options 额外选项 map,可含 date_range / time_period 等 key
      */
-    suspend fun searchWithOptions(
-        query: String,
-        maxResults: Int = 5,
-        options: Map<String, String> = emptyMap(),
-    ): List<WebSearchResult> = search(query, maxResults)
+    suspend fun searchWithOptions(query: String, maxResults: Int = 5, options: Map<String, String> = emptyMap()): List<WebSearchResult> =
+        search(query, maxResults)
 }
 
 /**
@@ -97,6 +94,7 @@ interface WebSearchService {
 @Serializable
 enum class WebSearchMode {
     OFF,
+
     /** 自动优先：支持时使用模型原生搜索，否则走本地搜索链。 */
     AUTO,
     LOCAL,
@@ -247,20 +245,19 @@ private fun OkHttpClient.Builder.applyProxy(config: ProxyConfig): OkHttpClient.B
  * 协程取消时中断阻塞的网络调用(原各 provider 的 execute() 会阻塞线程且无法响应取消)。
  * 供 SearXNG/Tavily/Bing 三个 provider 复用。
  */
-internal suspend fun OkHttpClient.executeAsync(request: Request): Response =
-    suspendCancellableCoroutine { cont ->
-        val call = newCall(request)
-        cont.invokeOnCancellation { runCatching { call.cancel() } }
-        call.enqueue(object : Callback {
-            override fun onFailure(call: Call, e: java.io.IOException) {
-                if (cont.isActive) cont.resumeWithException(e)
-            }
+internal suspend fun OkHttpClient.executeAsync(request: Request): Response = suspendCancellableCoroutine { cont ->
+    val call = newCall(request)
+    cont.invokeOnCancellation { runCatching { call.cancel() } }
+    call.enqueue(object : Callback {
+        override fun onFailure(call: Call, e: java.io.IOException) {
+            if (cont.isActive) cont.resumeWithException(e)
+        }
 
-            override fun onResponse(call: Call, response: Response) {
-                if (cont.isActive) cont.resume(response) else response.close()
-            }
-        })
-    }
+        override fun onResponse(call: Call, response: Response) {
+            if (cont.isActive) cont.resume(response) else response.close()
+        }
+    })
+}
 
 /**
  * L-WS1: HTML 标签剥离已迁移到 io.zer0.muse.util.HtmlUtils#stripHtmlSimple。

@@ -42,8 +42,7 @@ object BubbleSkinCatalog {
         return sanitize(decoded)
     }
 
-    fun encode(skins: List<BubbleSkin>): String =
-        AppJson.encodeToString(ListSerializer(BubbleSkin.serializer()), sanitize(skins))
+    fun encode(skins: List<BubbleSkin>): String = AppJson.encodeToString(ListSerializer(BubbleSkin.serializer()), sanitize(skins))
 
     /** 过滤非法皮肤/内置 id/重复 id,并限制数量;保证列表内容始终可安全渲染。 */
     fun sanitize(skins: List<BubbleSkin>): List<BubbleSkin> = skins
@@ -57,8 +56,7 @@ object BubbleSkinCatalog {
         return sanitize(current.filterNot { it.id == skin.id } + skin)
     }
 
-    fun remove(current: List<BubbleSkin>, id: String): List<BubbleSkin> =
-        sanitize(current.filterNot { it.id == id })
+    fun remove(current: List<BubbleSkin>, id: String): List<BubbleSkin> = sanitize(current.filterNot { it.id == id })
 
     /**
      * 解析导入的单张皮肤 JSON(分享文本/SAF 文件)。
@@ -94,11 +92,7 @@ object BubbleSkinCatalog {
      *
      * @return 可渲染皮肤;内置 id / 空 id / 两处都未找到 / 校验不通过一律返回 null。
      */
-    fun select(
-        customSkins: List<BubbleSkin>,
-        pluginSkins: List<BubbleSkin>,
-        selectedId: String,
-    ): BubbleSkin? {
+    fun select(customSkins: List<BubbleSkin>, pluginSkins: List<BubbleSkin>, selectedId: String): BubbleSkin? {
         if (selectedId == DEFAULT_SKIN_ID || selectedId.isBlank()) return null
         select(customSkins, selectedId)?.let { return it }
         return pluginSkins.firstOrNull { it.id == selectedId && BubbleSkinValidator.isValid(it) }

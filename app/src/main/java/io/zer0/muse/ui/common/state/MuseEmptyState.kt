@@ -1,10 +1,5 @@
 package io.zer0.muse.ui.common.state
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.theme.MuseMotion
-
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -20,14 +15,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
@@ -88,8 +87,8 @@ fun MuseEmptyState(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(MuseIconSizes.iconLarge),  // 32dp
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),  // 灰色
+                modifier = Modifier.size(MuseIconSizes.iconLarge), // 32dp
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), // 灰色
             )
             // 标题
             if (title.isNotBlank()) {

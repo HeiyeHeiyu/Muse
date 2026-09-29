@@ -364,7 +364,7 @@ class MarkdownParserTest {
         // Compose 才能跳过这些块的重新组合
         val parser = IncrementalMarkdownParser()
         val first = parser.parse("固定头部 # 标题\n\n```kotlin\nval x = 1\n```")
-        assertEquals(3, first.size)  // Paragraph / Blank / CodeBlock
+        assertEquals(3, first.size) // Paragraph / Blank / CodeBlock
         val second = parser.parse("固定头部 # 标题\n\n```kotlin\nval x = 1\n```\n\n新增段落")
         assertEquals(5, second.size)
         // 头部 3 块(Paragraph/Blank/CodeBlock)应为同一实例

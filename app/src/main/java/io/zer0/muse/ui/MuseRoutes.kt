@@ -9,51 +9,73 @@ package io.zer0.muse.ui
 object MuseRoutes {
     /** v0.22: 首页 — 顶部 Tab 导航。 */
     const val HOME = "home"
+
     /** v0.45: 独立全局搜索页(从首页右上角搜索按钮进入)。 */
     const val SEARCH = "search"
+
     /** 用户画像编辑页(年龄/城市/MBTI 等,用于 AI 个性化)。 */
     const val USER_PROFILE_EDIT = "user_profile_edit"
+
     /** 聊天详情页(从对话列表进入,无 BottomBar)。 */
     const val CHAT_DETAIL = "chat_detail"
+
     /** 助手 Tab。 */
     const val ASSISTANTS = "assistants"
+
     /** v0.37: 助手详情聚合页(头部 + 5 个子页入口)。 */
     const val ASSISTANT_DETAIL = "assistant_detail"
+
     /** v0.37: 助手基础子页(名称 / 头像 / 模型 / 采样参数)。 */
     const val ASSISTANT_BASIC = "assistant_basic"
+
     /** v0.37: 助手提示词子页(systemPrompt / 模板 / 预设消息)。 */
     const val ASSISTANT_PROMPT = "assistant_prompt"
+
     /** v0.37: 助手扩展子页(关联资源数量)。 */
     const val ASSISTANT_EXTENSIONS = "assistant_extensions"
+
     /** v0.37: 助手记忆子页(4 个记忆开关)。 */
     const val ASSISTANT_MEMORY = "assistant_memory"
+
     /** v0.37: 助手高级子页(背景 / 自定义请求 / 标签)。 */
     const val ASSISTANT_ADVANCED = "assistant_advanced"
+
     /** 记忆 Tab(阶段 6 实现,先占位)。 */
     const val MEMORY = "memory"
+
     /** 设置 Tab。 */
     const val SETTINGS = "settings"
 
     /** 收藏夹(子页面,从设置入口)。 */
     const val FAVORITES = "favorites"
+
     /** Lorebook(子页面,从设置入口)。 */
     const val LOREBOOKS = "lorebooks"
+
     /** P1-2: Worldbook 动态世界书(子页面,从设置入口)。 */
     const val WORLDBOOK = "worldbook"
+
     /** 快捷消息(子页面,从设置入口)。 */
     const val QUICK_MESSAGES = "quick_messages"
+
     /** Prompt 注入(子页面,从设置入口)。 */
     const val PROMPT_INJECTIONS = "prompt_injections"
+
     /** Skill 管理(子页面,从设置入口)。 */
     const val SKILLS = "skills"
+
     /** Phase 13: 开源许可(子页面,从设置 → 关于 进入)。 */
     const val LICENSES = "licenses"
+
     /** Phase 15: 账户(从设置 → 账户卡点击进入)。 */
     const val ACCOUNT = "account"
+
     /** Phase 17: 定时任务。 */
     const val SCHEDULED_TASKS = "scheduled_tasks"
+
     /** Phase 17: 知识库。 */
     const val KNOWLEDGE = "knowledge"
+
     /** v1.136: 快速记录。 */
     const val QUICK_NOTES = "quick_notes"
 
@@ -62,28 +84,40 @@ object MuseRoutes {
 
     /** v0.26: 设置二级页 — 模型与服务。 */
     const val SETTINGS_MODEL = "settings_model"
+
     /** B0-04: 设置二级页 — 任务模型路由。 */
     const val SETTINGS_TASK_ROUTING = "settings_task_routing"
+
     /** B0-07: 提示词模板管理页。 */
     const val PROMPT_TEMPLATE_MANAGER = "prompt_template_manager"
+
     /** v0.26: 设置二级页 — 数据与备份。 */
     const val SETTINGS_DATA = "settings_data"
+
     /** v0.26: 设置二级页 — 外观。 */
     const val SETTINGS_APPEARANCE = "settings_appearance"
+
     /** v0.26: 设置二级页 — 关于。 */
     const val SETTINGS_ABOUT = "settings_about"
+
     /** v0.31: 设置二级页 — 聊天行为。 */
     const val SETTINGS_CHAT = "settings_chat"
+
     /** v1.0.51: 记忆中心(4 Tab 查看+编辑)。 */
     const val SETTINGS_MEMORY = "settings_memory"
+
     /** v1.0.51: 记忆参数配置页(原"记忆与通知",从记忆中心齿轮入口进入)。 */
     const val SETTINGS_MEMORY_CONFIG = "settings_memory_config"
+
     /** v1.0.52 P2-2: 记忆空间管理页(Space CRUD)。 */
     const val SETTINGS_MEMORY_SPACE = "settings_memory_space"
+
     /** v0.32: 设置二级页 — 媒体。 */
     const val SETTINGS_MEDIA = "settings_media"
+
     /** v0.32: 设置二级页 — 实验性功能。 */
     const val SETTINGS_EXPERIMENTS = "settings_experiments"
+
     /** v0.32: 设置二级页 — 安全与分享。 */
     const val SETTINGS_SECURITY = "settings_security"
 
@@ -94,7 +128,7 @@ object MuseRoutes {
     const val SETTINGS_MULTI_AGENT = "settings_multi_agent"
 
     /** Multi-Agent 工作流可视化编排页(带 {teamId} 参数)。 */
-    
+
     /** v1.27: 设置二级页 — Agent 配置(Agent 助手选择/协作/主动消息)。 */
     const val SETTINGS_AGENT = "settings_agent"
 
@@ -140,7 +174,6 @@ object MuseRoutes {
     /** v1.127: 里程碑管理页。 */
     const val MILESTONES = "milestones"
 
-
     /** HTML 全屏预览页(从消息气泡内 HTML/SVG 代码块入口进入)。 */
     const val HTML_PREVIEW = "html_preview"
 
@@ -165,15 +198,16 @@ object MuseRoutes {
     /** P2-9: 语音克隆页(从设置 → 媒体 → 语音克隆 进入,ElevenLabs 等 Provider)。 */
     const val VOICE_CLONING = "voice_cloning"
 
-
     /** P2-10: Provider 插件管理页(从设置 → 模型与服务 → 插件管理 进入)。 */
     const val PROVIDER_PLUGINS = "provider_plugins"
     const val MUSE_PLUGINS = "muse_plugins"
 
     /** v1.133: 设置二级页 — 联网搜索(从 SettingsModelPage 拆出)。 */
     const val SETTINGS_WEB_SEARCH = "settings_web_search"
+
     /** v1.133: 设置二级页 — 语音识别 ASR(从 SettingsModelPage 拆出)。 */
     const val SETTINGS_ASR = "settings_asr"
+
     /** v1.133: 设置二级页 — MCP 服务器(从 SettingsModelPage 拆出)。 */
     const val SETTINGS_MCP = "settings_mcp"
 
@@ -217,8 +251,6 @@ object MuseRoutes {
      */
     fun groupChatDetailRoute(chatId: String) = "$GROUP_CHAT_DETAIL/$chatId"
 
-
-
     /**
      * 构造 HTML 预览页路由(带 URL 编码的 html 参数)。
      *
@@ -229,5 +261,4 @@ object MuseRoutes {
      * @return 形如 "html_preview/{encodedHtml}" 的路由字符串
      */
     fun htmlPreviewRoute(encodedHtml: String) = "$HTML_PREVIEW/$encodedHtml"
-
 }

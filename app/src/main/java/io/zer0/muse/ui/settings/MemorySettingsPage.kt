@@ -6,14 +6,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -24,10 +24,10 @@ import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.settings.SectionLabel
-import io.zer0.muse.ui.common.settings.SettingsSliderRow
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.settings.SettingsItemRow
+import io.zer0.muse.ui.common.settings.SettingsSliderRow
 import io.zer0.muse.ui.common.settings.SettingsSwitchRow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -47,10 +47,7 @@ import org.koin.compose.koinInject
  * v2.x: 保持唤醒/开机自启移至 Agent 页「后台与可靠性」组。
  */
 @Composable
-fun MemorySettingsPage(
-    onBack: () -> Unit,
-    onOpenMemorySpace: () -> Unit = {},
-) {
+fun MemorySettingsPage(onBack: () -> Unit, onOpenMemorySpace: () -> Unit = {}) {
     val settings: SettingsRepository = koinInject()
     val memoryConfig by settings.memoryConfigFlow.collectAsStateWithLifecycle(initialValue = MemoryConfig())
     // v2.x: 长期记忆总开关自助手资源页归位(记忆功能总控)
@@ -186,11 +183,7 @@ fun MemorySettingsPage(
  * v1.78 (#21): 可点击的操作行(如"恢复默认")。
  */
 @Composable
-private fun SettingsActionRow(
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-) {
+private fun SettingsActionRow(title: String, subtitle: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

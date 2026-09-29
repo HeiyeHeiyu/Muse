@@ -36,8 +36,7 @@ object GroupChatToolPolicy {
      * 常规工具默认关闭以免小模型空 tool call 风暴,但媒体工具已有展示通道,
      * 单独注入即可用(仍受成员 toolIdsJson 过滤)。
      */
-    fun filterMediaTools(tools: List<ToolDefinition>): List<ToolDefinition> =
-        tools.filter { it.name in ENABLED_MEDIA_TOOLS }
+    fun filterMediaTools(tools: List<ToolDefinition>): List<ToolDefinition> = tools.filter { it.name in ENABLED_MEDIA_TOOLS }
 
     /**
      * 过滤群聊常规工具列表。

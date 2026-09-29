@@ -162,8 +162,7 @@ class SessionRuntime(val sessionId: String) {
     }
 
     /** turn id 匹配判定:null(调用方未知)或与当前 turn 一致时放行。 */
-    private fun matchesTurn(turnId: String?): Boolean =
-        turnId == null || currentTurnId.get() == null || currentTurnId.get() == turnId
+    private fun matchesTurn(turnId: String?): Boolean = turnId == null || currentTurnId.get() == null || currentTurnId.get() == turnId
 
     companion object {
         private const val TAG = "SessionRuntime"

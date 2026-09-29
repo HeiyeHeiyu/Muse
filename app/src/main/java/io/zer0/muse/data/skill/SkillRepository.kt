@@ -52,10 +52,7 @@ class SkillRepository(private val dao: SkillDao) {
     suspend fun delete(id: String) = dao.delete(id)
 
     /** 切换 Skill 启用状态(同时刷新 updatedAt)。 */
-    suspend fun setEnabled(
-        id: String,
-        enabled: Boolean,
-    ) = dao.setEnabled(id, enabled, System.currentTimeMillis())
+    suspend fun setEnabled(id: String, enabled: Boolean) = dao.setEnabled(id, enabled, System.currentTimeMillis())
 
     /**
      * 按 id 列表过滤启用的 Skills。

@@ -3,8 +3,8 @@ package io.zer0.ai.gemini
 import io.zer0.common.AppJson
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertTrue
 import org.junit.Test
 

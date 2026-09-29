@@ -5,8 +5,7 @@ package io.zer0.muse.web
  */
 internal object WebServerAuthPolicy {
 
-    fun isWindowExpired(nowMs: Long, firstAttemptAt: Long, windowMs: Long): Boolean =
-        nowMs - firstAttemptAt > windowMs
+    fun isWindowExpired(nowMs: Long, firstAttemptAt: Long, windowMs: Long): Boolean = nowMs - firstAttemptAt > windowMs
 
     fun isRateLimited(nowMs: Long, firstAttemptAt: Long, count: Int, windowMs: Long, maxFailures: Int): Boolean =
         !isWindowExpired(nowMs, firstAttemptAt, windowMs) && count >= maxFailures

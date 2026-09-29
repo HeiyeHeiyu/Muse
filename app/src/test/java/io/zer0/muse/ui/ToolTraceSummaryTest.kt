@@ -75,12 +75,7 @@ class ToolTraceSummaryTest {
         assertTrue(longSummary.endsWith("…"))
     }
 
-    private fun record(
-        toolName: String,
-        timestamp: Long,
-        success: Boolean,
-        result: String,
-    ) = ToolCallRecord(
+    private fun record(toolName: String, timestamp: Long, success: Boolean, result: String) = ToolCallRecord(
         toolName = toolName,
         arguments = "{}",
         result = result,

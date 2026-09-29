@@ -4,22 +4,23 @@ import android.content.Context
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.R
 import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.tools.ToolRiskLevel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.serializer
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -27,7 +28,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import io.zer0.muse.R
 
 /**
  * Phase 9.5 (M3): MCP server 注册表 + 持久化 + ToolRegistry 桥接。
@@ -203,7 +203,11 @@ class McpRegistry(
         val assistant = repo.getById(assistantId) ?: return "找不到助手: $assistantId"
         val ids = repo.parseMcpServerIds(assistant).toMutableSet()
         val added = ids.add(serverId)
-        if (added) repo.upsert(assistant.copy(mcpServerIdsJson = io.zer0.common.AppJson.encodeToString(ListSerializer(String.serializer()), ids.toList())))
+        if (added) {
+            repo.upsert(
+                assistant.copy(mcpServerIdsJson = io.zer0.common.AppJson.encodeToString(ListSerializer(String.serializer()), ids.toList())),
+            )
+        }
         return if (added) "已将 MCP $serverId 绑定到助手 ${assistant.name}。" else "MCP $serverId 已经绑定到助手 ${assistant.name}。"
     }
 
@@ -339,11 +343,7 @@ class McpRegistry(
      * Phase 11.1.2: 获取指定 server 的指定 prompt 内容。
      * @return prompt 消息列表;失败返回空 messages
      */
-    suspend fun getPrompt(
-        serverId: String,
-        name: String,
-        arguments: Map<String, String> = emptyMap(),
-    ): McpPromptResult {
+    suspend fun getPrompt(serverId: String, name: String, arguments: Map<String, String> = emptyMap()): McpPromptResult {
         val client = clients[serverId] ?: return McpPromptResult()
         if (client.state.value != McpConnectionState.CONNECTED) return McpPromptResult()
         return resultOf { client.getPrompt(name, arguments) }
@@ -380,7 +380,7 @@ class McpRegistry(
      * 连接到指定 server,握手成功后注册 tools 到 [ToolRegistry]。
      */
     private suspend fun connectServer(config: McpServerConfig) {
-        if (clients.containsKey(config.id)) return  // 已连接
+        if (clients.containsKey(config.id)) return // 已连接
         // G2: 连接入口 SSRF 兜底 — 即使绕过 upsertServer 入口(startAll 读取存量配置/
         // init collector/reconnect/OAuth 后重连),也不发起指向内网的连接。
         if (config.isSsrfBlocked()) {
@@ -467,7 +467,7 @@ class McpRegistry(
      * 同时把 [McpConnectionState] 同步回 CONNECTED,避免 UI 显示陈旧状态。
      */
     private suspend fun handleServerReconnected(serverId: String, client: McpClient) {
-        if (clients[serverId] !== client) return  // 已断开/被替换的 client,忽略旧回调
+        if (clients[serverId] !== client) return // 已断开/被替换的 client,忽略旧回调
         updateState(serverId, McpConnectionState.CONNECTED)
         if (client.state.value != McpConnectionState.CONNECTED) return
         Logger.i(TAG, "[$serverId] 自动重连成功,重新拉取工具列表")
@@ -583,7 +583,7 @@ class McpRegistry(
             if (serverId in bound) return // 已绑定,幂等
             bound.add(serverId)
             repo.upsert(
-                defaultAssistant.copy(mcpServerIdsJson = repo.serializeStringList(bound.toList()))
+                defaultAssistant.copy(mcpServerIdsJson = repo.serializeStringList(bound.toList())),
             )
             Logger.i(TAG, "[$serverId] 已自动绑定到主助手扩展(mcpServerIds=${bound.size})")
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -671,10 +671,7 @@ class McpRegistry(
      * 应用刚启动时 MCP 连接和用户发送消息可能并发发生;如果只读取一次 ToolRegistry,
      * 首条消息会在 tools/list 返回前看不到 MCP 工具。超时后仍允许聊天继续,但会记录未就绪状态。
      */
-    suspend fun awaitToolsForServers(
-        serverIds: Set<String>,
-        timeoutMs: Long? = null,
-    ): Boolean {
+    suspend fun awaitToolsForServers(serverIds: Set<String>, timeoutMs: Long? = null): Boolean {
         if (serverIds.isEmpty()) return true
         startAll()
         // 未配置、已禁用或空 URL 的 server 不会被 startAll 连接,直接返回失败状态,
@@ -743,26 +740,28 @@ class McpRegistry(
             args.forEach { (name, value) ->
                 val raw = (value as? JsonPrimitive)?.content ?: value.toString()
                 val type = types[name]
-                put(name, when (type) {
-                    "integer" -> raw.toLongOrNull()?.let(::JsonPrimitive) ?: JsonPrimitive(raw)
-                    "number" -> raw.toDoubleOrNull()?.let(::JsonPrimitive) ?: JsonPrimitive(raw)
-                    "boolean" -> raw.toBooleanStrictOrNull()?.let(::JsonPrimitive) ?: JsonPrimitive(raw)
-                    "array", "object" -> runCatching { AppJson.parseToJsonElement(raw) }
-                        .getOrElse { JsonPrimitive(raw) }
-                    else -> JsonPrimitive(raw)
-                })
+                put(
+                    name,
+                    when (type) {
+                        "integer" -> raw.toLongOrNull()?.let(::JsonPrimitive) ?: JsonPrimitive(raw)
+                        "number" -> raw.toDoubleOrNull()?.let(::JsonPrimitive) ?: JsonPrimitive(raw)
+                        "boolean" -> raw.toBooleanStrictOrNull()?.let(::JsonPrimitive) ?: JsonPrimitive(raw)
+                        "array", "object" -> runCatching { AppJson.parseToJsonElement(raw) }
+                            .getOrElse { JsonPrimitive(raw) }
+                        else -> JsonPrimitive(raw)
+                    },
+                )
             }
         }
     }
 
     /** 将 MCP 内容统一转换为可回填给模型的文本,错误结果也保留 server 原因。 */
-    private fun formatToolContent(content: List<JsonElement>): String =
-        content.joinToString("\n") { element ->
-            val obj = element as? JsonObject
-            val type = (obj?.get("type") as? JsonPrimitive)?.content
-            val text = (obj?.get("text") as? JsonPrimitive)?.content
-            if (type == "text" && text != null) text else element.toString()
-        }
+    private fun formatToolContent(content: List<JsonElement>): String = content.joinToString("\n") { element ->
+        val obj = element as? JsonObject
+        val type = (obj?.get("type") as? JsonPrimitive)?.content
+        val text = (obj?.get("text") as? JsonPrimitive)?.content
+        if (type == "text" && text != null) text else element.toString()
+    }
 
     /** MCP server 可能只返回 structuredContent,不能把这种成功结果误报为空。 */
     private fun formatToolResult(result: McpToolCallResult): String {
@@ -792,33 +791,79 @@ class McpRegistry(
 
     /** 注册给助手使用的 MCP 配置工具。工具定义与执行在同一 registry，避免“能调用 MCP 但不能创建 MCP”。 */
     private fun registerManagementTools() {
-        fun def(name: String, description: String, parameters: Map<String, String>, required: Set<String> = emptySet(), risk: io.zer0.muse.tools.ToolRiskLevel = io.zer0.muse.tools.ToolRiskLevel.NORMAL) =
-            io.zer0.muse.tools.ToolRegistry.ToolDef(name, description, parameters, required, "mcp", riskLevel = risk)
-        toolRegistry.register(def("mcp_mgmt_list", "列出当前已配置的 MCP 服务器及连接状态。", emptyMap(), risk = io.zer0.muse.tools.ToolRiskLevel.SAFE)) { _ ->
+        fun def(
+            name: String,
+            description: String,
+            parameters: Map<String, String>,
+            required: Set<String> = emptySet(),
+            risk: io.zer0.muse.tools.ToolRiskLevel = io.zer0.muse.tools.ToolRiskLevel.NORMAL,
+        ) = io.zer0.muse.tools.ToolRegistry.ToolDef(name, description, parameters, required, "mcp", riskLevel = risk)
+        toolRegistry.register(
+            def("mcp_mgmt_list", "列出当前已配置的 MCP 服务器及连接状态。", emptyMap(), risk = io.zer0.muse.tools.ToolRiskLevel.SAFE),
+        ) { _ ->
             val current = _servers.value
-            if (current.isEmpty()) "当前没有配置 MCP 服务器。" else current.joinToString("\\n") { cfg ->
-                "${cfg.id} | ${cfg.name} | ${cfg.transportType.name} | ${if (cfg.enabled) "enabled" else "disabled"} | ${_serversState.value[cfg.id] ?: McpConnectionState.DISCONNECTED} | ${cfg.url}"
+            if (current.isEmpty()) {
+                "当前没有配置 MCP 服务器。"
+            } else {
+                current.joinToString("\\n") { cfg ->
+                    "${cfg.id} | ${cfg.name} | ${cfg.transportType.name} | ${if (cfg.enabled) "enabled" else "disabled"} | ${_serversState.value[cfg.id] ?: McpConnectionState.DISCONNECTED} | ${cfg.url}"
+                }
             }
         }
-        toolRegistry.register(def("mcp_mgmt_configure", "创建或更新远程 MCP 服务器配置，并自动连接、握手、发现工具。Android 仅支持 SSE 或 Streamable HTTP，不支持 stdio。", mapOf(
-            "id" to "稳定唯一 ID，可省略",
-            "name" to "服务器显示名",
-            "url" to "SSE 或 Streamable HTTP endpoint，必须是 http/https URL",
-            "transport" to "SSE 或 STREAMABLE_HTTP，默认 STREAMABLE_HTTP",
-            "auth_token" to "可选 Bearer token，会加密保存",
-            "headers_json" to "可选 JSON 对象，例如 {\"X-API-Key\":\"...\"}",
-            "enabled" to "可选 true/false，默认 true",
-        ), setOf("name", "url"), io.zer0.muse.tools.ToolRiskLevel.HIGH)) { args -> configureFromTool(args) }
-        toolRegistry.register(def("mcp_mgmt_remove", "删除已配置的 MCP 服务器并注销其工具。", mapOf("id" to "MCP server id"), setOf("id"), io.zer0.muse.tools.ToolRiskLevel.HIGH)) { args ->
+        toolRegistry.register(
+            def(
+                "mcp_mgmt_configure",
+                "创建或更新远程 MCP 服务器配置，并自动连接、握手、发现工具。Android 仅支持 SSE 或 Streamable HTTP，不支持 stdio。",
+                mapOf(
+                    "id" to "稳定唯一 ID，可省略",
+                    "name" to "服务器显示名",
+                    "url" to "SSE 或 Streamable HTTP endpoint，必须是 http/https URL",
+                    "transport" to "SSE 或 STREAMABLE_HTTP，默认 STREAMABLE_HTTP",
+                    "auth_token" to "可选 Bearer token，会加密保存",
+                    "headers_json" to "可选 JSON 对象，例如 {\"X-API-Key\":\"...\"}",
+                    "enabled" to "可选 true/false，默认 true",
+                ),
+                setOf("name", "url"),
+                io.zer0.muse.tools.ToolRiskLevel.HIGH,
+            ),
+        ) { args -> configureFromTool(args) }
+        toolRegistry.register(
+            def(
+                "mcp_mgmt_remove",
+                "删除已配置的 MCP 服务器并注销其工具。",
+                mapOf("id" to "MCP server id"),
+                setOf("id"),
+                io.zer0.muse.tools.ToolRiskLevel.HIGH,
+            ),
+        ) { args ->
             val id = args["id"].orEmpty().trim()
-            if (id.isBlank()) "缺少 MCP server id。" else if (_servers.value.none { it.id == id }) "找不到 MCP 服务器: $id" else { removeServer(id); "已删除 MCP 服务器 $id。" }
+            if (id.isBlank()) {
+                "缺少 MCP server id。"
+            } else if (_servers.value.none { it.id == id }) {
+                "找不到 MCP 服务器: $id"
+            } else {
+                removeServer(id)
+                "已删除 MCP 服务器 $id。"
+            }
         }
-        toolRegistry.register(def("mcp_mgmt_bind_assistant", "把已配置的 MCP 服务器绑定到指定助手，使其工具进入该助手对话能力。", mapOf("server_id" to "MCP server id", "assistant_id" to "助手 id，省略时为 default"), setOf("server_id"))) { args ->
+        toolRegistry.register(
+            def(
+                "mcp_mgmt_bind_assistant",
+                "把已配置的 MCP 服务器绑定到指定助手，使其工具进入该助手对话能力。",
+                mapOf("server_id" to "MCP server id", "assistant_id" to "助手 id，省略时为 default"),
+                setOf("server_id"),
+            ),
+        ) { args ->
             bindServerToAssistant(args["server_id"].orEmpty().trim(), args["assistant_id"].orEmpty().trim().ifBlank { "default" })
         }
         toolRegistry.register(def("mcp_mgmt_reconnect", "重新连接已配置的 MCP 服务器并刷新工具列表。", mapOf("id" to "MCP server id"), setOf("id"))) { args ->
             val id = args["id"].orEmpty().trim()
-            if (_servers.value.none { it.id == id }) "找不到 MCP 服务器: $id" else { reconnect(id); "已开始重连 MCP 服务器 $id。" }
+            if (_servers.value.none { it.id == id }) {
+                "找不到 MCP 服务器: $id"
+            } else {
+                reconnect(id)
+                "已开始重连 MCP 服务器 $id。"
+            }
         }
     }
 
@@ -842,10 +887,14 @@ class McpRegistry(
             else -> return "transport 只能是 SSE 或 STREAMABLE_HTTP。"
         }
         val headers = args["headers_json"].orEmpty().trim().let { raw ->
-            if (raw.isBlank()) emptyMap() else runCatching {
-                val obj = io.zer0.common.AppJson.parseToJsonElement(raw) as? kotlinx.serialization.json.JsonObject ?: return "headers_json 必须是 JSON 对象。"
-                obj.mapValues { (_, value) -> value.toString().trim('"') }
-            }.getOrElse { return "headers_json 不是合法 JSON：${it.message ?: "格式错误"}" }
+            if (raw.isBlank()) {
+                emptyMap()
+            } else {
+                runCatching {
+                    val obj = io.zer0.common.AppJson.parseToJsonElement(raw) as? kotlinx.serialization.json.JsonObject ?: return "headers_json 必须是 JSON 对象。"
+                    obj.mapValues { (_, value) -> value.toString().trim('"') }
+                }.getOrElse { return "headers_json 不是合法 JSON：${it.message ?: "格式错误"}" }
+            }
         }
         val enabled = args["enabled"].orEmpty().trim().lowercase().let { it != "false" && it != "0" }
         return upsertServer(McpServerConfig(id, name, transport, url, headers, args["auth_token"].orEmpty().trim(), enabled = enabled))

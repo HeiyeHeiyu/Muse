@@ -1,14 +1,13 @@
 package io.zer0.ai.core
 
 import kotlinx.coroutines.delay
-
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -48,9 +47,11 @@ class FirstEventWatchdogTest {
         }).toList()
 
         assertTrue(events.any { it is ChatStreamEvent.FallbackNotice })
-        assertTrue(events.any {
-            it is ChatStreamEvent.ContentDelta && it.delta == "fallback after empty stream"
-        })
+        assertTrue(
+            events.any {
+                it is ChatStreamEvent.ContentDelta && it.delta == "fallback after empty stream"
+            },
+        )
         assertTrue(events.last() is ChatStreamEvent.Done)
     }
 
@@ -64,9 +65,11 @@ class FirstEventWatchdogTest {
                 )
             }).toList()
 
-        assertTrue(events.any {
-            it is ChatStreamEvent.CitationDelta && it.urls == listOf("https://example.com/source")
-        })
+        assertTrue(
+            events.any {
+                it is ChatStreamEvent.CitationDelta && it.urls == listOf("https://example.com/source")
+            },
+        )
     }
 
     @Test

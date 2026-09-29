@@ -27,12 +27,12 @@ class ProactiveScoreEngineTest {
     @Test
     fun `typical daily user passes threshold after one day silence`() {
         val ctx = ScoreContext(
-            hoursSinceLastMessage = 24f,   // 昨天聊过
-            accountAgeDays = 30,           // 老用户(理想间隔 7 天 → silenceW 偏低)
-            recentMood = Mood.UNKNOWN,     // 无情绪标签 → emotionW 0.5
+            hoursSinceLastMessage = 24f, // 昨天聊过
+            accountAgeDays = 30, // 老用户(理想间隔 7 天 → silenceW 偏低)
+            recentMood = Mood.UNKNOWN, // 无情绪标签 → emotionW 0.5
             hasNewMilestones = false,
             hasNewMemories = false,
-            hasNewTopics = false,          // noveltyW 0.3
+            hasNewTopics = false, // noveltyW 0.3
             todaySentCount = 0,
         )
         val score = engine.calculateScore(ctx)
@@ -60,7 +60,7 @@ class ProactiveScoreEngineTest {
     @Test
     fun `long silence with new content scores high`() {
         val ctx = ScoreContext(
-            hoursSinceLastMessage = 72f,   // 3 天
+            hoursSinceLastMessage = 72f, // 3 天
             accountAgeDays = 30,
             recentMood = Mood.POSITIVE,
             hasNewMemories = true,

@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.Build
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
+import io.zer0.muse.tools.ToolFailureText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
@@ -15,7 +16,6 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
-import io.zer0.muse.tools.ToolFailureText
 import java.io.File
 
 /**
@@ -92,11 +92,7 @@ object SkillBridge {
      * @param host 桥接宿主（fs/剪贴板等动作需要）
      * @return 见 [HandleResult]
      */
-    suspend fun tryHandle(
-        valueJson: String,
-        allowedActions: Set<String> = DEFAULT_ALLOWED_ACTIONS,
-        host: Host? = null,
-    ): HandleResult {
+    suspend fun tryHandle(valueJson: String, allowedActions: Set<String> = DEFAULT_ALLOWED_ACTIONS, host: Host? = null): HandleResult {
         val obj = runCatching {
             AppJson.parseToJsonElement(valueJson) as? JsonObject
         }.getOrNull() ?: return HandleResult.NotBridge
@@ -207,8 +203,7 @@ object SkillBridge {
 
     // ── 沙盒文件 ──────────────────────────────────────────────────────────
 
-    private fun fsRootOf(host: Host?): File =
-        host?.fsRoot ?: throw SkillBridgeFs.BridgeFsException("当前动作未提供沙盒目录")
+    private fun fsRootOf(host: Host?): File = host?.fsRoot ?: throw SkillBridgeFs.BridgeFsException("当前动作未提供沙盒目录")
 
     private fun execFsList(host: Host?, params: JsonObject): HandleResult {
         return try {
@@ -291,14 +286,13 @@ object SkillBridge {
         }
     }
 
-    private fun fsFailure(action: String, e: Exception): HandleResult =
-        HandleResult.Failure(
-            if (e is SkillBridgeFs.BridgeFsException) {
-                "$action 被拒绝: ${e.message}"
-            } else {
-                "$action 失败: ${e.message ?: "未知错误"}"
-            },
-        )
+    private fun fsFailure(action: String, e: Exception): HandleResult = HandleResult.Failure(
+        if (e is SkillBridgeFs.BridgeFsException) {
+            "$action 被拒绝: ${e.message}"
+        } else {
+            "$action 失败: ${e.message ?: "未知错误"}"
+        },
+    )
 
     // ── 系统能力 ──────────────────────────────────────────────────────────
 
@@ -353,6 +347,5 @@ object SkillBridge {
         put("sdk", JsonPrimitive(Build.VERSION.SDK_INT))
     }.toString()
 
-    private fun paramString(params: JsonObject, key: String): String =
-        (params[key] as? JsonPrimitive)?.contentOrNull.orEmpty()
+    private fun paramString(params: JsonObject, key: String): String = (params[key] as? JsonPrimitive)?.contentOrNull.orEmpty()
 }

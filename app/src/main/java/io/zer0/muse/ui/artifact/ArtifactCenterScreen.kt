@@ -35,9 +35,7 @@ import org.koin.compose.koinInject
  * 入口：工作区页顶栏。
  */
 @Composable
-fun ArtifactCenterScreen(
-    onBack: () -> Unit,
-) {
+fun ArtifactCenterScreen(onBack: () -> Unit) {
     val repository: ArtifactRepository = koinInject()
     val artifacts by repository.observeAll()
         .collectAsStateWithLifecycle(initialValue = emptyList())

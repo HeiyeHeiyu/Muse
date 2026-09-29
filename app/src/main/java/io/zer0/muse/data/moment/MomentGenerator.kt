@@ -95,7 +95,7 @@ class MomentGenerator(
                     ),
                     temperature = 0.8f,
                     maxTokens = 150,
-                // v1.0.74 fix: 剥离 <think> 推理标签,防止思考内容混入朋友圈动态
+                    // v1.0.74 fix: 剥离 <think> 推理标签,防止思考内容混入朋友圈动态
                 ).text.let { io.zer0.muse.transformer.stripThinkTags(it) }
             }
         }.onError { msg, t ->
@@ -200,11 +200,7 @@ class MomentGenerator(
     }
 
     /** 基于动态内容生成配图:LLM 写画面描述 → ImageService 生成 → 返回第一张 URL。 */
-    private suspend fun generateImageFor(
-        service: ChatService,
-        momentContent: String,
-        recentFacts: List<String>,
-    ): String? {
+    private suspend fun generateImageFor(service: ChatService, momentContent: String, recentFacts: List<String>): String? {
         // 1. LLM 写画面描述(15-40 字,适合文生图)
         val prompt = buildString {
             appendLine("<moment_material>")

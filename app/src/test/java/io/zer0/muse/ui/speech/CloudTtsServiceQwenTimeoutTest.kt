@@ -1,8 +1,5 @@
 package io.zer0.muse.ui.speech
 
-import java.io.File
-import java.net.InetAddress
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -12,6 +9,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.File
+import java.net.InetAddress
+import java.util.concurrent.TimeUnit
 
 /**
  * Phase 3 (可靠性 P1): Qwen 二次音频下载超时兜底测试。

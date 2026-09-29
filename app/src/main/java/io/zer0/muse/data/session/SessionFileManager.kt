@@ -19,7 +19,10 @@ class SessionFileManager(private val context: Context) {
         private const val DIR_NAME = "session_files"
     }
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     @Serializable
     data class SessionFile(
@@ -48,7 +51,12 @@ class SessionFileManager(private val context: Context) {
         val destDir = sessionDir(sessionId)
         val dest = File(destDir, sourceFile.name)
         sourceFile.copyTo(dest, overwrite = true)
-        SessionFile(name = dest.name, path = dest.absolutePath, sizeBytes = dest.length(), mimeType = mimeType.ifBlank { guessMimeType(dest.name) })
+        SessionFile(
+            name = dest.name,
+            path = dest.absolutePath,
+            sizeBytes = dest.length(),
+            mimeType = mimeType.ifBlank { guessMimeType(dest.name) },
+        )
     }
 
     /** Remove a file from a session. */

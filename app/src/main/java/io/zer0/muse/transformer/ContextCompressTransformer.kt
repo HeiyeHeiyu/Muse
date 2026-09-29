@@ -63,10 +63,7 @@ class ContextCompressTransformer(
 ) : Transformer {
     override val name: String = "ContextCompress"
 
-    override suspend fun transform(
-        messages: List<UIMessage>,
-        context: TransformContext,
-    ): List<UIMessage> {
+    override suspend fun transform(messages: List<UIMessage>, context: TransformContext): List<UIMessage> {
         val enabled = (context.extra("compress_enabled") as? Boolean) ?: false
         if (!enabled) return messages
 
@@ -197,11 +194,7 @@ class ContextCompressTransformer(
      *
      * 超时/异常的降级路径与"压缩器整体失败"的区分也从这里统一给出(见 [SummaryOutcome])。
      */
-    private suspend fun resolveSummary(
-        toCompress: List<UIMessage>,
-        instruction: String?,
-        sessionId: String?,
-    ): SummaryOutcome {
+    private suspend fun resolveSummary(toCompress: List<UIMessage>, instruction: String?, sessionId: String?): SummaryOutcome {
         val cached = reusableSummary(CompressionSummaryStore.entry(sessionId), toCompress)
         if (cached != null) {
             Logger.i(name, "复用缓存摘要(${toCompress.size} 条),跳过压缩调用")
@@ -237,17 +230,13 @@ class ContextCompressTransformer(
     }
 
     /** M-COMP4: 降级标记消息 — 告知模型历史被截断(而非静默丢弃全部历史)。 */
-    private fun fallbackMessage(): UIMessage =
-        UIMessage(
-            role = MessageRole.SYSTEM,
-            content = "(历史暂不可用,仅保留最近消息)",
-        )
+    private fun fallbackMessage(): UIMessage = UIMessage(
+        role = MessageRole.SYSTEM,
+        content = "(历史暂不可用,仅保留最近消息)",
+    )
 
     /** 调用 LLM 压缩旧消息为摘要。 */
-    private suspend fun compressMessages(
-        oldMessages: List<UIMessage>,
-        instruction: String? = null,
-    ): String {
+    private suspend fun compressMessages(oldMessages: List<UIMessage>, instruction: String? = null): String {
         val prompt =
             buildString {
                 appendLine("请把下面的对话历史压缩成简洁的摘要,保留关键信息(事实/决策/用户偏好)。")
@@ -309,10 +298,7 @@ class ContextCompressTransformer(
      *   (与 [ContextCompressTransformer] 原"单条 SYSTEM 摘要"语义保持一致,
      *    避免下游 transformer / 持久化逻辑感知分块)
      */
-    private suspend fun compressWithCompressor(
-        oldMessages: List<UIMessage>,
-        instruction: String? = null,
-    ): String? {
+    private suspend fun compressWithCompressor(oldMessages: List<UIMessage>, instruction: String? = null): String? {
         val summaries = compressor!!.compress(oldMessages, instruction) ?: return null
         return when {
             summaries.isEmpty() -> "历史对话已压缩(摘要为空)"

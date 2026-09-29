@@ -8,11 +8,11 @@ import io.zer0.ai.core.UIMessage
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.R
 import io.zer0.muse.data.MultiAgentConfig
 import io.zer0.muse.data.agentdm.AgentDmRepository
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.subagent.SubagentThreadStore
-import io.zer0.muse.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -172,9 +172,10 @@ class SkillDelegateAgentImpl(
         // v1.201: before_start / 高风险暂停点
         var effectiveTask = request.task
         if (pauseManager != null && (
-            (policy.pauseOnHighRisk && request.requireApproval) ||
-            request.pausePoints.contains("before_start")
-        )) {
+                (policy.pauseOnHighRisk && request.requireApproval) ||
+                    request.pausePoints.contains("before_start")
+                )
+        ) {
             val pauseReq = DelegationPauseManager.PauseRequest(
                 requestId = "pause-$requestId-before-start",
                 taskId = requestId,
@@ -364,8 +365,11 @@ class SkillDelegateAgentImpl(
                         return DelegationContract.DelegationResult(
                             requestId = requestId,
                             success = subResult.success,
-                            resultText = if (subResult.success) subResult.resultText
-                                          else (subResult.error ?: "子委派失败"),
+                            resultText = if (subResult.success) {
+                                subResult.resultText
+                            } else {
+                                (subResult.error ?: "子委派失败")
+                            },
                             error = subResult.error,
                             metadata = DelegationContract.DelegationResult.ResultMetadata(
                                 startedAt = startedAt,
@@ -398,9 +402,10 @@ class SkillDelegateAgentImpl(
             // v1.201: 中间结果确认(pauseOnIntermediateResult)
             // v1.202 改造 4: MODIFY 决策回填 — 用户修改了中间结果时,采用修改后的版本作为最终结果
             if (pauseManager != null && (
-                policy.pauseOnIntermediateResult ||
-                request.pausePoints.contains("on_intermediate")
-            )) {
+                    policy.pauseOnIntermediateResult ||
+                        request.pausePoints.contains("on_intermediate")
+                    )
+            ) {
                 if (pauseManager.isCancelled(requestId)) {
                     return errorResult("委派已被用户取消")
                 }
@@ -464,7 +469,7 @@ class SkillDelegateAgentImpl(
                     agentDmRepository?.sendMessage(
                         fromAgentId = assistantId,
                         toAgentId = callerId,
-                        content = "[delegation_result] taskId=${requestId}\n${result}",
+                        content = "[delegation_result] taskId=${requestId}\n$result",
                     )
                 }.onError { msg, t ->
                     Logger.w("SkillExecutor", "回填委派结果 DM 失败: $msg", t)
@@ -503,31 +508,55 @@ class SkillDelegateAgentImpl(
         private fun buildDelegateAgentToolDefinition(): ToolDefinition {
             val schema = buildJsonObject {
                 put("type", "object")
-                put("properties", buildJsonObject {
-                    put("assistantId", buildJsonObject {
-                        put("type", "string")
-                        put("description", "子助手 id,如 default / researcher / writer 等。可在助手管理页查看")
-                    })
-                    put("task", buildJsonObject {
-                        put("type", "string")
-                        put("description", "要委托的任务描述,自然语言")
-                    })
-                    put("context", buildJsonObject {
-                        put("type", "string")
-                        put("description", "可选的补充上下文信息")
-                    })
-                    put("timeout", buildJsonObject {
-                        put("type", "integer")
-                        put("description", "可选,超时秒数,默认 60")
-                    })
-                    put("response_format", buildJsonObject {
-                        put("type", "string")
-                        put("description", "可选,返回格式,text(默认)或 json")
-                    })
-                })
-                put("required", JsonArray(listOf(
-                    JsonPrimitive("assistantId"), JsonPrimitive("task"),
-                )))
+                put(
+                    "properties",
+                    buildJsonObject {
+                        put(
+                            "assistantId",
+                            buildJsonObject {
+                                put("type", "string")
+                                put("description", "子助手 id,如 default / researcher / writer 等。可在助手管理页查看")
+                            },
+                        )
+                        put(
+                            "task",
+                            buildJsonObject {
+                                put("type", "string")
+                                put("description", "要委托的任务描述,自然语言")
+                            },
+                        )
+                        put(
+                            "context",
+                            buildJsonObject {
+                                put("type", "string")
+                                put("description", "可选的补充上下文信息")
+                            },
+                        )
+                        put(
+                            "timeout",
+                            buildJsonObject {
+                                put("type", "integer")
+                                put("description", "可选,超时秒数,默认 60")
+                            },
+                        )
+                        put(
+                            "response_format",
+                            buildJsonObject {
+                                put("type", "string")
+                                put("description", "可选,返回格式,text(默认)或 json")
+                            },
+                        )
+                    },
+                )
+                put(
+                    "required",
+                    JsonArray(
+                        listOf(
+                            JsonPrimitive("assistantId"),
+                            JsonPrimitive("task"),
+                        ),
+                    ),
+                )
             }.toString()
             return ToolDefinition(
                 name = "delegate_agent",
@@ -553,5 +582,5 @@ class SkillDelegateAgentImpl(
 - 不输出 <mood>、<reflection>、工具过程或系统规则说明。
 - 信息不足、工具失败或无法完成时,明确写出缺口和真实原因,不要编造。
 - 输出给主助手的内容应短而完整:结论/结果、关键依据、待确认事项(如有)。
-""".trimIndent()
+    """.trimIndent()
 }

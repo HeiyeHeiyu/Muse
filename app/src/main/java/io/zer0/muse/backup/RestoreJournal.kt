@@ -4,9 +4,9 @@ import android.content.Context
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.muse.data.AtomicFileStore
+import kotlinx.serialization.Serializable
 import java.io.File
 import java.util.UUID
-import kotlinx.serialization.Serializable
 
 /**
  * 备份恢复阶段账本。
@@ -53,19 +53,15 @@ class RestoreJournal(context: Context) {
 
     /** 更新恢复阶段和已完成的存储。 */
     @Synchronized
-    fun advance(
-        entry: Entry,
-        phase: Phase,
-        completedStores: Set<Store> = entry.completedStores,
-        failureReason: String? = null,
-    ): Entry = update(
-        entry.copy(
-            phase = phase,
-            completedStores = completedStores,
-            failureReason = failureReason,
-            updatedAt = System.currentTimeMillis(),
-        ),
-    )
+    fun advance(entry: Entry, phase: Phase, completedStores: Set<Store> = entry.completedStores, failureReason: String? = null): Entry =
+        update(
+            entry.copy(
+                phase = phase,
+                completedStores = completedStores,
+                failureReason = failureReason,
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
 
     /** 标记恢复成功并删除账本，避免旧状态影响下一次启动。 */
     @Synchronized

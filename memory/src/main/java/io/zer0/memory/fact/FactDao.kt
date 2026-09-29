@@ -78,8 +78,6 @@ interface FactDao {
     @Query("UPDATE facts SET category = COALESCE(:category, category), tags = COALESCE(:tags, tags) WHERE id = :id")
     suspend fun updateCategoryAndTags(id: Long, category: String? = null, tags: String? = null): Int
 
-
-
     /**
      * 检索命中回写：刷新最近命中时间。
      *
@@ -99,8 +97,25 @@ interface FactDao {
     suspend fun incrementHitCount(ids: List<Long>): Int
 
     /** v5: 全字段更新(用于合并去重后替换内容)。 */
-    @Query("UPDATE facts SET fact = :fact, tags = :tags, time = :time, session_id = :sessionId, created_at = :createdAt, importance = :importance, category = :category, confidence = :confidence, source = :source, expires_at = :expiresAt, last_confirmed_at = :lastConfirmedAt, last_hit_at = :lastHitAt, entity_key = :entityKey WHERE id = :id")
-    suspend fun updateEntity(id: Long, fact: String, tags: String, time: String?, sessionId: String?, createdAt: String, importance: Int, category: String, confidence: Float, source: String, expiresAt: String?, lastConfirmedAt: String?, lastHitAt: String?, entityKey: String? = null)
+    @Query(
+        "UPDATE facts SET fact = :fact, tags = :tags, time = :time, session_id = :sessionId, created_at = :createdAt, importance = :importance, category = :category, confidence = :confidence, source = :source, expires_at = :expiresAt, last_confirmed_at = :lastConfirmedAt, last_hit_at = :lastHitAt, entity_key = :entityKey WHERE id = :id",
+    )
+    suspend fun updateEntity(
+        id: Long,
+        fact: String,
+        tags: String,
+        time: String?,
+        sessionId: String?,
+        createdAt: String,
+        importance: Int,
+        category: String,
+        confidence: Float,
+        source: String,
+        expiresAt: String?,
+        lastConfirmedAt: String?,
+        lastHitAt: String?,
+        entityKey: String? = null,
+    )
 
     /**
      * v5: 查找与给定文本前40字前缀匹配的事实(用于去重)。
@@ -108,7 +123,9 @@ interface FactDao {
      * v8: 新增可选 scope 过滤,去重时仅在相同作用域内查找相似事实,
      * 避免"main"作用域的事实与子助手作用域的事实被误合并。
      */
-    @Query("SELECT * FROM facts WHERE fact LIKE :prefix || '%' AND (:scope IS NULL OR scope = :scope) ORDER BY importance DESC, created_at DESC LIMIT 5")
+    @Query(
+        "SELECT * FROM facts WHERE fact LIKE :prefix || '%' AND (:scope IS NULL OR scope = :scope) ORDER BY importance DESC, created_at DESC LIMIT 5",
+    )
     suspend fun findSimilar(prefix: String, scope: String? = null): List<FactEntity>
 
     /**
@@ -123,7 +140,7 @@ interface FactDao {
           AND space_id = :spaceId
         ORDER BY importance DESC, created_at DESC
         LIMIT 5
-        """
+        """,
     )
     suspend fun findSimilarBySpace(prefix: String, scope: String, spaceId: String): List<FactEntity>
 
@@ -140,7 +157,7 @@ interface FactDao {
           AND space_id = :spaceId
         ORDER BY (pinned_at IS NOT NULL) DESC, importance DESC, created_at DESC
         LIMIT 10
-        """
+        """,
     )
     suspend fun findByEntityKey(entityKey: String, scope: String, spaceId: String): List<FactEntity>
 
@@ -163,7 +180,9 @@ interface FactDao {
      * 置顶语义为"用户要求永远记得",不受时间 cutoff 或过期清理影响。
      * 用户取消置顶后恢复按正常规则衰减。
      */
-    @Query("DELETE FROM facts WHERE created_at < :cutoffIso AND pinned_at IS NULL AND (:scope IS NULL OR scope = :scope) AND (:spaceId IS NULL OR space_id = :spaceId)")
+    @Query(
+        "DELETE FROM facts WHERE created_at < :cutoffIso AND pinned_at IS NULL AND (:scope IS NULL OR scope = :scope) AND (:spaceId IS NULL OR space_id = :spaceId)",
+    )
     suspend fun deleteOlderThan(cutoffIso: String, scope: String? = null, spaceId: String? = null): Int
 
     /**
@@ -175,7 +194,9 @@ interface FactDao {
      * @return 实际删除的行数
      */
     // F-6: pinned_at IS NULL — 置顶事实不受自动衰减影响
-    @Query("DELETE FROM facts WHERE created_at < :cutoffIso AND importance < :minImportance AND pinned_at IS NULL AND (:scope IS NULL OR scope = :scope) AND (:spaceId IS NULL OR space_id = :spaceId)")
+    @Query(
+        "DELETE FROM facts WHERE created_at < :cutoffIso AND importance < :minImportance AND pinned_at IS NULL AND (:scope IS NULL OR scope = :scope) AND (:spaceId IS NULL OR space_id = :spaceId)",
+    )
     suspend fun deleteOlderThanExceptImportant(cutoffIso: String, minImportance: Int, scope: String? = null, spaceId: String? = null): Int
 
     /**
@@ -188,7 +209,8 @@ interface FactDao {
      *
      * v8: 新增可选 scope 过滤,null 表示全部作用域。
      */
-    @Query("""
+    @Query(
+        """
         DELETE FROM facts
         WHERE importance < :minImportance
           AND pinned_at IS NULL
@@ -199,8 +221,15 @@ interface FactDao {
             OR
             (last_hit_at IS NOT NULL AND last_hit_at < :hitCutoffIso)
           )
-    """)
-    suspend fun deleteOlderThanWithHit(neverHitCutoffIso: String, hitCutoffIso: String, minImportance: Int, scope: String? = null, spaceId: String? = null): Int
+    """,
+    )
+    suspend fun deleteOlderThanWithHit(
+        neverHitCutoffIso: String,
+        hitCutoffIso: String,
+        minImportance: Int,
+        scope: String? = null,
+        spaceId: String? = null,
+    ): Int
 
     /**
      * B-18: 删除已过期事实(expires_at 非空且早于当前时间)。
@@ -209,14 +238,18 @@ interface FactDao {
      * @return 实际删除的行数
      */
     // F-6: pinned_at IS NULL — 置顶的时效性事实不因到期被自动删除(取消置顶后恢复正常规则)
-    @Query("DELETE FROM facts WHERE expires_at IS NOT NULL AND expires_at != '' AND expires_at < :nowISO AND pinned_at IS NULL AND (:scope IS NULL OR scope = :scope) AND (:spaceId IS NULL OR space_id = :spaceId)")
+    @Query(
+        "DELETE FROM facts WHERE expires_at IS NOT NULL AND expires_at != '' AND expires_at < :nowISO AND pinned_at IS NULL AND (:scope IS NULL OR scope = :scope) AND (:spaceId IS NULL OR space_id = :spaceId)",
+    )
     suspend fun deleteExpired(nowISO: String, scope: String? = null, spaceId: String? = null): Int
 
     /**
      * 全文搜索(LIKE,兼容所有 ROM)。
      * 在 fact 字段上做子串匹配,v4: 按 importance 降序 + time 降序。
      */
-    @Query("SELECT * FROM facts WHERE fact LIKE '%' || :query || '%' AND (scope = :scope OR :scope IS NULL) ORDER BY (pinned_at IS NOT NULL) DESC, importance DESC, time DESC LIMIT :limit")
+    @Query(
+        "SELECT * FROM facts WHERE fact LIKE '%' || :query || '%' AND (scope = :scope OR :scope IS NULL) ORDER BY (pinned_at IS NOT NULL) DESC, importance DESC, time DESC LIMIT :limit",
+    )
     suspend fun likeSearch(query: String, limit: Int, scope: String? = null): List<FactEntity>
 
     /**
@@ -230,7 +263,7 @@ interface FactDao {
           AND space_id = :spaceId
         ORDER BY (pinned_at IS NOT NULL) DESC, importance DESC, time DESC
         LIMIT :limit
-        """
+        """,
     )
     suspend fun likeSearchBySpace(query: String, limit: Int, scope: String, spaceId: String): List<FactEntity>
 
@@ -245,7 +278,7 @@ interface FactDao {
           AND space_id = :spaceId
         ORDER BY (pinned_at IS NOT NULL) DESC, importance DESC, time DESC
         LIMIT :limit
-        """
+        """,
     )
     suspend fun likeSearchBySpaceId(query: String, limit: Int, spaceId: String): List<FactEntity>
 
@@ -253,17 +286,20 @@ interface FactDao {
      * v6: FTS4 全文搜索。
      * 使用已 ngram 化的 MATCH 表达式(由 [FactFtsManager.toMatchQuery] 生成)。
      */
-    @Query("""
+    @Query(
+        """
         SELECT f.* FROM facts_fts
         JOIN facts f ON facts_fts.fact_id = f.id
         WHERE content_ngram MATCH :matchQuery
         ORDER BY (f.pinned_at IS NOT NULL) DESC, f.importance DESC, f.time DESC
         LIMIT :limit
-    """)
+    """,
+    )
     suspend fun searchFts(matchQuery: String, limit: Int): List<FactEntity>
 
     /** 按 scope + space 搜索 FTS，避免先取全局 top-K 再过滤导致漏召回。 */
-    @Query("""
+    @Query(
+        """
         SELECT f.* FROM facts_fts
         JOIN facts f ON facts_fts.fact_id = f.id
         WHERE content_ngram MATCH :matchQuery
@@ -271,18 +307,21 @@ interface FactDao {
           AND f.space_id = :spaceId
         ORDER BY (f.pinned_at IS NOT NULL) DESC, f.importance DESC, f.time DESC
         LIMIT :limit
-    """)
+    """,
+    )
     suspend fun searchFtsBySpace(matchQuery: String, limit: Int, scope: String, spaceId: String): List<FactEntity>
 
     /** 审查修复 (B-19): 仅按 space_id 过滤的 FTS 搜索(scope 不限,全部作用域)。 */
-    @Query("""
+    @Query(
+        """
         SELECT f.* FROM facts_fts
         JOIN facts f ON facts_fts.fact_id = f.id
         WHERE content_ngram MATCH :matchQuery
           AND f.space_id = :spaceId
         ORDER BY (f.pinned_at IS NOT NULL) DESC, f.importance DESC, f.time DESC
         LIMIT :limit
-    """)
+    """,
+    )
     suspend fun searchFtsBySpaceId(matchQuery: String, limit: Int, spaceId: String): List<FactEntity>
 
     /**
@@ -365,13 +404,17 @@ interface FactDao {
      * v9: 按 scope + space_id 双重过滤查询事实列表。
      * scope 按 Agent 隔离,space_id 按场景隔离,两者正交。
      */
-    @Query("SELECT * FROM facts WHERE scope = :scope AND space_id = :spaceId ORDER BY (pinned_at IS NOT NULL) DESC, importance DESC, time DESC")
+    @Query(
+        "SELECT * FROM facts WHERE scope = :scope AND space_id = :spaceId ORDER BY (pinned_at IS NOT NULL) DESC, importance DESC, time DESC",
+    )
     suspend fun getByScopeAndSpace(scope: String, spaceId: String): List<FactEntity>
 
     /**
      * v9: 按 scope + space_id 双重过滤观察事实列表(Flow 形式)。
      */
-    @Query("SELECT * FROM facts WHERE scope = :scope AND space_id = :spaceId ORDER BY (pinned_at IS NOT NULL) DESC, importance DESC, time DESC")
+    @Query(
+        "SELECT * FROM facts WHERE scope = :scope AND space_id = :spaceId ORDER BY (pinned_at IS NOT NULL) DESC, importance DESC, time DESC",
+    )
     fun observeByScopeAndSpace(scope: String, spaceId: String): Flow<List<FactEntity>>
 
     /**

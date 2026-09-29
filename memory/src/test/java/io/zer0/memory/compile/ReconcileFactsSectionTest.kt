@@ -2,6 +2,7 @@ package io.zer0.memory.compile
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import io.zer0.ai.core.Model
 import io.zer0.memory.fact.FactDb
 import io.zer0.memory.fact.FactStore
 import io.zer0.memory.llm.MemoryLlmClient
@@ -9,7 +10,6 @@ import io.zer0.memory.summary.CompiledSectionDao
 import io.zer0.memory.summary.CompiledSectionEntity
 import io.zer0.memory.summary.MemoryDb
 import io.zer0.memory.summary.ScopedCompiledSectionEntity
-import io.zer0.ai.core.Model
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -117,7 +117,7 @@ class ReconcileFactsSectionTest {
                 content = "用户喜欢喝美式咖啡\n用户最近在筹备搬家",
                 fingerprint = null,
                 updatedAt = java.time.Instant.now().toString(),
-            )
+            ),
         )
         // facts 表里该事实已被用户编辑为措辞变体(去主语+全半角差异,归一化后等价)
         factStore.add(FactStore.Fact(fact = "喜欢喝美式咖啡", entityKey = "用户"))
@@ -140,7 +140,7 @@ class ReconcileFactsSectionTest {
                 content = "用户喜欢ｚｈａｎｇｓａｎ",
                 fingerprint = null,
                 updatedAt = java.time.Instant.now().toString(),
-            )
+            ),
         )
         // facts 表现值为全角变体
         factStore.add(FactStore.Fact(fact = "用户喜欢zhangsan"))
@@ -160,7 +160,7 @@ class ReconcileFactsSectionTest {
                 content = "用户喜欢摄影",
                 fingerprint = null,
                 updatedAt = java.time.Instant.now().toString(),
-            )
+            ),
         )
         factStore.add(FactStore.Fact(fact = "用户喜欢喝茶"))
 

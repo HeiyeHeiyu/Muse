@@ -50,39 +50,37 @@ internal object QqClient {
     data class TokenInfo(val accessToken: String, val expiresInSeconds: Long)
 
     /** 获取 access_token(QQBot 鉴权用)。 */
-    suspend fun fetchAccessToken(appId: String, appSecret: String): Result<TokenInfo> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val body = buildJsonObject {
-                    put("appId", appId)
-                    put("clientSecret", appSecret)
-                }.toString()
-                val resp = postJson(TOKEN_URL, body).getOrThrow()
-                val obj = AppJson.parseToJsonElement(resp).jsonObject
-                TokenInfo(
-                    accessToken = obj["access_token"]?.jsonPrimitive?.contentOrNull
-                        ?: error("QQ token 响应缺字段: ${resp.take(200)}"),
-                    expiresInSeconds = obj["expires_in"]?.jsonPrimitive?.contentOrNull
-                        ?.toLongOrNull() ?: 7200L,
-                )
-            }
+    suspend fun fetchAccessToken(appId: String, appSecret: String): Result<TokenInfo> = withContext(Dispatchers.IO) {
+        runCatching {
+            val body = buildJsonObject {
+                put("appId", appId)
+                put("clientSecret", appSecret)
+            }.toString()
+            val resp = postJson(TOKEN_URL, body).getOrThrow()
+            val obj = AppJson.parseToJsonElement(resp).jsonObject
+            TokenInfo(
+                accessToken = obj["access_token"]?.jsonPrimitive?.contentOrNull
+                    ?: error("QQ token 响应缺字段: ${resp.take(200)}"),
+                expiresInSeconds = obj["expires_in"]?.jsonPrimitive?.contentOrNull
+                    ?.toLongOrNull() ?: 7200L,
+            )
         }
+    }
 
     /** 获取通用 WSS 接入点(AUTHORIZATION: QQBot {access_token})。 */
-    suspend fun getGateway(accessToken: String): Result<String> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                // 注意:此处是 REST 调 `/gateway` 取 wss 地址;`/websocket/` 是 WS 端点本身
-                // (直接 HTTP GET 会被返回 426 Upgrade Required)。
-                val resp = getJson(
-                    "$API_BASE/gateway",
-                    mapOf("Authorization" to "QQBot $accessToken"),
-                ).getOrThrow()
-                val obj = AppJson.parseToJsonElement(resp).jsonObject
-                obj["url"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
-                    ?: error("QQ gateway 响应缺 url: ${resp.take(200)}")
-            }
+    suspend fun getGateway(accessToken: String): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            // 注意:此处是 REST 调 `/gateway` 取 wss 地址;`/websocket/` 是 WS 端点本身
+            // (直接 HTTP GET 会被返回 426 Upgrade Required)。
+            val resp = getJson(
+                "$API_BASE/gateway",
+                mapOf("Authorization" to "QQBot $accessToken"),
+            ).getOrThrow()
+            val obj = AppJson.parseToJsonElement(resp).jsonObject
+            obj["url"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotBlank() }
+                ?: error("QQ gateway 响应缺 url: ${resp.take(200)}")
         }
+    }
 
     private fun getJson(url: String, headers: Map<String, String>): Result<String> = runCatching {
         val builder = Request.Builder().url(url).get()
@@ -133,6 +131,5 @@ internal object QqMsgIdCache {
     }
 
     /** 取下一个回复序号(同一 msg_id 的多次回复递增)。 */
-    fun nextSeq(target: String): Int =
-        seqs.getOrPut(target) { AtomicInteger(0) }.incrementAndGet()
+    fun nextSeq(target: String): Int = seqs.getOrPut(target) { AtomicInteger(0) }.incrementAndGet()
 }

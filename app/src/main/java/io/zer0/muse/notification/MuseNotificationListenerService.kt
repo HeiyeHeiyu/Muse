@@ -4,9 +4,9 @@ import android.app.Notification
 import android.content.ComponentName
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.NotificationListenerService.RankingMap
-import android.os.Build
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationManagerCompat
 import io.zer0.common.AppJson
@@ -20,8 +20,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 
 /**
  * 通知监听服务 — 感知其他 App 的通知作为事件源。
@@ -37,6 +37,7 @@ class MuseNotificationListenerService : NotificationListenerService() {
     companion object {
         // L1-1: 过滤的系统包名,避免每次调用分配新 List
         private val IGNORED_PACKAGES: Set<String> = setOf("android", "com.android.systemui", "io.zer0.muse")
+
         // 审计修复 (1.5): 高敏通知包名 — 银行/支付/验证码类,正文直接不采集
         // (仅保留来源包名与时间,text 置占位),防止验证码/余额/流水经 LLM 外泄。
         private val SENSITIVE_PACKAGES: Set<String> = setOf(
@@ -57,6 +58,7 @@ class MuseNotificationListenerService : NotificationListenerService() {
             // 社交/短视频
             "com.sina.weibo", "com.ss.android.ugc.aweme",
         )
+
         // 通知监听不仅服务当前进程;保留最近 200 条,应用重启后仍可在页面和工具中查看。
         private const val MAX_RECENT_NOTIFICATIONS = 200
         private const val PREFS_NAME = "muse_notification_listener"
@@ -67,14 +69,18 @@ class MuseNotificationListenerService : NotificationListenerService() {
         private val stateLock = Any()
         private val persistenceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private val persistenceMutex = Mutex()
+
         // 事件快速到达时,只允许最新快照落盘,防止并发 IO 把旧列表写回。
         private var persistenceSequence = 0L
         private var persistedSequence = 0L
         private var preferences: SharedPreferences? = null
+
         @Volatile
         private var serviceInstance: MuseNotificationListenerService? = null
+
         @Volatile
         private var initialized = false
+
         // 最近通知列表(最多保留 MAX_RECENT_NOTIFICATIONS 条)
         private val _recentNotifications = MutableStateFlow<List<NotificationRecord>>(emptyList())
         val recentNotifications = _recentNotifications.asStateFlow()
@@ -128,8 +134,7 @@ class MuseNotificationListenerService : NotificationListenerService() {
         }
 
         /** 根据系统对象构建跨进程稳定键。 */
-        private fun sourceKey(sbn: StatusBarNotification): String =
-            "${sbn.key}|${sbn.id}|${sbn.tag.orEmpty()}"
+        private fun sourceKey(sbn: StatusBarNotification): String = "${sbn.key}|${sbn.id}|${sbn.tag.orEmpty()}"
 
         /** 初始化持久化存储;可由 UI 先调用,不必等系统绑定监听服务。 */
         fun initialize(context: Context) {
@@ -403,18 +408,13 @@ class MuseNotificationListenerService : NotificationListenerService() {
         persistAsync(snapshot)
     }
 
-    private fun firstNonBlank(vararg values: String?): String =
-        values.firstOrNull { !it.isNullOrBlank() }.orEmpty()
+    private fun firstNonBlank(vararg values: String?): String = values.firstOrNull { !it.isNullOrBlank() }.orEmpty()
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         markNotificationRemoved(sbn, null)
     }
 
-    override fun onNotificationRemoved(
-        sbn: StatusBarNotification,
-        rankingMap: RankingMap,
-        reason: Int,
-    ) {
+    override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap, reason: Int) {
         markNotificationRemoved(sbn, reason)
     }
 
@@ -473,10 +473,9 @@ data class NotificationRecord(
     val removedReason: Int? = null,
 )
 
-private fun NotificationRecord.matches(query: String): Boolean =
-    packageName.lowercase().contains(query) ||
-        appLabel.lowercase().contains(query) ||
-        title.lowercase().contains(query) ||
-        text.lowercase().contains(query) ||
-        channelId.orEmpty().lowercase().contains(query) ||
-        category.orEmpty().lowercase().contains(query)
+private fun NotificationRecord.matches(query: String): Boolean = packageName.lowercase().contains(query) ||
+    appLabel.lowercase().contains(query) ||
+    title.lowercase().contains(query) ||
+    text.lowercase().contains(query) ||
+    channelId.orEmpty().lowercase().contains(query) ||
+    category.orEmpty().lowercase().contains(query)

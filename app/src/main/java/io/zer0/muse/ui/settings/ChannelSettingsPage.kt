@@ -74,10 +74,7 @@ import org.koin.compose.koinInject
  *  - 简要说明(推送能力 + 凭据安全边界 + 去哪注册)。
  */
 @Composable
-fun ChannelSettingsScreen(
-    onBack: () -> Unit,
-    onOpenConversations: (String) -> Unit = {},
-) {
+fun ChannelSettingsScreen(onBack: () -> Unit, onOpenConversations: (String) -> Unit = {}) {
     val manager: ChannelManager = koinInject()
     val weClawReceiver: WeClawReceiver = koinInject()
     val telegramReceiver: TelegramReceiver = koinInject()
@@ -169,16 +166,16 @@ fun ChannelSettingsScreen(
                 shape = MuseShapes.medium,
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                        .clickable { showAdd = true },
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .clickable { showAdd = true },
             ) {
                 Row(
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(MusePaddings.cardInner),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(MusePaddings.cardInner),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -294,9 +291,9 @@ private fun ChannelRow(
     val platformLabel = stringResource(channelPlatformNameRes(config.platform))
     Column(
         modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(MusePaddings.cardInner),
+        Modifier
+            .fillMaxWidth()
+            .padding(MusePaddings.cardInner),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(
@@ -350,20 +347,16 @@ private fun ChannelRow(
 
 /** 渠道操作按钮文本(带内边距的可点区域,独立一行排列)。 */
 @Composable
-private fun ChannelActionText(
-    text: String,
-    color: Color,
-    onClick: () -> Unit,
-) {
+private fun ChannelActionText(text: String, color: Color, onClick: () -> Unit) {
     Text(
         text = text,
         style = MaterialTheme.typography.labelSmall,
         color = color,
         modifier =
-            Modifier
-                .clip(RoundedCornerShape(6.dp))
-                .clickable(onClick = onClick)
-                .padding(horizontal = 6.dp, vertical = 4.dp),
+        Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 4.dp),
     )
 }
 
@@ -376,11 +369,7 @@ private fun shortTargetId(raw: String): String {
 
 /** 添加/编辑渠道对话框（v2.0.1: 按平台定制接入字段，对齐 Hana Bridge 模型）。 */
 @Composable
-private fun ChannelEditDialog(
-    initial: ChannelConfig?,
-    onDismiss: () -> Unit,
-    onSave: (ChannelConfig) -> Unit,
-) {
+private fun ChannelEditDialog(initial: ChannelConfig?, onDismiss: () -> Unit, onSave: (ChannelConfig) -> Unit) {
     var platform by remember { mutableStateOf(initial?.platform ?: ChannelPlatform.FEISHU) }
     var name by remember { mutableStateOf(initial?.name.orEmpty()) }
     var appId by remember { mutableStateOf(initial?.appId.orEmpty()) }
@@ -469,10 +458,10 @@ private fun ChannelEditDialog(
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                     modifier =
-                        Modifier
-                            .align(Alignment.End)
-                            .clickable { showTutorial = true }
-                            .padding(vertical = 2.dp),
+                    Modifier
+                        .align(Alignment.End)
+                        .clickable { showTutorial = true }
+                        .padding(vertical = 2.dp),
                 )
                 val platformOptions = mutableListOf<Pair<String, String>>()
                 for (p in ChannelPlatform.entries) {
@@ -506,20 +495,20 @@ private fun ChannelEditDialog(
                         ) {
                             Text(
                                 text =
-                                    stringResource(
-                                        if (bound) {
-                                            R.string.channel_weclaw_logged_in
-                                        } else {
-                                            R.string.channel_weclaw_need_scan
-                                        },
-                                    ),
+                                stringResource(
+                                    if (bound) {
+                                        R.string.channel_weclaw_logged_in
+                                    } else {
+                                        R.string.channel_weclaw_need_scan
+                                    },
+                                ),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color =
-                                    if (bound) {
-                                        MaterialTheme.colorScheme.primary
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
+                                if (bound) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
                             )
                             if (bound) {
                                 Text(
@@ -527,12 +516,12 @@ private fun ChannelEditDialog(
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.error,
                                     modifier =
-                                        Modifier
-                                            .clickable {
-                                                weclawTokenOverride = ""
-                                                targetId = ""
-                                            }
-                                            .padding(4.dp),
+                                    Modifier
+                                        .clickable {
+                                            weclawTokenOverride = ""
+                                            targetId = ""
+                                        }
+                                        .padding(4.dp),
                                 )
                             }
                         }
@@ -540,19 +529,19 @@ private fun ChannelEditDialog(
                             shape = MuseShapes.medium,
                             color = MaterialTheme.colorScheme.secondaryContainer,
                             modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable { showBind = true },
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { showBind = true },
                         ) {
                             Text(
                                 text =
-                                    stringResource(
-                                        if (bound) {
-                                            R.string.channel_weclaw_rescan
-                                        } else {
-                                            R.string.channel_weclaw_scan
-                                        },
-                                    ),
+                                stringResource(
+                                    if (bound) {
+                                        R.string.channel_weclaw_rescan
+                                    } else {
+                                        R.string.channel_weclaw_scan
+                                    },
+                                ),
                                 style = MaterialTheme.typography.labelLarge,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                             )
@@ -691,10 +680,10 @@ private fun ChannelEditDialog(
                             onValueChange = { qqType = it },
                             label = stringResource(R.string.channel_field_qq_type),
                             options =
-                                listOf(
-                                    "group" to stringResource(R.string.channel_type_group),
-                                    "c2c" to stringResource(R.string.channel_type_c2c),
-                                ),
+                            listOf(
+                                "group" to stringResource(R.string.channel_type_group),
+                                "c2c" to stringResource(R.string.channel_type_c2c),
+                            ),
                         )
                         PlatformCredentialFooter(
                             hint = stringResource(R.string.channel_qq_hint),
@@ -834,10 +823,7 @@ private const val MAX_QR_REFRESH_COUNT = 3
 
 /** v2.0: ClawBot 扫码绑定对话框(拉取二维码 → 轮询状态 → 回填凭据)。 */
 @Composable
-private fun WeClawBindDialog(
-    onDismiss: () -> Unit,
-    onBound: (WeClawClient.QrStatus) -> Unit,
-) {
+private fun WeClawBindDialog(onDismiss: () -> Unit, onBound: (WeClawClient.QrStatus) -> Unit) {
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     var status by remember { mutableStateOf("loading") }
     var errorMsg by remember { mutableStateOf("") }
@@ -910,8 +896,8 @@ private fun WeClawBindDialog(
                     status == "error" ->
                         Text(
                             text =
-                                stringResource(R.string.channel_weclaw_bind_failed) +
-                                    errorMsg.take(120),
+                            stringResource(R.string.channel_weclaw_bind_failed) +
+                                errorMsg.take(120),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     bitmap != null -> {
@@ -922,13 +908,13 @@ private fun WeClawBindDialog(
                         )
                         Text(
                             text =
-                                when (status) {
-                                    "scaned" -> stringResource(R.string.channel_weclaw_status_scaned)
-                                    "expired" -> stringResource(R.string.channel_weclaw_status_expired)
-                                    "unstable" -> stringResource(R.string.channel_weclaw_status_unstable)
-                                    "refreshed" -> stringResource(R.string.channel_weclaw_status_refreshed)
-                                    else -> stringResource(R.string.channel_weclaw_bind_hint)
-                                },
+                            when (status) {
+                                "scaned" -> stringResource(R.string.channel_weclaw_status_scaned)
+                                "expired" -> stringResource(R.string.channel_weclaw_status_expired)
+                                "unstable" -> stringResource(R.string.channel_weclaw_status_unstable)
+                                "refreshed" -> stringResource(R.string.channel_weclaw_status_refreshed)
+                                else -> stringResource(R.string.channel_weclaw_bind_hint)
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -962,43 +948,38 @@ private fun SecretInputField(
         onValueChange = onValueChange,
         label = { Text(label) },
         placeholder =
-            if (storedSecret.isNotBlank() && value.isBlank()) {
-                { Text(stringResource(R.string.channel_secret_stored_placeholder)) }
-            } else {
-                null
-            },
+        if (storedSecret.isNotBlank() && value.isBlank()) {
+            { Text(stringResource(R.string.channel_secret_stored_placeholder)) }
+        } else {
+            null
+        },
         trailingIcon = {
             Text(
                 text =
-                    stringResource(
-                        if (visible) R.string.channel_secret_hide else R.string.channel_secret_show,
-                    ),
+                stringResource(
+                    if (visible) R.string.channel_secret_hide else R.string.channel_secret_show,
+                ),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
                 modifier =
-                    Modifier
-                        .clickable(onClick = onToggleVisible)
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                Modifier
+                    .clickable(onClick = onToggleVisible)
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
             )
         },
         singleLine = true,
         visualTransformation =
-            if (visible) {
-                VisualTransformation.None
-            } else {
-                PasswordVisualTransformation()
-            },
+        if (visible) {
+            VisualTransformation.None
+        } else {
+            PasswordVisualTransformation()
+        },
     )
 }
 
 /** 凭证说明 + 测试连接 + 结果。 */
 @Composable
-private fun PlatformCredentialFooter(
-    hint: String,
-    validating: Boolean,
-    result: Pair<Boolean, String>?,
-    onValidate: () -> Unit,
-) {
+private fun PlatformCredentialFooter(hint: String, validating: Boolean, result: Pair<Boolean, String>?, onValidate: () -> Unit) {
     Text(
         text = hint,
         style = MaterialTheme.typography.bodySmall,
@@ -1015,9 +996,9 @@ private fun PlatformCredentialFooter(
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
             modifier =
-                Modifier
-                    .clickable(enabled = !validating, onClick = onValidate)
-                    .padding(vertical = 4.dp),
+            Modifier
+                .clickable(enabled = !validating, onClick = onValidate)
+                .padding(vertical = 4.dp),
         )
         if (validating) {
             MuseSpinner(size = MuseIconSizes.iconSmall)
@@ -1038,10 +1019,7 @@ private fun PlatformCredentialFooter(
 
 /** 平台接入教程：沿用 Hana Bridge 的官方配置步骤。 */
 @Composable
-private fun ChannelTutorialDialog(
-    platform: ChannelPlatform,
-    onDismiss: () -> Unit,
-) {
+private fun ChannelTutorialDialog(platform: ChannelPlatform, onDismiss: () -> Unit) {
     val stepsRes =
         when (platform) {
             ChannelPlatform.WECLAW -> R.array.channel_tutorial_weclaw_steps
@@ -1084,11 +1062,10 @@ private fun prettifyAccount(raw: String): String = if (raw.length <= 18) raw els
  * value 匹配仍以 [ChannelPlatform.name] 为稳定键；仅展示层随语言变化。
  */
 @androidx.annotation.StringRes
-private fun channelPlatformNameRes(platform: ChannelPlatform): Int =
-    when (platform) {
-        ChannelPlatform.FEISHU -> R.string.channel_platform_feishu
-        ChannelPlatform.QQ -> R.string.channel_platform_qq
-        ChannelPlatform.WECLAW -> R.string.channel_platform_weclaw
-        ChannelPlatform.TELEGRAM -> R.string.channel_platform_telegram
-        ChannelPlatform.DINGTALK -> R.string.channel_platform_dingtalk
-    }
+private fun channelPlatformNameRes(platform: ChannelPlatform): Int = when (platform) {
+    ChannelPlatform.FEISHU -> R.string.channel_platform_feishu
+    ChannelPlatform.QQ -> R.string.channel_platform_qq
+    ChannelPlatform.WECLAW -> R.string.channel_platform_weclaw
+    ChannelPlatform.TELEGRAM -> R.string.channel_platform_telegram
+    ChannelPlatform.DINGTALK -> R.string.channel_platform_dingtalk
+}

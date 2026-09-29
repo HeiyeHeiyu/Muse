@@ -35,7 +35,8 @@ interface MemorySpaceDao {
      * 列出所有 Space + 关联事实数量(LEFT JOIN COUNT)。
      * 用于管理页展示每个 Space 的事实统计。
      */
-    @Query("""
+    @Query(
+        """
         SELECT s.id AS id, s.name AS name, s.icon AS icon, s.description AS description,
                s.created_at AS created_at, s.sort_index AS sort_index,
                COUNT(f.id) AS fact_count
@@ -43,13 +44,15 @@ interface MemorySpaceDao {
         LEFT JOIN facts f ON f.space_id = s.id
         GROUP BY s.id
         ORDER BY s.sort_index ASC, s.created_at ASC
-    """)
+    """,
+    )
     suspend fun listAllWithCount(): List<MemorySpaceWithCount>
 
     /**
      * 观察 Space 列表 + 事实数量(Flow 形式)。
      */
-    @Query("""
+    @Query(
+        """
         SELECT s.id AS id, s.name AS name, s.icon AS icon, s.description AS description,
                s.created_at AS created_at, s.sort_index AS sort_index,
                COUNT(f.id) AS fact_count
@@ -57,7 +60,8 @@ interface MemorySpaceDao {
         LEFT JOIN facts f ON f.space_id = s.id
         GROUP BY s.id
         ORDER BY s.sort_index ASC, s.created_at ASC
-    """)
+    """,
+    )
     fun observeAllWithCount(): Flow<List<MemorySpaceWithCount>>
 
     @Query("SELECT * FROM memory_spaces WHERE id = :id")

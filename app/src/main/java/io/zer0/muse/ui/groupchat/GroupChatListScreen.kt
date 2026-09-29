@@ -13,13 +13,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.media.WindowWidthClass
-import io.zer0.muse.ui.common.museAnimateItem
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,11 +22,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,16 +44,21 @@ import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.groupchat.GroupChatEntity
 import io.zer0.muse.data.groupchat.GroupChatMessageEntity
 import io.zer0.muse.ui.RegionErrorBoundary
-import io.zer0.muse.ui.common.media.AssistantAvatar
-import io.zer0.muse.ui.common.settings.ChevronRight
-import io.zer0.muse.ui.common.surface.MuseCardPress
-import io.zer0.muse.ui.common.media.rememberWindowWidthClass
 import io.zer0.muse.ui.common.feedback.MuseDialog
-import io.zer0.muse.ui.common.state.MuseLoadingState
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.media.AssistantAvatar
+import io.zer0.muse.ui.common.media.WindowWidthClass
+import io.zer0.muse.ui.common.media.rememberWindowWidthClass
+import io.zer0.muse.ui.common.museAnimateItem
+import io.zer0.muse.ui.common.settings.ChevronRight
 import io.zer0.muse.ui.common.state.MuseEmptyState
+import io.zer0.muse.ui.common.state.MuseLoadingState
+import io.zer0.muse.ui.common.surface.MuseCardPress
+import io.zer0.muse.ui.theme.MuseAvatarSize
 import io.zer0.muse.ui.theme.MuseDateFormats
 import io.zer0.muse.ui.theme.MuseHaptics
-import io.zer0.muse.ui.theme.MuseAvatarSize
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import kotlinx.coroutines.delay
@@ -80,10 +80,7 @@ import java.util.Locale
  * @param viewModel 群聊 ViewModel
  */
 @Composable
-fun GroupChatListScreen(
-    onOpenChat: (String) -> Unit,
-    viewModel: GroupChatViewModel = koinViewModel(),
-) {
+fun GroupChatListScreen(onOpenChat: (String) -> Unit, viewModel: GroupChatViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showCreateDialog by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -103,128 +100,128 @@ fun GroupChatListScreen(
         regionName = "groupChat",
         data = { state.chats },
     ) {
-    // P2-1: Box 包裹,Expanded 模式下居中限宽
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.TopCenter,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .then(
-                    if (widthClass == WindowWidthClass.Expanded) {
-                        Modifier.widthIn(max = 720.dp)
-                    } else {
-                        Modifier
-                    }
-                )
-                .navigationBarsPadding(),
+        // P2-1: Box 包裹,Expanded 模式下居中限宽
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter,
         ) {
-        // v2.1: 移除独立标题栏(Tab 已标注"群聊"),直接展示列表
-        // v1.72: 首次加载时显示 loading,避免闪"还没有群聊"空状态
-        // CHAT-13/14: 三态统一走 MuseLoadingState / MuseEmptyState(此前裸 CircularProgressIndicator + 自绘磁贴)
-        if (state.isChatsLoading) {
-            MuseLoadingState(
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else if (state.chats.isEmpty()) {
-            // 空状态:统一 MuseEmptyState,保留"新建群聊"操作入口
-            MuseEmptyState(
-                icon = MuseIcons.plus,
-                title = stringResource(R.string.groupchat_empty_hint),
-                actionText = stringResource(R.string.groupchat_create_cd),
-                onAction = { showCreateDialog = true },
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = MusePaddings.screen,
-                    end = MusePaddings.screen,
-                    top = MusePaddings.itemGap,
-                    bottom = 88.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                // v2.2: 页面标题"我的群聊"
-                item(key = "page_title") {
-                    Text(
-                        text = stringResource(R.string.groupchat_list_title),
-                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        textAlign = TextAlign.Center,
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (widthClass == WindowWidthClass.Expanded) {
+                            Modifier.widthIn(max = 720.dp)
+                        } else {
+                            Modifier
+                        },
                     )
-                }
-                items(
-                    items = state.chats,
-                    key = { it.id },
-                ) { chat ->
-                    // E5 (H4): 群聊列表项入场/位移动画
-                    Box(museAnimateItem()) {
-                        val memberIds = remember(chat.memberIdsJson) { viewModel.parseMemberIds(chat) }
-                        val members = remember(memberIds, state.assistants) {
-                            memberIds.mapNotNull { id -> state.assistants.find { it.id == id } }
-                        }
-                        GroupChatCard(
-                            chat = chat,
-                            members = members,
-                            memberCount = memberIds.size,
-                            now = timeTicker,
-                            viewModel = viewModel,
-                            onClick = { onOpenChat(chat.id) },
-                            onTogglePin = { viewModel.togglePin(chat.id) },
-                            onDelete = { viewModel.deleteChat(chat.id) },
-                            onClearMemory = { viewModel.clearChatMemory(chat.id) },
-                            onToggleArchive = { archived -> viewModel.toggleArchive(chat.id, archived) },
-                        )
-                    }
-                }
-                // v2.2: 底部"新建群聊"按钮(参考图:左侧绿色加号圆圈 + 居中绿色文字)
-                item(key = "create_new") {
-                    MuseCardPress(
-                        onClick = { showCreateDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MuseShapes.extraLarge,
-                        containerColor = MaterialTheme.colorScheme.surface,
+                    .navigationBarsPadding(),
+            ) {
+                // v2.1: 移除独立标题栏(Tab 已标注"群聊"),直接展示列表
+                // v1.72: 首次加载时显示 loading,避免闪"还没有群聊"空状态
+                // CHAT-13/14: 三态统一走 MuseLoadingState / MuseEmptyState(此前裸 CircularProgressIndicator + 自绘磁贴)
+                if (state.isChatsLoading) {
+                    MuseLoadingState(
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else if (state.chats.isEmpty()) {
+                    // 空状态:统一 MuseEmptyState,保留"新建群聊"操作入口
+                    MuseEmptyState(
+                        icon = MuseIcons.plus,
+                        title = stringResource(R.string.groupchat_empty_hint),
+                        actionText = stringResource(R.string.groupchat_create_cd),
+                        onAction = { showCreateDialog = true },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            start = MusePaddings.screen,
+                            end = MusePaddings.screen,
+                            top = MusePaddings.itemGap,
+                            bottom = 88.dp,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            Box(
+                        // v2.2: 页面标题"我的群聊"
+                        item(key = "page_title") {
+                            Text(
+                                text = stringResource(R.string.groupchat_list_title),
+                                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    imageVector = MuseIcons.plus,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(22.dp),
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                        items(
+                            items = state.chats,
+                            key = { it.id },
+                        ) { chat ->
+                            // E5 (H4): 群聊列表项入场/位移动画
+                            Box(museAnimateItem()) {
+                                val memberIds = remember(chat.memberIdsJson) { viewModel.parseMemberIds(chat) }
+                                val members = remember(memberIds, state.assistants) {
+                                    memberIds.mapNotNull { id -> state.assistants.find { it.id == id } }
+                                }
+                                GroupChatCard(
+                                    chat = chat,
+                                    members = members,
+                                    memberCount = memberIds.size,
+                                    now = timeTicker,
+                                    viewModel = viewModel,
+                                    onClick = { onOpenChat(chat.id) },
+                                    onTogglePin = { viewModel.togglePin(chat.id) },
+                                    onDelete = { viewModel.deleteChat(chat.id) },
+                                    onClearMemory = { viewModel.clearChatMemory(chat.id) },
+                                    onToggleArchive = { archived -> viewModel.toggleArchive(chat.id, archived) },
                                 )
                             }
-                            Spacer(Modifier.width(12.dp))
-                            Text(
-                                text = stringResource(R.string.groupchat_create_cd),
-                                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                                color = MaterialTheme.colorScheme.primary,
-                            )
+                        }
+                        // v2.2: 底部"新建群聊"按钮(参考图:左侧绿色加号圆圈 + 居中绿色文字)
+                        item(key = "create_new") {
+                            MuseCardPress(
+                                onClick = { showCreateDialog = true },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = MuseShapes.extraLarge,
+                                containerColor = MaterialTheme.colorScheme.surface,
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            imageVector = MuseIcons.plus,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(22.dp),
+                                        )
+                                    }
+                                    Spacer(Modifier.width(12.dp))
+                                    Text(
+                                        text = stringResource(R.string.groupchat_create_cd),
+                                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
         }
-    }
-    }
     }
 
     // 新建群聊对话框
@@ -347,28 +344,34 @@ private fun GroupChatCard(
                     MuseCapsuleButton(
                         text = if (chat.pinned) stringResource(R.string.groupchat_unpin) else stringResource(R.string.groupchat_pin),
                         onClick = {
-                        showMenu = false
-                        onTogglePin()
-                    },
+                            showMenu = false
+                            onTogglePin()
+                        },
                         variant = IosCapsuleButtonVariant.Text,
                         fillWidth = false,
                     )
                     // v2.x: 归档/取消归档
                     MuseCapsuleButton(
-                        text = if (chat.isArchived) stringResource(R.string.groupchat_unarchive) else stringResource(R.string.groupchat_archive),
+                        text = if (chat.isArchived) {
+                            stringResource(
+                                R.string.groupchat_unarchive,
+                            )
+                        } else {
+                            stringResource(R.string.groupchat_archive)
+                        },
                         onClick = {
-                        showMenu = false
-                        onToggleArchive(!chat.isArchived)
-                    },
+                            showMenu = false
+                            onToggleArchive(!chat.isArchived)
+                        },
                         variant = IosCapsuleButtonVariant.Text,
                         fillWidth = false,
                     )
                     MuseCapsuleButton(
                         text = stringResource(R.string.groupchat_delete_chat),
                         onClick = {
-                        showMenu = false
-                        showDeleteConfirm = true
-                    },
+                            showMenu = false
+                            showDeleteConfirm = true
+                        },
                         variant = IosCapsuleButtonVariant.Text,
                         fillWidth = false,
                     )
@@ -376,9 +379,9 @@ private fun GroupChatCard(
                     MuseCapsuleButton(
                         text = stringResource(R.string.groupchat_clear_memory),
                         onClick = {
-                        showMenu = false
-                        showClearMemoryConfirm = true
-                    },
+                            showMenu = false
+                            showClearMemoryConfirm = true
+                        },
                         variant = IosCapsuleButtonVariant.Text,
                         fillWidth = false,
                     )
@@ -439,11 +442,7 @@ private fun GroupChatCard(
  * v2.2: 成员头像平铺行 — 最多显示4个,紧凑排列。
  */
 @Composable
-private fun MemberAvatarRow(
-    members: List<AssistantEntity>,
-    memberCount: Int,
-    avatarSize: androidx.compose.ui.unit.Dp,
-) {
+private fun MemberAvatarRow(members: List<AssistantEntity>, memberCount: Int, avatarSize: androidx.compose.ui.unit.Dp) {
     val visibleCount = minOf(4, members.size)
     Row(
         horizontalArrangement = Arrangement.spacedBy((-6).dp),

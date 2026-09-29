@@ -33,7 +33,7 @@ object VectorIndexFactory {
      * @return [VectorIndex] 实例;BRUTE_FORCE 策略返回 null
      */
     fun createIndex(strategy: IndexStrategy): VectorIndex? = when (strategy) {
-        IndexStrategy.BRUTE_FORCE -> null  // 暴力遍历由 RagService 现有 vectorSearch 实现
+        IndexStrategy.BRUTE_FORCE -> null // 暴力遍历由 RagService 现有 vectorSearch 实现
         IndexStrategy.HNSW -> HnswVectorIndex()
     }
 
@@ -43,10 +43,8 @@ object VectorIndexFactory {
      * @param chunkCount 当前已索引 chunk 数
      * @return [VectorIndex] 实例;chunk 数 < [AUTO_THRESHOLD] 时返回 null(走暴力遍历)
      */
-    fun createAutoIndex(chunkCount: Int): VectorIndex? =
-        createIndex(autoStrategy(chunkCount))
+    fun createAutoIndex(chunkCount: Int): VectorIndex? = createIndex(autoStrategy(chunkCount))
 
     /** 根据 chunk 数量选择策略(>=5000 用 HNSW,否则 BRUTE_FORCE)。 */
-    fun autoStrategy(chunkCount: Int): IndexStrategy =
-        if (chunkCount >= AUTO_THRESHOLD) IndexStrategy.HNSW else IndexStrategy.BRUTE_FORCE
+    fun autoStrategy(chunkCount: Int): IndexStrategy = if (chunkCount >= AUTO_THRESHOLD) IndexStrategy.HNSW else IndexStrategy.BRUTE_FORCE
 }

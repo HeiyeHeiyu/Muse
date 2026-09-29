@@ -30,7 +30,7 @@ interface MemoryLinkDao {
         SELECT * FROM memory_links
         WHERE space_id = :spaceId AND scope = :scope
         ORDER BY weight DESC, created_at DESC
-        """
+        """,
     )
     suspend fun listBySpaceAndScope(spaceId: String, scope: String): List<MemoryLinkEntity>
 
@@ -40,7 +40,7 @@ interface MemoryLinkDao {
         SELECT * FROM memory_links
         WHERE space_id = :spaceId
         ORDER BY weight DESC, created_at DESC
-        """
+        """,
     )
     suspend fun listBySpace(spaceId: String): List<MemoryLinkEntity>
 
@@ -52,7 +52,7 @@ interface MemoryLinkDao {
         SELECT * FROM memory_links
         WHERE space_id = :spaceId AND scope = :scope
         ORDER BY weight DESC, created_at DESC
-        """
+        """,
     )
     fun observeBySpaceAndScope(spaceId: String, scope: String): Flow<List<MemoryLinkEntity>>
 
@@ -65,7 +65,7 @@ interface MemoryLinkDao {
         SELECT * FROM memory_links
         WHERE source_fact_id = :factId OR target_fact_id = :factId
         ORDER BY weight DESC
-        """
+        """,
     )
     suspend fun listByFactId(factId: Long): List<MemoryLinkEntity>
 

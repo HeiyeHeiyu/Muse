@@ -20,8 +20,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.zer0.ai.core.Model
-import io.zer0.muse.R
 import io.zer0.ai.core.ProviderType
+import io.zer0.muse.R
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.state.MuseSpinner
@@ -98,8 +98,20 @@ internal fun ProviderModelRow(
                 onClick = onTest,
                 enabled = canTest,
                 shape = MuseShapes.pill,
-                color = if (canTest) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                contentColor = if (canTest) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                color = if (canTest) {
+                    MaterialTheme.colorScheme.surfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant.copy(
+                        alpha = 0.5f,
+                    )
+                },
+                contentColor = if (canTest) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.outline.copy(
+                        alpha = 0.5f,
+                    )
+                },
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -130,7 +142,13 @@ internal fun ProviderModelRow(
         MuseTactileButton(
             icon = if (isAdded) MuseIcons.sliders else MuseIcons.plus,
             onClick = onAction,
-            contentDescription = if (isAdded) stringResource(R.string.settings_model_action_settings) else stringResource(R.string.settings_model_action_add),
+            contentDescription = if (isAdded) {
+                stringResource(
+                    R.string.settings_model_action_settings,
+                )
+            } else {
+                stringResource(R.string.settings_model_action_add)
+            },
             tint = MaterialTheme.colorScheme.outline,
         )
     }
@@ -146,10 +164,7 @@ internal fun ProviderModelRow(
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun ModelAbilityChips(
-    model: Model,
-    testStatus: ModelTestStatus = ModelTestStatus.Idle,
-) {
+internal fun ModelAbilityChips(model: Model, testStatus: ModelTestStatus = ModelTestStatus.Idle) {
     val labelTool = stringResource(R.string.settings_model_ability_tool)
     val labelReasoning = stringResource(R.string.settings_model_ability_reasoning)
     val labelStreaming = stringResource(R.string.settings_model_ability_streaming)

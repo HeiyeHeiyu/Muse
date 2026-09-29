@@ -185,7 +185,11 @@ class SystemToolsImpl(private val context: Context) {
             as android.os.BatteryManager
         val level = batteryManager.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)
         val charging = batteryManager.isCharging
-        return context.getString(R.string.tool_battery_info, level, if (charging) context.getString(R.string.tool_battery_charging) else context.getString(R.string.tool_battery_not_charging))
+        return context.getString(
+            R.string.tool_battery_info,
+            level,
+            if (charging) context.getString(R.string.tool_battery_charging) else context.getString(R.string.tool_battery_not_charging),
+        )
     }
 
     /** 查询天气:通过 wttr.in 免费 API 获取天气信息。 */
@@ -535,11 +539,13 @@ class SystemToolsImpl(private val context: Context) {
     suspend fun execGetWifiInfo(_args: Map<String, String>): String {
         return resultOf {
             val wm = context.getSystemService(android.content.Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+
             @Suppress("DEPRECATION")
             val info = wm.connectionInfo
             val ssid = info.ssid?.removeSurrounding("\"") ?: "未知"
             val bssid = info.bssid ?: "未知"
             val level = android.net.wifi.WifiManager.calculateSignalLevel(info.rssi, 5)
+
             @Suppress("DEPRECATION")
             val ip = android.text.format.Formatter.formatIpAddress(info.ipAddress)
             context.getString(R.string.tool_wifi_info, ssid, bssid, level, ip)
@@ -702,7 +708,9 @@ class SystemToolsImpl(private val context: Context) {
                     val parts = line.split(":", limit = 2)
                     if (parts.size == 2 && parts[0].trim().equals(key, ignoreCase = true)) {
                         parts[1].trim()
-                    } else null
+                    } else {
+                        null
+                    }
                 }.firstOrNull()
             }
         } catch (e: Exception) {
@@ -721,7 +729,6 @@ class SystemToolsImpl(private val context: Context) {
             else -> android.media.AudioManager.STREAM_MUSIC to context.getString(R.string.tool_volume_stream_music)
         }
     }
-
 
     suspend fun execScreenTime(_args: Map<String, String>): String {
         val usm = context.getSystemService(Context.USAGE_STATS_SERVICE)

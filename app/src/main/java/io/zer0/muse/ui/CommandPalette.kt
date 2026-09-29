@@ -1,5 +1,6 @@
 package io.zer0.muse.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -52,7 +53,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import compose.icons.tablericons.Search
-import androidx.compose.animation.AnimatedVisibility
 import io.zer0.muse.R
 import io.zer0.muse.data.session.SearchResult
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
@@ -61,14 +61,14 @@ import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.museAnimateItem
 import io.zer0.muse.ui.common.state.MuseSpinner
+import io.zer0.muse.ui.common.surface.MuseDialogWindowEffect
+import io.zer0.muse.ui.common.surface.museModalScrimColor
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
 import io.zer0.muse.ui.theme.semiLarge
-import io.zer0.muse.ui.common.surface.MuseDialogWindowEffect
-import io.zer0.muse.ui.common.surface.museModalScrimColor
 import kotlinx.coroutines.delay
 import org.koin.compose.koinInject
 
@@ -124,7 +124,9 @@ internal fun CommandPalette(
     val isCommandMode = query.startsWith("/")
     val visibleCommands = if (isCommandMode) {
         commands.filter { it.command.startsWith(query, ignoreCase = true) || query == "/" }
-    } else emptyList()
+    } else {
+        emptyList()
+    }
     // 搜索结果可能按消息命中返回同一会话多次,命令面板只展示一次会话入口。
     val sessionResults = remember(state.searchResults) {
         state.searchResults.distinctBy { it.sessionId }
@@ -367,8 +369,12 @@ private fun PaletteResultList(
     val listState = rememberLazyListState()
     // CHAT-15: 键盘上下选中时滚动跟随 — 按 LazyColumn 实际条目顺序(含 section 标题)换算索引。
     LaunchedEffect(
-        selectedIndex, isCommandMode, query,
-        visibleCommands.size, sessionResults.size, messageResults.size,
+        selectedIndex,
+        isCommandMode,
+        query,
+        visibleCommands.size,
+        sessionResults.size,
+        messageResults.size,
     ) {
         val target = if (isCommandMode) {
             if (selectedIndex < visibleCommands.size) selectedIndex + 1 else null
@@ -381,7 +387,9 @@ private fun PaletteResultList(
                 selectedIndex < n + m -> (if (m > 0) 1 else 0) + (selectedIndex - n)
                 else -> (if (m > 0) 1 else 0) + m + (if (k > 0) 1 else 0) + (selectedIndex - n - m)
             }
-        } else null
+        } else {
+            null
+        }
         if (target != null) {
             listState.animateScrollToItem(target.coerceAtLeast(0))
         }
@@ -402,13 +410,13 @@ private fun PaletteResultList(
             ) { index, entry ->
                 // v2.x: 动效补齐 — 结果行入场(令牌 animateItem)
                 Box(museAnimateItem()) {
-                CommandRow(
-                    icon = entry.icon,
-                    label = stringResource(entry.labelRes),
-                    detail = entry.command,
-                    selected = selectedIndex == index,
-                    onClick = { onSelect(index) },
-                )
+                    CommandRow(
+                        icon = entry.icon,
+                        label = stringResource(entry.labelRes),
+                        detail = entry.command,
+                        selected = selectedIndex == index,
+                        onClick = { onSelect(index) },
+                    )
                 }
             }
             if (visibleCommands.isEmpty()) {
@@ -437,13 +445,13 @@ private fun PaletteResultList(
                     ) { index, session ->
                         // v2.x: 动效补齐 — 结果行入场(令牌 animateItem)
                         Box(museAnimateItem()) {
-                        CommandRow(
-                            icon = MuseIcons.search,
-                            label = session.sessionTitle.ifBlank { session.sessionId },
-                            detail = stringResource(R.string.command_palette_open_session),
-                            selected = selectedIndex == visibleCommands.size + index,
-                            onClick = { onSelect(visibleCommands.size + index) },
-                        )
+                            CommandRow(
+                                icon = MuseIcons.search,
+                                label = session.sessionTitle.ifBlank { session.sessionId },
+                                detail = stringResource(R.string.command_palette_open_session),
+                                selected = selectedIndex == visibleCommands.size + index,
+                                onClick = { onSelect(visibleCommands.size + index) },
+                            )
                         }
                     }
                 }
@@ -457,13 +465,13 @@ private fun PaletteResultList(
                     ) { index, message ->
                         // v2.x: 动效补齐 — 结果行入场(令牌 animateItem)
                         Box(museAnimateItem()) {
-                        CommandRow(
-                            icon = MuseIcons.search,
-                            label = message.sessionTitle.ifBlank { message.sessionId },
-                            detail = message.contentSnippet,
-                            selected = selectedIndex == visibleCommands.size + sessionResults.size + index,
-                            onClick = { onSelect(visibleCommands.size + sessionResults.size + index) },
-                        )
+                            CommandRow(
+                                icon = MuseIcons.search,
+                                label = message.sessionTitle.ifBlank { message.sessionId },
+                                detail = message.contentSnippet,
+                                selected = selectedIndex == visibleCommands.size + sessionResults.size + index,
+                                onClick = { onSelect(visibleCommands.size + sessionResults.size + index) },
+                            )
                         }
                     }
                 }
@@ -545,20 +553,17 @@ private fun PaletteSectionHeader(title: String) {
 
 /** 单行结果项(选中态高亮)。 */
 @Composable
-private fun CommandRow(
-    icon: ImageVector,
-    label: String,
-    detail: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun CommandRow(icon: ImageVector, label: String, detail: String, selected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .background(
-                if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                else Color.Transparent,
+                if (selected) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                } else {
+                    Color.Transparent
+                },
             )
             .padding(horizontal = MusePaddings.contentGap, vertical = MusePaddings.itemGap),
         verticalAlignment = Alignment.CenterVertically,

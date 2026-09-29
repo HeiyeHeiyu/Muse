@@ -38,8 +38,7 @@ class WorldBookRepository(
 
     suspend fun getEnabled(): List<WorldBookEntryEntity> = dao.getEnabled()
 
-    suspend fun getAlwaysActive(assistantId: String?): List<WorldBookEntryEntity> =
-        dao.getAlwaysActive(assistantId)
+    suspend fun getAlwaysActive(assistantId: String?): List<WorldBookEntryEntity> = dao.getAlwaysActive(assistantId)
 
     suspend fun getById(id: String): WorldBookEntryEntity? = dao.getById(id)
 
@@ -57,13 +56,16 @@ class WorldBookRepository(
     fun matchAgainst(entries: List<WorldBookEntryEntity>, text: String): List<WorldBookEntryEntity> {
         if (entries.isEmpty() || text.isBlank()) return emptyList()
         return entries
-            .filter { it.enabled && !it.alwaysActive }  // 常驻条目由 alwaysActive 路径处理
+            .filter { it.enabled && !it.alwaysActive } // 常驻条目由 alwaysActive 路径处理
             .filter { entry ->
                 val keywords = parseKeywords(entry.keywordsJson)
                 if (keywords.isEmpty()) return@filter false
                 keywords.any { kw ->
-                    if (kw.isBlank()) false
-                    else matchKeyword(text, kw, entry.caseSensitive, entry.isRegex, entry.wholeWord)
+                    if (kw.isBlank()) {
+                        false
+                    } else {
+                        matchKeyword(text, kw, entry.caseSensitive, entry.isRegex, entry.wholeWord)
+                    }
                 }
             }
             .sortedWith(compareByDescending<WorldBookEntryEntity> { it.priority }.thenBy { it.name })
@@ -78,12 +80,9 @@ class WorldBookRepository(
      * @param assistantId 当前助手 id(用于过滤绑定条目)
      * @return 命中条目列表(已排序、去重)
      */
-    suspend fun getKeywordEntries(
-        userMessages: List<UIMessage>,
-        assistantId: String?,
-    ): List<WorldBookEntryEntity> {
+    suspend fun getKeywordEntries(userMessages: List<UIMessage>, assistantId: String?): List<WorldBookEntryEntity> {
         val candidates = dao.getEnabled()
-            .filter { it.alwaysActive.not() }  // 常驻由 alwaysActive 路径处理
+            .filter { it.alwaysActive.not() } // 常驻由 alwaysActive 路径处理
             .filter { it.assistantId == null || it.assistantId == assistantId }
         if (candidates.isEmpty() || userMessages.isEmpty()) return emptyList()
 
@@ -105,13 +104,7 @@ class WorldBookRepository(
      * 正则编译失败时记日志并返回 false(避免单条坏正则阻塞整个扫描)。
      * 正则编译结果按 "源串|ignoreCase" 缓存。
      */
-    private fun matchKeyword(
-        text: String,
-        keyword: String,
-        caseSensitive: Boolean,
-        isRegex: Boolean,
-        wholeWord: Boolean,
-    ): Boolean {
+    private fun matchKeyword(text: String, keyword: String, caseSensitive: Boolean, isRegex: Boolean, wholeWord: Boolean): Boolean {
         return if (isRegex) {
             val cacheKey = "$keyword|$caseSensitive"
             val pattern = regexCache.computeIfAbsent(cacheKey) {
@@ -139,8 +132,11 @@ class WorldBookRepository(
             } ?: return false
             pattern.containsMatchIn(text)
         } else {
-            if (caseSensitive) text.contains(keyword)
-            else text.contains(keyword, ignoreCase = true)
+            if (caseSensitive) {
+                text.contains(keyword)
+            } else {
+                text.contains(keyword, ignoreCase = true)
+            }
         }
     }
 
@@ -214,11 +210,14 @@ class WorldBookRepository(
         put("selectiveLogic", 0)
         put("addMemo", false)
         put("order", entry.priority)
-        put("position", when (WorldBookInjectPosition.fromStorage(entry.injectPosition)) {
-            WorldBookInjectPosition.PREPEND -> 0
-            WorldBookInjectPosition.APPEND -> 1
-            WorldBookInjectPosition.AT_DEPTH -> 4
-        })
+        put(
+            "position",
+            when (WorldBookInjectPosition.fromStorage(entry.injectPosition)) {
+                WorldBookInjectPosition.PREPEND -> 0
+                WorldBookInjectPosition.APPEND -> 1
+                WorldBookInjectPosition.AT_DEPTH -> 4
+            },
+        )
         put("disable", !entry.enabled)
         put("excludeRecursion", false)
         put("preventRecursion", false)
@@ -226,11 +225,14 @@ class WorldBookRepository(
         put("probability", 100)
         put("useProbability", true)
         put("title", entry.name)
-        put("role", when (WorldBookInjectTarget.fromStorage(entry.injectTarget)) {
-            WorldBookInjectTarget.SYSTEM -> 0
-            WorldBookInjectTarget.USER -> 1
-            WorldBookInjectTarget.ASSISTANT -> 2
-        })
+        put(
+            "role",
+            when (WorldBookInjectTarget.fromStorage(entry.injectTarget)) {
+                WorldBookInjectTarget.SYSTEM -> 0
+                WorldBookInjectTarget.USER -> 1
+                WorldBookInjectTarget.ASSISTANT -> 2
+            },
+        )
         put("depth", entry.insertionDepth)
         put("group", "")
         put("groupOverride", false)
@@ -292,24 +294,27 @@ class WorldBookRepository(
     companion object {
         private const val TAG = "WorldBookRepository"
 
-        private val json = Json { ignoreUnknownKeys = true; prettyPrint = true }
+        private val json = Json {
+            ignoreUnknownKeys = true
+            prettyPrint = true
+        }
         private val stringListSerializer = ListSerializer(String.serializer())
+
         /** 正则编译缓存:key = "源串|caseSensitive"。 */
         private val regexCache = ConcurrentHashMap<String, Regex?>()
+
         /** keywordsJson 解析缓存。 */
         private val keywordsCache = ConcurrentHashMap<String, List<String>>()
 
-        fun parseKeywords(keywordsJson: String): List<String> =
-            keywordsCache.computeIfAbsent(keywordsJson) {
-                runCatching { json.decodeFromString(stringListSerializer, it) }
-                    .getOrElse { e ->
-                        Logger.w(TAG, "keywordsJson 解析失败: ${e.message}, raw=$keywordsJson")
-                        emptyList()
-                    }
-            }
+        fun parseKeywords(keywordsJson: String): List<String> = keywordsCache.computeIfAbsent(keywordsJson) {
+            runCatching { json.decodeFromString(stringListSerializer, it) }
+                .getOrElse { e ->
+                    Logger.w(TAG, "keywordsJson 解析失败: ${e.message}, raw=$keywordsJson")
+                    emptyList()
+                }
+        }
 
-        fun encodeKeywords(keywords: List<String>): String =
-            runCatching { json.encodeToString(stringListSerializer, keywords) }
-                .getOrDefault("[]")
+        fun encodeKeywords(keywords: List<String>): String = runCatching { json.encodeToString(stringListSerializer, keywords) }
+            .getOrDefault("[]")
     }
 }

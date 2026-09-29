@@ -1,12 +1,12 @@
 ﻿package io.zer0.muse.transformer
 
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.mockk
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
 import io.zer0.memory.fact.FactStore
 import io.zer0.memory.ticker.MemoryTicker
-import io.mockk.coEvery
-import io.mockk.coVerify
-import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

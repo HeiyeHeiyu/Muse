@@ -123,7 +123,10 @@ fun MuseCapsuleButton(
                 enabled = clickable,
                 onClick = onClick,
             )
-            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .padding(horizontal = MusePaddings.messageGap, vertical = MusePaddings.itemGap),
         contentAlignment = Alignment.Center,
     ) {

@@ -13,6 +13,7 @@ import com.tom_roush.pdfbox.text.PDFTextStripper
 import io.zer0.common.Logger
 import io.zer0.common.Result
 import io.zer0.common.resultOf
+import io.zer0.muse.R
 import okhttp3.OkHttpClient
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
@@ -26,7 +27,6 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.zip.ZipInputStream
-import io.zer0.muse.R
 
 /**
  * Phase 5-E + Phase 8.6: 文档解析器。
@@ -118,8 +118,7 @@ class DocumentParser(
      * @param context 用于 ContentResolver + PDFBox init
      * @return 提取的文本;失败或空内容返回空串
      */
-    fun parse(uri: Uri, context: Context): String =
-        parseResult(uri, context).getOrNull() ?: ""
+    fun parse(uri: Uri, context: Context): String = parseResult(uri, context).getOrNull() ?: ""
 
     /**
      * v1.0.47 P7-1: 根据 [RagConfig.documentParserType] 路由文档解析。
@@ -164,13 +163,7 @@ class DocumentParser(
     }
 
     /** 读取文件字节并交给 [CloudDocumentParser] 上传解析。 */
-    private fun parseCloud(
-        uri: Uri,
-        context: Context,
-        endpoint: String,
-        token: String,
-        mineruMode: Boolean,
-    ): Result<String> {
+    private fun parseCloud(uri: Uri, context: Context, endpoint: String, token: String, mineruMode: Boolean): Result<String> {
         val bytes = readUploadBytes(uri, context)
             ?: return Result.Error("无法读取待解析文件")
         val fileName = uri.lastPathSegment
@@ -474,7 +467,7 @@ class DocumentParser(
 
         // 统计每页首/尾行的出现次数
         val lineCounts = mutableMapOf<String, Int>()
-        val candidates = mutableListOf<List<String>>()  // 每页的候选行(首2+尾2)
+        val candidates = mutableListOf<List<String>>() // 每页的候选行(首2+尾2)
         pageTexts.forEach { pageText ->
             val lines = pageText.lines().filter { it.isNotBlank() }
             if (lines.isEmpty()) {
@@ -521,9 +514,8 @@ class DocumentParser(
      * 大 PDF(含大量图片/字体)默认全量驻留主内存,解析阶段可直接把堆打满;改为"内有限+
      * 磁盘兜底"后,解析内存与文件体积解耦。
      */
-    private fun pdfMemorySetting(context: Context): MemoryUsageSetting =
-        MemoryUsageSetting.setupMixed(PDF_MAIN_MEMORY_BUDGET_BYTES)
-            .setTempDir(File(context.cacheDir, "pdfbox-tmp").apply { mkdirs() })
+    private fun pdfMemorySetting(context: Context): MemoryUsageSetting = MemoryUsageSetting.setupMixed(PDF_MAIN_MEMORY_BUDGET_BYTES)
+        .setTempDir(File(context.cacheDir, "pdfbox-tmp").apply { mkdirs() })
 
     /**
      * v2.2.1: 带上限的字符串 Writer(防 PDF 文本抽取无上限增长)。
@@ -597,7 +589,7 @@ class DocumentParser(
                 XmlPullParser.START_TAG -> {
                     val name = parser.name?.substringAfterLast(':') ?: ""
                     when (name) {
-                        "p" -> {  // 注意:OOXML 默认命名空间,本地名即 p/t/tab/br/cr
+                        "p" -> { // 注意:OOXML 默认命名空间,本地名即 p/t/tab/br/cr
                             inParagraph = true
                             paragraphText.setLength(0)
                         }
@@ -809,8 +801,8 @@ class DocumentParser(
         parser.setInput(xml.reader())
         var inRow = false
         var inCell = false
-        var cellType = ""           // <c t="..."> 的 t 属性
-        var inInlineStr = false     // 是否在 <is> 内
+        var cellType = "" // <c t="..."> 的 t 属性
+        var inInlineStr = false // 是否在 <is> 内
         val rowCells = mutableListOf<String>()
         val cellBuffer = StringBuilder()
         var event = parser.eventType
@@ -856,8 +848,11 @@ class DocumentParser(
                                     cellType == "s" -> {
                                         // 共享字符串:raw 是索引
                                         val idx = raw.toIntOrNull()
-                                        if (idx != null && idx in sharedStrings.indices) sharedStrings[idx]
-                                        else raw
+                                        if (idx != null && idx in sharedStrings.indices) {
+                                            sharedStrings[idx]
+                                        } else {
+                                            raw
+                                        }
                                     }
                                     cellType == "b" -> if (raw == "1") "TRUE" else "FALSE"
                                     // inlineStr / str / n / e / 无 t:直接用 raw
@@ -907,8 +902,8 @@ class DocumentParser(
         // 2. 读 OPF,解析 manifest 与 spine
         val opfXml = readZipEntry(context, uri, opfPath)
             ?: return context.getString(R.string.doc_err_epub_missing_opf, opfPath)
-        val manifest = parseOpfManifest(opfXml)  // id → href
-        val spine = parseOpfSpine(opfXml)  // idref 顺序列表
+        val manifest = parseOpfManifest(opfXml) // id → href
+        val spine = parseOpfSpine(opfXml) // idref 顺序列表
 
         // 3. 按 spine 顺序读 XHTML 并剥离标签
         val sb = StringBuilder()

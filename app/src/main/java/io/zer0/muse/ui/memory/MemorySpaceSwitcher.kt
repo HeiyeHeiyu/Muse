@@ -23,22 +23,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.memory.space.MemorySpaceEntity
 import io.zer0.memory.space.MemorySpaceWithCount
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseFormDialog
 import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.museAnimateItem
+import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.surface.MuseSurface
 import io.zer0.muse.ui.theme.MuseActionColors
 import io.zer0.muse.ui.theme.MusePaddings
-import io.zer0.muse.ui.common.form.MuseChip
-import io.zer0.muse.ui.common.form.MuseTextField
-import io.zer0.muse.ui.common.form.MuseFormDialog
-import io.zer0.muse.ui.common.navigation.MuseTopBar
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.semiLarge
 import org.koin.androidx.compose.koinViewModel
@@ -55,12 +55,7 @@ import org.koin.androidx.compose.koinViewModel
  *  - Scope 筛选器:按 Agent 隔离(主助手/子助手)
  */
 @Composable
-fun SpaceSwitcherRow(
-    spaces: List<MemorySpaceEntity>,
-    selectedSpaceId: String,
-    onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun SpaceSwitcherRow(spaces: List<MemorySpaceEntity>, selectedSpaceId: String, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
     if (spaces.isEmpty()) return
     Row(
         modifier = modifier
@@ -95,10 +90,7 @@ fun SpaceSwitcherRow(
  *  - 删除 Space(默认 Space 不可删除,删除前事实迁回默认)
  */
 @Composable
-fun MemorySpaceManageScreen(
-    onBack: () -> Unit,
-    viewModel: MemorySpaceViewModel = koinViewModel(),
-) {
+fun MemorySpaceManageScreen(onBack: () -> Unit, viewModel: MemorySpaceViewModel = koinViewModel()) {
     val spaces by viewModel.spacesWithCount.collectAsStateWithLifecycle()
     val operationMessage by viewModel.operationMessage.collectAsStateWithLifecycle()
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -132,18 +124,22 @@ fun MemorySpaceManageScreen(
                         onRename = { renameTarget = space },
                         onDelete = { viewModel.deleteSpace(space.id) },
                         onMoveUp = {
-                            if (index > 0) viewModel.reorderSpaces(
-                                spaces.toMutableList().apply {
-                                    add(index - 1, removeAt(index))
-                                }.map { it.id },
-                            )
+                            if (index > 0) {
+                                viewModel.reorderSpaces(
+                                    spaces.toMutableList().apply {
+                                        add(index - 1, removeAt(index))
+                                    }.map { it.id },
+                                )
+                            }
                         },
                         onMoveDown = {
-                            if (index < spaces.lastIndex) viewModel.reorderSpaces(
-                                spaces.toMutableList().apply {
-                                    add(index + 1, removeAt(index))
-                                }.map { it.id },
-                            )
+                            if (index < spaces.lastIndex) {
+                                viewModel.reorderSpaces(
+                                    spaces.toMutableList().apply {
+                                        add(index + 1, removeAt(index))
+                                    }.map { it.id },
+                                )
+                            }
                         },
                     )
                 }
@@ -261,10 +257,7 @@ private fun SpaceRow(
 }
 
 @Composable
-private fun SpaceCreateDialog(
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun SpaceCreateDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf("") }
     MuseFormDialog(
         onDismissRequest = onDismiss,
@@ -284,11 +277,7 @@ private fun SpaceCreateDialog(
 }
 
 @Composable
-private fun SpaceRenameDialog(
-    initialName: String,
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun SpaceRenameDialog(initialName: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
     var name by remember { mutableStateOf(initialName) }
     MuseFormDialog(
         onDismissRequest = onDismiss,
@@ -306,4 +295,3 @@ private fun SpaceRenameDialog(
         },
     )
 }
-

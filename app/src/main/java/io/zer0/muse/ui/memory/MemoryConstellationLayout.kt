@@ -3,8 +3,8 @@ package io.zer0.muse.ui.memory
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.cos
-import kotlin.math.sqrt
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 /** 确定性的记忆星座节点坐标，供 UI 和布局回归测试共同使用。 */
 data class ConstellationPoint(val x: Dp, val y: Dp)
@@ -29,7 +29,12 @@ private const val GOLDEN_ANGLE = 2.399963f // 黄金角(弧度)
 
 /** 类别展示顺序(与记忆页面分类标签一致),未知类别排最后。 */
 private val CATEGORY_ORDER = listOf(
-    "identity", "preference", "relationship", "event", "goal", "medical",
+    "identity",
+    "preference",
+    "relationship",
+    "event",
+    "goal",
+    "medical",
 )
 
 /**
@@ -39,10 +44,7 @@ private val CATEGORY_ORDER = listOf(
  * 整体更可读;布局完全由节点集合决定,同样输入永远得到同一张图。
  * 返回坐标为节点中心(dp 数值),直接供 Canvas 绘制使用。
  */
-internal fun buildClusterConstellation(
-    nodes: List<MemoryGraphNode>,
-    sizeDp: Float,
-): ClusterConstellation {
+internal fun buildClusterConstellation(nodes: List<MemoryGraphNode>, sizeDp: Float): ClusterConstellation {
     if (nodes.isEmpty()) return ClusterConstellation(emptyMap(), emptyList())
     val groups = nodes.groupBy { it.category.lowercase() }.entries
         .sortedWith(
@@ -120,9 +122,8 @@ internal fun buildCategoryCoordinates(
     labelHeight: Float = 28f,
 ): Map<String, ConstellationPoint> {
     data class Rect(val left: Float, val top: Float, val right: Float, val bottom: Float)
-    fun intersects(a: Rect, b: Rect, gap: Float = 8f): Boolean =
-        a.left < b.right + gap && b.left < a.right + gap &&
-            a.top < b.bottom + gap && b.top < a.bottom + gap
+    fun intersects(a: Rect, b: Rect, gap: Float = 8f): Boolean = a.left < b.right + gap && b.left < a.right + gap &&
+        a.top < b.bottom + gap && b.top < a.bottom + gap
 
     val nodeRects = nodeCoordinates.values.map { point ->
         Rect(point.x.value, point.y.value, point.x.value + 170f, point.y.value + 68f)

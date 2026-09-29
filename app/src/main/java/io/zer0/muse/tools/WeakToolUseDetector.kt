@@ -25,11 +25,11 @@ object WeakToolUseDetector {
      */
     private val WEAK_TOOL_PATTERNS = listOf(
         Regex("(?i)deepseek-r1"),
-        Regex("(?i)deepseek-v3(?!\\.2)"),  // v3 但排除 v3.2
+        Regex("(?i)deepseek-v3(?!\\.2)"), // v3 但排除 v3.2
         Regex("(?i)deepseek-chat(?!.+v3\\.2)"),
-        Regex("(?i)qwen-?2(?![.\\d])"),     // Qwen2 但非 Qwen2.5+
+        Regex("(?i)qwen-?2(?![.\\d])"), // Qwen2 但非 Qwen2.5+
         Regex("(?i)\\b(mini|tiny|nano)\\b.*\\b(instruct|chat)\\b"),
-        Regex("(?i)gemma-?2(?![.\\d])"),    // Gemma2 但非 Gemma3
+        Regex("(?i)gemma-?2(?![.\\d])"), // Gemma2 但非 Gemma3
     )
 
     /**

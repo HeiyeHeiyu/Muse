@@ -35,13 +35,7 @@ import io.zer0.muse.ui.theme.pill
  * 注：模糊范围仅限胶囊本体——胶囊之外不做任何遮罩。
  */
 @Composable
-fun MuseSearchBar(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    glass: Boolean = false,
-    hazeState: HazeState? = null,
-) {
+fun MuseSearchBar(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, glass: Boolean = false, hazeState: HazeState? = null) {
     val shape = MaterialTheme.shapes.pill
     val surfaceColor = MaterialTheme.colorScheme.surface
     val base = modifier

@@ -118,16 +118,17 @@ class UpdateNotifier(
 
     companion object {
         private const val TAG = "UpdateNotifier"
+
         /** 通知 ID(避免与 MuseNotificationManager 现有 ID 冲突,选 9000 段)。 */
         private const val NOTIF_ID_NEW_VERSION = 9001
+
         /** 自动检查最小间隔:24 小时。 */
         private const val CHECK_INTERVAL_MILLIS = 24L * 60 * 60 * 1000
 
         /**
          * 便捷方法:语义版本比较 — 委托给 [UpdateChecker.compareVersions]。
          */
-        fun compareVersions(current: String, latest: String): Int =
-            UpdateChecker.compareVersions(current, latest)
+        fun compareVersions(current: String, latest: String): Int = UpdateChecker.compareVersions(current, latest)
 
         /**
          * v1.0.72: 读取当前应用 versionName(从 private 提升为 companion,供 UI 静态调用)。
@@ -160,9 +161,8 @@ class UpdateNotifier(
          * 构造用于打开官网下载页的 [Intent](ACTION_VIEW)。
          * 调用方负责 startActivity / chooser。
          */
-        fun buildOfficialDownloadIntent(): Intent =
-            Intent(Intent.ACTION_VIEW, Uri.parse(OFFICIAL_DOWNLOAD_PAGE))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        fun buildOfficialDownloadIntent(): Intent = Intent(Intent.ACTION_VIEW, Uri.parse(OFFICIAL_DOWNLOAD_PAGE))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }
 

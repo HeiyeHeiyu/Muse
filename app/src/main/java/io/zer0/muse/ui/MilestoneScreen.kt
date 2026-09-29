@@ -33,12 +33,12 @@ import io.zer0.muse.data.milestone.MilestoneDao
 import io.zer0.muse.data.milestone.MilestoneEntity
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.surface.MusePageScaffold
 import io.zer0.muse.ui.common.settings.SectionLabel
+import io.zer0.muse.ui.common.surface.MusePageScaffold
 import io.zer0.muse.ui.theme.MuseCornerRadius
+import io.zer0.muse.ui.theme.MuseDateFormats
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.ui.theme.MuseDateFormats
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import java.text.SimpleDateFormat
@@ -52,9 +52,7 @@ import java.util.Locale
  * 支持: 查看列表 / 关闭(dismiss) / 删除。
  */
 @Composable
-fun MilestoneScreen(
-    onBack: () -> Unit,
-) {
+fun MilestoneScreen(onBack: () -> Unit) {
     val dao: MilestoneDao = koinInject()
     val scope = rememberCoroutineScope()
     val milestones by dao.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
@@ -152,11 +150,7 @@ fun MilestoneScreen(
 }
 
 @Composable
-private fun MilestoneCard(
-    milestone: MilestoneEntity,
-    onDismiss: (() -> Unit)?,
-    onDelete: () -> Unit,
-) {
+private fun MilestoneCard(milestone: MilestoneEntity, onDismiss: (() -> Unit)?, onDelete: () -> Unit) {
     val dateFormat = remember { SimpleDateFormat(MuseDateFormats.DATE_TIME_FULL, Locale.getDefault()) }
     val isDismissed = milestone.dismissedAt != null
 

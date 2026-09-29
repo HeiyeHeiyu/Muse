@@ -35,10 +35,7 @@ import io.zer0.muse.ui.theme.MuseCornerRadius
     "CMP-06: co-exists with CardGroup; consolidate to CardGroup + DSL items",
 )
 @Composable
-fun SettingsGroup(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
+fun SettingsGroup(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val colorScheme = MaterialTheme.colorScheme
     // CMP-08: 走令牌 — 与 CardGroup 一致:surface 背景 + outlineVariant 描边,
     // 不再用硬编码 White@96%/10% 手写明暗分支。

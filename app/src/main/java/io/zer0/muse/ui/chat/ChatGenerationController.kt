@@ -256,11 +256,7 @@ internal class ChatGenerationController(
 
     /** v5: 乐观更新 — 用户消息立即显示,不等待 DB 写入;随后入队由消费循环串行处理。 */
     @Suppress("LongMethod")
-    fun enqueueSend(
-        text: String,
-        images: List<String>,
-        sessionId: String,
-    ) {
+    fun enqueueSend(text: String, images: List<String>, sessionId: String) {
         // v2.1: 记录用户活动到活跃度画像,并更新对话结束类型(驱动自适应主动消息调度)
         deps.activityProfile.recordActivity()
         deps.activityProfile.setConversationEndType(
@@ -276,11 +272,11 @@ internal class ChatGenerationController(
             action = "send_message",
             target = sessionId,
             detail =
-                mapOf(
-                    "text_length" to text.length,
-                    "image_count" to images.size,
-                    "assistant_id" to (accessor.snapshot.currentAssistant?.id ?: "default"),
-                ),
+            mapOf(
+                "text_length" to text.length,
+                "image_count" to images.size,
+                "assistant_id" to (accessor.snapshot.currentAssistant?.id ?: "default"),
+            ),
         )
         // v2.3: 任务模型路由只绑定到当前发送请求,不能把一次自动判断永久写成会话手动覆盖。
         // 否则先发一条“写代码”后,后续普通闲聊会一直粘在代码模型上。
@@ -477,10 +473,7 @@ internal class ChatGenerationController(
      * 若占位不在列表,流式更新会被 updateAssistant 的 detached 守卫整段跳过 ——
      * 表现为"后端已回、前端不渲染,重试或重进会话才出现"。这里在当前会话被显示时补回占位。
      */
-    private fun rehydrateOptimisticPlaceholders(
-        sessionId: String,
-        req: SendRequest,
-    ) {
+    private fun rehydrateOptimisticPlaceholders(sessionId: String, req: SendRequest) {
         val shown =
             if (accessor.snapshot.isAgentMode) {
                 accessor.snapshot.agentSessionId
@@ -565,10 +558,7 @@ internal class ChatGenerationController(
     }
 
     /** 静态 system prompt 快照的失效 key(assistant/settings/工具清单/偏好等变化触发重建)。 */
-    internal fun computeStaticSnapshotKey(
-        assistant: AssistantEntity?,
-        memoryEnabled: Boolean,
-    ): String {
+    internal fun computeStaticSnapshotKey(assistant: AssistantEntity?, memoryEnabled: Boolean): String {
         val prefs = accessor.snapshot.chatPreferences
         val registeredToolFingerprint =
             deps.toolRegistry.listTools()
@@ -866,13 +856,13 @@ internal class ChatGenerationController(
                         images = images,
                         sessionId = req.sessionId,
                         userMessage =
-                            UIMessage(
-                                id = userId,
-                                role = MessageRole.USER,
-                                content = req.text,
-                                imageBase64List = images,
-                                createdAt = req.createdAt,
-                            ),
+                        UIMessage(
+                            id = userId,
+                            role = MessageRole.USER,
+                            content = req.text,
+                            imageBase64List = images,
+                            createdAt = req.createdAt,
+                        ),
                         assistantMessageId = assistantId,
                         outboxId = req.id,
                     ),
@@ -904,10 +894,7 @@ internal class ChatGenerationController(
     }
 
     /** 仅当自己仍是最新生成时才清零流式状态(快速连发时 gen-1 收尾不得清掉 gen-2)。 */
-    fun clearStreamingStateIfLatest(
-        state: StreamRunState,
-        finalPhase: ChatStreamPhase = ChatStreamPhase.IDLE,
-    ): Boolean {
+    fun clearStreamingStateIfLatest(state: StreamRunState, finalPhase: ChatStreamPhase = ChatStreamPhase.IDLE): Boolean {
         if (state.generationSerial != deps.generationState.streamGenerationSerial) return false
         accessor.update {
             it.copy(
@@ -947,8 +934,8 @@ internal class ChatGenerationController(
             sessionId = sessionId,
             assistantId = assistantId.toString(),
             sessionTitle =
-                accessor.snapshot.sessions.firstOrNull { it.id == sessionId }?.title
-                    ?: deps.appContext.getString(R.string.chat_new_session),
+            accessor.snapshot.sessions.firstOrNull { it.id == sessionId }?.title
+                ?: deps.appContext.getString(R.string.chat_new_session),
             generationId = state.generationIdentity.generationId,
         ) {
             val generationJob = kotlin.coroutines.coroutineContext[kotlinx.coroutines.Job]
@@ -1164,8 +1151,8 @@ internal class ChatGenerationController(
                     streamId = state.streamId,
                     generationSerial = state.generationSerial,
                     payloadJson =
-                        "{\"messageId\":\"${state.currentAssistantId}\"," +
-                            "\"contentLength\":$shadowLength,\"contentHash\":\"${sha256(shadowContent)}\"}",
+                    "{\"messageId\":\"${state.currentAssistantId}\"," +
+                        "\"contentLength\":$shadowLength,\"contentHash\":\"${sha256(shadowContent)}\"}",
                 ),
             )
             deps.conversationService.finishTurn(state.turnId)

@@ -91,74 +91,69 @@ internal object WeClawClient {
     data class Updates(val messages: List<InboundMsg>, val buffer: String)
 
     /** 1. 获取绑定二维码(bot_type=3 为当前公开类型)。 */
-    suspend fun getQrCode(baseUrl: String = DEFAULT_BASE_URL): Result<QrCodeInfo> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val url = "${baseUrl.trimEnd('/')}/ilink/bot/get_bot_qrcode?bot_type=3"
-                val resp = request("GET", url).getOrThrow()
-                val obj = AppJson.parseToJsonElement(resp).jsonObject
-                QrCodeInfo(
-                    qrcode = obj["qrcode"]?.jsonPrimitive?.contentOrNull
-                        ?: error("二维码响应缺少 qrcode 字段"),
-                    imgContent = obj["qrcode_img_content"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                )
-            }
-        }
-
-    /** 2. 轮询扫码状态;confirmed 时携带凭据。 */
-    suspend fun getQrStatus(qrcode: String, baseUrl: String = DEFAULT_BASE_URL): Result<QrStatus> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val url = "${baseUrl.trimEnd('/')}/ilink/bot/get_qrcode_status" +
-                    "?qrcode=${java.net.URLEncoder.encode(qrcode, "UTF-8")}"
-                val resp = request(
-                    "GET",
-                    url,
-                    headers = mapOf("iLink-App-ClientVersion" to "1"),
-                ).getOrThrow()
-                val obj = AppJson.parseToJsonElement(resp).jsonObject
-                QrStatus(
-                    status = obj["status"]?.jsonPrimitive?.contentOrNull ?: "wait",
-                    botToken = obj["bot_token"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                    botId = obj["ilink_bot_id"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                    userId = obj["ilink_user_id"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                    baseUrl = obj["baseurl"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                )
-            }
-        }
-
-    /** 3. 长轮询收消息(服务端 hold 约 30s,无消息返回空列表)。 */
-    suspend fun getUpdates(
-        botToken: String,
-        buffer: String,
-        baseUrl: String = DEFAULT_BASE_URL,
-    ): Result<Updates> = withContext(Dispatchers.IO) {
+    suspend fun getQrCode(baseUrl: String = DEFAULT_BASE_URL): Result<QrCodeInfo> = withContext(Dispatchers.IO) {
         runCatching {
-            val url = "${baseUrl.trimEnd('/')}/ilink/bot/getupdates"
-            val body = buildJsonObject {
-                put("get_updates_buf", buffer)
-                putJsonObject("base_info") { put("channel_version", "0.1.0") }
-            }.toString()
-            val resp = request(
-                "POST",
-                url,
-                body,
-                headers = mapOf(
-                    "Authorization" to "Bearer $botToken",
-                    "AuthorizationType" to "ilink_bot_token",
-                    "X-WECHAT-UIN" to randomUin(),
-                ),
-            ).getOrThrow()
+            val url = "${baseUrl.trimEnd('/')}/ilink/bot/get_bot_qrcode?bot_type=3"
+            val resp = request("GET", url).getOrThrow()
             val obj = AppJson.parseToJsonElement(resp).jsonObject
-            val ret = obj["ret"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0
-            if (ret != 0) error("iLink ret=$ret: ${resp.take(200)}")
-            val messages = parseMessages(obj["msgs"] as? JsonArray ?: JsonArray(emptyList()))
-            Updates(
-                messages = messages,
-                buffer = obj["get_updates_buf"]?.jsonPrimitive?.contentOrNull ?: buffer,
+            QrCodeInfo(
+                qrcode = obj["qrcode"]?.jsonPrimitive?.contentOrNull
+                    ?: error("二维码响应缺少 qrcode 字段"),
+                imgContent = obj["qrcode_img_content"]?.jsonPrimitive?.contentOrNull.orEmpty(),
             )
         }
     }
+
+    /** 2. 轮询扫码状态;confirmed 时携带凭据。 */
+    suspend fun getQrStatus(qrcode: String, baseUrl: String = DEFAULT_BASE_URL): Result<QrStatus> = withContext(Dispatchers.IO) {
+        runCatching {
+            val url = "${baseUrl.trimEnd('/')}/ilink/bot/get_qrcode_status" +
+                "?qrcode=${java.net.URLEncoder.encode(qrcode, "UTF-8")}"
+            val resp = request(
+                "GET",
+                url,
+                headers = mapOf("iLink-App-ClientVersion" to "1"),
+            ).getOrThrow()
+            val obj = AppJson.parseToJsonElement(resp).jsonObject
+            QrStatus(
+                status = obj["status"]?.jsonPrimitive?.contentOrNull ?: "wait",
+                botToken = obj["bot_token"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                botId = obj["ilink_bot_id"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                userId = obj["ilink_user_id"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                baseUrl = obj["baseurl"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+            )
+        }
+    }
+
+    /** 3. 长轮询收消息(服务端 hold 约 30s,无消息返回空列表)。 */
+    suspend fun getUpdates(botToken: String, buffer: String, baseUrl: String = DEFAULT_BASE_URL): Result<Updates> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val url = "${baseUrl.trimEnd('/')}/ilink/bot/getupdates"
+                val body = buildJsonObject {
+                    put("get_updates_buf", buffer)
+                    putJsonObject("base_info") { put("channel_version", "0.1.0") }
+                }.toString()
+                val resp = request(
+                    "POST",
+                    url,
+                    body,
+                    headers = mapOf(
+                        "Authorization" to "Bearer $botToken",
+                        "AuthorizationType" to "ilink_bot_token",
+                        "X-WECHAT-UIN" to randomUin(),
+                    ),
+                ).getOrThrow()
+                val obj = AppJson.parseToJsonElement(resp).jsonObject
+                val ret = obj["ret"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: 0
+                if (ret != 0) error("iLink ret=$ret: ${resp.take(200)}")
+                val messages = parseMessages(obj["msgs"] as? JsonArray ?: JsonArray(emptyList()))
+                Updates(
+                    messages = messages,
+                    buffer = obj["get_updates_buf"]?.jsonPrimitive?.contentOrNull ?: buffer,
+                )
+            }
+        }
 
     /** 4. 发送消息(message_type=2 / message_state=2 表示完成的 Bot 消息)。 */
     suspend fun sendMessage(
@@ -285,10 +280,7 @@ internal object WeClawClient {
      * full_url 优先,否则走 `{baseUrl}/download?encrypted_query_param=...`(CDN 链接自带鉴权参数)。
      * 一次性读入内存,仅适用于小体积媒体(图片/语音);大文件请用 [downloadMediaToFile]。
      */
-    suspend fun downloadMedia(
-        media: MediaRef,
-        baseUrl: String = DEFAULT_BASE_URL,
-    ): Result<ByteArray> = withContext(Dispatchers.IO) {
+    suspend fun downloadMedia(media: MediaRef, baseUrl: String = DEFAULT_BASE_URL): Result<ByteArray> = withContext(Dispatchers.IO) {
         runCatching {
             require(media.aesKeyBase64.isNotBlank()) { "媒体缺少 aes_key" }
             val url = mediaUrl(media, baseUrl)
@@ -308,60 +300,56 @@ internal object WeClawClient {
      *
      * @return 成功:写入的明文字节数;失败:Result.failure(超限为 [MediaTooLargeException])
      */
-    suspend fun downloadMediaToFile(
-        media: MediaRef,
-        targetFile: File,
-        maxBytes: Long,
-        baseUrl: String = DEFAULT_BASE_URL,
-    ): Result<Long> = withContext(Dispatchers.IO) {
-        val ctx = coroutineContext
-        try {
-            require(media.aesKeyBase64.isNotBlank()) { "媒体缺少 aes_key" }
-            val url = mediaUrl(media, baseUrl)
-            val key = parseAesKey(media.aesKeyBase64)
-            val cipher = javax.crypto.Cipher.getInstance("AES/ECB/PKCS5Padding").apply {
-                init(
-                    javax.crypto.Cipher.DECRYPT_MODE,
-                    javax.crypto.spec.SecretKeySpec(key, "AES"),
-                )
-            }
-            targetFile.parentFile?.let { if (!it.exists()) it.mkdirs() }
-            val request = Request.Builder().url(url).get().build()
-            val total = HTTP.newCall(request).execute().use { resp ->
-                if (!resp.isSuccessful) error("HTTP ${resp.code}")
-                val body = resp.body ?: error("响应体为空")
-                body.byteStream().use { raw ->
-                    javax.crypto.CipherInputStream(raw, cipher).use { decrypted ->
-                        targetFile.outputStream().buffered().use { out ->
-                            val buffer = ByteArray(COPY_BUFFER_BYTES)
-                            var written = 0L
-                            while (true) {
-                                ctx.ensureActive()
-                                val read = decrypted.read(buffer)
-                                if (read < 0) break
-                                written += read
-                                if (written > maxBytes) {
-                                    throw MediaTooLargeException(
-                                        "媒体超出大小上限(${maxBytes / 1024 / 1024}MB)",
-                                    )
+    suspend fun downloadMediaToFile(media: MediaRef, targetFile: File, maxBytes: Long, baseUrl: String = DEFAULT_BASE_URL): Result<Long> =
+        withContext(Dispatchers.IO) {
+            val ctx = coroutineContext
+            try {
+                require(media.aesKeyBase64.isNotBlank()) { "媒体缺少 aes_key" }
+                val url = mediaUrl(media, baseUrl)
+                val key = parseAesKey(media.aesKeyBase64)
+                val cipher = javax.crypto.Cipher.getInstance("AES/ECB/PKCS5Padding").apply {
+                    init(
+                        javax.crypto.Cipher.DECRYPT_MODE,
+                        javax.crypto.spec.SecretKeySpec(key, "AES"),
+                    )
+                }
+                targetFile.parentFile?.let { if (!it.exists()) it.mkdirs() }
+                val request = Request.Builder().url(url).get().build()
+                val total = HTTP.newCall(request).execute().use { resp ->
+                    if (!resp.isSuccessful) error("HTTP ${resp.code}")
+                    val body = resp.body ?: error("响应体为空")
+                    body.byteStream().use { raw ->
+                        javax.crypto.CipherInputStream(raw, cipher).use { decrypted ->
+                            targetFile.outputStream().buffered().use { out ->
+                                val buffer = ByteArray(COPY_BUFFER_BYTES)
+                                var written = 0L
+                                while (true) {
+                                    ctx.ensureActive()
+                                    val read = decrypted.read(buffer)
+                                    if (read < 0) break
+                                    written += read
+                                    if (written > maxBytes) {
+                                        throw MediaTooLargeException(
+                                            "媒体超出大小上限(${maxBytes / 1024 / 1024}MB)",
+                                        )
+                                    }
+                                    out.write(buffer, 0, read)
                                 }
-                                out.write(buffer, 0, read)
+                                out.flush()
+                                written
                             }
-                            out.flush()
-                            written
                         }
                     }
                 }
+                Result.success(total)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                runCatching { if (targetFile.exists()) targetFile.delete() }
+                throw e
+            } catch (e: Exception) {
+                runCatching { if (targetFile.exists()) targetFile.delete() }
+                Result.failure(e)
             }
-            Result.success(total)
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            runCatching { if (targetFile.exists()) targetFile.delete() }
-            throw e
-        } catch (e: Exception) {
-            runCatching { if (targetFile.exists()) targetFile.delete() }
-            Result.failure(e)
         }
-    }
 
     /** 构造媒体下载 URL:full_url 优先,否则走 CDN download 端点。 */
     private fun mediaUrl(media: MediaRef, baseUrl: String): String {
@@ -413,24 +401,20 @@ internal object WeClawClient {
     }
 
     /** 发起 HTTP 请求;非 2xx 抛带响应片段的异常。 */
-    private fun request(
-        method: String,
-        url: String,
-        body: String? = null,
-        headers: Map<String, String> = emptyMap(),
-    ): Result<String> = runCatching {
-        val builder = Request.Builder().url(url)
-        headers.forEach { (k, v) -> builder.header(k, v) }
-        when (method) {
-            "GET" -> builder.get()
-            else -> builder.post((body ?: "{}").toRequestBody(JSON_MEDIA))
+    private fun request(method: String, url: String, body: String? = null, headers: Map<String, String> = emptyMap()): Result<String> =
+        runCatching {
+            val builder = Request.Builder().url(url)
+            headers.forEach { (k, v) -> builder.header(k, v) }
+            when (method) {
+                "GET" -> builder.get()
+                else -> builder.post((body ?: "{}").toRequestBody(JSON_MEDIA))
+            }
+            HTTP.newCall(builder.build()).execute().use { resp ->
+                val text = resp.body.string()
+                if (!resp.isSuccessful) error("HTTP ${resp.code}: ${text.take(300)}")
+                text
+            }
         }
-        HTTP.newCall(builder.build()).execute().use { resp ->
-            val text = resp.body.string()
-            if (!resp.isSuccessful) error("HTTP ${resp.code}: ${text.take(300)}")
-            text
-        }
-    }
 
     /** 每次请求随机生成的设备标识(协议要求,base64)。 */
     private fun randomUin(): String {

@@ -99,16 +99,15 @@ object UiAgentProtocol {
     }
 
     /** 提取 `key=value` 参数;引号值去除引号,无引号值读到空白/逗号/右括号为止。 */
-    private fun parseArgs(body: String): Map<String, String> =
-        KV_REGEX.findAll(body).associate { m ->
-            val rawValue = m.groupValues[2]
-            val value = when {
-                rawValue.length >= 2 && rawValue.startsWith("\"") && rawValue.endsWith("\"") ->
-                    rawValue.substring(1, rawValue.length - 1)
-                rawValue.length >= 2 && rawValue.startsWith("'") && rawValue.endsWith("'") ->
-                    rawValue.substring(1, rawValue.length - 1)
-                else -> rawValue
-            }
-            m.groupValues[1].lowercase() to value
+    private fun parseArgs(body: String): Map<String, String> = KV_REGEX.findAll(body).associate { m ->
+        val rawValue = m.groupValues[2]
+        val value = when {
+            rawValue.length >= 2 && rawValue.startsWith("\"") && rawValue.endsWith("\"") ->
+                rawValue.substring(1, rawValue.length - 1)
+            rawValue.length >= 2 && rawValue.startsWith("'") && rawValue.endsWith("'") ->
+                rawValue.substring(1, rawValue.length - 1)
+            else -> rawValue
         }
+        m.groupValues[1].lowercase() to value
+    }
 }

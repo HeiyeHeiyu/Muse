@@ -14,7 +14,7 @@ object ShowCardTool {
         cardSeq += 1
         val ts = System.currentTimeMillis().toString(36)
         val seq = cardSeq.toString(36)
-        return "c_${ts}_${seq}"
+        return "c_${ts}_$seq"
     }
 
     fun toolDef() = ToolRegistry.ToolDef(

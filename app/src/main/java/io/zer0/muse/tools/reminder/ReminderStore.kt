@@ -42,12 +42,7 @@ class ReminderStore(private val context: Context) {
      *
      * @return 提醒 id
      */
-    fun add(
-        title: String,
-        message: String,
-        triggerAtMillis: Long,
-        id: String? = null,
-    ): String {
+    fun add(title: String, message: String, triggerAtMillis: Long, id: String? = null): String {
         val entry = ReminderEntry(
             id = id?.takeIf { it.isNotBlank() } ?: java.util.UUID.randomUUID().toString(),
             title = title,

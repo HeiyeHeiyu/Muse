@@ -48,7 +48,10 @@ class ChatExportCoordinator(
     private val auditLogger: AuditLogger? = null,
 ) {
 
-    private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
+    private val json = Json {
+        prettyPrint = true
+        ignoreUnknownKeys = true
+    }
 
     /**
      * v0.29 P0-3: 导出当前会话为 Markdown 文本(用于分享/导出)。
@@ -56,8 +59,11 @@ class ChatExportCoordinator(
     suspend fun exportSessionAsMarkdown(): String {
         val state = accessor.snapshot
         val tpl = settings.shareTemplateFlow.first()
-        val title = if (tpl.customTitle.isNotBlank()) tpl.customTitle
-            else state.sessions.find { it.id == state.currentSessionId }?.title?.takeIf { it.isNotBlank() } ?: "muse 对话"
+        val title = if (tpl.customTitle.isNotBlank()) {
+            tpl.customTitle
+        } else {
+            state.sessions.find { it.id == state.currentSessionId }?.title?.takeIf { it.isNotBlank() } ?: "muse 对话"
+        }
         val sb = StringBuilder()
         sb.append("# ").append(title).append("\n\n")
 
@@ -235,9 +241,8 @@ class ChatExportCoordinator(
     }
 
     /** 解析当前会话标题(空标题回退为 "muse 对话")。 */
-    private fun resolveTitle(state: io.zer0.muse.ui.ChatUiState): String =
-        state.sessions.find { it.id == state.currentSessionId }
-            ?.title?.takeIf { it.isNotBlank() } ?: "muse 对话"
+    private fun resolveTitle(state: io.zer0.muse.ui.ChatUiState): String = state.sessions.find { it.id == state.currentSessionId }
+        ?.title?.takeIf { it.isNotBlank() } ?: "muse 对话"
 
     private suspend fun loadAllMessages(state: io.zer0.muse.ui.ChatUiState): List<io.zer0.ai.core.UIMessage> {
         val sessionId = if (state.isAgentMode) state.agentSessionId else state.currentSessionId

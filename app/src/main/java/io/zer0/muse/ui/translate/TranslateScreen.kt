@@ -1,14 +1,5 @@
 package io.zer0.muse.ui.translate
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseAnchoredMenu
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseIndeterminateProgressBar
-import io.zer0.muse.ui.common.surface.MuseListItem
-import io.zer0.muse.ui.theme.MuseMotion
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -41,10 +32,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -56,9 +49,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseAnchoredMenu
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.navigation.MuseTopBar
+import io.zer0.muse.ui.common.state.MuseIndeterminateProgressBar
+import io.zer0.muse.ui.common.surface.MuseListItem
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
@@ -81,11 +81,7 @@ import org.koin.compose.koinInject
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TranslateScreen(
-    onBack: () -> Unit,
-    onSendToNewChat: (String) -> Unit = {},
-    viewModel: TranslateViewModel = koinViewModel(),
-) {
+fun TranslateScreen(onBack: () -> Unit, onSendToNewChat: (String) -> Unit = {}, viewModel: TranslateViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -222,9 +218,12 @@ fun TranslateScreen(
                     viewModel.toggleFavorite(item)
                     MuseToast.show(
                         context.getString(
-                            if (item.favorite) R.string.translate_page_favorite_removed
-                            else R.string.translate_page_favorite_added
-                        )
+                            if (item.favorite) {
+                                R.string.translate_page_favorite_removed
+                            } else {
+                                R.string.translate_page_favorite_added
+                            },
+                        ),
                     )
                 },
             )
@@ -339,9 +338,7 @@ fun TranslateScreen(
  * 翻译页顶栏 — 大标题居中 + 返回。
  */
 @Composable
-private fun TranslateTopBar(
-    onBack: () -> Unit,
-) {
+private fun TranslateTopBar(onBack: () -> Unit) {
     MuseTopBar(
         title = stringResource(R.string.translate_page_title),
         onBack = onBack,
@@ -436,12 +433,7 @@ private fun LanguageSelectorBar(
  * 语言选择胶囊按钮 — 小标签 + 大语言名 + 下拉箭头。
  */
 @Composable
-private fun LanguageSelectorButton(
-    label: String,
-    value: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun LanguageSelectorButton(label: String, value: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         shape = MuseShapes.pill,
         color = MaterialTheme.colorScheme.surface,
@@ -697,18 +689,11 @@ private fun SourceInputCard(
  * "更多"下拉菜单 — 批量翻译、术语表、翻译风格。
  */
 @Composable
-private fun TranslateMoreMenu(
-    expanded: Boolean,
-    onDismiss: () -> Unit,
-    onBatch: () -> Unit,
-    onGlossary: () -> Unit,
-    onStyle: () -> Unit,
-) {
+private fun TranslateMoreMenu(expanded: Boolean, onDismiss: () -> Unit, onBatch: () -> Unit, onGlossary: () -> Unit, onStyle: () -> Unit) {
     MuseAnchoredMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
     ) {
-
         MuseListItem(
             onClick = onStyle,
             leadingContent = {
@@ -742,7 +727,6 @@ private fun TranslateMoreMenu(
             },
             headlineContent = { Text(stringResource(R.string.translate_page_glossary)) },
         )
-    
     }
 }
 
@@ -750,10 +734,7 @@ private fun TranslateMoreMenu(
  * 主翻译按钮 — 胶囊主色按钮。
  */
 @Composable
-private fun TranslateButton(
-    onClick: () -> Unit,
-    enabled: Boolean,
-) {
+private fun TranslateButton(onClick: () -> Unit, enabled: Boolean) {
     MuseCapsuleButton(
         text = stringResource(R.string.translate_page_translate),
         onClick = onClick,
@@ -858,10 +839,7 @@ private fun TranslationResultCard(
  * "发送到会话" 按钮 — 胶囊形状,主色高亮。
  */
 @Composable
-private fun SendToChatButton(
-    onClick: () -> Unit,
-    enabled: Boolean,
-) {
+private fun SendToChatButton(onClick: () -> Unit, enabled: Boolean) {
     Surface(
         shape = MuseShapes.pill,
         color = if (enabled) {
@@ -911,13 +889,13 @@ private fun ActionIconButton(
         onClick = onClick,
         contentDescription = contentDescription,
         tint = if (enabled) {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            } else {
-                // v1.0.28 修复: outline.copy(alpha=0.5f) 与背景过于接近,
-                // 在浅色主题下看起来像空方框。改用 onSurfaceVariant 并保留 0.5f alpha,
-                // 既表达 disabled 状态,又不会让用户误以为是无用占位。
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-            },
+            MaterialTheme.colorScheme.onSurfaceVariant
+        } else {
+            // v1.0.28 修复: outline.copy(alpha=0.5f) 与背景过于接近,
+            // 在浅色主题下看起来像空方框。改用 onSurfaceVariant 并保留 0.5f alpha,
+            // 既表达 disabled 状态,又不会让用户误以为是无用占位。
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+        },
         enabled = enabled,
         size = MuseIconSizes.touchTarget,
         iconSize = MuseIconSizes.iconMedium,
@@ -939,4 +917,3 @@ private fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
     clipboard.setPrimaryClip(ClipData.newPlainText("translation", text))
 }
-

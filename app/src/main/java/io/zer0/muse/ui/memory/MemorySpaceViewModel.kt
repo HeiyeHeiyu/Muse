@@ -5,9 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.memory.space.MemorySpaceEntity
 import io.zer0.memory.space.MemorySpaceRepository
 import io.zer0.memory.space.MemorySpaceWithCount
-import io.zer0.memory.space.MemorySpaceEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted

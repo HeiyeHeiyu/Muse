@@ -1,19 +1,19 @@
 package io.zer0.muse.tools
 
 import android.content.Context
+import io.zer0.ai.core.ProviderConfig
+import io.zer0.ai.image.ImageService
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.data.plugin.PluginManager
-import io.zer0.muse.data.sticker.StickerLibraryRepository
 import io.zer0.muse.data.skill.SkillEntity
+import io.zer0.muse.data.sticker.StickerLibraryRepository
 import io.zer0.muse.tools.script.SkillBridge
 import io.zer0.muse.tools.script.SkillEngineResult
 import io.zer0.muse.tools.script.WebViewSkillEngine
 import io.zer0.muse.ui.qrcode.QrCodeGenerator
-import io.zer0.ai.image.ImageService
-import io.zer0.ai.core.ProviderConfig
 
 /**
  * P1-3b 拆域：Skill 媒体/JS/插件工具实现（从 SkillExecutor.kt 迁移）。
@@ -151,7 +151,15 @@ class SkillMediaToolsImpl(
         val argsJson = "[" + argumentsJson.ifBlank { "{}" } + "]"
         // C-30: 传入 pluginId 作为 scopeKey,使熔断状态与 localStorage 按插件隔离,
         //   一个插件死循环超时不会熔断/影响其他插件与内置 JS 工具。
-        return when (val result = WebViewSkillEngine().callFunction(verified.entryCode, functionName, argsJson, scopeKey = pluginId, pluginConfigJson = configJson)) {
+        return when (
+            val result = WebViewSkillEngine().callFunction(
+                verified.entryCode,
+                functionName,
+                argsJson,
+                scopeKey = pluginId,
+                pluginConfigJson = configJson,
+            )
+        ) {
             is SkillEngineResult.Success -> {
                 val value = result.valueJson
                 // F-17 + v2.2.1 大沙盒:脚本可返回 {__bridge__:true, action:...} 由 Kotlin 审计后执行。
@@ -161,9 +169,18 @@ class SkillMediaToolsImpl(
                 val caps = verified.capabilities
                 val allowedBridgeActions = buildSet {
                     add("echo")
-                    if ("network" in caps) { add("http_get"); add("http_post") }
-                    if ("storage.read" in caps) { add("fs_list"); add("fs_read") }
-                    if ("storage.write" in caps) { add("fs_write"); add("fs_delete") }
+                    if ("network" in caps) {
+                        add("http_get")
+                        add("http_post")
+                    }
+                    if ("storage.read" in caps) {
+                        add("fs_list")
+                        add("fs_read")
+                    }
+                    if ("storage.write" in caps) {
+                        add("fs_write")
+                        add("fs_delete")
+                    }
                     if ("clipboard.read" in caps) add("clipboard_read")
                     if ("clipboard.write" in caps) add("clipboard_write")
                     if ("notify" in caps) add("notify")

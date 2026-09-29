@@ -430,7 +430,7 @@
     <string name="chat_list_rename_session_title">Cambiar el nombre del chat</string>
     <string name="chat_list_confirm">DE ACUERDO</string>
     <string name="chat_list_delete_session_title">Eliminar chat</string>
-    <string name="chat_list_delete_session_confirm">Esta acción no se puede deshacer.</string>
+    <string name="chat_list_delete_session_confirm">Esta acción no se puede deshacer. ¿Eliminar "%1$s" y todos sus mensajes?</string>
     <string name="chat_list_deleted_toast">Eliminado</string>
 
     <!-- Folder rename/delete dialogs -->

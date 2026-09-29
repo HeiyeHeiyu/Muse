@@ -23,7 +23,7 @@ import kotlinx.serialization.json.Json
 class LicenseRepository(private val context: Context) {
 
     private val json = Json {
-        ignoreUnknownKeys = true   // 兼容未来字段扩展
+        ignoreUnknownKeys = true // 兼容未来字段扩展
         isLenient = true
     }
 

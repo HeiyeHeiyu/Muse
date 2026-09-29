@@ -63,10 +63,7 @@ object SubagentRunSkill {
      * @param subagentRunner 子 agent 运行器
      * @return 三阶段 XML 协议字符串
      */
-    suspend fun execute(
-        args: Map<String, String>,
-        subagentRunner: SubagentRunner,
-    ): String {
+    suspend fun execute(args: Map<String, String>, subagentRunner: SubagentRunner): String {
         val task = args["task"]?.trim()
             ?: return errorXml("缺少必填参数 task")
         if (task.isBlank()) return errorXml("task 参数为空")

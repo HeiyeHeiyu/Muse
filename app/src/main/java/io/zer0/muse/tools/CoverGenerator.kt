@@ -63,79 +63,76 @@ class CoverGenerator(
      * @param locale 语言代码(模板 locale 回落)
      * @return 入库后的 [CoverItem];失败返回 Error
      */
-    suspend fun generateCover(
-        title: String,
-        description: String? = null,
-        locale: String? = null,
-    ): Result<CoverItem> = withContext(Dispatchers.IO) {
-        resultOf {
-            // 1. 渲染模板 → LLM 生成封面 prompt
-            val directive = templateLoader.render(
-                name = COVER_TEMPLATE_NAME,
-                locale = locale,
-                context = mapOf(
-                    "title" to title,
-                    "description" to (description ?: ""),
-                ),
-                fallback = "Generate a minimal modern banner cover image for a document titled: $title",
-            )
+    suspend fun generateCover(title: String, description: String? = null, locale: String? = null): Result<CoverItem> =
+        withContext(Dispatchers.IO) {
+            resultOf {
+                // 1. 渲染模板 → LLM 生成封面 prompt
+                val directive = templateLoader.render(
+                    name = COVER_TEMPLATE_NAME,
+                    locale = locale,
+                    context = mapOf(
+                        "title" to title,
+                        "description" to (description ?: ""),
+                    ),
+                    fallback = "Generate a minimal modern banner cover image for a document titled: $title",
+                )
 
-            // v2.x: 封面 prompt 生成优先走辅助模型路由「小工具」档(留空回退主对话模型)
-            val routed = settingsRepository?.let { repo ->
-                runCatching {
-                    io.zer0.muse.data.routing.UtilityModelRouter(repo)
-                        .resolve(io.zer0.muse.data.routing.UtilityTier.SMALL)
-                }.getOrNull()
+                // v2.x: 封面 prompt 生成优先走辅助模型路由「小工具」档(留空回退主对话模型)
+                val routed = settingsRepository?.let { repo ->
+                    runCatching {
+                        io.zer0.muse.data.routing.UtilityModelRouter(repo)
+                            .resolve(io.zer0.muse.data.routing.UtilityTier.SMALL)
+                    }.getOrNull()
+                }
+                val promptCompletion = chatService.completeText(
+                    messages = listOf(
+                        UIMessage(role = MessageRole.SYSTEM, content = directive),
+                        UIMessage(role = MessageRole.USER, content = "请生成封面图的英文绘图 prompt。"),
+                    ),
+                    model = routed?.second,
+                    providerConfig = routed?.first,
+                    temperature = 0.7f,
+                    maxTokens = MAX_PROMPT_TOKENS,
+                    tools = null,
+                    reasoningLevel = ReasoningLevel.OFF,
+                    mode = ChatRequestMode.UTILITY,
+                )
+                val rawCoverPrompt = promptCompletion.text.trim()
+                // R-UI-06: 空 LLM 输出降级为固定绘图指令,不再抛 IllegalStateException。
+                val coverPrompt = resolveCoverPrompt(rawCoverPrompt, title)
+
+                // 2. 生图
+                val service = imageService
+                    ?: error("未配置绘图模型")
+                val urls = service.generate(
+                    prompt = coverPrompt,
+                    params = ImageGenParams(
+                        model = "",
+                        size = COVER_SIZE,
+                        responseFormat = "url",
+                        n = 1,
+                    ),
+                )
+                if (urls.isEmpty()) error("生图结果为空")
+                val url = urls.first()
+
+                // 3. 下载到临时文件
+                val tmpFile = downloadToTemp(url)
+
+                // 4. 入库(尺寸未知时传 0,registerGenerated 内部按文件实际处理)
+                val item = coverLibraryRepository.registerGenerated(
+                    file = tmpFile,
+                    width = 0,
+                    height = 0,
+                ).getOrThrow()
+
+                // 5. 清理临时文件
+                runCatching { tmpFile.delete() }
+                item
+            }.onError { msg, t ->
+                Logger.w(TAG, "封面生成失败: $msg", t)
             }
-            val promptCompletion = chatService.completeText(
-                messages = listOf(
-                    UIMessage(role = MessageRole.SYSTEM, content = directive),
-                    UIMessage(role = MessageRole.USER, content = "请生成封面图的英文绘图 prompt。"),
-                ),
-                model = routed?.second,
-                providerConfig = routed?.first,
-                temperature = 0.7f,
-                maxTokens = MAX_PROMPT_TOKENS,
-                tools = null,
-                reasoningLevel = ReasoningLevel.OFF,
-                mode = ChatRequestMode.UTILITY,
-            )
-            val rawCoverPrompt = promptCompletion.text.trim()
-            // R-UI-06: 空 LLM 输出降级为固定绘图指令,不再抛 IllegalStateException。
-            val coverPrompt = resolveCoverPrompt(rawCoverPrompt, title)
-
-            // 2. 生图
-            val service = imageService
-                ?: error("未配置绘图模型")
-            val urls = service.generate(
-                prompt = coverPrompt,
-                params = ImageGenParams(
-                    model = "",
-                    size = COVER_SIZE,
-                    responseFormat = "url",
-                    n = 1,
-                ),
-            )
-            if (urls.isEmpty()) error("生图结果为空")
-            val url = urls.first()
-
-            // 3. 下载到临时文件
-            val tmpFile = downloadToTemp(url)
-
-            // 4. 入库(尺寸未知时传 0,registerGenerated 内部按文件实际处理)
-            val item = coverLibraryRepository.registerGenerated(
-                file = tmpFile,
-                width = 0,
-                height = 0,
-            ).getOrThrow()
-
-            // 5. 清理临时文件
-            runCatching { tmpFile.delete() }
-            item
-        }.onError { msg, t ->
-            Logger.w(TAG, "封面生成失败: $msg", t)
         }
-    }
 
     /** 下载图片 URL 到 cache 临时文件(带大小与超时限制)。 */
     private suspend fun downloadToTemp(url: String): File = withContext(Dispatchers.IO) {

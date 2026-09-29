@@ -30,6 +30,7 @@ class KeyRoulette {
         private const val TAG = "KeyRoulette"
         private const val MAX_RECORDS_PER_PROVIDER = 100
         private const val USAGE_EXPIRY_MS = 24 * 60 * 60 * 1000L // 24 小时
+
         /** v1.0.1: 限流 key 的临时黑名单 TTL(60 秒,与多数 Provider 的 Retry-After 推荐值一致)。 */
         private const val BLOCK_TTL_MS = 60 * 1000L
     }
@@ -110,11 +111,13 @@ class KeyRoulette {
         // 把当前 key 加入软黑名单(60s)
         synchronized(blocksForProvider) {
             blocksForProvider.removeAll { it.key == currentKey }
-            blocksForProvider.add(BlockRecord(
-                key = currentKey,
-                expiresAt = now + BLOCK_TTL_MS,
-                hardBlock = false,
-            ))
+            blocksForProvider.add(
+                BlockRecord(
+                    key = currentKey,
+                    expiresAt = now + BLOCK_TTL_MS,
+                    hardBlock = false,
+                ),
+            )
             // 防止黑名单膨胀
             while (blocksForProvider.size > MAX_RECORDS_PER_PROVIDER) blocksForProvider.removeAt(0)
         }
@@ -137,21 +140,18 @@ class KeyRoulette {
      * @param hardBlock true=完全排除(默认,如 401),false=降优先级(如 429)
      * @param ttlMs 黑名单 TTL,默认 5 分钟(hardBlock 场景比 429 更长)
      */
-    fun markFailed(
-        providerId: String,
-        key: String,
-        hardBlock: Boolean = true,
-        ttlMs: Long = 5 * 60 * 1000L,
-    ) {
+    fun markFailed(providerId: String, key: String, hardBlock: Boolean = true, ttlMs: Long = 5 * 60 * 1000L) {
         val blocksForProvider = blocks.getOrPut(providerId) { mutableListOf() }
         val now = System.currentTimeMillis()
         synchronized(blocksForProvider) {
             blocksForProvider.removeAll { it.key == key }
-            blocksForProvider.add(BlockRecord(
-                key = key,
-                expiresAt = now + ttlMs,
-                hardBlock = hardBlock,
-            ))
+            blocksForProvider.add(
+                BlockRecord(
+                    key = key,
+                    expiresAt = now + ttlMs,
+                    hardBlock = hardBlock,
+                ),
+            )
             while (blocksForProvider.size > MAX_RECORDS_PER_PROVIDER) blocksForProvider.removeAt(0)
         }
         Logger.w(TAG, "markFailed: key=${maskKey(key)} 标记为失败(hardBlock=$hardBlock, ttl=${ttlMs}ms)")

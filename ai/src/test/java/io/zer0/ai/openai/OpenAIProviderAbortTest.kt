@@ -18,6 +18,7 @@ import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.SocketHandler
 import okhttp3.mockwebserver.MockWebServer
+import okio.buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -27,7 +28,6 @@ import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import okio.buffer
 
 /**
  * Regression tests for cancelling a long-lived OpenAI-compatible SSE response.
@@ -67,71 +67,65 @@ class OpenAIProviderAbortTest {
         assertAbortClosesLongSse(useResponsesApi = false, cancelCollector = true)
     }
 
-    private suspend fun assertAbortClosesLongSse(
-        useResponsesApi: Boolean,
-        cancelCollector: Boolean = false,
-    ) = kotlinx.coroutines.coroutineScope {
-        val firstEventWritten = CountDownLatch(1)
-        val clientDisconnected = CountDownLatch(1)
-        installLongSseDispatcher(
-            useResponsesApi = useResponsesApi,
-            firstEventWritten = firstEventWritten,
-            clientDisconnected = clientDisconnected,
-        )
-
-        val signal = AbortSignal()
-        val request = ChatRequest(
-            messages = listOf(UIMessage(role = MessageRole.USER, content = "keep streaming")),
-            model = Model(id = "test-model", providerId = "openai-test"),
-            abortSignal = signal,
-        )
-        val provider = OpenAIProvider(
-            ProviderConfig(
-                id = "openai-test",
-                displayName = "OpenAI Test",
-                type = ProviderType.OPENAI,
-                baseUrl = server.url("/v1").toString(),
-                apiKey = "sk-test",
-                specific = io.zer0.ai.core.ProviderSpecificConfig.OpenAI(
-                    useResponseApi = useResponsesApi,
-                ),
-            ),
-        )
-        val events = CopyOnWriteArrayList<ChatStreamEvent>()
-        val collector = launch(Dispatchers.IO) {
-            provider.streamChat(request).collect { events += it }
-        }
-
-        assertTrue("server should write the first SSE event", firstEventWritten.await(5, TimeUnit.SECONDS))
-        if (cancelCollector) {
-            // Exercise Flow cancellation independently from AbortSignal.abort(). The provider's
-            // awaitClose must still cancel the underlying EventSource and unregister its listener.
-            collector.cancel()
-        } else {
-            signal.abort()
-        }
-
-        withTimeout(5_000) { collector.join() }
-        assertEquals("collector cancellation must not mutate the caller's signal", !cancelCollector, signal.aborted)
-        assertTrue(
-            "server must observe the client closing the long SSE socket",
-            clientDisconnected.await(5, TimeUnit.SECONDS),
-        )
-        assertEquals("abort listener must be removed when the flow closes", 0, signal.listenerCount)
-        assertEquals("abort must not trigger a retry request", 1, server.requestCount)
-        if (!cancelCollector) {
-            assertTrue(
-                "aborted stream should report interruption to its collector",
-                events.any { it is ChatStreamEvent.StreamInterrupted },
+    private suspend fun assertAbortClosesLongSse(useResponsesApi: Boolean, cancelCollector: Boolean = false) =
+        kotlinx.coroutines.coroutineScope {
+            val firstEventWritten = CountDownLatch(1)
+            val clientDisconnected = CountDownLatch(1)
+            installLongSseDispatcher(
+                useResponsesApi = useResponsesApi,
+                firstEventWritten = firstEventWritten,
+                clientDisconnected = clientDisconnected,
             )
-        }
-    }
 
-    private fun installLongSseDispatcher(
-        useResponsesApi: Boolean,
-        firstEventWritten: CountDownLatch,
-        clientDisconnected: CountDownLatch,
-    ) {
+            val signal = AbortSignal()
+            val request = ChatRequest(
+                messages = listOf(UIMessage(role = MessageRole.USER, content = "keep streaming")),
+                model = Model(id = "test-model", providerId = "openai-test"),
+                abortSignal = signal,
+            )
+            val provider = OpenAIProvider(
+                ProviderConfig(
+                    id = "openai-test",
+                    displayName = "OpenAI Test",
+                    type = ProviderType.OPENAI,
+                    baseUrl = server.url("/v1").toString(),
+                    apiKey = "sk-test",
+                    specific = io.zer0.ai.core.ProviderSpecificConfig.OpenAI(
+                        useResponseApi = useResponsesApi,
+                    ),
+                ),
+            )
+            val events = CopyOnWriteArrayList<ChatStreamEvent>()
+            val collector = launch(Dispatchers.IO) {
+                provider.streamChat(request).collect { events += it }
+            }
+
+            assertTrue("server should write the first SSE event", firstEventWritten.await(5, TimeUnit.SECONDS))
+            if (cancelCollector) {
+                // Exercise Flow cancellation independently from AbortSignal.abort(). The provider's
+                // awaitClose must still cancel the underlying EventSource and unregister its listener.
+                collector.cancel()
+            } else {
+                signal.abort()
+            }
+
+            withTimeout(5_000) { collector.join() }
+            assertEquals("collector cancellation must not mutate the caller's signal", !cancelCollector, signal.aborted)
+            assertTrue(
+                "server must observe the client closing the long SSE socket",
+                clientDisconnected.await(5, TimeUnit.SECONDS),
+            )
+            assertEquals("abort listener must be removed when the flow closes", 0, signal.listenerCount)
+            assertEquals("abort must not trigger a retry request", 1, server.requestCount)
+            if (!cancelCollector) {
+                assertTrue(
+                    "aborted stream should report interruption to its collector",
+                    events.any { it is ChatStreamEvent.StreamInterrupted },
+                )
+            }
+        }
+
+    private fun installLongSseDispatcher(useResponsesApi: Boolean, firstEventWritten: CountDownLatch, clientDisconnected: CountDownLatch) {
         server.delegate.dispatcher = object : Dispatcher() {
             override fun dispatch(request: mockwebserver3.RecordedRequest): MockResponse {
                 assertTrue("unexpected request path", request.target.endsWith(if (useResponsesApi) "/responses" else "/chat/completions"))

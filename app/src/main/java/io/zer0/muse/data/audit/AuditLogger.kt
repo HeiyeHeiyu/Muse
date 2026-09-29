@@ -49,13 +49,7 @@ class AuditLogger(private val dao: AuditLogDao) {
      * @param detail 额外字段(model / tokens / latency_ms 等),会被序列化为 JSON
      * @param success 操作是否成功
      */
-    fun log(
-        category: String,
-        action: String,
-        target: String = "",
-        detail: Map<String, Any> = emptyMap(),
-        success: Boolean = true,
-    ) {
+    fun log(category: String, action: String, target: String = "", detail: Map<String, Any> = emptyMap(), success: Boolean = true) {
         val now = System.currentTimeMillis()
         val detailJson = encodeDetail(detail)
         scope.launch {

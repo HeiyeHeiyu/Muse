@@ -49,10 +49,7 @@ import kotlinx.coroutines.flow.map
  * 注:助手背景图/透明度/渐变设置已移除(无渲染消费端,半成品原则)。
  */
 @Composable
-fun AssistantAdvancedPage(
-    assistantId: String,
-    onBack: () -> Unit,
-) {
+fun AssistantAdvancedPage(assistantId: String, onBack: () -> Unit) {
     val assistant = rememberAssistant(assistantId)
     val update = rememberAssistantUpdater(assistantId)
 
@@ -60,75 +57,79 @@ fun AssistantAdvancedPage(
         val a = assistant
         if (a == null) {
             // v2.x: 动效补齐 — 加载态入场(令牌 animateItem)
-            item { Box(museAnimateItem()) { Text(stringResource(R.string.assistant_detail_loading), color = MaterialTheme.colorScheme.outline) } }
+            item {
+                Box(
+                    museAnimateItem(),
+                ) { Text(stringResource(R.string.assistant_detail_loading), color = MaterialTheme.colorScheme.outline) }
+            }
             return@SettingsSubPageScaffold
         }
         // 卡片组 1: 自定义请求
         // v2.x: 动效补齐 — 卡片组入场(令牌 animateItem)
         item {
             Box(museAnimateItem()) {
-            CardGroup {
-                item(
-                    headlineContent = {
-                        DebouncedTextField(
-                            value = a.customHeadersJson,
-                            onPersist = { v -> update { it.copy(customHeadersJson = v) } },
-                            label = { Text(stringResource(R.string.assistant_detail_custom_headers_label)) },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
-                        )
-                    },
-                )
-                item(
-                    headlineContent = {
-                        DebouncedTextField(
-                            value = a.customBodiesJson,
-                            onPersist = { v -> update { it.copy(customBodiesJson = v) } },
-                            label = { Text(stringResource(R.string.assistant_detail_custom_bodies_label)) },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
-                        )
-                    },
-                )
-            }
+                CardGroup {
+                    item(
+                        headlineContent = {
+                            DebouncedTextField(
+                                value = a.customHeadersJson,
+                                onPersist = { v -> update { it.copy(customHeadersJson = v) } },
+                                label = { Text(stringResource(R.string.assistant_detail_custom_headers_label)) },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
+                            )
+                        },
+                    )
+                    item(
+                        headlineContent = {
+                            DebouncedTextField(
+                                value = a.customBodiesJson,
+                                onPersist = { v -> update { it.copy(customBodiesJson = v) } },
+                                label = { Text(stringResource(R.string.assistant_detail_custom_bodies_label)) },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
+                            )
+                        },
+                    )
+                }
             }
         }
         // 卡片组 3: 标签
         // v2.x: 动效补齐 — 卡片组入场(令牌 animateItem)
         item {
             Box(museAnimateItem()) {
-            CardGroup {
-                item(
-                    headlineContent = {
-                        DebouncedTextField(
-                            value = parseTagsForEdit(a.tagsJson),
-                            onPersist = { v -> update { it.copy(tagsJson = v) } },
-                            label = { Text(stringResource(R.string.assistant_detail_tags_label)) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            transform = { serializeTagsForEdit(it) },
-                        )
-                    },
-                )
-            }
+                CardGroup {
+                    item(
+                        headlineContent = {
+                            DebouncedTextField(
+                                value = parseTagsForEdit(a.tagsJson),
+                                onPersist = { v -> update { it.copy(tagsJson = v) } },
+                                label = { Text(stringResource(R.string.assistant_detail_tags_label)) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                transform = { serializeTagsForEdit(it) },
+                            )
+                        },
+                    )
+                }
             }
         }
         // 卡片组 2: 多 Agent 能力标签
         // v2.x: 动效补齐 — 能力标签卡片入场(令牌 animateItem)
         item {
             Box(museAnimateItem()) {
-            CapabilityChipsSection(
-                capabilitiesJson = a.capabilitiesJson,
-                onCapabilitiesChange = { newJson -> update { it.copy(capabilitiesJson = newJson) } },
-            )
+                CapabilityChipsSection(
+                    capabilitiesJson = a.capabilitiesJson,
+                    onCapabilitiesChange = { newJson -> update { it.copy(capabilitiesJson = newJson) } },
+                )
             }
         }
         // 卡片组 3: v1.97 正则替换规则
         // v2.x: 动效补齐 — 正则规则卡片入场(令牌 animateItem)
         item {
             Box(museAnimateItem()) {
-            RegexRulesSection(
-                rulesJson = a.regexRulesJson,
-                onRulesChange = { newJson -> update { it.copy(regexRulesJson = newJson) } },
-            )
+                RegexRulesSection(
+                    rulesJson = a.regexRulesJson,
+                    onRulesChange = { newJson -> update { it.copy(regexRulesJson = newJson) } },
+                )
             }
         }
     }
@@ -141,10 +142,7 @@ fun AssistantAdvancedPage(
  * 点击「添加规则」或编辑现有规则时弹出 [RegexRuleEditDialog]。
  */
 @Composable
-private fun RegexRulesSection(
-    rulesJson: String,
-    onRulesChange: (String) -> Unit,
-) {
+private fun RegexRulesSection(rulesJson: String, onRulesChange: (String) -> Unit) {
     val rules = remember(rulesJson) {
         io.zer0.muse.transformer.RegexTransformer.parseRulesFromJson(rulesJson)
     }
@@ -214,9 +212,9 @@ private fun RegexRulesSection(
                             MuseTactileButton(
                                 icon = MuseIcons.trash,
                                 onClick = {
-                                val updated = rules.filterNot { it.id == rule.id }
-                                onRulesChange(io.zer0.muse.transformer.RegexTransformer.serializeRules(updated))
-                            },
+                                    val updated = rules.filterNot { it.id == rule.id }
+                                    onRulesChange(io.zer0.muse.transformer.RegexTransformer.serializeRules(updated))
+                                },
                                 contentDescription = stringResource(R.string.assistant_detail_regex_delete_cd),
                             )
                         }
@@ -301,8 +299,11 @@ private fun RegexRuleEditDialog(
 
     MuseDialog(
         onDismissRequest = onDismiss,
-        title = if (isNew) stringResource(R.string.assistant_detail_regex_add)
-        else stringResource(R.string.assistant_detail_regex_edit_title),
+        title = if (isNew) {
+            stringResource(R.string.assistant_detail_regex_add)
+        } else {
+            stringResource(R.string.assistant_detail_regex_edit_title)
+        },
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 MuseTextField(
@@ -318,8 +319,11 @@ private fun RegexRuleEditDialog(
                     onValueChange = {
                         findRegex = it
                         // 实时校验正则语法
-                        regexError = if (it.isBlank()) false
-                        else runCatching { Regex(it) }.isFailure
+                        regexError = if (it.isBlank()) {
+                            false
+                        } else {
+                            runCatching { Regex(it) }.isFailure
+                        }
                     },
                     label = { Text(stringResource(R.string.assistant_detail_regex_find_label)) },
                     placeholder = { Text(stringResource(R.string.assistant_detail_regex_find_hint)) },
@@ -327,7 +331,9 @@ private fun RegexRuleEditDialog(
                     isError = regexError,
                     supportingText = if (regexError) {
                         { Text(stringResource(R.string.assistant_detail_regex_invalid)) }
-                    } else null,
+                    } else {
+                        null
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 MuseTextField(
@@ -393,7 +399,7 @@ private fun RegexRuleEditDialog(
                     affectingScope = scope,
                     visualOnly = visualOnly,
                     enabled = enabled,
-                )
+                ),
             )
         },
         dismissText = stringResource(R.string.action_cancel),
@@ -403,10 +409,7 @@ private fun RegexRuleEditDialog(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CapabilityChipsSection(
-    capabilitiesJson: String,
-    onCapabilitiesChange: (String) -> Unit,
-) {
+private fun CapabilityChipsSection(capabilitiesJson: String, onCapabilitiesChange: (String) -> Unit) {
     val selected = remember(capabilitiesJson) {
         AgentCapability.parseCapabilitiesJson(capabilitiesJson).toSet()
     }

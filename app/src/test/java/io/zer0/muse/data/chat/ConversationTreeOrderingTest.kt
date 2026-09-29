@@ -2,9 +2,9 @@ package io.zer0.muse.data.chat
 
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
-import kotlin.uuid.Uuid
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import kotlin.uuid.Uuid
 
 class ConversationTreeOrderingTest {
     @Test
@@ -44,12 +44,18 @@ class ConversationTreeOrderingTest {
     @Test
     fun `message ordering uses stable sequence before createdAt`() {
         val first = UIMessage(
-            id = Uuid.random(), role = MessageRole.USER, content = "第一轮",
-            createdAt = 9_999L, seq = 1L,
+            id = Uuid.random(),
+            role = MessageRole.USER,
+            content = "第一轮",
+            createdAt = 9_999L,
+            seq = 1L,
         )
         val second = UIMessage(
-            id = Uuid.random(), role = MessageRole.ASSISTANT, content = "第二条",
-            createdAt = 1L, seq = 2L,
+            id = Uuid.random(),
+            role = MessageRole.ASSISTANT,
+            content = "第二条",
+            createdAt = 1L,
+            seq = 2L,
         )
 
         assertEquals(

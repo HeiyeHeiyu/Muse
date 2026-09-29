@@ -34,9 +34,7 @@ import org.koin.compose.koinInject
  * 顶部有醒目提示告诉用户这些功能可能不稳定。
  */
 @Composable
-fun ExperimentsSettingsPage(
-    onBack: () -> Unit,
-) {
+fun ExperimentsSettingsPage(onBack: () -> Unit) {
     val settings: SettingsRepository = koinInject()
     val config by settings.experimentsFlow.collectAsStateWithLifecycle(initialValue = ExperimentsConfig())
     val scope = rememberCoroutineScope()

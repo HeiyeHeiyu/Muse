@@ -67,5 +67,8 @@ object ToolArgsParser {
     }
 
     // 用独立 Json 实例，避免全局配置干扰；忽略未知键。
-    private val JSON = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val JSON = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 }

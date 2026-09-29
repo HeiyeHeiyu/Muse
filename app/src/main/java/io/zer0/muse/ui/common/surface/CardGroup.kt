@@ -128,11 +128,7 @@ private class CardGroupScopeImpl : CardGroupScope {
  * @param content DSL 内容块,内部用 [CardGroupScope.item] 添加项
  */
 @Composable
-fun CardGroup(
-    modifier: Modifier = Modifier,
-    title: (@Composable () -> Unit)? = null,
-    content: CardGroupScope.() -> Unit,
-) {
+fun CardGroup(modifier: Modifier = Modifier, title: (@Composable () -> Unit)? = null, content: CardGroupScope.() -> Unit) {
     val scope = CardGroupScopeImpl()
     scope.content()
 

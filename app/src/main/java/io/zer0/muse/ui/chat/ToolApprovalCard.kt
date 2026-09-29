@@ -1,20 +1,12 @@
 package io.zer0.muse.ui.chat
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.ui.theme.MuseMotion
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,9 +25,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,10 +44,16 @@ import io.zer0.muse.R
 import io.zer0.muse.tools.ToolApprovalPolicy
 import io.zer0.muse.ui.PendingToolApproval
 import io.zer0.muse.ui.SmartImage
-import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.common.surface.MuseSurface
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MuseShapes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -427,8 +427,11 @@ fun ToolApprovalCard(
 
                 // 拒绝 — 次级,OutlinedButton
                 MuseCapsuleButton(
-                    text = if (showDenyReason) stringResource(R.string.tool_approval_confirm_deny)
-                    else stringResource(R.string.tool_approval_deny),
+                    text = if (showDenyReason) {
+                        stringResource(R.string.tool_approval_confirm_deny)
+                    } else {
+                        stringResource(R.string.tool_approval_deny)
+                    },
                     onClick = {
                         if (showDenyReason) {
                             onDeny(denyReason)
@@ -631,12 +634,7 @@ fun PendingApprovalsSummary(
  *  - 已选图:显示缩略图预览(带清除按钮)
  */
 @Composable
-private fun ReferenceImageSection(
-    referenceImageOverride: String?,
-    isLoading: Boolean,
-    onPick: () -> Unit,
-    onClear: () -> Unit,
-) {
+private fun ReferenceImageSection(referenceImageOverride: String?, isLoading: Boolean, onPick: () -> Unit, onClear: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             text = stringResource(R.string.chat_ref_image_cd),
@@ -690,7 +688,6 @@ private fun ReferenceImageSection(
                         iconSize = MuseIconSizes.iconSmall,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            
                             .background(
                                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
                                 shape = CircleShape,

@@ -297,11 +297,7 @@ object CodeHighlighter {
      * 按捕获组类型着色单个 token。
      * 提取为独立函数以控制 highlight() 的圈复杂度(6 个捕获组分支)。
      */
-    private fun AnnotatedString.Builder.appendHighlightedToken(
-        token: String,
-        match: MatchResult,
-        colors: HighlightColors,
-    ) {
+    private fun AnnotatedString.Builder.appendHighlightedToken(token: String, match: MatchResult, colors: HighlightColors) {
         when {
             match.groups[1] != null -> {
                 // 行注释(按语言: // 或 # 或 --,详见 buildRegex)
@@ -367,34 +363,33 @@ object CodeHighlighter {
      * E6: diff 行级高亮 — hunk 头蓝 / 新增行绿 / 删除行红(带半透明行底色)。
      * 逐行独立着色,与 MarkdownText 的逐行高亮调用方式兼容。
      */
-    private fun highlightDiff(code: String, colors: HighlightColors): AnnotatedString =
-        buildAnnotatedString {
-            code.split("\n").forEachIndexed { index, line ->
-                if (index > 0) append("\n")
-                val kind = classifyDiffLine(line)
-                val style = when (kind) {
-                    DiffLineKind.HUNK_HEADER -> SpanStyle(
-                        color = colors.diffHunk,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    DiffLineKind.ADDED -> SpanStyle(
-                        color = colors.diffAdded,
-                        background = colors.diffAdded.copy(alpha = 0.12f),
-                    )
-                    DiffLineKind.REMOVED -> SpanStyle(
-                        color = colors.diffRemoved,
-                        background = colors.diffRemoved.copy(alpha = 0.12f),
-                    )
-                    // CONTEXT / EMPTY 保持默认样式
-                    else -> null
-                }
-                if (style != null) {
-                    withStyle(style) { append(line) }
-                } else {
-                    append(line)
-                }
+    private fun highlightDiff(code: String, colors: HighlightColors): AnnotatedString = buildAnnotatedString {
+        code.split("\n").forEachIndexed { index, line ->
+            if (index > 0) append("\n")
+            val kind = classifyDiffLine(line)
+            val style = when (kind) {
+                DiffLineKind.HUNK_HEADER -> SpanStyle(
+                    color = colors.diffHunk,
+                    fontWeight = FontWeight.Bold,
+                )
+                DiffLineKind.ADDED -> SpanStyle(
+                    color = colors.diffAdded,
+                    background = colors.diffAdded.copy(alpha = 0.12f),
+                )
+                DiffLineKind.REMOVED -> SpanStyle(
+                    color = colors.diffRemoved,
+                    background = colors.diffRemoved.copy(alpha = 0.12f),
+                )
+                // CONTEXT / EMPTY 保持默认样式
+                else -> null
+            }
+            if (style != null) {
+                withStyle(style) { append(line) }
+            } else {
+                append(line)
             }
         }
+    }
 
     /** 构建高亮正则。 */
     private fun buildRegex(keywords: Set<String>, lang: String?): Regex {
@@ -413,7 +408,8 @@ object CodeHighlighter {
         val (lineComment, blockComment) = when (lang) {
             // E6 升级: 新增 C 系 / swift / php / dart 沿用 // + /* */
             "kotlin", "java", "javascript", "typescript", "go", "rust",
-            "c", "cpp", "csharp", "swift", "php", "dart" -> "//[^\\n]*" to "/\\*[\\s\\S]*?\\*/"
+            "c", "cpp", "csharp", "swift", "php", "dart",
+            -> "//[^\\n]*" to "/\\*[\\s\\S]*?\\*/"
             "python", "shell", "ruby", "yaml" -> "#[^\\n]*" to NEVER_MATCH
             "sql" -> "--[^\\n]*" to NEVER_MATCH
             else -> NEVER_MATCH to NEVER_MATCH

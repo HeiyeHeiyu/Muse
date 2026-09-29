@@ -69,6 +69,7 @@ open class MuseAccessibilityService : AccessibilityService() {
 
     /** 最近一次窗口状态变化事件的包名/类名(用于 getCurrentActivityName)。 */
     @Volatile private var lastPackage: String = ""
+
     @Volatile private var lastClassName: String = ""
 
     /** 服务是否已连接(onServiceConnected 后置 true)。 */
@@ -260,7 +261,7 @@ open class MuseAccessibilityService : AccessibilityService() {
 
     // ── 内部实现 ────────────────────────────────────────────────────────────────
 
-    /** 递归输出节点信息到 [sb],[path] 为当前节点路径(如 "0.1.2")。 */
+    /** 递归输出节点信息到 [sb], [path] 为当前节点路径(如 "0.1.2")。 */
     private fun dumpNode(node: AccessibilityNodeInfo, path: String, sb: StringBuilder, counter: IntArray) {
         if (counter[0] >= MAX_NODES) return
         counter[0]++
@@ -307,16 +308,20 @@ open class MuseAccessibilityService : AccessibilityService() {
         check(Looper.myLooper() != Looper.getMainLooper()) { "awaitGesture must not run on main thread" }
         val latch = CountDownLatch(1)
         var result = false
-        val dispatched = dispatchGesture(gesture, object : GestureResultCallback() {
-            override fun onCompleted(g: GestureDescription?) {
-                result = true
-                latch.countDown()
-            }
+        val dispatched = dispatchGesture(
+            gesture,
+            object : GestureResultCallback() {
+                override fun onCompleted(g: GestureDescription?) {
+                    result = true
+                    latch.countDown()
+                }
 
-            override fun onCancelled(g: GestureDescription?) {
-                latch.countDown()
-            }
-        }, null)
+                override fun onCancelled(g: GestureDescription?) {
+                    latch.countDown()
+                }
+            },
+            null,
+        )
         if (!dispatched) return false
         return latch.await(GESTURE_TIMEOUT_MS, TimeUnit.MILLISECONDS) && result
     }

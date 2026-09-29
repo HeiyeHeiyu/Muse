@@ -28,6 +28,7 @@ class BrowserManagerRegistry(
 
     // 已使用浏览器的会话 id 集合(驱动 UI 胶囊显示;WebView 状态本身全局共享)
     private val _activeSessionIds = MutableStateFlow<Set<String>>(emptySet())
+
     /** 已使用浏览器的会话 id 集合。 */
     val activeSessionIds: StateFlow<Set<String>> = _activeSessionIds.asStateFlow()
 

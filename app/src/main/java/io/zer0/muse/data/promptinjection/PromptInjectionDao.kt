@@ -26,8 +26,7 @@ interface PromptInjectionDao {
      * 按 id 批量取启用条目。空列表短路返回空,避免 `IN ()` SQL 语法错误(L-PID6)。
      * Repository 层亦有空列表防护,此处为 DAO 层兜底(defense in depth)。
      */
-    suspend fun getByIdsEnabled(ids: List<String>): List<PromptInjectionEntity> =
-        if (ids.isEmpty()) emptyList() else queryByIdsEnabled(ids)
+    suspend fun getByIdsEnabled(ids: List<String>): List<PromptInjectionEntity> = if (ids.isEmpty()) emptyList() else queryByIdsEnabled(ids)
 
     @Query("SELECT * FROM prompt_injections WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): PromptInjectionEntity?

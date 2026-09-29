@@ -30,7 +30,7 @@ class WorkspaceBoundaryTest {
     @Test
     fun `normal relative paths work inside the workspace`() = runTest {
         val write = manager.writeFile("docs/notes.txt", "hello boundary")
-        assertTrue("正常写入应成功: ${write}", write is WorkspaceManager.OpResult.Success)
+        assertTrue("正常写入应成功: $write", write is WorkspaceManager.OpResult.Success)
 
         val read = manager.readFile("docs/notes.txt")
         assertTrue(read is WorkspaceManager.ReadResult.Success)

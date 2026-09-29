@@ -50,27 +50,27 @@ subprojects {
     // 首跑自动生成 ktlint-baseline.xml(已入库),之后新增问题即失败;
     // 同时断言源文件非空,防止门禁再次退化为空跑。
     pluginManager.withPlugin("org.jlleitschuh.gradle.ktlint") {
+        val ktlintConfiguration =
+            configurations.findByName("ktlint")
+                ?: throw GradleException("ktlint configuration missing in project '$name' (ktlint plugin applied?)")
+        // ktlint 配置本身不带消费属性,KMP 依赖会解析到 -sources 变体(运行时缺 KLogger 等)。
+        // 自建 RUNTIME+LIBRARY 可解析配置,extendsFrom ktlint,拿到正确的二进制变体。
+        val ktlintCliClasspath =
+            configurations.create("ktlintCliClasspath_${this.name}") {
+                isCanBeConsumed = false
+                isCanBeResolved = true
+                extendsFrom(ktlintConfiguration)
+                attributes {
+                    attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage::class.java, Usage.JAVA_RUNTIME))
+                    attribute(
+                        Category.CATEGORY_ATTRIBUTE,
+                        objects.named(Category::class.java, Category.LIBRARY),
+                    )
+                }
+            }
         val ktlintKotlinSourceCheckTask = tasks.register<org.gradle.api.tasks.JavaExec>("ktlintKotlinSourceCheck") {
             group = "verification"
             description = "P4-1: 对 Kotlin 源跑真实 ktlint CLI(替代 AGP9 下失效的 ktlintCheck .kt 检查)"
-            val ktlintConfiguration =
-                configurations.findByName("ktlint")
-                    ?: throw GradleException("ktlint configuration missing in project '$name' (ktlint plugin applied?)")
-            // ktlint 配置本身不带消费属性,KMP 依赖会解析到 -sources 变体(运行时缺 KLogger 等)。
-            // 自建 RUNTIME+LIBRARY 可解析配置,extendsFrom ktlint,拿到正确的二进制变体。
-            val ktlintCliClasspath =
-                configurations.create("ktlintCliClasspath_${this.name}") {
-                    isCanBeConsumed = false
-                    isCanBeResolved = true
-                    extendsFrom(ktlintConfiguration)
-                    attributes {
-                        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage::class.java, Usage.JAVA_RUNTIME))
-                        attribute(
-                            Category.CATEGORY_ATTRIBUTE,
-                            objects.named(Category::class.java, Category.LIBRARY),
-                        )
-                    }
-                }
             classpath = ktlintCliClasspath
             mainClass.set("com.pinterest.ktlint.Main")
 
@@ -98,6 +98,42 @@ subprojects {
                 // 报告非空断言依据: 追加实际落 lint 的 .kt 文件数(来自任务输入源集,非占位)。
                 val linted = inputs.files.files.size
                 reportFile.get().asFile.appendText("\n@linted-file-count=$linted\n")
+            }
+        }
+        // P4-1b: 与 ktlintKotlinSourceCheck 镜像的格式化任务 —— 同一份 CLI/classpath,真跑 ktlint -F。
+        // 为什么必须有它: check 任务带 --baseline,而 baseline 命中的存量问题在 -F 下不会被修,
+        // 所以清理存量格式化债必须有一份"不带 baseline"的入口;此前只能手工拼 java -cp,不可复现。
+        // 用法:
+        //   ./gradlew :app:ktlintKotlinSourceFormat                      # 全模块
+        //   ./gradlew :app:ktlintKotlinSourceFormat "-PktlintPaths=src/main/java/io/zer0/muse/MainActivity.kt,src/test"  # 限定路径
+        // 注意: 格式化后必须重建该模块 ktlint-baseline.xml(见 PROJECT_GUIDE §6)。
+        // 取值必须在配置期完成 —— 本仓库开了 configuration cache,执行期碰 project 会直接构建失败。
+        val formatPaths =
+            (project.findProperty("ktlintPaths") as? String)
+                ?.split(',')
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?.takeIf { it.isNotEmpty() }
+                ?: listOf("src")
+        val missingFormatPaths = formatPaths.filter { !project.file(it).exists() }
+        // 配置期就把 Project 相关引用拍成纯字符串 —— 执行期(lambdas)持有 Project 会撑爆 configuration cache。
+        val formatProjectDir = layout.projectDirectory.asFile.invariantSeparatorsPath
+        tasks.register<org.gradle.api.tasks.JavaExec>("ktlintKotlinSourceFormat") {
+            group = "verification"
+            description = "P4-1b: 用 ktlint CLI 就地格式化本模块 Kotlin 源(不带 baseline,可清理存量债)"
+            classpath = ktlintCliClasspath
+            mainClass.set("com.pinterest.ktlint.Main")
+            // 格式化会就地改源文件,不参与增量判定(每次显式执行都真跑)。
+            outputs.upToDateWhen { false }
+            // ktlint -F 对"改不了"的违规(超长行/注释位置/文件名大小写)返回 1 —— 那是待办清单,
+            // 不是任务失败。门禁归 ktlintKotlinSourceCheck:它带 baseline,新问题一律红。
+            isIgnoreExitValue = true
+
+            doFirst {
+                check(missingFormatPaths.isEmpty()) {
+                    "ktlintKotlinSourceFormat: path(s) not found under $formatProjectDir: $missingFormatPaths"
+                }
+                args("--relative", "-F", *formatPaths.toTypedArray())
             }
         }
         if (tasks.findByName("check") != null) {

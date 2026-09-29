@@ -38,7 +38,10 @@ class WaitPrimitivesTest {
                 )
             } else {
                 ScreenSnapshot(
-                    info = ScreenInfo(packageName = "com.test", nodes = listOf(UiNode(text = "Button", boundsLeft = 10, boundsTop = 20, boundsRight = 50, boundsBottom = 60))),
+                    info = ScreenInfo(
+                        packageName = "com.test",
+                        nodes = listOf(UiNode(text = "Button", boundsLeft = 10, boundsTop = 20, boundsRight = 50, boundsBottom = 60)),
+                    ),
                     version = 2,
                 )
             }
@@ -61,7 +64,9 @@ class WaitPrimitivesTest {
             ScreenSnapshot(
                 info = ScreenInfo(
                     packageName = "com.test",
-                    nodes = listOf(UiNode(text = "Tick $tick", boundsLeft = tick, boundsTop = 0, boundsRight = tick + 10, boundsBottom = 10)),
+                    nodes = listOf(
+                        UiNode(text = "Tick $tick", boundsLeft = tick, boundsTop = 0, boundsRight = tick + 10, boundsBottom = 10),
+                    ),
                 ),
                 version = tick,
             )

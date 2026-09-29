@@ -22,7 +22,7 @@ import kotlinx.serialization.Serializable
             parentColumns = ["id"],
             childColumns = ["sessionId"],
             onDelete = ForeignKey.CASCADE,
-        )
+        ),
     ],
     indices = [Index("sessionId"), Index("messageId")],
 )

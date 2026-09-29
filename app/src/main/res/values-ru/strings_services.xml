@@ -256,7 +256,7 @@
     <string name="tool_url_opened">Открытая ссылка: %1$s</string>
     <string name="tool_open_url_failed">Не удалось открыть ссылку: %1$s</string>
     <string name="tool_installed_apps_header">Установленные приложения (%1$d всего):\n</string>
-    <string name="tool_installed_apps_item">%1$s |</string>
+    <string name="tool_installed_apps_item">%1$s | %2$s</string>
     <string name="tool_installed_apps_empty">Подходящих приложений не найдено</string>
     <string name="tool_installed_apps_failed">Не удалось получить установленные приложения</string>
     <string name="tool_network_info">В сети: %1$s\nТип сети: %2$s\nЛиммерное: %3$s</string>
@@ -304,7 +304,7 @@
     <string name="tool_bluetooth_enabled">Bluetooth: включен</string>
     <string name="tool_bluetooth_disabled">Bluetooth: отключен</string>
     <string name="tool_bluetooth_header">Сопряженные устройства Bluetooth (всего %1$d):\n</string>
-    <string name="tool_bluetooth_item">- %1$s |</string>
+    <string name="tool_bluetooth_item">- %1$s | %2$s</string>
     <string name="tool_bluetooth_empty">Нет сопряженных устройств Bluetooth</string>
     <string name="tool_phone_call_opened">Открытый номеронабиратель: %1$s</string>
     <string name="tool_phone_call_missing">Отсутствует параметр: телефон.</string>
@@ -328,7 +328,7 @@
     <string name="tool_reminder_cancelled">Отменено напоминание: %1$s</string>
     <string name="tool_reminder_not_found">Напоминание не найдено: %1$s</string>
     <string name="tool_reminder_list_header">Запланированные напоминания (%1$d всего):\n</string>
-    <string name="tool_reminder_list_item">- идентификатор: %1$s |</string>
+    <string name="tool_reminder_list_item">- идентификатор: %1$s | время: %2$s | заголовок: %3$s</string>
     <string name="tool_reminder_list_empty">Нет запланированных напоминаний</string>
     <string name="tool_reminder_missing_title">Отсутствует параметр: заголовок</string>
     <string name="tool_reminder_missing_message">Отсутствует параметр: сообщение</string>
@@ -342,9 +342,9 @@
     <string name="tool_resource_deleted">Удаленный ресурс: %1$s</string>
     <string name="tool_resource_not_found">Ресурс не найден: %1$s</string>
     <string name="tool_resource_list_header">Библиотека ресурсов (%1$d всего):\n</string>
-    <string name="tool_resource_list_item">- идентификатор: %1$s |</string>
+    <string name="tool_resource_list_item">- идентификатор: %1$s | заголовок: %2$s | теги: %3$s</string>
     <string name="tool_resource_list_empty">Библиотека ресурсов пуста</string>
-    <string name="tool_resource_item_detail">Сведения о ресурсе\nid: %1$s\nзаголовок: %2$s\nтеги: %3$s\nсоздано:</string>
+    <string name="tool_resource_item_detail">Сведения о ресурсе\nid: %1$s\nзаголовок: %2$s\nтеги: %3$s\nсоздано: %4$s\nсодержимое:\n%5$s</string>
     <string name="tool_resource_missing_title">Отсутствует параметр: заголовок</string>
     <string name="tool_resource_missing_content">Отсутствует параметр: контент.</string>
     <string name="tool_resource_missing_id">Отсутствует параметр: идентификатор</string>
@@ -370,9 +370,9 @@
     <string name="tool_quick_note_not_found">Заметка не найдена: %1$s</string>
     <string name="tool_quick_note_pinned">Примечание %1$s закреплено: %2$s</string>
     <string name="tool_quick_note_list_header">Краткие заметки (всего %1$d):\n</string>
-    <string name="tool_quick_note_list_item">- %1$s%2$s %3$s |</string>
+    <string name="tool_quick_note_list_item">- %1$s%2$s %3$s | теги: %4$s</string>
     <string name="tool_quick_note_list_empty">Быстрых заметок пока нет</string>
-    <string name="tool_quick_note_item_detail">Подробности примечания\nid: %1$s\nзаголовок: %2$s\nзакреплено: %3$s\nтеги:</string>
+    <string name="tool_quick_note_item_detail">Подробности примечания\nid: %1$s\nзаголовок: %2$s\nзакреплено: %3$s\nтеги: %4$s\nсодержимое:\n%5$s</string>
     <string name="tool_quick_note_missing_title">Отсутствует параметр: заголовок</string>
     <string name="tool_quick_note_missing_id">Отсутствует параметр: идентификатор</string>
 

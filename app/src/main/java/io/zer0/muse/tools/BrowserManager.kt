@@ -7,12 +7,12 @@ import android.graphics.Canvas
 import android.os.Looper
 import android.util.Base64
 import android.webkit.WebChromeClient
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import kotlinx.coroutines.Dispatchers
@@ -70,34 +70,42 @@ class BrowserManager(private val context: Context) {
     // ── StateFlows(供 UI / AI 观察当前页状态)─────────────────────────────
 
     private val _currentUrl = MutableStateFlow("")
+
     /** 当前页 URL。 */
     val currentUrl: StateFlow<String> = _currentUrl.asStateFlow()
 
     private val _currentTitle = MutableStateFlow("")
+
     /** 当前页 title。 */
     val currentTitle: StateFlow<String> = _currentTitle.asStateFlow()
 
     private val _currentHtml = MutableStateFlow("")
+
     /** 当前页 HTML(截断到 50KB 防止过长)。 */
     val currentHtml: StateFlow<String> = _currentHtml.asStateFlow()
 
     private val _currentScreenshot = MutableStateFlow<String?>(null)
+
     /** 页面截图(Base64 PNG,可选)。 */
     val currentScreenshot: StateFlow<String?> = _currentScreenshot.asStateFlow()
 
     private val _isActive = MutableStateFlow(false)
+
     /** 浏览器是否正在使用中(navigate 后 true,close 后 false)。UI 据此显示状态胶囊。 */
     val isActive: StateFlow<Boolean> = _isActive.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
+
     /** 当前页面是否正在加载(供胶囊加载指示动画)。 */
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _canGoBack = MutableStateFlow(false)
+
     /** 当前页面是否可后退(查看器工具条据此置灰)。 */
     val canGoBack: StateFlow<Boolean> = _canGoBack.asStateFlow()
 
     private val _canGoForward = MutableStateFlow(false)
+
     /** 当前页面是否可前进。 */
     val canGoForward: StateFlow<Boolean> = _canGoForward.asStateFlow()
 
@@ -132,7 +140,7 @@ class BrowserManager(private val context: Context) {
             if (ssrfGate.isBlockedAsync(target)) {
                 Logger.w(TAG, "navigate 被 SSRF 守卫拦截: $target")
                 return Result.failure(
-                    java.lang.SecurityException("SSRF blocked: $target")
+                    java.lang.SecurityException("SSRF blocked: $target"),
                 )
             }
         }
@@ -164,10 +172,7 @@ class BrowserManager(private val context: Context) {
                                 }
                                 _isLoading.value = true
                             }
-                            override fun shouldOverrideUrlLoading(
-                                view: WebView?,
-                                request: WebResourceRequest?,
-                            ): Boolean {
+                            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                                 val requestUrl = request?.url?.toString()
                                 if (isBlockedHttpUrl(requestUrl)) {
                                     Logger.w(TAG, "navigate URL 重定向被 SSRF 守卫拦截: $requestUrl")
@@ -175,10 +180,7 @@ class BrowserManager(private val context: Context) {
                                 }
                                 return false
                             }
-                            override fun shouldInterceptRequest(
-                                view: WebView?,
-                                request: WebResourceRequest?,
-                            ): WebResourceResponse? {
+                            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                                 val requestUrl = request?.url?.toString()
                                 if (isBlockedHttpUrlOffMainThread(requestUrl)) {
                                     Logger.w(TAG, "navigate 资源请求被 SSRF 守卫拦截: $requestUrl")
@@ -199,11 +201,7 @@ class BrowserManager(private val context: Context) {
                                 view?.webViewClient = previousClient
                                 if (cont.isActive) cont.resume(true)
                             }
-                            override fun onReceivedError(
-                                view: WebView?,
-                                request: WebResourceRequest?,
-                                error: WebResourceError?,
-                            ) {
+                            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                                 super.onReceivedError(view, request, error)
                                 _isLoading.value = false
                                 if (request?.isForMainFrame != false && cont.isActive) {
@@ -274,7 +272,7 @@ class BrowserManager(private val context: Context) {
             } ?: run {
                 Logger.w(TAG, "evaluateJs 超时(${DEFAULT_TIMEOUT_MS}ms): ${script.take(120)}")
                 return@withContext Result.failure(
-                    java.util.concurrent.TimeoutException("evaluateJs 超时(${DEFAULT_TIMEOUT_MS}ms)")
+                    java.util.concurrent.TimeoutException("evaluateJs 超时(${DEFAULT_TIMEOUT_MS}ms)"),
                 )
             }
             Result.success(raw)
@@ -351,7 +349,7 @@ class BrowserManager(private val context: Context) {
      */
     suspend fun scrollToBottom(): Result<Unit> {
         val result = evaluateJs(
-            "(function(){ window.scrollTo(0, document.body.scrollHeight); return document.body.scrollHeight; })();"
+            "(function(){ window.scrollTo(0, document.body.scrollHeight); return document.body.scrollHeight; })();",
         )
         return result.map { Unit }
     }
@@ -584,10 +582,7 @@ class BrowserManager(private val context: Context) {
                     _isLoading.value = true
                     _currentUrl.value = url ?: ""
                 }
-                override fun shouldOverrideUrlLoading(
-                    view: WebView?,
-                    request: WebResourceRequest?,
-                ): Boolean {
+                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                     val requestUrl = request?.url?.toString()
                     if (isBlockedHttpUrl(requestUrl)) {
                         Logger.w(TAG, "URL 重定向被 SSRF 守卫拦截: $requestUrl")
@@ -595,10 +590,7 @@ class BrowserManager(private val context: Context) {
                     }
                     return false
                 }
-                override fun shouldInterceptRequest(
-                    view: WebView?,
-                    request: WebResourceRequest?,
-                ): WebResourceResponse? {
+                override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                     val requestUrl = request?.url?.toString()
                     if (isBlockedHttpUrlOffMainThread(requestUrl)) {
                         Logger.w(TAG, "资源请求被 SSRF 守卫拦截: $requestUrl")
@@ -625,6 +617,7 @@ class BrowserManager(private val context: Context) {
                     super.doUpdateVisitedHistory(view, url, isReload)
                     syncNavState(view)
                 }
+
                 /** ROM 兼容:渲染进程崩溃(部分 ROM 的 WebView 不稳定)时销毁重建,下次调用自动恢复。 */
                 override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
                     Logger.e(TAG, "WebView 渲染进程崩溃: ${detail?.didCrash()}, 销毁重建")

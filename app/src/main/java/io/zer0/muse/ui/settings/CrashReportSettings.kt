@@ -7,19 +7,16 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -37,6 +34,9 @@ import io.zer0.muse.crash.buildStandardMetadata
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
@@ -67,9 +67,7 @@ import org.koin.core.qualifier.named
  * 接入 SettingsRepository 持久化:开关/方式/邮箱/Webhook URL 走 DataStore。
  */
 @Composable
-fun CrashReportSettingsPage(
-    onBack: () -> Unit,
-) {
+fun CrashReportSettingsPage(onBack: () -> Unit) {
     val context = LocalContext.current
     val settings: SettingsRepository = koinInject()
     // 复用 named("chat") OkHttpClient(Webhook 上报时传入,内部会覆盖超时)
@@ -111,8 +109,11 @@ fun CrashReportSettingsPage(
                     Icon(
                         imageVector = MuseIcons.bug,
                         contentDescription = null,
-                        tint = if (pendingCount > 0) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.outline,
+                        tint = if (pendingCount > 0) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.outline
+                        },
                         modifier = Modifier.size(20.dp),
                     )
                     Column(modifier = Modifier.weight(1f)) {
@@ -122,8 +123,11 @@ fun CrashReportSettingsPage(
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
-                            text = if (pendingCount > 0) stringResource(R.string.settings_crash_pending_hint_active)
-                            else stringResource(R.string.settings_crash_pending_hint_idle),
+                            text = if (pendingCount > 0) {
+                                stringResource(R.string.settings_crash_pending_hint_active)
+                            } else {
+                                stringResource(R.string.settings_crash_pending_hint_idle)
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline,
                         )
@@ -167,102 +171,102 @@ fun CrashReportSettingsPage(
         item { SectionLabel(stringResource(R.string.settings_crash_method_section)) }
         item {
             SettingsGroup {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(MusePaddings.cardInner),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Icon(
-                            imageVector = if (method == "email") MuseIcons.mail else MuseIcons.link,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(20.dp),
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(MusePaddings.cardInner),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Icon(
+                        imageVector = if (method == "email") MuseIcons.mail else MuseIcons.link,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_crash_method_label),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.settings_crash_method_label),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                listOf(
-                                    CrashReporterFactory.METHOD_EMAIL to stringResource(R.string.settings_crash_method_email),
-                                    CrashReporterFactory.METHOD_WEBHOOK to "Webhook",
-                                ).forEach { (value, label) ->
-                                    MuseChip(
-                                        selected = method == value,
-                                        onClick = {
-                                            scope.launch { settings.saveCrashReportMethod(value) }
-                                        },
-                                        label = label,
-                                    )
-                                }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf(
+                                CrashReporterFactory.METHOD_EMAIL to stringResource(R.string.settings_crash_method_email),
+                                CrashReporterFactory.METHOD_WEBHOOK to "Webhook",
+                            ).forEach { (value, label) ->
+                                MuseChip(
+                                    selected = method == value,
+                                    onClick = {
+                                        scope.launch { settings.saveCrashReportMethod(value) }
+                                    },
+                                    label = label,
+                                )
                             }
                         }
                     }
-                    // ── 邮件配置 ──
-                    if (method == CrashReporterFactory.METHOD_EMAIL) {
-                        SettingsGroupDivider()
-                        MuseTextField(
-                            value = emailDraft,
-                            onValueChange = { emailDraft = it },
-                            label = { Text(stringResource(R.string.settings_crash_email_label)) },
-                            placeholder = { Text(stringResource(R.string.settings_crash_email_placeholder)) },
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                        )
-                        MuseCapsuleButton(
-                            text = stringResource(R.string.settings_crash_email_save_button),
-                            onClick = {
-                                scope.launch {
-                                    settings.saveCrashReportEmail(emailDraft.trim())
-                                    MuseToast.show(context.getString(R.string.settings_crash_email_saved_toast))
-                                }
-                            },
-                            enabled = emailDraft.trim() != email && emailDraft.isNotBlank(),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 4.dp),
-                        )
-                    }
-                    // ── Webhook 配置 ──
-                    if (method == CrashReporterFactory.METHOD_WEBHOOK) {
-                        SettingsGroupDivider()
-                        MuseTextField(
-                            value = webhookDraft,
-                            onValueChange = { webhookDraft = it },
-                            label = { Text("Webhook URL") },
-                            placeholder = { Text("https://example.com/crash-report") },
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                        )
-                        MuseCapsuleButton(
-                            text = stringResource(R.string.settings_crash_webhook_save_button),
-                            onClick = {
-                                scope.launch {
-                                    settings.saveCrashReportWebhookUrl(webhookDraft.trim())
-                                    MuseToast.show(context.getString(R.string.settings_crash_webhook_saved_toast))
-                                }
-                            },
-                            enabled = webhookDraft.trim() != webhookUrl && webhookDraft.isNotBlank(),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 4.dp),
-                        )
-                    }
+                }
+                // ── 邮件配置 ──
+                if (method == CrashReporterFactory.METHOD_EMAIL) {
+                    SettingsGroupDivider()
+                    MuseTextField(
+                        value = emailDraft,
+                        onValueChange = { emailDraft = it },
+                        label = { Text(stringResource(R.string.settings_crash_email_label)) },
+                        placeholder = { Text(stringResource(R.string.settings_crash_email_placeholder)) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                    MuseCapsuleButton(
+                        text = stringResource(R.string.settings_crash_email_save_button),
+                        onClick = {
+                            scope.launch {
+                                settings.saveCrashReportEmail(emailDraft.trim())
+                                MuseToast.show(context.getString(R.string.settings_crash_email_saved_toast))
+                            }
+                        },
+                        enabled = emailDraft.trim() != email && emailDraft.isNotBlank(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+                // ── Webhook 配置 ──
+                if (method == CrashReporterFactory.METHOD_WEBHOOK) {
+                    SettingsGroupDivider()
+                    MuseTextField(
+                        value = webhookDraft,
+                        onValueChange = { webhookDraft = it },
+                        label = { Text("Webhook URL") },
+                        placeholder = { Text("https://example.com/crash-report") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                    MuseCapsuleButton(
+                        text = stringResource(R.string.settings_crash_webhook_save_button),
+                        onClick = {
+                            scope.launch {
+                                settings.saveCrashReportWebhookUrl(webhookDraft.trim())
+                                MuseToast.show(context.getString(R.string.settings_crash_webhook_saved_toast))
+                            }
+                        },
+                        enabled = webhookDraft.trim() != webhookUrl && webhookDraft.isNotBlank(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
                 }
             }
+        }
 
         // ── 4. 隐私说明 ──
         item { SectionLabel(stringResource(R.string.settings_crash_privacy_section)) }

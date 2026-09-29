@@ -101,6 +101,7 @@ class TtsManager(
     private val appContext = context.applicationContext
     private val cacheDir: File = appContext.cacheDir
     private val ready = AtomicBoolean(false)
+
     /**
      * v1.0.4 (P2): TTS 初始化就绪状态(暴露给 UI)。
      *
@@ -144,7 +145,9 @@ class TtsManager(
         return if (ready.get()) {
             @Suppress("DEPRECATION")
             tts.voices?.toList() ?: emptyList()
-        } else emptyList()
+        } else {
+            emptyList()
+        }
     }
 
     /**
@@ -178,6 +181,7 @@ class TtsManager(
     /** R-UI-07: 系统 TTS 初始化失败状态与一次性提示。 */
     @Volatile
     private var initFailed = false
+
     @Volatile
     private var initHintShown = false
 
@@ -220,6 +224,7 @@ class TtsManager(
     private var cloudPlayChannel: Channel<File> = Channel(Channel.UNLIMITED)
     private var cloudSynthJob: Job? = null
     private var cloudPlayJob: Job? = null
+
     @Volatile
     private var cloudStreamUtteranceId: String? = null
 
@@ -301,7 +306,10 @@ class TtsManager(
                     tts.setVoice(voice)
                 }
             }
-            Logger.d("TtsManager", "applyConfig: rate=${globalSpeechRate()}, pitch=${globalPitch()}, lang=${globalLanguage()}, voice=${config.ttsVoiceName}")
+            Logger.d(
+                "TtsManager",
+                "applyConfig: rate=${globalSpeechRate()}, pitch=${globalPitch()}, lang=${globalLanguage()}, voice=${config.ttsVoiceName}",
+            )
         }
     }
 
@@ -312,17 +320,19 @@ class TtsManager(
     private fun globalPitch(): Float = mediaConfig.ttsPitch.coerceIn(0.5f, 2.0f)
 
     /** 全局媒体配置的语言 Locale(未配置时跟随系统)。 */
-    private fun globalLanguage(): Locale =
-        mediaConfig.ttsLanguage?.takeIf { it.isNotBlank() }?.let { parseLocale(it) }
-            ?: Locale.getDefault()
+    private fun globalLanguage(): Locale = mediaConfig.ttsLanguage?.takeIf { it.isNotBlank() }?.let { parseLocale(it) }
+        ?: Locale.getDefault()
 
     /** 把 BCP-47 / ISO-639 字符串解析为 Locale。 */
     private fun parseLocale(tag: String): Locale {
         // 简单解析:支持 "zh"/"zh-CN"/"en-US" 等
         return runCatching {
             val parts = tag.replace("_", "-").split("-")
-            if (parts.size == 1) Locale(parts[0])
-            else Locale(parts[0], parts[1])
+            if (parts.size == 1) {
+                Locale(parts[0])
+            } else {
+                Locale(parts[0], parts[1])
+            }
         }.getOrDefault(Locale.getDefault())
     }
 
@@ -778,8 +788,11 @@ class TtsManager(
             val clean = MoodSkinParser.cleanForExport(stripMarkdown(sentence)).trim()
             if (clean.isNotEmpty()) {
                 // 首句打断旧请求,后续用 QUEUE_ADD 顺序排队
-                val mode = if (currentUtteranceId == null) TextToSpeech.QUEUE_FLUSH
-                           else TextToSpeech.QUEUE_ADD
+                val mode = if (currentUtteranceId == null) {
+                    TextToSpeech.QUEUE_FLUSH
+                } else {
+                    TextToSpeech.QUEUE_ADD
+                }
                 currentUtteranceId = utteranceId
                 tts.speak(clean, mode, null, utteranceId)
             }
@@ -988,8 +1001,11 @@ class TtsManager(
         val clean = MoodSkinParser.cleanForExport(stripMarkdown(sentenceBuffer.toString())).trim()
         sentenceBuffer.clear()
         if (clean.isNotEmpty() && ready.get()) {
-            val mode = if (currentUtteranceId == null) TextToSpeech.QUEUE_FLUSH
-                       else TextToSpeech.QUEUE_ADD
+            val mode = if (currentUtteranceId == null) {
+                TextToSpeech.QUEUE_FLUSH
+            } else {
+                TextToSpeech.QUEUE_ADD
+            }
             tts.speak(clean, mode, null, currentUtteranceId ?: "flush")
         }
     }
@@ -1100,7 +1116,9 @@ class TtsManager(
                 val unit = timeMatch.groupValues[2]
                 val secs = if (unit == "ms") amt / 1000f else amt
                 if (secs >= 1f) "。" else "，"
-            } else "，"
+            } else {
+                "，"
+            }
         }
         // 剥离其余未知标签
         text = text.replace(Regex("<[^>]+>"), "")
@@ -1137,12 +1155,7 @@ class TtsManager(
      * @param voiceId 克隆音色 id(VoiceCloningService.cloneVoice 返回值)
      * @param providerId 克隆服务商(默认 elevenlabs)
      */
-    fun speakWithClonedVoice(
-        text: String,
-        utteranceId: String,
-        voiceId: String,
-        providerId: String = "elevenlabs",
-    ): Boolean {
+    fun speakWithClonedVoice(text: String, utteranceId: String, voiceId: String, providerId: String = "elevenlabs"): Boolean {
         if (voiceId.isBlank()) return false
         val original = mediaConfig
         // 仅当当前引擎不是该 provider,或当前 voice 不是该克隆音色时才覆盖
@@ -1243,18 +1256,18 @@ class TtsManager(
             // 引用 > 前缀
             // M-SP2: 以下 Regex 均已提升为 companion object 常量,避免每次调用重新编译模式
             val cleaned = trimmed
-                .replace(HEADING_PREFIX_REGEX, "")           // 标题
-                .replace(UNORDERED_LIST_REGEX, "")           // 无序列表
-                .replace(ORDERED_LIST_REGEX, "")             // 有序列表
-                .replace(QUOTE_PREFIX_REGEX, "")             // 引用
-                .replace(IMAGE_REGEX, "")                    // 图片
-                .replace(LINK_REGEX, "$1")                   // 链接保留 text
-                .replace(INLINE_CODE_REGEX, "$1")            // 行内代码
-                .replace(BOLD_ASTERISK_REGEX, "$1")          // 粗体 **
-                .replace(BOLD_UNDERSCORE_REGEX, "$1")        // 粗体 _
-                .replace(ITALIC_ASTERISK_REGEX, "$1")        // 斜体 *
-                .replace(ITALIC_UNDERSCORE_REGEX, "$1")      // 斜体 _
-                .replace(HORIZONTAL_RULE_REGEX, "")          // 水平线
+                .replace(HEADING_PREFIX_REGEX, "") // 标题
+                .replace(UNORDERED_LIST_REGEX, "") // 无序列表
+                .replace(ORDERED_LIST_REGEX, "") // 有序列表
+                .replace(QUOTE_PREFIX_REGEX, "") // 引用
+                .replace(IMAGE_REGEX, "") // 图片
+                .replace(LINK_REGEX, "$1") // 链接保留 text
+                .replace(INLINE_CODE_REGEX, "$1") // 行内代码
+                .replace(BOLD_ASTERISK_REGEX, "$1") // 粗体 **
+                .replace(BOLD_UNDERSCORE_REGEX, "$1") // 粗体 _
+                .replace(ITALIC_ASTERISK_REGEX, "$1") // 斜体 *
+                .replace(ITALIC_UNDERSCORE_REGEX, "$1") // 斜体 _
+                .replace(HORIZONTAL_RULE_REGEX, "") // 水平线
             if (cleaned.isNotBlank()) {
                 sb.appendLine(cleaned)
             }

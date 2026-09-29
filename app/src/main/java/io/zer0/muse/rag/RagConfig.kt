@@ -105,11 +105,13 @@ data class RagConfig(
     enum class EmbeddingSource {
         /** 云端 API(质量优先,需联网)。 */
         CLOUD,
+
         /**
          * v1.133: 本地 ONNX(神经网络语义嵌入,需下载模型文件)。
          * 若 onnxruntime-android 依赖未引入,RagService 会降级到 LOCAL_KEYWORD。
          */
         LOCAL,
+
         /** v1.133: 本地关键词哈希(无 ONNX 时的离线降级方案,非真正语义)。 */
         LOCAL_KEYWORD,
     }

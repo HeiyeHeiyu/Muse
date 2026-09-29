@@ -1,9 +1,9 @@
 package io.zer0.ai.image
 
-import io.zer0.common.Logger
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ProviderKeyRotation
 import io.zer0.ai.core.ProviderType
+import io.zer0.common.Logger
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -55,8 +55,7 @@ class AgnesImageProvider429KeySwitchTest {
             if (!multi) return ProviderKeyRotation(config)
             var switched = false
             return object : ProviderKeyRotation(config) {
-                override fun effectiveApiKey(): String =
-                    if (switched) "sk_b" else "sk_a"
+                override fun effectiveApiKey(): String = if (switched) "sk_b" else "sk_a"
 
                 override fun switchToNextKey(): Boolean {
                     switched = true

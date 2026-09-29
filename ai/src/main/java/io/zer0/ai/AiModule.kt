@@ -1,30 +1,29 @@
 package io.zer0.ai
 
-import io.zer0.common.ErrorCode
-import io.zer0.common.toMessage
-import io.zer0.common.Logger
+import io.zer0.ai.anthropic.AnthropicProvider
 import io.zer0.ai.core.ChatCompletion
 import io.zer0.ai.core.ChatRequest
 import io.zer0.ai.core.ChatRequestMode
 import io.zer0.ai.core.ChatStreamEvent
+import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.Model
 import io.zer0.ai.core.ModelAbility
-import io.zer0.ai.core.ModelVerification
 import io.zer0.ai.core.ModelOutputPolicy
 import io.zer0.ai.core.Provider
-import io.zer0.ai.core.MessageRole
+import io.zer0.ai.core.ProviderCompatRules
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ProviderType
-import io.zer0.ai.core.ProviderCompatRules
 import io.zer0.ai.core.ReasoningLevel
 import io.zer0.ai.core.ToolDefinition
 import io.zer0.ai.core.UIMessage
-import io.zer0.ai.core.withFirstEventWatchdog
 import io.zer0.ai.core.firstEventTimeoutMs
-import io.zer0.ai.anthropic.AnthropicProvider
+import io.zer0.ai.core.withFirstEventWatchdog
 import io.zer0.ai.gemini.GeminiProvider
 import io.zer0.ai.openai.OpenAIProvider
 import io.zer0.ai.registry.ModelRegistry
+import io.zer0.common.ErrorCode
+import io.zer0.common.Logger
+import io.zer0.common.toMessage
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -83,11 +82,7 @@ object ProviderRegistry {
  *
  * v2.1.0: 抑制路径统一留日志(静默丢弃曾让整个 Agent 工具链路无声失效)。
  */
-internal fun shouldSendTools(
-    model: Model,
-    config: ProviderConfig,
-    tools: List<ToolDefinition>?,
-): Boolean {
+internal fun shouldSendTools(model: Model, config: ProviderConfig, tools: List<ToolDefinition>?): Boolean {
     if (tools.isNullOrEmpty()) return false
     val sends =
         when {

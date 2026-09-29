@@ -16,11 +16,9 @@ data class ToolOutcome(
     val isError: Boolean = false,
 ) {
     companion object {
-        fun ok(content: String, details: Map<String, Any?> = emptyMap()) =
-            ToolOutcome(content, details, isError = false)
+        fun ok(content: String, details: Map<String, Any?> = emptyMap()) = ToolOutcome(content, details, isError = false)
 
-        fun error(content: String, details: Map<String, Any?> = emptyMap()) =
-            ToolOutcome(content, details, isError = true)
+        fun error(content: String, details: Map<String, Any?> = emptyMap()) = ToolOutcome(content, details, isError = true)
     }
 
     /** 给 LLM 的文本(兼容旧语义,直接取 content)。 */

@@ -119,21 +119,19 @@ class ToolOrchestratorOutputWriteTest {
         reasoningLevel = ReasoningLevel.OFF,
     )
 
-    private fun toolRound(toolCall: ToolCall): StreamRoundResult.Success =
-        StreamRoundResult.Success(
-            assistantMessage = UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(toolCall)),
-            hasToolCalls = true,
-            contentLength = 0,
-            firstTokenTime = 0L,
-        )
+    private fun toolRound(toolCall: ToolCall): StreamRoundResult.Success = StreamRoundResult.Success(
+        assistantMessage = UIMessage(role = MessageRole.ASSISTANT, content = "", toolCalls = listOf(toolCall)),
+        hasToolCalls = true,
+        contentLength = 0,
+        firstTokenTime = 0L,
+    )
 
-    private fun finalRound(): StreamRoundResult.Success =
-        StreamRoundResult.Success(
-            assistantMessage = UIMessage(role = MessageRole.ASSISTANT, content = "done"),
-            hasToolCalls = false,
-            contentLength = 0,
-            firstTokenTime = 0L,
-        )
+    private fun finalRound(): StreamRoundResult.Success = StreamRoundResult.Success(
+        assistantMessage = UIMessage(role = MessageRole.ASSISTANT, content = "done"),
+        hasToolCalls = false,
+        contentLength = 0,
+        firstTokenTime = 0L,
+    )
 
     private class FakeToolLoopHost(
         private val results: ArrayDeque<StreamRoundResult>,

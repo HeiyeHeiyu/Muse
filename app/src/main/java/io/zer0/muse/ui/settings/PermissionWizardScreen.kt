@@ -153,11 +153,11 @@ fun PermissionWizardScreen(onBack: () -> Unit) {
     ) { padding ->
         Column(
             modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // 当前权限等级总览
@@ -378,11 +378,11 @@ private fun ChannelCard(
                 text = if (enabled) enabledText else disabledText,
                 style = MaterialTheme.typography.bodyMedium,
                 color =
-                    if (enabled) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    },
+                if (enabled) {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
             )
             if (actionText.isNotBlank()) {
                 Spacer(Modifier.height(12.dp))
@@ -434,29 +434,29 @@ private fun ShizukuChannelCard(
             StatusLine(
                 done = installed,
                 text =
-                    if (installed) {
-                        stringResource(R.string.shizuku_apk_installed)
-                    } else {
-                        stringResource(R.string.shizuku_apk_not_installed)
-                    },
+                if (installed) {
+                    stringResource(R.string.shizuku_apk_installed)
+                } else {
+                    stringResource(R.string.shizuku_apk_not_installed)
+                },
             )
             StatusLine(
                 done = available,
                 text =
-                    if (available) {
-                        stringResource(R.string.shizuku_service_running)
-                    } else {
-                        stringResource(R.string.shizuku_service_not_running)
-                    },
+                if (available) {
+                    stringResource(R.string.shizuku_service_running)
+                } else {
+                    stringResource(R.string.shizuku_service_not_running)
+                },
             )
             StatusLine(
                 done = authorized,
                 text =
-                    if (authorized) {
-                        stringResource(R.string.shizuku_status_authorized)
-                    } else {
-                        stringResource(R.string.shizuku_status_unauthorized_long)
-                    },
+                if (authorized) {
+                    stringResource(R.string.shizuku_status_authorized)
+                } else {
+                    stringResource(R.string.shizuku_status_unauthorized_long)
+                },
             )
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -524,29 +524,29 @@ private fun TermuxChannelCard(
             StatusLine(
                 done = installed,
                 text =
-                    if (installed) {
-                        stringResource(R.string.permission_termux_apk_installed)
-                    } else {
-                        stringResource(R.string.permission_termux_apk_not_installed)
-                    },
+                if (installed) {
+                    stringResource(R.string.permission_termux_apk_installed)
+                } else {
+                    stringResource(R.string.permission_termux_apk_not_installed)
+                },
             )
             StatusLine(
                 done = permitted,
                 text =
-                    if (permitted) {
-                        stringResource(R.string.permission_termux_permission_ok)
-                    } else {
-                        stringResource(R.string.permission_termux_permission_missing)
-                    },
+                if (permitted) {
+                    stringResource(R.string.permission_termux_permission_ok)
+                } else {
+                    stringResource(R.string.permission_termux_permission_missing)
+                },
             )
             StatusLine(
                 done = probeOk == true,
                 text =
-                    when (probeOk) {
-                        true -> stringResource(R.string.permission_termux_probe_ok)
-                        false -> stringResource(R.string.permission_termux_probe_failed)
-                        null -> stringResource(R.string.permission_termux_probe_unchecked)
-                    },
+                when (probeOk) {
+                    true -> stringResource(R.string.permission_termux_probe_ok)
+                    false -> stringResource(R.string.permission_termux_probe_failed)
+                    null -> stringResource(R.string.permission_termux_probe_unchecked)
+                },
             )
             if (installed && permitted && probeOk != true) {
                 Spacer(Modifier.height(8.dp))
@@ -595,12 +595,7 @@ private fun TermuxChannelCard(
 }
 
 @Composable
-private fun A11yProviderCard(
-    installed: Boolean,
-    bundled: Boolean,
-    onInstall: () -> Unit,
-    onRefresh: () -> Unit,
-) {
+private fun A11yProviderCard(installed: Boolean, bundled: Boolean, onInstall: () -> Unit, onRefresh: () -> Unit) {
     MuseSurface(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -617,22 +612,22 @@ private fun A11yProviderCard(
                     imageVector = if (installed) MuseIcons.circleCheck else MuseIcons.alertTriangle,
                     contentDescription = null,
                     tint =
-                        if (installed) {
-                            MaterialTheme.statusColors.success
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                    if (installed) {
+                        MaterialTheme.statusColors.success
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     modifier = Modifier.size(24.dp),
                 )
             }
             Spacer(Modifier.height(8.dp))
             Text(
                 text =
-                    if (installed) {
-                        stringResource(R.string.permission_a11y_provider_installed)
-                    } else {
-                        stringResource(R.string.permission_a11y_provider_not_installed)
-                    },
+                if (installed) {
+                    stringResource(R.string.permission_a11y_provider_installed)
+                } else {
+                    stringResource(R.string.permission_a11y_provider_not_installed)
+                },
                 style = MaterialTheme.typography.bodyMedium,
             )
             Spacer(Modifier.height(8.dp))
@@ -662,10 +657,7 @@ private fun A11yProviderCard(
 }
 
 @Composable
-private fun StatusLine(
-    done: Boolean,
-    text: String,
-) {
+private fun StatusLine(done: Boolean, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
         Icon(
             imageVector = if (done) MuseIcons.circleCheck else MuseIcons.alertTriangle,
@@ -679,11 +671,11 @@ private fun StatusLine(
             text = text,
             style = MaterialTheme.typography.bodySmall,
             color =
-                if (done) {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                } else {
-                    MaterialTheme.colorScheme.error
-                },
+            if (done) {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            } else {
+                MaterialTheme.colorScheme.error
+            },
         )
     }
 }

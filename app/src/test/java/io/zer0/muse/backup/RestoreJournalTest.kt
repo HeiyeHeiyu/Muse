@@ -2,7 +2,6 @@ package io.zer0.muse.backup
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -12,6 +11,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.File
 
 /** RestoreJournal 的阶段持久化和完成清理测试。 */
 @RunWith(RobolectricTestRunner::class)

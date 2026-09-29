@@ -101,87 +101,89 @@ class AgnesVideoProvider(
             when {
                 images.size == 1 -> put("image", images[0])
                 images.size > 1 -> {
-                    put("extra_body", buildJsonObject {
-                        put("image", JsonArray(images.map { JsonPrimitive(it) }))
-                    })
+                    put(
+                        "extra_body",
+                        buildJsonObject {
+                            put("image", JsonArray(images.map { JsonPrimitive(it) }))
+                        },
+                    )
                 }
             }
         }
     }
 
-    override suspend fun submit(request: VideoGenRequest): VideoSubmitResult =
-        withContext(Dispatchers.IO) {
-            resultOf {
-                if (request.apiKey.isBlank()) {
-                    error("Agnes API key 为空")
-                }
-                if (request.prompt.isBlank()) {
-                    error("Prompt 为空")
-                }
+    override suspend fun submit(request: VideoGenRequest): VideoSubmitResult = withContext(Dispatchers.IO) {
+        resultOf {
+            if (request.apiKey.isBlank()) {
+                error("Agnes API key 为空")
+            }
+            if (request.prompt.isBlank()) {
+                error("Prompt 为空")
+            }
 
-                val model = request.model.ifBlank { DEFAULT_MODEL }
-                val base = agnesV1Base(request.baseUrl)
-                val url = "$base/videos"
+            val model = request.model.ifBlank { DEFAULT_MODEL }
+            val base = agnesV1Base(request.baseUrl)
+            val url = "$base/videos"
 
-                // 校正帧数到 8n+1 合法值
-                val numFrames = resolveNumFrames(request.numFrames, request.frameRate, request.duration)
+            // 校正帧数到 8n+1 合法值
+            val numFrames = resolveNumFrames(request.numFrames, request.frameRate, request.duration)
 
-                val body = buildRequestBody(request, numFrames)
+            val body = buildRequestBody(request, numFrames)
 
-                val httpRequest = Request.Builder()
-                    .url(url)
-                    .header("Authorization", "Bearer ${request.apiKey}")
-                    .header("Content-Type", "application/json")
-                    .post(body.toString().toRequestBody("application/json".toMediaType()))
-                    .build()
+            val httpRequest = Request.Builder()
+                .url(url)
+                .header("Authorization", "Bearer ${request.apiKey}")
+                .header("Content-Type", "application/json")
+                .post(body.toString().toRequestBody("application/json".toMediaType()))
+                .build()
 
-                Logger.i(
-                    TAG,
-                    "submit: model=$model size=${request.width}x${request.height} " +
-                        "frameRate=${request.frameRate} numFrames=$numFrames images=" +
-                            "${request.referenceImages.count { it.isNotBlank() }}",
-                )
+            Logger.i(
+                TAG,
+                "submit: model=$model size=${request.width}x${request.height} " +
+                    "frameRate=${request.frameRate} numFrames=$numFrames images=" +
+                    "${request.referenceImages.count { it.isNotBlank() }}",
+            )
 
-                exec(httpRequest).use { resp ->
-                    val respBody = readBody(resp)
-                    if (!resp.isSuccessful) {
-                        val apiMsg = parseApiErrorMessage(respBody)
-                        error(
-                            "Agnes submit 失败: HTTP ${resp.code}" +
-                                (apiMsg?.let { ": $it" } ?: if (respBody.isNotBlank()) ": $respBody" else ""),
-                        )
-                    }
-                    val root = json.parseToJsonElement(respBody).jsonObject
-                    // 优先取 video_id,其次 task_id / id
-                    val taskId = root["video_id"]?.jsonPrimitive?.content
-                        ?: root["task_id"]?.jsonPrimitive?.content
-                        ?: root["id"]?.jsonPrimitive?.content
-                        ?: error("Agnes submit 响应缺少 video_id/task_id: $respBody")
-
-                    // 同步返回检查:部分场景下完成态可能直接返回视频 URL
-                    val syncVideoUrl = extractVideoUrl(root)
-                    if (syncVideoUrl != null) {
-                        Logger.i(TAG, "submit 同步返回视频: taskId=$taskId")
-                        return@use VideoSubmitResult(
-                            taskId = taskId,
-                            videoUrl = syncVideoUrl,
-                            isAsync = false,
-                            modelName = model,
-                        )
-                    }
-
-                    taskContext[taskId] = TaskContext(
-                        apiKey = request.apiKey,
-                        modelName = model,
-                        // 审计修复 (7.6): 存 baseUrl,poll 用同一端点(原 poll 硬编码默认域名,
-                        // 用户配置自建代理/中转时提交成功但轮询打到默认域名,任务永远查不到)
-                        baseUrl = agnesRootBase(request.baseUrl),
+            exec(httpRequest).use { resp ->
+                val respBody = readBody(resp)
+                if (!resp.isSuccessful) {
+                    val apiMsg = parseApiErrorMessage(respBody)
+                    error(
+                        "Agnes submit 失败: HTTP ${resp.code}" +
+                            (apiMsg?.let { ": $it" } ?: if (respBody.isNotBlank()) ": $respBody" else ""),
                     )
-                    Logger.i(TAG, "submit 成功: taskId=$taskId")
-                    VideoSubmitResult(taskId = taskId, isAsync = true, modelName = model)
                 }
-            }.getOrThrow()
-        }
+                val root = json.parseToJsonElement(respBody).jsonObject
+                // 优先取 video_id,其次 task_id / id
+                val taskId = root["video_id"]?.jsonPrimitive?.content
+                    ?: root["task_id"]?.jsonPrimitive?.content
+                    ?: root["id"]?.jsonPrimitive?.content
+                    ?: error("Agnes submit 响应缺少 video_id/task_id: $respBody")
+
+                // 同步返回检查:部分场景下完成态可能直接返回视频 URL
+                val syncVideoUrl = extractVideoUrl(root)
+                if (syncVideoUrl != null) {
+                    Logger.i(TAG, "submit 同步返回视频: taskId=$taskId")
+                    return@use VideoSubmitResult(
+                        taskId = taskId,
+                        videoUrl = syncVideoUrl,
+                        isAsync = false,
+                        modelName = model,
+                    )
+                }
+
+                taskContext[taskId] = TaskContext(
+                    apiKey = request.apiKey,
+                    modelName = model,
+                    // 审计修复 (7.6): 存 baseUrl,poll 用同一端点(原 poll 硬编码默认域名,
+                    // 用户配置自建代理/中转时提交成功但轮询打到默认域名,任务永远查不到)
+                    baseUrl = agnesRootBase(request.baseUrl),
+                )
+                Logger.i(TAG, "submit 成功: taskId=$taskId")
+                VideoSubmitResult(taskId = taskId, isAsync = true, modelName = model)
+            }
+        }.getOrThrow()
+    }
 
     /**
      * 查询任务状态。
@@ -189,75 +191,74 @@ class AgnesVideoProvider(
      * GET {rootBase}/agnesapi?video_id=X&model_name=Y
      * rootBase 为 baseUrl 剥离 /v1 后缀。
      */
-    override suspend fun poll(taskId: String): VideoPollResult =
-        withContext(Dispatchers.IO) {
-            val r = resultOf {
-                val ctx = taskContext[taskId]
-                val apiKey = ctx?.apiKey ?: ""
-                val modelName = ctx?.modelName ?: ""
-                if (apiKey.isBlank()) {
-                    return@resultOf VideoPollResult(
-                        status = PollStatus.FAILED,
-                        errorMessage = "Agnes poll 缺少 apiKey(taskId=$taskId, 任务上下文已丢失)",
-                    )
-                }
-
-                val rootBase = ctx?.baseUrl ?: agnesRootBase(null)
-                val queryBuilder = StringBuilder("?video_id=").append(urlEncode(taskId))
-                if (modelName.isNotBlank()) {
-                    queryBuilder.append("&model_name=").append(urlEncode(modelName))
-                }
-                val url = "$rootBase/agnesapi$queryBuilder"
-
-                val httpRequest = Request.Builder()
-                    .url(url)
-                    .header("Authorization", "Bearer $apiKey")
-                    .get()
-                    .build()
-
-                exec(httpRequest).use { resp ->
-                    val respBody = readBody(resp)
-                    if (!resp.isSuccessful) {
-                        // HTTP 错误不直接判失败,交给上层重试机制处理(连续 5 次才失败)
-                        return@use VideoPollResult(
-                            status = PollStatus.PENDING,
-                            errorMessage = "Agnes poll HTTP ${resp.code}: $respBody",
-                        )
-                    }
-                    val root = json.parseToJsonElement(respBody).jsonObject
-                    val statusStr = root["status"]?.jsonPrimitive?.content?.lowercase() ?: "unknown"
-                    val status = mapStatus(statusStr)
-
-                    when (status) {
-                        PollStatus.SUCCESS -> {
-                            val videoUrl = extractVideoUrl(root)
-                                ?: return@use VideoPollResult(
-                                    status = PollStatus.PENDING,
-                                    errorMessage = "Agnes 状态为成功但未找到视频 URL: $respBody",
-                                )
-                            // 成功后清理上下文
-                            taskContext.remove(taskId)
-                            VideoPollResult(status = status, videoUrl = videoUrl)
-                        }
-                        PollStatus.FAILED -> {
-                            val errMsg = root["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content
-                                ?: root["message"]?.jsonPrimitive?.content
-                                ?: "Agnes 视频生成失败(status=$statusStr)"
-                            taskContext.remove(taskId)
-                            VideoPollResult(status = status, errorMessage = errMsg)
-                        }
-                        PollStatus.PENDING -> VideoPollResult(status = status)
-                    }
-                }
-            }
-            when (r) {
-                is io.zer0.common.Result.Success -> r.data
-                is io.zer0.common.Result.Error -> VideoPollResult(
-                    status = PollStatus.PENDING,
-                    errorMessage = "Agnes poll 异常: ${r.throwable?.message ?: r.throwable?.toString() ?: r.message}",
+    override suspend fun poll(taskId: String): VideoPollResult = withContext(Dispatchers.IO) {
+        val r = resultOf {
+            val ctx = taskContext[taskId]
+            val apiKey = ctx?.apiKey ?: ""
+            val modelName = ctx?.modelName ?: ""
+            if (apiKey.isBlank()) {
+                return@resultOf VideoPollResult(
+                    status = PollStatus.FAILED,
+                    errorMessage = "Agnes poll 缺少 apiKey(taskId=$taskId, 任务上下文已丢失)",
                 )
             }
+
+            val rootBase = ctx?.baseUrl ?: agnesRootBase(null)
+            val queryBuilder = StringBuilder("?video_id=").append(urlEncode(taskId))
+            if (modelName.isNotBlank()) {
+                queryBuilder.append("&model_name=").append(urlEncode(modelName))
+            }
+            val url = "$rootBase/agnesapi$queryBuilder"
+
+            val httpRequest = Request.Builder()
+                .url(url)
+                .header("Authorization", "Bearer $apiKey")
+                .get()
+                .build()
+
+            exec(httpRequest).use { resp ->
+                val respBody = readBody(resp)
+                if (!resp.isSuccessful) {
+                    // HTTP 错误不直接判失败,交给上层重试机制处理(连续 5 次才失败)
+                    return@use VideoPollResult(
+                        status = PollStatus.PENDING,
+                        errorMessage = "Agnes poll HTTP ${resp.code}: $respBody",
+                    )
+                }
+                val root = json.parseToJsonElement(respBody).jsonObject
+                val statusStr = root["status"]?.jsonPrimitive?.content?.lowercase() ?: "unknown"
+                val status = mapStatus(statusStr)
+
+                when (status) {
+                    PollStatus.SUCCESS -> {
+                        val videoUrl = extractVideoUrl(root)
+                            ?: return@use VideoPollResult(
+                                status = PollStatus.PENDING,
+                                errorMessage = "Agnes 状态为成功但未找到视频 URL: $respBody",
+                            )
+                        // 成功后清理上下文
+                        taskContext.remove(taskId)
+                        VideoPollResult(status = status, videoUrl = videoUrl)
+                    }
+                    PollStatus.FAILED -> {
+                        val errMsg = root["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content
+                            ?: root["message"]?.jsonPrimitive?.content
+                            ?: "Agnes 视频生成失败(status=$statusStr)"
+                        taskContext.remove(taskId)
+                        VideoPollResult(status = status, errorMessage = errMsg)
+                    }
+                    PollStatus.PENDING -> VideoPollResult(status = status)
+                }
+            }
         }
+        when (r) {
+            is io.zer0.common.Result.Success -> r.data
+            is io.zer0.common.Result.Error -> VideoPollResult(
+                status = PollStatus.PENDING,
+                errorMessage = "Agnes poll 异常: ${r.throwable?.message ?: r.throwable?.toString() ?: r.message}",
+            )
+        }
+    }
 
     // ── 帧数约束 ─────────────────────────────────────────────────────────────
 
@@ -363,8 +364,7 @@ class AgnesVideoProvider(
     }
 
     /** 简易 URL query 值编码(仅编码特殊字符)。 */
-    private fun urlEncode(value: String): String =
-        java.net.URLEncoder.encode(value, "UTF-8")
+    private fun urlEncode(value: String): String = java.net.URLEncoder.encode(value, "UTF-8")
 
     // ── HTTP 工具(与 KlingVideoProvider 一致) ───────────────────────────────
 
@@ -376,20 +376,19 @@ class AgnesVideoProvider(
         return String(bytes, Charsets.UTF_8)
     }
 
-    private suspend fun exec(request: Request): Response =
-        suspendCancellableCoroutine { cont ->
-            val call = client.newCall(request)
-            cont.invokeOnCancellation { runCatching { call.cancel() } }
-            call.enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    if (cont.isActive) cont.resumeWithException(e)
-                }
+    private suspend fun exec(request: Request): Response = suspendCancellableCoroutine { cont ->
+        val call = client.newCall(request)
+        cont.invokeOnCancellation { runCatching { call.cancel() } }
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                if (cont.isActive) cont.resumeWithException(e)
+            }
 
-                override fun onResponse(call: Call, response: Response) {
-                    if (cont.isActive) cont.resume(response) else response.close()
-                }
-            })
-        }
+            override fun onResponse(call: Call, response: Response) {
+                if (cont.isActive) cont.resume(response) else response.close()
+            }
+        })
+    }
 
     companion object {
         private const val TAG = "AgnesVideoProvider"

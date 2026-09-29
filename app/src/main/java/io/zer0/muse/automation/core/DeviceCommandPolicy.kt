@@ -77,10 +77,7 @@ object DeviceCommandPolicy {
      * v2.2.1 虚拟屏:`input` 的专用校验 —— 允许单个 `-d/--display <数字>` 前缀,
      * 其后必须跟白名单子命令;除此之外的旗标一律拒绝。
      */
-    private fun validateInput(
-        tokens: List<String>,
-        subVerbs: Set<String>,
-    ): Check {
+    private fun validateInput(tokens: List<String>, subVerbs: Set<String>): Check {
         var index = 1
         var displaySpecified = false
         while (index < tokens.size && tokens[index].startsWith("-")) {

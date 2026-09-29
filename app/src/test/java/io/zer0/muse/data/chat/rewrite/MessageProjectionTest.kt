@@ -72,5 +72,4 @@ class MessageProjectionTest {
         assertEquals(projection, repeated)
         assertEquals(3, projection.projectionVersion)
     }
-
 }

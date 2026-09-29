@@ -50,10 +50,7 @@ class MemoryInjectionTransformer(
 
     override val name: String = "MemoryInjection"
 
-    override suspend fun transform(
-        messages: List<UIMessage>,
-        context: TransformContext,
-    ): List<UIMessage> {
+    override suspend fun transform(messages: List<UIMessage>, context: TransformContext): List<UIMessage> {
         val enabled = (context.extra("memory_enabled") as? Boolean) ?: false
         if (!enabled) return messages
 

@@ -4,12 +4,6 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.theme.MuseAnimation
-import io.zer0.muse.ui.theme.MuseMotion
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,10 +28,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,11 +41,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
-import io.zer0.muse.tools.DelegationChainTracker
 import io.zer0.muse.data.assistant.AssistantRepository
+import io.zer0.muse.tools.DelegationChainTracker
 import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.media.AssistantAvatar
+import io.zer0.muse.ui.theme.MuseAnimation
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.tiny
@@ -67,10 +67,7 @@ import org.koin.compose.koinInject
  * @param modifier 外部修饰
  */
 @Composable
-fun DelegationChainCard(
-    roots: List<DelegationChainTracker.ChainNode>,
-    modifier: Modifier = Modifier,
-) {
+fun DelegationChainCard(roots: List<DelegationChainTracker.ChainNode>, modifier: Modifier = Modifier) {
     val assistantRepository: AssistantRepository = koinInject()
     val assistants by assistantRepository.observeAll.collectAsStateWithLifecycle(initialValue = emptyList())
     val assistantById = remember(assistants) { assistants.associateBy { it.id } }
@@ -404,10 +401,7 @@ private fun TargetBadge(targetType: String, targetName: String) {
 
 /** 节点详情弹窗:展示完整任务 / 结果 / 错误 / 耗时。 */
 @Composable
-private fun NodeDetailDialog(
-    node: DelegationChainTracker.ChainNode,
-    onDismiss: () -> Unit,
-) {
+private fun NodeDetailDialog(node: DelegationChainTracker.ChainNode, onDismiss: () -> Unit) {
     MuseDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.delegation_chain_title),
@@ -451,11 +445,7 @@ private fun NodeDetailDialog(
 
 /** 详情弹窗内的"标签:值"行。 */
 @Composable
-private fun DetailRow(
-    label: String,
-    value: String,
-    isError: Boolean = false,
-) {
+private fun DetailRow(label: String, value: String, isError: Boolean = false) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(
             text = label,
@@ -466,8 +456,11 @@ private fun DetailRow(
         Text(
             text = value,
             style = MaterialTheme.typography.bodySmall,
-            color = if (isError) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.onSurface,
+            color = if (isError) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            },
         )
     }
 }

@@ -27,17 +27,13 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.ui.common.surface.MuseScaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,7 +59,11 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.museAnimateItem
+import io.zer0.muse.ui.common.state.MuseSpinner
+import io.zer0.muse.ui.common.surface.MuseScaffold
 import io.zer0.muse.ui.common.surface.MuseSurface
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseMotion
@@ -95,11 +95,7 @@ import java.util.Locale
  *  - 所有图标用 TablerIcons,图标 tint 用 onSurface/onSurfaceVariant
  */
 @Composable
-fun StatsScreen(
-    onBack: () -> Unit,
-    onOpenSession: (String) -> Unit = {},
-    viewModel: StatsViewModel = koinViewModel(),
-) {
+fun StatsScreen(onBack: () -> Unit, onOpenSession: (String) -> Unit = {}, viewModel: StatsViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -125,114 +121,114 @@ fun StatsScreen(
             label = "statsContent",
             modifier = Modifier.fillMaxSize(),
         ) { kind ->
-        when (kind) {
-            0 -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    MuseSpinner()
+            when (kind) {
+                0 -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        MuseSpinner()
+                    }
+                }
+                1 -> {
+                    EmptyStatsState(
+                        onAction = onBack,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                    )
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            top = innerPadding.calculateTopPadding(),
+                            bottom = innerPadding.calculateBottomPadding() + 16.dp,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(MusePaddings.sectionGap),
+                    ) {
+                        // 1. 时间范围筛选(仅影响下方指标网格)
+                        // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
+                        item(key = "time_range_filter") {
+                            Box(museAnimateItem()) {
+                                TimeRangeFilterRow(
+                                    currentRange = state.timeRange,
+                                    onRangeChange = { viewModel.setTimeRange(it) },
+                                    modifier = Modifier.padding(horizontal = MusePaddings.screen),
+                                )
+                            }
+                        }
+
+                        // 2. 关键指标网格 2×3(响应 timeRange)
+                        // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
+                        item(key = "metrics_grid") {
+                            Box(museAnimateItem()) {
+                                KeyMetricsGrid(
+                                    state = state,
+                                    modifier = Modifier.padding(horizontal = MusePaddings.screen),
+                                )
+                            }
+                        }
+
+                        // 3. 活跃热力图(单 Canvas,全量历史)
+                        // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
+                        item(key = "heatmap") {
+                            Box(museAnimateItem()) {
+                                HeatmapCard(
+                                    messagesPerDay = state.messagesPerDay,
+                                    modifier = Modifier.padding(horizontal = MusePaddings.screen),
+                                )
+                            }
+                        }
+
+                        // 4. 活跃趋势(7/30/90 天窗口,折线 + 平均线)
+                        // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
+                        item(key = "trend") {
+                            Box(museAnimateItem()) {
+                                TrendCard(
+                                    messagesPerDay = state.messagesPerDay,
+                                    modifier = Modifier.padding(horizontal = MusePaddings.screen),
+                                )
+                            }
+                        }
+
+                        // 5. 小时活跃分布(24 根柱状图)
+                        // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
+                        item(key = "hourly") {
+                            Box(museAnimateItem()) {
+                                HourlyDistributionCard(
+                                    hourlyDistribution = state.hourlyDistribution,
+                                    modifier = Modifier.padding(horizontal = MusePaddings.screen),
+                                )
+                            }
+                        }
+
+                        // 6. 助手使用占比(环形图)
+                        // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
+                        item(key = "assistant_donut") {
+                            Box(museAnimateItem()) {
+                                AssistantDonutCard(
+                                    assistantCounts = state.assistantCounts,
+                                    modifier = Modifier.padding(horizontal = MusePaddings.screen),
+                                )
+                            }
+                        }
+
+                        // 7. Top 模型(Top 5 + 展开)
+                        // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
+                        item(key = "top_models") {
+                            Box(museAnimateItem()) {
+                                TopModelsCard(
+                                    modelCounts = state.modelCounts,
+                                    modifier = Modifier.padding(horizontal = MusePaddings.screen),
+                                )
+                            }
+                        }
+                    }
                 }
             }
-            1 -> {
-                EmptyStatsState(
-                    onAction = onBack,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                )
-            }
-            else -> {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    top = innerPadding.calculateTopPadding(),
-                    bottom = innerPadding.calculateBottomPadding() + 16.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(MusePaddings.sectionGap),
-            ) {
-                // 1. 时间范围筛选(仅影响下方指标网格)
-                // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
-                item(key = "time_range_filter") {
-                    Box(museAnimateItem()) {
-                    TimeRangeFilterRow(
-                        currentRange = state.timeRange,
-                        onRangeChange = { viewModel.setTimeRange(it) },
-                        modifier = Modifier.padding(horizontal = MusePaddings.screen),
-                    )
-                    }
-                }
-
-                // 2. 关键指标网格 2×3(响应 timeRange)
-                // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
-                item(key = "metrics_grid") {
-                    Box(museAnimateItem()) {
-                    KeyMetricsGrid(
-                        state = state,
-                        modifier = Modifier.padding(horizontal = MusePaddings.screen),
-                    )
-                    }
-                }
-
-                // 3. 活跃热力图(单 Canvas,全量历史)
-                // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
-                item(key = "heatmap") {
-                    Box(museAnimateItem()) {
-                    HeatmapCard(
-                        messagesPerDay = state.messagesPerDay,
-                        modifier = Modifier.padding(horizontal = MusePaddings.screen),
-                    )
-                    }
-                }
-
-                // 4. 活跃趋势(7/30/90 天窗口,折线 + 平均线)
-                // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
-                item(key = "trend") {
-                    Box(museAnimateItem()) {
-                    TrendCard(
-                        messagesPerDay = state.messagesPerDay,
-                        modifier = Modifier.padding(horizontal = MusePaddings.screen),
-                    )
-                    }
-                }
-
-                // 5. 小时活跃分布(24 根柱状图)
-                // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
-                item(key = "hourly") {
-                    Box(museAnimateItem()) {
-                    HourlyDistributionCard(
-                        hourlyDistribution = state.hourlyDistribution,
-                        modifier = Modifier.padding(horizontal = MusePaddings.screen),
-                    )
-                    }
-                }
-
-                // 6. 助手使用占比(环形图)
-                // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
-                item(key = "assistant_donut") {
-                    Box(museAnimateItem()) {
-                    AssistantDonutCard(
-                        assistantCounts = state.assistantCounts,
-                        modifier = Modifier.padding(horizontal = MusePaddings.screen),
-                    )
-                    }
-                }
-
-                // 7. Top 模型(Top 5 + 展开)
-                // v2.x: 动效补齐 — 卡片入场(令牌 animateItem)
-                item(key = "top_models") {
-                    Box(museAnimateItem()) {
-                    TopModelsCard(
-                        modelCounts = state.modelCounts,
-                        modifier = Modifier.padding(horizontal = MusePaddings.screen),
-                    )
-                    }
-                }
-            }
-            }
-        }
         }
     }
 }
@@ -246,11 +242,7 @@ fun StatsScreen(
  * - 右上角:MuseIcons.share 导出按钮,点击调起系统分享
  */
 @Composable
-private fun DashboardHeader(
-    state: StatsViewModel.StatsUiState,
-    onBack: () -> Unit,
-    onExport: () -> Unit,
-) {
+private fun DashboardHeader(state: StatsViewModel.StatsUiState, onBack: () -> Unit, onExport: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -302,10 +294,7 @@ private fun DashboardHeader(
  * 空数据状态:ChartBar 图标 + 提示文本 + "去发起对话"按钮。
  */
 @Composable
-private fun EmptyStatsState(
-    onAction: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun EmptyStatsState(onAction: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.padding(MusePaddings.largeGap),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -349,15 +338,12 @@ private fun EmptyStatsState(
  * 每个指标:大数字 + 小标签 + 图标(灰阶 tint)。
  */
 @Composable
-private fun KeyMetricsGrid(
-    state: StatsViewModel.StatsUiState,
-    modifier: Modifier = Modifier,
-) {
+private fun KeyMetricsGrid(state: StatsViewModel.StatsUiState, modifier: Modifier = Modifier) {
     MuseSurface(
         modifier = modifier.fillMaxWidth(),
         shape = MuseShapes.extraLarge,
     ) {
-Column(
+        Column(
             modifier = Modifier.padding(MusePaddings.screen),
             verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
         ) {
@@ -426,12 +412,7 @@ Column(
 
 /** 单个指标单元:图标(灰阶)+ 大数字 + 小标签。 */
 @Composable
-private fun MetricCell(
-    icon: ImageVector,
-    value: String,
-    label: String,
-    modifier: Modifier = Modifier,
-) {
+private fun MetricCell(icon: ImageVector, value: String, label: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -468,11 +449,7 @@ private fun MetricCell(
  * 仅关键指标网格响应筛选;图表卡片保持全量。
  */
 @Composable
-private fun TimeRangeFilterRow(
-    currentRange: StatsTimeRange,
-    onRangeChange: (StatsTimeRange) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun TimeRangeFilterRow(currentRange: StatsTimeRange, onRangeChange: (StatsTimeRange) -> Unit, modifier: Modifier = Modifier) {
     val ranges = listOf(
         StatsTimeRange.ALL_TIME to R.string.stats_range_all,
         StatsTimeRange.THIS_MONTH to R.string.stats_range_month,
@@ -493,7 +470,7 @@ private fun TimeRangeFilterRow(
                 onClick = { onRangeChange(range) },
                 label = stringResource(labelRes),
                 modifier = Modifier.semantics {
-                    contentDescription = "$allCd: ${if (currentRange == range) "${selectedCd} " else ""}${ranges[index].first.name}"
+                    contentDescription = "$allCd: ${if (currentRange == range) "$selectedCd " else ""}${ranges[index].first.name}"
                 },
             )
         }
@@ -510,17 +487,14 @@ private fun TimeRangeFilterRow(
  * - 点击单元格显示当天消息数 tooltip
  */
 @Composable
-private fun HeatmapCard(
-    messagesPerDay: Map<LocalDate, Int>,
-    modifier: Modifier = Modifier,
-) {
+private fun HeatmapCard(messagesPerDay: Map<LocalDate, Int>, modifier: Modifier = Modifier) {
     var selectedCell by remember { mutableStateOf<Pair<LocalDate, Int>?>(null) }
 
     MuseSurface(
         modifier = modifier.fillMaxWidth(),
         shape = MuseShapes.extraLarge,
     ) {
-Column(
+        Column(
             modifier = Modifier.padding(MusePaddings.screen),
             verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
         ) {
@@ -600,10 +574,7 @@ Column(
  * - 配色:5 级灰阶(0/0.2/0.4/0.7/1.0),用 onSurface,不用 primary
  */
 @Composable
-private fun CanvasHeatmap(
-    messagesPerDay: Map<LocalDate, Int>,
-    onCellTap: (LocalDate, Int) -> Unit,
-) {
+private fun CanvasHeatmap(messagesPerDay: Map<LocalDate, Int>, onCellTap: (LocalDate, Int) -> Unit) {
     val today = LocalDate.now()
     val startSunday = today
         .with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY))
@@ -699,7 +670,7 @@ private fun CanvasHeatmap(
                 }
             }
 
-    val heatmapCd = stringResource(R.string.stats_heatmap_cd, numWeeks)
+            val heatmapCd = stringResource(R.string.stats_heatmap_cd, numWeeks)
             // Canvas 热力图主体:53 列(周)× 7 行(天),单节点
             Canvas(
                 modifier = Modifier
@@ -763,10 +734,7 @@ private fun CanvasHeatmap(
  * - 横轴:7 天显示周几,30/90 天显示 M/d
  */
 @Composable
-private fun TrendCard(
-    messagesPerDay: Map<LocalDate, Int>,
-    modifier: Modifier = Modifier,
-) {
+private fun TrendCard(messagesPerDay: Map<LocalDate, Int>, modifier: Modifier = Modifier) {
     var windowDays by remember { mutableStateOf(7) }
     val today = LocalDate.now()
 
@@ -797,7 +765,7 @@ private fun TrendCard(
         modifier = modifier.fillMaxWidth(),
         shape = MuseShapes.extraLarge,
     ) {
-Column(
+        Column(
             modifier = Modifier.padding(MusePaddings.screen),
             verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
         ) {
@@ -936,13 +904,14 @@ Column(
  * 小时活跃分布卡片:Canvas 24 根柱状图,峰值用 primary,其余用 onSurfaceVariant。
  */
 @Composable
-private fun HourlyDistributionCard(
-    hourlyDistribution: List<Int>,
-    modifier: Modifier = Modifier,
-) {
-    val hours = if (hourlyDistribution.size == 24) hourlyDistribution else IntArray(24) { idx ->
-        hourlyDistribution.getOrElse(idx) { 0 }
-    }.toList()
+private fun HourlyDistributionCard(hourlyDistribution: List<Int>, modifier: Modifier = Modifier) {
+    val hours = if (hourlyDistribution.size == 24) {
+        hourlyDistribution
+    } else {
+        IntArray(24) { idx ->
+            hourlyDistribution.getOrElse(idx) { 0 }
+        }.toList()
+    }
     val maxCount = hours.maxOrNull()?.takeIf { it > 0 } ?: 0
     val peakHour = hours.indexOfFirst { it == maxCount && maxCount > 0 }
     val hasData = maxCount > 0
@@ -956,7 +925,7 @@ private fun HourlyDistributionCard(
         modifier = modifier.fillMaxWidth(),
         shape = MuseShapes.extraLarge,
     ) {
-Column(
+        Column(
             modifier = Modifier.padding(MusePaddings.screen),
             verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
         ) {
@@ -1028,10 +997,7 @@ Column(
  * - 下方图例:助手名 + 数量
  */
 @Composable
-private fun AssistantDonutCard(
-    assistantCounts: List<StatsViewModel.AssistantUsage>,
-    modifier: Modifier = Modifier,
-) {
+private fun AssistantDonutCard(assistantCounts: List<StatsViewModel.AssistantUsage>, modifier: Modifier = Modifier) {
     val onSurface = MaterialTheme.colorScheme.onSurface
     val outline = MaterialTheme.colorScheme.outline
     val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1063,7 +1029,7 @@ private fun AssistantDonutCard(
         modifier = modifier.fillMaxWidth(),
         shape = MuseShapes.extraLarge,
     ) {
-Column(
+        Column(
             modifier = Modifier.padding(MusePaddings.screen),
             verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
         ) {
@@ -1192,10 +1158,7 @@ Column(
  * - 进度条用 onSurface(深)填充 + surfaceVariant 轨道,Top 1 用 primary 高亮
  */
 @Composable
-private fun TopModelsCard(
-    modelCounts: List<StatsViewModel.ModelUsage>,
-    modifier: Modifier = Modifier,
-) {
+private fun TopModelsCard(modelCounts: List<StatsViewModel.ModelUsage>, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     val onSurface = MaterialTheme.colorScheme.onSurface
     val outline = MaterialTheme.colorScheme.outline
@@ -1207,7 +1170,7 @@ private fun TopModelsCard(
         modifier = modifier.fillMaxWidth(),
         shape = MuseShapes.extraLarge,
     ) {
-Column(
+        Column(
             modifier = Modifier.padding(MusePaddings.screen),
             verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
         ) {
@@ -1337,7 +1300,7 @@ private fun formatAvg(avg: Double): String = when {
 }
 
 private fun formatTokenCount(chars: Long): String {
-    val estimatedTokens = chars / 2  // 粗略估算:中文约 2 字符/token
+    val estimatedTokens = chars / 2 // 粗略估算:中文约 2 字符/token
     return formatCount(estimatedTokens.toInt())
 }
 
@@ -1372,7 +1335,9 @@ private fun buildStatsSummaryText(context: Context, state: StatsViewModel.StatsU
     if (state.modelCounts.isNotEmpty()) {
         appendLine(context.getString(R.string.stats_summary_models_header))
         state.modelCounts.take(10).forEachIndexed { i, m ->
-            appendLine(context.getString(R.string.stats_summary_model_line, i + 1, m.modelName, m.count, (m.percentage * 100).toInt().toString()))
+            appendLine(
+                context.getString(R.string.stats_summary_model_line, i + 1, m.modelName, m.count, (m.percentage * 100).toInt().toString()),
+            )
         }
     }
     appendLine()

@@ -31,9 +31,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.R
-import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MusePaddings
 
 /**
  * v1.40: 滑块 — 替代 Material 默认 [androidx.compose.material3.Slider]。
@@ -129,7 +129,9 @@ fun MuseSlider(
                             change.consume()
                             val currentFraction = if (usableWidth > 0) {
                                 ((change.position.x - thumbSizePx / 2) / usableWidth).coerceIn(0f, 1f)
-                            } else 0f
+                            } else {
+                                0f
+                            }
                             val stepped = snapFraction(currentFraction, steps)
                             onValueChange((start + stepped * range).coerceIn(start, end))
                         },
@@ -176,7 +178,7 @@ fun MuseSlider(
                 // 拇指(白色 + 阴影)
                 val thumbRadius = (thumbSizePx / 2) * thumbScale
                 drawCircle(
-                    color = thumbColorVal,  // v1.48 (h20): onPrimary 替代裸 Color.White
+                    color = thumbColorVal, // v1.48 (h20): onPrimary 替代裸 Color.White
                     radius = thumbRadius,
                     center = Offset(thumbCenter, centerY),
                 )
@@ -203,6 +205,7 @@ fun MuseSlider(
 // L-SL3: 滑块专属尺寸抽为局部令牌,避免裸 22.dp / 6.dp 散落。
 /** 滑块拇指视觉尺寸。 */
 private val SliderThumbSize = 22.dp
+
 /** 滑块轨道高度。 */
 private val SliderTrackHeight = 6.dp
 

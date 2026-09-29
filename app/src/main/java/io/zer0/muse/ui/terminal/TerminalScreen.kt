@@ -95,10 +95,7 @@ fun TerminalScreen(onBack: () -> Unit) {
     fun pushText(text: String) = pushToTerminal(text.toByteArray(Charsets.UTF_8))
 
     // 调试探针:回读 WebView 内 xterm 真实状态(尺寸/行列/字元/写入计数/JS 错误)
-    fun runProbe(
-        wv: WebView,
-        tag: String,
-    ) {
+    fun runProbe(wv: WebView, tag: String) {
         val probe =
             "(function(){try{var t=window.__t;var q=document.querySelector('.xterm');" +
                 "var cell=(t&&t._core&&t._core._renderService)?t._core._renderService.dimensions.css.cell:null;" +
@@ -136,10 +133,10 @@ fun TerminalScreen(onBack: () -> Unit) {
         // ── 顶栏 ─────────────────────────────────────────────
         Row(
             modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = MusePaddings.tightGap, vertical = MusePaddings.tightGap),
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = MusePaddings.tightGap, vertical = MusePaddings.tightGap),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             MuseTopBarIconButton(
@@ -217,18 +214,11 @@ fun TerminalScreen(onBack: () -> Unit) {
                     }
                     webViewClient =
                         object : WebViewClient() {
-                            override fun onPageFinished(
-                                view: WebView?,
-                                url: String?,
-                            ) {
+                            override fun onPageFinished(view: WebView?, url: String?) {
                                 Logger.i(TAG, "WebView 加载完成: $url")
                             }
 
-                            override fun onReceivedError(
-                                view: WebView?,
-                                request: WebResourceRequest?,
-                                error: WebResourceError?,
-                            ) {
+                            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                                 Logger.w(TAG, "WebView 加载错误: ${error?.errorCode} ${error?.description} ${request?.url}")
                             }
                         }
@@ -267,10 +257,7 @@ fun TerminalScreen(onBack: () -> Unit) {
                             }
 
                             @JavascriptInterface
-                            fun onResize(
-                                rows: Int,
-                                cols: Int,
-                            ) {
+                            fun onResize(rows: Int, cols: Int) {
                                 session.resize(rows, cols)
                             }
                         },
@@ -280,19 +267,19 @@ fun TerminalScreen(onBack: () -> Unit) {
                 }.also { webViewRef = it }
             },
             modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
+            Modifier
+                .fillMaxWidth()
+                .weight(1f),
         )
 
         // ── 输入行 ───────────────────────────────────────────
         Row(
             modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = MusePaddings.screen)
-                    .padding(vertical = 6.dp),
+            Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = MusePaddings.screen)
+                .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(

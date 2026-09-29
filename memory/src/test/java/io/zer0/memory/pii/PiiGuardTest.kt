@@ -80,7 +80,13 @@ class PiiGuardTest {
     fun scrubMasksSurnamePlusTitleAsName() {
         // 姓氏 + 称谓应被识别为姓名并抹除。
         val inputs = listOf(
-            "王老师", "李医生", "张同学", "刘经理", "陈教授", "赵老板", "孙律师",
+            "王老师",
+            "李医生",
+            "张同学",
+            "刘经理",
+            "陈教授",
+            "赵老板",
+            "孙律师",
         )
         for (input in inputs) {
             val result = PiiGuard.scrub("我认识$input")
@@ -99,7 +105,9 @@ class PiiGuardTest {
     fun scrubMasksPlainNameWithContextMarker() {
         // 依赖上下文: 叫/姓/名叫 后跟姓氏+名,应被识别为姓名并抹除。
         val inputs = listOf(
-            "我叫张明，住成都市武侯区", "他姓李伟", "老师名叫王芳",
+            "我叫张明，住成都市武侯区",
+            "他姓李伟",
+            "老师名叫王芳",
         )
         for (input in inputs) {
             val result = PiiGuard.scrub(input)
@@ -119,12 +127,12 @@ class PiiGuardTest {
     @Test
     fun scrubMasksBankCard16To19Digits() {
         val cases = listOf(
-            "卡号 6222021234567890",      // 16 位
-            "卡号 62220212345678901",     // 17 位
-            "卡号 622202123456789012",    // 18 位
-            "卡号 6222021234567890123",   // 19 位
-            "卡号 6222 0212 3456 7890",   // 4-4-4-4 空格分隔(16 位)
-            "卡号 6222-0212-3456-7890123",// 4-4-4-分隔 + 尾段 7 位(19 位)
+            "卡号 6222021234567890", // 16 位
+            "卡号 62220212345678901", // 17 位
+            "卡号 622202123456789012", // 18 位
+            "卡号 6222021234567890123", // 19 位
+            "卡号 6222 0212 3456 7890", // 4-4-4-4 空格分隔(16 位)
+            "卡号 6222-0212-3456-7890123", // 4-4-4-分隔 + 尾段 7 位(19 位)
         )
         for (input in cases) {
             val result = PiiGuard.scrub(input)

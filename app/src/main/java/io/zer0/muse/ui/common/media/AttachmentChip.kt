@@ -19,13 +19,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.core.content.FileProvider
-import io.zer0.muse.ui.common.icons.MuseIcons
-import java.io.File
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
+import java.io.File
 
 /**
  * 文件附件芯片 — 显示在工具调用结果下方。
@@ -38,11 +38,7 @@ import io.zer0.muse.ui.theme.MuseShapes
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AttachmentChip(
-    filePath: String,
-    fileSize: Long? = null,
-    modifier: Modifier = Modifier,
-) {
+fun AttachmentChip(filePath: String, fileSize: Long? = null, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val file = File(filePath)
     val fileName = file.name

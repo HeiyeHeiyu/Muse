@@ -243,6 +243,4 @@ class ToolOrchestratorTimeoutAbandonTest {
         assertEquals(0, orchestrator.droppedLateResultCount())
         assertFalse(orchestrator.isToolCallAbandoned("t-ok-1"))
     }
-
-
 }

@@ -16,10 +16,13 @@ import kotlinx.serialization.json.JsonElement
 enum class ConfigItemType {
     /** 自由文本输入。 */
     string,
+
     /** 布尔开关。 */
     boolean,
+
     /** 数字输入（整数或浮点数）。 */
     number,
+
     /** 下拉枚举选择；[SelectConfigItem.options] 提供候选值。 */
     select,
 }

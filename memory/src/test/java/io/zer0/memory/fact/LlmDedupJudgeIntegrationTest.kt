@@ -50,12 +50,7 @@ class LlmDedupJudgeIntegrationTest {
         var lastA: String? = null
         var lastB: String? = null
 
-        override suspend fun judge(
-            a: String,
-            b: String,
-            entityKeyA: String?,
-            entityKeyB: String?,
-        ): DedupVerdict {
+        override suspend fun judge(a: String, b: String, entityKeyA: String?, entityKeyB: String?): DedupVerdict {
             calls++
             lastA = a
             lastB = b
@@ -105,12 +100,8 @@ class LlmDedupJudgeIntegrationTest {
     @Test
     fun `judge exception degrades to not same without blocking`() = runTest {
         val judge = object : FactDedupJudge {
-            override suspend fun judge(
-                a: String,
-                b: String,
-                entityKeyA: String?,
-                entityKeyB: String?,
-            ): DedupVerdict = throw RuntimeException("LLM timeout")
+            override suspend fun judge(a: String, b: String, entityKeyA: String?, entityKeyB: String?): DedupVerdict =
+                throw RuntimeException("LLM timeout")
         }
         val store = FactStore(dao, db, dedupJudge = judge)
 

@@ -47,8 +47,11 @@ class OnnxEmbeddingProvider(
 
     override val id: String = "local-onnx"
     override val displayName: String = "Local ONNX"
-    override val modelName: String = if (modelPath.isBlank()) "Not Configured"
-        else File(modelPath).nameWithoutExtension
+    override val modelName: String = if (modelPath.isBlank()) {
+        "Not Configured"
+    } else {
+        File(modelPath).nameWithoutExtension
+    }
 
     /** 推断维度:根据模型文件名关键词匹配常见模型维度。 */
     override val dimension: Int by lazy {
@@ -65,9 +68,13 @@ class OnnxEmbeddingProvider(
     }
 
     @Volatile private var session: OrtSession? = null
+
     @Volatile private var env: OrtEnvironment? = null
+
     @Volatile private var vocab: Map<String, Int>? = null
+
     @Volatile private var cachedInputNames: List<String>? = null
+
     @Volatile private var cachedOutputNames: List<String>? = null
     private val mutex = Mutex()
 
@@ -174,7 +181,7 @@ class OnnxEmbeddingProvider(
         if (!file.exists()) {
             throw IllegalStateException("ONNX vocab.txt not found: '$path'")
         }
-        val map = HashMap<String, Int>(21128)  // BERT-base-chinese vocab size
+        val map = HashMap<String, Int>(21128) // BERT-base-chinese vocab size
         file.useLines { lines ->
             lines.forEachIndexed { idx, line ->
                 map[line.trimEnd()] = idx
@@ -192,7 +199,7 @@ class OnnxEmbeddingProvider(
         if (sameNameVocab.exists()) return sameNameVocab.absolutePath
         val defaultVocab = File(modelFile.parentFile, "vocab.txt")
         if (defaultVocab.exists()) return defaultVocab.absolutePath
-        return sameNameVocab.absolutePath  // 返回默认路径,loadVocab 会抛异常
+        return sameNameVocab.absolutePath // 返回默认路径,loadVocab 会抛异常
     }
 
     /**
@@ -225,12 +232,7 @@ class OnnxEmbeddingProvider(
     private fun List<Long>.coerceAtMost(maxLen: Int): Int = minOf(size, maxLen)
 
     /** 按 inputNames 查找匹配的字段名,把张量加入 inputs map。 */
-    private fun assignInput(
-        inputNames: List<String>,
-        candidate: String,
-        tensor: OnnxTensor,
-        inputs: MutableMap<String, OnnxTensor>,
-    ) {
+    private fun assignInput(inputNames: List<String>, candidate: String, tensor: OnnxTensor, inputs: MutableMap<String, OnnxTensor>) {
         if (inputNames.contains(candidate)) {
             inputs[candidate] = tensor
         }
@@ -243,11 +245,7 @@ class OnnxEmbeddingProvider(
      *  1. 输出名含 "pooler_output" / "pooled" → 直接返回 [hidden]
      *  2. 否则取 last_hidden_state([1, seq, hidden]),按 attention_mask 做 mean pool
      */
-    private fun extractPooledOutput(
-        result: OrtSession.Result,
-        outputNames: List<String>,
-        attentionMask: LongArray,
-    ): FloatArray {
+    private fun extractPooledOutput(result: OrtSession.Result, outputNames: List<String>, attentionMask: LongArray): FloatArray {
         // 优先 pooler_output
         val pooledName = outputNames.firstOrNull { name ->
             name.contains("pooler", ignoreCase = true) ||
@@ -259,8 +257,8 @@ class OnnxEmbeddingProvider(
                 ?: throw IllegalStateException("output '$pooledName' not found in result")
             val value = onnxValue.value
             return when (value) {
-                is FloatArray -> value  // [hidden]
-                is Array<*> -> (value[0] as FloatArray)  // [1, hidden] → [hidden]
+                is FloatArray -> value // [hidden]
+                is Array<*> -> (value[0] as FloatArray) // [1, hidden] → [hidden]
                 else -> throw IllegalStateException("unexpected pooler_output shape: ${value::class}")
             }
         }
@@ -319,7 +317,7 @@ class OnnxEmbeddingProvider(
             cachedInputNames = null
             cachedOutputNames = null
             // env 是全局共享的,不关闭
-            TimeUnit.MILLISECONDS.sleep(50)  // 给 native 资源回收留时间
+            TimeUnit.MILLISECONDS.sleep(50) // 给 native 资源回收留时间
         }.onError { msg, e -> Logger.w("OnnxEmbeddingProvider", "close 失败: $msg", e) }
     }
 

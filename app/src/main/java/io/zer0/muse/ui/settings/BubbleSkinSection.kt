@@ -73,10 +73,7 @@ import kotlinx.coroutines.launch
  * @param defaultDark 预览初始模式,取当前主题深浅。
  */
 @Composable
-internal fun BubbleSkinSection(
-    fontSizeScale: String,
-    defaultDark: Boolean,
-) {
+internal fun BubbleSkinSection(fontSizeScale: String, defaultDark: Boolean) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     // Phase 4: 插件皮肤来源 — 已安装 ui-skin 插件重新校验后进入可选列表;
@@ -353,12 +350,7 @@ private fun BubbleSkinRow(
  * GroupChatMessageBubble 走同一条回退链路:皮肤为 null 或校验失败时解析结果即内置 default。
  */
 @Composable
-private fun BubbleSkinPreviewPanel(
-    skin: BubbleSkin?,
-    dark: Boolean,
-    fontSizeScale: String,
-    onDarkChange: (Boolean) -> Unit,
-) {
+private fun BubbleSkinPreviewPanel(skin: BubbleSkin?, dark: Boolean, fontSizeScale: String, onDarkChange: (Boolean) -> Unit) {
     SectionLabel(stringResource(R.string.settings_bubble_skin_preview))
     SettingsGroup(
         modifier = Modifier.padding(top = 8.dp),

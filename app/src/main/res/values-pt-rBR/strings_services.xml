@@ -256,7 +256,7 @@
     <string name="tool_url_opened">Link aberto: %1$s</string>
     <string name="tool_open_url_failed">Falha ao abrir link: %1$s</string>
     <string name="tool_installed_apps_header">Aplicativos instalados (%1$d total):\n</string>
-    <string name="tool_installed_apps_item">%1$s |</string>
+    <string name="tool_installed_apps_item">%1$s | %2$s</string>
     <string name="tool_installed_apps_empty">Nenhum aplicativo correspondente encontrado</string>
     <string name="tool_installed_apps_failed">Falha ao instalar aplicativos</string>
     <string name="tool_network_info">On-line: %1$s\nTipo de rede: %2$s\nMedido: %3$s</string>
@@ -304,7 +304,7 @@
     <string name="tool_bluetooth_enabled">Bluetooth: ativado</string>
     <string name="tool_bluetooth_disabled">Bluetooth: desativado</string>
     <string name="tool_bluetooth_header">Dispositivos Bluetooth emparelhados (%1$d total):\n</string>
-    <string name="tool_bluetooth_item">- %1$s |</string>
+    <string name="tool_bluetooth_item">- %1$s | %2$s</string>
     <string name="tool_bluetooth_empty">Nenhum dispositivo Bluetooth emparelhado</string>
     <string name="tool_phone_call_opened">Discador aberto: %1$s</string>
     <string name="tool_phone_call_missing">Parâmetro ausente: telefone</string>
@@ -328,7 +328,7 @@
     <string name="tool_reminder_cancelled">Lembrete cancelado: %1$s</string>
     <string name="tool_reminder_not_found">Lembrete não encontrado: %1$s</string>
     <string name="tool_reminder_list_header">Lembretes programados (%1$d total):\n</string>
-    <string name="tool_reminder_list_item">-id: %1$s |</string>
+    <string name="tool_reminder_list_item">- id: %1$s | horário: %2$s | título: %3$s</string>
     <string name="tool_reminder_list_empty">Não há lembretes programados</string>
     <string name="tool_reminder_missing_title">Parâmetro ausente: título</string>
     <string name="tool_reminder_missing_message">Parâmetro ausente: mensagem</string>
@@ -342,9 +342,9 @@
     <string name="tool_resource_deleted">Recurso excluído: %1$s</string>
     <string name="tool_resource_not_found">Recurso não encontrado: %1$s</string>
     <string name="tool_resource_list_header">Biblioteca de recursos (%1$d total):\n</string>
-    <string name="tool_resource_list_item">-id: %1$s |</string>
+    <string name="tool_resource_list_item">- id: %1$s | título: %2$s | tags: %3$s</string>
     <string name="tool_resource_list_empty">A biblioteca de recursos está vazia</string>
-    <string name="tool_resource_item_detail">Detalhe do recurso\nid: %1$s\ntítulo: %2$s\ntags: %3$s\ncriado:</string>
+    <string name="tool_resource_item_detail">Detalhe do recurso\nid: %1$s\ntítulo: %2$s\ntags: %3$s\ncriado: %4$s\nconteúdo:\n%5$s</string>
     <string name="tool_resource_missing_title">Parâmetro ausente: título</string>
     <string name="tool_resource_missing_content">Parâmetro ausente: conteúdo</string>
     <string name="tool_resource_missing_id">Parâmetro ausente: id</string>
@@ -370,9 +370,9 @@
     <string name="tool_quick_note_not_found">Nota não encontrada: %1$s</string>
     <string name="tool_quick_note_pinned">Nota %1$s fixada: %2$s</string>
     <string name="tool_quick_note_list_header">Notas rápidas (%1$d total):\n</string>
-    <string name="tool_quick_note_list_item">- %1$s%2$s %3$s |</string>
+    <string name="tool_quick_note_list_item">- %1$s%2$s %3$s | tags: %4$s</string>
     <string name="tool_quick_note_list_empty">Ainda não há notas rápidas</string>
-    <string name="tool_quick_note_item_detail">Detalhe da nota\nid: %1$s\ntítulo: %2$s\nfixado: %3$s\ntags:</string>
+    <string name="tool_quick_note_item_detail">Detalhe da nota\nid: %1$s\ntítulo: %2$s\nfixado: %3$s\ntags: %4$s\nconteúdo:\n%5$s</string>
     <string name="tool_quick_note_missing_title">Parâmetro ausente: título</string>
     <string name="tool_quick_note_missing_id">Parâmetro ausente: id</string>
 

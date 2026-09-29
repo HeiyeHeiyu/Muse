@@ -40,14 +40,13 @@ class MomentRepository(
     }
 
     /** 审计修复 (6.6): 批量取多条动态的评论(map: momentId → comments)。 */
-    suspend fun getCommentsBatch(momentIds: List<String>): Map<String, List<MomentCommentEntity>> =
-        withContext(Dispatchers.IO) {
-            if (momentIds.isEmpty()) return@withContext emptyMap()
-            val all = resultOf { dao.getCommentsFor(momentIds) }
-                .onError { msg, t -> Logger.w(TAG, "批量读评论失败: $msg", t) }
-                .getOrNull() ?: emptyList()
-            all.groupBy { it.momentId }
-        }
+    suspend fun getCommentsBatch(momentIds: List<String>): Map<String, List<MomentCommentEntity>> = withContext(Dispatchers.IO) {
+        if (momentIds.isEmpty()) return@withContext emptyMap()
+        val all = resultOf { dao.getCommentsFor(momentIds) }
+            .onError { msg, t -> Logger.w(TAG, "批量读评论失败: $msg", t) }
+            .getOrNull() ?: emptyList()
+        all.groupBy { it.momentId }
+    }
 
     /** 某条动态的点赞记录。 */
     suspend fun getLikes(momentId: String): List<MomentLikeEntity> = withContext(Dispatchers.IO) {
@@ -57,28 +56,27 @@ class MomentRepository(
     }
 
     /** 用户发动态(可带多图)。 */
-    suspend fun insertUserMoment(content: String, images: List<String> = emptyList()): MomentEntity? =
-        withContext(Dispatchers.IO) {
-            val cleanImages = images.filter { it.isNotBlank() }
-            val moment = MomentEntity(
-                id = UUID.randomUUID().toString(),
-                content = content,
-                type = "life_share",
-                source = "user",
-                createdAt = System.currentTimeMillis(),
-                senderType = "user",
-                senderName = "我",
-                imageUrl = cleanImages.firstOrNull(),
-                imagesJson = momentImagesJson(cleanImages),
-            )
-            try {
-                dao.insertMoment(moment)
-                moment
-            } catch (t: Throwable) {
-                Logger.w(TAG, "用户发动态失败: ${t.message}")
-                null
-            }
+    suspend fun insertUserMoment(content: String, images: List<String> = emptyList()): MomentEntity? = withContext(Dispatchers.IO) {
+        val cleanImages = images.filter { it.isNotBlank() }
+        val moment = MomentEntity(
+            id = UUID.randomUUID().toString(),
+            content = content,
+            type = "life_share",
+            source = "user",
+            createdAt = System.currentTimeMillis(),
+            senderType = "user",
+            senderName = "我",
+            imageUrl = cleanImages.firstOrNull(),
+            imagesJson = momentImagesJson(cleanImages),
+        )
+        try {
+            dao.insertMoment(moment)
+            moment
+        } catch (t: Throwable) {
+            Logger.w(TAG, "用户发动态失败: ${t.message}")
+            null
         }
+    }
 
     /** 插入动态(调度器/手动生成用,按发布者身份)。 */
     suspend fun insertMoment(
@@ -139,68 +137,60 @@ class MomentRepository(
     /** 点赞/取消点赞(按点赞者身份)。返回 (更新后的动态, 是否已点赞)。
      *  v1.0.74 fix: 仅 user 场景同步 likedByUser 字段;assistant 点赞走 [likeBy],
      *  此前 toggleLike 被 assistant 调用会把用户"已赞"状态写错。 */
-    suspend fun toggleLike(
-        moment: MomentEntity,
-        likerType: String,
-        likerId: String,
-        likerName: String,
-    ): Pair<MomentEntity, Boolean> = withContext(Dispatchers.IO) {
-        // 审计修复 (5.1): 读-改-写放同一 Room 事务,likes 以 DB 内 count 为准。
-        // 原实现基于调用方传入的过期 moment.likes 快照计算,并发双击/与调度器 likeBy
-        // 竞争时计数错乱;且 resultOf 吞错后仍返回"成功"副本,用户看到"点了没反应"。
-        // 注:withTransaction 是 RoomDatabase 的扩展,必须经由注入的 db 调用。
-        db.withTransaction {
-            val alreadyLiked = dao.hasLiked(moment.id, likerType, likerId)
-            val liked = alreadyLiked == 0
-            if (liked) {
-                dao.addLike(
-                    MomentLikeEntity(
-                        momentId = moment.id,
-                        likerType = likerType,
-                        likerId = likerId,
-                        likerName = likerName,
-                        createdAt = System.currentTimeMillis(),
-                    ),
-                )
-            } else {
-                dao.removeLike(moment.id, likerType, likerId)
+    suspend fun toggleLike(moment: MomentEntity, likerType: String, likerId: String, likerName: String): Pair<MomentEntity, Boolean> =
+        withContext(Dispatchers.IO) {
+            // 审计修复 (5.1): 读-改-写放同一 Room 事务,likes 以 DB 内 count 为准。
+            // 原实现基于调用方传入的过期 moment.likes 快照计算,并发双击/与调度器 likeBy
+            // 竞争时计数错乱;且 resultOf 吞错后仍返回"成功"副本,用户看到"点了没反应"。
+            // 注:withTransaction 是 RoomDatabase 的扩展,必须经由注入的 db 调用。
+            db.withTransaction {
+                val alreadyLiked = dao.hasLiked(moment.id, likerType, likerId)
+                val liked = alreadyLiked == 0
+                if (liked) {
+                    dao.addLike(
+                        MomentLikeEntity(
+                            momentId = moment.id,
+                            likerType = likerType,
+                            likerId = likerId,
+                            likerName = likerName,
+                            createdAt = System.currentTimeMillis(),
+                        ),
+                    )
+                } else {
+                    dao.removeLike(moment.id, likerType, likerId)
+                }
+                // 点赞数以 DB 实际记录为准,不依赖传入快照
+                val dbLikes = dao.countLikes(moment.id)
+                val newLikedByUser = if (likerType == "user") liked else moment.likedByUser
+                dao.setLiked(moment.id, dbLikes, newLikedByUser)
+                moment.copy(likes = dbLikes, likedByUser = newLikedByUser) to liked
             }
-            // 点赞数以 DB 实际记录为准,不依赖传入快照
-            val dbLikes = dao.countLikes(moment.id)
-            val newLikedByUser = if (likerType == "user") liked else moment.likedByUser
-            dao.setLiked(moment.id, dbLikes, newLikedByUser)
-            moment.copy(likes = dbLikes, likedByUser = newLikedByUser) to liked
         }
-    }
 
     /** 助手给动态点赞(不重复)。 */
-    suspend fun likeBy(
-        moment: MomentEntity,
-        likerType: String,
-        likerId: String,
-        likerName: String,
-    ): MomentEntity = withContext(Dispatchers.IO) {
-        resultOf {
-            db.withTransaction {
-                if (dao.hasLiked(moment.id, likerType, likerId) > 0) {
-                    return@withTransaction moment
+    suspend fun likeBy(moment: MomentEntity, likerType: String, likerId: String, likerName: String): MomentEntity =
+        withContext(Dispatchers.IO) {
+            resultOf {
+                db.withTransaction {
+                    if (dao.hasLiked(moment.id, likerType, likerId) > 0) {
+                        return@withTransaction moment
+                    }
+                    dao.addLike(
+                        MomentLikeEntity(
+                            momentId = moment.id,
+                            likerType = likerType,
+                            likerId = likerId,
+                            likerName = likerName,
+                            createdAt = System.currentTimeMillis(),
+                        ),
+                    )
+                    val dbLikes = dao.countLikes(moment.id)
+                    dao.setLiked(moment.id, dbLikes, moment.likedByUser)
+                    moment.copy(likes = dbLikes)
                 }
-                dao.addLike(
-                    MomentLikeEntity(
-                        momentId = moment.id,
-                        likerType = likerType,
-                        likerId = likerId,
-                        likerName = likerName,
-                        createdAt = System.currentTimeMillis(),
-                    ),
-                )
-                val dbLikes = dao.countLikes(moment.id)
-                dao.setLiked(moment.id, dbLikes, moment.likedByUser)
-                moment.copy(likes = dbLikes)
-            }
-        }.onError { msg, t -> Logger.w(TAG, "助手点赞失败: $msg", t) }
-            .getOrNull() ?: moment
-    }
+            }.onError { msg, t -> Logger.w(TAG, "助手点赞失败: $msg", t) }
+                .getOrNull() ?: moment
+        }
 
     /** 删除动态(级联评论 + 点赞记录),返回是否真正删除成功。 */
     suspend fun deleteMoment(id: String): Boolean = withContext(Dispatchers.IO) {

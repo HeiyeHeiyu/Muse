@@ -141,10 +141,12 @@ class DeferredResultStore {
                 _tasks.update { map ->
                     val current = map[taskId] ?: return@update map
                     if (current.status != TaskStatus.PENDING) return@update map
-                    map + (taskId to current.copy(
-                        status = TaskStatus.ABORTED,
-                        completedAt = System.currentTimeMillis(),
-                    ))
+                    map + (
+                        taskId to current.copy(
+                            status = TaskStatus.ABORTED,
+                            completedAt = System.currentTimeMillis(),
+                        )
+                        )
                 }
                 jobs.remove(taskId)
             } else {

@@ -36,11 +36,7 @@ class ChatMessageControllerTest {
         override fun updateMessages(transform: (List<UIMessage>) -> List<UIMessage>) = messages.update(transform)
     }
 
-    private fun controller(
-        scope: CoroutineScope,
-        repo: SessionRepository,
-        messages: List<UIMessage> = emptyList(),
-    ) = ChatMessageController(
+    private fun controller(scope: CoroutineScope, repo: SessionRepository, messages: List<UIMessage> = emptyList()) = ChatMessageController(
         accessor = ScopedAccessor(ChatUiState(), scope, messages),
         sessionRepository = repo,
         skillExecutor = mockk<SkillExecutor>(relaxed = true),

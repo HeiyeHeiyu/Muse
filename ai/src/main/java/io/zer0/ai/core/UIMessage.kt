@@ -229,11 +229,10 @@ data class UIMessage(
      * v1.80 (L-CORE4): 拼出用于摘要/上下文匹配的文本(含推理过程)。
      * memory 摘要、context 匹配等场景可能需要 reasoning 信息。
      */
-    fun toSummaryText(): String =
-        buildString {
-            append(content)
-            reasoning?.takeIf { it.isNotBlank() }?.let { append("\n[reasoning]").append(it) }
-        }
+    fun toSummaryText(): String = buildString {
+        append(content)
+        reasoning?.takeIf { it.isNotBlank() }?.let { append("\n[reasoning]").append(it) }
+    }
 }
 
 /**

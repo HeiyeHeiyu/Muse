@@ -41,8 +41,7 @@ object PdfVisionSkill {
      *
      * @param raw 原始参数值;null/空/非数字用 [DEFAULT_MAX_PAGES];越界钳制到 [1, HARD_MAX_PAGES]。
      */
-    internal fun resolveMaxPages(raw: String?): Int =
-        raw?.toIntOrNull()?.coerceIn(1, HARD_MAX_PAGES) ?: DEFAULT_MAX_PAGES
+    internal fun resolveMaxPages(raw: String?): Int = raw?.toIntOrNull()?.coerceIn(1, HARD_MAX_PAGES) ?: DEFAULT_MAX_PAGES
 
     fun toolDef() = ToolRegistry.ToolDef(
         name = NAME,
@@ -69,12 +68,7 @@ object PdfVisionSkill {
      * @param context 用于解析工作区相对路径(可选)
      * @param workspaceRoot 工作区根目录(用于解析相对路径)
      */
-    suspend fun execute(
-        args: Map<String, String>,
-        parser: PdfVisionParser,
-        context: Context,
-        workspaceRoot: File,
-    ): String {
+    suspend fun execute(args: Map<String, String>, parser: PdfVisionParser, context: Context, workspaceRoot: File): String {
         val rawPath = args["path"]?.trim()?.takeIf { it.isNotBlank() }
             ?: return "[错误] 缺少必填参数 path"
 
@@ -144,7 +138,9 @@ class PdfVisionToolsRegistrar(
     private val context: Context,
     private val workspaceRoot: File,
 ) {
-    init { registerAll() }
+    init {
+        registerAll()
+    }
 
     fun registerAll() {
         toolRegistry.register(PdfVisionSkill.toolDef()) { args ->

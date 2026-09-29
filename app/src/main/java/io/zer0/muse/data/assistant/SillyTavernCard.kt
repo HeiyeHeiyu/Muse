@@ -131,8 +131,7 @@ data class SillyTavernCardData(
 // ── 内部工具 ──
 
 /** 把字符串列表序列化为 JSON (与 AssistantRepository.serializeStringList 一致)。 */
-internal fun serializeStringListSafe(list: List<String>): String =
-    AppJson.encodeToString(ListSerializer(String.serializer()), list)
+internal fun serializeStringListSafe(list: List<String>): String = AppJson.encodeToString(ListSerializer(String.serializer()), list)
 
 /** 安全解析 JSON 字符串列表, 失败返回空列表。 */
 internal fun parseStringListSafe(json: String): List<String> {
@@ -156,7 +155,14 @@ internal fun parseStringListSafe(json: String): List<String> {
 internal object PngChunkUtil {
 
     private val PNG_SIGNATURE = byteArrayOf(
-        0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+        0x89.toByte(),
+        0x50,
+        0x4E,
+        0x47,
+        0x0D,
+        0x0A,
+        0x1A,
+        0x0A,
     )
 
     /**
@@ -176,7 +182,7 @@ internal object PngChunkUtil {
             val type = String(bytes, pos + 4, 4, Charsets.US_ASCII)
             val dataStart = pos + 8
             val dataEnd = dataStart + length.toInt()
-            if (dataEnd + 4 > bytes.size) break  // 越界, 损坏文件
+            if (dataEnd + 4 > bytes.size) break // 越界, 损坏文件
             if (type == "tEXt") {
                 val data = bytes.copyOfRange(dataStart, dataEnd)
                 val sepIndex = data.indexOf(0)
@@ -187,7 +193,7 @@ internal object PngChunkUtil {
                     }
                 }
             }
-            pos = dataEnd + 4  // 跳过 CRC
+            pos = dataEnd + 4 // 跳过 CRC
             if (type == "IEND") break
         }
         return null
@@ -228,9 +234,9 @@ internal object PngChunkUtil {
         val sigEnd = PNG_SIGNATURE.size
         if (sigEnd + 8 > bytes.size) return bytes
         val ihdrType = String(bytes, sigEnd + 4, 4, Charsets.US_ASCII)
-        if (ihdrType != "IHDR") return bytes  // 异常 PNG
+        if (ihdrType != "IHDR") return bytes // 异常 PNG
         val ihdrLen = readUInt32BE(bytes, sigEnd).toInt()
-        val ihdrEnd = sigEnd + 8 + ihdrLen + 4  // length + type + data + crc
+        val ihdrEnd = sigEnd + 8 + ihdrLen + 4 // length + type + data + crc
         if (ihdrEnd > bytes.size) return bytes
         val before = bytes.copyOfRange(0, ihdrEnd)
         val after = bytes.copyOfRange(ihdrEnd, bytes.size)
@@ -239,11 +245,10 @@ internal object PngChunkUtil {
 
     // ── 字节序工具 ──
 
-    private fun readUInt32BE(bytes: ByteArray, offset: Int): Long =
-        ((bytes[offset].toLong() and 0xFF) shl 24) or
-            ((bytes[offset + 1].toLong() and 0xFF) shl 16) or
-            ((bytes[offset + 2].toLong() and 0xFF) shl 8) or
-            (bytes[offset + 3].toLong() and 0xFF)
+    private fun readUInt32BE(bytes: ByteArray, offset: Int): Long = ((bytes[offset].toLong() and 0xFF) shl 24) or
+        ((bytes[offset + 1].toLong() and 0xFF) shl 16) or
+        ((bytes[offset + 2].toLong() and 0xFF) shl 8) or
+        (bytes[offset + 3].toLong() and 0xFF)
 
     private fun writeUInt32BE(buf: ByteArray, offset: Int, value: Long) {
         buf[offset] = ((value ushr 24) and 0xFF).toByte()

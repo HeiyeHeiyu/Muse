@@ -1,8 +1,5 @@
 package io.zer0.muse.ui.settings
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.common.resultOf
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -16,14 +13,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -31,20 +28,23 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.util.NetworkUtils
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.settings.SettingsItemRow
 import io.zer0.muse.ui.common.settings.SettingsSwitchRow
+import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.web.WebServer
 import io.zer0.muse.web.WebServerConfig
-import io.zer0.muse.ui.theme.MuseShapes
 import kotlinx.coroutines.launch
 
 /**
@@ -68,14 +68,11 @@ import kotlinx.coroutines.launch
  */
 @Suppress("LongMethod", "CyclomaticComplexMethod", "FunctionNaming")
 @Composable
-internal fun WebServerSection(
-    settings: SettingsRepository,
-    webServer: WebServer,
-) {
+internal fun WebServerSection(settings: SettingsRepository, webServer: WebServer) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val config by settings.webServerConfigFlow.collectAsStateWithLifecycle(
-        initialValue = WebServerConfig()
+        initialValue = WebServerConfig(),
     )
     val isRunning by webServer.isRunning.collectAsStateWithLifecycle(initialValue = false)
     val lastError by webServer.lastError.collectAsStateWithLifecycle(initialValue = null)
@@ -185,7 +182,13 @@ internal fun WebServerSection(
         SettingsItemRow(
             icon = MuseIcons.lock,
             title = stringResource(R.string.settings_web_password),
-            subtitle = if (config.password.isBlank()) stringResource(R.string.settings_web_password_not_set) else "${config.password.take(2)}****",
+            subtitle = if (config.password.isBlank()) {
+                stringResource(
+                    R.string.settings_web_password_not_set,
+                )
+            } else {
+                "${config.password.take(2)}****"
+            },
         )
         SettingsGroupDivider()
         // 重新生成密码
@@ -217,10 +220,10 @@ internal fun WebServerSection(
                 MuseTactileButton(
                     icon = MuseIcons.copy,
                     onClick = {
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Muse WebServer PIN", config.pin))
-                    MuseToast.show(context.getString(R.string.settings_web_pin_copied, config.pin))
-                },
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("Muse WebServer PIN", config.pin))
+                        MuseToast.show(context.getString(R.string.settings_web_pin_copied, config.pin))
+                    },
                     contentDescription = stringResource(R.string.settings_web_copy_pin),
                     tint = MaterialTheme.colorScheme.onSurface,
                     iconSize = 20.dp,
@@ -261,10 +264,10 @@ internal fun WebServerSection(
                 MuseTactileButton(
                     icon = MuseIcons.copy,
                     onClick = {
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Muse WebServer", runningAccessUrl))
-                    MuseToast.show(context.getString(R.string.settings_web_address_copied, runningAccessUrl))
-                },
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("Muse WebServer", runningAccessUrl))
+                        MuseToast.show(context.getString(R.string.settings_web_address_copied, runningAccessUrl))
+                    },
                     contentDescription = stringResource(R.string.settings_web_copy_address),
                     tint = MaterialTheme.colorScheme.onSurface,
                     iconSize = 20.dp,
@@ -340,10 +343,7 @@ private fun buildAccessUrl(allowLan: Boolean, localIp: String?, port: Int, https
 
 /** R-SEC-03: 局域网访问开关;默认仅本机,开启后才允许同 Wi-Fi 设备通过 IP 访问。 */
 @Composable
-private fun lanAccessSwitch(
-    config: WebServerConfig,
-    webServer: WebServer,
-) {
+private fun lanAccessSwitch(config: WebServerConfig, webServer: WebServer) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     SettingsSwitchRow(
@@ -364,10 +364,7 @@ private fun lanAccessSwitch(
 
 /** v2.x: HTTPS 开关 — 自签证书;保存后立即重启服务并切换 HTTP/HTTPS。 */
 @Composable
-private fun httpsSwitch(
-    config: WebServerConfig,
-    webServer: WebServer,
-) {
+private fun httpsSwitch(config: WebServerConfig, webServer: WebServer) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     SettingsSwitchRow(

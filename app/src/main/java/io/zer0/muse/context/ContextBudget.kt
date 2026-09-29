@@ -9,14 +9,19 @@ package io.zer0.muse.context
 enum class ContextSection {
     /** 附件/文档正文(经 buildSendText 拼接进消息正文)。 */
     ATTACHMENT_TEXT,
+
     /** 长期记忆编译摘要(<long_term_memory>)。 */
     LONG_TERM_MEMORY,
+
     /** FTS 召回的相关事实(<relevant_memory>)。 */
     RELEVANT_MEMORY,
+
     /** RAG 检索注入的文档片段。 */
     RAG_CITATION,
+
     /** 视觉模型生成的图片描述注入。 */
     VISION_DESCRIPTION,
+
     /** 工具 function schema 总量。 */
     TOOL_SCHEMA,
 }

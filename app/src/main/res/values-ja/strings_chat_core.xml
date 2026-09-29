@@ -337,7 +337,7 @@
     <string name="chat_list_rename_session_title">チャット名の変更</string>
     <string name="chat_list_confirm">わかりました</string>
     <string name="chat_list_delete_session_title">チャットの削除</string>
-    <string name="chat_list_delete_session_confirm">この操作は元に戻すことができません。</string>
+    <string name="chat_list_delete_session_confirm">この操作は元に戻せません。「%1$s」とすべてのメッセージを削除しますか？</string>
     <string name="chat_list_deleted_toast">削除されました</string>
 
     <!-- Folder rename/delete dialogs -->

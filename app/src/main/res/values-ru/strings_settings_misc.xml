@@ -316,7 +316,7 @@
     <string name="settings_crash_confirm_dialog_title">Подтвердить отчет о сбое</string>
     <string name="settings_crash_confirm_target_email">Электронная почта (%1$s)</string>
     <string name="settings_crash_confirm_target_webhook">Вебхук (%1$s)</string>
-    <string name="settings_crash_confirm_dialog_content">Содержимое отчета включает в себя: стек сбоев + модель устройства + версию Android + версию приложения + метку времени.\nСтеки сбоев удалены.</string>
+    <string name="settings_crash_confirm_dialog_content">Собираетесь отправить %1$d записей о сбоях в %2$s\n\nСодержимое отчета включает: стек сбоя, модель устройства, версию Android, версию приложения и время.\nСтеки сбоев обезличены. Продолжить?</string>
     <string name="settings_crash_confirm_button">Подтвердить отчет</string>
     <string name="settings_crash_no_pending">Нет ожидающих сбоев, о которых можно сообщить</string>
     <string name="settings_crash_no_email">Пожалуйста, сначала настройте адрес электронной почты получателя</string>

@@ -93,17 +93,16 @@ object PluginCatalogVerifier {
         return if (signature) CatalogVerification(valid = true) else invalid("catalog signature mismatch")
     }
 
-    private fun entryValid(entry: PluginCatalogEntry): Boolean =
-        ID_REGEX.matches(entry.id) &&
-            VERSION_REGEX.matches(entry.version) &&
-            PluginSecurityGate.isValidPublisherId(entry.publisherId) &&
-            SHA256_REGEX.matches(entry.publisherKeyFingerprint.lowercase()) &&
-            entry.artifactUrl.startsWith("https://") &&
-            entry.artifactBytes in 1..MAX_ARTIFACT_BYTES &&
-            SHA256_REGEX.matches(entry.artifactSha256) &&
-            SHA256_REGEX.matches(entry.manifestSha256) &&
-            entry.capabilities.all { it in PluginSecurityGate.allowedCapabilities } &&
-            entry.permissions.all { it in PluginSecurityGate.allowedCapabilities }
+    private fun entryValid(entry: PluginCatalogEntry): Boolean = ID_REGEX.matches(entry.id) &&
+        VERSION_REGEX.matches(entry.version) &&
+        PluginSecurityGate.isValidPublisherId(entry.publisherId) &&
+        SHA256_REGEX.matches(entry.publisherKeyFingerprint.lowercase()) &&
+        entry.artifactUrl.startsWith("https://") &&
+        entry.artifactBytes in 1..MAX_ARTIFACT_BYTES &&
+        SHA256_REGEX.matches(entry.artifactSha256) &&
+        SHA256_REGEX.matches(entry.manifestSha256) &&
+        entry.capabilities.all { it in PluginSecurityGate.allowedCapabilities } &&
+        entry.permissions.all { it in PluginSecurityGate.allowedCapabilities }
 
     private fun parsePublicKey(encoded: String): PublicKey {
         val bytes = Base64.getDecoder().decode(encoded)

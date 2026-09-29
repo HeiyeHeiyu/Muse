@@ -115,7 +115,10 @@ class ConfigImporter(
         // 取一次已存在的 provider id 集合,用于去重(id 冲突时跳过,不覆盖)
         val existingIds = settings.providersFlow.first().map { it.id }.toSet()
         for (raw in rawProviders) {
-            val cfg = parseProvider(raw) ?: run { skipped++; continue }
+            val cfg = parseProvider(raw) ?: run {
+                skipped++
+                continue
+            }
             if (cfg.id in existingIds) {
                 // id 冲突 → 跳过(不覆盖)
                 skipped++

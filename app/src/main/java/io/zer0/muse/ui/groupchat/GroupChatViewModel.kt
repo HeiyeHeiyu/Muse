@@ -3,7 +3,9 @@ package io.zer0.muse.ui.groupchat
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.zer0.common.Logger
 import io.zer0.muse.R
+import io.zer0.muse.data.AgentTeam
 import io.zer0.muse.data.ChatPreferences
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantEntity
@@ -11,9 +13,7 @@ import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.groupchat.GroupChatEntity
 import io.zer0.muse.data.groupchat.GroupChatMessageEntity
 import io.zer0.muse.data.groupchat.GroupChatRepository
-import io.zer0.muse.data.AgentTeam
 import io.zer0.muse.schedule.GroupChatScheduler
-import io.zer0.common.Logger
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -135,10 +135,13 @@ class GroupChatViewModel(
 
     companion object {
         private const val TAG = "GroupChatViewModel"
+
         /** v1.126: 发送消息最小间隔(ms),防止快速点击重复发送 */
         private const val SEND_DEBOUNCE_MS = 500L
+
         /** v1.53-GC: 群聊消息分页 — 首屏页大小(初始加载条数)。 */
         private const val INITIAL_PAGE_SIZE = GroupChatRepository.INITIAL_PAGE_SIZE
+
         /** v1.53-GC: 群聊消息分页 — 上滑加载更多页大小。 */
         private const val LOAD_MORE_PAGE_SIZE = GroupChatRepository.LOAD_MORE_PAGE_SIZE
     }
@@ -266,7 +269,14 @@ class GroupChatViewModel(
         viewModelScope.launch {
             scheduler.activeGroupGeneration.collect { gen ->
                 if (gen == null) {
-                    _state.update { it.copy(isAgentResponding = false, currentSpeaker = null, roundPaused = false, upcomingSpeakers = emptyList()) }
+                    _state.update {
+                        it.copy(
+                            isAgentResponding = false,
+                            currentSpeaker = null,
+                            roundPaused = false,
+                            upcomingSpeakers = emptyList(),
+                        )
+                    }
                 } else if (gen.chatId == currentChatId.value) {
                     // 只在当前群聊匹配时显示生成状态(避免其他群聊的生成干扰当前页)
                     val speaker = gen.currentSpeakerId?.let { id ->
@@ -586,7 +596,9 @@ class GroupChatViewModel(
         //   避免 scheduler 写入 DB 的真实消息回流后被追加导致重复显示
         val imageJson = if (images.isNotEmpty()) {
             json.encodeToString(images)
-        } else "[]"
+        } else {
+            "[]"
+        }
         val optimisticMsg = GroupChatMessageEntity(
             id = "optimistic-" + java.util.UUID.randomUUID().toString(),
             chatId = chatId,
@@ -595,9 +607,14 @@ class GroupChatViewModel(
             senderName = "我",
             body = effectiveText,
             imageBase64Json = imageJson,
-            fileAttachmentsJson = if (fileAttachments.isNotEmpty()) kotlinx.serialization.json.Json.encodeToString(
-                kotlinx.serialization.builtins.ListSerializer(FileAttachment.serializer()), fileAttachments
-            ) else "[]",
+            fileAttachmentsJson = if (fileAttachments.isNotEmpty()) {
+                kotlinx.serialization.json.Json.encodeToString(
+                    kotlinx.serialization.builtins.ListSerializer(FileAttachment.serializer()),
+                    fileAttachments,
+                )
+            } else {
+                "[]"
+            },
             timestamp = now,
         )
         _state.update { it.copy(currentMessages = it.currentMessages + optimisticMsg) }
@@ -1009,28 +1026,23 @@ class GroupChatViewModel(
     /**
      * 解析群聊成员 id 列表。
      */
-    fun parseMemberIds(chat: GroupChatEntity): List<String> =
-        groupChatRepository.parseMemberIds(chat)
+    fun parseMemberIds(chat: GroupChatEntity): List<String> = groupChatRepository.parseMemberIds(chat)
 
     /** v2.x: 解析群聊观察者成员 id 列表(编辑对话框预选用)。 */
-    fun parseObserverIds(chat: GroupChatEntity): List<String> =
-        groupChatRepository.parseObserverIds(chat)
+    fun parseObserverIds(chat: GroupChatEntity): List<String> = groupChatRepository.parseObserverIds(chat)
 
     /**
      * v2.x: 解析群聊的共享文档列表(供 UI 渲染)。
      */
-    fun parseSharedDocs(chat: GroupChatEntity): List<io.zer0.muse.data.groupchat.GroupSharedDoc> =
-        groupChatRepository.parseSharedDocs(chat)
+    fun parseSharedDocs(chat: GroupChatEntity): List<io.zer0.muse.data.groupchat.GroupSharedDoc> = groupChatRepository.parseSharedDocs(chat)
 
     /**
      * v2.x: 解析群聊成员的专属上下文 Map(供 UI 渲染)。
      */
-    fun parseMemberPrivateContext(chat: GroupChatEntity): Map<String, String> =
-        groupChatRepository.parseMemberPrivateContext(chat)
+    fun parseMemberPrivateContext(chat: GroupChatEntity): Map<String, String> = groupChatRepository.parseMemberPrivateContext(chat)
 
     /**
      * 取指定群聊的最新一条消息(用于列表页预览)。
      */
-    suspend fun getLatestMessage(chatId: String): GroupChatMessageEntity? =
-        groupChatRepository.getLatestMessage(chatId)
+    suspend fun getLatestMessage(chatId: String): GroupChatMessageEntity? = groupChatRepository.getLatestMessage(chatId)
 }

@@ -89,8 +89,7 @@ class PluginAuthoringToolsImpl(
     }
 
     /** 读取对象里的字符串字段；非字符串/缺失一律按空串处理，交给规则层给出可读原因。 */
-    private fun JsonObject.stringField(name: String): String =
-        this[name]?.jsonPrimitive?.content.orEmpty()
+    private fun JsonObject.stringField(name: String): String = this[name]?.jsonPrimitive?.content.orEmpty()
 
     private fun failure(reason: String): String = buildJsonObject {
         put("error", reason)

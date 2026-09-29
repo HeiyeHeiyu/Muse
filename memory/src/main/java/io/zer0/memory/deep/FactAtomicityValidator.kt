@@ -84,12 +84,10 @@ object FactAtomicityValidator {
     }
 
     /** 去掉段首尾空白与句读。 */
-    private fun cleanPart(part: String): String =
-        part.trim().trimEnd('。', '，', '；', ';', '.', '、', '！', '!', '？', '?').trim()
+    private fun cleanPart(part: String): String = part.trim().trimEnd('。', '，', '；', ';', '.', '、', '！', '!', '？', '?').trim()
 
     /** 该段是否含谓词词素(中文)或英文单词。 */
-    private fun partHasPredicate(part: String): Boolean =
-        PREDICATE_TOKENS.any { part.contains(it) } || LATIN_WORD_RE.containsMatchIn(part)
+    private fun partHasPredicate(part: String): Boolean = PREDICATE_TOKENS.any { part.contains(it) } || LATIN_WORD_RE.containsMatchIn(part)
 
     /**
      * 拆分点。逗号引导的连接词(“，另外”等)整体消费逗号,避免残留段首标点;

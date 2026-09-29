@@ -30,7 +30,7 @@ class FloorContextLimiterHook(
     }
 
     override val id: String = "floor_context_limiter"
-    override val priority: Int = 30  // 低优先级,在其他 PromptFinalizeHook 之后执行
+    override val priority: Int = 30 // 低优先级,在其他 PromptFinalizeHook 之后执行
 
     override suspend fun beforeFinalizePrompt(event: PromptFinalizeEvent): PromptFinalizeResult {
         val enabled = runCatching { settings.floorLimiterEnabledFlow.first() }.getOrDefault(false)

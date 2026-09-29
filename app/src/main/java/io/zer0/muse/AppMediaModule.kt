@@ -34,7 +34,7 @@ val appMediaModule = module {
             mapOf(
                 "elevenlabs" to get<io.zer0.muse.ui.speech.ElevenLabsVoiceCloningProvider>(),
                 "fish" to get<io.zer0.muse.ui.speech.FishAudioVoiceCloningProvider>(),
-            )
+            ),
         )
     }
 }

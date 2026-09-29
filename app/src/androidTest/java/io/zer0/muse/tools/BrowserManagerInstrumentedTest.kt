@@ -77,8 +77,12 @@ class BrowserManagerInstrumentedTest {
         val registry = ToolRegistry(context)
         val names = registry.listTools().map { it.name }
         for (name in listOf(
-            "browser_navigate", "browser_click", "browser_type",
-            "browser_extract", "browser_scroll_bottom", "browser_get_html",
+            "browser_navigate",
+            "browser_click",
+            "browser_type",
+            "browser_extract",
+            "browser_scroll_bottom",
+            "browser_get_html",
         )) {
             assertTrue("ToolRegistry 缺少 $name", name in names)
         }

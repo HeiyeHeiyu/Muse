@@ -19,7 +19,9 @@ interface QuickMessageDao {
     @Query("SELECT * FROM quick_messages ORDER BY sortIndex ASC, name ASC")
     fun observeAll(): Flow<List<QuickMessageEntity>>
 
-    @Query("SELECT * FROM quick_messages WHERE enabled = 1 AND (scope = 'global' OR (scope = 'assistant' AND assistantId = :assistantId)) ORDER BY sortIndex ASC, name ASC")
+    @Query(
+        "SELECT * FROM quick_messages WHERE enabled = 1 AND (scope = 'global' OR (scope = 'assistant' AND assistantId = :assistantId)) ORDER BY sortIndex ASC, name ASC",
+    )
     fun observeForAssistant(assistantId: String): Flow<List<QuickMessageEntity>>
 
     @Query("SELECT * FROM quick_messages WHERE id IN (:ids) AND enabled = 1 ORDER BY sortIndex ASC, name ASC")

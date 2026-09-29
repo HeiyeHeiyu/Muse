@@ -143,11 +143,7 @@ class MuseNotificationManager(private val context: Context) {
      * @param sessionTitle 会话标题
      * @param preview 预览文本(消息前 50 字)
      */
-    fun notifyChatCompleted(
-        sessionTitle: String,
-        preview: String,
-        target: MuseNotificationTarget = MuseNotificationTarget.Chat,
-    ) {
+    fun notifyChatCompleted(sessionTitle: String, preview: String, target: MuseNotificationTarget = MuseNotificationTarget.Chat) {
         val notif = NotificationCompat.Builder(context, CHANNEL_CHAT_COMPLETED)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(context.getString(R.string.notif_chat_completed_title, sessionTitle))
@@ -384,28 +380,23 @@ class MuseNotificationManager(private val context: Context) {
         sessionTitle: String,
         currentChars: Int,
         target: MuseNotificationTarget = MuseNotificationTarget.Chat,
-    ) =
-        NotificationCompat.Builder(context, CHANNEL_CHAT_LIVE_UPDATE)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(context.getString(R.string.notif_live_progress_title, sessionTitle))
-            .setContentText(context.getString(R.string.notif_live_progress_text, currentChars))
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setProgress(0, 0, true) // 不确定进度条
-            .setContentIntent(buildMainActivityPendingIntent(target))
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+    ) = NotificationCompat.Builder(context, CHANNEL_CHAT_LIVE_UPDATE)
+        .setSmallIcon(R.mipmap.ic_launcher)
+        .setContentTitle(context.getString(R.string.notif_live_progress_title, sessionTitle))
+        .setContentText(context.getString(R.string.notif_live_progress_text, currentChars))
+        .setOngoing(true)
+        .setOnlyAlertOnce(true)
+        .setProgress(0, 0, true) // 不确定进度条
+        .setContentIntent(buildMainActivityPendingIntent(target))
+        .setPriority(NotificationCompat.PRIORITY_LOW)
+        .build()
 
     /**
      * 显示/更新 Web 服务器运行状态通知(常驻,直到服务器停止)。
      * @param port 监听端口
      * @param isRunning true 显示"运行中",false 取消通知
      */
-    fun updateWebServerStatus(
-        port: Int,
-        isRunning: Boolean,
-        target: MuseNotificationTarget = MuseNotificationTarget.SettingsData,
-    ) {
+    fun updateWebServerStatus(port: Int, isRunning: Boolean, target: MuseNotificationTarget = MuseNotificationTarget.SettingsData) {
         if (!isRunning) {
             nm.cancel(NOTIF_ID_WEB_SERVER)
             return
@@ -430,12 +421,7 @@ class MuseNotificationManager(private val context: Context) {
      * @param message 通知正文
      * @param notificationId 通知 id(用提醒 id 的 hashCode,便于取消)
      */
-    fun notifyReminder(
-        title: String,
-        message: String,
-        notificationId: Int,
-        target: MuseNotificationTarget = MuseNotificationTarget.Home,
-    ) {
+    fun notifyReminder(title: String, message: String, notificationId: Int, target: MuseNotificationTarget = MuseNotificationTarget.Home) {
         val notif = NotificationCompat.Builder(context, CHANNEL_PROACTIVE_MESSAGE)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
@@ -512,19 +498,23 @@ class MuseNotificationManager(private val context: Context) {
         const val CHANNEL_WEB_SERVER = "web_server"
         const val CHANNEL_PROACTIVE_MESSAGE = "proactive_message"
         private const val NOTIF_ID_CHAT_COMPLETED = 1001
-    private const val NOTIF_ID_CHAT_PENDING_APPROVAL = 1005
+        private const val NOTIF_ID_CHAT_PENDING_APPROVAL = 1005
         private const val NOTIF_ID_LIVE_UPDATE = 1002
+
         // v2.0: 流式进度通知最小发送间隔(毫秒)
         private const val LIVE_PROGRESS_MIN_INTERVAL_MS = 900L
         private const val NOTIF_ID_WEB_SERVER = 1003
         private const val NOTIF_ID_PROACTIVE_MESSAGE = 1004
         private const val NOTIF_ID_AUTO_BACKUP = 1005
+
         // 问题6.4: 主动消息唯一通知 ID 的基址,与上面固定 ID 错开。
         // 最终 ID = BASE or (seq & 0x0FFF),范围 [0x10000000, 0x10000FFF],不会与固定 ID(1001~1004)冲突。
         private const val NOTIF_ID_PROACTIVE_MESSAGE_BASE = 0x1000_0000
         private const val NOTIF_PREVIEW_MAX_LEN = 200
+
         // L2-1: 头像尺寸(像素),用于 Coil 加载与 Canvas 绘制
         private const val AVATAR_SIZE = 96
+
         // L2-2: 文字头像中文字字号占头像尺寸的比例
         private const val TEXT_SIZE_RATIO = 0.5f
     }

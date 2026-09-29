@@ -1,7 +1,6 @@
 @file:Suppress("FunctionNaming", "LongMethod", "LongParameterList", "CyclomaticComplexMethod", "TooManyFunctions", "ReturnCount", "TooGenericExceptionCaught", "SwallowedException", "MaxLineLength")
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
-
 package io.zer0.muse.ui
 
 import androidx.compose.foundation.clickable
@@ -25,43 +24,43 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.SolidColor
-import io.zer0.muse.ui.common.form.MuseAnchoredMenu
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseAnchoredMenu
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseChip
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.common.surface.MuseListItem
+import io.zer0.muse.ui.common.surface.MuseSurface
 import io.zer0.muse.ui.markdown.MarkdownText
+import io.zer0.muse.ui.theme.MuseElevation
 import io.zer0.muse.ui.theme.MuseMonoFontFamily
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.ui.theme.MuseElevation
 import io.zer0.muse.ui.theme.pill
 import io.zer0.muse.ui.theme.semiLarge
-import io.zer0.muse.ui.common.surface.MuseSurface
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import java.time.DayOfWeek
 import java.time.Duration
 import java.time.Instant
@@ -73,12 +72,7 @@ import java.time.temporal.TemporalAdjusters
  * 凹槽式搜索栏 — Surface + BasicTextField,surfaceVariant 背景,圆角。
  */
 @Composable
-internal fun MemorySearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    enabled: Boolean,
-    modifier: Modifier = Modifier,
-) {
+internal fun MemorySearchBar(query: String, onQueryChange: (String) -> Unit, enabled: Boolean, modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier,
         shape = MuseShapes.semiLarge,
@@ -127,12 +121,13 @@ internal fun MemorySearchBar(
 /**
  * v9: 根据分类筛选记忆条目(null=全部)。
  */
-internal fun filterMemoryItemsByCategory(
-    items: List<MemoryItem>,
-    category: String?,
-): List<MemoryItem> {
-    return if (category == null) items else items.filter {
-        it.category.equals(category, ignoreCase = true)
+internal fun filterMemoryItemsByCategory(items: List<MemoryItem>, category: String?): List<MemoryItem> {
+    return if (category == null) {
+        items
+    } else {
+        items.filter {
+            it.category.equals(category, ignoreCase = true)
+        }
     }
 }
 
@@ -143,7 +138,9 @@ internal fun isToday(createdAt: String?): Boolean {
         val today = java.time.LocalDate.now()
         val itemDate = date.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
         itemDate == today
-    } catch (e: Exception) { false }
+    } catch (e: Exception) {
+        false
+    }
 }
 
 internal fun isThisWeek(createdAt: String?): Boolean {
@@ -154,7 +151,9 @@ internal fun isThisWeek(createdAt: String?): Boolean {
         val itemDate = date.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
         val weekStart = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
         !itemDate.isBefore(weekStart) && !itemDate.isAfter(today)
-    } catch (e: Exception) { false }
+    } catch (e: Exception) {
+        false
+    }
 }
 
 internal fun isThisMonth(createdAt: String?): Boolean {
@@ -164,7 +163,9 @@ internal fun isThisMonth(createdAt: String?): Boolean {
         val today = java.time.LocalDate.now()
         val itemDate = date.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
         itemDate.year == today.year && itemDate.month == today.month
-    } catch (e: Exception) { false }
+    } catch (e: Exception) {
+        false
+    }
 }
 
 /**
@@ -173,10 +174,7 @@ internal fun isThisMonth(createdAt: String?): Boolean {
  * 参考图风格:横向滚动,选中项用 inverseSurface 深色药丸,未选中用浅灰。
  */
 @Composable
-internal fun CategoryFilterChipRow(
-    selectedCategory: String?,
-    onSelect: (String?) -> Unit,
-) {
+internal fun CategoryFilterChipRow(selectedCategory: String?, onSelect: (String?) -> Unit) {
     val scrollState = rememberScrollState()
     val categories = listOf(
         null to stringResource(R.string.memory_category_all),
@@ -208,23 +206,25 @@ internal fun CategoryFilterChipRow(
 }
 
 @Composable
-internal fun CategoryChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+internal fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) {
     Surface(
         shape = MuseShapes.pill,
-        color = if (selected) MaterialTheme.colorScheme.inverseSurface
-            else MaterialTheme.colorScheme.surfaceVariant,
+        color = if (selected) {
+            MaterialTheme.colorScheme.inverseSurface
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        },
         modifier = Modifier.clickable(onClick = onClick),
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            color = if (selected) MaterialTheme.colorScheme.inverseOnSurface
-                else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (selected) {
+                MaterialTheme.colorScheme.inverseOnSurface
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
         )
     }
@@ -234,11 +234,7 @@ internal fun CategoryChip(
  * v8: 作用域筛选行 — 横向滚动 MuseChip。
  */
 @Composable
-internal fun ScopeFilterChipRow(
-    options: List<ScopeOption>,
-    selectedScope: String?,
-    onSelect: (String?) -> Unit,
-) {
+internal fun ScopeFilterChipRow(options: List<ScopeOption>, selectedScope: String?, onSelect: (String?) -> Unit) {
     val scrollState = rememberScrollState()
 
     Text(
@@ -454,10 +450,7 @@ internal fun categoryDisplayName(category: String): String {
  * 分类分组标题 — 居中/左对齐小字。
  */
 @Composable
-internal fun CategorySectionHeader(
-    title: String,
-    count: Int,
-) {
+internal fun CategorySectionHeader(title: String, count: Int) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -564,13 +557,16 @@ private fun MemoryFactRow(
                 expanded = menuOpen,
                 onDismissRequest = { menuOpen = false },
             ) {
-
                 MuseListItem(
                     onClick = {
                         menuOpen = false
                         onTogglePin(item)
                     },
-                    headlineContent = { Text(stringResource(if (item.pinnedAt == null) R.string.memory_menu_pin else R.string.memory_menu_unpin)) },
+                    headlineContent = {
+                        Text(
+                            stringResource(if (item.pinnedAt == null) R.string.memory_menu_pin else R.string.memory_menu_unpin),
+                        )
+                    },
                 )
                 MuseListItem(
                     onClick = {
@@ -598,7 +594,6 @@ private fun MemoryFactRow(
                         )
                     },
                 )
-            
             }
         }
     }
@@ -640,14 +635,18 @@ internal fun buildMetaText(item: MemoryItem): String {
         ?: ""
     val scopeText = if (!item.scope.isNullOrBlank() && item.scope != "main") {
         stringResource(R.string.memory_scope_assistant) + " · " + item.scope.take(6)
-    } else ""
+    } else {
+        ""
+    }
     // 可追溯:补一行“最近命中”,让用户看得出这条记忆还活着没有
     val hitText = daysSinceIso(item.lastHitAt)?.let { days ->
         stringResource(R.string.memory_meta_last_hit, days)
     } ?: ""
     val countText = if (item.hitCount > 0) {
         stringResource(R.string.memory_meta_hit_count, item.hitCount)
-    } else ""
+    } else {
+        ""
+    }
     val parts = listOf(dateText, scopeText, hitText, countText).filter { it.isNotBlank() }
     return parts.joinToString(" · ")
 }
@@ -670,10 +669,16 @@ internal fun daysSinceIso(iso: String?): Long? {
 @Composable
 internal fun ImportanceTag(importance: Int) {
     if (importance <= 0) return
-    val text = if (importance >= 2) stringResource(R.string.memory_importance_critical)
-        else stringResource(R.string.memory_importance_important)
-    val color = if (importance >= 2) MaterialTheme.colorScheme.error
-        else MaterialTheme.colorScheme.onSurfaceVariant
+    val text = if (importance >= 2) {
+        stringResource(R.string.memory_importance_critical)
+    } else {
+        stringResource(R.string.memory_importance_important)
+    }
+    val color = if (importance >= 2) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
     Surface(
         shape = MuseShapes.pill,
         color = color.copy(alpha = 0.12f),
@@ -706,25 +711,25 @@ internal fun MemoryCardTrailing(
                 onClick = { onSetImportance(item) },
                 contentDescription = stringResource(R.string.memory_sync_set_importance_cd),
                 tint = when (item.importance) {
-                        2 -> MaterialTheme.colorScheme.error
-                        1 -> MaterialTheme.colorScheme.onSurfaceVariant
-                        else -> MaterialTheme.colorScheme.outline
-                    },
+                    2 -> MaterialTheme.colorScheme.error
+                    1 -> MaterialTheme.colorScheme.onSurfaceVariant
+                    else -> MaterialTheme.colorScheme.outline
+                },
                 iconSize = 20.dp,
             )
         }
         if (onEdit != null) {
-        if (onTogglePin != null) {
-            MuseTactileButton(
-                icon = MuseIcons.pin,
-                onClick = { onTogglePin(item) },
-                contentDescription = stringResource(
+            if (onTogglePin != null) {
+                MuseTactileButton(
+                    icon = MuseIcons.pin,
+                    onClick = { onTogglePin(item) },
+                    contentDescription = stringResource(
                         if (item.pinnedAt == null) R.string.memory_pin_cd else R.string.memory_unpin_cd,
                     ),
-                tint = if (item.pinnedAt != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                iconSize = 20.dp,
-            )
-        }
+                    tint = if (item.pinnedAt != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    iconSize = 20.dp,
+                )
+            }
             MuseTactileButton(
                 icon = MuseIcons.edit,
                 onClick = { onEdit(item) },
@@ -852,10 +857,10 @@ internal fun MemoryRowTrailing(
                 onClick = { onSetImportance(item) },
                 contentDescription = stringResource(R.string.memory_sync_set_importance_cd),
                 tint = when (item.importance) {
-                        2 -> MaterialTheme.colorScheme.error
-                        1 -> MaterialTheme.colorScheme.tertiary
-                        else -> MaterialTheme.colorScheme.outline
-                    },
+                    2 -> MaterialTheme.colorScheme.error
+                    1 -> MaterialTheme.colorScheme.tertiary
+                    else -> MaterialTheme.colorScheme.outline
+                },
                 iconSize = 20.dp,
             )
         }
@@ -938,10 +943,7 @@ internal fun formatCreatedAtText(createdAt: String?): String? {
  * 错误堆栈展示框。
  */
 @Composable
-internal fun ErrorTraceBox(
-    trace: String,
-    onRetry: () -> Unit,
-) {
+internal fun ErrorTraceBox(trace: String, onRetry: () -> Unit) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
@@ -963,13 +965,13 @@ internal fun ErrorTraceBox(
             MuseTactileButton(
                 icon = MuseIcons.copy,
                 onClick = {
-                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
-                    as android.content.ClipboardManager
-                clipboard.setPrimaryClip(
-                    android.content.ClipData.newPlainText("Muse Error Trace", trace)
-                )
-                MuseToast.show(context.getString(R.string.memory_screen_copied_trace))
-            },
+                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                        as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(
+                        android.content.ClipData.newPlainText("Muse Error Trace", trace),
+                    )
+                    MuseToast.show(context.getString(R.string.memory_screen_copied_trace))
+                },
                 contentDescription = stringResource(R.string.memory_screen_copy_trace_cd),
             )
         }
@@ -1022,4 +1024,3 @@ internal fun EmptyHint(text: String) {
         )
     }
 }
-

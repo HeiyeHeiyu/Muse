@@ -27,10 +27,7 @@ class TimeReminderTransformer : Transformer {
 
     override val name: String = "TimeReminder"
 
-    override suspend fun transform(
-        messages: List<UIMessage>,
-        context: TransformContext,
-    ): List<UIMessage> {
+    override suspend fun transform(messages: List<UIMessage>, context: TransformContext): List<UIMessage> {
         val enabled = (context.extra("time_reminder_enabled") as? Boolean) ?: true
         if (!enabled) return messages
 

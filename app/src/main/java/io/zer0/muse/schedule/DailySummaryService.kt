@@ -10,13 +10,13 @@ import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.session.SessionRepository
 import io.zer0.muse.notification.MuseNotificationManager
 import io.zer0.muse.ui.GreetingHelper
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -72,19 +72,11 @@ class DailySummaryService(
     }
 
     /** Worker 和前台补偿共享的时点生成入口。 */
-    suspend fun generateForSlot(
-        slotKey: String,
-        summaryDate: LocalDate,
-        notificationsEnabled: Boolean,
-    ): Boolean = mutex.withLock {
+    suspend fun generateForSlot(slotKey: String, summaryDate: LocalDate, notificationsEnabled: Boolean): Boolean = mutex.withLock {
         generateForSlotLocked(slotKey, summaryDate, notificationsEnabled)
     }
 
-    private suspend fun generateForSlotLocked(
-        slotKey: String,
-        summaryDate: LocalDate,
-        notificationsEnabled: Boolean,
-    ): Boolean {
+    private suspend fun generateForSlotLocked(slotKey: String, summaryDate: LocalDate, notificationsEnabled: Boolean): Boolean {
         if (settings.isDailySummarySlotCompleted(slotKey)) {
             Logger.d(TAG, "每日总结时点已完成,跳过: $slotKey")
             return true
@@ -124,11 +116,7 @@ class DailySummaryService(
         }
     }
 
-    private suspend fun generateAndDeliver(
-        slotKey: String,
-        summaryDate: LocalDate,
-        notificationsEnabled: Boolean,
-    ): Boolean {
+    private suspend fun generateAndDeliver(slotKey: String, summaryDate: LocalDate, notificationsEnabled: Boolean): Boolean {
         val zone = ZoneId.systemDefault()
         val dayStart = summaryDate.atStartOfDay(zone).toInstant().toEpochMilli()
         val dayEnd = summaryDate.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
@@ -191,11 +179,7 @@ class DailySummaryService(
     }
 
     /** LLM 失败时的确定性本地总结，只使用真实素材。 */
-    private suspend fun generateSummary(
-        service: ChatService,
-        todayMessages: List<UIMessage>,
-        facts: List<String>,
-    ): String? {
+    private suspend fun generateSummary(service: ChatService, todayMessages: List<UIMessage>, facts: List<String>): String? {
         val hasContent = todayMessages.isNotEmpty() || facts.isNotEmpty()
         val systemPrompt = if (hasContent) {
             """

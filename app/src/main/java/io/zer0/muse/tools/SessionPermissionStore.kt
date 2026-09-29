@@ -26,7 +26,10 @@ class SessionPermissionStore(private val context: Context) {
 
     private val Context.permissionDataStore by preferencesDataStore(name = "muse_session_permission")
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     /**
      * 会话级临时允许缓存:sessionId → 已允许工具名集合。
@@ -53,10 +56,7 @@ class SessionPermissionStore(private val context: Context) {
         }
 
     /** 读取指定会话的权限模式,未设置时返回 [defaultMode](默认 ASK)。 */
-    suspend fun getMode(
-        sessionId: String,
-        defaultMode: SessionPermissionMode = SessionPermissionMode.ASK,
-    ): SessionPermissionMode {
+    suspend fun getMode(sessionId: String, defaultMode: SessionPermissionMode = SessionPermissionMode.ASK): SessionPermissionMode {
         return modesFlow.first()[sessionId] ?: defaultMode
     }
 
@@ -96,8 +96,7 @@ class SessionPermissionStore(private val context: Context) {
      *
      * v2.x 工具瘦身阶段1:已授权的工具(GLOBAL 类)在后续请求中维持可见。
      */
-    fun allowedToolsThisSession(sessionId: String): Set<String> =
-        sessionAllowedTools[sessionId].orEmpty()
+    fun allowedToolsThisSession(sessionId: String): Set<String> = sessionAllowedTools[sessionId].orEmpty()
 
     /**
      * 把工具加入当前会话的临时允许集合。

@@ -70,9 +70,7 @@ class RootExecutor(
      *
      * @return 是否拿到 uid=0,以及失败时的可读原因
      */
-    suspend fun requestRootAccess(
-        timeoutMs: Long = ROOT_REQUEST_TIMEOUT_MS,
-    ): RootRequestResult = withContext(Dispatchers.IO) {
+    suspend fun requestRootAccess(timeoutMs: Long = ROOT_REQUEST_TIMEOUT_MS): RootRequestResult = withContext(Dispatchers.IO) {
         if (!isRooted()) {
             Logger.i(TAG, "root 授权请求跳过: 设备无 su 二进制")
             return@withContext RootRequestResult.failed(RootRequestFailure.NO_SU_BINARY)
@@ -104,12 +102,10 @@ class RootExecutor(
     }
 
     /** H-SEC-1: 包名白名单校验,拒绝包含 shell 元字符的参数。 */
-    private fun validatePackageName(name: String): Boolean =
-        Regex("^[a-zA-Z][a-zA-Z0-9_.]*\$").matches(name)
+    private fun validatePackageName(name: String): Boolean = Regex("^[a-zA-Z][a-zA-Z0-9_.]*\$").matches(name)
 
     /** H-SEC-1: 路径白名单校验,拒绝路径穿越和 shell 注入字符。 */
-    private fun validatePath(path: String): Boolean =
-        Regex("^[/a-zA-Z0-9_.\\-]+$").matches(path)
+    private fun validatePath(path: String): Boolean = Regex("^[/a-zA-Z0-9_.\\-]+$").matches(path)
 
     /**
      * Resolve an APK only from directories where this app stages APK files.
@@ -131,10 +127,9 @@ class RootExecutor(
         return candidate.path.takeIf { candidate.isWithinAny(allowedRoots) }
     }
 
-    private fun File.isWithinAny(roots: List<File>): Boolean =
-        roots.any { root ->
-            path == root.path || path.startsWith(root.path + File.separator)
-        }
+    private fun File.isWithinAny(roots: List<File>): Boolean = roots.any { root ->
+        path == root.path || path.startsWith(root.path + File.separator)
+    }
 
     /** 静默安装 APK(root 下 pm install 不需要用户确认)。 */
     suspend fun installApk(apkPath: String): Boolean {
@@ -433,17 +428,15 @@ class RootExecutor(
     }
 
     /** H-SEC: Only allow alphanumeric + underscore for settings keys. */
-    private fun validateSettingsName(name: String): String? =
-        name.takeIf { it.matches(Regex("^[a-zA-Z_][a-zA-Z0-9_]*$")) }
+    private fun validateSettingsName(name: String): String? = name.takeIf { it.matches(Regex("^[a-zA-Z_][a-zA-Z0-9_]*$")) }
 
     /** H-SEC: Only allow global/secure/system namespaces. */
-    private fun validateSettingsNamespace(ns: String): String? =
-        when (ns.lowercase()) {
-            "global" -> "global "
-            "system" -> "system "
-            "secure", "" -> "secure "
-            else -> null
-        }
+    private fun validateSettingsNamespace(ns: String): String? = when (ns.lowercase()) {
+        "global" -> "global "
+        "system" -> "system "
+        "secure", "" -> "secure "
+        else -> null
+    }
 
     companion object {
         private const val TAG = "RootExec"

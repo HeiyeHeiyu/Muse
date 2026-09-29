@@ -6,9 +6,9 @@ import io.zer0.ai.core.ProviderSpecificConfig
 import io.zer0.common.ErrorCode
 import io.zer0.common.Logger
 import io.zer0.common.toMessage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -43,80 +43,73 @@ class ImageService(
      * @param params 绘图参数(模型 / 尺寸 / 质量 / 风格 / 数量 / 参考图等)
      * @param providerConfig 显式指定 Provider;null 时用 configStore 当前激活 Provider
      */
-    suspend fun generate(
-        prompt: String,
-        params: ImageGenParams = ImageGenParams(),
-        providerConfig: ProviderConfig? = null,
-    ): List<String> = withContext(Dispatchers.IO) {
-        val config = providerConfig ?: configStore.get()
-            ?: error(ErrorCode.NO_PROVIDER_CONFIGURED.toMessage())
-        if (config.apiKey.isBlank() && !config.allowMissingApiKey) {
-            error(ErrorCode.IMAGE_API_KEY_MISSING.toMessage())
+    suspend fun generate(prompt: String, params: ImageGenParams = ImageGenParams(), providerConfig: ProviderConfig? = null): List<String> =
+        withContext(Dispatchers.IO) {
+            val config = providerConfig ?: configStore.get()
+                ?: error(ErrorCode.NO_PROVIDER_CONFIGURED.toMessage())
+            if (config.apiKey.isBlank() && !config.allowMissingApiKey) {
+                error(ErrorCode.IMAGE_API_KEY_MISSING.toMessage())
+            }
+
+            // v1.0.18: 通过 Registry 选择 provider,不再硬性要求 OPENAI 类型
+            val provider = registry.selectFor(config)
+                ?: error(ErrorCode.IMAGE_UNSUPPORTED_MODEL.toMessage("no_provider_for_${config.id}"))
+
+            // 模型选择优先级:
+            //  1. params.model 显式传入;
+            //  2. ProviderSpecificConfig.OpenAI.imageModel(OpenAI 兼容 provider);
+            //  3. ProviderConfig.models 中首个 outputModalities 含 "image" 的模型;
+            //  4. provider 自身默认值(AgnesImageProvider.DEFAULT_MODEL_ID / ImageModelCatalog.DEFAULT_MODEL_ID)
+            val effectiveModel = resolveModelId(params, config, provider)
+
+            Logger.i(
+                TAG,
+                "generate: provider=${provider.providerId} model=$effectiveModel " +
+                    "size=${params.size} n=${params.n} ref=${!params.referenceImageUri.isNullOrBlank()}",
+            )
+
+            val referenceImages = params.referenceImageUri?.takeIf { it.isNotBlank() }?.let { listOf(it) }
+                ?: emptyList()
+            val request = ImageGenRequest(
+                prompt = prompt,
+                model = effectiveModel,
+                size = params.size,
+                quality = params.quality,
+                style = params.style,
+                n = params.n,
+                referenceImages = referenceImages,
+                responseFormat = params.responseFormat,
+                config = config,
+            )
+
+            val result = try {
+                provider.submit(request)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: IllegalStateException) {
+                // error() 抛出的业务错误原样传播
+                throw e
+            } catch (e: Exception) {
+                Logger.w(TAG, "image submit failed: ${e.message}")
+                error(ErrorCode.IMAGE_GEN_FAILED.toMessage(e.message ?: ""))
+            }
+
+            // 同步任务:直接转换 images
+            val finalImages = if (!result.isAsync || result.taskId == null) {
+                result.images
+            } else {
+                // 异步任务:轮询直到终态
+                pollUntilDone(provider, result.taskId)
+            }
+            if (finalImages.isEmpty()) error(ErrorCode.IMAGE_NO_RESULTS.toMessage())
+            convertToOutputStrings(finalImages)
         }
-
-        // v1.0.18: 通过 Registry 选择 provider,不再硬性要求 OPENAI 类型
-        val provider = registry.selectFor(config)
-            ?: error(ErrorCode.IMAGE_UNSUPPORTED_MODEL.toMessage("no_provider_for_${config.id}"))
-
-        // 模型选择优先级:
-        //  1. params.model 显式传入;
-        //  2. ProviderSpecificConfig.OpenAI.imageModel(OpenAI 兼容 provider);
-        //  3. ProviderConfig.models 中首个 outputModalities 含 "image" 的模型;
-        //  4. provider 自身默认值(AgnesImageProvider.DEFAULT_MODEL_ID / ImageModelCatalog.DEFAULT_MODEL_ID)
-        val effectiveModel = resolveModelId(params, config, provider)
-
-        Logger.i(
-            TAG,
-            "generate: provider=${provider.providerId} model=$effectiveModel " +
-                "size=${params.size} n=${params.n} ref=${!params.referenceImageUri.isNullOrBlank()}",
-        )
-
-        val referenceImages = params.referenceImageUri?.takeIf { it.isNotBlank() }?.let { listOf(it) }
-            ?: emptyList()
-        val request = ImageGenRequest(
-            prompt = prompt,
-            model = effectiveModel,
-            size = params.size,
-            quality = params.quality,
-            style = params.style,
-            n = params.n,
-            referenceImages = referenceImages,
-            responseFormat = params.responseFormat,
-            config = config,
-        )
-
-        val result = try {
-            provider.submit(request)
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: IllegalStateException) {
-            // error() 抛出的业务错误原样传播
-            throw e
-        } catch (e: Exception) {
-            Logger.w(TAG, "image submit failed: ${e.message}")
-            error(ErrorCode.IMAGE_GEN_FAILED.toMessage(e.message ?: ""))
-        }
-
-        // 同步任务:直接转换 images
-        val finalImages = if (!result.isAsync || result.taskId == null) {
-            result.images
-        } else {
-            // 异步任务:轮询直到终态
-            pollUntilDone(provider, result.taskId)
-        }
-        if (finalImages.isEmpty()) error(ErrorCode.IMAGE_NO_RESULTS.toMessage())
-        convertToOutputStrings(finalImages)
-    }
 
     /**
      * 解析最终模型 ID(不再硬编码 dall-e-3)。
      */
     @Suppress("ReturnCount")
-    internal fun resolveModelId(
-        params: ImageGenParams,
-        config: ProviderConfig,
-        provider: ImageProvider,
-    ): String {
+    internal fun resolveModelId(params: ImageGenParams, config: ProviderConfig, provider: ImageProvider): String {
         // 1. 显式传入
         params.model.takeIf { it.isNotBlank() }?.let { return it }
 
@@ -144,10 +137,7 @@ class ImageService(
      *  - 连续 5 次错误才判定失败;
      *  - 总超时 [POLL_TIMEOUT_MS](10 分钟)。
      */
-    private suspend fun pollUntilDone(
-        provider: ImageProvider,
-        taskId: String,
-    ): List<GeneratedImage> {
+    private suspend fun pollUntilDone(provider: ImageProvider, taskId: String): List<GeneratedImage> {
         val createdAt = System.currentTimeMillis()
         var tick = 0
         var consecutiveErrors = 0
@@ -203,9 +193,9 @@ class ImageService(
      */
     internal fun shouldCheckThisTick(ageMs: Long, tickCount: Int): Boolean {
         return when {
-            ageMs < TWO_MINUTES_MS -> true                 // < 2 min: 每 tick
-            ageMs < TEN_MINUTES_MS -> tickCount % 3 == 0   // 2-10 min: 每 3 tick
-            else -> tickCount % 6 == 0                     // 10 min+: 每 6 tick
+            ageMs < TWO_MINUTES_MS -> true // < 2 min: 每 tick
+            ageMs < TEN_MINUTES_MS -> tickCount % 3 == 0 // 2-10 min: 每 3 tick
+            else -> tickCount % 6 == 0 // 10 min+: 每 6 tick
         }
     }
 

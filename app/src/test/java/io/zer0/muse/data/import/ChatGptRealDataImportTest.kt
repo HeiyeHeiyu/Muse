@@ -7,6 +7,7 @@ import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.session.MessageImageStore
 import io.zer0.muse.data.session.MuseDb
 import io.zer0.muse.data.session.SessionRepository
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -14,7 +15,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
-import kotlinx.coroutines.runBlocking
 
 /**
  * v1.0.74: 用真实 ChatGPT 导出数据做端到端导入测试。
@@ -77,6 +77,8 @@ class ChatGptRealDataImportTest {
         // 以 ImportResult 计数为准。
         assert(result.conversationsImported == 73) { "会话数 ${result.conversationsImported} != 73" }
         assert(result.messagesImported >= 1600) { "消息数 ${result.messagesImported} 远少于预期 1638" }
-        java.io.File("C:/Users/21192/AppData/Local/Temp/gpt_import_result.txt").writeText("conversations=${result.conversationsImported} messages=${result.messagesImported} errors=${result.errors}")
+        java.io.File(
+            "C:/Users/21192/AppData/Local/Temp/gpt_import_result.txt",
+        ).writeText("conversations=${result.conversationsImported} messages=${result.messagesImported} errors=${result.errors}")
     }
 }

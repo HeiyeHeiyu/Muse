@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import io.zer0.muse.asr.AudioAmplitude.appendAmplitude
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -66,6 +65,7 @@ class DashScopeAsrController(
 ) : ASRController {
 
     private val json = Json { ignoreUnknownKeys = true }
+
     // 优先复用注入的共享 client;未注入时自建(ownsClient=true,dispose 时才 shutdown)
     private val ownsClient: Boolean = sharedClient == null
     private val client: OkHttpClient = sharedClient ?: OkHttpClient.Builder()
@@ -83,6 +83,7 @@ class DashScopeAsrController(
     private var audioRecord: AudioRecord? = null
     private var recordJob: Job? = null
     private var onTranscriptChange: ((String) -> Unit)? = null
+
     @Volatile private var currentTaskId: String? = null
 
     // 累积的最终结果(sentence_end=true 的文本)+ 当前中间结果(sentence_id → text)
@@ -95,14 +96,19 @@ class DashScopeAsrController(
     // ── Phase 3: 断线重连相关字段(对齐 OpenAiRealtimeAsrController 的既有实现) ──
     /** 已触发的重连次数(重连成功后清零)。 */
     private var reconnectAttempt = 0
+
     /** 重连期间缓冲的 PCM 音频帧(按入队顺序补发)。 */
     private val audioBuffer = ArrayDeque<ByteArray>()
+
     /** [audioBuffer] 锁:录音线程入队与重连补发互斥。 */
     private val audioBufferLock = Any()
+
     /** [audioBuffer] 当前累计字节数,用于上限判断。 */
     @Volatile private var audioBufferBytes = 0
+
     /** 当前调度的退避重连协程;stop/dispose/start 时取消。 */
     private var reconnectJob: Job? = null
+
     /** dispose 标志,防止 dispose 后仍在重连。 */
     private val isDisposed = AtomicBoolean(false)
 
@@ -114,7 +120,9 @@ class DashScopeAsrController(
         }
         if (config.apiKey.isBlank()) {
             Logger.w(TAG, "DashScope ASR 未配置 apiKey")
-            _state.update { it.copy(status = ASRStatus.Error, errorMessage = appContext.getString(R.string.asr_error_no_apikey)) } // CONS-05: 硬编码中文迁移到字符串资源
+            _state.update {
+                it.copy(status = ASRStatus.Error, errorMessage = appContext.getString(R.string.asr_error_no_apikey))
+            } // CONS-05: 硬编码中文迁移到字符串资源
             return
         }
         // Phase 3: 重连中重新 start → 取消重连并释放录音资源,走全新连接(避免两套录音叠加)
@@ -132,7 +140,9 @@ class DashScopeAsrController(
                 threshold = config.vadThreshold,
                 silenceDurationMs = config.vadSilenceDurationMs,
             )
-        } else null
+        } else {
+            null
+        }
         _state.update {
             it.copy(status = ASRStatus.Connecting, transcript = "", errorMessage = null, amplitudes = emptyList())
         }
@@ -187,7 +197,9 @@ class DashScopeAsrController(
                 Logger.w(TAG, "发送 run-task 失败")
                 cleanupConnection()
                 if (isInitial) {
-                    _state.update { it.copy(status = ASRStatus.Error, errorMessage = appContext.getString(R.string.asr_error_send_run_task_failed)) } // CONS-05: 硬编码中文迁移到字符串资源
+                    _state.update {
+                        it.copy(status = ASRStatus.Error, errorMessage = appContext.getString(R.string.asr_error_send_run_task_failed))
+                    } // CONS-05: 硬编码中文迁移到字符串资源
                 }
                 return false
             }
@@ -198,7 +210,9 @@ class DashScopeAsrController(
                 Logger.w(TAG, "run-task 后未收到 task-started")
                 cleanupConnection()
                 if (isInitial) {
-                    _state.update { it.copy(status = ASRStatus.Error, errorMessage = appContext.getString(R.string.asr_error_no_task_started)) } // CONS-05: 硬编码中文迁移到字符串资源
+                    _state.update {
+                        it.copy(status = ASRStatus.Error, errorMessage = appContext.getString(R.string.asr_error_no_task_started))
+                    } // CONS-05: 硬编码中文迁移到字符串资源
                 }
                 return false
             }
@@ -228,7 +242,12 @@ class DashScopeAsrController(
             Logger.w(TAG, "establishConnection 异常: ${e.message}")
             cleanupConnection()
             if (isInitial) {
-                _state.update { it.copy(status = ASRStatus.Error, errorMessage = e.message ?: appContext.getString(R.string.asr_error_connection_exception)) } // CONS-05: 硬编码中文迁移到字符串资源
+                _state.update {
+                    it.copy(
+                        status = ASRStatus.Error,
+                        errorMessage = e.message ?: appContext.getString(R.string.asr_error_connection_exception),
+                    )
+                } // CONS-05: 硬编码中文迁移到字符串资源
             }
             false
         }
@@ -239,7 +258,9 @@ class DashScopeAsrController(
     private fun startRecordingInternal() {
         val capture = AsrAudioCapture.create(config.sampleRate, TAG)
         if (capture == null) {
-            _state.update { it.copy(status = ASRStatus.Error, errorMessage = appContext.getString(R.string.asr_error_mic_init_failed)) } // CONS-05: 硬编码中文迁移到字符串资源
+            _state.update {
+                it.copy(status = ASRStatus.Error, errorMessage = appContext.getString(R.string.asr_error_mic_init_failed))
+            } // CONS-05: 硬编码中文迁移到字符串资源
             return
         }
         val record = capture.recorder
@@ -250,7 +271,9 @@ class DashScopeAsrController(
             Logger.w(TAG, "AudioRecord 启动失败: ${e.message}", e)
             record.release()
             audioRecord = null
-            _state.update { it.copy(status = ASRStatus.Error, errorMessage = appContext.getString(R.string.asr_error_recording_start_failed)) } // CONS-05: 硬编码中文迁移到字符串资源
+            _state.update {
+                it.copy(status = ASRStatus.Error, errorMessage = appContext.getString(R.string.asr_error_recording_start_failed))
+            } // CONS-05: 硬编码中文迁移到字符串资源
             return
         }
 
@@ -313,7 +336,7 @@ class DashScopeAsrController(
                 audioBuffer.addLast(frame)
                 audioBufferBytes += frame.size
             } else {
-                Logger.w(TAG, "重连期间音频缓冲已满(${audioBufferBytes} 字节),丢帧")
+                Logger.w(TAG, "重连期间音频缓冲已满($audioBufferBytes 字节),丢帧")
             }
         }
     }
@@ -428,7 +451,11 @@ class DashScopeAsrController(
         _state.update {
             it.copy(
                 status = ASRStatus.Reconnecting,
-                errorMessage = appContext.getString(R.string.asr_reconnecting_message, attemptNumber, MAX_RECONNECT_ATTEMPTS), // CONS-05: 硬编码中文迁移到字符串资源
+                errorMessage = appContext.getString(
+                    R.string.asr_reconnecting_message,
+                    attemptNumber,
+                    MAX_RECONNECT_ATTEMPTS,
+                ), // CONS-05: 硬编码中文迁移到字符串资源
             )
         }
         reconnectJob = scope.launch {
@@ -462,7 +489,7 @@ class DashScopeAsrController(
             clearAudioBuffer()
             return
         }
-        Logger.i(TAG, "WebSocket 重连成功,补发缓冲音频(${audioBuffer.size} 帧,${audioBufferBytes} 字节)")
+        Logger.i(TAG, "WebSocket 重连成功,补发缓冲音频(${audioBuffer.size} 帧,$audioBufferBytes 字节)")
         reconnectAttempt = 0
         _state.update { it.copy(status = ASRStatus.Listening, errorMessage = null) }
         flushAudioBuffer()
@@ -476,7 +503,10 @@ class DashScopeAsrController(
     private fun giveUpReconnect(reason: String) {
         Logger.w(TAG, "重连 $MAX_RECONNECT_ATTEMPTS 次仍未恢复,降级为 Error: $reason")
         _state.update {
-            it.copy(status = ASRStatus.Error, errorMessage = appContext.getString(R.string.asr_reconnect_exhausted)) // CONS-05: 硬编码中文迁移到字符串资源
+            it.copy(
+                status = ASRStatus.Error,
+                errorMessage = appContext.getString(R.string.asr_reconnect_exhausted),
+            ) // CONS-05: 硬编码中文迁移到字符串资源
         }
         cleanupConnection()
         releaseAudioRecord()
@@ -530,7 +560,9 @@ class DashScopeAsrController(
     private fun releaseAudioRecord() {
         recordJob?.cancel()
         recordJob = null
-        try { audioRecord?.stop() } catch (_: Throwable) { /* 已停止或未初始化 */ }
+        try {
+            audioRecord?.stop()
+        } catch (_: Throwable) { /* 已停止或未初始化 */ }
         audioRecord?.release()
         audioRecord = null
     }
@@ -542,7 +574,9 @@ class DashScopeAsrController(
         clearAudioBuffer()
         _state.update { it.copy(status = ASRStatus.Stopping) }
         // 先停 AudioRecord(解除 read 阻塞),再取消录音协程,最后释放
-        try { audioRecord?.stop() } catch (_: Throwable) { /* 已停止或未初始化 */ }
+        try {
+            audioRecord?.stop()
+        } catch (_: Throwable) { /* 已停止或未初始化 */ }
         recordJob?.cancel()
         audioRecord?.release()
         audioRecord = null
@@ -572,7 +606,9 @@ class DashScopeAsrController(
         cancelReconnect()
         clearAudioBuffer()
         recordJob?.cancel()
-        try { audioRecord?.stop() } catch (_: Throwable) { /* 已停止或未初始化 */ }
+        try {
+            audioRecord?.stop()
+        } catch (_: Throwable) { /* 已停止或未初始化 */ }
         audioRecord?.release()
         audioRecord = null
         webSocket?.close(1000, "disposed")
@@ -626,19 +662,25 @@ class DashScopeAsrController(
             }
         }
         val msg = buildJsonObject {
-            put("header", buildJsonObject {
-                put("action", "run-task")
-                put("task_id", taskId)
-                put("streaming", "duplex")
-            })
-            put("payload", buildJsonObject {
-                put("task_group", "audio")
-                put("task", "asr")
-                put("function", "recognition")
-                put("model", config.model.ifBlank { config.defaultModel() })
-                put("input", buildJsonObject {})
-                put("parameters", parameters)
-            })
+            put(
+                "header",
+                buildJsonObject {
+                    put("action", "run-task")
+                    put("task_id", taskId)
+                    put("streaming", "duplex")
+                },
+            )
+            put(
+                "payload",
+                buildJsonObject {
+                    put("task_group", "audio")
+                    put("task", "asr")
+                    put("function", "recognition")
+                    put("model", config.model.ifBlank { config.defaultModel() })
+                    put("input", buildJsonObject {})
+                    put("parameters", parameters)
+                },
+            )
         }
         return json.encodeToString(JsonObject.serializer(), msg)
     }
@@ -646,45 +688,53 @@ class DashScopeAsrController(
     /** 构造 finish-task 指令 JSON。 */
     private fun buildFinishTaskMessage(taskId: String): String {
         val msg = buildJsonObject {
-            put("header", buildJsonObject {
-                put("action", "finish-task")
-                put("task_id", taskId)
-                put("streaming", "duplex")
-            })
-            put("payload", buildJsonObject {
-                put("input", buildJsonObject {})
-            })
+            put(
+                "header",
+                buildJsonObject {
+                    put("action", "finish-task")
+                    put("task_id", taskId)
+                    put("streaming", "duplex")
+                },
+            )
+            put(
+                "payload",
+                buildJsonObject {
+                    put("input", buildJsonObject {})
+                },
+            )
         }
         return json.encodeToString(JsonObject.serializer(), msg)
     }
 
     /** JsonObject 扩展工具(容错取值)。 */
-    private fun JsonObject.optString(key: String): String =
-        (this[key] as? JsonPrimitive)?.content ?: ""
+    private fun JsonObject.optString(key: String): String = (this[key] as? JsonPrimitive)?.content ?: ""
 
-    private fun JsonObject.optInt(key: String): Int? =
-        (this[key] as? JsonPrimitive)?.content?.toIntOrNull()
+    private fun JsonObject.optInt(key: String): Int? = (this[key] as? JsonPrimitive)?.content?.toIntOrNull()
 
-    private fun JsonObject.optBool(key: String): Boolean? =
-        (this[key] as? JsonPrimitive)?.content?.toBooleanStrictOrNull()
+    private fun JsonObject.optBool(key: String): Boolean? = (this[key] as? JsonPrimitive)?.content?.toBooleanStrictOrNull()
 
-    private fun JsonObject.optObject(key: String): JsonObject? =
-        this[key] as? JsonObject
+    private fun JsonObject.optObject(key: String): JsonObject? = this[key] as? JsonObject
 
     companion object {
         private const val TAG = "DashScopeAsrController"
         private const val ENDPOINT = "wss://dashscope.aliyuncs.com/api-ws/v1/inference"
         private const val TIMEOUT_EVENT_MS = 15_000L
+
         /** 音频分块大小:100ms @ 16kHz 16-bit mono = 16000 * 2 * 0.1 = 3200 bytes。 */
         private const val AUDIO_CHUNK_BYTES = 3200
+
         /** WebSocket 发送队列背压上限(字节),超限丢帧避免内存堆积。 */
         private const val MAX_QUEUE_BYTES = 100_000L
+
         /** stop() 等待 task-finished 的超时,超时强制切 Idle。 */
         private const val STOP_TIMEOUT_MS = 5_000L
+
         /** Phase 3: 最大重连尝试次数(与 Step/Whisper 的 AsrConstants.RECONNECT_MAX_ATTEMPTS 对齐)。 */
         private const val MAX_RECONNECT_ATTEMPTS = DashScopeReconnectPolicy.MAX_ATTEMPTS
+
         /** Phase 3: 重连期间 PCM 缓冲上限(5MB,对齐 OpenAiRealtimeAsrController,避免 OOM)。 */
         private const val MAX_AUDIO_BUFFER_BYTES = 5 * 1024 * 1024
+
         /**
          * Phase 3: 重连成功后最多补发的音频字节数。
          * 2 秒 @16kHz/16bit/mono ≈ 64KB(与 OpenAiRealtimeAsrController.MAX_REPLAY_BYTES 一致)。
@@ -709,7 +759,9 @@ internal class DashScopeSession(
 ) : WebSocketListener() {
 
     private val events = kotlinx.coroutines.channels.Channel<JsonObject>(kotlinx.coroutines.channels.Channel.UNLIMITED)
+
     @Volatile private var closed = false
+
     /**
      * Phase 3: 断线回调(由 Controller 设置)。
      * - [onFailure]: 连接失败/异常断开;
@@ -802,8 +854,10 @@ internal class DashScopeSession(
 internal object DashScopeReconnectPolicy {
     /** 最大重连尝试次数(与 Step/Whisper 的 3 次对齐)。 */
     const val MAX_ATTEMPTS = 3
+
     /** 首次重连退避(毫秒)。 */
     const val BASE_DELAY_MS = 500L
+
     /** 单次退避上限(毫秒)。 */
     const val MAX_DELAY_MS = 8_000L
 

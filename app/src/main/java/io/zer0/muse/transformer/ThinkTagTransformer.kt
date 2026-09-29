@@ -93,10 +93,7 @@ private fun extractTagBlocks(content: String, regex: Regex): Pair<String?, Strin
  *
  * @return Pair(reasoning, content);reasoning 无内容时为 null
  */
-fun splitThinkTagsForStreaming(
-    content: String,
-    existingReasoning: String? = null,
-): Pair<String?, String> {
+fun splitThinkTagsForStreaming(content: String, existingReasoning: String? = null): Pair<String?, String> {
     if (existingReasoning != null) return existingReasoning to content
     if (!content.contains("<think>", ignoreCase = true)) return null to content
 
@@ -174,17 +171,14 @@ class ThinkTagTransformer : Transformer {
         return extractTagBlocks(content, regex)
     }
 
-    override suspend fun transform(
-        messages: List<UIMessage>,
-        context: TransformContext,
-    ): List<UIMessage> = messages.map { msg ->
+    override suspend fun transform(messages: List<UIMessage>, context: TransformContext): List<UIMessage> = messages.map { msg ->
         if (msg.role != MessageRole.ASSISTANT) return@map msg
-        if (msg.reasoning != null) return@map msg  // 已有 reasoning,跳过
-        if (!msg.content.contains("<think>", ignoreCase = true)) return@map msg  // 快速路径
+        if (msg.reasoning != null) return@map msg // 已有 reasoning,跳过
+        if (!msg.content.contains("<think>", ignoreCase = true)) return@map msg // 快速路径
 
         val (extracted, remaining) = extractTag(msg.content, thinkRegex, null)
         if (extracted == null && remaining == msg.content) {
-            msg  // 没匹配到完整 think 标签,原样返回
+            msg // 没匹配到完整 think 标签,原样返回
         } else {
             msg.copy(
                 reasoning = extracted,
@@ -205,16 +199,13 @@ class ThinkTagTransformer : Transformer {
      * 注意: 本方法返回的是新列表(供 UI 渲染),不修改调用方持有的实际消息。
      * 已有 reasoning 字段的消息跳过(避免覆盖已抽取的内容)。
      */
-    override suspend fun visualTransform(
-        messages: List<UIMessage>,
-        context: TransformContext,
-    ): List<UIMessage> = messages.map { msg ->
+    override suspend fun visualTransform(messages: List<UIMessage>, context: TransformContext): List<UIMessage> = messages.map { msg ->
         if (msg.role != MessageRole.ASSISTANT) return@map msg
-        if (msg.reasoning != null) return@map msg  // 已有 reasoning,跳过
+        if (msg.reasoning != null) return@map msg // 已有 reasoning,跳过
         // 委托 B10 抽出的纯函数,与 ChatViewModel 流式路径共用同一份剥离逻辑
         val (reasoning, content) = splitThinkTagsForStreaming(msg.content, msg.reasoning)
         if (reasoning == msg.reasoning && content == msg.content) {
-            msg  // 没有任何可抽取内容,原样返回
+            msg // 没有任何可抽取内容,原样返回
         } else {
             msg.copy(reasoning = reasoning, content = content)
         }

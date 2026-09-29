@@ -6,8 +6,8 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.res.ColorStateList
 import android.content.pm.ServiceInfo
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
@@ -25,14 +25,14 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
-import io.zer0.muse.notification.MuseNotificationManager
-import io.zer0.muse.notification.MuseNotificationTarget
 import androidx.core.content.ContextCompat
 import io.zer0.common.Logger
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.quicknote.QuickNoteEntity
 import io.zer0.muse.data.session.MuseDb
+import io.zer0.muse.notification.MuseNotificationManager
+import io.zer0.muse.notification.MuseNotificationTarget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -288,11 +288,7 @@ class QuickCaptureOverlayService : Service() {
         }
     }
 
-    private fun makeDraggable(
-        view: View,
-        onClick: (() -> Unit)?,
-        onDragEnd: (() -> Unit)? = null,
-    ) {
+    private fun makeDraggable(view: View, onClick: (() -> Unit)?, onDragEnd: (() -> Unit)? = null) {
         var downRawX = 0f
         var downRawY = 0f
         var startX = 0
@@ -365,23 +361,22 @@ class QuickCaptureOverlayService : Service() {
         expandedSave = null
     }
 
-    private fun baseParams(width: Int, height: Int): WindowManager.LayoutParams =
-        WindowManager.LayoutParams(
-            width,
-            height,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            } else {
-                @Suppress("DEPRECATION")
-                WindowManager.LayoutParams.TYPE_PHONE
-            },
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            format = PixelFormat.TRANSLUCENT
-        }
+    private fun baseParams(width: Int, height: Int): WindowManager.LayoutParams = WindowManager.LayoutParams(
+        width,
+        height,
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        } else {
+            @Suppress("DEPRECATION")
+            WindowManager.LayoutParams.TYPE_PHONE
+        },
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+        PixelFormat.TRANSLUCENT,
+    ).apply {
+        gravity = Gravity.TOP or Gravity.START
+        format = PixelFormat.TRANSLUCENT
+    }
 
     private fun clampPosition(params: WindowManager.LayoutParams) {
         val bounds = screenBounds()
@@ -427,29 +422,30 @@ class QuickCaptureOverlayService : Service() {
         }
     }
 
-    private fun roundedBackground(color: Int, radius: Int): GradientDrawable =
-        GradientDrawable().apply {
-            setColor(color)
-            cornerRadius = radius.toFloat()
-        }
+    private fun roundedBackground(color: Int, radius: Int): GradientDrawable = GradientDrawable().apply {
+        setColor(color)
+        cornerRadius = radius.toFloat()
+    }
 
     /** 应用内侧滑把手的原生悬浮窗版本:右侧贴边,左侧圆角,颜色来自当前 Muse 主题。 */
-    private fun edgeHandleBackground(colors: QuickCaptureThemeColors): GradientDrawable =
-        GradientDrawable().apply {
-            setColor(withAlpha(colors.primary, 52))
-            setCornerRadii(
-                floatArrayOf(
-                    dp(14).toFloat(), dp(14).toFloat(),
-                    0f, 0f,
-                    0f, 0f,
-                    dp(14).toFloat(), dp(14).toFloat(),
-                ),
-            )
-            setStroke(dp(1), withAlpha(colors.primary, 64))
-        }
+    private fun edgeHandleBackground(colors: QuickCaptureThemeColors): GradientDrawable = GradientDrawable().apply {
+        setColor(withAlpha(colors.primary, 52))
+        setCornerRadii(
+            floatArrayOf(
+                dp(14).toFloat(),
+                dp(14).toFloat(),
+                0f,
+                0f,
+                0f,
+                0f,
+                dp(14).toFloat(),
+                dp(14).toFloat(),
+            ),
+        )
+        setStroke(dp(1), withAlpha(colors.primary, 64))
+    }
 
-    private fun currentThemeColors(): QuickCaptureThemeColors =
-        themeColors ?: QuickCaptureThemeColors.fallback(applicationContext)
+    private fun currentThemeColors(): QuickCaptureThemeColors = themeColors ?: QuickCaptureThemeColors.fallback(applicationContext)
 
     /** 主题切换时更新当前 View,不重建窗口,避免输入内容和拖动位置丢失。 */
     private fun applyThemeColors() {
@@ -472,8 +468,7 @@ class QuickCaptureOverlayService : Service() {
         }
     }
 
-    private fun withAlpha(color: Int, alpha: Int): Int =
-        Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
+    private fun withAlpha(color: Int, alpha: Int): Int = Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 

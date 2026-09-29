@@ -1,10 +1,9 @@
 package io.zer0.muse.ui
 
-import androidx.compose.foundation.layout.defaultMinSize
-
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -142,21 +141,16 @@ private fun FindStatusLabel(query: String, matchCount: Int, currentIndex: Int) {
 
 // A1: 查找条导航按钮 — 上一条/下一条/关闭共用样式;disabled 时半透明且点击无效
 @Composable
-private fun FindNavIconButton(
-    icon: ImageVector,
-    description: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
+private fun FindNavIconButton(icon: ImageVector, description: String, enabled: Boolean, onClick: () -> Unit) {
     MuseTactileButton(
         icon = icon,
         onClick = { if (enabled) onClick() },
         contentDescription = description,
         tint = if (enabled) {
-                MaterialTheme.colorScheme.onSurface
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-            },
+            MaterialTheme.colorScheme.onSurface
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+        },
         modifier = Modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp),
     )
 }

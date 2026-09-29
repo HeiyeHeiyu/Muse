@@ -1,8 +1,5 @@
 package io.zer0.muse.ui.settings
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.feedback.MuseToast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,9 +17,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,6 +36,7 @@ import io.zer0.muse.R
 import io.zer0.muse.asr.AsrConfig
 import io.zer0.muse.asr.AsrProviderType
 import io.zer0.muse.data.SettingsRepository
+import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseBottomSheet
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
@@ -62,10 +62,7 @@ import kotlinx.coroutines.launch
  *  4. 文件转录 — 仅 DashScope 文件模式显示,一个"保存转录设置"。
  */
 @Composable
-internal fun AsrSection(
-    asrConfig: AsrConfig,
-    settings: SettingsRepository,
-) {
+internal fun AsrSection(asrConfig: AsrConfig, settings: SettingsRepository) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var enginePickerOpen by remember { mutableStateOf(false) }
@@ -168,7 +165,13 @@ internal fun AsrSection(
                     visualTransformation = if (asrApiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         MuseCapsuleButton(
-                            text = if (asrApiKeyVisible) stringResource(R.string.settings_asr_hide) else stringResource(R.string.settings_asr_show),
+                            text = if (asrApiKeyVisible) {
+                                stringResource(
+                                    R.string.settings_asr_hide,
+                                )
+                            } else {
+                                stringResource(R.string.settings_asr_show)
+                            },
                             onClick = { asrApiKeyVisible = !asrApiKeyVisible },
                             variant = IosCapsuleButtonVariant.Text,
                             fillWidth = false,
@@ -444,11 +447,7 @@ internal fun AsrSection(
 
 /** 引擎选择面板中的单个 Provider 行:图标砖 + 名称 + 描述 + 选中勾。 */
 @Composable
-private fun EnginePickerRow(
-    provider: AsrProviderType,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun EnginePickerRow(provider: AsrProviderType, selected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

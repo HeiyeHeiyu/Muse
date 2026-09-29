@@ -14,34 +14,34 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseChip
-import io.zer0.muse.ui.common.form.MuseSlider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import io.zer0.muse.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.common.Logger
+import io.zer0.muse.R
 import io.zer0.muse.data.ProactiveMessageConfig
-import io.zer0.muse.data.proactive.ProactivePace
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantRepository
+import io.zer0.muse.data.proactive.ProactivePace
+import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseSlider
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.media.AssistantAvatar
 import io.zer0.muse.ui.common.settings.ChevronRight
-import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
@@ -76,7 +76,7 @@ fun AgentSettingsPage(
     val assistantRepository: AssistantRepository = koinInject()
     val assistants by assistantRepository.observeAll.collectAsStateWithLifecycle(initialValue = null)
     val proactiveConfig by settings.proactiveMessageConfigFlow.collectAsStateWithLifecycle(
-        initialValue = ProactiveMessageConfig()
+        initialValue = ProactiveMessageConfig(),
     )
     // v1.0.72: 每日总结推送开关
     val dailySummaryEnabled by settings.dailySummaryEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
@@ -91,7 +91,7 @@ fun AgentSettingsPage(
     val autoLaunch by settings.autoLaunchFlow.collectAsStateWithLifecycle(initialValue = false)
     val nightPatrolEnabled by settings.nightPatrolEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
     val multiAgentConfig by settings.multiAgentConfigFlow.collectAsStateWithLifecycle(
-        initialValue = io.zer0.muse.data.MultiAgentConfig()
+        initialValue = io.zer0.muse.data.MultiAgentConfig(),
     )
     // v1.52: Agent 当前模型选择 — 收集 providers / activeProviderId / selectedModelId
     val providers by settings.providersFlow.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -192,222 +192,233 @@ fun AgentSettingsPage(
     }
 
     SettingsSubPageScaffold(
-        title = if (proactiveOnly) stringResource(R.string.settings_agent_proactive_title) else stringResource(R.string.settings_agent_page_title),
+        title = if (proactiveOnly) {
+            stringResource(
+                R.string.settings_agent_proactive_title,
+            )
+        } else {
+            stringResource(R.string.settings_agent_page_title)
+        },
         onBack = onBack,
     ) {
         if (!proactiveOnly) {
-        // ── Agent 默认助手 ──
-        item { SectionLabel(stringResource(R.string.settings_agent_section_assistant)) }
-        item {
-            SettingsGroup(
-                modifier = Modifier.padding(top = 8.dp),
-            ) {
-                val currentAgent = assistants?.find { it.id == proactiveConfig.agentId }
-                    ?: assistants?.firstOrNull { it.id == "default" }
-                    ?: assistants?.firstOrNull()
-                SettingsItemRow(
-                    icon = MuseIcons.user,
-                    title = stringResource(R.string.settings_agent_default_assistant_title),
-                    subtitle = if (assistants == null) stringResource(R.string.settings_agent_loading) else currentAgent?.name ?: stringResource(R.string.settings_agent_use_first_assistant),
-                    onClick = { showAssistantPicker = true },
+            // ── Agent 默认助手 ──
+            item { SectionLabel(stringResource(R.string.settings_agent_section_assistant)) }
+            item {
+                SettingsGroup(
+                    modifier = Modifier.padding(top = 8.dp),
                 ) {
-                    ChevronRight()
-                }
-            }
-        }
-
-        // ── v1.52: Agent 当前模型 ──
-        item { SectionLabel(stringResource(R.string.settings_agent_section_model)) }
-        item {
-            SettingsGroup(
-                modifier = Modifier.padding(top = 8.dp),
-            ) {
-                SettingsItemRow(
-                    icon = MuseIcons.user,
-                    title = stringResource(R.string.settings_agent_current_model),
-                    // v1.0.74 fix: 提示用户这是全局默认模型,不是 Agent 专属(此前语义误导)
-                    subtitle = currentModelName + " · " + stringResource(R.string.settings_agent_current_model_hint),
-                    onClick = { showModelPicker = true },
-                ) {
-                    ChevronRight()
-                }
-                SettingsGroupDivider()
-                // v1.60-A: 工具模型 — 工具调用轮次使用的轻量模型,null 时沿用主对话模型
-                SettingsItemRow(
-                    icon = MuseIcons.wrench,
-                    title = stringResource(R.string.settings_agent_tool_model_title),
-                    subtitle = utilityModelName,
-                    onClick = { showToolModelPicker = true },
-                ) {
-                    ChevronRight()
-                }
-                SettingsGroupDivider()
-                // v2.0: 子代理模型 — 后台子 agent 使用的轻量模型
-                SettingsItemRow(
-                    icon = MuseIcons.bolt,
-                    title = stringResource(R.string.settings_agent_subagent_model_title),
-                    subtitle = utilityLargeModelName,
-                    onClick = { showSubagentModelPicker = true },
-                ) {
-                    ChevronRight()
-                }
-            }
-        }
-
-        // ── 多 Agent 协作 ──
-        item { SectionLabel(stringResource(R.string.settings_agent_multi_agent_section)) }
-        item {
-            SettingsGroup(
-                modifier = Modifier.padding(top = 8.dp),
-            ) {
-                SettingsItemRow(
-                    icon = MuseIcons.users,
-                    title = stringResource(R.string.settings_agent_collab_team),
-                    subtitle = if (multiAgentConfig.enabled) {
-                        stringResource(R.string.settings_agent_multi_agent_enabled, multiAgentConfig.teams.size)
-                    } else {
-                        stringResource(R.string.settings_agent_manage_collab_team)
-                    },
-                    onClick = onOpenMultiAgentSettings,
-                ) {
-                    ChevronRight()
-                }
-                SettingsGroupDivider()
-                // v1.126: Agent 私信收件箱入口
-                SettingsItemRow(
-                    icon = MuseIcons.mail,
-                    title = stringResource(R.string.agent_dm_title),
-                    subtitle = stringResource(R.string.settings_agent_dm_subtitle),
-                    onClick = onOpenAgentDm,
-                ) {
-                    ChevronRight()
-                }
-            }
-        }
-
-        }
-        if (showProactiveSettings) {
-        // ── 主动消息 ──
-        item { SectionLabel(stringResource(R.string.settings_agent_proactive_section)) }
-        item {
-            SettingsGroup(
-                modifier = Modifier.padding(top = 8.dp),
-            ) {
-                SettingsSwitchRow(
-                    icon = MuseIcons.bell,
-                    title = stringResource(R.string.settings_agent_proactive_title),
-                    subtitle = stringResource(R.string.settings_agent_proactive_subtitle),
-                    checked = proactiveConfig.enabled,
-                    onCheckedChange = { v ->
-                        scope.launch { settings.saveProactiveMessageConfig(proactiveConfig.copy(enabled = v)) }
-                    },
-                )
-                if (proactiveConfig.enabled) {
-                    // UI-FIX: 子分组标签 —— 原先十几行开关平铺在同一层，看不出哪几个是一组
-                    // P0 收敛: 「间隔 / 偏移 / 概率 / 每日上限」四个实现参数合并为一个
-                    // 用户能表达的「主动程度」档位(少/标准/多);随机偏移与温度降到「高级」。
-                    ProactiveGroupLabel(stringResource(R.string.settings_agent_group_pace))
-                    SettingsGroupDivider()
-                    SettingsItemRow(
-                        icon = MuseIcons.calendarTime,
-                        title = stringResource(R.string.settings_agent_pace_title),
-                        subtitle = paceLabel,
-                        onClick = { showPacePicker = true },
-                    ) {
-                        ChevronRight()
-                    }
-                    SettingsGroupDivider()
-                    // P0 收敛: 「允许时段开始 / 结束」两个滑块合并为一个「免打扰时段」范围
-                    SettingsItemRow(
-                        icon = MuseIcons.moon,
-                        title = stringResource(R.string.settings_agent_quiet_hours_title),
-                        subtitle = quietHoursLabel,
-                        onClick = { showQuietHoursPicker = true },
-                    ) {
-                        ChevronRight()
-                    }
-                    SettingsGroupDivider()
-                    // v2.x: 原「发送 Agent」行已删除 — 与「Agent 默认助手」同值同弹窗,合并为单一入口
-                    val senderAgent = assistants?.find { it.id == proactiveConfig.agentId }
+                    val currentAgent = assistants?.find { it.id == proactiveConfig.agentId }
+                        ?: assistants?.firstOrNull { it.id == "default" }
+                        ?: assistants?.firstOrNull()
                     SettingsItemRow(
                         icon = MuseIcons.user,
                         title = stringResource(R.string.settings_agent_default_assistant_title),
-                        subtitle = senderAgent?.name ?: stringResource(R.string.settings_agent_default_assistant_fallback),
+                        subtitle = if (assistants == null) {
+                            stringResource(
+                                R.string.settings_agent_loading,
+                            )
+                        } else {
+                            currentAgent?.name ?: stringResource(R.string.settings_agent_use_first_assistant)
+                        },
                         onClick = { showAssistantPicker = true },
                     ) {
                         ChevronRight()
                     }
-                    // P0 收敛: 温度 / 概率 / 测试发送 / 仅 Agent 会话 收进「高级」
-                    SettingsGroupDivider()
-                    SettingsItemRow(
-                        icon = MuseIcons.robot,
-                        title = stringResource(R.string.settings_agent_group_advanced),
-                        subtitle = stringResource(R.string.settings_agent_advanced_subtitle),
-                        onClick = { showAdvancedDialog = true },
-                    ) {
-                        ChevronRight()
-                    }
-                    // P0 收敛: 每日总结 / 深夜日记 / 朋友圈 收进「主动内容」入口
-                    ProactiveGroupLabel(stringResource(R.string.settings_agent_group_daily))
-                    SettingsGroupDivider()
-                    SettingsItemRow(
-                        icon = MuseIcons.calendarStats,
-                        title = stringResource(R.string.settings_agent_content_title),
-                        subtitle = contentLabel,
-                        onClick = { showContentPicker = true },
-                    ) {
-                        ChevronRight()
-                    }
                 }
             }
-        }
 
-        // P0: 「后台与可靠性」独立分区 —— 后台任务总控管的是全部周期后台任务,
-        // 与主动消息开关解耦;保持后台运行引导也归到这里。
-        item { SectionLabel(stringResource(R.string.settings_agent_group_background)) }
-        item {
-            SettingsGroup(modifier = Modifier.padding(top = 8.dp)) {
-                SettingsSwitchRow(
-                    icon = MuseIcons.switch,
-                    title = stringResource(R.string.settings_agent_schedule_work_title),
-                    subtitle = stringResource(R.string.settings_agent_schedule_work_subtitle),
-                    checked = scheduleWorkEnabled,
-                    onCheckedChange = { v ->
-                        scope.launch { settings.saveScheduleWorkEnabled(v) }
-                    },
-                )
-                SettingsGroupDivider()
-                // v2.x: 保活开关自记忆页归位(系统级后台行为)
-                SettingsSwitchRow(
-                    icon = MuseIcons.bolt,
-                    title = stringResource(R.string.settings_memory_keep_awake),
-                    subtitle = stringResource(R.string.settings_memory_keep_awake_subtitle),
-                    checked = keepAwake,
-                    onCheckedChange = { v ->
-                        scope.launch { settings.saveKeepAwake(v) }
-                    },
-                )
-                SettingsGroupDivider()
-                SettingsSwitchRow(
-                    icon = MuseIcons.power,
-                    title = stringResource(R.string.settings_memory_auto_launch),
-                    subtitle = stringResource(R.string.settings_memory_auto_launch_subtitle),
-                    checked = autoLaunch,
-                    onCheckedChange = { v ->
-                        scope.launch { settings.saveAutoLaunch(v) }
-                    },
-                )
-                SettingsGroupDivider()
-                SettingsItemRow(
-                    icon = MuseIcons.lifebuoy,
-                    title = stringResource(R.string.settings_agent_keep_alive_title),
-                    subtitle = stringResource(R.string.settings_agent_keep_alive_subtitle),
-                    onClick = { showKeepAliveGuide = true },
+            // ── v1.52: Agent 当前模型 ──
+            item { SectionLabel(stringResource(R.string.settings_agent_section_model)) }
+            item {
+                SettingsGroup(
+                    modifier = Modifier.padding(top = 8.dp),
                 ) {
-                    ChevronRight()
+                    SettingsItemRow(
+                        icon = MuseIcons.user,
+                        title = stringResource(R.string.settings_agent_current_model),
+                        // v1.0.74 fix: 提示用户这是全局默认模型,不是 Agent 专属(此前语义误导)
+                        subtitle = currentModelName + " · " + stringResource(R.string.settings_agent_current_model_hint),
+                        onClick = { showModelPicker = true },
+                    ) {
+                        ChevronRight()
+                    }
+                    SettingsGroupDivider()
+                    // v1.60-A: 工具模型 — 工具调用轮次使用的轻量模型,null 时沿用主对话模型
+                    SettingsItemRow(
+                        icon = MuseIcons.wrench,
+                        title = stringResource(R.string.settings_agent_tool_model_title),
+                        subtitle = utilityModelName,
+                        onClick = { showToolModelPicker = true },
+                    ) {
+                        ChevronRight()
+                    }
+                    SettingsGroupDivider()
+                    // v2.0: 子代理模型 — 后台子 agent 使用的轻量模型
+                    SettingsItemRow(
+                        icon = MuseIcons.bolt,
+                        title = stringResource(R.string.settings_agent_subagent_model_title),
+                        subtitle = utilityLargeModelName,
+                        onClick = { showSubagentModelPicker = true },
+                    ) {
+                        ChevronRight()
+                    }
+                }
+            }
+
+            // ── 多 Agent 协作 ──
+            item { SectionLabel(stringResource(R.string.settings_agent_multi_agent_section)) }
+            item {
+                SettingsGroup(
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    SettingsItemRow(
+                        icon = MuseIcons.users,
+                        title = stringResource(R.string.settings_agent_collab_team),
+                        subtitle = if (multiAgentConfig.enabled) {
+                            stringResource(R.string.settings_agent_multi_agent_enabled, multiAgentConfig.teams.size)
+                        } else {
+                            stringResource(R.string.settings_agent_manage_collab_team)
+                        },
+                        onClick = onOpenMultiAgentSettings,
+                    ) {
+                        ChevronRight()
+                    }
+                    SettingsGroupDivider()
+                    // v1.126: Agent 私信收件箱入口
+                    SettingsItemRow(
+                        icon = MuseIcons.mail,
+                        title = stringResource(R.string.agent_dm_title),
+                        subtitle = stringResource(R.string.settings_agent_dm_subtitle),
+                        onClick = onOpenAgentDm,
+                    ) {
+                        ChevronRight()
+                    }
                 }
             }
         }
+        if (showProactiveSettings) {
+            // ── 主动消息 ──
+            item { SectionLabel(stringResource(R.string.settings_agent_proactive_section)) }
+            item {
+                SettingsGroup(
+                    modifier = Modifier.padding(top = 8.dp),
+                ) {
+                    SettingsSwitchRow(
+                        icon = MuseIcons.bell,
+                        title = stringResource(R.string.settings_agent_proactive_title),
+                        subtitle = stringResource(R.string.settings_agent_proactive_subtitle),
+                        checked = proactiveConfig.enabled,
+                        onCheckedChange = { v ->
+                            scope.launch { settings.saveProactiveMessageConfig(proactiveConfig.copy(enabled = v)) }
+                        },
+                    )
+                    if (proactiveConfig.enabled) {
+                        // UI-FIX: 子分组标签 —— 原先十几行开关平铺在同一层，看不出哪几个是一组
+                        // P0 收敛: 「间隔 / 偏移 / 概率 / 每日上限」四个实现参数合并为一个
+                        // 用户能表达的「主动程度」档位(少/标准/多);随机偏移与温度降到「高级」。
+                        ProactiveGroupLabel(stringResource(R.string.settings_agent_group_pace))
+                        SettingsGroupDivider()
+                        SettingsItemRow(
+                            icon = MuseIcons.calendarTime,
+                            title = stringResource(R.string.settings_agent_pace_title),
+                            subtitle = paceLabel,
+                            onClick = { showPacePicker = true },
+                        ) {
+                            ChevronRight()
+                        }
+                        SettingsGroupDivider()
+                        // P0 收敛: 「允许时段开始 / 结束」两个滑块合并为一个「免打扰时段」范围
+                        SettingsItemRow(
+                            icon = MuseIcons.moon,
+                            title = stringResource(R.string.settings_agent_quiet_hours_title),
+                            subtitle = quietHoursLabel,
+                            onClick = { showQuietHoursPicker = true },
+                        ) {
+                            ChevronRight()
+                        }
+                        SettingsGroupDivider()
+                        // v2.x: 原「发送 Agent」行已删除 — 与「Agent 默认助手」同值同弹窗,合并为单一入口
+                        val senderAgent = assistants?.find { it.id == proactiveConfig.agentId }
+                        SettingsItemRow(
+                            icon = MuseIcons.user,
+                            title = stringResource(R.string.settings_agent_default_assistant_title),
+                            subtitle = senderAgent?.name ?: stringResource(R.string.settings_agent_default_assistant_fallback),
+                            onClick = { showAssistantPicker = true },
+                        ) {
+                            ChevronRight()
+                        }
+                        // P0 收敛: 温度 / 概率 / 测试发送 / 仅 Agent 会话 收进「高级」
+                        SettingsGroupDivider()
+                        SettingsItemRow(
+                            icon = MuseIcons.robot,
+                            title = stringResource(R.string.settings_agent_group_advanced),
+                            subtitle = stringResource(R.string.settings_agent_advanced_subtitle),
+                            onClick = { showAdvancedDialog = true },
+                        ) {
+                            ChevronRight()
+                        }
+                        // P0 收敛: 每日总结 / 深夜日记 / 朋友圈 收进「主动内容」入口
+                        ProactiveGroupLabel(stringResource(R.string.settings_agent_group_daily))
+                        SettingsGroupDivider()
+                        SettingsItemRow(
+                            icon = MuseIcons.calendarStats,
+                            title = stringResource(R.string.settings_agent_content_title),
+                            subtitle = contentLabel,
+                            onClick = { showContentPicker = true },
+                        ) {
+                            ChevronRight()
+                        }
+                    }
+                }
+            }
+
+            // P0: 「后台与可靠性」独立分区 —— 后台任务总控管的是全部周期后台任务,
+            // 与主动消息开关解耦;保持后台运行引导也归到这里。
+            item { SectionLabel(stringResource(R.string.settings_agent_group_background)) }
+            item {
+                SettingsGroup(modifier = Modifier.padding(top = 8.dp)) {
+                    SettingsSwitchRow(
+                        icon = MuseIcons.switch,
+                        title = stringResource(R.string.settings_agent_schedule_work_title),
+                        subtitle = stringResource(R.string.settings_agent_schedule_work_subtitle),
+                        checked = scheduleWorkEnabled,
+                        onCheckedChange = { v ->
+                            scope.launch { settings.saveScheduleWorkEnabled(v) }
+                        },
+                    )
+                    SettingsGroupDivider()
+                    // v2.x: 保活开关自记忆页归位(系统级后台行为)
+                    SettingsSwitchRow(
+                        icon = MuseIcons.bolt,
+                        title = stringResource(R.string.settings_memory_keep_awake),
+                        subtitle = stringResource(R.string.settings_memory_keep_awake_subtitle),
+                        checked = keepAwake,
+                        onCheckedChange = { v ->
+                            scope.launch { settings.saveKeepAwake(v) }
+                        },
+                    )
+                    SettingsGroupDivider()
+                    SettingsSwitchRow(
+                        icon = MuseIcons.power,
+                        title = stringResource(R.string.settings_memory_auto_launch),
+                        subtitle = stringResource(R.string.settings_memory_auto_launch_subtitle),
+                        checked = autoLaunch,
+                        onCheckedChange = { v ->
+                            scope.launch { settings.saveAutoLaunch(v) }
+                        },
+                    )
+                    SettingsGroupDivider()
+                    SettingsItemRow(
+                        icon = MuseIcons.lifebuoy,
+                        title = stringResource(R.string.settings_agent_keep_alive_title),
+                        subtitle = stringResource(R.string.settings_agent_keep_alive_subtitle),
+                        onClick = { showKeepAliveGuide = true },
+                    ) {
+                        ChevronRight()
+                    }
+                }
+            }
         }
     }
 
@@ -577,7 +588,12 @@ fun AgentSettingsPage(
                                 )
                             }
                             if (selected) {
-                                Icon(MuseIcons.check, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                                Icon(
+                                    MuseIcons.check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.size(20.dp),
+                                )
                             }
                         }
                     }
@@ -801,7 +817,11 @@ fun AgentSettingsPage(
                                     } catch (e: Exception) {
                                         if (e is kotlin.coroutines.cancellation.CancellationException) throw e
                                         Logger.w("AgentSettingsPage", "测试主动消息失败: ${e.message}")
-                                        android.widget.Toast.makeText(context, context.getString(R.string.settings_agent_test_failed, e.message), android.widget.Toast.LENGTH_SHORT).show()
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            context.getString(R.string.settings_agent_test_failed, e.message),
+                                            android.widget.Toast.LENGTH_SHORT,
+                                        ).show()
                                     } finally {
                                         testSending = false
                                     }
@@ -857,7 +877,7 @@ fun AgentSettingsPage(
                                     onClick = {
                                         scope.launch {
                                             settings.saveProactiveMessageConfig(
-                                                proactiveConfig.copy(agentId = assistant.id)
+                                                proactiveConfig.copy(agentId = assistant.id),
                                             )
                                         }
                                         showAssistantPicker = false
@@ -909,8 +929,16 @@ fun AgentSettingsPage(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(stringResource(R.string.settings_agent_offset_off_label), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                        Text(intervalLabel(maxOffset), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        Text(
+                            stringResource(R.string.settings_agent_offset_off_label),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline,
+                        )
+                        Text(
+                            intervalLabel(maxOffset),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline,
+                        )
                     }
                 }
             },
@@ -918,7 +946,7 @@ fun AgentSettingsPage(
             onConfirm = {
                 scope.launch {
                     settings.saveProactiveMessageConfig(
-                        proactiveConfig.copy(randomOffsetMinutes = alignedMinutes)
+                        proactiveConfig.copy(randomOffsetMinutes = alignedMinutes),
                     )
                 }
                 showOffsetPicker = false
@@ -961,8 +989,16 @@ fun AgentSettingsPage(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text(stringResource(R.string.settings_agent_temperature_stable), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
-                        Text(stringResource(R.string.settings_agent_temperature_creative), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        Text(
+                            stringResource(R.string.settings_agent_temperature_stable),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline,
+                        )
+                        Text(
+                            stringResource(R.string.settings_agent_temperature_creative),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline,
+                        )
                     }
                 }
             },
@@ -1029,7 +1065,12 @@ fun AgentSettingsPage(
                                         modifier = Modifier.weight(1f),
                                     )
                                     if (isSelected) {
-                                        Icon(MuseIcons.check, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                                        Icon(
+                                            MuseIcons.check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.size(20.dp),
+                                        )
                                     }
                                 }
                             }
@@ -1098,7 +1139,10 @@ private fun ModelPickerDialog(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onSelect(null); onDismiss() }
+                        .clickable {
+                            onSelect(null)
+                            onDismiss()
+                        }
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -1110,7 +1154,12 @@ private fun ModelPickerDialog(
                         modifier = Modifier.weight(1f),
                     )
                     if (isCleared) {
-                        Icon(MuseIcons.check, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                        Icon(
+                            MuseIcons.check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(20.dp),
+                        )
                     }
                 }
                 // 跨 Provider 列出所有模型,选中即保存 (providerId, modelId) 绑定(不切换激活 Provider)
@@ -1148,7 +1197,12 @@ private fun ModelPickerDialog(
                                     modifier = Modifier.weight(1f),
                                 )
                                 if (isSelected) {
-                                    Icon(MuseIcons.check, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                                    Icon(
+                                        MuseIcons.check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(20.dp),
+                                    )
                                 }
                             }
                         }
@@ -1182,11 +1236,7 @@ fun ProactiveMessageSettingsPage(onBack: () -> Unit) {
 
 /** 助手选择行:头像 + 名字 + 单选指示。 */
 @Composable
-private fun AgentPickerRow(
-    assistant: AssistantEntity,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun AgentPickerRow(assistant: AssistantEntity, selected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1225,8 +1275,11 @@ private fun intervalLabel(minutes: Int): String {
         m == 60 -> stringResource(R.string.settings_agent_interval_hourly)
         m % 60 == 0 -> {
             val h = m / 60
-            if (h == 24) stringResource(R.string.settings_agent_interval_daily)
-            else stringResource(R.string.settings_agent_interval_hours, h)
+            if (h == 24) {
+                stringResource(R.string.settings_agent_interval_daily)
+            } else {
+                stringResource(R.string.settings_agent_interval_hours, h)
+            }
         }
         else -> {
             val h = m / 60

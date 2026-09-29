@@ -1,7 +1,7 @@
 package io.zer0.ai.core
 
-import io.zer0.common.Logger
 import io.zer0.ai.util.KeyRoulette
+import io.zer0.common.Logger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals

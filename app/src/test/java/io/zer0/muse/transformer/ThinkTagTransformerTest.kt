@@ -4,8 +4,8 @@ import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -89,7 +89,7 @@ class ThinkTagTransformerTest {
         val result = transformer.transform(messages, TransformContext())
 
         assertEquals("回复内容", result[0].content)
-        assertNull(result[0].reasoning)  // 空标签,extracted=null
+        assertNull(result[0].reasoning) // 空标签,extracted=null
     }
 
     @Test

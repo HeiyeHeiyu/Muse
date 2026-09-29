@@ -36,10 +36,7 @@ object ContextHistoryDigest {
      * @param maxChars 摘录正文的字符预算；超出预算时只保留较新的部分
      * @return 摘录消息；无可用内容时返回 null（调用方保持原截断行为）
      */
-    fun build(
-        dropped: List<UIMessage>,
-        maxChars: Int = DEFAULT_MAX_CHARS,
-    ): UIMessage? {
+    fun build(dropped: List<UIMessage>, maxChars: Int = DEFAULT_MAX_CHARS): UIMessage? {
         if (dropped.isEmpty()) return null
 
         val lines = ArrayDeque<String>()
@@ -68,13 +65,12 @@ object ContextHistoryDigest {
     }
 
     /** 单条消息的摘录行；无可摘录内容（空文本/纯 SYSTEM）返回 null。 */
-    private fun entryLine(msg: UIMessage): String? =
-        when (msg.role) {
-            MessageRole.USER -> normalize(msg.content, USER_ENTRY_CHARS)?.let { "用户: $it" }
-            MessageRole.ASSISTANT -> assistantLine(msg)
-            MessageRole.TOOL -> normalize(msg.content, TOOL_ENTRY_CHARS)?.let { "工具结果: $it" }
-            MessageRole.SYSTEM -> null
-        }
+    private fun entryLine(msg: UIMessage): String? = when (msg.role) {
+        MessageRole.USER -> normalize(msg.content, USER_ENTRY_CHARS)?.let { "用户: $it" }
+        MessageRole.ASSISTANT -> assistantLine(msg)
+        MessageRole.TOOL -> normalize(msg.content, TOOL_ENTRY_CHARS)?.let { "工具结果: $it" }
+        MessageRole.SYSTEM -> null
+    }
 
     /** 助手消息：保留自然语言正文；工具调用信息作为附属注记。 */
     private fun assistantLine(msg: UIMessage): String? {
@@ -101,10 +97,7 @@ object ContextHistoryDigest {
     }
 
     /** 压平空白并截断到 [cap] 字符；空白内容返回 null。 */
-    private fun normalize(
-        text: String,
-        cap: Int,
-    ): String? {
+    private fun normalize(text: String, cap: Int): String? {
         val flat = text.replace(WHITESPACE_REGEX, " ").trim()
         if (flat.isBlank()) return null
         return if (flat.length > cap) flat.take(cap) + "…" else flat

@@ -35,8 +35,8 @@ import okhttp3.sse.EventSource
 import okhttp3.sse.EventSourceListener
 import okhttp3.sse.EventSources
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Phase 9.5 (M3): MCP 协议数据类。
@@ -157,10 +157,7 @@ data class McpPromptMessage(
  * 会抛 ClosedReceiveChannelException,而“服务端断开”只是普通连接失败,不能让
  * MCP 后台协程把整个应用带崩。
  */
-internal suspend fun awaitSseEndpoint(
-    channel: ReceiveChannel<String>,
-    timeoutMs: Long,
-): String? = withTimeoutOrNull(timeoutMs) {
+internal suspend fun awaitSseEndpoint(channel: ReceiveChannel<String>, timeoutMs: Long): String? = withTimeoutOrNull(timeoutMs) {
     channel.receiveCatching().getOrNull()
 }
 
@@ -313,7 +310,10 @@ class McpClient(
             if (closed) return
             if (_state.value != McpConnectionState.DISCONNECTED &&
                 _state.value != McpConnectionState.FAILED &&
-                _state.value != McpConnectionState.NEEDS_AUTH) return
+                _state.value != McpConnectionState.NEEDS_AUTH
+            ) {
+                return
+            }
             scope.launch { connect() }
         }
     }
@@ -329,11 +329,10 @@ class McpClient(
      * C-25: OAuth 回调 URI 日志脱敏 — 只留 scheme://host/path,丢弃 query
      * (query 含授权 code / state,整条入日志会泄漏授权码)。
      */
-    private fun sanitizeRedirectUriForLog(uri: String): String =
-        runCatching {
-            val u = java.net.URI(uri)
-            "${u.scheme}://${u.host}${u.rawPath ?: ""}"
-        }.getOrElse { "(unparseable redirect uri)" }
+    private fun sanitizeRedirectUriForLog(uri: String): String = runCatching {
+        val u = java.net.URI(uri)
+        "${u.scheme}://${u.host}${u.rawPath ?: ""}"
+    }.getOrElse { "(unparseable redirect uri)" }
 
     private suspend fun connect() {
         try {
@@ -401,7 +400,7 @@ class McpClient(
         if (oauthToken == null) {
             oauthToken = settings?.getMcpToken(config.id)
         }
-        val token = oauthToken ?: return false  // 未授权
+        val token = oauthToken ?: return false // 未授权
         // M-MCP2: forceRefresh=true 时强制 refresh(用于请求收到 401 后重试)
         if (!forceRefresh && token.isValid()) return true
         // 过期 → 尝试 refresh
@@ -563,12 +562,7 @@ class McpClient(
                 }
             }
 
-            override fun onEvent(
-                eventSource: EventSource,
-                id: String?,
-                type: String?,
-                data: String,
-            ) {
+            override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
                 // MCP 2024-11-05: 首个事件 type="endpoint",data 是 POST URL
                 if (type == "endpoint" && !gotEndpoint) {
                     gotEndpoint = true
@@ -586,11 +580,7 @@ class McpClient(
                 if (!closed) scheduleReconnect()
             }
 
-            override fun onFailure(
-                eventSource: EventSource,
-                t: Throwable?,
-                response: Response?,
-            ) {
+            override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
                 // v1.113: 区分"协程主动取消"与"真实网络故障"。
                 // OkHttp 在 Call.cancel() 时抛 IOException("Canceled"),此时不应触发重连。
                 if (closed || !scope.isActive) {
@@ -747,7 +737,9 @@ class McpClient(
                         val body = resp.body.string()
                         if (body.isNotBlank() && body.trimStart().startsWith("{")) {
                             runCatching { AppJson.decodeFromString(JsonObject.serializer(), body) }.getOrNull()
-                        } else null  // 202 Accepted,等 SSE 事件
+                        } else {
+                            null // 202 Accepted,等 SSE 事件
+                        }
                     } else {
                         lastTransportFailure = "MCP HTTP ${resp.code}"
                         null
@@ -885,7 +877,9 @@ class McpClient(
                             // 兜底: 尝试当 JSON 解析
                             if (body.isNotBlank() && body.trimStart().startsWith("{")) {
                                 runCatching { AppJson.decodeFromString(JsonObject.serializer(), body) }.getOrNull()
-                            } else null
+                            } else {
+                                null
+                            }
                         }
                     }
                 }
@@ -962,21 +956,33 @@ class McpClient(
             put("jsonrpc", "2.0")
             put("id", id)
             put("method", "initialize")
-            put("params", buildJsonObject {
-                put("protocolVersion", PROTOCOL_VERSION)
-                // v1.0.47 P4: 声明 sampling 能力(允许 server 请求客户端 LLM)
-                put("capabilities", buildJsonObject {
-                    put("sampling", buildJsonObject {})
-                    // v1.0.47 P4: 声明 roots 能力(允许 server 访问客户端文件系统根)
-                    put("roots", buildJsonObject {
-                        put("listChanged", true)
-                    })
-                })
-                put("clientInfo", buildJsonObject {
-                    put("name", "muse")
-                    put("version", "1.0.0")
-                })
-            })
+            put(
+                "params",
+                buildJsonObject {
+                    put("protocolVersion", PROTOCOL_VERSION)
+                    // v1.0.47 P4: 声明 sampling 能力(允许 server 请求客户端 LLM)
+                    put(
+                        "capabilities",
+                        buildJsonObject {
+                            put("sampling", buildJsonObject {})
+                            // v1.0.47 P4: 声明 roots 能力(允许 server 访问客户端文件系统根)
+                            put(
+                                "roots",
+                                buildJsonObject {
+                                    put("listChanged", true)
+                                },
+                            )
+                        },
+                    )
+                    put(
+                        "clientInfo",
+                        buildJsonObject {
+                            put("name", "muse")
+                            put("version", "1.0.0")
+                        },
+                    )
+                },
+            )
         }
         val response = sendRequest(id, request) ?: return false
         logJsonRpcError("initialize", response)
@@ -1065,10 +1071,13 @@ class McpClient(
             put("jsonrpc", "2.0")
             put("id", id)
             put("method", "tools/call")
-            put("params", buildJsonObject {
-                put("name", name)
-                put("arguments", arguments)
-            })
+            put(
+                "params",
+                buildJsonObject {
+                    put("name", name)
+                    put("arguments", arguments)
+                },
+            )
         }
         val response = sendRequest(id, request) ?: return@withContext McpToolCallResult(
             isError = true,
@@ -1160,9 +1169,12 @@ class McpClient(
             put("jsonrpc", "2.0")
             put("id", id)
             put("method", "resources/read")
-            put("params", buildJsonObject {
-                put("uri", uri)
-            })
+            put(
+                "params",
+                buildJsonObject {
+                    put("uri", uri)
+                },
+            )
         }
         val response = sendRequest(id, request) ?: return@withContext emptyList()
         logJsonRpcError("resources/read", response)
@@ -1208,10 +1220,7 @@ class McpClient(
      * @param arguments 参数(name→value),对应 [McpPrompt.arguments]
      * @return prompt 消息列表;失败返回空 messages
      */
-    suspend fun getPrompt(
-        name: String,
-        arguments: Map<String, String> = emptyMap(),
-    ): McpPromptResult = withContext(Dispatchers.IO) {
+    suspend fun getPrompt(name: String, arguments: Map<String, String> = emptyMap()): McpPromptResult = withContext(Dispatchers.IO) {
         if (_state.value != McpConnectionState.CONNECTED) {
             return@withContext McpPromptResult()
         }
@@ -1220,14 +1229,20 @@ class McpClient(
             put("jsonrpc", "2.0")
             put("id", id)
             put("method", "prompts/get")
-            put("params", buildJsonObject {
-                put("name", name)
-                if (arguments.isNotEmpty()) {
-                    put("arguments", buildJsonObject {
-                        arguments.forEach { (k, v) -> put(k, v) }
-                    })
-                }
-            })
+            put(
+                "params",
+                buildJsonObject {
+                    put("name", name)
+                    if (arguments.isNotEmpty()) {
+                        put(
+                            "arguments",
+                            buildJsonObject {
+                                arguments.forEach { (k, v) -> put(k, v) }
+                            },
+                        )
+                    }
+                },
+            )
         }
         val response = sendRequest(id, request) ?: return@withContext McpPromptResult()
         logJsonRpcError("prompts/get", response)
@@ -1261,10 +1276,13 @@ class McpClient(
                 buildJsonObject {
                     put("jsonrpc", "2.0")
                     put("id", id)
-                    put("error", buildJsonObject {
-                        put("code", -32601)
-                        put("message", "Method not found")
-                    })
+                    put(
+                        "error",
+                        buildJsonObject {
+                            put("code", -32601)
+                            put("message", "Method not found")
+                        },
+                    )
                 }
             }
             sendResponse(response)
@@ -1284,11 +1302,7 @@ class McpClient(
      * 发送 JSON-RPC 请求,等待响应(带超时)。
      * SSE 模式:POST 后等 SSE 事件;StreamableHTTP:直接拿响应。
      */
-    private suspend fun sendRequest(
-        id: Long,
-        request: JsonObject,
-        allowSessionRecovery: Boolean = true,
-    ): JsonObject? {
+    private suspend fun sendRequest(id: Long, request: JsonObject, allowSessionRecovery: Boolean = true): JsonObject? {
         val jsonStr = AppJson.encodeToString(request)
         val timeoutMs = config.requestTimeoutMs
 
@@ -1394,6 +1408,7 @@ class McpClient(
     private companion object {
         const val TAG = "McpClient"
         const val PROTOCOL_VERSION = "2025-03-26"
+
         // L-MCP2: 超时/重连魔法数字提取为常量
         const val SSE_ENDPOINT_TIMEOUT_MS = 5_000L
         const val RECONNECT_MAX_DELAY_MS = 30_000L

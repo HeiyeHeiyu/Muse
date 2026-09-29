@@ -15,8 +15,7 @@ import org.junit.Test
  */
 class TaskCardTerminalStatusTest {
 
-    private fun step(id: String, status: TaskStepStatus) =
-        TaskStep(id = id, title = id, status = status)
+    private fun step(id: String, status: TaskStepStatus) = TaskStep(id = id, title = id, status = status)
 
     @Test
     fun `TIMED_OUT 与 CANCELLED 都是终态`() {

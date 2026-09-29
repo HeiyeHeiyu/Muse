@@ -30,6 +30,7 @@ class SubagentThreadStore(
 ) {
     companion object {
         private const val TAG = "SubagentThreadStore"
+
         /** v1.0.74: 孤儿线程判定 — open 且超过 24h 未更新视为遗留。 */
         private const val ORPHAN_STALE_MS = 24 * 60 * 60 * 1000L
     }
@@ -135,19 +136,21 @@ class SubagentThreadStore(
             "thread-" + java.util.UUID.randomUUID().toString().take(12)
         }
         val now = System.currentTimeMillis()
-        dao.upsert(SubagentThreadEntity(
-            threadId = newId,
-            parentSessionId = parentSessionId,
-            childSessionId = null,
-            childSessionPath = sessionStore.pathOf(newId).absolutePath,
-            assistantId = assistantId,
-            label = label,
-            access = access,
-            status = "open",
-            runCount = 0,
-            createdAt = now,
-            updatedAt = now,
-        ))
+        dao.upsert(
+            SubagentThreadEntity(
+                threadId = newId,
+                parentSessionId = parentSessionId,
+                childSessionId = null,
+                childSessionPath = sessionStore.pathOf(newId).absolutePath,
+                assistantId = assistantId,
+                label = label,
+                access = access,
+                status = "open",
+                runCount = 0,
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
         return newId to true
     }
 
@@ -157,13 +160,15 @@ class SubagentThreadStore(
             Logger.w(TAG, "recordRun: thread $threadId not found, skipping")
             return
         }
-        dao.upsert(entity.copy(
-            runCount = entity.runCount + 1,
-            lastRunStatus = status,
-            lastSummary = summary,
-            childSessionPath = sessionPath ?: entity.childSessionPath,
-            updatedAt = System.currentTimeMillis(),
-        ))
+        dao.upsert(
+            entity.copy(
+                runCount = entity.runCount + 1,
+                lastRunStatus = status,
+                lastSummary = summary,
+                childSessionPath = sessionPath ?: entity.childSessionPath,
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
     }
 
     /** 关闭线程(返回是否成功关闭:true=原 open→closed;false=不存在或已 closed)。 */
@@ -217,8 +222,7 @@ class SubagentThreadStore(
 
     // ============ 子会话历史读写(委托 SessionStore)============
 
-    suspend fun appendMessages(threadId: String, messages: List<UIMessage>) =
-        sessionStore.append(threadId, messages)
+    suspend fun appendMessages(threadId: String, messages: List<UIMessage>) = sessionStore.append(threadId, messages)
 
     suspend fun loadMessages(threadId: String, maxContextTokens: Int = 6000): List<UIMessage> =
         sessionStore.load(threadId, maxContextTokens)

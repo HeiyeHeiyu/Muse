@@ -17,12 +17,22 @@ class PipelineLogTest {
     fun `append writes one jsonl line per record`() {
         val log = PipelineLog(File(tmp.root, "pl.jsonl"))
         log.appendStep(
-            MemoryStage.INDEX, "compileFacts", "daily", ok = true, durationMs = 5,
-            failureKind = null, error = null,
+            MemoryStage.INDEX,
+            "compileFacts",
+            "daily",
+            ok = true,
+            durationMs = 5,
+            failureKind = null,
+            error = null,
         )
         log.appendStep(
-            MemoryStage.EXTRACT, "deepMemory", "daily", ok = false, durationMs = 7,
-            failureKind = FailureKind.PERMANENT, error = RuntimeException("parse"),
+            MemoryStage.EXTRACT,
+            "deepMemory",
+            "daily",
+            ok = false,
+            durationMs = 7,
+            failureKind = FailureKind.PERMANENT,
+            error = RuntimeException("parse"),
         )
 
         val lines = File(tmp.root, "pl.jsonl").readLines().filter { it.isNotBlank() }
@@ -37,8 +47,13 @@ class PipelineLogTest {
         val log = PipelineLog(File(tmp.root, "pl.jsonl"), maxBytes = 200)
         repeat(20) {
             log.appendStep(
-                MemoryStage.INDEX, "compileFacts", "daily", ok = true, durationMs = 1,
-                failureKind = null, error = null,
+                MemoryStage.INDEX,
+                "compileFacts",
+                "daily",
+                ok = true,
+                durationMs = 1,
+                failureKind = null,
+                error = null,
             )
         }
         assertTrue("主日志应存在", File(tmp.root, "pl.jsonl").exists())
@@ -49,8 +64,13 @@ class PipelineLogTest {
     fun `creates parent directories automatically`() {
         val log = PipelineLog(File(tmp.root, "nested/deep/pl.jsonl"))
         log.appendStep(
-            MemoryStage.INDEX, "x", "t", ok = true, durationMs = 0,
-            failureKind = null, error = null,
+            MemoryStage.INDEX,
+            "x",
+            "t",
+            ok = true,
+            durationMs = 0,
+            failureKind = null,
+            error = null,
         )
         assertTrue(File(tmp.root, "nested/deep/pl.jsonl").exists())
     }

@@ -55,16 +55,15 @@ object MessageProjector {
         )
     }
 
-    fun order(messages: List<MessageEntity>, useCommitSeq: Boolean): List<MessageEntity> =
-        messages
-            .asSequence()
-            .filter { it.deletedAt == null }
-            .sortedWith(
-                compareBy<MessageEntity> { if (useCommitSeq && it.commitSeq > 0) it.commitSeq else it.seq }
-                    .thenBy { it.createdAt }
-                    .thenBy { it.id },
-            )
-            .toList()
+    fun order(messages: List<MessageEntity>, useCommitSeq: Boolean): List<MessageEntity> = messages
+        .asSequence()
+        .filter { it.deletedAt == null }
+        .sortedWith(
+            compareBy<MessageEntity> { if (useCommitSeq && it.commitSeq > 0) it.commitSeq else it.seq }
+                .thenBy { it.createdAt }
+                .thenBy { it.id },
+        )
+        .toList()
 
     private fun buildLegacyParts(message: MessageEntity): List<MessageDisplayPart> = buildList {
         if (!message.reasoning.isNullOrEmpty()) add(MessageDisplayPart("reasoning", message.reasoning))
@@ -74,7 +73,6 @@ object MessageProjector {
         }
     }
 }
-
 
 data class ConversationProjection(
     val sessionId: String,

@@ -49,11 +49,7 @@ class DiaryGenerator(
         return fallbackSummary(date, moments, memories)
     }
 
-    private suspend fun generateWithLlm(
-        date: String,
-        moments: List<MomentEntity>,
-        memories: List<String>,
-    ): String? {
+    private suspend fun generateWithLlm(date: String, moments: List<MomentEntity>, memories: List<String>): String? {
         val service = chatService ?: return null
 
         val systemPrompt = """
@@ -98,7 +94,7 @@ class DiaryGenerator(
                         ),
                         temperature = 0.65f,
                         maxTokens = 260,
-                    // v1.0.74 fix: 剥离 <think> 推理标签,防止思考内容混入日记正文
+                        // v1.0.74 fix: 剥离 <think> 推理标签,防止思考内容混入日记正文
                     ).text.let { io.zer0.muse.transformer.stripThinkTags(it) }
                 }
             }
@@ -108,11 +104,7 @@ class DiaryGenerator(
     }
 
     /** 兜底:素材聚合文本(LLM 失败时保底)。 */
-    private fun fallbackSummary(
-        date: String,
-        moments: List<MomentEntity>,
-        memories: List<String>,
-    ): String {
+    private fun fallbackSummary(date: String, moments: List<MomentEntity>, memories: List<String>): String {
         val sb = StringBuilder()
         sb.appendLine("$date 的日记")
         if (moments.isNotEmpty()) {

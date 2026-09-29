@@ -152,17 +152,16 @@ class TranslateViewModel(
     private var batchJob: Job? = null
 
     /** v1.0.17: Entity → UI 数据模型映射。 */
-    private fun TranslateHistoryEntity.toHistoryItem(): TranslateHistoryItem =
-        TranslateHistoryItem(
-            id = id,
-            sourceText = sourceText,
-            translatedText = translatedText,
-            sourceLanguage = sourceLanguage,
-            targetLanguage = targetLanguage,
-            style = style,
-            timestamp = createdAt,
-            favorite = favorite,
-        )
+    private fun TranslateHistoryEntity.toHistoryItem(): TranslateHistoryItem = TranslateHistoryItem(
+        id = id,
+        sourceText = sourceText,
+        translatedText = translatedText,
+        sourceLanguage = sourceLanguage,
+        targetLanguage = targetLanguage,
+        style = style,
+        timestamp = createdAt,
+        favorite = favorite,
+    )
 
     /** 更新输入文本。 */
     fun updateInput(text: String) {
@@ -555,10 +554,12 @@ class TranslateViewModel(
     private fun saveCustomStylesToPrefs(list: List<CustomStyle>) {
         val arr = JSONArray()
         list.forEach { s ->
-            arr.put(JSONObject().apply {
-                put("name", s.name)
-                put("prompt", s.prompt)
-            })
+            arr.put(
+                JSONObject().apply {
+                    put("name", s.name)
+                    put("prompt", s.prompt)
+                },
+            )
         }
         stylePrefs.edit().putString(KEY_CUSTOM_STYLES, arr.toString()).apply()
     }
@@ -631,6 +632,7 @@ class TranslateViewModel(
 
     companion object {
         private const val TAG = "TranslateVM"
+
         /** v1.104: 翻译历史上限(之前硬编码 take(20),抽出为常量便于调整)。 */
         private const val MAX_HISTORY = 50
 
@@ -657,7 +659,12 @@ class TranslateViewModel(
 
         /** v1.0.30: 支持的翻译风格。 */
         val TRANSLATION_STYLES: List<String> = listOf(
-            "通用", "学术", "商务", "口语化", "润色", "简洁"
+            "通用",
+            "学术",
+            "商务",
+            "口语化",
+            "润色",
+            "简洁",
         )
 
         /**
@@ -717,12 +724,7 @@ class TranslateViewModel(
          * 要求模型返回 JSON 数组 `[{"original":"原文1","translated":"译文1"},...]`,
          * 顺序与输入保持一致,便于解析后逐条对应。
          */
-        fun buildBatchPrompt(
-            texts: List<String>,
-            targetLanguage: String,
-            sourceLanguage: String,
-            style: String,
-        ): String = buildString {
+        fun buildBatchPrompt(texts: List<String>, targetLanguage: String, sourceLanguage: String, style: String): String = buildString {
             if (sourceLanguage == SOURCE_AUTO) {
                 appendLine("你是一个专业翻译助手。请自动识别每段文本的语言,并将其翻译为$targetLanguage。")
             } else {
@@ -778,8 +780,11 @@ class TranslateViewModel(
                 if (lines.size == originals.size) {
                     lines.mapIndexedNotNull { idx, line ->
                         val translated = line.trim().removePrefix("```").trim()
-                        if (translated.isEmpty() || idx >= originals.size) null
-                        else BatchResult(originals[idx], translated)
+                        if (translated.isEmpty() || idx >= originals.size) {
+                            null
+                        } else {
+                            BatchResult(originals[idx], translated)
+                        }
                     }
                 } else {
                     emptyList()

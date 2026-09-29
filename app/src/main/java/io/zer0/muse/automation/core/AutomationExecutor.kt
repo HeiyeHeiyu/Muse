@@ -50,11 +50,7 @@ interface AutomationExecutor {
     suspend fun longPress(x: Int, y: Int, durationMs: Long = 600): Boolean
 
     /** 从 (x1,y1) 滑动到 (x2,y2)。 */
-    suspend fun swipe(
-        x1: Int, y1: Int,
-        x2: Int, y2: Int,
-        durationMs: Long = 400,
-    ): Boolean
+    suspend fun swipe(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Long = 400): Boolean
 
     /**
      * v2.x: 双指缩放(pinch) — 两指以 (centerX, centerY) 为中心对称开合。
@@ -63,20 +59,13 @@ interface AutomationExecutor {
      * @param endDistance 结束两指间距(像素);大 = 放大,小 = 缩小
      * 默认不支持(仅无障碍层实现;Shell/Root 的 input 命令无多指注入能力)。
      */
-    suspend fun pinch(
-        centerX: Int, centerY: Int,
-        startDistance: Int, endDistance: Int,
-        durationMs: Long = 300,
-    ): Boolean = false
+    suspend fun pinch(centerX: Int, centerY: Int, startDistance: Int, endDistance: Int, durationMs: Long = 300): Boolean = false
 
     /**
      * v2.x: 多段滑动 — 单指依次经过多个路径点(解锁图案/复杂拖拽)。
      * 默认实现降级为首点 → 末点单段滑动;无障碍层为精确逐点实现。
      */
-    suspend fun swipePath(
-        points: List<Pair<Int, Int>>,
-        durationMs: Long = 400,
-    ): Boolean {
+    suspend fun swipePath(points: List<Pair<Int, Int>>, durationMs: Long = 400): Boolean {
         if (points.size < 2) return false
         val first = points.first()
         val last = points.last()

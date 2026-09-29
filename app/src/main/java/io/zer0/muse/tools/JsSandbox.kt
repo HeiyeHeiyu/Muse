@@ -14,9 +14,9 @@ import android.webkit.WebViewClient
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonObject
@@ -136,12 +136,15 @@ object JsSandbox {
     """
 
     @Volatile private var webViewRef: WebView? = null
+
     @Volatile private var appContext: Context? = null
 
     /** R-SVC-04: 连续超时熔断阈值。 */
     private const val MAX_CONSECUTIVE_TIMEOUTS = 2
+
     /** R-SVC-04: 熔断后自动恢复冷却时间。 */
     private const val CIRCUIT_COOLDOWN_MS = 60_000L
+
     /** R-SVC-04: 累计超时配额(进程内),超过后同样熔断。 */
     private const val MAX_TOTAL_TIMED_OUT_MS = 60_000L
 
@@ -202,12 +205,16 @@ object JsSandbox {
      * @param pluginConfigJson B7-01: 插件配置 JSON 字符串,用于注入 host.getConfig() 桥接。null 时跳过注入。
      * @return [Result] 包裹的 [JsResult];Kotlin 侧异常返回 failure(JS 执行错误封装在 JsResult.error 中)
      */
-    suspend fun execute(code: String, timeoutMs: Long = 10000L, scopeKey: String? = null, pluginConfigJson: String? = null): Result<JsResult> =
-        withContext(Dispatchers.Main) {
-            // 审计修复 (4.4): execute 加互斥 — 原实现无并发控制,多个工具同时 execute
-            // 会并发进入 WebView JS 执行,console 日志缓冲区互相污染、超时销毁与回调交错;
-            // 用 Mutex 串行化,同一时刻只允许一个 JS 执行。锁内等待是挂起而非阻塞主线程。
-            executionMutex.withLock {
+    suspend fun execute(
+        code: String,
+        timeoutMs: Long = 10000L,
+        scopeKey: String? = null,
+        pluginConfigJson: String? = null,
+    ): Result<JsResult> = withContext(Dispatchers.Main) {
+        // 审计修复 (4.4): execute 加互斥 — 原实现无并发控制,多个工具同时 execute
+        // 会并发进入 WebView JS 执行,console 日志缓冲区互相污染、超时销毁与回调交错;
+        // 用 Mutex 串行化,同一时刻只允许一个 JS 执行。锁内等待是挂起而非阻塞主线程。
+        executionMutex.withLock {
             try {
                 // C-30: 熔断状态按 scopeKey 隔离读取
                 val state = stateFor(scopeKey)
@@ -276,7 +283,10 @@ object JsSandbox {
                     state.totalTimedOutMs += timeoutMs
                     if (state.consecutiveTimeouts >= MAX_CONSECUTIVE_TIMEOUTS || state.totalTimedOutMs >= MAX_TOTAL_TIMED_OUT_MS) {
                         state.circuitBrokenUntil = System.currentTimeMillis() + CIRCUIT_COOLDOWN_MS
-                        Logger.e(TAG, "JS 沙盒超时熔断(scope=${scopeKey ?: "default"}): consecutive=${state.consecutiveTimeouts} total=${state.totalTimedOutMs}")
+                        Logger.e(
+                            TAG,
+                            "JS 沙盒超时熔断(scope=${scopeKey ?: "default"}): consecutive=${state.consecutiveTimeouts} total=${state.totalTimedOutMs}",
+                        )
                     }
                     destroy()
                     return@withContext Result.success(
@@ -284,7 +294,7 @@ object JsSandbox {
                             value = null,
                             consoleLogs = logs,
                             error = "执行超时(${timeoutMs}ms)",
-                        )
+                        ),
                     )
                 }
 
@@ -304,8 +314,8 @@ object JsSandbox {
                 Logger.e(TAG, "JsSandbox execute 异常: ${e.message}", e)
                 Result.failure(e)
             }
-            }
         }
+    }
 
     /**
      * R-SVC-04: 当前是否处于熔断期(内置/默认 scope,null key)。
@@ -402,15 +412,9 @@ object JsSandbox {
 
             // ── WebViewClient:拦截所有 URL 与网络请求 ──
             webViewClient = object : WebViewClient() {
-                override fun shouldOverrideUrlLoading(
-                    view: WebView?,
-                    request: WebResourceRequest?,
-                ): Boolean = true // 阻止任何 URL 加载
+                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean = true // 阻止任何 URL 加载
 
-                override fun shouldInterceptRequest(
-                    view: WebView?,
-                    request: WebResourceRequest?,
-                ): WebResourceResponse? {
+                override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                     // 阻止所有网络请求(包括 fetch/XHR/资源加载)
                     return WebResourceResponse(
                         "text/plain",
@@ -437,12 +441,7 @@ object JsSandbox {
                     return true
                 }
 
-                override fun onJsAlert(
-                    view: WebView?,
-                    url: String?,
-                    message: String?,
-                    result: android.webkit.JsResult,
-                ): Boolean {
+                override fun onJsAlert(view: WebView?, url: String?, message: String?, result: android.webkit.JsResult): Boolean {
                     // 收集 alert 日志并阻止弹窗
                     synchronized(logsLock) {
                         currentLogs.add("[alert] ${message ?: ""}")
@@ -451,12 +450,7 @@ object JsSandbox {
                     return true
                 }
 
-                override fun onJsConfirm(
-                    view: WebView?,
-                    url: String?,
-                    message: String?,
-                    result: android.webkit.JsResult,
-                ): Boolean {
+                override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: android.webkit.JsResult): Boolean {
                     synchronized(logsLock) {
                         currentLogs.add("[confirm] ${message ?: ""}")
                     }
@@ -479,7 +473,9 @@ object JsSandbox {
             val first = AppJson.parseToJsonElement(raw ?: "null")
             val elem = if (first is JsonPrimitive && first.isString) {
                 AppJson.parseToJsonElement(first.content)
-            } else first
+            } else {
+                first
+            }
             val obj = elem as? JsonObject ?: error("invalid verification result")
             val verified = (obj["verified"] as? JsonPrimitive)?.booleanOrNull == true
             val issues = (obj["issues"] as? kotlinx.serialization.json.JsonArray)

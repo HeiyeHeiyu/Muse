@@ -32,7 +32,12 @@ interface SkillEngine {
      * @return 执行结果：成功时 [SkillEngineResult.Success] 包含 JSON 值和 console 日志；
      *         失败时 [SkillEngineResult.Error] 包含错误信息
      */
-    suspend fun eval(script: String, timeoutMs: Long = DEFAULT_TIMEOUT_MS, scopeKey: String? = null, pluginConfigJson: String? = null): SkillEngineResult
+    suspend fun eval(
+        script: String,
+        timeoutMs: Long = DEFAULT_TIMEOUT_MS,
+        scopeKey: String? = null,
+        pluginConfigJson: String? = null,
+    ): SkillEngineResult
 
     /**
      * 调用已加载脚本中定义的函数。

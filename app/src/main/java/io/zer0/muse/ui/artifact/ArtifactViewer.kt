@@ -74,11 +74,7 @@ internal fun artifactExportFileName(title: String): String {
  * 分享复用 [ShareIntentHelper],另存走 SAF CreateDocument(app 已有保存模式)。
  */
 @Composable
-fun ArtifactViewerDialog(
-    artifact: ArtifactEntity,
-    onDismiss: () -> Unit,
-    onCopy: (String) -> Unit,
-) {
+fun ArtifactViewerDialog(artifact: ArtifactEntity, onDismiss: () -> Unit, onCopy: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val isMonospace = when (artifact.type.lowercase()) {

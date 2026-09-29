@@ -8,11 +8,11 @@ import android.content.Context
 import android.graphics.Path
 import android.util.DisplayMetrics
 import android.view.accessibility.AccessibilityNodeInfo
+import io.zer0.common.Logger
 import io.zer0.muse.automation.core.AutomationExecutor
 import io.zer0.muse.automation.core.PermissionLevel
 import io.zer0.muse.automation.core.ScreenInfo
 import io.zer0.muse.automation.core.UiNode
-import io.zer0.common.Logger
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -95,25 +95,14 @@ class AccessibilityExecutor(
 
     override suspend fun tap(x: Int, y: Int): Boolean = dispatchClick(x, y)
 
-    override suspend fun longPress(x: Int, y: Int, durationMs: Long): Boolean =
-        dispatchLongPress(x, y, durationMs)
+    override suspend fun longPress(x: Int, y: Int, durationMs: Long): Boolean = dispatchLongPress(x, y, durationMs)
 
-    override suspend fun swipe(
-        x1: Int, y1: Int,
-        x2: Int, y2: Int,
-        durationMs: Long,
-    ): Boolean = dispatchSwipe(x1, y1, x2, y2, durationMs)
+    override suspend fun swipe(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Long): Boolean = dispatchSwipe(x1, y1, x2, y2, durationMs)
 
-    override suspend fun pinch(
-        centerX: Int, centerY: Int,
-        startDistance: Int, endDistance: Int,
-        durationMs: Long,
-    ): Boolean = dispatchPinch(centerX, centerY, startDistance, endDistance, durationMs)
+    override suspend fun pinch(centerX: Int, centerY: Int, startDistance: Int, endDistance: Int, durationMs: Long): Boolean =
+        dispatchPinch(centerX, centerY, startDistance, endDistance, durationMs)
 
-    override suspend fun swipePath(
-        points: List<Pair<Int, Int>>,
-        durationMs: Long,
-    ): Boolean = dispatchSwipePath(points, durationMs)
+    override suspend fun swipePath(points: List<Pair<Int, Int>>, durationMs: Long): Boolean = dispatchSwipePath(points, durationMs)
 
     override suspend fun inputText(text: String): Boolean {
         val svc = service ?: return false
@@ -176,11 +165,7 @@ class AccessibilityExecutor(
 
     // ── 内部实现 ──────────────────────────────────────────────
 
-    private fun collectNodes(
-        node: AccessibilityNodeInfo,
-        out: MutableList<UiNode>,
-        depth: Int,
-    ) {
+    private fun collectNodes(node: AccessibilityNodeInfo, out: MutableList<UiNode>, depth: Int) {
         if (depth > MAX_TREE_DEPTH) return
         val hasUsefulInfo = !node.text.isNullOrBlank() ||
             !node.contentDescription.isNullOrBlank() ||
@@ -254,11 +239,7 @@ class AccessibilityExecutor(
         return dispatchGesture(svc, gesture)
     }
 
-    private suspend fun dispatchSwipe(
-        x1: Int, y1: Int,
-        x2: Int, y2: Int,
-        durationMs: Long,
-    ): Boolean {
+    private suspend fun dispatchSwipe(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Long): Boolean {
         val svc = service ?: return false
         val path = Path().apply {
             moveTo(x1.toFloat(), y1.toFloat())
@@ -270,11 +251,7 @@ class AccessibilityExecutor(
     }
 
     /** v2.x: 双指缩放 — 两指沿水平方向对称开合(同手势两条 stroke,起点时间一致)。 */
-    private suspend fun dispatchPinch(
-        centerX: Int, centerY: Int,
-        startDistance: Int, endDistance: Int,
-        durationMs: Long,
-    ): Boolean {
+    private suspend fun dispatchPinch(centerX: Int, centerY: Int, startDistance: Int, endDistance: Int, durationMs: Long): Boolean {
         val svc = service ?: return false
         val startHalf = (startDistance / 2).coerceAtLeast(1).toFloat()
         val endHalf = (endDistance / 2).coerceAtLeast(1).toFloat()
@@ -296,10 +273,7 @@ class AccessibilityExecutor(
     }
 
     /** v2.x: 多段滑动 — 单指沿路径点逐个 lineTo(解锁图案/复杂拖拽)。 */
-    private suspend fun dispatchSwipePath(
-        points: List<Pair<Int, Int>>,
-        durationMs: Long,
-    ): Boolean {
+    private suspend fun dispatchSwipePath(points: List<Pair<Int, Int>>, durationMs: Long): Boolean {
         val svc = service ?: return false
         if (points.size < 2) return false
         val path = Path().apply {
@@ -313,20 +287,22 @@ class AccessibilityExecutor(
         return dispatchGesture(svc, gesture)
     }
 
-    private suspend fun dispatchGesture(
-        svc: MuseAccessibilityService,
-        gesture: GestureDescription,
-    ): Boolean = suspendCancellableCoroutine { cont ->
-        svc.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
-            override fun onCompleted(g: GestureDescription?) {
-                if (cont.isActive) cont.resume(true)
-            }
+    private suspend fun dispatchGesture(svc: MuseAccessibilityService, gesture: GestureDescription): Boolean =
+        suspendCancellableCoroutine { cont ->
+            svc.dispatchGesture(
+                gesture,
+                object : AccessibilityService.GestureResultCallback() {
+                    override fun onCompleted(g: GestureDescription?) {
+                        if (cont.isActive) cont.resume(true)
+                    }
 
-            override fun onCancelled(g: GestureDescription?) {
-                if (cont.isActive) cont.resume(false)
-            }
-        }, null)
-    }
+                    override fun onCancelled(g: GestureDescription?) {
+                        if (cont.isActive) cont.resume(false)
+                    }
+                },
+                null,
+            )
+        }
 
     private fun pasteText(text: String): Boolean {
         return try {

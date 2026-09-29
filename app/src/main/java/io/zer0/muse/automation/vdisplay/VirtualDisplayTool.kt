@@ -22,20 +22,20 @@ class VirtualDisplayTool(
             ToolRegistry.ToolDef(
                 name = "virtual_screen",
                 description =
-                    "虚拟屏(后台隐藏屏幕):在独立显示里运行应用,截图/操作不占用前台、不打扰用户。" +
-                        "action=ensure 创建或复用虚拟屏(返回 displayId);action=open 在虚拟屏里打开应用(需 package);" +
-                        "action=shot 截取虚拟屏画面(保存为 JPEG 文件,返回路径);action=close 销毁虚拟屏;" +
-                        "action=status 查询状态。在虚拟屏里点按/滑动/按键:用 device_shell 执行 " +
-                        "`input -d <displayId> tap/swipe/keyevent ...`。需要 Shizuku 或 Root 权限通道(设置→权限向导)。",
+                "虚拟屏(后台隐藏屏幕):在独立显示里运行应用,截图/操作不占用前台、不打扰用户。" +
+                    "action=ensure 创建或复用虚拟屏(返回 displayId);action=open 在虚拟屏里打开应用(需 package);" +
+                    "action=shot 截取虚拟屏画面(保存为 JPEG 文件,返回路径);action=close 销毁虚拟屏;" +
+                    "action=status 查询状态。在虚拟屏里点按/滑动/按键:用 device_shell 执行 " +
+                    "`input -d <displayId> tap/swipe/keyevent ...`。需要 Shizuku 或 Root 权限通道(设置→权限向导)。",
                 parameters =
-                    mapOf(
-                        "action" to "必填:ensure | open | shot | close | status",
-                        "package" to "open 时的应用包名(如 com.android.settings)",
-                        "width" to "可选:虚拟屏宽度(默认 720)",
-                        "height" to "可选:虚拟屏高度(默认 1280)",
-                        "dpi" to "可选:虚拟屏密度(默认 320)",
-                        "display" to "可选:指定 displayId(默认最近一次 ensure 的)",
-                    ),
+                mapOf(
+                    "action" to "必填:ensure | open | shot | close | status",
+                    "package" to "open 时的应用包名(如 com.android.settings)",
+                    "width" to "可选:虚拟屏宽度(默认 720)",
+                    "height" to "可选:虚拟屏高度(默认 1280)",
+                    "dpi" to "可选:虚拟屏密度(默认 320)",
+                    "display" to "可选:指定 displayId(默认最近一次 ensure 的)",
+                ),
                 required = setOf("action"),
                 riskLevel = ToolRiskLevel.NORMAL,
             ),

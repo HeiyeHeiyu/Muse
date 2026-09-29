@@ -9,7 +9,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -18,19 +17,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.common.Result
-import io.zer0.common.resultOf
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.navigation.MuseTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -38,11 +31,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.ai.ProviderRegistry
 import io.zer0.ai.core.Model
 import io.zer0.ai.core.ModelListCache
@@ -50,22 +45,26 @@ import io.zer0.ai.core.ModelRegistry
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ProviderSpecificConfig
 import io.zer0.ai.core.ProviderType
-import io.zer0.muse.ui.common.form.MuseCapsuleTab
+import io.zer0.common.Result
+import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.auth.OAuthManager
-import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseCapsuleTab
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
-import io.zer0.muse.data.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.koin.compose.koinInject
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.koin.compose.koinInject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.concurrent.TimeUnit
@@ -306,7 +305,9 @@ internal fun ProviderEditPage(
                     location = vertexLocation.trim().ifBlank { "us-central1" },
                     projectId = vertexProjectId.trim(),
                 )
-            } else null
+            } else {
+                null
+            }
             val tempConfig = ProviderConfig(
                 id = config.id,
                 displayName = displayName,
@@ -429,7 +430,9 @@ internal fun ProviderEditPage(
                 location = vertexLocation.trim().ifBlank { "us-central1" },
                 projectId = vertexProjectId.trim(),
             )
-        } else null
+        } else {
+            null
+        }
         val tempConfig = ProviderConfig(
             id = config.id,
             displayName = displayName,
@@ -600,7 +603,11 @@ internal fun ProviderEditPage(
                     client.newCall(request).execute().use { response ->
                         val body = response.body.string()
                         if (!response.isSuccessful) {
-                            return@use context.getString(R.string.settings_provider_balance_query_failed_http, response.code, body.take(120))
+                            return@use context.getString(
+                                R.string.settings_provider_balance_query_failed_http,
+                                response.code,
+                                body.take(120),
+                            )
                         }
                         if (tempConfig.balanceResultPath.isBlank()) {
                             return@use context.getString(R.string.settings_provider_balance_response, body.take(500))
@@ -609,7 +616,11 @@ internal fun ProviderEditPage(
                         if (value != null) {
                             context.getString(R.string.settings_provider_balance_result, value)
                         } else {
-                            context.getString(R.string.settings_provider_balance_path_not_found, tempConfig.balanceResultPath, body.take(300))
+                            context.getString(
+                                R.string.settings_provider_balance_path_not_found,
+                                tempConfig.balanceResultPath,
+                                body.take(300),
+                            )
                         }
                     }
                 }.getOrElse { e ->
@@ -796,7 +807,6 @@ internal fun ProviderEditPage(
     val isOAuthLoading = oauthState is OAuthManager.State.AWAITING_USER ||
         oauthState is OAuthManager.State.POLLING
 
-
     // v1.35: 改用普通全屏 Scaffold(不再用 Dialog),系统导航栏 inset 正确传递
     // v1.48: BackHandler 检查未保存修改,避免误退丢失编辑
     var showDiscardConfirm by remember { mutableStateOf(false) }
@@ -860,42 +870,42 @@ internal fun ProviderEditPage(
                 },
             )
         },
-            bottomBar = {
-                // 底部悬浮操作栏
-                ProviderEditBottomBar(
-                    canFetch = !isFetchingModels && apiKey.isNotBlank(),
-                    isFetching = isFetchingModels,
-                    canDelete = onDelete != null && !isNew && !config.builtIn,
-                    onFetch = fetchModels,
-                    onAddModel = { showAddModelDialog = true },
-                    onDelete = { showDeleteConfirm = true },
+        bottomBar = {
+            // 底部悬浮操作栏
+            ProviderEditBottomBar(
+                canFetch = !isFetchingModels && apiKey.isNotBlank(),
+                isFetching = isFetchingModels,
+                canDelete = onDelete != null && !isNew && !config.builtIn,
+                onFetch = fetchModels,
+                onAddModel = { showAddModelDialog = true },
+                onDelete = { showDeleteConfirm = true },
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                // v1.125: 移除多余的 imePadding(),Scaffold 的 innerPadding 已包含 IME 偏移,
+                // 双重 imePadding 会把整个内容区推得过高,导致输入框被键盘遮挡。
+                .padding(innerPadding),
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // v1.0.90 fix: 原手写分段控件在高度不受限的容器里给页签用了 fillMaxHeight()，
+                // 两个页签被撑成整屏高、正文被挤出可视区（用户截图即如此）。改用统一的胶囊页签。
+                MuseCapsuleTab(
+                    tabs = listOf(
+                        stringResource(R.string.settings_provider_tab_config),
+                        stringResource(R.string.settings_provider_tab_models),
+                    ),
+                    selectedIndex = selectedTab,
+                    onSelect = { selectedTab = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = MusePaddings.screen, vertical = MusePaddings.contentGap),
                 )
-            },
-            containerColor = MaterialTheme.colorScheme.background,
-        ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    // v1.125: 移除多余的 imePadding(),Scaffold 的 innerPadding 已包含 IME 偏移,
-                    // 双重 imePadding 会把整个内容区推得过高,导致输入框被键盘遮挡。
-                    .padding(innerPadding),
-            ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // v1.0.90 fix: 原手写分段控件在高度不受限的容器里给页签用了 fillMaxHeight()，
-                    // 两个页签被撑成整屏高、正文被挤出可视区（用户截图即如此）。改用统一的胶囊页签。
-                    MuseCapsuleTab(
-                        tabs = listOf(
-                            stringResource(R.string.settings_provider_tab_config),
-                            stringResource(R.string.settings_provider_tab_models),
-                        ),
-                        selectedIndex = selectedTab,
-                        onSelect = { selectedTab = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = MusePaddings.screen, vertical = MusePaddings.contentGap),
-                    )
 
-                    when (selectedTab) {
+                when (selectedTab) {
                     0 -> ConfigTab(
                         displayName = displayName,
                         onDisplayNameChange = { displayName = it },
@@ -1002,9 +1012,9 @@ internal fun ProviderEditPage(
                         modelTestStatuses = modelTestStatuses,
                     )
                 }
-                }
             }
         }
+    }
 
     // 添加新模型对话框
     // v1.97: 添加时通过 ModelRegistry 自动推导 abilities/modalities/contextWindow
@@ -1180,4 +1190,3 @@ internal fun ProviderEditPage(
         )
     }
 }
-

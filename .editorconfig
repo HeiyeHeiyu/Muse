@@ -1,0 +1,31 @@
+# Muse 代码风格声明 —— ktlint 与 IDE 共用这一份。
+#
+# 背景: 本仓库此前**没有** .editorconfig, ktlint 全程走内置默认值, 由此产生两条债:
+#   1. 项目实际采用的标准无处分档 —— 新代码只能靠"看邻居文件"猜, 且两个工具口径不一致
+#      (ktlint 行长默认 140, detekt 默认 120, 同一条代码被两把尺子分别记账);
+#   2. @Composable 函数的 PascalCase 命名被 function-naming 判违规 —— 803 处纯误报。
+# 本文件把标准显式化: 唯一声明处, 两个门禁都对齐到这里。
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.{kt,kts}]
+indent_size = 4
+# 风格基线。ktlint 1.0 默认 ktlint_official, 会额外强制 multiline-expression-wrapping /
+# function-signature 等"表达式换行"规则 —— 实测在 app 模块比 intellij_idea 多报 8,965 条
+# (29,262 vs 20,297), 且与 IDE 的 Ctrl+Alt+L 结果互相打架, 属于尺子选错而非代码错。
+# 声明 intellij_idea = 让门禁与开发时用的格式化器同一口径。
+# 备选 android_studio 会额外强制 1.5 万处尾逗号(实测 35,429 条), 与现有代码出入更大, 不采用。
+ktlint_code_style = intellij_idea
+# 行长上限。必须与 detekt.yml 的 style > MaxLineLength > maxLineLength 保持一致(140);
+# 改这里就要同步改那里, 否则又回到"两把尺子"。
+max_line_length = 140
+# Compose 约定: @Composable 组合函数用 PascalCase(与普通函数区分), 命名规则按注解豁免。
+ktlint_function_naming_ignore_when_annotated_with = Composable
+# 允许反引号标识符(测试函数名等)不被命名规则判违规。
+ktlint_ignore_back_ticked_identifier = true

@@ -22,37 +22,20 @@ class A11yBridgeService : Service() {
         object : IAccessibilityProvider.Stub() {
             override fun getUiHierarchy(): String = service()?.getUiHierarchy() ?: ""
 
-            override fun performClick(
-                x: Int,
-                y: Int,
-            ): Boolean = service()?.performClick(x, y) ?: false
+            override fun performClick(x: Int, y: Int): Boolean = service()?.performClick(x, y) ?: false
 
-            override fun performLongPress(
-                x: Int,
-                y: Int,
-            ): Boolean = service()?.performLongPress(x, y) ?: false
+            override fun performLongPress(x: Int, y: Int): Boolean = service()?.performLongPress(x, y) ?: false
 
             override fun performGlobalAction(actionId: Int): Boolean = service()?.execGlobalAction(actionId) ?: false
 
-            override fun performSwipe(
-                startX: Int,
-                startY: Int,
-                endX: Int,
-                endY: Int,
-                duration: Long,
-            ): Boolean = service()?.performSwipe(startX, startY, endX, endY, duration) ?: false
+            override fun performSwipe(startX: Int, startY: Int, endX: Int, endY: Int, duration: Long): Boolean =
+                service()?.performSwipe(startX, startY, endX, endY, duration) ?: false
 
             override fun findFocusedNodeId(): String = service()?.findFocusedNodeId() ?: ""
 
-            override fun setTextOnNode(
-                nodeId: String,
-                text: String,
-            ): Boolean = service()?.setTextOnNode(nodeId, text) ?: false
+            override fun setTextOnNode(nodeId: String, text: String): Boolean = service()?.setTextOnNode(nodeId, text) ?: false
 
-            override fun takeScreenshot(
-                path: String,
-                format: String,
-            ): Boolean = service()?.takeScreenshot(path, format) ?: false
+            override fun takeScreenshot(path: String, format: String): Boolean = service()?.takeScreenshot(path, format) ?: false
 
             override fun isAccessibilityServiceEnabled(): Boolean = service() != null
 

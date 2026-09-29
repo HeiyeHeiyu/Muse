@@ -3,13 +3,13 @@ package io.zer0.ai.openai
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import io.zer0.ai.ChatService
+import io.zer0.ai.ProviderConfigStore
 import io.zer0.ai.core.ChatRequest
 import io.zer0.ai.core.ChatRequestMode
 import io.zer0.ai.core.ChatStreamEvent
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.Model
 import io.zer0.ai.core.ProviderConfig
-import io.zer0.ai.ProviderConfigStore
 import io.zer0.ai.core.ProviderSpecificConfig
 import io.zer0.ai.core.ProviderType
 import io.zer0.ai.core.UIMessage
@@ -245,9 +245,11 @@ class OpenAIProviderCustomTemplateTest {
             }
 
             assertTrue(events.any { it is ChatStreamEvent.FallbackNotice })
-            assertTrue(events.any {
-                it is ChatStreamEvent.ContentDelta && it.delta == "fallback answer"
-            })
+            assertTrue(
+                events.any {
+                    it is ChatStreamEvent.ContentDelta && it.delta == "fallback answer"
+                },
+            )
             assertEquals(2, requestBodies.size)
         } finally {
             server.stop(0)

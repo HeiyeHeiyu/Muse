@@ -196,7 +196,10 @@ fun MermaidBlock(code: String) {
         var attempts = 0
         while (attempts < MERMAID_POLL_MAX_ATTEMPTS) {
             delay(MERMAID_POLL_INTERVAL_MS)
-            val wv = webViewRef ?: run { attempts++; continue }
+            val wv = webViewRef ?: run {
+                attempts++
+                continue
+            }
             // 用 suspendCancellableCoroutine 包装 evaluateJavascript,避免阻塞主线程
             val pollResult = suspendCancellableCoroutine { cont ->
                 wv.post {
@@ -273,7 +276,9 @@ fun MermaidBlock(code: String) {
                                 retryCount++
                                 reloadKey++
                             }
-                        } else null,
+                        } else {
+                            null
+                        },
                     )
                 }
                 else -> {
@@ -514,11 +519,7 @@ private fun ChartHeader(label: String) {
  * 图表渲染失败视图 — 显示错误信息 + "显示源码"按钮(+ 可选"重试"按钮)。
  */
 @Composable
-private fun ChartErrorView(
-    message: String,
-    onShowSource: () -> Unit,
-    onRetry: (() -> Unit)? = null,
-) {
+private fun ChartErrorView(message: String, onShowSource: () -> Unit, onRetry: (() -> Unit)? = null) {
     Surface(
         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
         shape = MuseShapes.small,
@@ -559,10 +560,7 @@ private fun ChartErrorView(
  * 图表源码回退视图 — 等宽字体展示原始代码 + "重试"按钮。
  */
 @Composable
-private fun ChartSourceView(
-    code: String,
-    onRetry: () -> Unit,
-) {
+private fun ChartSourceView(code: String, onRetry: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         shape = MuseShapes.small,

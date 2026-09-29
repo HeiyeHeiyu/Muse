@@ -34,7 +34,6 @@ interface ChatStateAccessor {
     val coroutineScope: kotlinx.coroutines.CoroutineScope
 }
 
-
 /**
  * 原子追加输入文本，避免异步弹窗/OCR/ASR 回调使用旧快照覆盖用户刚输入的内容。
  */

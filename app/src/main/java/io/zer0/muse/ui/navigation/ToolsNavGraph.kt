@@ -21,10 +21,7 @@ import io.zer0.muse.ui.stats.StatsScreen
  * 所有 composable 统一使用 [MuseTransitions.horizontalPushEnter] / [horizontalPushPopExit] 过渡。
  * STATS 页需要 [ChatViewModel] 以支持点击会话跳转回首页。
  */
-fun NavGraphBuilder.toolsNavGraph(
-    navController: NavHostController,
-    sharedViewModel: ChatViewModel,
-) {
+fun NavGraphBuilder.toolsNavGraph(navController: NavHostController, sharedViewModel: ChatViewModel) {
     // v1.0.4: AI 工具管理页(展示 ToolRegistry 全部工具 + 详情 + 风险等级)
     composable<ToolsScreenRoute>(
         enterTransition = { MuseTransitions.horizontalPushEnter() },

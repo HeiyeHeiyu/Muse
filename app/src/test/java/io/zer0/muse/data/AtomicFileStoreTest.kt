@@ -1,12 +1,12 @@
 package io.zer0.muse.data
 
-import java.io.File
-import java.nio.file.Files
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 
 /** AtomicFileStore 的原子写入和损坏文件隔离测试。 */
 class AtomicFileStoreTest {

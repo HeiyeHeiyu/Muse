@@ -19,8 +19,7 @@ class CloudBackupReadBackValidationTest {
         """{"type":"meta","version":3,"sessions":1,"messages":2,"facts":0,"settings":0}"""
     private val validRecord = """{"type":"session","data":{"id":"s1"}}"""
 
-    private fun ndjson(vararg lines: String): ByteArray =
-        lines.joinToString("\n").toByteArray(Charsets.UTF_8)
+    private fun ndjson(vararg lines: String): ByteArray = lines.joinToString("\n").toByteArray(Charsets.UTF_8)
 
     @Test
     fun `valid plaintext ndjson passes`() {

@@ -349,8 +349,20 @@ fun MemoryGraphView(
                     val beam = radius * 3.1f
                     val beamWidth = 1.3.dp.toPx()
                     val beamColor = tone.copy(alpha = 0.75f)
-                    drawLine(beamColor, Offset(nodeCenter.x - beam, nodeCenter.y), Offset(nodeCenter.x + beam, nodeCenter.y), beamWidth, StrokeCap.Round)
-                    drawLine(beamColor, Offset(nodeCenter.x, nodeCenter.y - beam), Offset(nodeCenter.x, nodeCenter.y + beam), beamWidth, StrokeCap.Round)
+                    drawLine(
+                        beamColor,
+                        Offset(nodeCenter.x - beam, nodeCenter.y),
+                        Offset(nodeCenter.x + beam, nodeCenter.y),
+                        beamWidth,
+                        StrokeCap.Round,
+                    )
+                    drawLine(
+                        beamColor,
+                        Offset(nodeCenter.x, nodeCenter.y - beam),
+                        Offset(nodeCenter.x, nodeCenter.y + beam),
+                        beamWidth,
+                        StrokeCap.Round,
+                    )
                 }
 
                 // 标签:缩放过小时只保留重要 / 置顶 / 选中节点
@@ -437,7 +449,10 @@ fun MemoryGraphView(
                             )
                             MuseCapsuleButton(
                                 text = stringResource(R.string.memory_menu_delete),
-                                onClick = { action(node, NodeAction.DELETE); selectedNode = null },
+                                onClick = {
+                                    action(node, NodeAction.DELETE)
+                                    selectedNode = null
+                                },
                                 variant = IosCapsuleButtonVariant.Text,
                                 fillWidth = false,
                                 modifier = actionModifier,

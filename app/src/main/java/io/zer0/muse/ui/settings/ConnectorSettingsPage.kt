@@ -48,9 +48,7 @@ import kotlinx.coroutines.launch
  * 授权走系统浏览器 + Deep Link 回调,凭证由 OAuthManager 加密保存。
  */
 @Composable
-fun ConnectorSettingsPage(
-    onBack: () -> Unit,
-) {
+fun ConnectorSettingsPage(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = remember { ConnectorStore(context.applicationContext) }
@@ -110,7 +108,12 @@ fun ConnectorSettingsPage(
                             onConnect = {
                                 val activity = context as? Activity
                                 if (activity == null) {
-                                    MuseToast.show(context.getString(R.string.connector_connect_failed, context.getString(R.string.connector_error_activity_unavailable)))
+                                    MuseToast.show(
+                                        context.getString(
+                                            R.string.connector_connect_failed,
+                                            context.getString(R.string.connector_error_activity_unavailable),
+                                        ),
+                                    )
                                 } else {
                                     scope.launch {
                                         val oauthConfig = OAuthConfig(
@@ -127,7 +130,9 @@ fun ConnectorSettingsPage(
                                             providerId = "connector_${cfg.id}",
                                         ).fold(
                                             onSuccess = {
-                                                MuseToast.show(context.getString(R.string.connector_connect_success, cfg.name.ifBlank { cfg.id }))
+                                                MuseToast.show(
+                                                    context.getString(R.string.connector_connect_success, cfg.name.ifBlank { cfg.id }),
+                                                )
                                             },
                                             onFailure = { e ->
                                                 MuseToast.show(context.getString(R.string.connector_connect_failed, e.message ?: ""))
@@ -228,12 +233,7 @@ fun ConnectorSettingsPage(
 
 /** 单条连接器行:名称/端点 + 连接/编辑/删除。 */
 @Composable
-private fun ConnectorRow(
-    config: ConnectorConfig,
-    onConnect: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-) {
+private fun ConnectorRow(config: ConnectorConfig, onConnect: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -283,11 +283,7 @@ private fun ConnectorRow(
 
 /** 添加/编辑连接器对话框。 */
 @Composable
-private fun ConnectorEditDialog(
-    initial: ConnectorConfig?,
-    onDismiss: () -> Unit,
-    onSave: (ConnectorConfig) -> Unit,
-) {
+private fun ConnectorEditDialog(initial: ConnectorConfig?, onDismiss: () -> Unit, onSave: (ConnectorConfig) -> Unit) {
     var name by remember { mutableStateOf(initial?.name.orEmpty()) }
     var authorizeUrl by remember { mutableStateOf(initial?.authorizeUrl.orEmpty()) }
     var tokenUrl by remember { mutableStateOf(initial?.tokenUrl.orEmpty()) }

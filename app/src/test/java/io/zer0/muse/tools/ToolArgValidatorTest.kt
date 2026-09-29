@@ -7,17 +7,14 @@ import org.junit.Test
 
 class ToolArgValidatorTest {
 
-    private fun def(
-        name: String = "test_tool",
-        required: Set<String> = emptySet(),
-        parameterTypes: Map<String, String> = emptyMap(),
-    ) = ToolRegistry.ToolDef(
-        name = name,
-        description = "test",
-        parameters = mapOf(),
-        required = required,
-        parameterTypes = parameterTypes,
-    )
+    private fun def(name: String = "test_tool", required: Set<String> = emptySet(), parameterTypes: Map<String, String> = emptyMap()) =
+        ToolRegistry.ToolDef(
+            name = name,
+            description = "test",
+            parameters = mapOf(),
+            required = required,
+            parameterTypes = parameterTypes,
+        )
 
     @Test
     fun missingRequired_failsWithReadableError() {

@@ -246,10 +246,7 @@ class PluginAuthoringTest {
         capabilities = capabilities,
     )
 
-    private fun tool(
-        name: String = "hello",
-        functionName: String = "hello",
-    ): ToolDeclaration = ToolDeclaration(
+    private fun tool(name: String = "hello", functionName: String = "hello"): ToolDeclaration = ToolDeclaration(
         name = name,
         description = "示例工具",
         parametersJson = "{}",

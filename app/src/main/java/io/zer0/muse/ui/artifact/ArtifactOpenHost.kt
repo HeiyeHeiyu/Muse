@@ -17,10 +17,7 @@ import io.zer0.muse.ui.common.feedback.MuseToast
  * 其余（代码/文本）走弹窗查看器。聊天页与产物中心共用同一分流。
  */
 @Composable
-fun ArtifactOpenHost(
-    artifact: ArtifactEntity?,
-    onDismiss: () -> Unit,
-) {
+fun ArtifactOpenHost(artifact: ArtifactEntity?, onDismiss: () -> Unit) {
     if (artifact == null) return
     val context = LocalContext.current
     val richLang = richPreviewLanguage(artifact.type, artifact.language)

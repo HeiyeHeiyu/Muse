@@ -133,7 +133,7 @@ class VertexAiAuthToken(
      * - Claims: iss/scope/aud/iat/exp(1 小时有效期)
      */
     private fun buildSignedJwt(): String {
-        val now = System.currentTimeMillis() / 1000L  // 秒级
+        val now = System.currentTimeMillis() / 1000L // 秒级
         val header = """{"alg":"RS256","typ":"JWT"}"""
         val claims = buildString {
             append('{')
@@ -235,12 +235,12 @@ class VertexAiAuthToken(
         //   30 0d 06 09 2a 86 48 86 f7 0d 01 01 01 00  SEQUENCE { rsaEncryption, NULL }
         //   04 82 xx xx                 OCTET STRING (包裹 PKCS#1)
         val prefix = byteArrayOf(
-            0x30.toByte(), 0x82.toByte(), 0x00, 0x00,                           // SEQUENCE,长度后填
-            0x02, 0x01, 0x00,                                                   // version = 0
-            0x30, 0x0d,                                                         // SEQUENCE(AlgorithmIdentifier)
+            0x30.toByte(), 0x82.toByte(), 0x00, 0x00, // SEQUENCE,长度后填
+            0x02, 0x01, 0x00, // version = 0
+            0x30, 0x0d, // SEQUENCE(AlgorithmIdentifier)
             0x06, 0x09, 0x2a, 0x86.toByte(), 0x48, 0x86.toByte(), 0xf7.toByte(), 0x0d, 0x01, 0x01, 0x01, // OID rsaEncryption
-            0x05, 0x00,                                                         // NULL
-            0x04, 0x82.toByte(), 0x00, 0x00,                                    // OCTET STRING,长度后填
+            0x05, 0x00, // NULL
+            0x04, 0x82.toByte(), 0x00, 0x00, // OCTET STRING,长度后填
         )
         val totalLen = prefix.size + pkcs1.size
         // SEQUENCE 长度(totalLen - 4,占 2 字节大端)

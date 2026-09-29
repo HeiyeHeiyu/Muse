@@ -146,16 +146,16 @@ fun MiniAlbumScreen(
             }
             MuseTactileButton(
                 icon = if (showHidden) {
-                        MuseIcons.eyeOff
-                    } else {
-                        MuseIcons.eye
-                    },
+                    MuseIcons.eyeOff
+                } else {
+                    MuseIcons.eye
+                },
                 onClick = { showHidden = !showHidden },
                 contentDescription = if (showHidden) {
-                        stringResource(R.string.mini_album_visibility_cd_hidden)
-                    } else {
-                        stringResource(R.string.mini_album_visibility_cd_shown)
-                    },
+                    stringResource(R.string.mini_album_visibility_cd_hidden)
+                } else {
+                    stringResource(R.string.mini_album_visibility_cd_shown)
+                },
                 tint = MaterialTheme.colorScheme.primary,
             )
         }
@@ -218,7 +218,7 @@ fun MiniAlbumScreen(
                                     onTap = {
                                         viewerIndex = visibleImages.indexOfFirst { it.uri == image.uri }
                                     },
-                            onLongPress = { selectedImage = image },
+                                    onLongPress = { selectedImage = image },
                                 )
                             },
                     ) {
@@ -281,10 +281,10 @@ fun MiniAlbumScreen(
                     )
                     MuseCapsuleButton(
                         text = if (image.id in hiddenImageIds) {
-                                stringResource(R.string.mini_album_restore_action)
-                            } else {
-                                stringResource(R.string.mini_album_hide_action)
-                            },
+                            stringResource(R.string.mini_album_restore_action)
+                        } else {
+                            stringResource(R.string.mini_album_hide_action)
+                        },
                         onClick = {
                             if (image.id in hiddenImageIds) {
                                 onUnhideImage(image.id)

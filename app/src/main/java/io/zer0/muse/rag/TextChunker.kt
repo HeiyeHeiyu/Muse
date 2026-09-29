@@ -34,10 +34,13 @@ class TextChunker(
 
     companion object {
         private val sentenceEnd = Regex("(?<=[。！？!?])|(?<=[.!?])\\s+")
+
         /** ``` 代码块边界识别(开/闭成对)。 */
         private val codeFence = Regex("^```\\w*\\s*$", RegexOption.MULTILINE)
+
         /** Markdown 标题行(# ~ ######)。 */
         private val mdHeader = Regex("^(#{1,6})\\s+(.+)$", RegexOption.MULTILINE)
+
         /** Markdown 表格行(|...|...|)。 */
         private val mdTableRow = Regex("^\\|.*\\|\\s*$", RegexOption.MULTILINE)
     }
@@ -279,8 +282,7 @@ class TextChunker(
     }
 
     /** 测量文本大小:token 模式返回 token 估算,字符模式返回字符数。 */
-    private fun measureSize(text: String): Int =
-        if (chunkByToken) estimateTokens(text) else text.length
+    private fun measureSize(text: String): Int = if (chunkByToken) estimateTokens(text) else text.length
 
     /** 把 token 数粗略换算为字符数(中文 1 token≈1.5 字符,英文 1 token≈4 字符,折中取 2.5)。 */
     private fun estimateTokensToChars(tokens: Int): Int = (tokens * 2.5).toInt().coerceAtLeast(0)

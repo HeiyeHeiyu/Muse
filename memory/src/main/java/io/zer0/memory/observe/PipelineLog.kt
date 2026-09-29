@@ -21,7 +21,10 @@ class PipelineLog(
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) {
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
     private val lock = Any()
 
     init {
@@ -91,8 +94,7 @@ class PipelineLog(
         }
     }
 
-    private fun truncate(msg: String): String =
-        if (msg.length <= MAX_ERROR_MSG_CHARS) msg else msg.take(MAX_ERROR_MSG_CHARS) + "…"
+    private fun truncate(msg: String): String = if (msg.length <= MAX_ERROR_MSG_CHARS) msg else msg.take(MAX_ERROR_MSG_CHARS) + "…"
 
     companion object {
         private const val TAG = "PipelineLog"

@@ -13,7 +13,12 @@ package io.zer0.muse.tools
 internal object ToolResultJudge {
 
     private val BRACKET_FAILURE_MARKERS = listOf(
-        "[超时]", "[中断]", "[工具输出已截断", "[错误]", "[失败]", "[取消]",
+        "[超时]",
+        "[中断]",
+        "[工具输出已截断",
+        "[错误]",
+        "[失败]",
+        "[取消]",
     )
     private val STRUCTURED_ERROR_PATTERN = Regex("\"error\"\\s*:\\s*\"[^\"]")
 

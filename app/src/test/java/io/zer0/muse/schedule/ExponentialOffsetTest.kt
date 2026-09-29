@@ -56,7 +56,7 @@ class ExponentialOffsetTest {
         val offsetMinutes = 60
         val offsetMs = 60 * 60_000L
         var shortCount = 0 // 偏移 < 0(提前,间隔缩短)
-        var longCount = 0  // 偏移 > 0(延后)
+        var longCount = 0 // 偏移 > 0(延后)
         val samples = 2_000
         repeat(samples) {
             val offset = ProactiveMessageRunner.exponentialOffsetMillis(offsetMinutes)

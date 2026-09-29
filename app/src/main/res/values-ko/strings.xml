@@ -219,7 +219,7 @@
     <string name="recently_deleted_auto_clear">7일 후 자동 삭제됨</string>
 
     <string name="chat_draft_label">초안</string>
-    <string name="chat_list_archive_confirm">이 채팅은 보관처리되며 목록에서 숨겨집니다.</string>
+    <string name="chat_list_archive_confirm">채팅 "%1$s"을(를) 보관할까요? 보관 목록에서 복원할 수 있습니다.</string>
     <string name="chat_list_archive_confirm_button">보관소</string>
     <string name="chat_list_archive_title">보관 채팅</string>
     <string name="chat_list_section_in_progress">진행 중</string>
@@ -241,14 +241,14 @@
     <string name="err_image_empty_response">이미지 생성이 빈 응답을 반환했습니다.</string>
     <string name="err_image_invalid_uri">이미지 URI 또는 ​​경로가 잘못되었습니다.</string>
     <string name="err_image_no_results">이미지가 생성되지 않았습니다.</string>
-    <string name="err_image_reference_download_failed">참조 이미지를 다운로드하지 못했습니다.</string>
-    <string name="err_image_reference_too_large">참조 이미지가 너무 큽니다.</string>
-    <string name="err_image_response_too_large">생성된 이미지가 너무 커서 표시할 수 없습니다.</string>
-    <string name="err_image_unsupported_model">선택한 모델은 이미지 생성을 지원하지 않습니다.</string>
+    <string name="err_image_reference_download_failed">참조 이미지를 다운로드하지 못했습니다. (%1$s)</string>
+    <string name="err_image_reference_too_large">참조 이미지가 너무 큽니다. (%1$s)</string>
+    <string name="err_image_response_too_large">생성된 이미지가 너무 커서 표시할 수 없습니다. (%1$s)</string>
+    <string name="err_image_unsupported_model">선택한 모델은 이미지 생성을 지원하지 않습니다. (%1$s)</string>
     <string name="err_invalid_argument">잘못된 인수가 제공되었습니다.</string>
-    <string name="err_invalid_response">서버의 응답이 잘못되었습니다.</string>
-    <string name="err_memory_config_invalid">메모리 구성이 잘못되었습니다.</string>
-    <string name="err_memory_token_budget_invalid">메모리 토큰 예산이 잘못되었습니다.</string>
+    <string name="err_invalid_response">서버의 응답이 잘못되었습니다. (%1$s)</string>
+    <string name="err_memory_config_invalid">메모리 구성이 잘못되었습니다. (%1$s)</string>
+    <string name="err_memory_token_budget_invalid">메모리 토큰 예산이 잘못되었습니다. (%1$s)</string>
     <string name="err_network_error">네트워크 오류입니다.</string>
     <string name="err_no_model_selected">선택한 모델이 없습니다.</string>
     <string name="err_no_provider_configured">구성된 제공업체가 없습니다.</string>
@@ -261,8 +261,8 @@
     <string name="err_resource_exhausted">리소스가 소진되었습니다.</string>
     <string name="err_service_unavailable">일시적으로 서비스를 이용할 수 없습니다.</string>
     <string name="err_stream_interrupted">스트림이 중단되었습니다.</string>
-    <string name="err_vertex_ai_config_invalid">Vertex AI 구성이 잘못되었습니다.</string>
-    <string name="err_vertex_ai_token_failed">Vertex AI 액세스 토큰을 가져올 수 없습니다.</string>
+    <string name="err_vertex_ai_config_invalid">Vertex AI 구성이 잘못되었습니다. (%1$s)</string>
+    <string name="err_vertex_ai_token_failed">Vertex AI 액세스 토큰을 가져올 수 없습니다. (%1$s)</string>
 
     <!-- Assistant detail: capabilities -->
     <string name="assistant_detail_capabilities_title">기능</string>

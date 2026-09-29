@@ -32,12 +32,11 @@ object WarmupHistory {
     data class TrimResult(val history: List<UIMessage>, val truncated: Boolean)
 
     /** 依据模型上下文窗口计算历史 token 预算。 */
-    fun budgetTokensFor(contextMaxTokens: Int): Int =
-        if (contextMaxTokens > 0) {
-            (contextMaxTokens * BUDGET_RATIO).toInt()
-        } else {
-            FALLBACK_BUDGET_TOKENS
-        }
+    fun budgetTokensFor(contextMaxTokens: Int): Int = if (contextMaxTokens > 0) {
+        (contextMaxTokens * BUDGET_RATIO).toInt()
+    } else {
+        FALLBACK_BUDGET_TOKENS
+    }
 
     /**
      * v2.3.2: 触发上下文压缩的字符预算(与 [budgetTokensFor] 同一口径:窗口的 [BUDGET_RATIO])。

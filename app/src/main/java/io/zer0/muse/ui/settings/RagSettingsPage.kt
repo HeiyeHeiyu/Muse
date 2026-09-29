@@ -21,20 +21,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import io.zer0.muse.ui.common.feedback.MuseToast
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
+import io.zer0.muse.rag.RagConfig
+import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.settings.ChevronRight
-import io.zer0.muse.ui.common.form.MuseTextField
-import io.zer0.muse.rag.RagConfig
 import io.zer0.muse.ui.common.settings.SectionLabel
-import io.zer0.muse.ui.common.settings.SettingsSliderRow
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.settings.SettingsItemRow
+import io.zer0.muse.ui.common.settings.SettingsSliderRow
 import io.zer0.muse.ui.common.settings.SettingsSwitchRow
 import io.zer0.muse.ui.theme.MusePaddings
 import kotlinx.coroutines.delay
@@ -56,10 +56,7 @@ import kotlin.math.roundToInt
  *  - 分块重叠(0-200 字符)
  */
 @Composable
-fun RagSettingsPage(
-    onBack: () -> Unit,
-    onManageKbs: () -> Unit = {},
-) {
+fun RagSettingsPage(onBack: () -> Unit, onManageKbs: () -> Unit = {}) {
     val context = LocalContext.current
     val settings: SettingsRepository = koinInject()
     val config by settings.ragConfigFlow.collectAsStateWithLifecycle(initialValue = RagConfig())
@@ -249,8 +246,11 @@ fun RagSettingsPage(
                                         providers.isEmpty() -> "text-embedding-3-small"
                                         config.cloudProviderId.isNotBlank() -> {
                                             val p = providers.find { it.id == config.cloudProviderId }
-                                            if (p?.displayName?.contains("openai", true) == true) "text-embedding-3-small"
-                                            else "embedding-2"
+                                            if (p?.displayName?.contains("openai", true) == true) {
+                                                "text-embedding-3-small"
+                                            } else {
+                                                "embedding-2"
+                                            }
                                         }
                                         else -> "text-embedding-3-small"
                                     },
@@ -283,7 +283,7 @@ fun RagSettingsPage(
                     value = topKTemp.toFloat(),
                     valueRange = 1f..10f,
                     steps = 8,
-                    valueText = "${topKTemp}",
+                    valueText = "$topKTemp",
                     onValueChange = { v ->
                         topKTemp = v.roundToInt()
                     },
@@ -405,7 +405,7 @@ fun RagSettingsPage(
                     value = chunkSizeTemp.toFloat(),
                     valueRange = 100f..2000f,
                     steps = 18,
-                    valueText = "${chunkSizeTemp}",
+                    valueText = "$chunkSizeTemp",
                     onValueChange = { v ->
                         chunkSizeTemp = v.roundToInt()
                     },
@@ -424,7 +424,7 @@ fun RagSettingsPage(
                     value = chunkOverlapTemp.toFloat(),
                     valueRange = 0f..200f,
                     steps = 19,
-                    valueText = "${chunkOverlapTemp}",
+                    valueText = "$chunkOverlapTemp",
                     onValueChange = { v ->
                         chunkOverlapTemp = v.roundToInt()
                     },

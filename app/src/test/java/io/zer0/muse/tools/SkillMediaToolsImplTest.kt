@@ -6,9 +6,9 @@ import io.mockk.every
 import io.mockk.mockk
 import io.zer0.muse.data.plugin.PluginManager
 import io.zer0.muse.data.skill.SkillEntity
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner

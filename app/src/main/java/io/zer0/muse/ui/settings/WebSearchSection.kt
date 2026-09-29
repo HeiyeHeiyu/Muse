@@ -4,10 +4,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -25,7 +25,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -33,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.ui.common.feedback.MuseDialog
@@ -59,10 +59,7 @@ import org.koin.core.context.GlobalContext
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun WebSearchSection(
-    webSearchConfig: WebSearchConfig,
-    settings: SettingsRepository,
-) {
+internal fun WebSearchSection(webSearchConfig: WebSearchConfig, settings: SettingsRepository) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val savedText = stringResource(R.string.settings_saved)
@@ -108,7 +105,11 @@ internal fun WebSearchSection(
     SectionLabel(stringResource(R.string.settings_web_search_mode))
     SettingsGroup {
         Column(Modifier.padding(MusePaddings.cardInner)) {
-            Text(stringResource(R.string.settings_web_search_mode_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                stringResource(R.string.settings_web_search_mode_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(10.dp))
             // 必须用会换行的 FlowRow:四个模式标签在窄屏一行放不下,Row 会把最后一个
             // chip 压成竖排文字甚至挤出屏幕(用户实测截图)。
@@ -121,12 +122,24 @@ internal fun WebSearchSection(
                 // v2.x: 原「关闭」chip 已删 — 与上方总开关控同一状态,开关是唯一关闭入口。
                 MuseChip(
                     selected = webSearchConfig.mode == WebSearchMode.AUTO && webSearchConfig.enabled,
-                    onClick = { scope.launch { settings.saveWebSearchConfig(webSearchConfig.copy(mode = WebSearchMode.AUTO, enabled = true)) } },
+                    onClick = {
+                        scope.launch {
+                            settings.saveWebSearchConfig(
+                                webSearchConfig.copy(mode = WebSearchMode.AUTO, enabled = true),
+                            )
+                        }
+                    },
                     label = stringResource(R.string.settings_web_search_mode_auto),
                 )
                 MuseChip(
                     selected = webSearchConfig.mode == WebSearchMode.LOCAL && webSearchConfig.enabled,
-                    onClick = { scope.launch { settings.saveWebSearchConfig(webSearchConfig.copy(mode = WebSearchMode.LOCAL, enabled = true)) } },
+                    onClick = {
+                        scope.launch {
+                            settings.saveWebSearchConfig(
+                                webSearchConfig.copy(mode = WebSearchMode.LOCAL, enabled = true),
+                            )
+                        }
+                    },
                     label = stringResource(R.string.settings_web_search_mode_local),
                 )
                 MuseChip(
@@ -142,7 +155,12 @@ internal fun WebSearchSection(
                 )
             }
             if (webSearchConfig.mode == WebSearchMode.NATIVE) {
-                Text(stringResource(R.string.settings_web_search_native_unavailable), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                Text(
+                    stringResource(R.string.settings_web_search_native_unavailable),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         }
     }
@@ -240,10 +258,22 @@ internal fun WebSearchSection(
         } else {
             Column(Modifier.padding(MusePaddings.cardInner)) {
                 Text("查询：${response.normalizedQuery}", style = MaterialTheme.typography.bodySmall)
-                Text("状态：${response.status}   来源：${response.provider ?: "未知"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("结果：${response.results.size} 条", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "状态：${response.status}   来源：${response.provider ?: "未知"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    "结果：${response.results.size} 条",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 response.attempts.forEach { attempt ->
-                    Text("${attempt.provider} · ${attempt.status} · ${attempt.elapsedMs}ms", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "${attempt.provider} · ${attempt.status} · ${attempt.elapsedMs}ms",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -280,7 +310,11 @@ internal fun WebSearchSection(
                             }.padding(vertical = 12.dp, horizontal = MusePaddings.iconPadding),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(p, color = if (p == webSearchConfig.providerName) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface, fontWeight = if (p == webSearchConfig.providerName) FontWeight.SemiBold else FontWeight.Normal)
+                            Text(
+                                p,
+                                color = if (p == webSearchConfig.providerName) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                fontWeight = if (p == webSearchConfig.providerName) FontWeight.SemiBold else FontWeight.Normal,
+                            )
                         }
                     }
                 }
@@ -349,7 +383,11 @@ internal fun WebSearchSection(
                         onValueChange = { apiKeyText = it },
                     )
                 }
-                SavePill(stringResource(if (isCustomApi) R.string.settings_web_search_save_api_key else R.string.settings_web_search_save_endpoint)) {
+                SavePill(
+                    stringResource(
+                        if (isCustomApi) R.string.settings_web_search_save_api_key else R.string.settings_web_search_save_endpoint,
+                    ),
+                ) {
                     scope.launch {
                         val provider = webSearchConfig.providerName
                         val key = apiKeyText.trim()
@@ -386,8 +424,11 @@ internal fun WebSearchSection(
                 )
                 Spacer(Modifier.height(8.dp))
                 MuseCapsuleButton(
-                    text = if (testing) stringResource(R.string.settings_web_search_testing)
-                    else stringResource(R.string.settings_web_search_test),
+                    text = if (testing) {
+                        stringResource(R.string.settings_web_search_testing)
+                    } else {
+                        stringResource(R.string.settings_web_search_test)
+                    },
                     onClick = {
                         val q = testQuery.trim()
                         if (q.isEmpty() || testing) return@MuseCapsuleButton
@@ -400,7 +441,9 @@ internal fun WebSearchSection(
                                 val results = provider.search(q, maxResults = webSearchConfig.maxResults)
                                 testResult = if (results.isNotEmpty()) {
                                     context.getString(R.string.settings_web_search_test_success, results.size, results.take(3).joinToString("\n") { "  • ${'$'}{it.title}" })
-                                } else context.getString(R.string.settings_web_search_test_empty)
+                                } else {
+                                    context.getString(R.string.settings_web_search_test_empty)
+                                }
                             } catch (e: Exception) {
                                 testResult = context.getString(R.string.settings_web_search_test_failed, e.message ?: context.getString(R.string.settings_web_search_test_failed_unknown))
                             } finally {
@@ -413,7 +456,14 @@ internal fun WebSearchSection(
                     variant = IosCapsuleButtonVariant.Secondary,
                     fillWidth = false,
                 )
-                testResult?.let { Text(it, modifier = Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
+                testResult?.let {
+                    Text(
+                        it,
+                        modifier = Modifier.padding(top = 8.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
         }
     }
@@ -425,7 +475,11 @@ private fun PathRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title
         modifier = Modifier.fillMaxWidth().padding(MusePaddings.cardInner),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = if (primary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = if (primary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Spacer(Modifier.width(12.dp))
         Column {
             Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
@@ -449,7 +503,11 @@ private fun SavePill(text: String, onClick: () -> Unit) {
                 onClick = onClick,
             ),
     ) {
-        Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium, modifier = Modifier.padding(MusePaddings.cardInnerSpaced))
+        Text(
+            text,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(MusePaddings.cardInnerSpaced),
+        )
     }
 }
-

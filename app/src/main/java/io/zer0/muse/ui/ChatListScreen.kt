@@ -1,18 +1,12 @@
 package io.zer0.muse.ui
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.surface.MusePageScaffold
-import io.zer0.muse.ui.common.state.MuseErrorStateBox
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,8 +20,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -41,7 +35,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
@@ -51,39 +44,56 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.zer0.common.Logger
+import io.zer0.memory.fact.FactDao
+import io.zer0.memory.fact.FactEntity
 import io.zer0.muse.R
-import io.zer0.muse.transformer.InternalMarkupSanitizer
+import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.knowledge.KnowledgeDocDao
 import io.zer0.muse.data.session.FolderEntity
 import io.zer0.muse.data.session.SessionEntity
-import io.zer0.muse.ui.common.form.MuseBottomSheet
+import io.zer0.muse.notification.MuseNotificationManager
+import io.zer0.muse.notification.MuseNotificationTarget
+import io.zer0.muse.schedule.DailySummaryService
+import io.zer0.muse.schedule.DailySummaryWorker
+import io.zer0.muse.schedule.GreetingHintGenerator
+import io.zer0.muse.transformer.InternalMarkupSanitizer
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseBottomSheet
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.museAnimateItem
+import io.zer0.muse.ui.common.state.MuseErrorStateBox
 import io.zer0.muse.ui.common.surface.CardGroup
 import io.zer0.muse.ui.common.surface.MuseDivider
+import io.zer0.muse.ui.common.surface.MusePageScaffold
 import io.zer0.muse.ui.theme.MuseActionColors
 import io.zer0.muse.ui.theme.MuseCornerRadius
 import io.zer0.muse.ui.theme.MuseDateFormats
@@ -92,25 +102,15 @@ import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.huge
-import io.zer0.memory.fact.FactDao
-import io.zer0.memory.fact.FactEntity
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import androidx.compose.ui.platform.LocalContext
-import io.zer0.common.Logger
-import io.zer0.muse.data.SettingsRepository
-import io.zer0.muse.schedule.DailySummaryService
-import io.zer0.muse.schedule.DailySummaryWorker
-import io.zer0.muse.notification.MuseNotificationManager
-import io.zer0.muse.notification.MuseNotificationTarget
-import io.zer0.muse.schedule.GreetingHintGenerator
 
 /** v1.x: 问候语个性化提醒通知 ID(与其它通知 ID 错开)。 */
 private const val GREETING_NOTIFY_ID = 1010
@@ -201,296 +201,296 @@ fun ChatListScreen(
         regionName = "list",
         data = { sessions },
     ) {
-    val scope = rememberCoroutineScope()
+        val scope = rememberCoroutineScope()
 
-    // v1.69: 文件夹分组 UI — 新建文件夹对话框状态
-    var showCreateFolderDialog by remember { mutableStateOf(false) }
-    var newFolderName by remember { mutableStateOf("") }
+        // v1.69: 文件夹分组 UI — 新建文件夹对话框状态
+        var showCreateFolderDialog by remember { mutableStateOf(false) }
+        var newFolderName by remember { mutableStateOf("") }
 
-    // 首页数据:知识库文档数量
-    var docCount by remember { mutableStateOf(0) }
-    // 问候语匹配用的近期记忆(主作用域,取最近 100 条;避免子助手角色扮演记忆混入提醒)
-    var greetingFacts by remember { mutableStateOf<List<FactEntity>>(emptyList()) }
-    // v1.x: LLM 生成的个性化问候后缀(当天缓存,无则回退规则版)
-    var greetingHint by remember { mutableStateOf<String?>(null) }
-    // v1.x: 每日总结由 Worker 写入 DataStore,生成后首页可实时接收
-    val dailySummary by settings.dailySummaryFlow.collectAsStateWithLifecycle(initialValue = null)
-    val context = LocalContext.current
-    LaunchedEffect(Unit) {
-        // 先投递系统兜底,再在前台直接生成当前时段;否则部分 ROM 会把 WorkManager
-        // 延迟很久,用户只看到“早上好/中午好/晚上好”而看不到后面的助手总结。
-        DailySummaryWorker.enqueueCatchUpIfDue(context, settings)
-        withContext(Dispatchers.IO) {
-            try {
-                dailySummaryService.generateCurrentSlotIfDue()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Logger.w("ChatListScreen", "前台每日总结生成失败: ${e.message}", e)
-            }
-        }
-    }
-    LaunchedEffect(Unit) {
-        // 审计修复 (8.8): 去掉内层 scope.launch — 原实现内层协程属于 rememberCoroutineScope,
-        // 不随 LaunchedEffect 取消(离开组合/翻页后仍在跑),且双重启动无意义。
-        runCatching { docCount = knowledgeDocDao.countUserVisible() }
-        // 必须先拿到局部 facts 再生成,不能在同一协程里读取刚刚 set 的 Compose 状态。
-        val facts = runCatching { factDao.getAll("main").take(100) }.getOrElse {
-            Logger.w("ChatListScreen", "读取问候语记忆失败: ${it.message}")
-            emptyList()
-        }
-        greetingFacts = facts
-        var resolvedGreetingHint: String? = null
-        // v1.x: 个性化问候 — 缓存优先(当天),未命中则 LLM 生成,失败回退规则版。
-        runCatching {
-            val today = java.time.LocalDate.now().toString()
-            val cached = settings.getGreetingHintCache()
-            if (cached?.startsWith("$today|") == true) {
-                resolvedGreetingHint = GreetingHelper.compactGreetingText(
-                    cached.substringAfter("|"),
-                    GreetingHelper.PERSONALIZED_HINT_MAX_LENGTH,
-                )
-                greetingHint = resolvedGreetingHint
-            } else {
-                greetingHintGenerator.generate(facts)?.let { hint ->
-                    resolvedGreetingHint = hint
-                    greetingHint = hint
-                    settings.saveGreetingHintCache("$today|$hint")
+        // 首页数据:知识库文档数量
+        var docCount by remember { mutableStateOf(0) }
+        // 问候语匹配用的近期记忆(主作用域,取最近 100 条;避免子助手角色扮演记忆混入提醒)
+        var greetingFacts by remember { mutableStateOf<List<FactEntity>>(emptyList()) }
+        // v1.x: LLM 生成的个性化问候后缀(当天缓存,无则回退规则版)
+        var greetingHint by remember { mutableStateOf<String?>(null) }
+        // v1.x: 每日总结由 Worker 写入 DataStore,生成后首页可实时接收
+        val dailySummary by settings.dailySummaryFlow.collectAsStateWithLifecycle(initialValue = null)
+        val context = LocalContext.current
+        LaunchedEffect(Unit) {
+            // 先投递系统兜底,再在前台直接生成当前时段;否则部分 ROM 会把 WorkManager
+            // 延迟很久,用户只看到“早上好/中午好/晚上好”而看不到后面的助手总结。
+            DailySummaryWorker.enqueueCatchUpIfDue(context, settings)
+            withContext(Dispatchers.IO) {
+                try {
+                    dailySummaryService.generateCurrentSlotIfDue()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Logger.w("ChatListScreen", "前台每日总结生成失败: ${e.message}", e)
                 }
             }
-        }.onFailure { e -> Logger.w("ChatListScreen", "问候语生成失败: ${e.message}") }
-        // v1.x: 问候语个性化提醒通知 — 有近期事项且今天未通知过时,发一条通知让用户知道助手在关注他(每天最多一次)。
-        runCatching {
-            // 同一 LaunchedEffect 内状态更新尚未回流,使用局部结果保证首次加载也能通知。
-            val hint = resolvedGreetingHint ?: GreetingHelper.getMemoryHint(facts, res = context.resources)
-            if (hint != null) {
+        }
+        LaunchedEffect(Unit) {
+            // 审计修复 (8.8): 去掉内层 scope.launch — 原实现内层协程属于 rememberCoroutineScope,
+            // 不随 LaunchedEffect 取消(离开组合/翻页后仍在跑),且双重启动无意义。
+            runCatching { docCount = knowledgeDocDao.countUserVisible() }
+            // 必须先拿到局部 facts 再生成,不能在同一协程里读取刚刚 set 的 Compose 状态。
+            val facts = runCatching { factDao.getAll("main").take(100) }.getOrElse {
+                Logger.w("ChatListScreen", "读取问候语记忆失败: ${it.message}")
+                emptyList()
+            }
+            greetingFacts = facts
+            var resolvedGreetingHint: String? = null
+            // v1.x: 个性化问候 — 缓存优先(当天),未命中则 LLM 生成,失败回退规则版。
+            runCatching {
                 val today = java.time.LocalDate.now().toString()
-                val lastNotify = settings.getLastGreetingNotifyDate()
-                if (lastNotify != today) {
-                    val titles = context.resources.getStringArray(R.array.greeting_notify_titles)
-                    notificationManager.notifyReminder(
-                        title = titles.random(),
-                        message = hint,
-                        notificationId = GREETING_NOTIFY_ID,
-                        target = MuseNotificationTarget.Home,
+                val cached = settings.getGreetingHintCache()
+                if (cached?.startsWith("$today|") == true) {
+                    resolvedGreetingHint = GreetingHelper.compactGreetingText(
+                        cached.substringAfter("|"),
+                        GreetingHelper.PERSONALIZED_HINT_MAX_LENGTH,
                     )
-                    settings.saveLastGreetingNotifyDate(today)
-                }
-            }
-        }.onFailure { e -> Logger.w("ChatListScreen", "问候语提醒通知失败: ${e.message}") }
-    }
-
-    // v0.36 性能优化:缓存排序结果,避免每次重组都重新计算。
-    val displayedSessions by remember(sessions) {
-        mutableStateOf(
-            sessions
-                .distinctBy { it.id }
-                .sortedWith(
-                    compareByDescending<SessionEntity> { it.pinned }.thenByDescending { it.updatedAt },
-                ),
-        )
-    }
-    val pinned = remember(displayedSessions) { displayedSessions.filter { it.pinned } }
-    val expandedFolderIds = remember(folders) { folders.filter { it.expanded }.map { it.id }.toSet() }
-    val recent = remember(displayedSessions, expandedFolderIds) {
-        displayedSessions.filter { !it.pinned && (it.folderId == null || it.folderId !in expandedFolderIds) }
-    }
-    // B7-05: 拖拽期间的乐观顺序,收到 DB flow 更新后自动以 sessions 为准
-    var pinnedOrder by remember(sessions) { mutableStateOf(pinned.map { it.id }) }
-    val orderedPinned = remember(pinned, pinnedOrder) {
-        val byId = pinned.associateBy { it.id }
-        pinnedOrder.mapNotNull { byId[it] } + pinned.filterNot { it.id in pinnedOrder }
-    }
-    // U-7: 已归档视图开关(U-7 归档入口切换到此视图展示已归档会话)
-    var showArchived by remember { mutableStateOf(false) }
-    // U-22: 多选编辑模式开关 + 已选会话 id 集合
-    var editMode by remember { mutableStateOf(false) }
-    var selectedIds by remember { mutableStateOf(setOf<String>()) }
-
-    MusePageScaffold(
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.background,
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .navigationBarsPadding()
-                .padding(horizontal = MusePaddings.screen),
-        ) {
-            // v1.72: 首次加载时显示 loading,避免 DB emit 前闪"还没有任务"空状态
-            if (isSessionsLoading) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(MusePaddings.sectionGap),
-                ) {
-                    repeat(5) {
-                        io.zer0.muse.ui.common.surface.SessionCardSkeleton()
+                    greetingHint = resolvedGreetingHint
+                } else {
+                    greetingHintGenerator.generate(facts)?.let { hint ->
+                        resolvedGreetingHint = hint
+                        greetingHint = hint
+                        settings.saveGreetingHintCache("$today|$hint")
                     }
                 }
-            } else if (sessionsError != null) {
-                MuseErrorStateBox(
-                    message = sessionsError,
-                    onRetry = onRetryLoadSessions,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
-                )
-            } else if (showArchived) {
-                // U-7: 已归档视图(带恢复按钮),由列表页工具行"已归档"入口进入
-                ArchivedSessionsList(
-                    archived = archivedSessions,
-                    onBack = { showArchived = false },
-                    onRestore = onUnarchive,
-                    onSelect = onSelect,
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                )
-            } else if (editMode) {
-                // U-22: 多选编辑模式(全选/删除/归档循环执行复用单条逻辑)
-                ChatListEditMode(
-                    sessions = displayedSessions,
-                    selectedIds = selectedIds,
-                    onToggleSelect = { id ->
-                        selectedIds = if (id in selectedIds) selectedIds - id else selectedIds + id
-                    },
-                    onClearSelection = { selectedIds = emptySet() },
-                    onExit = {
-                        editMode = false
-                        selectedIds = emptySet()
-                    },
-                    onDeleteSelected = { ids -> ids.forEach(onDelete) },
-                    onArchiveSelected = { ids -> ids.forEach(onArchive) },
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                )
-            } else {
-                // v2.x: 回顾条数据 — 最近有消息的会话(点击直进)
-                val latestRecallSession = remember(sessions) {
-                    sessions.maxByOrNull { it.updatedAt }?.takeIf { it.lastMessagePreview.isNotBlank() }
-                }
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    // 前端修复 (性能-1): 移除全局 spacedBy,section 间距改为各区域
-                    // 首个 item 手动 padding(见 TaskSectionTitle / knowledge 入口),
-                    // 这样消息行可在 LazyColumn 顶层平铺且行间保持 0 间距,
-                    // 维持原"整组一张卡片"的外观(首末项圆角由 SectionGroupRow 提供)。
-                    contentPadding = PaddingValues(bottom = MusePaddings.listBottomClearance),
-                ) {
-                    // 问候标题
-                    item(key = "greeting") {
-                        GreetingHeader(
-                            facts = greetingFacts,
-                            personalizedHint = greetingHint,
-                            dailySummaryText = dailySummary?.text,
-                            dailySummaryDate = dailySummary?.date,
+            }.onFailure { e -> Logger.w("ChatListScreen", "问候语生成失败: ${e.message}") }
+            // v1.x: 问候语个性化提醒通知 — 有近期事项且今天未通知过时,发一条通知让用户知道助手在关注他(每天最多一次)。
+            runCatching {
+                // 同一 LaunchedEffect 内状态更新尚未回流,使用局部结果保证首次加载也能通知。
+                val hint = resolvedGreetingHint ?: GreetingHelper.getMemoryHint(facts, res = context.resources)
+                if (hint != null) {
+                    val today = java.time.LocalDate.now().toString()
+                    val lastNotify = settings.getLastGreetingNotifyDate()
+                    if (lastNotify != today) {
+                        val titles = context.resources.getStringArray(R.array.greeting_notify_titles)
+                        notificationManager.notifyReminder(
+                            title = titles.random(),
+                            message = hint,
+                            notificationId = GREETING_NOTIFY_ID,
+                            target = MuseNotificationTarget.Home,
                         )
+                        settings.saveLastGreetingNotifyDate(today)
                     }
+                }
+            }.onFailure { e -> Logger.w("ChatListScreen", "问候语提醒通知失败: ${e.message}") }
+        }
 
-                    // v2.x: 伙伴横排 — 常用助手头像快捷入口(点击直进最近会话)
-                    if (assistants.any { it.enabled }) {
-                        item(key = "partners_row") {
-                            PartnerRow(
-                                assistants = assistants.filter { it.enabled }.sortedBy { it.sortIndex },
-                                onOpenAssistantChat = onOpenAssistantChat,
-                                onOpenAssistants = onOpenAssistants,
-                                modifier = Modifier.padding(top = 8.dp),
-                            )
+        // v0.36 性能优化:缓存排序结果,避免每次重组都重新计算。
+        val displayedSessions by remember(sessions) {
+            mutableStateOf(
+                sessions
+                    .distinctBy { it.id }
+                    .sortedWith(
+                        compareByDescending<SessionEntity> { it.pinned }.thenByDescending { it.updatedAt },
+                    ),
+            )
+        }
+        val pinned = remember(displayedSessions) { displayedSessions.filter { it.pinned } }
+        val expandedFolderIds = remember(folders) { folders.filter { it.expanded }.map { it.id }.toSet() }
+        val recent = remember(displayedSessions, expandedFolderIds) {
+            displayedSessions.filter { !it.pinned && (it.folderId == null || it.folderId !in expandedFolderIds) }
+        }
+        // B7-05: 拖拽期间的乐观顺序,收到 DB flow 更新后自动以 sessions 为准
+        var pinnedOrder by remember(sessions) { mutableStateOf(pinned.map { it.id }) }
+        val orderedPinned = remember(pinned, pinnedOrder) {
+            val byId = pinned.associateBy { it.id }
+            pinnedOrder.mapNotNull { byId[it] } + pinned.filterNot { it.id in pinnedOrder }
+        }
+        // U-7: 已归档视图开关(U-7 归档入口切换到此视图展示已归档会话)
+        var showArchived by remember { mutableStateOf(false) }
+        // U-22: 多选编辑模式开关 + 已选会话 id 集合
+        var editMode by remember { mutableStateOf(false) }
+        var selectedIds by remember { mutableStateOf(setOf<String>()) }
+
+        MusePageScaffold(
+            modifier = modifier,
+            containerColor = MaterialTheme.colorScheme.background,
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .navigationBarsPadding()
+                    .padding(horizontal = MusePaddings.screen),
+            ) {
+                // v1.72: 首次加载时显示 loading,避免 DB emit 前闪"还没有任务"空状态
+                if (isSessionsLoading) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(MusePaddings.sectionGap),
+                    ) {
+                        repeat(5) {
+                            io.zer0.muse.ui.common.surface.SessionCardSkeleton()
                         }
                     }
-
-                    // v2.x: 回顾条(候选A) — "上次和 X 聊到「…」",整条可点直进最近会话
-                    if (latestRecallSession != null) {
-                        item(key = "recall_bar") {
-                            RecallBar(
-                                session = latestRecallSession,
-                                assistantName = assistants.firstOrNull { it.id == latestRecallSession.assistantId }?.name,
-                                onSelect = onSelect,
-                                modifier = Modifier.padding(top = 4.dp),
-                            )
-                        }
-                    }
-
-                    // 已置顶(标题 + 每条会话独立 item,平铺懒加载)
-                    if (pinned.isNotEmpty()) {
-                        pinnedSectionItems(
-                            pinned = orderedPinned,
-                            folders = folders,
-                            onSelect = onSelect,
-                            onDelete = onDelete,
-                            onRenameTo = onRenameTo,
-                            onTogglePinned = onTogglePinned,
-                            onReorderPinned = onReorderPinned,
-                            onMoveSessionToFolder = onMoveSessionToFolder,
-                            onArchive = onArchive,
-                        )
-                    }
-
-                    // 文件夹(标题 + 每个文件夹独立 item,平铺懒加载)
-                    if (folders.isNotEmpty()) {
-                        foldersSectionItems(
-                            folders = folders,
-                            sessions = displayedSessions,
-                            onSelect = onSelect,
-                            onDelete = onDelete,
-                            onRenameTo = onRenameTo,
-                            onTogglePinned = onTogglePinned,
-                            onMoveSessionToFolder = onMoveSessionToFolder,
-                            onArchive = onArchive,
-                            onSelectFolder = { folder -> onToggleFolderExpanded(folder.id, !folder.expanded) },
-                            onRenameFolder = onRenameFolder,
-                            onDeleteFolder = onDeleteFolder,
-                        )
-                    }
-
-                    // 最近(标题 + 每条会话独立 item,平铺懒加载)
-                    recentSectionItems(
-                        recent = recent,
-                        folders = folders,
+                } else if (sessionsError != null) {
+                    MuseErrorStateBox(
+                        message = sessionsError,
+                        onRetry = onRetryLoadSessions,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(),
+                    )
+                } else if (showArchived) {
+                    // U-7: 已归档视图(带恢复按钮),由列表页工具行"已归档"入口进入
+                    ArchivedSessionsList(
+                        archived = archivedSessions,
+                        onBack = { showArchived = false },
+                        onRestore = onUnarchive,
                         onSelect = onSelect,
-                        onDelete = onDelete,
-                        onRenameTo = onRenameTo,
-                        onTogglePinned = onTogglePinned,
-                        onMoveSessionToFolder = onMoveSessionToFolder,
-                        onArchive = onArchive,
-                        onCreate = onCreate,
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
                     )
+                } else if (editMode) {
+                    // U-22: 多选编辑模式(全选/删除/归档循环执行复用单条逻辑)
+                    ChatListEditMode(
+                        sessions = displayedSessions,
+                        selectedIds = selectedIds,
+                        onToggleSelect = { id ->
+                            selectedIds = if (id in selectedIds) selectedIds - id else selectedIds + id
+                        },
+                        onClearSelection = { selectedIds = emptySet() },
+                        onExit = {
+                            editMode = false
+                            selectedIds = emptySet()
+                        },
+                        onDeleteSelected = { ids -> ids.forEach(onDelete) },
+                        onArchiveSelected = { ids -> ids.forEach(onArchive) },
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                    )
+                } else {
+                    // v2.x: 回顾条数据 — 最近有消息的会话(点击直进)
+                    val latestRecallSession = remember(sessions) {
+                        sessions.maxByOrNull { it.updatedAt }?.takeIf { it.lastMessagePreview.isNotBlank() }
+                    }
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        // 前端修复 (性能-1): 移除全局 spacedBy,section 间距改为各区域
+                        // 首个 item 手动 padding(见 TaskSectionTitle / knowledge 入口),
+                        // 这样消息行可在 LazyColumn 顶层平铺且行间保持 0 间距,
+                        // 维持原"整组一张卡片"的外观(首末项圆角由 SectionGroupRow 提供)。
+                        contentPadding = PaddingValues(bottom = MusePaddings.listBottomClearance),
+                    ) {
+                        // 问候标题
+                        item(key = "greeting") {
+                            GreetingHeader(
+                                facts = greetingFacts,
+                                personalizedHint = greetingHint,
+                                dailySummaryText = dailySummary?.text,
+                                dailySummaryDate = dailySummary?.date,
+                            )
+                        }
 
-                    // 知识库
-                    item(key = "section_knowledge") {
-                        KnowledgeEntryCard(
-                            docCount = docCount,
-                            onClick = onOpenKnowledgeBase,
-                            modifier = Modifier.padding(top = MusePaddings.sectionGap),
+                        // v2.x: 伙伴横排 — 常用助手头像快捷入口(点击直进最近会话)
+                        if (assistants.any { it.enabled }) {
+                            item(key = "partners_row") {
+                                PartnerRow(
+                                    assistants = assistants.filter { it.enabled }.sortedBy { it.sortIndex },
+                                    onOpenAssistantChat = onOpenAssistantChat,
+                                    onOpenAssistants = onOpenAssistants,
+                                    modifier = Modifier.padding(top = 8.dp),
+                                )
+                            }
+                        }
+
+                        // v2.x: 回顾条(候选A) — "上次和 X 聊到「…」",整条可点直进最近会话
+                        if (latestRecallSession != null) {
+                            item(key = "recall_bar") {
+                                RecallBar(
+                                    session = latestRecallSession,
+                                    assistantName = assistants.firstOrNull { it.id == latestRecallSession.assistantId }?.name,
+                                    onSelect = onSelect,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
+                            }
+                        }
+
+                        // 已置顶(标题 + 每条会话独立 item,平铺懒加载)
+                        if (pinned.isNotEmpty()) {
+                            pinnedSectionItems(
+                                pinned = orderedPinned,
+                                folders = folders,
+                                onSelect = onSelect,
+                                onDelete = onDelete,
+                                onRenameTo = onRenameTo,
+                                onTogglePinned = onTogglePinned,
+                                onReorderPinned = onReorderPinned,
+                                onMoveSessionToFolder = onMoveSessionToFolder,
+                                onArchive = onArchive,
+                            )
+                        }
+
+                        // 文件夹(标题 + 每个文件夹独立 item,平铺懒加载)
+                        if (folders.isNotEmpty()) {
+                            foldersSectionItems(
+                                folders = folders,
+                                sessions = displayedSessions,
+                                onSelect = onSelect,
+                                onDelete = onDelete,
+                                onRenameTo = onRenameTo,
+                                onTogglePinned = onTogglePinned,
+                                onMoveSessionToFolder = onMoveSessionToFolder,
+                                onArchive = onArchive,
+                                onSelectFolder = { folder -> onToggleFolderExpanded(folder.id, !folder.expanded) },
+                                onRenameFolder = onRenameFolder,
+                                onDeleteFolder = onDeleteFolder,
+                            )
+                        }
+
+                        // 最近(标题 + 每条会话独立 item,平铺懒加载)
+                        recentSectionItems(
+                            recent = recent,
+                            folders = folders,
+                            onSelect = onSelect,
+                            onDelete = onDelete,
+                            onRenameTo = onRenameTo,
+                            onTogglePinned = onTogglePinned,
+                            onMoveSessionToFolder = onMoveSessionToFolder,
+                            onArchive = onArchive,
+                            onCreate = onCreate,
                         )
+
+                        // 知识库
+                        item(key = "section_knowledge") {
+                            KnowledgeEntryCard(
+                                docCount = docCount,
+                                onClick = onOpenKnowledgeBase,
+                                modifier = Modifier.padding(top = MusePaddings.sectionGap),
+                            )
+                        }
                     }
                 }
             }
         }
-    }
 
-    // v1.69: 新建文件夹对话框
-    if (showCreateFolderDialog) {
-        MuseDialog(
-            onDismissRequest = { showCreateFolderDialog = false },
-            title = stringResource(R.string.chat_list_new_folder),
-            content = {
-                MuseTextField(
-                    value = newFolderName,
-                    onValueChange = { newFolderName = it },
-                    placeholder = { Text(stringResource(R.string.chat_list_folder_name_placeholder)) },
-                    singleLine = true,
-                )
-            },
-            confirmText = stringResource(R.string.chat_list_create),
-            onConfirm = {
-                if (newFolderName.isNotBlank()) {
-                    onCreateFolder(newFolderName.trim())
-                }
-                showCreateFolderDialog = false
-            },
-            dismissText = stringResource(R.string.action_cancel),
-            onDismiss = { showCreateFolderDialog = false },
-        )
-    }
+        // v1.69: 新建文件夹对话框
+        if (showCreateFolderDialog) {
+            MuseDialog(
+                onDismissRequest = { showCreateFolderDialog = false },
+                title = stringResource(R.string.chat_list_new_folder),
+                content = {
+                    MuseTextField(
+                        value = newFolderName,
+                        onValueChange = { newFolderName = it },
+                        placeholder = { Text(stringResource(R.string.chat_list_folder_name_placeholder)) },
+                        singleLine = true,
+                    )
+                },
+                confirmText = stringResource(R.string.chat_list_create),
+                onConfirm = {
+                    if (newFolderName.isNotBlank()) {
+                        onCreateFolder(newFolderName.trim())
+                    }
+                    showCreateFolderDialog = false
+                },
+                dismissText = stringResource(R.string.action_cancel),
+                onDismiss = { showCreateFolderDialog = false },
+            )
+        }
     } // I3: 列表区错误边界收尾
 }
 
@@ -643,12 +643,7 @@ private fun PartnerRow(
  * v2.x: 回顾条(候选A) — "💬 上次和 X 聊到「…」",整条可点直进最近会话。
  */
 @Composable
-private fun RecallBar(
-    session: SessionEntity,
-    assistantName: String?,
-    onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun RecallBar(session: SessionEntity, assistantName: String?, onSelect: (String) -> Unit, modifier: Modifier = Modifier) {
     val name = assistantName ?: stringResource(R.string.assistant_repo_default_name)
     val preview = remember(session.lastMessagePreview) {
         InternalMarkupSanitizer.stripForDisplay(session.lastMessagePreview)
@@ -694,10 +689,7 @@ private fun RecallBar(
 
 /** 全局输入条:浅色圆角背景 + 占位文字 + 绿色圆形发送按钮。 */
 @Composable
-private fun TaskInputBar(
-    onSend: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun TaskInputBar(onSend: (String) -> Unit, modifier: Modifier = Modifier) {
     // 前端修复 (持久化-3): 输入内容改 rememberSaveable,旋转/进程重建不丢草稿
     var text by rememberSaveable { mutableStateOf("") }
     Surface(
@@ -783,9 +775,7 @@ private fun TaskInputBar(
  * 使各区域首个 item 间距与改造前保持一致。
  */
 @Composable
-private fun TaskSectionTitle(
-    title: @Composable () -> Unit,
-) {
+private fun TaskSectionTitle(title: @Composable () -> Unit) {
     CompositionLocalProvider(
         LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
     ) {
@@ -810,11 +800,7 @@ private fun TaskSectionTitle(
  * 背景 + 细边框模拟原"整组一张圆角卡片"外观。行间 0 间距由调用方保证。
  */
 @Composable
-private fun SectionGroupRow(
-    index: Int,
-    total: Int,
-    content: @Composable ColumnScope.() -> Unit,
-) {
+private fun SectionGroupRow(index: Int, total: Int, content: @Composable ColumnScope.() -> Unit) {
     val shape = when {
         total == 1 -> MuseShapes.extraLarge
         index == 0 -> RoundedCornerShape(
@@ -1010,9 +996,7 @@ private fun LazyListScope.recentSectionItems(
 /** 空状态提示项(最近列表无数据时显示)。 */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun EmptyPromptItem(
-    onClick: () -> Unit,
-) {
+private fun EmptyPromptItem(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1071,7 +1055,7 @@ private fun TaskItem(
     val archivedToast = stringResource(R.string.chat_list_archived_toast)
     val deletedToast = stringResource(R.string.chat_list_deleted_toast)
     val pinToast = stringResource(
-        if (session.pinned) R.string.chat_list_unpin else R.string.chat_list_pin
+        if (session.pinned) R.string.chat_list_unpin else R.string.chat_list_pin,
     )
     // U-7: 归档菜单反馈同样附带恢复提示
     val archiveToast = stringResource(R.string.chat_list_archived_toast)
@@ -1124,7 +1108,7 @@ private fun TaskItem(
                 Text(
                     text = stringResource(
                         R.string.chat_list_delete_session_confirm,
-                        sessionTitleText(session)
+                        sessionTitleText(session),
                     ),
                 )
             },
@@ -1311,7 +1295,7 @@ private fun TaskActionSheet(
             ActionSheetRow(
                 icon = MuseIcons.pin,
                 text = stringResource(
-                    if (session.pinned) R.string.chat_list_unpin else R.string.chat_list_pin
+                    if (session.pinned) R.string.chat_list_unpin else R.string.chat_list_pin,
                 ),
                 onClick = {
                     onTogglePinned()
@@ -1525,7 +1509,7 @@ private fun FolderItem(
                 Text(
                     text = stringResource(
                         R.string.chat_list_delete_folder_confirm,
-                        folder.name
+                        folder.name,
                     ),
                 )
             },
@@ -1598,12 +1582,7 @@ private fun FolderItem(
 
 /** 文件夹长按菜单。 */
 @Composable
-private fun FolderActionSheet(
-    folder: FolderEntity,
-    onDismiss: () -> Unit,
-    onRename: () -> Unit,
-    onDelete: () -> Unit,
-) {
+private fun FolderActionSheet(folder: FolderEntity, onDismiss: () -> Unit, onRename: () -> Unit, onDelete: () -> Unit) {
     MuseBottomSheet(
         onDismissRequest = onDismiss,
         // 文件夹长按菜单与会话长按菜单保持一致（标准屏幕边距）。
@@ -1646,11 +1625,7 @@ private fun FolderActionSheet(
 
 /** 知识库入口卡片。空状态显示添加提示，有文档时显示知识库名称。 */
 @Composable
-private fun KnowledgeEntryCard(
-    docCount: Int,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun KnowledgeEntryCard(docCount: Int, onClick: () -> Unit, modifier: Modifier = Modifier) {
     CardGroup(
         title = { Text(stringResource(R.string.chat_list_section_knowledge)) },
         modifier = modifier.fillMaxWidth(),
@@ -1758,7 +1733,6 @@ private fun TaskStatusDot(status: TaskStatus) {
     )
 }
 
-
 @Composable
 private fun formatTaskStatus(session: SessionEntity): String {
     val status = inferTaskStatus(session, System.currentTimeMillis())
@@ -1773,7 +1747,6 @@ private fun formatTaskStatus(session: SessionEntity): String {
 private val chatListSdf by lazy {
     SimpleDateFormat(MuseDateFormats.DATE_TIME_SHORT, Locale.getDefault())
 }
-
 
 @Composable
 private fun formatTime(timestamp: Long): String {
@@ -1796,12 +1769,7 @@ private fun formatTime(timestamp: Long): String {
  * 归档入口解决归档无入口、不可逆问题;编辑入口解决复数会话逐条长按成本高的问题。
  */
 @Composable
-private fun ListToolbarRow(
-    archivedCount: Int,
-    onOpenArchived: () -> Unit,
-    onEdit: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun ListToolbarRow(archivedCount: Int, onOpenArchived: () -> Unit, onEdit: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
@@ -1821,11 +1789,7 @@ private fun ListToolbarRow(
 
 /** U-7/U-22: 工具行动作按钮(图标 + 文案)。 */
 @Composable
-private fun ChatListToolbarAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    onClick: () -> Unit,
-) {
+private fun ChatListToolbarAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         shape = MuseShapes.medium,
@@ -1923,11 +1887,7 @@ private fun ArchivedSessionsList(
 
 /** U-7: 已归档会话行 — 标题 + 时间 + 恢复按钮。点击行进会话,点恢复取消归档。 */
 @Composable
-private fun ArchivedSessionRow(
-    session: SessionEntity,
-    onRestore: () -> Unit,
-    onSelect: () -> Unit,
-) {
+private fun ArchivedSessionRow(session: SessionEntity, onRestore: () -> Unit, onSelect: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1992,8 +1952,11 @@ private fun ChatListEditMode(
                 label = stringResource(R.string.chat_list_edit_select_all),
                 enabled = sessions.isNotEmpty(),
                 onClick = {
-                    if (allSelected) onClearSelection()
-                    else sessions.forEach { onToggleSelect(it.id) }
+                    if (allSelected) {
+                        onClearSelection()
+                    } else {
+                        sessions.forEach { onToggleSelect(it.id) }
+                    }
                 },
             )
             ChatListEditAction(
@@ -2039,17 +2002,13 @@ private fun ChatListEditMode(
 
 /** U-22: 多选模式下单个会话行 — 勾选态 + 标题 + 时间,点击切换选中。 */
 @Composable
-private fun EditModeRow(
-    session: SessionEntity,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun EditModeRow(session: SessionEntity, selected: Boolean, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
             .background(
-                if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent
+                if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent,
             )
             .clickable(onClick = onClick)
             .padding(horizontal = MusePaddings.screen, vertical = 12.dp),
@@ -2060,7 +2019,7 @@ private fun EditModeRow(
                 .size(22.dp)
                 .clip(CircleShape)
                 .background(
-                    if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                    if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
                 ),
             contentAlignment = Alignment.Center,
         ) {
@@ -2093,11 +2052,7 @@ private fun EditModeRow(
 
 /** U-22: 多选顶栏动作按钮。 */
 @Composable
-private fun ChatListEditAction(
-    label: String,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
+private fun ChatListEditAction(label: String, enabled: Boolean, onClick: () -> Unit) {
     Text(
         text = label,
         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
@@ -2105,7 +2060,7 @@ private fun ChatListEditAction(
         modifier = Modifier
             .clip(MuseShapes.medium)
             .background(
-                if (enabled) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent
+                if (enabled) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else Color.Transparent,
             )
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),

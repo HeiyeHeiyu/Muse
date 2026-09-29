@@ -69,10 +69,7 @@ class TemplateTransformer(
     /** Phase 9.2: Pebble 兼容模板引擎(单例,无状态)。 */
     private val engine = PebbleTemplateEngine()
 
-    override suspend fun transform(
-        messages: List<UIMessage>,
-        context: TransformContext,
-    ): List<UIMessage> {
+    override suspend fun transform(messages: List<UIMessage>, context: TransformContext): List<UIMessage> {
         // 只处理 SYSTEM 消息(其他角色消息不做模板替换,避免改动用户原文)
         // L-TPL3: 合并为单次遍历(原代码遍历两次)
         val hasTemplate = messages.any {
@@ -105,12 +102,12 @@ class TemplateTransformer(
             put("user", userNickname)
             put("user_name", userNickname)
             put("nickname", userNickname)
-            put("userName", userNickname)  // v1.97: camelCase 别名
+            put("userName", userNickname) // v1.97: camelCase 别名
             val assistantName = (context.extra("assistant_name") as? String) ?: "Muse"
             put("assistant_name", assistantName)
             put("char", assistantName)
             put("character_name", assistantName)
-            put("assistantName", assistantName)  // v1.97: camelCase 别名
+            put("assistantName", assistantName) // v1.97: camelCase 别名
 
             // 用户自定义变量(template_vars 是 Map<String, Any?>)
             (context.extra("template_vars") as? Map<*, *>)?.forEach { (k, v) ->

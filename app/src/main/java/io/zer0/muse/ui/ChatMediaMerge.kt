@@ -16,9 +16,8 @@ import io.zer0.ai.core.UIMessage
  *
  * 抽成纯函数便于单测(A-16 要求),调用点: ChatViewModel Agent Loop 收尾。
  */
-internal fun mergeFinalAssistantMedia(finalAssistant: UIMessage, existingMsg: UIMessage?): UIMessage =
-    finalAssistant.copy(
-        imageUrls = finalAssistant.imageUrls.ifEmpty { existingMsg?.imageUrls ?: emptyList() },
-        imageBase64List = finalAssistant.imageBase64List.ifEmpty { existingMsg?.imageBase64List ?: emptyList() },
-        videoFileUri = finalAssistant.videoFileUri ?: existingMsg?.videoFileUri,
-    )
+internal fun mergeFinalAssistantMedia(finalAssistant: UIMessage, existingMsg: UIMessage?): UIMessage = finalAssistant.copy(
+    imageUrls = finalAssistant.imageUrls.ifEmpty { existingMsg?.imageUrls ?: emptyList() },
+    imageBase64List = finalAssistant.imageBase64List.ifEmpty { existingMsg?.imageBase64List ?: emptyList() },
+    videoFileUri = finalAssistant.videoFileUri ?: existingMsg?.videoFileUri,
+)

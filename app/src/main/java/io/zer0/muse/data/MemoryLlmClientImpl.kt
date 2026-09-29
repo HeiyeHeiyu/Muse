@@ -10,13 +10,13 @@ import io.zer0.ai.core.UIMessage
 import io.zer0.common.Logger
 import io.zer0.memory.llm.MemoryLlmClient
 import io.zer0.memory.prompt.MemoryPromptContract
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withTimeout
 import io.zer0.muse.R
 import io.zer0.muse.data.routing.UtilityModelRouter
 import io.zer0.muse.data.routing.UtilityTier
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.withTimeout
 
 /**
  * [MemoryLlmClient] 的 app 端实现。
@@ -247,11 +247,7 @@ class MemoryLlmClientImpl(
  *  - 正文为空时,只有提示词要求 JSON 且 reasoning 中包含 JSON 载荷才使用 reasoning;
  *  - 其余情况返回 null,由调用方按失败处理,避免把模型思考内容写进记忆。
  */
-internal fun resolveMemoryLlmRawText(
-    systemPrompt: String,
-    text: String,
-    reasoningContent: String?,
-): String? {
+internal fun resolveMemoryLlmRawText(systemPrompt: String, text: String, reasoningContent: String?): String? {
     val visible = text.trim()
     if (visible.isNotBlank()) return visible
 

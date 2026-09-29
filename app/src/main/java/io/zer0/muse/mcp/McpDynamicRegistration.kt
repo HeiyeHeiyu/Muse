@@ -164,10 +164,15 @@ object McpDynamicRegistration {
                 put("client_name", clientName)
                 put("redirect_uris", JsonArray(listOf(JsonPrimitive(redirectUri))))
                 put("token_endpoint_auth_method", "none")
-                put("grant_types", JsonArray(listOf(
-                    JsonPrimitive("authorization_code"),
-                    JsonPrimitive("refresh_token"),
-                )))
+                put(
+                    "grant_types",
+                    JsonArray(
+                        listOf(
+                            JsonPrimitive("authorization_code"),
+                            JsonPrimitive("refresh_token"),
+                        ),
+                    ),
+                )
                 put("response_types", JsonArray(listOf(JsonPrimitive("code"))))
                 if (scopes.isNotBlank()) {
                     put("scope", scopes)

@@ -37,20 +37,14 @@ internal class ChatSessionController(
     private val bridge: SessionFlowBridge,
     private val sessionDeps: SessionDeps,
 ) {
-    fun renameSession(
-        sessionId: String,
-        title: String,
-    ) {
+    fun renameSession(sessionId: String, title: String) {
         accessor.coroutineScope.launch {
             sessionRepository.renameSession(sessionId, title)
         }
     }
 
     /** v0.45: 切换会话归档状态。归档当前会话时切换到剩余首个会话;无剩余会话时清空状态,不创建新会话。 */
-    fun setSessionArchived(
-        sessionId: String,
-        archived: Boolean,
-    ) {
+    fun setSessionArchived(sessionId: String, archived: Boolean) {
         accessor.coroutineScope.launch {
             if (archived) {
                 // P0-5: 归档即停 — 停止该会话在途生成 + 写抑制,防止流式回调写入已归档
@@ -113,9 +107,9 @@ internal class ChatSessionController(
             accessor.update { state ->
                 state.copy(
                     sessions =
-                        state.sessions.map {
-                            if (it.id == sessionId) it.copy(ignoreMemory = ignore) else it
-                        },
+                    state.sessions.map {
+                        if (it.id == sessionId) it.copy(ignoreMemory = ignore) else it
+                    },
                 )
             }
             // 记忆开关影响静态快照,刷新上下文
@@ -148,10 +142,7 @@ internal class ChatSessionController(
     /** 新建会话:释放旧会话 → 按默认助手创建 → 重置 UI 状态 → 刷新上下文。
      *  v2.x: [assistantIdOverride] 非空时以指定助手创建(伙伴横排快捷开聊用)。 */
     @Suppress("CyclomaticComplexMethod")
-    fun createNewSession(
-        onReady: (() -> Unit)? = null,
-        assistantIdOverride: String? = null,
-    ) {
+    fun createNewSession(onReady: (() -> Unit)? = null, assistantIdOverride: String? = null) {
         if (accessor.snapshot.isStreaming) bridge.detachStreaming()
         // Phase 8.7: 切换会话时停止 TTS(避免跨会话继续朗读)
         sessionDeps.onStopTts()
@@ -278,10 +269,7 @@ internal class ChatSessionController(
     }
 
     /** v1.97 gap8: 将文本发送到新会话(原子创建新会话 + 填充输入 + 触发发送)。 */
-    fun sendToNewChat(
-        text: String,
-        onReady: (() -> Unit)? = null,
-    ) {
+    fun sendToNewChat(text: String, onReady: (() -> Unit)? = null) {
         if (accessor.snapshot.isStreaming) bridge.detachStreaming()
         sessionDeps.onStopTts()
         sessionDeps.onDisposeAsr()
@@ -344,10 +332,7 @@ internal class ChatSessionController(
 
     /** v1.28: 设置 Agent Tab 模式(恢复/创建独立 Agent 会话;退出时恢复任务会话)。 */
     @Suppress("LongMethod", "CyclomaticComplexMethod")
-    fun setAgentMode(
-        enabled: Boolean,
-        requestedSessionId: String? = null,
-    ) {
+    fun setAgentMode(enabled: Boolean, requestedSessionId: String? = null) {
         // v2.x: 切换序号 — 过期(被更新的切换取代)的异步加载结果在提交前丢弃,防止串会话
         val switchToken = SessionSwitchGuard.begin()
         if (accessor.snapshot.isStreaming) bridge.detachStreaming()
@@ -402,10 +387,10 @@ internal class ChatSessionController(
                             isSwitchingSession = false,
                             isStreaming = agentBackgroundStreaming,
                             isWaitingFirstToken =
-                                agentBackgroundStreaming && messages
-                                    .lastOrNull { msg -> msg.role == MessageRole.ASSISTANT }
-                                    ?.let { msg -> msg.content.isBlank() && msg.toolCalls.isNullOrEmpty() }
-                                    == true,
+                            agentBackgroundStreaming && messages
+                                .lastOrNull { msg -> msg.role == MessageRole.ASSISTANT }
+                                ?.let { msg -> msg.content.isBlank() && msg.toolCalls.isNullOrEmpty() }
+                                == true,
                             currentAssistant = assistant,
                             errors = emptyList(),
                             hasMoreHistory = hasMore,
@@ -421,19 +406,19 @@ internal class ChatSessionController(
                             sessionPermissionMode = permissionMode,
                             // v2.2.1: Agent 页面恢复离开前的位置;新会话(缓存不属于该会话)才回落到列表底部
                             agentListFirstVisibleItemIndex =
-                                if (it.agentScrollOwnerSessionId == sessionId &&
-                                    it.agentListFirstVisibleItemIndex >= 0
-                                ) {
-                                    it.agentListFirstVisibleItemIndex
-                                } else {
-                                    messages.lastIndex.coerceAtLeast(0)
-                                },
+                            if (it.agentScrollOwnerSessionId == sessionId &&
+                                it.agentListFirstVisibleItemIndex >= 0
+                            ) {
+                                it.agentListFirstVisibleItemIndex
+                            } else {
+                                messages.lastIndex.coerceAtLeast(0)
+                            },
                             agentListFirstVisibleItemScrollOffset =
-                                if (it.agentScrollOwnerSessionId == sessionId) {
-                                    it.agentListFirstVisibleItemScrollOffset
-                                } else {
-                                    0
-                                },
+                            if (it.agentScrollOwnerSessionId == sessionId) {
+                                it.agentListFirstVisibleItemScrollOffset
+                            } else {
+                                0
+                            },
                             agentScrollOwnerSessionId = sessionId,
                             isSessionLocked = true,
                         )
@@ -519,10 +504,10 @@ internal class ChatSessionController(
                             currentAssistant = assistant,
                             isStreaming = taskBackgroundStreaming,
                             isWaitingFirstToken =
-                                taskBackgroundStreaming && messages
-                                    .lastOrNull { msg -> msg.role == MessageRole.ASSISTANT }
-                                    ?.let { msg -> msg.content.isBlank() && msg.toolCalls.isNullOrEmpty() }
-                                    == true,
+                            taskBackgroundStreaming && messages
+                                .lastOrNull { msg -> msg.role == MessageRole.ASSISTANT }
+                                ?.let { msg -> msg.content.isBlank() && msg.toolCalls.isNullOrEmpty() }
+                                == true,
                             hasMoreHistory = hasMore,
                             isLoadingMore = false,
                             lastHistoryLoadCount = 0,
@@ -620,7 +605,7 @@ internal class ChatSessionController(
                 isBackgroundStreaming && (
                     messages.lastOrNull { it.role == MessageRole.ASSISTANT }
                         ?.let { it.content.isBlank() && it.toolCalls.isNullOrEmpty() } == true
-                )
+                    )
             val permissionMode =
                 sessionDeps.sessionPermissionStore.getMode(
                     sessionId,

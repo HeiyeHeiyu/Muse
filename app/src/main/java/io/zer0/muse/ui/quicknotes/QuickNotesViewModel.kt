@@ -1,6 +1,4 @@
 package io.zer0.muse.ui.quicknotes
-import io.zer0.muse.R
-
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
@@ -8,19 +6,21 @@ import android.content.Intent
 import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.R
 import io.zer0.muse.data.quicknote.NoteCipher
 import io.zer0.muse.data.quicknote.QuickNoteDao
 import io.zer0.muse.data.quicknote.QuickNoteEntity
-import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.tools.reminder.ReminderAlarmReceiver
 import io.zer0.muse.tools.reminder.ReminderStore
+import io.zer0.muse.ui.common.feedback.MuseToast
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -32,7 +32,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
-import io.zer0.common.AppJson
 
 /**
  * v1.0.17: 快速记录 UI 状态。
@@ -154,8 +153,10 @@ class QuickNotesViewModel(
         ) { values ->
             @Suppress("UNCHECKED_CAST")
             val active = values[0] as List<QuickNoteEntity>
+
             @Suppress("UNCHECKED_CAST")
             val trash = values[1] as List<QuickNoteEntity>
+
             @Suppress("UNCHECKED_CAST")
             val folders = values[2] as List<String>
             val keyword = values[3] as String
@@ -254,13 +255,7 @@ class QuickNotesViewModel(
      *
      * v1.0.18: 增加 folder / contentType 参数(默认空文件夹 + plain)。
      */
-    fun add(
-        title: String,
-        content: String,
-        tags: List<String>,
-        folder: String = "",
-        contentType: String = "plain",
-    ) {
+    fun add(title: String, content: String, tags: List<String>, folder: String = "", contentType: String = "plain") {
         viewModelScope.launch {
             val now = System.currentTimeMillis()
             dao.upsert(
@@ -307,8 +302,12 @@ class QuickNotesViewModel(
                         Logger.w(TAG, "快捷笔记更新加密失败: ${it.message}")
                         existing.encryptedContent
                     }
-                } else existing.encryptedContent
-            } else existing.encryptedContent
+                } else {
+                    existing.encryptedContent
+                }
+            } else {
+                existing.encryptedContent
+            }
             val finalContent = if (existing.encrypted) "" else (newContent ?: existing.content)
             dao.upsert(
                 existing.copy(
@@ -482,7 +481,11 @@ class QuickNotesViewModel(
                     appendLine()
                 }
                 val meta = buildList {
-                    if (note.tags.isNotEmpty()) add(context.getString(R.string.quick_notes_export_tags, note.tags.joinToString(" ") { "#$it" }))
+                    if (note.tags.isNotEmpty()) {
+                        add(
+                            context.getString(R.string.quick_notes_export_tags, note.tags.joinToString(" ") { "#$it" }),
+                        )
+                    }
                     if (note.folder.isNotBlank()) add(context.getString(R.string.quick_notes_export_folder, note.folder))
                     add(context.getString(R.string.quick_notes_export_updated_at, fmt.format(java.util.Date(note.updatedAt))))
                 }.joinToString(" | ")
@@ -542,12 +545,7 @@ class QuickNotesViewModel(
      *  - 置顶额外加权(+50),让置顶记录在相关度相近时优先
      * 同分时按 updatedAt 降序(新记录优先)。无关键字时保持原顺序(置顶在前 + updatedAt 降序)。
      */
-    private fun filterNotes(
-        notes: List<QuickNoteEntity>,
-        keyword: String,
-        tag: String?,
-        folder: String?,
-    ): List<QuickNoteEntity> {
+    private fun filterNotes(notes: List<QuickNoteEntity>, keyword: String, tag: String?, folder: String?): List<QuickNoteEntity> {
         var filtered = notes
         if (keyword.isNotBlank()) {
             val kw = keyword.lowercase()
@@ -658,8 +656,10 @@ class QuickNotesViewModel(
 
     companion object {
         private const val TAG = "QuickNotesViewModel"
+
         /** v1.0.18: 首次加载条数(分页起始 limit)。 */
         private const val DEFAULT_LIMIT = 50
+
         /** v1.0.18: 最大加载条数(observeActive 的 LIMIT 上限)。 */
         private const val MAX_LIMIT = 500
 

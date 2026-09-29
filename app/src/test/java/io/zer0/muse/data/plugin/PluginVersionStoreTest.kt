@@ -20,8 +20,7 @@ class PluginVersionStoreTest {
         tempDirs.forEach { it.deleteRecursively() }
     }
 
-    private fun tempDir(): File =
-        Files.createTempDirectory("plugin-versions-test").toFile().also { tempDirs += it }
+    private fun tempDir(): File = Files.createTempDirectory("plugin-versions-test").toFile().also { tempDirs += it }
 
     private fun packageDir(vararg files: Pair<String, String>): File {
         val dir = tempDir()

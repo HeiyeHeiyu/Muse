@@ -146,11 +146,7 @@ object ProviderCompatRules {
      * @param baseUrl Provider 的 baseUrl(已解析或原始均可,空串时跳过 host 匹配)
      * @param modelId 具体模型 id(可选,用于模型级细化)
      */
-    fun resolve(
-        providerType: ProviderType,
-        baseUrl: String,
-        modelId: String? = null,
-    ): ProviderCompat {
+    fun resolve(providerType: ProviderType, baseUrl: String, modelId: String? = null): ProviderCompat {
         // 第 1 层:按 ProviderType 取基础规则
         var compat = baseForType(providerType)
 
@@ -293,15 +289,15 @@ object ProviderCompatRules {
             "api.minimax.chat" -> copy(
                 supportsJsonMode = false,
             )
-            "api.baichuan-ai.com" -> this  // v1.0.1 (P3): Baichuan,默认全 true
-            "api.lingyiwanwu.com" -> this  // v1.0.1 (P3): 零一万物,默认全 true
-            "api.stepfun.com" -> this  // v1.0.1 (P3): 阶跃星辰,默认全 true
-            "ark.cn-beijing.volces.com" -> this  // v1.0.1 (P3): 火山引擎 Doubao,默认全 true(thinking 由 modelId 细化)
+            "api.baichuan-ai.com" -> this // v1.0.1 (P3): Baichuan,默认全 true
+            "api.lingyiwanwu.com" -> this // v1.0.1 (P3): 零一万物,默认全 true
+            "api.stepfun.com" -> this // v1.0.1 (P3): 阶跃星辰,默认全 true
+            "ark.cn-beijing.volces.com" -> this // v1.0.1 (P3): 火山引擎 Doubao,默认全 true(thinking 由 modelId 细化)
             // v1.0.6: 新增国产供应商(对齐 既有实现,均为 OpenAI 兼容,默认全 true)
-            "api.hunyuan.cloud.tencent.com" -> this  // 腾讯混元
-            "qianfan.baidubce.com" -> this  // 百度千帆
-            "api-inference.modelscope.cn" -> this  // 魔搭
-            "cloud.infini-ai.com" -> this  // 无问芯穹
+            "api.hunyuan.cloud.tencent.com" -> this // 腾讯混元
+            "qianfan.baidubce.com" -> this // 百度千帆
+            "api-inference.modelscope.cn" -> this // 魔搭
+            "cloud.infini-ai.com" -> this // 无问芯穹
             // v1.0.7: 小米 MiMo 用类似 Kimi 的 thinking.type 协议
             "api.xiaomimimo.com", "token-plan-cn.xiaomimimo.com" -> copy(
                 thinkingFormat = ThinkingFormat.KIMI,
@@ -310,7 +306,7 @@ object ProviderCompatRules {
                     ReasoningReplayPolicy.REQUIRE_TOOL_CALL,
                 ),
             )
-            "apihub.agnes-ai.com" -> this  // 思必驰 Agnes
+            "apihub.agnes-ai.com" -> this // 思必驰 Agnes
             // v1.0.7: 美团 LongCat 用 thinking.type 协议
             "api.longcat.chat" -> copy(
                 thinkingFormat = ThinkingFormat.LONGCAT,
@@ -318,20 +314,20 @@ object ProviderCompatRules {
 
             // ── 海外直连 ──
             // v1.0.6: cli-chat-proxy.grok.com 是 xAI OAuth Responses 端点,与 api.x.ai 同属 xAI
-            "api.x.ai", "cli-chat-proxy.grok.com" -> this  // xAI Grok,默认全 true
-            "api.perplexity.ai" -> this  // v1.0.6: Perplexity,默认全 true
+            "api.x.ai", "cli-chat-proxy.grok.com" -> this // xAI Grok,默认全 true
+            "api.perplexity.ai" -> this // v1.0.6: Perplexity,默认全 true
             "api.groq.com" -> copy(
-                supportsStore = false,  // Groq 无 Assistants API
+                supportsStore = false, // Groq 无 Assistants API
             )
-            "api.together.xyz" -> this  // v1.0.1 (P3): Together AI,默认全 true
+            "api.together.xyz" -> this // v1.0.1 (P3): Together AI,默认全 true
             "api.mistral.ai" -> copy(
-                supportsStore = false,  // Mistral 无 Assistants API
+                supportsStore = false, // Mistral 无 Assistants API
             )
-            "api.deepinfra.com" -> this  // v1.0.1 (P3): DeepInfra,默认全 true
-            "api.fireworks.ai" -> this  // v1.0.1 (P3): Fireworks AI,默认全 true
-            "api.githubcopilot.com" -> this  // v1.0.1 (P3): GitHub Copilot Models
-            "models.inference.ai.azure.com" -> this  // v1.0.1 (P3): GitHub Models
-            "localhost" -> this  // v1.0.6: Ollama 本地,默认全 true
+            "api.deepinfra.com" -> this // v1.0.1 (P3): DeepInfra,默认全 true
+            "api.fireworks.ai" -> this // v1.0.1 (P3): Fireworks AI,默认全 true
+            "api.githubcopilot.com" -> this // v1.0.1 (P3): GitHub Copilot Models
+            "models.inference.ai.azure.com" -> this // v1.0.1 (P3): GitHub Models
+            "localhost" -> this // v1.0.6: Ollama 本地,默认全 true
 
             // ── 中转/聚合站(RELAY)── 保守默认全 true,由 modelId 层细化 ──
             "api.siliconflow.cn" -> this

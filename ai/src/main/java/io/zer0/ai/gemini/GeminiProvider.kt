@@ -1,7 +1,5 @@
 package io.zer0.ai.gemini
 
-import io.zer0.common.ErrorCode
-import io.zer0.common.toMessage
 import io.zer0.ai.core.ChatCompletion
 import io.zer0.ai.core.ChatRequest
 import io.zer0.ai.core.ChatStreamEvent
@@ -11,18 +9,20 @@ import io.zer0.ai.core.ModelContextWindowRegistry
 import io.zer0.ai.core.ProviderCompat
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ProviderError
-import io.zer0.ai.core.ProviderPayloadNormalizer
 import io.zer0.ai.core.ProviderException
 import io.zer0.ai.core.ProviderHttpSupport
+import io.zer0.ai.core.ProviderPayloadNormalizer
 import io.zer0.ai.core.ProviderSpecificConfig
-import io.zer0.ai.core.toProviderException
 import io.zer0.ai.core.ReasoningLevel
 import io.zer0.ai.core.ToolCall
 import io.zer0.ai.core.ToolDefinition
 import io.zer0.ai.core.UIMessage
+import io.zer0.ai.core.toProviderException
 import io.zer0.common.AppJson
+import io.zer0.common.ErrorCode
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.common.toMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -113,7 +113,9 @@ class GeminiProvider(
             }.onError { msg, t ->
                 Logger.w(TAG, "VertexAiAuthToken 初始化失败: $msg", t)
             }.getOrNull()
-        } else null
+        } else {
+            null
+        }
     }
 
     private val sseFactory by lazy { EventSources.createFactory(httpClient) }
@@ -124,12 +126,15 @@ class GeminiProvider(
         // 消除 callbackFlow 固定 64 容量在快速生产/慢消费下的静默丢片(与 OpenAI 同方案)。
         // Provider 请求投影在协议翻译前统一压缩旧的成功工具轨迹，保留最近/失败回合配对。
         val normalizedMessages = ProviderPayloadNormalizer.normalizeMessages(
-            request.messages, request.model,
+            request.messages,
+            request.model,
         )
         val (system, contents) = splitSystem(normalizedMessages)
         val body = buildRequestBody(
-            system = system, contents = contents,
-            temperature = request.temperature, maxTokens = request.maxTokens,
+            system = system,
+            contents = contents,
+            temperature = request.temperature,
+            maxTokens = request.maxTokens,
             reasoningLevel = request.reasoningLevel,
             supportsImageOutput = request.model.supportsImageOutput(),
             tools = request.tools,
@@ -211,7 +216,7 @@ class GeminiProvider(
             currentCall.set(call)
             val listener = object : EventSourceListener() {
                 override fun onOpen(eventSource: EventSource, response: Response) {
-                    if (myGen != generation.get()) return  // H-GEM1: 旧流回调,忽略
+                    if (myGen != generation.get()) return // H-GEM1: 旧流回调,忽略
                     if (!response.isSuccessful) {
                         val errText = ProviderHttpSupport.readBodyCapped(response)
                         val code = response.code
@@ -224,8 +229,11 @@ class GeminiProvider(
                             generation.incrementAndGet()
                             eventSource.cancel()
                             call.cancel()
-                            Logger.i(TAG, "streamChat onOpen 429 限流,已切换到下一个 key,立即重试 " +
-                                "(${attempt.get()}/$MAX_RETRIES)")
+                            Logger.i(
+                                TAG,
+                                "streamChat onOpen 429 限流,已切换到下一个 key,立即重试 " +
+                                    "(${attempt.get()}/$MAX_RETRIES)",
+                            )
                             scope.launch {
                                 if (request.abortSignal.aborted || scope.isClosedForSend) return@launch
                                 startStream()
@@ -268,13 +276,8 @@ class GeminiProvider(
                     }
                 }
 
-                override fun onEvent(
-                    eventSource: EventSource,
-                    id: String?,
-                    type: String?,
-                    data: String,
-                ) {
-                    if (myGen != generation.get()) return  // H-GEM1: 旧流回调,忽略
+                override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+                    if (myGen != generation.get()) return // H-GEM1: 旧流回调,忽略
                     if (data.isBlank()) return
                     // L-GEM1: 用 resultOf 替代 runCatching,正确传播 CancellationException
                     val chunk = resultOf {
@@ -283,10 +286,10 @@ class GeminiProvider(
 
                     // H-GEM4: promptFeedback 提示级安全拦截
                     chunk.promptFeedback?.blockReason?.takeIf { it.isNotBlank() }?.let { reason ->
-                            finished.set(true)
-                            trySend(ChatStreamEvent.Error(ErrorCode.PERMISSION_DENIED.toMessage("safety", reason)))
-                            close()
-                        }
+                        finished.set(true)
+                        trySend(ChatStreamEvent.Error(ErrorCode.PERMISSION_DENIED.toMessage("safety", reason)))
+                        close()
+                    }
 
                     // A5: usageMetadata 是累计值,末 chunk(含 finishReason,可能无 candidates)
                     // 携带最终计数 — 必须在 candidates 早退前解析,消费方取最后一次非 null
@@ -314,10 +317,12 @@ class GeminiProvider(
                         if (inline != null && inline.data.isNotEmpty()) {
                             anyDeltaSent.set(true)
                             hasEmittedContent.set(true)
-                            trySend(ChatStreamEvent.ImageDelta(
-                                imageBase64 = inline.data,
-                                mimeType = inline.mimeType,
-                            ))
+                            trySend(
+                                ChatStreamEvent.ImageDelta(
+                                    imageBase64 = inline.data,
+                                    mimeType = inline.mimeType,
+                                ),
+                            )
                         }
                         // H-GEM2: 解析 functionCall → ToolCallDelta
                         // M-GEM3: 用递增 index 区分多个 functionCall(原固定 0 会合并为同一工具调用)
@@ -326,12 +331,14 @@ class GeminiProvider(
                             val argsJson = fc.args?.let { AppJson.encodeToString(it) } ?: "{}"
                             anyDeltaSent.set(true)
                             hasEmittedContent.set(true)
-                            trySend(ChatStreamEvent.ToolCallDelta(
-                                index = toolCallIndex.getAndIncrement(),
-                                id = fc.name,
-                                name = fc.name,
-                                argumentsDelta = argsJson,
-                            ))
+                            trySend(
+                                ChatStreamEvent.ToolCallDelta(
+                                    index = toolCallIndex.getAndIncrement(),
+                                    id = fc.name,
+                                    name = fc.name,
+                                    argumentsDelta = argsJson,
+                                ),
+                            )
                         }
                     }
                     if (candidate.finishReason != null) {
@@ -348,7 +355,10 @@ class GeminiProvider(
                             //   guard 对齐:不作为正常 Done,而是发 StreamInterrupted 触发上层已有的非流式回退链,
                             //   避免只拿到一段无意义的思考或空回复。
                             if (!hasEmittedContent.get()) {
-                                Logger.w(TAG, "B-42: Gemini 流式 emptyContentButFinished(仅 reasoning 无 content, finishReason=$reason),发 StreamInterrupted 触发非流式回退")
+                                Logger.w(
+                                    TAG,
+                                    "B-42: Gemini 流式 emptyContentButFinished(仅 reasoning 无 content, finishReason=$reason),发 StreamInterrupted 触发非流式回退",
+                                )
                                 trySend(ChatStreamEvent.StreamInterrupted(ErrorCode.STREAM_INTERRUPTED.toMessage("gemini")))
                             } else {
                                 trySend(ChatStreamEvent.Done(reason))
@@ -368,11 +378,7 @@ class GeminiProvider(
                     close()
                 }
 
-                override fun onFailure(
-                    eventSource: EventSource,
-                    t: Throwable?,
-                    response: Response?,
-                ) {
+                override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
                     // H-GEM1: 旧流的 onFailure(generation 已推进)直接忽略
                     if (myGen != generation.get()) return
                     if (request.abortSignal.aborted) {
@@ -389,8 +395,11 @@ class GeminiProvider(
                         attempt.incrementAndGet()
                         // H-GEM1: 推进 generation 使旧流的后续 onClosed 失效
                         generation.incrementAndGet()
-                        Logger.i(TAG, "streamChat onFailure 429 限流,已切换到下一个 key,立即重试 " +
-                            "(${attempt.get()}/$MAX_RETRIES)")
+                        Logger.i(
+                            TAG,
+                            "streamChat onFailure 429 限流,已切换到下一个 key,立即重试 " +
+                                "(${attempt.get()}/$MAX_RETRIES)",
+                        )
                         scope.launch {
                             if (request.abortSignal.aborted || scope.isClosedForSend) return@launch
                             startStream()
@@ -462,12 +471,15 @@ class GeminiProvider(
     private suspend fun completeTextImpl(request: ChatRequest, keySwitchDepth: Int = 0): ChatCompletion = withContext(Dispatchers.IO) {
         // 与流式路径保持一致：仅在 Provider 请求投影中压缩旧的成功工具轨迹。
         val normalizedMessages = ProviderPayloadNormalizer.normalizeMessages(
-            request.messages, request.model,
+            request.messages,
+            request.model,
         )
         val (system, contents) = splitSystem(normalizedMessages)
         val body = buildRequestBody(
-            system = system, contents = contents,
-            temperature = request.temperature, maxTokens = request.maxTokens,
+            system = system,
+            contents = contents,
+            temperature = request.temperature,
+            maxTokens = request.maxTokens,
             reasoningLevel = request.reasoningLevel,
             supportsImageOutput = request.model.supportsImageOutput(),
             tools = request.tools,
@@ -613,7 +625,7 @@ class GeminiProvider(
         val models = mutableListOf<Model>()
         var pageToken: String? = null
         var pageCount = 0
-        val maxPages = 10  // M-GEM5: 安全上限,防止异常 nextPageToken 导致无限循环
+        val maxPages = 10 // M-GEM5: 安全上限,防止异常 nextPageToken 导致无限循环
 
         do {
             val urlBuilder = "$base/models".toHttpUrl().newBuilder()
@@ -674,67 +686,63 @@ class GeminiProvider(
      * Vertex 返回的模型条目字段与 generativelanguage 略有差异(可能无 supportedGenerationMethods),
      * 因此不做能力过滤,直接取 name 末段作为模型 id。任何失败静默回退空列表。
      */
-    private suspend fun listVertexModels(
-        config: ProviderConfig,
-        specific: ProviderSpecificConfig.Gemini,
-    ): List<Model> =
-        try {
-            val listClient = httpClient.newBuilder()
-                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
-                .callTimeout(45, java.util.concurrent.TimeUnit.SECONDS)
-                .build()
-            val urlBuilder: okhttp3.HttpUrl.Builder
-            var bearer: String? = null
-            if (specific.useServiceAccount) {
-                bearer = resolveToken() ?: return emptyList()
-                val projectId = specific.projectId.takeIf { it.isNotBlank() } ?: return emptyList()
-                val location = specific.location.ifBlank { "us-central1" }
-                urlBuilder = (
-                    "https://$location-aiplatform.googleapis.com/v1/projects/$projectId" +
-                        "/locations/$location/publishers/google/models"
-                    ).toHttpUrl().newBuilder()
-            } else {
-                val key = effectiveApiKey()
-                if (key.isBlank()) return emptyList()
-                urlBuilder = "$VERTEX_EXPRESS_HOST/publishers/google/models".toHttpUrl().newBuilder()
-                    .addQueryParameter("key", key)
-            }
-            urlBuilder.addQueryParameter("pageSize", "100")
-            val httpRequest = Request.Builder()
-                .url(urlBuilder.build())
-                .apply { bearer?.let { header("Authorization", "Bearer $it") } }
-                .header("Accept", "application/json")
-                .get()
-                .build()
-            Logger.i(TAG, "listModels(vertex): GET .../publishers/google/models")
-            listClient.newCall(httpRequest).execute().use { resp ->
-                if (!resp.isSuccessful) {
-                    Logger.w(TAG, "listModels(vertex) 失败: HTTP ${resp.code}(静默回退空列表)")
-                    return emptyList()
-                }
-                val raw = resp.body.string()
-                if (raw.isBlank()) return emptyList()
-                val parsed = AppJson.decodeFromString<GeminiModelsResponse>(raw)
-                parsed.models
-                    .mapNotNull { m ->
-                        val id = m.name.substringAfterLast('/').ifBlank { return@mapNotNull null }
-                        Model(
-                            id = id,
-                            name = m.displayName ?: id,
-                            providerId = config.id,
-                            contextWindow = ModelContextWindowRegistry.lookup(id),
-                        )
-                    }
-                    .distinctBy { it.id }
-                    .sortedBy { it.id.lowercase() }
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Logger.w(TAG, "listModels(vertex) 异常,静默回退空列表: ${e.message}")
-            emptyList()
+    private suspend fun listVertexModels(config: ProviderConfig, specific: ProviderSpecificConfig.Gemini): List<Model> = try {
+        val listClient = httpClient.newBuilder()
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .callTimeout(45, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+        val urlBuilder: okhttp3.HttpUrl.Builder
+        var bearer: String? = null
+        if (specific.useServiceAccount) {
+            bearer = resolveToken() ?: return emptyList()
+            val projectId = specific.projectId.takeIf { it.isNotBlank() } ?: return emptyList()
+            val location = specific.location.ifBlank { "us-central1" }
+            urlBuilder = (
+                "https://$location-aiplatform.googleapis.com/v1/projects/$projectId" +
+                    "/locations/$location/publishers/google/models"
+                ).toHttpUrl().newBuilder()
+        } else {
+            val key = effectiveApiKey()
+            if (key.isBlank()) return emptyList()
+            urlBuilder = "$VERTEX_EXPRESS_HOST/publishers/google/models".toHttpUrl().newBuilder()
+                .addQueryParameter("key", key)
         }
+        urlBuilder.addQueryParameter("pageSize", "100")
+        val httpRequest = Request.Builder()
+            .url(urlBuilder.build())
+            .apply { bearer?.let { header("Authorization", "Bearer $it") } }
+            .header("Accept", "application/json")
+            .get()
+            .build()
+        Logger.i(TAG, "listModels(vertex): GET .../publishers/google/models")
+        listClient.newCall(httpRequest).execute().use { resp ->
+            if (!resp.isSuccessful) {
+                Logger.w(TAG, "listModels(vertex) 失败: HTTP ${resp.code}(静默回退空列表)")
+                return emptyList()
+            }
+            val raw = resp.body.string()
+            if (raw.isBlank()) return emptyList()
+            val parsed = AppJson.decodeFromString<GeminiModelsResponse>(raw)
+            parsed.models
+                .mapNotNull { m ->
+                    val id = m.name.substringAfterLast('/').ifBlank { return@mapNotNull null }
+                    Model(
+                        id = id,
+                        name = m.displayName ?: id,
+                        providerId = config.id,
+                        contextWindow = ModelContextWindowRegistry.lookup(id),
+                    )
+                }
+                .distinctBy { it.id }
+                .sortedBy { it.id.lowercase() }
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Logger.w(TAG, "listModels(vertex) 异常,静默回退空列表: ${e.message}")
+        emptyList()
+    }
 
     /**
      * 把 SYSTEM 消息抽出为 systemInstruction,其余转 Gemini contents(assistant → model)。
@@ -757,8 +765,8 @@ class GeminiProvider(
                 val geminiRole = when (msg.role) {
                     MessageRole.ASSISTANT -> "model"
                     MessageRole.USER -> "user"
-                    MessageRole.TOOL -> "user"  // Gemini 无 tool role,降级为 user
-                    MessageRole.SYSTEM -> "user"  // 不会到达(SYSTEM 已过滤),编译完整性
+                    MessageRole.TOOL -> "user" // Gemini 无 tool role,降级为 user
+                    MessageRole.SYSTEM -> "user" // 不会到达(SYSTEM 已过滤),编译完整性
                 }
                 val parts = buildList {
                     when {
@@ -782,9 +790,14 @@ class GeminiProvider(
                             // M-GEM8: toolCallId 为空时用 fallback,避免 functionResponse.name 为空导致 Gemini 拒绝请求
                             // (Gemini 要求 functionResponse.name 与前序 functionCall.name 匹配)
                             val fnName = msg.toolCallId?.takeIf { it.isNotBlank() } ?: "unknown"
-                            add(GeminiPart(functionResponse = GeminiFunctionResponse(
-                                name = fnName, response = respJson,
-                            )))
+                            add(
+                                GeminiPart(
+                                    functionResponse = GeminiFunctionResponse(
+                                        name = fnName,
+                                        response = respJson,
+                                    ),
+                                ),
+                            )
                         }
                         else -> {
                             // 普通 USER/ASSISTANT:图片在前(若存在)+ 视频(若存在)+ 文本
@@ -798,20 +811,28 @@ class GeminiProvider(
                                     Logger.w("GeminiProvider", "图片 base64 长度 ${b64.length} 超过 $MAX_IMAGE_BASE64_LEN,丢弃")
                                     return@forEach
                                 }
-                                add(GeminiPart(inlineData = GeminiInlineData(
-                                    // M-GEM11: mimeType 从 base64 头部 magic bytes 推断
-                                    mimeType = inferMimeType(b64),
-                                    data = b64,
-                                )))
+                                add(
+                                    GeminiPart(
+                                        inlineData = GeminiInlineData(
+                                            // M-GEM11: mimeType 从 base64 头部 magic bytes 推断
+                                            mimeType = inferMimeType(b64),
+                                            data = b64,
+                                        ),
+                                    ),
+                                )
                             }
                             // V-GEM1: 视频附件(已通过 uploadFile 上传到 Files API,这里仅引用 fileUri)
                             val vUri = msg.videoFileUri
                             val vMime = msg.videoMimeType
                             if (!vUri.isNullOrBlank() && !vMime.isNullOrBlank()) {
-                                add(GeminiPart(fileData = GeminiFileData(
-                                    mimeType = vMime,
-                                    fileUri = vUri,
-                                )))
+                                add(
+                                    GeminiPart(
+                                        fileData = GeminiFileData(
+                                            mimeType = vMime,
+                                            fileUri = vUri,
+                                        ),
+                                    ),
+                                )
                             }
                             // 文本(即使是空也添加,避免空 parts 数组)
                             add(GeminiPart(text = msg.content))
@@ -961,10 +982,10 @@ class GeminiProvider(
     private fun inferMimeType(b64: String): String {
         val head = b64.take(16).uppercase()
         return when {
-            head.startsWith("IVBORW0") -> "image/png"   // PNG: iVBORw0K
-            head.startsWith("/9J/") -> "image/jpeg"      // JPEG: /9j/
-            head.startsWith("UKLGR") -> "image/webp"     // WebP: UklGR
-            head.startsWith("R0LGOD") -> "image/gif"     // GIF: R0lGOD
+            head.startsWith("IVBORW0") -> "image/png" // PNG: iVBORw0K
+            head.startsWith("/9J/") -> "image/jpeg" // JPEG: /9j/
+            head.startsWith("UKLGR") -> "image/webp" // WebP: UklGR
+            head.startsWith("R0LGOD") -> "image/gif" // GIF: R0lGOD
             else -> "image/jpeg"
         }
     }
@@ -1058,11 +1079,7 @@ class GeminiProvider(
      * @param displayName 文件名(可选,仅用于服务端展示)
      * @return fileUri(形如 "https://generativelanguage.googleapis.com/v1beta/files/abc123")
      */
-    suspend fun uploadFile(
-        bytes: ByteArray,
-        mimeType: String,
-        displayName: String? = null,
-    ): String = withContext(Dispatchers.IO) {
+    suspend fun uploadFile(bytes: ByteArray, mimeType: String, displayName: String? = null): String = withContext(Dispatchers.IO) {
         val specific = config.resolvedSpecific()
         // V-GEM1: Vertex AI 不走 Files API,直接拒绝(调用方应走 GCS 或 inlineData)
         require(specific !is ProviderSpecificConfig.Gemini || !specific.useVertexAI) {
@@ -1172,16 +1189,22 @@ class GeminiProvider(
          */
         const val VERTEX_EXPRESS_HOST = "https://aiplatform.googleapis.com/v1"
         val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+
         /** M-GEM2: 流式断连最大重试次数。 */
         const val MAX_RETRIES = 3
+
         // completeText 429 切换 key 最大次数,防止无限递归
         const val MAX_KEY_SWITCHES = 3
+
         /** M-GEM4: 安全相关 finishReason,发 Error 而非 Done。 */
         val SAFETY_FINISH_REASONS = setOf("SAFETY", "RECITATION", "BLOCKLIST")
+
         /** V-GEM1: Files API 状态轮询总超时(60s,覆盖常见视频处理时长)。 */
         const val FILE_POLL_TIMEOUT_MS = 60_000L
+
         /** V-GEM1: Files API 状态轮询间隔(1s,平衡响应速度与服务端压力)。 */
         const val FILE_POLL_INTERVAL_MS = 1_000L
+
         // E-P2: 视觉输入限制,与 OpenAI/Anthropic 对齐(最多 4 张,单张 base64 ≤2MB)
         const val MAX_VISION_IMAGES = 4
         const val MAX_IMAGE_BASE64_LEN = 2 * 1024 * 1024

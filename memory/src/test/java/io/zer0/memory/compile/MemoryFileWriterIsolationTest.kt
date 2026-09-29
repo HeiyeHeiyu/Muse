@@ -1,9 +1,9 @@
 package io.zer0.memory.compile
 
-import java.nio.file.Files
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
+import java.nio.file.Files
 
 class MemoryFileWriterIsolationTest {
 

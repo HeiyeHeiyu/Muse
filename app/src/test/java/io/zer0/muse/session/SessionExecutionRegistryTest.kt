@@ -1,10 +1,10 @@
 package io.zer0.muse.session
 
-import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.atomic.AtomicInteger
 
 /** SessionExecutionRegistry 的代际隔离和取消阶段测试。 */
 class SessionExecutionRegistryTest {

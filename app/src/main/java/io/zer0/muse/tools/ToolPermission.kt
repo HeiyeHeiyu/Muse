@@ -19,20 +19,18 @@ enum class ToolPermission {
 }
 
 /** 中文短标签(错误提示与日志)。 */
-fun ToolPermission.shortLabel(): String =
-    when (this) {
-        ToolPermission.ACCESSIBILITY -> "无障碍"
-        ToolPermission.SHELL_TIER -> "Shizuku/Root"
-        ToolPermission.TERMUX -> "Termux"
-    }
+fun ToolPermission.shortLabel(): String = when (this) {
+    ToolPermission.ACCESSIBILITY -> "无障碍"
+    ToolPermission.SHELL_TIER -> "Shizuku/Root"
+    ToolPermission.TERMUX -> "Termux"
+}
 
 /** 英文短标签(find_tools 等模型可读输出)。 */
-fun ToolPermission.enLabel(): String =
-    when (this) {
-        ToolPermission.ACCESSIBILITY -> "Accessibility"
-        ToolPermission.SHELL_TIER -> "Shizuku/Root"
-        ToolPermission.TERMUX -> "Termux"
-    }
+fun ToolPermission.enLabel(): String = when (this) {
+    ToolPermission.ACCESSIBILITY -> "Accessibility"
+    ToolPermission.SHELL_TIER -> "Shizuku/Root"
+    ToolPermission.TERMUX -> "Termux"
+}
 
 /**
  * v2.x: 运行环境授权状态快照。

@@ -29,10 +29,7 @@ object RouteTable {
         "{\"type\":\"object\",\"properties\":{\"input\":{\"type\":\"string\"," +
             "\"description\":\"传给该技能的输入或请求文本;会代入指令中的 {{input}}/{{args}} 占位符,无占位符时追加到指令末尾\"}},\"required\":[]}"
 
-    fun snapshot(
-        localDefinitions: List<ToolDefinition>,
-        skills: Collection<SkillEntity>,
-    ): ToolRouteSnapshot {
+    fun snapshot(localDefinitions: List<ToolDefinition>, skills: Collection<SkillEntity>): ToolRouteSnapshot {
         val localByName = localDefinitions.distinctBy { it.name }.associateBy { it.name }
         val skillByName =
             skills
@@ -47,11 +44,11 @@ object RouteTable {
                         description = skill.description,
                         // v2.x: 提示词技能追加可选 input 参数(指令无自带参数时的输入口)
                         parametersJsonSchema =
-                            if (SkillImporter.isPromptSkill(skill.implementationKotlin)) {
-                                PROMPT_SKILL_INPUT_SCHEMA
-                            } else {
-                                skill.parametersJson
-                            },
+                        if (SkillImporter.isPromptSkill(skill.implementationKotlin)) {
+                            PROMPT_SKILL_INPUT_SCHEMA
+                        } else {
+                            skill.parametersJson
+                        },
                     )
                 }
         val routes =

@@ -20,8 +20,12 @@ class ScheduledTaskToolsRegistrarTest {
         ScheduledTaskToolsRegistrar(context, registry)
         val names = registry.listTools().map { it.name }
         listOf(
-            "scheduled_task_create", "scheduled_task_list", "scheduled_task_update",
-            "scheduled_task_delete", "scheduled_task_execute", "scheduled_task_get_history",
+            "scheduled_task_create",
+            "scheduled_task_list",
+            "scheduled_task_update",
+            "scheduled_task_delete",
+            "scheduled_task_execute",
+            "scheduled_task_get_history",
         ).forEach { name -> assertTrue("missing $name", name in names) }
     }
 }

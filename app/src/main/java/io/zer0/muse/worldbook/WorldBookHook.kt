@@ -41,6 +41,7 @@ class WorldBookHook(
 
     companion object {
         private const val TAG = "WorldBookHook"
+
         /** 注入预算上限(字符),超限后停止追加新条目。 */
         private const val WORLDBOOK_BUDGET_CHARS = 6000
     }
@@ -100,10 +101,7 @@ class WorldBookHook(
      * 把命中的条目按 (injectTarget, injectPosition) 分组,分别注入。
      * 受 [WORLDBOOK_BUDGET_CHARS] 预算限制:已用字符数超预算后停止追加。
      */
-    private fun injectMatchedEntries(
-        history: List<UIMessage>,
-        matched: List<WorldBookEntryEntity>,
-    ): List<UIMessage> {
+    private fun injectMatchedEntries(history: List<UIMessage>, matched: List<WorldBookEntryEntity>): List<UIMessage> {
         var usedChars = 0
         val budgeted = ArrayList<WorldBookEntryEntity>(matched.size)
         for (entry in matched) {
@@ -225,6 +223,5 @@ class WorldBookHook(
     }
 
     /** 过滤名称中的 XML 特殊字符,防标签注入(与 LorebookTransformer.sanitizeLorebookName 一致策略)。 */
-    private fun sanitizeName(name: String): String =
-        name.replace("\"", "'").replace("<", "＜").replace(">", "＞").trim().ifBlank { "entry" }
+    private fun sanitizeName(name: String): String = name.replace("\"", "'").replace("<", "＜").replace(">", "＞").trim().ifBlank { "entry" }
 }

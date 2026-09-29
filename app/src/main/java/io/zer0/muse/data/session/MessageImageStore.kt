@@ -166,12 +166,16 @@ class MessageImageStore(
 
     private companion object {
         private const val TAG = "MessageImageStore"
+
         /** base64 长度阈值,超过此值才落盘(约 1KB,对应 ~750 字节二进制)。 */
         private const val MIN_LENGTH_TO_PERSIST = 1024
+
         /** 文件路径前缀,用于识别已落盘的图片。 */
         private const val FILE_PREFIX = "file://"
+
         /** LRU 缓存条目数上限。 */
         private const val MAX_CACHE_ENTRIES = 64
+
         /** LRU 缓存字节上限(约 64MB),防止 base64 大图滞留数百 MB。 */
         private const val MAX_CACHE_BYTES = 64L * 1024 * 1024
     }

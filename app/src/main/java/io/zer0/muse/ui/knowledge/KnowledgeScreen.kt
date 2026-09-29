@@ -1,18 +1,5 @@
 package io.zer0.muse.ui.knowledge
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.common.Logger
-import io.zer0.common.resultOf
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.museAnimateItem
-import io.zer0.muse.ui.common.state.MuseEmptyState
-import io.zer0.muse.ui.common.state.MuseErrorStateBox
-import io.zer0.muse.ui.common.form.MuseFloatingButton
-import io.zer0.muse.ui.common.feedback.MuseToast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
@@ -34,37 +21,51 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import io.zer0.muse.ui.common.navigation.MuseTopBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.zer0.common.Logger
+import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.data.knowledge.KnowledgeDocDao
 import io.zer0.muse.data.knowledge.KnowledgeDocEntity
-import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
 import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseFloatingButton
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.museAnimateItem
+import io.zer0.muse.ui.common.navigation.MuseTopBar
+import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
+import io.zer0.muse.ui.common.state.MuseEmptyState
+import io.zer0.muse.ui.common.state.MuseErrorStateBox
 import io.zer0.muse.ui.common.state.MuseSpinner
+import io.zer0.muse.ui.settings.SettingField
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseDateFormats
 import io.zer0.muse.ui.theme.MuseElevation
@@ -75,7 +76,6 @@ import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.semiLarge
 import io.zer0.muse.ui.theme.statusColors
-import io.zer0.muse.ui.settings.SettingField
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.debounce
@@ -206,7 +206,7 @@ fun KnowledgeScreen(
                     } ?: uri.lastPathSegment?.substringAfterLast('/')?.substringAfterLast('%')
                 } ?: "doc-$now"
                 // v1.0.47 P7-3: 文件大小检查 — 超限弹出友好提示,不继续导入
-                val MAX_FILE_SIZE_BYTES = 50L * 1024 * 1024  // 50MB
+                val MAX_FILE_SIZE_BYTES = 50L * 1024 * 1024 // 50MB
                 val fileSize = withContext(Dispatchers.IO) {
                     context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                         val idx = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
@@ -230,7 +230,7 @@ fun KnowledgeScreen(
                 // 根据扩展名选择解析方式
                 val content = when {
                     lowerName.endsWith(".pdf") || lowerName.endsWith(".docx") ||
-                    lowerName.endsWith(".doc") || lowerName.endsWith(".epub") ||
+                        lowerName.endsWith(".doc") || lowerName.endsWith(".epub") ||
                         lowerName.endsWith(".pptx") -> {
                         importProgress = context.getString(R.string.knowledge_parsing_doc)
                         val parsed = withContext(Dispatchers.IO) {
@@ -313,7 +313,9 @@ fun KnowledgeScreen(
                 val truncatedContent = if (content.length > MAX_CONTENT_LENGTH) {
                     Logger.w("KnowledgeScreen", "内容超过 $MAX_CONTENT_LENGTH 字符,已截断(原 ${content.length} 字)")
                     content.take(MAX_CONTENT_LENGTH)
-                } else content
+                } else {
+                    content
+                }
                 dao.upsert(
                     KnowledgeDocEntity(
                         id = docId,
@@ -338,7 +340,10 @@ fun KnowledgeScreen(
                     ragService.indexDocument(docId, truncatedContent, ragConfig) { current, total ->
                         importProgress = context.getString(R.string.knowledge_generating_vector, current, total)
                     }
-                }.onError { msg, t -> indexErrorMsg = msg; indexError = t }
+                }.onError { msg, t ->
+                    indexErrorMsg = msg
+                    indexError = t
+                }
                 val chunkCount = indexResult.getOrNull()
                 if (chunkCount != null && chunkCount > 0) {
                     // 更新文档的分块数和 embedding 模型
@@ -535,10 +540,10 @@ fun KnowledgeScreen(
                         onClick = { repairKnowledgeFts() },
                         contentDescription = stringResource(R.string.knowledge_repair_index),
                         tint = if (reindexing) {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                         enabled = !reindexing,
                     )
                 },
@@ -671,72 +676,84 @@ fun KnowledgeScreen(
                     label = "knowledgeContent",
                     modifier = Modifier.fillMaxSize(),
                 ) { kind ->
-                when (kind) {
-                    0 -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        MuseErrorStateBox(
-                            message = docsLoadError.orEmpty(),
-                            onRetry = {
-                                docsLoadError = null
-                                docsRetryKey++
-                            },
-                        )
-                    }
-                    }
-                    1 -> {
-                    // v1.0.62: 首次加载中显示转圈指示器
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        MuseSpinner()
-                    }
-                    }
-                    else -> {
-                    // v0.43: 隐藏开发文档(isInternal=true 的内部文档只供 LLM 通过 knowledge_search 查询,不向用户展示)
-                    // v1.133: 改用 isInternal 字段判断(替代原 fileType="devdoc" 硬编码,与 MIGRATION_38_39 标记一致)
-                    // v1.66: 按 sortMode 排序(DAO 仅 updated_at DESC,其余维度在 UI 排序)
-                    // M-Kn1: 用 remember 缓存 filter+sort 结果,避免每次重组都重算
-                    val visibleDocs = remember(docsList, sortMode) {
-                        docsList.orEmpty()
-                            .filterNot { it.isInternal }
-                            .sortedWith(sortMode.comparator)
-                    }
-                    if (visibleDocs.isEmpty()) {
-                        MuseEmptyState(
-                            icon = if (searchQuery.isNotBlank()) MuseIcons.fileText else MuseIcons.bookOpen,
-                            title = if (searchQuery.isNotBlank()) stringResource(R.string.knowledge_no_match_title) else stringResource(R.string.knowledge_empty_title),
-                            subtitle = if (searchQuery.isNotBlank()) stringResource(R.string.knowledge_no_match_subtitle) else stringResource(R.string.knowledge_empty_subtitle),
-                        )
-                    } else {
-                        LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 80.dp),
-                        ) {
-                            items(visibleDocs, key = { it.id }) { doc ->
-                                // v2.x: 动效补齐 — 文档卡入场(令牌 animateItem)
-                                Box(museAnimateItem()) {
-                                DocCard(
-                                    doc = doc,
-                                    highlight = searchQuery.takeIf { it.isNotBlank() },
-                                    onClick = { detailTarget = doc },
-                                    onDelete = {
-                                        scope.launch {
-                                            ragService.deleteDocument(doc.id)
-                                        }
-                                        MuseToast.show(context.getString(R.string.knowledge_deleted))
+                    when (kind) {
+                        0 -> {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                MuseErrorStateBox(
+                                    message = docsLoadError.orEmpty(),
+                                    onRetry = {
+                                        docsLoadError = null
+                                        docsRetryKey++
                                     },
                                 )
+                            }
+                        }
+                        1 -> {
+                            // v1.0.62: 首次加载中显示转圈指示器
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                MuseSpinner()
+                            }
+                        }
+                        else -> {
+                            // v0.43: 隐藏开发文档(isInternal=true 的内部文档只供 LLM 通过 knowledge_search 查询,不向用户展示)
+                            // v1.133: 改用 isInternal 字段判断(替代原 fileType="devdoc" 硬编码,与 MIGRATION_38_39 标记一致)
+                            // v1.66: 按 sortMode 排序(DAO 仅 updated_at DESC,其余维度在 UI 排序)
+                            // M-Kn1: 用 remember 缓存 filter+sort 结果,避免每次重组都重算
+                            val visibleDocs = remember(docsList, sortMode) {
+                                docsList.orEmpty()
+                                    .filterNot { it.isInternal }
+                                    .sortedWith(sortMode.comparator)
+                            }
+                            if (visibleDocs.isEmpty()) {
+                                MuseEmptyState(
+                                    icon = if (searchQuery.isNotBlank()) MuseIcons.fileText else MuseIcons.bookOpen,
+                                    title = if (searchQuery.isNotBlank()) {
+                                        stringResource(
+                                            R.string.knowledge_no_match_title,
+                                        )
+                                    } else {
+                                        stringResource(R.string.knowledge_empty_title)
+                                    },
+                                    subtitle = if (searchQuery.isNotBlank()) {
+                                        stringResource(
+                                            R.string.knowledge_no_match_subtitle,
+                                        )
+                                    } else {
+                                        stringResource(R.string.knowledge_empty_subtitle)
+                                    },
+                                )
+                            } else {
+                                LazyColumn(
+                                    verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 80.dp),
+                                ) {
+                                    items(visibleDocs, key = { it.id }) { doc ->
+                                        // v2.x: 动效补齐 — 文档卡入场(令牌 animateItem)
+                                        Box(museAnimateItem()) {
+                                            DocCard(
+                                                doc = doc,
+                                                highlight = searchQuery.takeIf { it.isNotBlank() },
+                                                onClick = { detailTarget = doc },
+                                                onDelete = {
+                                                    scope.launch {
+                                                        ragService.deleteDocument(doc.id)
+                                                    }
+                                                    MuseToast.show(context.getString(R.string.knowledge_deleted))
+                                                },
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-                    }
-                }
                 }
             }
         }
@@ -870,7 +887,10 @@ fun KnowledgeScreen(
                         size = 28.dp,
                     )
                     Spacer(Modifier.height(12.dp))
-                    Text(importProgress.ifBlank { stringResource(R.string.knowledge_reading_default) }, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        importProgress.ifBlank { stringResource(R.string.knowledge_reading_default) },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
                 }
             },
             confirmText = stringResource(R.string.knowledge_cancel),
@@ -1109,12 +1129,7 @@ private fun fileTypeStyle(fileType: String): FileTypeStyle {
 }
 
 @Composable
-private fun DocCard(
-    doc: KnowledgeDocEntity,
-    highlight: String?,
-    onClick: () -> Unit,
-    onDelete: () -> Unit,
-) {
+private fun DocCard(doc: KnowledgeDocEntity, highlight: String?, onClick: () -> Unit, onDelete: () -> Unit) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val style = fileTypeStyle(doc.fileType)
     Surface(
@@ -1152,7 +1167,12 @@ private fun DocCard(
                 // v1.71: 用 remember 缓存 SimpleDateFormat,避免列表项重组都新建对象
                 val dateFmt = remember { SimpleDateFormat(MuseDateFormats.DATE_TIME_SHORT, Locale.getDefault()) }
                 Text(
-                    stringResource(R.string.knowledge_doc_meta_with_date, doc.fileType, doc.content.length, dateFmt.format(Date(doc.createdAt))),
+                    stringResource(
+                        R.string.knowledge_doc_meta_with_date,
+                        doc.fileType,
+                        doc.content.length,
+                        dateFmt.format(Date(doc.createdAt)),
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -1173,7 +1193,10 @@ private fun DocCard(
         ConfirmDeleteDialog(
             title = stringResource(R.string.knowledge_delete_doc),
             itemName = doc.title,
-            onConfirm = { showDeleteConfirm = false; onDelete() },
+            onConfirm = {
+                showDeleteConfirm = false
+                onDelete()
+            },
             onDismiss = { showDeleteConfirm = false },
         )
     }
@@ -1213,7 +1236,9 @@ private fun DocDetailDialog(
                 val coverFile = coverPath?.let { path ->
                     if (path.startsWith("covers/")) {
                         java.io.File(java.io.File(context.filesDir, "covers"), path.removePrefix("covers/"))
-                    } else null
+                    } else {
+                        null
+                    }
                 }
                 if (coverFile != null && coverFile.exists()) {
                     androidx.compose.foundation.layout.Box(
@@ -1279,7 +1304,16 @@ private fun DocDetailDialog(
                     // v1.67-A: 显示分块数和 embedding 模型,让用户判断是否需要重新索引
                     text = buildString {
                         append(stringResource(R.string.knowledge_doc_chars, doc.fileType, doc.content.length))
-                        append(if (doc.chunkCount > 0) stringResource(R.string.knowledge_doc_chunks, doc.chunkCount) else stringResource(R.string.knowledge_doc_not_indexed))
+                        append(
+                            if (doc.chunkCount > 0) {
+                                stringResource(
+                                    R.string.knowledge_doc_chunks,
+                                    doc.chunkCount,
+                                )
+                            } else {
+                                stringResource(R.string.knowledge_doc_not_indexed)
+                            },
+                        )
                         if (doc.embeddingModel.isNotBlank()) append(" · ${doc.embeddingModel}")
                     },
                     style = MaterialTheme.typography.labelSmall,
@@ -1462,7 +1496,13 @@ private fun PdfOutlineCard(outline: List<String>) {
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    text = if (expanded) stringResource(R.string.action_collapse) else stringResource(R.string.action_expand), // 前端修复 (i18n-7)
+                    text = if (expanded) {
+                        stringResource(
+                            R.string.action_collapse,
+                        )
+                    } else {
+                        stringResource(R.string.action_expand)
+                    }, // 前端修复 (i18n-7)
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -1510,8 +1550,11 @@ private fun formatFileSize(bytes: Long): String {
         size /= 1024
         unitIdx++
     }
-    return if (unitIdx == 0) "${bytes} ${units[unitIdx]}"
-    else "%.1f ${units[unitIdx]}".format(size)
+    return if (unitIdx == 0) {
+        "$bytes ${units[unitIdx]}"
+    } else {
+        "%.1f ${units[unitIdx]}".format(size)
+    }
 }
 
 /**
@@ -1519,9 +1562,7 @@ private fun formatFileSize(bytes: Long): String {
  * PDF/docx/epub/ocr 等由解析器生成的拼接文本不属于"文本型",不提供正文直改功能,
  * 避免误改解析产物导致结构化信息损坏。
  */
-private fun isTextDoc(fileType: String): Boolean =
-    when (fileType.lowercase(Locale.getDefault())) {
-        "md", "markdown", "txt", "csv", "json" -> true
-        else -> false
-    }
-
+private fun isTextDoc(fileType: String): Boolean = when (fileType.lowercase(Locale.getDefault())) {
+    "md", "markdown", "txt", "csv", "json" -> true
+    else -> false
+}

@@ -82,12 +82,11 @@ class GroupChatMemoryRepository(
      * 是"跨群记忆串台"的读取根因之一。SystemPromptAssembler 的 prompt 注入一律改走
      * [getByAssistantAndChat](限定当前群聊),本方法不再用于注入。
      */
-    suspend fun getByAssistant(assistantId: String, limit: Int = 10): List<GroupChatMemoryEntity> =
-        withContext(Dispatchers.IO) {
-            resultOf { dao.getByAssistant(assistantId, limit) }
-                .onError { msg, t -> Logger.w(TAG, "读取群聊记忆失败: $msg", t) }
-                .getOrNull() ?: emptyList()
-        }
+    suspend fun getByAssistant(assistantId: String, limit: Int = 10): List<GroupChatMemoryEntity> = withContext(Dispatchers.IO) {
+        resultOf { dao.getByAssistant(assistantId, limit) }
+            .onError { msg, t -> Logger.w(TAG, "读取群聊记忆失败: $msg", t) }
+            .getOrNull() ?: emptyList()
+    }
 
     /**
      * 取指定助手在**指定群聊**最近 N 条群聊记忆(按 createdAt 降序)。
@@ -102,12 +101,11 @@ class GroupChatMemoryRepository(
         }
 
     /** 取指定群聊的全部记忆(供群聊详情页展示)。 */
-    suspend fun getByGroupChat(groupChatId: String): List<GroupChatMemoryEntity> =
-        withContext(Dispatchers.IO) {
-            resultOf { dao.getByGroupChat(groupChatId) }
-                .onError { msg, t -> Logger.w(TAG, "读取群聊记忆失败: $msg", t) }
-                .getOrNull() ?: emptyList()
-        }
+    suspend fun getByGroupChat(groupChatId: String): List<GroupChatMemoryEntity> = withContext(Dispatchers.IO) {
+        resultOf { dao.getByGroupChat(groupChatId) }
+            .onError { msg, t -> Logger.w(TAG, "读取群聊记忆失败: $msg", t) }
+            .getOrNull() ?: emptyList()
+    }
 
     /**
      * 清理 [days] 天前的群聊记忆(默认 30 天)。

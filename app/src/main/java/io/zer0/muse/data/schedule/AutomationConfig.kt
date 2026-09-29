@@ -28,8 +28,10 @@ object AutomationConfig {
             const val TIME_RANGE = "time_range"
             const val CONTAINS = "contains"
             const val QUICK_NOTE_EXISTS = "quick_note_exists"
+
             /** v1.0.17: 电量阈值条件,config["minLevel"] 为最低电量百分比(默认 20)。 */
             const val BATTERY_LEVEL = "battery_level"
+
             /** v1.0.17: 充电状态条件,config["mustCharging"] 为是否必须充电(默认 true)。 */
             const val CHARGING = "charging"
         }
@@ -86,7 +88,14 @@ object AutomationConfig {
     }
 
     fun List<String>.toIdsJson(): String = try {
-        AppJson.encodeToString(kotlinx.serialization.builtins.ListSerializer(kotlinx.serialization.json.JsonElement.serializer()), this.map { kotlinx.serialization.json.JsonPrimitive(it) })
+        AppJson.encodeToString(
+            kotlinx.serialization.builtins.ListSerializer(
+                kotlinx.serialization.json.JsonElement.serializer(),
+            ),
+            this.map {
+                kotlinx.serialization.json.JsonPrimitive(it)
+            },
+        )
     } catch (e: Exception) {
         Logger.w("AutomationConfig", "Ids encode failed: ${e.message}")
         "[]"
@@ -96,7 +105,10 @@ object AutomationConfig {
         emptyList()
     } else {
         try {
-            AppJson.decodeFromString(kotlinx.serialization.builtins.ListSerializer(kotlinx.serialization.json.JsonElement.serializer()), this)
+            AppJson.decodeFromString(
+                kotlinx.serialization.builtins.ListSerializer(kotlinx.serialization.json.JsonElement.serializer()),
+                this,
+            )
                 .mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
         } catch (e: Exception) {
             Logger.w("AutomationConfig", "Ids decode failed: ${e.message}")
@@ -110,6 +122,5 @@ object AutomationConfig {
         null
     }
 
-    inline fun <reified T> JsonObject.getString(key: String): String? =
-        this[key]?.toString()?.trim('"')
+    inline fun <reified T> JsonObject.getString(key: String): String? = this[key]?.toString()?.trim('"')
 }

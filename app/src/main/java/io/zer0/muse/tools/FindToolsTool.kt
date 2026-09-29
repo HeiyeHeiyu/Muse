@@ -20,36 +20,31 @@ object FindToolsTool {
     private const val DESCRIPTION_SNIPPET = 140
     private const val LIST_DESCRIPTION_SNIPPET = 80
 
-    fun toolDef() =
-        ToolRegistry.ToolDef(
-            name = TOOL_NAME,
-            description =
-                "Search the full tool library, or get a complete capability list. " +
-                    "With keywords: matching tools become available from your next call in this session. " +
-                    "With an empty query: returns the full tool list with a channel-status summary. " +
-                    "Entries marked * need extra system authorization (Shizuku/Root, Accessibility or Termux); " +
-                    "when a required channel is not ready, calling the tool fails fast with a clear error. " +
-                    "Use this when you need a tool that is not in your current list, or when asked what you can do.",
-            parameters =
-                mapOf(
-                    "query" to "Optional. Keywords describing the capability you need. " +
-                        "Leave empty to get the full tool list (capability overview).",
-                ),
-            required = emptySet(),
-            category = "built-in",
-            riskLevel = ToolRiskLevel.SAFE,
-        )
+    fun toolDef() = ToolRegistry.ToolDef(
+        name = TOOL_NAME,
+        description =
+        "Search the full tool library, or get a complete capability list. " +
+            "With keywords: matching tools become available from your next call in this session. " +
+            "With an empty query: returns the full tool list with a channel-status summary. " +
+            "Entries marked * need extra system authorization (Shizuku/Root, Accessibility or Termux); " +
+            "when a required channel is not ready, calling the tool fails fast with a clear error. " +
+            "Use this when you need a tool that is not in your current list, or when asked what you can do.",
+        parameters =
+        mapOf(
+            "query" to "Optional. Keywords describing the capability you need. " +
+                "Leave empty to get the full tool list (capability overview).",
+        ),
+        required = emptySet(),
+        category = "built-in",
+        riskLevel = ToolRiskLevel.SAFE,
+    )
 
     /**
      * 纯函数检索:按名称/描述关键词匹配,名称命中权重更高;名称命中优先排序。
      *
      * 关键词按空白/中英文逗号/分号拆分,长度 ≥2 的词参与匹配;整串均为单字符时用整串兜底。
      */
-    fun search(
-        query: String,
-        tools: List<ToolRegistry.ToolDef>,
-        excludeName: String = TOOL_NAME,
-    ): List<ToolRegistry.ToolDef> {
+    fun search(query: String, tools: List<ToolRegistry.ToolDef>, excludeName: String = TOOL_NAME): List<ToolRegistry.ToolDef> {
         val raw = query.trim().lowercase()
         if (raw.isEmpty()) return emptyList()
         val terms =
@@ -84,11 +79,7 @@ object FindToolsTool {
      *
      * v2.x: 需额外授权的工具名带 * 标记;传入 [status] 时附运行通道状态行。
      */
-    fun fullList(
-        tools: List<ToolRegistry.ToolDef>,
-        excludeName: String = TOOL_NAME,
-        status: ToolPermissionStatus? = null,
-    ): String {
+    fun fullList(tools: List<ToolRegistry.ToolDef>, excludeName: String = TOOL_NAME, status: ToolPermissionStatus? = null): String {
         val visible = tools.filter { it.name != excludeName }
         if (visible.isEmpty()) return "No tools registered."
         val grouped = visible.groupBy { ToolCategories.categoryOf(it.name) }
@@ -139,10 +130,7 @@ object FindToolsTool {
     private fun readyLabel(ready: Boolean): String = if (ready) "READY" else "NOT READY"
 
     /** 检索结果里的权限注记(含当前就绪状态,便于提前判断)。 */
-    private fun permissionHint(
-        name: String,
-        status: ToolPermissionStatus?,
-    ): String {
+    private fun permissionHint(name: String, status: ToolPermissionStatus?): String {
         val required = ToolCategories.permissionOf(name)
         if (required.isEmpty()) return ""
         val needs = required.joinToString(" or ") { it.enLabel() }
@@ -156,11 +144,7 @@ object FindToolsTool {
     /**
      * 执行:空 query = 能力总览(只读,不装载);有关键词 = 检索并装载(命中后下一轮起可用)。
      */
-    suspend fun execute(
-        args: Map<String, String>,
-        toolRegistry: ToolRegistry,
-        executionContext: ToolExecutionContext,
-    ): String {
+    suspend fun execute(args: Map<String, String>, toolRegistry: ToolRegistry, executionContext: ToolExecutionContext): String {
         val query = args["query"]?.trim().orEmpty()
         val allTools = toolRegistry.listTools()
         val status = toolRegistry.permissionStatusProvider?.invoke()

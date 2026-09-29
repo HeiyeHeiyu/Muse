@@ -1,9 +1,9 @@
 package io.zer0.muse.tools
 
+import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.just
 import io.mockk.mockk
-import io.mockk.Runs
 import io.zer0.muse.data.subagent.SubagentThreadStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred

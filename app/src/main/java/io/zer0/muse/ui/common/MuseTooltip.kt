@@ -26,11 +26,7 @@ import androidx.compose.ui.window.Popup
 // TooltipBox 为 ExperimentalMaterial3Api 且样式与项目 Muse 设计语言不一致。
 // 定位:BottomCenter + 负 Y 偏移使气泡整体浮于锚点内容上方 6dp 处。
 @Composable
-internal fun MuseTooltip(
-    text: String,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
+internal fun MuseTooltip(text: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     var visible by remember { mutableStateOf(false) }
     val gapPx = with(LocalDensity.current) { 6.dp.toPx().toInt() }
     Box(

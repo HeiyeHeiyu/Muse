@@ -20,12 +20,7 @@ object ModelOutputPolicy {
      * 这是请求预算的第二道边界：模型 maxOutputTokens 是能力上限，
      * contextWindow - inputTokens - reserveTokens 是本次请求的可用上限。
      */
-    fun resolveForContext(
-        requestedMaxTokens: Int?,
-        model: Model,
-        inputTokens: Int,
-        reserveTokens: Int = 1_024,
-    ): Int? {
+    fun resolveForContext(requestedMaxTokens: Int?, model: Model, inputTokens: Int, reserveTokens: Int = 1_024): Int? {
         require(inputTokens >= 0) { "inputTokens must not be negative" }
         require(reserveTokens >= 0) { "reserveTokens must not be negative" }
         val contextWindow = model.contextWindow?.takeIf { it > 0 } ?: return resolve(requestedMaxTokens, model)

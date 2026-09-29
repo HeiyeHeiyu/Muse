@@ -87,8 +87,7 @@ object FreeModelConfig {
     /**
      * R-SEC-07: fallback key 是否可用(非空且非占位符)。
      */
-    fun isFallbackKeyAvailable(): Boolean =
-        FALLBACK_API_KEY.isNotBlank() && FALLBACK_API_KEY != "PLACEHOLDER"
+    fun isFallbackKeyAvailable(): Boolean = FALLBACK_API_KEY.isNotBlank() && FALLBACK_API_KEY != "PLACEHOLDER"
 
     /**
      * 判断指定 provider 是否是免费模型 provider(SiliconFlow 且用户未填 key)。
@@ -96,12 +95,7 @@ object FreeModelConfig {
      * 供 [OpenAIProvider.listModels] 在入口处判断:为 true 时直接返回预设的免费模型列表,
      * 不调远程 /models(避免因无 key 而 401 失败)。
      */
-    fun isFreeProvider(
-        providerId: String,
-        baseUrl: String,
-        userApiKey: String,
-        hiddenFromSettings: Boolean = false,
-    ): Boolean =
+    fun isFreeProvider(providerId: String, baseUrl: String, userApiKey: String, hiddenFromSettings: Boolean = false): Boolean =
         (providerId == FREE_PROVIDER_ID || hiddenFromSettings) &&
             userApiKey.isBlank() &&
             extractHost(baseUrl)?.contains(HOST_MARKER) == true

@@ -2,8 +2,8 @@
 
 package io.zer0.muse.ui
 
-import androidx.compose.foundation.layout.defaultMinSize
-
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -11,14 +11,15 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -30,17 +31,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.common.Logger
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
@@ -50,31 +49,31 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import io.zer0.common.Logger
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseSlider
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseDateFormats
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.largeCard
-import io.zer0.muse.ui.theme.MuseAnimation
-import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.pill
 import io.zer0.muse.ui.theme.semiLarge
 import io.zer0.muse.ui.theme.tiny
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.zer0.muse.ui.common.form.MuseSlider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -490,10 +489,7 @@ internal fun AssistantVideoCard(videoUri: String, modifier: Modifier = Modifier)
  *  - 宽度从 2dp 加到 2.5dp,高度从 16dp 加到 18dp,略微更醒目
  */
 @Composable
-internal fun StreamingCursor(
-    color: Color,
-    modifier: Modifier = Modifier,
-) {
+internal fun StreamingCursor(color: Color, modifier: Modifier = Modifier) {
     val alpha = if (MuseMotion.isReducedMotion()) {
         1f
     } else {
@@ -561,9 +557,7 @@ internal fun ThinkingIndicator() {
  * 包含波形条动画 + 播放/暂停按钮 + 进度条 + 倍速选择。
  */
 @Composable
-internal fun TtsAudioPlayer(
-    modifier: Modifier = Modifier,
-) {
+internal fun TtsAudioPlayer(modifier: Modifier = Modifier) {
     val ttsManager: io.zer0.muse.ui.speech.TtsManager = org.koin.compose.koinInject()
     val state by ttsManager.playbackState.collectAsStateWithLifecycle()
     val isPlaying = state.status == io.zer0.muse.ui.speech.PlaybackStatus.Playing
@@ -589,10 +583,19 @@ internal fun TtsAudioPlayer(
                 MuseTactileButton(
                     icon = if (isPlaying) MuseIcons.pause else MuseIcons.play,
                     onClick = {
-                        if (isPlaying) ttsManager.pause()
-                        else ttsManager.resume()
+                        if (isPlaying) {
+                            ttsManager.pause()
+                        } else {
+                            ttsManager.resume()
+                        }
                     },
-                    contentDescription = if (isPlaying) stringResource(R.string.speech_pause_cd) else stringResource(R.string.speech_resume_cd),
+                    contentDescription = if (isPlaying) {
+                        stringResource(
+                            R.string.speech_pause_cd,
+                        )
+                    } else {
+                        stringResource(R.string.speech_resume_cd)
+                    },
                     tint = MaterialTheme.colorScheme.primary,
                     iconSize = 20.dp,
                     modifier = Modifier.defaultMinSize(minWidth = MuseIconSizes.touchTarget, minHeight = MuseIconSizes.touchTarget),
@@ -634,9 +637,7 @@ internal fun TtsAudioPlayer(
  * 波形条动画 — 4 条竖条,播放时逐条错开弹跳,暂停时静止。
  */
 @Composable
-internal fun WaveformBars(
-    isActive: Boolean,
-) {
+internal fun WaveformBars(isActive: Boolean) {
     val reducedMotion = MuseMotion.isReducedMotion()
     val voicePlayingCd = stringResource(R.string.chat_voice_playing_cd)
     val voiceReadyCd = stringResource(R.string.chat_voice_ready_cd)
@@ -717,4 +718,3 @@ internal object MessageBubbleFormatters {
         return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
     }
 }
-

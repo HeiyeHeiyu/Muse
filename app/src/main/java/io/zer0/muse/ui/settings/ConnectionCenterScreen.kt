@@ -3,9 +3,9 @@ package io.zer0.muse.ui.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -127,12 +127,7 @@ fun ConnectionCenterScreen(
 
 /** v2.0.1: 连接中心导航卡 — 图标 + 标题 + 状态摘要 + 箭头。 */
 @Composable
-private fun ConnectionEntryCard(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-) {
+private fun ConnectionEntryCard(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
     MuseSurface(
         onClick = onClick,
         shape = MuseShapes.largeCard,

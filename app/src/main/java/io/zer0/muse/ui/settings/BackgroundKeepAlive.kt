@@ -49,11 +49,7 @@ data class KeepAliveGuide(
  * 所有 startActivity 均带 FLAG_ACTIVITY_NEW_TASK — 从弹窗 ContextThemeWrapper
  * 出发的 startActivity 不带该标志会抛异常并被静默呑噬(用户表现为"点了不跳转")。
  */
-private fun attemptSettings(
-    ctx: Context,
-    candidates: List<ComponentName>,
-    fallback: (Context) -> Boolean,
-): Boolean {
+private fun attemptSettings(ctx: Context, candidates: List<ComponentName>, fallback: (Context) -> Boolean): Boolean {
     for (component in candidates) {
         val ok = runCatching {
             ctx.startActivity(
@@ -188,10 +184,7 @@ fun detectKeepAliveGuide(context: Context): KeepAliveGuide {
 
 /** 引导弹窗:品牌 + 步骤 + 跳转按钮。 */
 @Composable
-fun KeepAliveGuideDialog(
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun KeepAliveGuideDialog(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val guide = rememberKeepAliveGuide()
     MuseDialog(

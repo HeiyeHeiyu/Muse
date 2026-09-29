@@ -37,11 +37,7 @@ class HnswVectorIndexTest {
     }
 
     /** 构造一个高 efSearch 的索引(测试场景下确保高召回,避免近似误差干扰断言)。 */
-    private fun newTestIndex(
-        m: Int = 16,
-        efConstruction: Int = 200,
-        efSearch: Int = 100,
-    ): HnswVectorIndex = HnswVectorIndex(
+    private fun newTestIndex(m: Int = 16, efConstruction: Int = 200, efSearch: Int = 100): HnswVectorIndex = HnswVectorIndex(
         M = m,
         efConstruction = efConstruction,
         efSearch = efSearch,
@@ -52,17 +48,13 @@ class HnswVectorIndexTest {
     private fun genVectors(n: Int, dim: Int, seed: Long = 42L): List<Pair<String, FloatArray>> {
         val rng = Random(seed)
         return (0 until n).map { i ->
-            val vec = FloatArray(dim) { rng.nextFloat() * 2f - 1f }  // [-1, 1]
+            val vec = FloatArray(dim) { rng.nextFloat() * 2f - 1f } // [-1, 1]
             "vec-$i" to vec
         }
     }
 
     /** 暴力遍历 top-k(实现说明,用于验证 HNSW 结果)。 */
-    private fun bruteForceSearch(
-        query: FloatArray,
-        vectors: List<Pair<String, FloatArray>>,
-        k: Int,
-    ): List<Pair<String, Float>> {
+    private fun bruteForceSearch(query: FloatArray, vectors: List<Pair<String, FloatArray>>, k: Int): List<Pair<String, Float>> {
         return vectors
             .map { (id, vec) -> id to cosineSim(query, vec) }
             .sortedByDescending { it.second }
@@ -162,7 +154,7 @@ class HnswVectorIndexTest {
         val n = 100
         val dim = 64
         val vectors = genVectors(n = n, dim = dim)
-        val index = newTestIndex(efSearch = 200)  // 高 efSearch 确保高召回
+        val index = newTestIndex(efSearch = 200) // 高 efSearch 确保高召回
         vectors.forEach { (id, vec) -> index.add(id, vec) }
         assertEquals(n, index.size)
 

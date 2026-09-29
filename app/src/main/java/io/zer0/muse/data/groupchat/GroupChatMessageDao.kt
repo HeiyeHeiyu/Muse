@@ -42,7 +42,9 @@ interface GroupChatMessageDao {
      * 用于替代全量 [observeMessages]:聊天界面首屏只观察最近一页,新消息到达时 Flow 自动重发,
      * ViewModel 据此增量追加到已加载列表。M8: 用 id 作次级排序 key,避免同毫秒碰撞。
      */
-    @Query("SELECT * FROM (SELECT * FROM group_chat_messages WHERE chatId = :chatId ORDER BY timestamp DESC, id DESC LIMIT :limit) ORDER BY timestamp ASC, id ASC")
+    @Query(
+        "SELECT * FROM (SELECT * FROM group_chat_messages WHERE chatId = :chatId ORDER BY timestamp DESC, id DESC LIMIT :limit) ORDER BY timestamp ASC, id ASC",
+    )
     fun observeRecentMessages(chatId: String, limit: Int): Flow<List<GroupChatMessageEntity>>
 
     /**
@@ -52,7 +54,9 @@ interface GroupChatMessageDao {
      * 双锚点(timestamp + id)避免同毫秒消息被漏取或重复。返回顺序为降序(最新在前),
      * 调用方(Repository)需自行 reversed() 转为升序后前置拼接。
      */
-    @Query("SELECT * FROM group_chat_messages WHERE chatId = :chatId AND (timestamp < :beforeTimestamp OR (timestamp = :beforeTimestamp AND id < :beforeId)) ORDER BY timestamp DESC, id DESC LIMIT :limit")
+    @Query(
+        "SELECT * FROM group_chat_messages WHERE chatId = :chatId AND (timestamp < :beforeTimestamp OR (timestamp = :beforeTimestamp AND id < :beforeId)) ORDER BY timestamp DESC, id DESC LIMIT :limit",
+    )
     suspend fun getOlderMessages(chatId: String, beforeTimestamp: Long, beforeId: String, limit: Int): List<GroupChatMessageEntity>
 
     /** 插入或更新消息(冲突时替换)。 */
@@ -90,7 +94,9 @@ interface GroupChatMessageDao {
     suspend fun getRecentMessages(chatId: String, limit: Int): List<GroupChatMessageEntity>
 
     /** v1.0.72: 群聊内搜索消息(关键词 LIKE 匹配正文,按时间倒序)。 */
-    @Query("SELECT * FROM group_chat_messages WHERE chatId = :chatId AND body LIKE '%' || :query || '%' ORDER BY timestamp DESC, id DESC LIMIT :limit")
+    @Query(
+        "SELECT * FROM group_chat_messages WHERE chatId = :chatId AND body LIKE '%' || :query || '%' ORDER BY timestamp DESC, id DESC LIMIT :limit",
+    )
     suspend fun searchMessages(chatId: String, query: String, limit: Int = 100): List<GroupChatMessageEntity>
 
     /** 按 chatId 分组统计消息数,取 Top N 活跃群聊(降序)。 */

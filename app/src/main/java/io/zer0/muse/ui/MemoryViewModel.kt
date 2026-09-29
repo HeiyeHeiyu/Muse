@@ -1,10 +1,7 @@
 package io.zer0.muse.ui
-import io.zer0.muse.data.experience.DEFAULT_EXPERIENCE_CATEGORY
-
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import io.zer0.muse.R
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
@@ -14,9 +11,11 @@ import io.zer0.memory.space.MemorySpaceEntity
 import io.zer0.memory.space.MemorySpaceRepository
 import io.zer0.memory.summary.SessionSummaryManager
 import io.zer0.memory.ticker.MemoryTicker
+import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantRepository
+import io.zer0.muse.data.experience.DEFAULT_EXPERIENCE_CATEGORY
 import io.zer0.muse.data.experience.ExperienceEntity
 import io.zer0.muse.data.experience.ExperienceRepository
 import io.zer0.muse.ui.common.feedback.MuseToast
@@ -37,9 +36,9 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.TemporalAdjusters
-import java.time.temporal.ChronoUnit
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalAdjusters
 
 /**
  * 阶段 6: 记忆页 UI 数据模型。
@@ -314,12 +313,11 @@ class MemoryViewModel(
     }
 
     /** P0-4: 子助手 store 列表(scope id → store),仅非主助手。 */
-    private fun subAssistantStores(): List<Pair<String, FactStore>> =
-        _availableScopes.value
-            .mapNotNull { option ->
-                val id = option.id
-                if (id == null || id == "main" || id.isBlank()) null else id to factDbProvider.getFactStore(id)
-            }
+    private fun subAssistantStores(): List<Pair<String, FactStore>> = _availableScopes.value
+        .mapNotNull { option ->
+            val id = option.id
+            if (id == null || id == "main" || id.isBlank()) null else id to factDbProvider.getFactStore(id)
+        }
 
     // 审计修复 (3.2): 记录 loadAll 的协程 Job,新加载前取消旧协程,避免旧结果覆盖新状态
     private var loadJob: Job? = null
@@ -337,10 +335,13 @@ class MemoryViewModel(
      */
     private val _selectedScope = MutableStateFlow<String?>(null)
     val selectedScope: StateFlow<String?> = _selectedScope.asStateFlow()
+
     /** v1.x: 全量去重防重入。 */
     private var _dedupRunning = false
+
     /** v1.x: 立即编译防重入(编译耗 LLM 调用,避免连点重复执行)。 */
     private var _compiling = false
+
     /** v1.0.90: 编译进行中状态,供记忆页显示明确反馈。 */
     private val _compilingState = MutableStateFlow(false)
     val compilingState: StateFlow<Boolean> = _compilingState.asStateFlow()
@@ -647,7 +648,6 @@ class MemoryViewModel(
             .getOrNull() ?: 0
     }
 
-
     /** v1.x: 编译结果提示(UI LaunchedEffect 消费后清除)。 */
     private val _compileResult = MutableStateFlow<String?>(null)
     val compileResult: StateFlow<String?> = _compileResult.asStateFlow()
@@ -669,7 +669,11 @@ class MemoryViewModel(
         _dedupState.value = true
         viewModelScope.launch {
             val merged = withContext(Dispatchers.IO) {
-                resultOf { storeForScope(_selectedScope.value).dedupPass(scope = _selectedScope.value ?: "main", spaceId = _selectedSpaceId.value) }
+                resultOf {
+                    storeForScope(
+                        _selectedScope.value,
+                    ).dedupPass(scope = _selectedScope.value ?: "main", spaceId = _selectedSpaceId.value)
+                }
                     .onError { msg, t -> Logger.w("MemoryViewModel", "记忆去重失败: ${t?.message ?: msg}") }
                     .getOrNull()
             }
@@ -783,8 +787,8 @@ class MemoryViewModel(
                         createdAt = fact.createdAt,
                         // v8: 透传 scope,供 UI 显示徽章(主助手=默认色,子助手=tertiary 色)
                         scope = fact.scope,
-                    // B4-05: 透传置顶时间
-                    pinnedAt = fact.pinnedAt,
+                        // B4-05: 透传置顶时间
+                        pinnedAt = fact.pinnedAt,
                         // v9: 透传 category,供新 UI 按分类筛选与展示
                         category = fact.category,
                     )
@@ -1164,7 +1168,11 @@ class MemoryViewModel(
                 resultOf {
                     storeForScope(scope).add(FactStore.Fact(fact = content.trim()), scope = scope, spaceId = spaceId)
                 }.onError { msg, t ->
-                    _state.update { it.copy(errorTrace = (it.errorTrace ?: "") + "\n" + getApplication<Application>().getString(R.string.memory_add_failed, msg)) }
+                    _state.update {
+                        it.copy(
+                            errorTrace = (it.errorTrace ?: "") + "\n" + getApplication<Application>().getString(R.string.memory_add_failed, msg),
+                        )
+                    }
                 }.isSuccess
             }
             if (ok) loadAll()
@@ -1186,7 +1194,7 @@ class MemoryViewModel(
                         existing.copy(
                             summary = newContent.trim(),
                             updatedAt = Instant.now().toString(),
-                        )
+                        ),
                     )
                 }
             }
@@ -1285,7 +1293,9 @@ class MemoryViewModel(
             val today = java.time.LocalDate.now()
             val itemDate = date.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
             itemDate == today
-        } catch (e: Exception) { false }
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun isThisWeek(createdAt: String?): Boolean {
@@ -1296,7 +1306,9 @@ class MemoryViewModel(
             val itemDate = date.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
             val weekStart = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
             !itemDate.isBefore(weekStart) && !itemDate.isAfter(today)
-        } catch (e: Exception) { false }
+        } catch (e: Exception) {
+            false
+        }
     }
 
     private fun isThisMonth(createdAt: String?): Boolean {
@@ -1306,7 +1318,9 @@ class MemoryViewModel(
             val today = java.time.LocalDate.now()
             val itemDate = date.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
             itemDate.year == today.year && itemDate.month == today.month
-        } catch (e: Exception) { false }
+        } catch (e: Exception) {
+            false
+        }
     }
 
     // ── v1.98: 经验库 CRUD ──────────────────────────────────────────────
@@ -1335,7 +1349,11 @@ class MemoryViewModel(
                 )
                 // v1.78 (H6): 包装 suspend 调用必须用 resultOf,避免吞 CancellationException
                 resultOf { experienceRepository.upsert(entity) }
-                    .onError { msg, t -> MuseToast.show(getApplication<Application>().getString(R.string.memory_add_experience_failed, msg)) }
+                    .onError { msg, t ->
+                        MuseToast.show(
+                            getApplication<Application>().getString(R.string.memory_add_experience_failed, msg),
+                        )
+                    }
             }
             // observeAll Flow 会自动刷新 UI,无需手动 loadAll
         }
@@ -1378,7 +1396,11 @@ class MemoryViewModel(
             withContext(Dispatchers.IO) {
                 // v1.78 (H6): 包装 suspend 调用必须用 resultOf,避免吞 CancellationException
                 resultOf { experienceRepository.delete(id) }
-                    .onError { msg, t -> MuseToast.show(getApplication<Application>().getString(R.string.memory_delete_experience_failed, msg)) }
+                    .onError { msg, t ->
+                        MuseToast.show(
+                            getApplication<Application>().getString(R.string.memory_delete_experience_failed, msg),
+                        )
+                    }
             }
         }
     }

@@ -34,59 +34,55 @@ class LlmFactConsolidator(
      *
      * @return 实际合并的簇数(0 = 没有可合并的簇或全部失败)
      */
-    suspend fun consolidate(
-        store: FactStore,
-        scope: String,
-        spaceId: String,
-        maxGroups: Int = DEFAULT_MAX_GROUPS,
-    ): Int = withContext(Dispatchers.IO) {
-        val groups = resultOf { store.findSimilarGroups(scope, spaceId, maxGroups) }
-            .onError { msg, t -> Logger.w(TAG, "查找相似记忆簇失败: ${t?.message ?: msg}") }
-            .getOrNull() ?: return@withContext 0
+    suspend fun consolidate(store: FactStore, scope: String, spaceId: String, maxGroups: Int = DEFAULT_MAX_GROUPS): Int =
+        withContext(Dispatchers.IO) {
+            val groups = resultOf { store.findSimilarGroups(scope, spaceId, maxGroups) }
+                .onError { msg, t -> Logger.w(TAG, "查找相似记忆簇失败: ${t?.message ?: msg}") }
+                .getOrNull() ?: return@withContext 0
 
-        var mergedCount = 0
-        for (group in groups) {
-            if (group.size < 2) continue
-            // 置顶记忆保护: 含置顶条目的簇不参与自动合并
-            if (group.any { it.pinnedAt != null }) continue
-            val mergedText = mergeGroupWithLlm(group) ?: continue
-            // 保留重要度最高的一条作为 keeper
-            val keeper = group.maxByOrNull { it.importance } ?: group.first()
-            // v1.0.92: 先删重复成员、再更新 keeper(反序)。
-            // FactStore.update 内部有"更新后自动去重合并"(v12):若先更新,新内容与簇内
-            // 其它成员相似时会触发第二重合并/删除,与我们的删除叠加成"双删清空";
-            // 反序后 update 时重复项已不在,不会再误合并。
-            group.filter { it.id != keeper.id }.forEach { other ->
-                resultOf { store.delete(other.id) }
-                    .onError { msg, t -> Logger.w(TAG, "删除重复记忆失败: ${t?.message ?: msg}") }
+            var mergedCount = 0
+            for (group in groups) {
+                if (group.size < 2) continue
+                // 置顶记忆保护: 含置顶条目的簇不参与自动合并
+                if (group.any { it.pinnedAt != null }) continue
+                val mergedText = mergeGroupWithLlm(group) ?: continue
+                // 保留重要度最高的一条作为 keeper
+                val keeper = group.maxByOrNull { it.importance } ?: group.first()
+                // v1.0.92: 先删重复成员、再更新 keeper(反序)。
+                // FactStore.update 内部有"更新后自动去重合并"(v12):若先更新,新内容与簇内
+                // 其它成员相似时会触发第二重合并/删除,与我们的删除叠加成"双删清空";
+                // 反序后 update 时重复项已不在,不会再误合并。
+                group.filter { it.id != keeper.id }.forEach { other ->
+                    resultOf { store.delete(other.id) }
+                        .onError { msg, t -> Logger.w(TAG, "删除重复记忆失败: ${t?.message ?: msg}") }
+                }
+                val updated = resultOf { store.update(keeper.id, mergedText, scope) }
+                    .onError { msg, t -> Logger.w(TAG, "更新合并记忆失败: ${t?.message ?: msg}") }
+                    .getOrNull() == true
+                if (updated) {
+                    mergedCount++
+                } else {
+                    // 兜底:更新失败时把合并结果作为新事实写回,避免"删了旧条却丢了新内容"
+                    val restored = resultOf {
+                        store.add(
+                            FactStore.Fact(
+                                fact = mergedText,
+                                entityKey = keeper.entityKey,
+                                importance = keeper.importance,
+                            ),
+                            scope = scope,
+                            spaceId = spaceId,
+                        )
+                    }.onError { msg, t -> Logger.w(TAG, "回写合并结果失败: ${t?.message ?: msg}") }
+                        .isSuccess
+                    if (restored) mergedCount++
+                }
             }
-            val updated = resultOf { store.update(keeper.id, mergedText, scope) }
-                .onError { msg, t -> Logger.w(TAG, "更新合并记忆失败: ${t?.message ?: msg}") }
-                .getOrNull() == true
-            if (updated) {
-                mergedCount++
-            } else {
-                // 兜底:更新失败时把合并结果作为新事实写回,避免"删了旧条却丢了新内容"
-                val restored = resultOf {
-                    store.add(
-                        FactStore.Fact(
-                            fact = mergedText,
-                            entityKey = keeper.entityKey,
-                            importance = keeper.importance,
-                        ),
-                        scope = scope,
-                        spaceId = spaceId,
-                    )
-                }.onError { msg, t -> Logger.w(TAG, "回写合并结果失败: ${t?.message ?: msg}") }
-                    .isSuccess
-                if (restored) mergedCount++
+            if (mergedCount > 0) {
+                Logger.i(TAG, "LLM 记忆整合: 合并 $mergedCount 组重复记忆 (scope=$scope)")
             }
+            mergedCount
         }
-        if (mergedCount > 0) {
-            Logger.i(TAG, "LLM 记忆整合: 合并 $mergedCount 组重复记忆 (scope=$scope)")
-        }
-        mergedCount
-    }
 
     /**
      * 遍历库内全部 scope+space 组合执行整合(每日流水线用)。

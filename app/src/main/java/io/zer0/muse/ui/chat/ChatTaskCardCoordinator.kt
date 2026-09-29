@@ -52,11 +52,7 @@ class ChatTaskCardCoordinator(
      * 旧实现每次工具步骤状态变更都遍历整个 taskCards map + 每个 card 的 steps 列表,
      * 高频 onProgress 回调下导致 Compose 重组风暴。新实现直接按 key 定位 + 按 index 更新。
      */
-    fun updateTaskCardStep(
-        taskCardId: String?,
-        stepIndex: Int,
-        transform: (TaskStep) -> TaskStep,
-    ) {
+    fun updateTaskCardStep(taskCardId: String?, stepIndex: Int, transform: (TaskStep) -> TaskStep) {
         // v1.0.53: send_sticker-only 场景不建卡,可空 taskCardId 直接跳过
         if (taskCardId == null) return
         accessor.update { state ->
@@ -67,10 +63,12 @@ class ChatTaskCardCoordinator(
             // v1.0.47 P8-3: 工具失败时自动展开 TaskCard,让用户立即看到错误详情
             val shouldAutoExpand = newSteps[stepIndex].status == TaskStepStatus.FAILED
             state.copy(
-                taskCards = state.taskCards + (taskCardId to card.copy(
-                    steps = newSteps,
-                    isExpanded = if (shouldAutoExpand) true else card.isExpanded,
-                )),
+                taskCards = state.taskCards + (
+                    taskCardId to card.copy(
+                        steps = newSteps,
+                        isExpanded = if (shouldAutoExpand) true else card.isExpanded,
+                    )
+                    ),
             )
         }
     }
@@ -115,15 +113,21 @@ class ChatTaskCardCoordinator(
                             v.copy(
                                 phase = TaskCardPhase.EXECUTING,
                                 steps = v.steps.map { s ->
-                                    if (stepsToUpdate.any { it.id == s.id }) s.copy(
-                                        status = TaskStepStatus.RUNNING,
-                                        startedAt = System.currentTimeMillis(),
-                                        finishedAt = null,
-                                        result = "",
-                                    ) else s
+                                    if (stepsToUpdate.any { it.id == s.id }) {
+                                        s.copy(
+                                            status = TaskStepStatus.RUNNING,
+                                            startedAt = System.currentTimeMillis(),
+                                            finishedAt = null,
+                                            result = "",
+                                        )
+                                    } else {
+                                        s
+                                    }
                                 },
                             )
-                        } else v
+                        } else {
+                            v
+                        }
                     },
                 )
             }
@@ -137,9 +141,11 @@ class ChatTaskCardCoordinator(
                 // 这里再显式 catch 以区分"超时(null)"与"外部取消(抛出)"。
                 val retryResult: String? = try {
                     withTimeoutOrNull(retryTimeoutMs) {
-                        when (val r = resultOf {
-                            routeGuard.executeFromJson(step.title, retryArgs)
-                        }) {
+                        when (
+                            val r = resultOf {
+                                routeGuard.executeFromJson(step.title, retryArgs)
+                            }
+                        ) {
                             is io.zer0.common.Result.Success -> r.data
                             is io.zer0.common.Result.Error -> "重试执行异常: ${r.message}"
                         }
@@ -205,15 +211,21 @@ class ChatTaskCardCoordinator(
                         v.copy(
                             isExpanded = if (autoExpand) true else v.isExpanded,
                             steps = v.steps.map { s ->
-                                if (s.id == stepId) s.copy(
-                                    status = status,
-                                    result = result,
-                                    startedAt = startedAt,
-                                    finishedAt = finishedAt,
-                                ) else s
+                                if (s.id == stepId) {
+                                    s.copy(
+                                        status = status,
+                                        result = result,
+                                        startedAt = startedAt,
+                                        finishedAt = finishedAt,
+                                    )
+                                } else {
+                                    s
+                                }
                             },
                         )
-                    } else v
+                    } else {
+                        v
+                    }
                 },
             )
         }
@@ -223,8 +235,7 @@ class ChatTaskCardCoordinator(
      * 判定工具执行结果是否成功(P2-22:委托共享判定器 [io.zer0.muse.tools.ToolResultJudge],
      * 与子代理/定时任务/测试共用同一实现,消除中文子串判定漂移)。
      */
-    fun isToolResultSuccess(result: String): Boolean =
-        io.zer0.muse.tools.ToolResultJudge.isSuccess(result)
+    fun isToolResultSuccess(result: String): Boolean = io.zer0.muse.tools.ToolResultJudge.isSuccess(result)
 
     private companion object {
         /** Phase 3: 单步重试执行超时(2 分钟,与 ToolOrchestrator 的工具超时对齐)。 */

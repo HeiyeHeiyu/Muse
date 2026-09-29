@@ -25,11 +25,7 @@ class WebSearchCoordinator(
     private val _lastResponse = MutableStateFlow<WebSearchResponse?>(null)
     val lastResponse: StateFlow<WebSearchResponse?> = _lastResponse.asStateFlow()
 
-    suspend fun search(
-        request: WebSearchRequest,
-        turnKey: String,
-        policy: WebSearchPolicy = WebSearchPolicy(),
-    ): WebSearchResponse {
+    suspend fun search(request: WebSearchRequest, turnKey: String, policy: WebSearchPolicy = WebSearchPolicy()): WebSearchResponse {
         val normalized = WebSearchQueryNormalizer.normalize(request.query)
         if (normalized.isBlank()) {
             return WebSearchResponse(request.query, normalized, status = WebSearchStatus.EMPTY)
@@ -55,12 +51,26 @@ class WebSearchCoordinator(
 
         val started = System.currentTimeMillis()
         return try {
-            val results = service.searchWithOptions(normalized, request.maxResults, mapOfNotNull(request.dateRange?.let { "date_range" to it }))
+            val results = service.searchWithOptions(
+                normalized,
+                request.maxResults,
+                mapOfNotNull(request.dateRange?.let { "date_range" to it }),
+            )
             val status = if (results.isEmpty()) WebSearchStatus.EMPTY else WebSearchStatus.RESULTS
             mutex.withLock { if (results.isEmpty()) state.empty++ else state.empty = 0 }
             WebSearchResponse(
-                request.query, normalized, service.name, results,
-                listOf(WebSearchAttempt(service.name, if (results.isEmpty()) WebSearchAttemptStatus.EMPTY else WebSearchAttemptStatus.SUCCESS, results.size, System.currentTimeMillis() - started)),
+                request.query,
+                normalized,
+                service.name,
+                results,
+                listOf(
+                    WebSearchAttempt(
+                        service.name,
+                        if (results.isEmpty()) WebSearchAttemptStatus.EMPTY else WebSearchAttemptStatus.SUCCESS,
+                        results.size,
+                        System.currentTimeMillis() - started,
+                    ),
+                ),
                 status,
             ).also {
                 Logger.i(
@@ -73,7 +83,22 @@ class WebSearchCoordinator(
         } catch (e: Exception) {
             val status = if (e is SearchRateLimitException) WebSearchStatus.RATE_LIMITED else WebSearchStatus.FAILED
             mutex.withLock { state.empty++ }
-            WebSearchResponse(request.query, normalized, service.name, emptyList(), listOf(WebSearchAttempt(service.name, if (e is SearchRateLimitException) WebSearchAttemptStatus.RATE_LIMITED else WebSearchAttemptStatus.FAILED, 0, System.currentTimeMillis() - started, e.message)), status).also {
+            WebSearchResponse(
+                request.query,
+                normalized,
+                service.name,
+                emptyList(),
+                listOf(
+                    WebSearchAttempt(
+                        service.name,
+                        if (e is SearchRateLimitException) WebSearchAttemptStatus.RATE_LIMITED else WebSearchAttemptStatus.FAILED,
+                        0,
+                        System.currentTimeMillis() - started,
+                        e.message,
+                    ),
+                ),
+                status,
+            ).also {
                 Logger.w(
                     "WebSearch",
                     "outcome provider=${service.name}, status=${it.status}, elapsedMs=${it.attempts.firstOrNull()?.elapsedMs ?: 0}, " +

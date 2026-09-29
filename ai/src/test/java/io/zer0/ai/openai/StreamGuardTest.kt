@@ -131,10 +131,12 @@ class StreamGuardTest {
         }
         server.enqueue(
             sse(
-                *(malformedToolChunks + listOf(
-                    """{"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}""",
-                    """[DONE]""",
-                )).toTypedArray(),
+                *(
+                    malformedToolChunks + listOf(
+                        """{"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}""",
+                        """[DONE]""",
+                    )
+                    ).toTypedArray(),
             ),
         )
         server.enqueue(

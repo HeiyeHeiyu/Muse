@@ -42,13 +42,7 @@ internal class CloudDocumentParser(
      * @param token 可选 Token,MinerU 模式会同时作为 Bearer Token 与 `token` form 字段
      * @param mineruMode 是否为 MinerU 专用模式
      */
-    fun parse(
-        bytes: ByteArray,
-        fileName: String,
-        endpoint: String,
-        token: String = "",
-        mineruMode: Boolean = false,
-    ): Result<String> {
+    fun parse(bytes: ByteArray, fileName: String, endpoint: String, token: String = "", mineruMode: Boolean = false): Result<String> {
         if (endpoint.isBlank()) return Result.Error("云端解析 endpoint 未配置")
         if (bytes.isEmpty()) return Result.Error("待解析文件内容为空")
         return resultOf {
@@ -83,13 +77,7 @@ internal class CloudDocumentParser(
         }
     }
 
-    private fun pollResult(
-        taskId: String,
-        endpoint: String,
-        initialBody: String,
-        token: String,
-        mineruMode: Boolean,
-    ): String {
+    private fun pollResult(taskId: String, endpoint: String, initialBody: String, token: String, mineruMode: Boolean): String {
         var pollUrl = extractResultUrl(initialBody) ?: buildPollUrl(endpoint, taskId, mineruMode)
         repeat(maxPollAttempts) { attempt ->
             if (attempt > 0) Thread.sleep(pollIntervalMs)

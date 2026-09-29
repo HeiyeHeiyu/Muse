@@ -31,8 +31,7 @@ object ParamPolicies {
     }
 
     /** 查询策略(未注册返回 null)。 */
-    fun evaluate(toolName: String, args: Map<String, Any?>): ToolApprovalState? =
-        registry[toolName]?.evaluate(args)
+    fun evaluate(toolName: String, args: Map<String, Any?>): ToolApprovalState? = registry[toolName]?.evaluate(args)
 
     /** 注册内置策略(构造时调用一次)。 */
     fun registerBuiltIn() {
@@ -59,7 +58,9 @@ object ParamPolicies {
             ).any { code.contains(it) }
             if (dangerous) {
                 ToolApprovalState.Denied("代码包含危险操作(rm -rf/进程执行/敏感信息外传),已拦截")
-            } else null
+            } else {
+                null
+            }
         }
     }
 }

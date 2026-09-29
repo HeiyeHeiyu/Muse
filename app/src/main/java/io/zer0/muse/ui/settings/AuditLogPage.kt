@@ -20,20 +20,17 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -48,18 +45,21 @@ import io.zer0.common.AppJson
 import io.zer0.muse.R
 import io.zer0.muse.data.audit.AuditLogEntity
 import io.zer0.muse.data.audit.AuditLogger
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.media.WindowWidthClass
 import io.zer0.muse.ui.common.media.rememberWindowWidthClass
+import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.theme.MuseDateFormats
 import io.zer0.muse.ui.theme.MuseIconSizes
-import io.zer0.muse.util.ShareIntentHelper
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
+import io.zer0.muse.util.ShareIntentHelper
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonArray
@@ -90,9 +90,7 @@ import java.util.Locale
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun AuditLogPage(
-    onBack: () -> Unit,
-) {
+fun AuditLogPage(onBack: () -> Unit) {
     val auditLogger: AuditLogger = koinInject()
     val scope = rememberCoroutineScope()
     val widthClass = rememberWindowWidthClass()
@@ -144,10 +142,12 @@ fun AuditLogPage(
         } else {
             logs.filter { log ->
                 (cat == null || log.category == cat) &&
-                    (q.isEmpty() ||
-                        log.action.lowercase(Locale.getDefault()).contains(q) ||
-                        log.target.lowercase(Locale.getDefault()).contains(q) ||
-                        log.detail.lowercase(Locale.getDefault()).contains(q))
+                    (
+                        q.isEmpty() ||
+                            log.action.lowercase(Locale.getDefault()).contains(q) ||
+                            log.target.lowercase(Locale.getDefault()).contains(q) ||
+                            log.detail.lowercase(Locale.getDefault()).contains(q)
+                        )
             }
         }
     }
@@ -204,7 +204,7 @@ fun AuditLogPage(
                                 Modifier.widthIn(max = 720.dp)
                             } else {
                                 Modifier
-                            }
+                            },
                         )
                         .padding(horizontal = MusePaddings.screen),
                     contentPadding = PaddingValues(
@@ -431,7 +431,9 @@ private fun FilterHeader(
                         iconSize = MuseIconSizes.iconSmall,
                     )
                 }
-            } else null,
+            } else {
+                null
+            },
             singleLine = true,
         )
     }
@@ -442,11 +444,7 @@ private fun FilterHeader(
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AuditLogRow(
-    log: AuditLogEntity,
-    dateFormat: SimpleDateFormat,
-    onLongClick: () -> Unit,
-) {
+private fun AuditLogRow(log: AuditLogEntity, dateFormat: SimpleDateFormat, onLongClick: () -> Unit) {
     Surface(
         shape = MuseShapes.large,
         color = MaterialTheme.colorScheme.surface,
@@ -660,16 +658,18 @@ private fun shareAuditLogsAsJson(context: android.content.Context, logs: List<Au
     val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.getDefault())
     val jsonArray: JsonArray = buildJsonArray {
         for (log in logs) {
-            add(buildJsonObject {
-                put("id", log.id)
-                put("timestamp", log.timestamp)
-                put("iso_time", isoFormat.format(Date(log.timestamp)))
-                put("category", log.category)
-                put("action", log.action)
-                put("target", log.target)
-                put("detail", log.detail)
-                put("success", log.success)
-            })
+            add(
+                buildJsonObject {
+                    put("id", log.id)
+                    put("timestamp", log.timestamp)
+                    put("iso_time", isoFormat.format(Date(log.timestamp)))
+                    put("category", log.category)
+                    put("action", log.action)
+                    put("target", log.target)
+                    put("detail", log.detail)
+                    put("success", log.success)
+                },
+            )
         }
     }
     val compactJson = AppJson.encodeToString(JsonArray.serializer(), jsonArray)
@@ -704,4 +704,3 @@ private fun shareAuditLogsAsJson(context: android.content.Context, logs: List<Au
         MuseToast.show(context.getString(R.string.audit_log_export_failed))
     }
 }
-

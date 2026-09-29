@@ -109,7 +109,6 @@ interface KnowledgeDocDao {
     suspend fun deleteAll()
 
     companion object {
-        fun escapeLikeQuery(query: String): String =
-            query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        fun escapeLikeQuery(query: String): String = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     }
 }

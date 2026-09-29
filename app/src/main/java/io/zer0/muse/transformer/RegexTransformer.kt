@@ -65,12 +65,7 @@ object RegexTransformer {
      * @param visualOnly true=仅过滤 visualOnly 规则;false=仅过滤非 visualOnly 规则
      * @return 替换后的文本
      */
-    fun applyRules(
-        text: String,
-        rules: List<AssistantRegex>,
-        scope: String,
-        visualOnly: Boolean = false,
-    ): String {
+    fun applyRules(text: String, rules: List<AssistantRegex>, scope: String, visualOnly: Boolean = false): String {
         if (rules.isEmpty() || text.isEmpty()) return text
 
         var result = text

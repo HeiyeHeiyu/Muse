@@ -48,6 +48,7 @@ private val FENCE_REGEX = Regex("^```(.*)$")
 private val HEADING_REGEX = Regex("^(#{1,3})\\s+(.+)$")
 private val ORDERED_LIST_REGEX = Regex("^(\\d+)\\.\\s+(.+)$")
 private val UNORDERED_LIST_REGEX = Regex("^[-*]\\s+(.+)$")
+
 // v1.97: 图片语法正则 — ![](url) 和 ![alt](url),图片已通过 displayImageUris 渲染,文本中跳过
 private val IMAGE_SYNTAX_REGEX = Regex("!\\[[^\\]]*\\]\\([^)]+\\)")
 
@@ -192,7 +193,7 @@ internal fun parseMarkdownPass(lines: List<String>, startLine: Int): ParsePassRe
                 blocks.add(MarkdownBlock.Formula(formulaLines.joinToString("\n").trim()))
                 blockStartLines.add(formulaStart)
             }
-            if (!closed && i < lines.size) i++  // 容错:未闭合 $$ 也跳出
+            if (!closed && i < lines.size) i++ // 容错:未闭合 $$ 也跳出
             // 未找到闭合 $$ 时标记开放,流式追加需从 formulaStart 重扫
             if (!closed) openStartLine = formulaStart
             orderedIndex = 0

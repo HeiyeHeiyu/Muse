@@ -29,10 +29,7 @@ class SessionExecutionRegistryPruningTest {
         streamId = "stream-$generationId",
     )
 
-    private fun registry(
-        retentionMs: Long = 60_000L,
-        maxHistory: Int = 256,
-    ) = SessionExecutionRegistry(
+    private fun registry(retentionMs: Long = 60_000L, maxHistory: Int = 256) = SessionExecutionRegistry(
         historyRetentionMs = retentionMs,
         maxHistoryRecords = maxHistory,
         nowMs = { now },

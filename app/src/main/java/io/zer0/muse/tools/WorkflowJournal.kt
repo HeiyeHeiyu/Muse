@@ -39,10 +39,13 @@ class WorkflowJournal(
         // nodeKind 取值常量(对齐 §5.4 节点类型分级)
         /** 纯工具调用节点(无 LLM,确定性输出)。 */
         const val NODE_KIND_TOOL_ONLY = "tool_only"
+
         /** LLM 总结节点(温度=0,如条件判断 YES/NO,输出空间极小视为确定性)。 */
         const val NODE_KIND_LLM_DETERMINISTIC = "llm_deterministic"
+
         /** LLM 生成节点(温度>0,如 aggregateResults 的 LLM_REVIEW,输出不可复现)。 */
         const val NODE_KIND_LLM_GENERATIVE = "llm_generative"
+
         /** delegate_agent / subagent_run 节点(工具结果可缓存,LLM 总结按上级行规则)。 */
         const val NODE_KIND_DELEGATION = "delegation"
 
@@ -95,30 +98,24 @@ class WorkflowJournal(
      * @param status done|failed
      * @param nodeKind 节点类型([NODE_KIND_*] 常量)
      */
-    suspend fun record(
-        runId: String,
-        nodeSeq: Int,
-        key: String,
-        result: String,
-        status: String,
-        nodeKind: String,
-    ) = withContext(Dispatchers.IO) {
-        resultOf {
-            val file = pathOf(runId)
-            file.parentFile?.mkdirs()
-            val entry = Entry(
-                nodeSeq = nodeSeq,
-                key = key,
-                result = result,
-                status = status,
-                nodeKind = nodeKind,
-                ts = System.currentTimeMillis(),
-            )
-            file.appendText(AppJson.encodeToString(Entry.serializer(), entry) + "\n")
-        }.onError { msg, t ->
-            Logger.w(TAG, "record 失败 runId=$runId seq=$nodeSeq: $msg", t)
+    suspend fun record(runId: String, nodeSeq: Int, key: String, result: String, status: String, nodeKind: String) =
+        withContext(Dispatchers.IO) {
+            resultOf {
+                val file = pathOf(runId)
+                file.parentFile?.mkdirs()
+                val entry = Entry(
+                    nodeSeq = nodeSeq,
+                    key = key,
+                    result = result,
+                    status = status,
+                    nodeKind = nodeKind,
+                    ts = System.currentTimeMillis(),
+                )
+                file.appendText(AppJson.encodeToString(Entry.serializer(), entry) + "\n")
+            }.onError { msg, t ->
+                Logger.w(TAG, "record 失败 runId=$runId seq=$nodeSeq: $msg", t)
+            }
         }
-    }
 
     /**
      * 加载全部条目,返回 Map<nodeSeq, Entry>。
@@ -163,15 +160,12 @@ class WorkflowJournal(
      * @param expectedKeys 调用方本次期望的 (nodeSeq → key) 映射,用于校验缓存是否仍匹配当前输入。
      *                     为空时不校验 key(仅按 status 判断),适合节点定义未变的简单 resume。
      */
-    suspend fun resume(
-        runId: String,
-        expectedKeys: Map<Int, String> = emptyMap(),
-    ): ResumeResult = withContext(Dispatchers.IO) {
+    suspend fun resume(runId: String, expectedKeys: Map<Int, String> = emptyMap()): ResumeResult = withContext(Dispatchers.IO) {
         val loaded = load(runId)
         if (loaded.isEmpty()) return@withContext ResumeResult(resumeFromSeq = 0, cached = emptyMap())
 
         val cached = mutableMapOf<Int, Entry>()
-        var resumeFromSeq = loaded.keys.maxOrNull()!! + 1  // 默认:全部命中,无需重跑
+        var resumeFromSeq = loaded.keys.maxOrNull()!! + 1 // 默认:全部命中,无需重跑
 
         for (seq in loaded.keys.sorted()) {
             val entry = loaded[seq]!!

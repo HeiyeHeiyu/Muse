@@ -46,11 +46,7 @@ import io.zer0.muse.ui.theme.largeCard
  * 旧版为 180dp 固定宽小卡，信息薄、与"文件"心智不符（用户反馈"太丑/毛坯"）。
  */
 @Composable
-fun ArtifactCard(
-    artifact: ArtifactEntity,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun ArtifactCard(artifact: ArtifactEntity, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val meta = artifactMetaLabel(type = artifact.type, language = artifact.language)
     val isWeb = richPreviewLanguage(artifact.type, artifact.language) != null
     val isCode = artifact.type.lowercase() == "code"
@@ -202,10 +198,7 @@ internal fun artifactTypeLabel(type: String): String = when (type.lowercase()) {
 
 /** 超出 [MAX_VISIBLE_ARTIFACT_CARDS] 时尾部的 "+N" 折叠条,点击展开全部。 */
 @Composable
-internal fun ArtifactOverflowCard(
-    hiddenCount: Int,
-    onClick: () -> Unit,
-) {
+internal fun ArtifactOverflowCard(hiddenCount: Int, onClick: () -> Unit) {
     val description = stringResource(R.string.artifact_more_count, hiddenCount)
     MuseSurface(
         onClick = onClick,

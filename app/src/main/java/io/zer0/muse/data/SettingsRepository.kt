@@ -218,11 +218,7 @@ class SettingsRepository(
      * @param keyName 配置项名称(仅用于日志标识)
      * @return 解析成功返回配置对象,raw 为 null 或解析失败返回 null
      */
-    private fun <T> decodePrefsOrNull(
-        raw: String?,
-        serializer: KSerializer<T>,
-        keyName: String,
-    ): T? {
+    private fun <T> decodePrefsOrNull(raw: String?, serializer: KSerializer<T>, keyName: String): T? {
         if (raw == null) return null
         return runCatching { AppJson.decodeFromString(serializer, raw) }.getOrElse {
             Logger.w("SettingsRepository", "$keyName 解析失败,回退默认值", it)
@@ -245,7 +241,7 @@ class SettingsRepository(
                         (
                             config.displayName.contains("免费", ignoreCase = true) ||
                                 config.displayName.contains("free", ignoreCase = true)
-                        ) &&
+                            ) &&
                         config.models.any { it.id in io.zer0.ai.core.FreeModelConfig.FREE_MODEL_IDS }
                 val internalized =
                     if (
@@ -849,10 +845,7 @@ class SettingsRepository(
     }
 
     /** 保存每日总结,单独存日期和正文,避免正文中的分隔符破坏解析。 */
-    suspend fun saveDailySummary(
-        date: String,
-        summary: String,
-    ) {
+    suspend fun saveDailySummary(date: String, summary: String) {
         val cleanDate = date.trim()
         val cleanSummary = summary.trim().take(200)
         if (cleanDate.isBlank() || cleanSummary.isBlank()) return
@@ -1107,12 +1100,11 @@ class SettingsRepository(
      * P3-7: base64 data URI 不再直存 DataStore(会话级数据膨胀 + 备份白名单外流风险),
      * 解码落文件后只存路径;URL/既有 file 路径原样保存。返回实际落库的值供 UI 立即使用。
      */
-    suspend fun saveMomentsCoverImage(uri: String?): String? =
-        persistImageAsset("moments", COVER_IMAGE_SLOT, uri) { resolved ->
-            store.edit { prefs ->
-                if (resolved == null) prefs.remove(KEY_MOMENTS_COVER_IMAGE) else prefs[KEY_MOMENTS_COVER_IMAGE] = resolved
-            }
+    suspend fun saveMomentsCoverImage(uri: String?): String? = persistImageAsset("moments", COVER_IMAGE_SLOT, uri) { resolved ->
+        store.edit { prefs ->
+            if (resolved == null) prefs.remove(KEY_MOMENTS_COVER_IMAGE) else prefs[KEY_MOMENTS_COVER_IMAGE] = resolved
         }
+    }
 
     // ── v1.0.73: 小手机桌面壁纸 ─────────────────────────────────────
 
@@ -1123,23 +1115,17 @@ class SettingsRepository(
         }
 
     /** v1.0.73: 保存小手机桌面壁纸。 */
-    suspend fun saveMiniPhoneWallpaper(uri: String?): String? =
-        persistImageAsset("moments", WALLPAPER_SLOT, uri) { resolved ->
-            store.edit { prefs ->
-                if (resolved == null) prefs.remove(KEY_MINIPHONE_WALLPAPER) else prefs[KEY_MINIPHONE_WALLPAPER] = resolved
-            }
+    suspend fun saveMiniPhoneWallpaper(uri: String?): String? = persistImageAsset("moments", WALLPAPER_SLOT, uri) { resolved ->
+        store.edit { prefs ->
+            if (resolved == null) prefs.remove(KEY_MINIPHONE_WALLPAPER) else prefs[KEY_MINIPHONE_WALLPAPER] = resolved
         }
+    }
 
     /**
      * P3-7: 图片资源落文件辅助 — data URI 解码写入 filesDir/<dir>/<slot>.img,
      * 返回文件路径(或原样传入的 URL/file)。null 清除:删除文件并落 null。
      */
-    private suspend fun persistImageAsset(
-        dirName: String,
-        slot: String,
-        uri: String?,
-        persist: suspend (String?) -> Unit,
-    ): String? {
+    private suspend fun persistImageAsset(dirName: String, slot: String, uri: String?, persist: suspend (String?) -> Unit): String? {
         val resolved =
             if (uri.isNullOrBlank()) {
                 null
@@ -1160,13 +1146,12 @@ class SettingsRepository(
     }
 
     /** P3-7: 解析 data:<mime>;base64,<payload> → 字节;失败返回 null。 */
-    private fun decodeDataUri(uri: String): ByteArray? =
-        runCatching {
-            val comma = uri.indexOf(',')
-            if (comma <= 0) return@runCatching null
-            val base64 = uri.substring(comma + 1)
-            android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
-        }.getOrNull()
+    private fun decodeDataUri(uri: String): ByteArray? = runCatching {
+        val comma = uri.indexOf(',')
+        if (comma <= 0) return@runCatching null
+        val base64 = uri.substring(comma + 1)
+        android.util.Base64.decode(base64, android.util.Base64.DEFAULT)
+    }.getOrNull()
 
     // ── v1.0.73: 朋友圈未读状态 ─────────────────────────────────────
 
@@ -1370,10 +1355,7 @@ class SettingsRepository(
         cacheScope.launch { taskRoutingConfigFlow.collect { taskRoutingConfigCache = it } }
     }
 
-    suspend fun mockLogin(
-        userName: String,
-        method: String = "phone",
-    ) {
+    suspend fun mockLogin(userName: String, method: String = "phone") {
         store.edit {
                 prefs ->
             prefs[KEY_ACCOUNT_LOGGED_IN] = true
@@ -1420,10 +1402,7 @@ class SettingsRepository(
             decodePrefsOrNull(prefs[KEY_MODEL_PROFILES], modelProfileSerializer, "ModelProfiles") ?: emptyMap()
         }
 
-    suspend fun saveModelProfile(
-        modelId: String,
-        profile: ModelProfile,
-    ) {
+    suspend fun saveModelProfile(modelId: String, profile: ModelProfile) {
         store.edit {
             val current = decodePrefsOrNull(it[KEY_MODEL_PROFILES], modelProfileSerializer, "ModelProfiles(save)") ?: emptyMap()
             val updated = current.toMutableMap().apply { put(modelId, profile) }
@@ -1730,10 +1709,7 @@ class SettingsRepository(
         store.edit { it[KEY_MULTI_AGENT_LLM_REVIEW_ENABLED] = enabled }
     }
 
-    suspend fun saveMcpToken(
-        serverId: String,
-        token: io.zer0.muse.mcp.McpTokenInfo,
-    ) {
+    suspend fun saveMcpToken(serverId: String, token: io.zer0.muse.mcp.McpTokenInfo) {
         store.edit {
             it[stringPreferencesKey("mcp_token_$serverId")] = AppJson.encodeToString(io.zer0.muse.mcp.McpTokenInfo.serializer(), token.copy(accessToken = SecureKeyStore.encrypt(token.accessToken), refreshToken = SecureKeyStore.encrypt(token.refreshToken)))
         }
@@ -1881,47 +1857,47 @@ class SettingsRepository(
                     visionModelId = prefs[KEY_VISION_MODEL_ID],
                     visionProviderId = prefs[KEY_VISION_PROVIDER_ID],
                     utilityModelBinding =
-                        decodePrefsOrNull(
-                            prefs[KEY_UTILITY_MODEL_BINDING],
-                            UtilityModelBinding.serializer(),
-                            "UtilityModelBinding(deleteProvider)",
-                        ),
+                    decodePrefsOrNull(
+                        prefs[KEY_UTILITY_MODEL_BINDING],
+                        UtilityModelBinding.serializer(),
+                        "UtilityModelBinding(deleteProvider)",
+                    ),
                     utilityLargeModelBinding =
-                        decodePrefsOrNull(
-                            prefs[KEY_UTILITY_LARGE_MODEL_BINDING],
-                            UtilityModelBinding.serializer(),
-                            "UtilityLargeModelBinding(deleteProvider)",
-                        ),
+                    decodePrefsOrNull(
+                        prefs[KEY_UTILITY_LARGE_MODEL_BINDING],
+                        UtilityModelBinding.serializer(),
+                        "UtilityLargeModelBinding(deleteProvider)",
+                    ),
                     sessionModelOverrides =
-                        decodePrefsOrNull(
-                            prefs[KEY_SESSION_MODEL_OVERRIDES],
-                            sessionModelOverrideSerializer,
-                            "SessionModelOverrides(deleteProvider)",
-                        ) ?: emptyMap(),
+                    decodePrefsOrNull(
+                        prefs[KEY_SESSION_MODEL_OVERRIDES],
+                        sessionModelOverrideSerializer,
+                        "SessionModelOverrides(deleteProvider)",
+                    ) ?: emptyMap(),
                     sessionProviderOverrides =
-                        decodePrefsOrNull(
-                            prefs[KEY_SESSION_PROVIDER_OVERRIDES],
-                            sessionModelOverrideSerializer,
-                            "SessionProviderOverrides(deleteProvider)",
-                        ) ?: emptyMap(),
+                    decodePrefsOrNull(
+                        prefs[KEY_SESSION_PROVIDER_OVERRIDES],
+                        sessionModelOverrideSerializer,
+                        "SessionProviderOverrides(deleteProvider)",
+                    ) ?: emptyMap(),
                     imageGenConfig =
-                        decodePrefsOrNull(
-                            prefs[KEY_IMAGE_GEN_CONFIG],
-                            ImageGenConfig.serializer(),
-                            "ImageGenConfig(deleteProvider)",
-                        ) ?: ImageGenConfig(),
+                    decodePrefsOrNull(
+                        prefs[KEY_IMAGE_GEN_CONFIG],
+                        ImageGenConfig.serializer(),
+                        "ImageGenConfig(deleteProvider)",
+                    ) ?: ImageGenConfig(),
                     videoGenConfig =
-                        decodePrefsOrNull(
-                            prefs[KEY_VIDEO_GEN_CONFIG],
-                            VideoGenConfig.serializer(),
-                            "VideoGenConfig(deleteProvider)",
-                        ) ?: VideoGenConfig(),
+                    decodePrefsOrNull(
+                        prefs[KEY_VIDEO_GEN_CONFIG],
+                        VideoGenConfig.serializer(),
+                        "VideoGenConfig(deleteProvider)",
+                    ) ?: VideoGenConfig(),
                     taskRoutingConfig =
-                        decodePrefsOrNull(
-                            prefs[KEY_TASK_ROUTING_CONFIG],
-                            TaskRoutingConfig.serializer(),
-                            "TaskRoutingConfig(deleteProvider)",
-                        ) ?: TaskRoutingConfig(),
+                    decodePrefsOrNull(
+                        prefs[KEY_TASK_ROUTING_CONFIG],
+                        TaskRoutingConfig.serializer(),
+                        "TaskRoutingConfig(deleteProvider)",
+                    ) ?: TaskRoutingConfig(),
                 )
             prefs[KEY_PROVIDERS] = encodeProviders(result.providers)
             writeNullablePreference(prefs, KEY_ACTIVE_PROVIDER_ID, result.activeProviderId)
@@ -1979,18 +1955,12 @@ class SettingsRepository(
     }
 
     /** 保存单个会话的模型覆盖；传 null 清除覆盖并回退全局默认模型。 */
-    suspend fun saveSessionModelOverride(
-        sessionId: String,
-        modelId: String?,
-    ) {
+    suspend fun saveSessionModelOverride(sessionId: String, modelId: String?) {
         saveSessionOverride(KEY_SESSION_MODEL_OVERRIDES, "SessionModelOverrides(save)", sessionId, modelId)
     }
 
     /** 保存单个会话的 Provider 覆盖；传 null 清除覆盖并回退全局默认 Provider。 */
-    suspend fun saveSessionProviderOverride(
-        sessionId: String,
-        providerId: String?,
-    ) {
+    suspend fun saveSessionProviderOverride(sessionId: String, providerId: String?) {
         saveSessionOverride(KEY_SESSION_PROVIDER_OVERRIDES, "SessionProviderOverrides(save)", sessionId, providerId)
     }
 
@@ -2014,12 +1984,7 @@ class SettingsRepository(
         }
     }
 
-    private suspend fun saveSessionOverride(
-        key: Preferences.Key<String>,
-        keyName: String,
-        sessionId: String,
-        value: String?,
-    ) {
+    private suspend fun saveSessionOverride(key: Preferences.Key<String>, keyName: String, sessionId: String, value: String?) {
         store.edit { prefs ->
             val overrides =
                 decodePrefsOrNull(prefs[key], sessionModelOverrideSerializer, keyName)
@@ -2130,10 +2095,7 @@ class SettingsRepository(
     fun getLanguageSync(): String = appSettings.getLanguageSync()
 
     /** 功能2: 保存指定会话的输入草稿(空文本时删除 key)。 */
-    suspend fun saveChatDraft(
-        sessionId: String,
-        draft: String,
-    ) {
+    suspend fun saveChatDraft(sessionId: String, draft: String) {
         store.edit { prefs ->
             val drafts = decodePrefsOrNull(prefs[KEY_CHAT_DRAFTS], MapSerializer(String.serializer(), String.serializer()), "ChatDrafts")?.toMutableMap() ?: mutableMapOf()
             if (draft.isBlank()) {
@@ -2211,10 +2173,9 @@ class SettingsRepository(
 
     suspend fun markOnboardingShown() = appearance.markOnboardingShown()
 
-    override suspend fun get(): ProviderConfig? =
-        providersFlow.first()?.firstOrNull {
-            it.id == activeProviderIdFlow.first()
-        } ?: providersFlow.first()?.firstOrNull()
+    override suspend fun get(): ProviderConfig? = providersFlow.first()?.firstOrNull {
+        it.id == activeProviderIdFlow.first()
+    } ?: providersFlow.first()?.firstOrNull()
 
     /**
      * v2.2.1: [ProviderConfigStore] 首选回退 — 后台任务用"当前选中模型"而非激活 Provider 首个模型。
@@ -2317,11 +2278,10 @@ class SettingsRepository(
     // 旧版明文数据 decrypt 透传,下次写入时 encrypt 自动加密(无需显式迁移)。
 
     /** 加密每个 Provider 的 apiKey 后序列化为 JSON。 */
-    private suspend fun encodeProviders(list: List<ProviderConfig>): String =
-        AppJson.encodeToString(
-            ListSerializer(ProviderConfig.serializer()),
-            list.map { it.copy(apiKey = SecureKeyStore.encrypt(it.apiKey)) },
-        )
+    private suspend fun encodeProviders(list: List<ProviderConfig>): String = AppJson.encodeToString(
+        ListSerializer(ProviderConfig.serializer()),
+        list.map { it.copy(apiKey = SecureKeyStore.encrypt(it.apiKey)) },
+    )
 
     /**
      * 反序列化 JSON 后解密每个 Provider 的 apiKey。
@@ -2332,15 +2292,14 @@ class SettingsRepository(
      * 用 [resultOf] 而非 runCatching: block 内含 suspend 调用(SecureKeyStore.decrypt),
      * runCatching 会吞掉 CancellationException 破坏结构化并发,resultOf 会重抛。
      */
-    private suspend fun decodeProviders(json: String): List<ProviderConfig>? =
-        resultOf {
-            AppJson.decodeFromString(ListSerializer(ProviderConfig.serializer()), json)
-                .map { it.copy(apiKey = SecureKeyStore.decrypt(it.apiKey)) }
-                // v1.0.7: 幂等迁移 — 给旧数据(v1.0.6 及之前,无 specId 字段)推断 specId
-                .map { migrateSpecId(it) }
-        }.onError { msg, t ->
-            Logger.w("SettingsRepository", "Providers JSON 解析失败,回退 null: $msg", t)
-        }.getOrNull()
+    private suspend fun decodeProviders(json: String): List<ProviderConfig>? = resultOf {
+        AppJson.decodeFromString(ListSerializer(ProviderConfig.serializer()), json)
+            .map { it.copy(apiKey = SecureKeyStore.decrypt(it.apiKey)) }
+            // v1.0.7: 幂等迁移 — 给旧数据(v1.0.6 及之前,无 specId 字段)推断 specId
+            .map { migrateSpecId(it) }
+    }.onError { msg, t ->
+        Logger.w("SettingsRepository", "Providers JSON 解析失败,回退 null: $msg", t)
+    }.getOrNull()
 
     // ── 备份: 设置快照导出/导入 ─────────────────────────────────────
 
@@ -2647,11 +2606,7 @@ class SettingsRepository(
     }
 
     /** 保存连接测试缓存。 */
-    suspend fun saveConnectionTestCache(
-        providerId: String,
-        result: String,
-        isSuccess: Boolean,
-    ) {
+    suspend fun saveConnectionTestCache(providerId: String, result: String, isSuccess: Boolean) {
         val entry = ConnectionTestCacheEntry(result = result, isSuccess = isSuccess)
         connectionTestCache = connectionTestCache + (providerId to entry)
         store.edit {
@@ -2737,10 +2692,7 @@ class SettingsRepository(
     }
 
     /** 根据任务类型推荐模型 id(路由开启时返回绑定模型,否则 null)。非 suspend,基于内存缓存。 */
-    fun recommendModelForTask(
-        input: String,
-        fallbackModelId: String?,
-    ): String? {
+    fun recommendModelForTask(input: String, fallbackModelId: String?): String? {
         return recommendTaskRoute(input, fallbackModelId, null)?.modelId ?: fallbackModelId
     }
 
@@ -2748,11 +2700,7 @@ class SettingsRepository(
      * 根据输入检测任务类型并返回模型 + Provider 选择。
      * 未配置对应类型时返回 null,调用方继续使用当前会话/全局选择。
      */
-    fun recommendTaskRoute(
-        input: String,
-        fallbackModelId: String?,
-        fallbackProviderId: String?,
-    ): TaskRouteSelection? {
+    fun recommendTaskRoute(input: String, fallbackModelId: String?, fallbackProviderId: String?): TaskRouteSelection? {
         val config = taskRoutingConfigCache
         if (!config.enabled) return null
         val type = detectTaskType(input)

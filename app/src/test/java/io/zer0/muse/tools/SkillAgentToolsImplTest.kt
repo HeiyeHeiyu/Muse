@@ -75,10 +75,12 @@ class SkillAgentToolsImplTest {
 
         assertEquals(setOf("plan-a"), tools.getActivePlans(sessionA).keys)
         assertEquals(setOf("plan-b"), tools.getActivePlans(sessionB).keys)
-        assertTrue(tools.execUpdatePlanStep(
-            mapOf("planId" to "plan-a", "stepIndex" to "0", "status" to "done"),
-            sessionA,
-        ).contains("已更新"))
+        assertTrue(
+            tools.execUpdatePlanStep(
+                mapOf("planId" to "plan-a", "stepIndex" to "0", "status" to "done"),
+                sessionA,
+            ).contains("已更新"),
+        )
         assertEquals(
             AgentPlanStepStatus.DONE,
             tools.getActivePlans(sessionA).getValue("plan-a").steps.single().status,
@@ -87,9 +89,11 @@ class SkillAgentToolsImplTest {
             AgentPlanStepStatus.PENDING,
             tools.getActivePlans(sessionB).getValue("plan-b").steps.single().status,
         )
-        assertFalse(tools.execUpdatePlanStep(
-            mapOf("planId" to "plan-a", "stepIndex" to "0", "status" to "done"),
-            sessionB,
-        ).contains("已更新"))
+        assertFalse(
+            tools.execUpdatePlanStep(
+                mapOf("planId" to "plan-a", "stepIndex" to "0", "status" to "done"),
+                sessionB,
+            ).contains("已更新"),
+        )
     }
 }

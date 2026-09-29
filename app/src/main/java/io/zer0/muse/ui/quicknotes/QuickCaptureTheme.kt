@@ -14,11 +14,11 @@ import io.zer0.muse.ui.theme.DarkInk
 import io.zer0.muse.ui.theme.Ink
 import io.zer0.muse.ui.theme.LightAiBubble
 import io.zer0.muse.ui.theme.findPresetTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.map
 
 /**
@@ -91,10 +91,7 @@ internal fun observeQuickCaptureThemeColors(context: Context): Flow<QuickCapture
         .flowOn(Dispatchers.Default)
 }
 
-private fun resolveQuickCaptureThemeColors(
-    context: Context,
-    inputs: ThemeInputs,
-): QuickCaptureThemeColors {
+private fun resolveQuickCaptureThemeColors(context: Context, inputs: ThemeInputs): QuickCaptureThemeColors {
     val systemDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
         Configuration.UI_MODE_NIGHT_YES
     val dark = when (inputs.themeMode) {
@@ -126,34 +123,32 @@ private fun resolveQuickCaptureThemeColors(
     return effectiveScheme.toQuickCaptureThemeColors()
 }
 
-private fun ColorScheme.toQuickCaptureHighContrast(dark: Boolean): ColorScheme =
-    if (dark) {
-        copy(
-            background = androidx.compose.ui.graphics.Color.Black,
-            onBackground = androidx.compose.ui.graphics.Color.White,
-            surface = androidx.compose.ui.graphics.Color.Black,
-            onSurface = androidx.compose.ui.graphics.Color.White,
-            surfaceVariant = DarkAiBubble,
-            onSurfaceVariant = DarkInk,
-        )
-    } else {
-        copy(
-            background = androidx.compose.ui.graphics.Color.White,
-            onBackground = androidx.compose.ui.graphics.Color.Black,
-            surface = androidx.compose.ui.graphics.Color.White,
-            onSurface = androidx.compose.ui.graphics.Color.Black,
-            surfaceVariant = LightAiBubble,
-            onSurfaceVariant = Ink,
-        )
-    }
-
-private fun ColorScheme.toQuickCaptureThemeColors(): QuickCaptureThemeColors =
-    QuickCaptureThemeColors(
-        primary = primary.toArgb(),
-        onPrimary = onPrimary.toArgb(),
-        surface = surface.toArgb(),
-        onSurface = onSurface.toArgb(),
-        surfaceVariant = surfaceVariant.toArgb(),
-        onSurfaceVariant = onSurfaceVariant.toArgb(),
-        outline = outline.toArgb(),
+private fun ColorScheme.toQuickCaptureHighContrast(dark: Boolean): ColorScheme = if (dark) {
+    copy(
+        background = androidx.compose.ui.graphics.Color.Black,
+        onBackground = androidx.compose.ui.graphics.Color.White,
+        surface = androidx.compose.ui.graphics.Color.Black,
+        onSurface = androidx.compose.ui.graphics.Color.White,
+        surfaceVariant = DarkAiBubble,
+        onSurfaceVariant = DarkInk,
     )
+} else {
+    copy(
+        background = androidx.compose.ui.graphics.Color.White,
+        onBackground = androidx.compose.ui.graphics.Color.Black,
+        surface = androidx.compose.ui.graphics.Color.White,
+        onSurface = androidx.compose.ui.graphics.Color.Black,
+        surfaceVariant = LightAiBubble,
+        onSurfaceVariant = Ink,
+    )
+}
+
+private fun ColorScheme.toQuickCaptureThemeColors(): QuickCaptureThemeColors = QuickCaptureThemeColors(
+    primary = primary.toArgb(),
+    onPrimary = onPrimary.toArgb(),
+    surface = surface.toArgb(),
+    onSurface = onSurface.toArgb(),
+    surfaceVariant = surfaceVariant.toArgb(),
+    onSurfaceVariant = onSurfaceVariant.toArgb(),
+    outline = outline.toArgb(),
+)

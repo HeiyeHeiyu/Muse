@@ -27,11 +27,7 @@ import io.zer0.muse.ui.theme.MusePaddings
  * @param onBack 返回回调；为 null（如平板双列模式）时不渲染返回行。
  */
 @Composable
-fun MuseLargeTitleHeader(
-    title: String,
-    onBack: (() -> Unit)? = null,
-    modifier: Modifier = Modifier,
-) {
+fun MuseLargeTitleHeader(title: String, onBack: (() -> Unit)? = null, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth()) {
         if (onBack != null) {
             Row(
@@ -68,10 +64,7 @@ fun MuseLargeTitleHeader(
  * 保证大标题（含返回行）滚出屏幕后仍可返回。默认尺寸与头部返回键对齐。
  */
 @Composable
-fun MuseStickyBackButton(
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun MuseStickyBackButton(onBack: () -> Unit, modifier: Modifier = Modifier) {
     MuseTopBarIconButton(
         icon = MuseIcons.arrowLeft,
         contentDescription = stringResource(R.string.action_back),

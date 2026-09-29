@@ -114,12 +114,7 @@ class WeClawReceiver(
      * [MAX_MEDIA_SAVE_BYTES] 保护在流内生效(超出立即中止并删除半成品)。
      * 失败/超限/超时降级为占位文本(不抛异常,不阻断后续轮询)。
      */
-    private suspend fun handleBinaryMedia(
-        msg: WeClawClient.InboundMsg,
-        media: WeClawClient.MediaRef,
-        kind: String,
-        label: String,
-    ) {
+    private suspend fun handleBinaryMedia(msg: WeClawClient.InboundMsg, media: WeClawClient.MediaRef, kind: String, label: String) {
         val from = msg.fromUserId
         val target = File(
             File(context.filesDir, MEDIA_DIR),
@@ -170,11 +165,10 @@ class WeClawReceiver(
     }
 
     /** v2.x (B4): 清洗文件名 — 只保留末段,剔除路径分隔符与不可见控制字符。 */
-    private fun sanitizeFileName(raw: String): String =
-        raw.substringAfterLast('/').substringAfterLast('\\')
-            .filter { it.code >= 0x20 && it.code != 0x7F }
-            .trim()
-            .take(120)
+    private fun sanitizeFileName(raw: String): String = raw.substringAfterLast('/').substringAfterLast('\\')
+        .filter { it.code >= 0x20 && it.code != 0x7F }
+        .trim()
+        .take(120)
 
     companion object {
         private const val TAG = "WeClawReceiver"

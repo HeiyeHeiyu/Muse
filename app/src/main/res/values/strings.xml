@@ -254,7 +254,7 @@
     <string name="chat_draft_label">草稿</string>
     <!-- 功能3: 归档确认 -->
     <string name="chat_list_archive_title">归档会话</string>
-    <string name="chat_list_archive_confirm">确定归档会话 "%1$s"? 归档后可从归档列表恢复。</string>
+    <string name="chat_list_archive_confirm">确定归档会话“%1$s”吗？归档后可从归档列表恢复。</string>
     <string name="chat_list_archive_confirm_button">归档</string>
     <string name="chat_list_section_in_progress">进行中</string>
     <string name="chat_list_status_in_progress">进行中</string>

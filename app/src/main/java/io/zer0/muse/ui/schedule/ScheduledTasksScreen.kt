@@ -5,21 +5,9 @@ package io.zer0.muse.ui.schedule
 
 import android.content.res.Resources
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.draw.clip
-import androidx.compose.animation.animateContentSize
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseAnchoredMenu
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.ui.common.surface.MuseListItem
-import io.zer0.muse.ui.theme.MuseAnimation
-import io.zer0.muse.ui.theme.MuseMotion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,27 +23,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import io.zer0.muse.ui.common.state.MuseEmptyState
-import io.zer0.muse.ui.common.state.MuseErrorStateBox
-import io.zer0.muse.ui.common.form.MuseFloatingButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import io.zer0.muse.ui.common.form.MuseSwitch
-import io.zer0.muse.ui.common.navigation.MuseTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -81,19 +66,33 @@ import io.zer0.muse.data.schedule.ScheduledTaskExecutionEntity
 import io.zer0.muse.data.schedule.TaskIdName
 import io.zer0.muse.schedule.CronExpression
 import io.zer0.muse.schedule.ScheduledTaskRunner
-import kotlinx.serialization.json.JsonObject
-import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseAnchoredMenu
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseFloatingButton
+import io.zer0.muse.ui.common.form.MuseSwitch
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.navigation.MuseTopBar
+import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
+import io.zer0.muse.ui.common.state.MuseEmptyState
+import io.zer0.muse.ui.common.state.MuseErrorStateBox
+import io.zer0.muse.ui.common.state.MuseSpinner
+import io.zer0.muse.ui.common.surface.MuseListItem
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseDateFormats
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.huge
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonObject
+import org.koin.compose.koinInject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import org.koin.compose.koinInject
 
 /**
  * v1.104: 把 5 字段 Cron 表达式转为人类可读的中文描述。
@@ -262,7 +261,11 @@ fun ScheduledTasksScreen(
                 MuseSpinner()
             }
         } else if (tasksList.isEmpty()) {
-            Column(Modifier.fillMaxSize().padding(innerPadding), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                Modifier.fillMaxSize().padding(innerPadding),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 MuseEmptyState(
                     icon = MuseIcons.clock,
                     title = stringResource(R.string.schedule_empty_title),
@@ -284,9 +287,9 @@ fun ScheduledTasksScreen(
                 items(tasksList, key = { it.id }) { task ->
                     TaskCard(
                         task = task,
-                            executionDao = executionDao,
-                            runner = runner,
-                            initiallyExpanded = task.id == initialTaskId,
+                        executionDao = executionDao,
+                        runner = runner,
+                        initiallyExpanded = task.id == initialTaskId,
                         onToggle = { enabled -> scope.launch { dao.setEnabled(task.id, enabled) } },
                         onEdit = { taskToEdit = it },
                         onDelete = {
@@ -308,7 +311,12 @@ fun ScheduledTasksScreen(
             existingTask = null,
             assistants = assistants,
             onDismiss = { showCreate = false },
-            onSave = { task -> scope.launch { dao.upsert(task); showCreate = false } },
+            onSave = { task ->
+                scope.launch {
+                    dao.upsert(task)
+                    showCreate = false
+                }
+            },
         )
     }
     // 编辑任务弹窗(传入现有 task 时预填字段)
@@ -317,7 +325,12 @@ fun ScheduledTasksScreen(
             existingTask = editing,
             assistants = assistants,
             onDismiss = { taskToEdit = null },
-            onSave = { task -> scope.launch { dao.upsert(task); taskToEdit = null } },
+            onSave = { task ->
+                scope.launch {
+                    dao.upsert(task)
+                    taskToEdit = null
+                }
+            },
         )
     }
 }
@@ -561,7 +574,10 @@ private fun TaskCard(
         ConfirmDeleteDialog(
             title = stringResource(R.string.schedule_delete_task),
             itemName = task.name,
-            onConfirm = { showDeleteConfirm = false; onDelete() },
+            onConfirm = {
+                showDeleteConfirm = false
+                onDelete()
+            },
             onDismiss = { showDeleteConfirm = false },
         )
     }
@@ -607,10 +623,18 @@ private fun ExecutionHistorySection(
     onViewAll: (() -> Unit)? = null,
 ) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(stringResource(R.string.schedule_execution_history), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
+        Text(
+            stringResource(R.string.schedule_execution_history),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.outline,
+        )
         Spacer(Modifier.size(4.dp))
         if (executions.isEmpty()) {
-            Text(stringResource(R.string.schedule_no_executions), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+            Text(
+                stringResource(R.string.schedule_no_executions),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
         } else {
             executions.forEachIndexed { index, exec ->
                 if (index > 0) {
@@ -639,10 +663,7 @@ private fun ExecutionHistorySection(
 }
 
 @Composable
-private fun ExecutionRow(
-    execution: ScheduledTaskExecutionEntity,
-    initiallyExpanded: Boolean = false,
-) {
+private fun ExecutionRow(execution: ScheduledTaskExecutionEntity, initiallyExpanded: Boolean = false) {
     val failed = execution.status == "failed"
     val summary = if (failed) execution.errorMessage else execution.replySummary
     val canExpand = summary.length > 120
@@ -665,7 +686,13 @@ private fun ExecutionRow(
     ) {
         Icon(
             imageVector = if (failed) MuseIcons.alertCircle else MuseIcons.circleCheck,
-            contentDescription = if (failed) stringResource(R.string.schedule_execution_failed) else stringResource(R.string.schedule_execution_success),
+            contentDescription = if (failed) {
+                stringResource(
+                    R.string.schedule_execution_failed,
+                )
+            } else {
+                stringResource(R.string.schedule_execution_success)
+            },
             tint = iconTint,
             modifier = Modifier.size(16.dp),
         )
@@ -723,20 +750,28 @@ private fun TaskDialog(
     var cronExpr by rememberSaveable { mutableStateOf(existingTask?.cronExpr ?: "") }
 
     // 自动化字段
-    val initialCondition = remember(existingTask?.conditionJson) { existingTask?.conditionJson?.toCondition() ?: AutomationConfig.Condition() }
+    val initialCondition =
+        remember(existingTask?.conditionJson) { existingTask?.conditionJson?.toCondition() ?: AutomationConfig.Condition() }
     var conditionType by rememberSaveable { mutableStateOf(initialCondition.type) }
     var conditionKeyword by rememberSaveable { mutableStateOf(initialCondition.config["keyword"]?.toString()?.trim('"') ?: "") }
     var conditionTag by rememberSaveable { mutableStateOf(initialCondition.config["tag"]?.toString()?.trim('"') ?: "") }
     var conditionStartHour by rememberSaveable { mutableStateOf(initialCondition.config["startHour"]?.toString()?.trim('"') ?: "0") }
     var conditionEndHour by rememberSaveable { mutableStateOf(initialCondition.config["endHour"]?.toString()?.trim('"') ?: "23") }
 
-    val initialActionConfig = remember(existingTask?.actionConfigJson) { existingTask?.actionConfigJson?.toAction()?.config ?: JsonObject(emptyMap()) }
+    val initialActionConfig =
+        remember(existingTask?.actionConfigJson) { existingTask?.actionConfigJson?.toAction()?.config ?: JsonObject(emptyMap()) }
     var actionType by rememberSaveable { mutableStateOf(existingTask?.actionType ?: AutomationConfig.Action.AI_PROMPT) }
     var noteTitle by rememberSaveable { mutableStateOf(initialActionConfig["title"]?.toString()?.trim('"') ?: "") }
     var noteContent by rememberSaveable { mutableStateOf(initialActionConfig["content"]?.toString()?.trim('"') ?: "") }
     var noteTags by rememberSaveable { mutableStateOf(initialActionConfig["tags"]?.toString()?.trim('"') ?: "") }
     var toolId by rememberSaveable { mutableStateOf(initialActionConfig["toolId"]?.toString()?.trim('"') ?: "") }
-    var toolParams by rememberSaveable { mutableStateOf(when (val p = initialActionConfig["params"]) { is JsonObject -> AppJson.encodeToString(JsonObject.serializer(), p) else -> p?.toString()?.trim('"') ?: "{}" }) }
+    var toolParams by rememberSaveable {
+        mutableStateOf(
+            when (val p = initialActionConfig["params"]) {
+                is JsonObject -> AppJson.encodeToString(JsonObject.serializer(), p) else -> p?.toString()?.trim('"') ?: "{}"
+            },
+        )
+    }
     var notifyTitle by rememberSaveable { mutableStateOf(initialActionConfig["title"]?.toString()?.trim('"') ?: "") }
     var notifyMessage by rememberSaveable { mutableStateOf(initialActionConfig["message"]?.toString()?.trim('"') ?: "") }
 
@@ -807,8 +842,18 @@ private fun TaskDialog(
         title = if (isEdit) stringResource(R.string.schedule_edit_title) else stringResource(R.string.schedule_new_task),
         content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                MuseTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(R.string.schedule_task_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                MuseTextField(value = prompt, onValueChange = { prompt = it }, label = { Text(stringResource(R.string.schedule_task_content)) }, placeholder = { Text(stringResource(R.string.schedule_content_placeholder)) }, modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp))
+                MuseTextField(value = name, onValueChange = {
+                    name = it
+                }, label = { Text(stringResource(R.string.schedule_task_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                MuseTextField(value = prompt, onValueChange = {
+                    prompt = it
+                }, label = {
+                    Text(stringResource(R.string.schedule_task_content))
+                }, placeholder = {
+                    Text(
+                        stringResource(R.string.schedule_content_placeholder),
+                    )
+                }, modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp))
                 AssistantSelector(
                     selectedName = selectedAssistantName,
                     assistants = assistants,
@@ -828,13 +873,34 @@ private fun TaskDialog(
                         "weekly" to stringResource(R.string.schedule_interval_weekly),
                         "cron" to stringResource(R.string.schedule_interval_cron),
                     ).forEach { (value, label) ->
-                        Surface(shape = MuseShapes.small, color = if (interval == value) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.clickable(role = Role.Button) { interval = value }) {
-                            Text(label, style = MaterialTheme.typography.labelMedium, color = if (interval == value) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                        Surface(
+                            shape = MuseShapes.small,
+                            color = if (interval == value) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.clickable(
+                                role = Role.Button,
+                            ) {
+                                interval = value
+                            },
+                        ) {
+                            Text(
+                                label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (interval == value) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            )
                         }
                     }
                 }
                 if (interval == "cron") {
-                    MuseTextField(value = cronExpr, onValueChange = { cronExpr = it }, label = { Text(stringResource(R.string.schedule_cron_label)) }, placeholder = { Text(stringResource(R.string.schedule_cron_placeholder)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    MuseTextField(value = cronExpr, onValueChange = {
+                        cronExpr = it
+                    }, label = {
+                        Text(stringResource(R.string.schedule_cron_label))
+                    }, placeholder = {
+                        Text(
+                            stringResource(R.string.schedule_cron_placeholder),
+                        )
+                    }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -846,17 +912,42 @@ private fun TaskDialog(
                             stringResource(R.string.schedule_interval_hourly) to "0 * * * *",
                             stringResource(R.string.schedule_preset_midnight) to "0 0 * * *",
                         ).forEach { (label, expr) ->
-                            Surface(shape = MuseShapes.small, color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.clickable(role = Role.Button) { cronExpr = expr }) {
-                                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
+                            Surface(
+                                shape = MuseShapes.small,
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.clickable(
+                                    role = Role.Button,
+                                ) {
+                                    cronExpr = expr
+                                },
+                            ) {
+                                Text(
+                                    label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                )
                             }
                         }
                     }
                     if (cronExpr.isNotBlank()) {
                         val desc = remember(cronExpr) { describeCron(cronExpr.trim(), context.resources) } // 前端修复 (i18n-5)
-                        if (desc != null) Text(text = desc, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (desc != null) {
+                            Text(
+                                text = desc,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
-                if (previewText != null) Text(previewText, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                if (previewText != null) {
+                    Text(
+                        previewText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
 
                 // v1.137: 高级自动化配置
                 MuseCapsuleButton(
@@ -921,8 +1012,14 @@ private fun TaskDialog(
         },
         confirmText = if (isEdit) stringResource(R.string.schedule_save) else stringResource(R.string.schedule_create_btn),
         onConfirm = {
-            if (name.isBlank()) { errorMessage = errNameRequired; return@MuseDialog }
-            if (prompt.isBlank()) { errorMessage = errContentRequired; return@MuseDialog }
+            if (name.isBlank()) {
+                errorMessage = errNameRequired
+                return@MuseDialog
+            }
+            if (prompt.isBlank()) {
+                errorMessage = errContentRequired
+                return@MuseDialog
+            }
             // U-13: CALL_TOOL 动作前置校验 — 工具 ID 非空 + 参数必须是合法 JSON
             if (actionType == AutomationConfig.Action.CALL_TOOL) {
                 if (toolId.isBlank()) {
@@ -944,40 +1041,62 @@ private fun TaskDialog(
             val cronValue = if (interval == "cron") cronExpr.trim() else ""
             val nextRun = if (interval == "cron") {
                 val parsed = runCatching { CronExpression.parse(cronValue) }.getOrNull()
-                if (parsed == null) { errorMessage = errCronInvalid; return@MuseDialog }
+                if (parsed == null) {
+                    errorMessage = errCronInvalid
+                    return@MuseDialog
+                }
                 parsed.nextRunAfter(now)
             } else {
-                now + when (interval) { "hourly" -> 3_600_000L; "daily" -> 86_400_000L; "weekly" -> 604_800_000L; else -> 60_000L }
+                now + when (interval) {
+                    "hourly" -> 3_600_000L
+                    "daily" -> 86_400_000L
+                    "weekly" -> 604_800_000L
+                    else -> 60_000L
+                }
             }
 
             val conditionConfig = when (conditionType) {
-                AutomationConfig.Condition.TIME_RANGE -> JsonObject(mapOf(
-                    "startHour" to kotlinx.serialization.json.JsonPrimitive(conditionStartHour.toIntOrNull() ?: 0),
-                    "endHour" to kotlinx.serialization.json.JsonPrimitive(conditionEndHour.toIntOrNull() ?: 23),
-                ))
-                AutomationConfig.Condition.QUICK_NOTE_EXISTS -> JsonObject(mapOf(
-                    "tag" to kotlinx.serialization.json.JsonPrimitive(conditionTag),
-                    "keyword" to kotlinx.serialization.json.JsonPrimitive(conditionKeyword),
-                ))
-                AutomationConfig.Condition.CONTAINS -> JsonObject(mapOf("keyword" to kotlinx.serialization.json.JsonPrimitive(conditionKeyword)))
+                AutomationConfig.Condition.TIME_RANGE -> JsonObject(
+                    mapOf(
+                        "startHour" to kotlinx.serialization.json.JsonPrimitive(conditionStartHour.toIntOrNull() ?: 0),
+                        "endHour" to kotlinx.serialization.json.JsonPrimitive(conditionEndHour.toIntOrNull() ?: 23),
+                    ),
+                )
+                AutomationConfig.Condition.QUICK_NOTE_EXISTS -> JsonObject(
+                    mapOf(
+                        "tag" to kotlinx.serialization.json.JsonPrimitive(conditionTag),
+                        "keyword" to kotlinx.serialization.json.JsonPrimitive(conditionKeyword),
+                    ),
+                )
+                AutomationConfig.Condition.CONTAINS -> JsonObject(
+                    mapOf("keyword" to kotlinx.serialization.json.JsonPrimitive(conditionKeyword)),
+                )
                 else -> JsonObject(emptyMap())
             }
             val condition = AutomationConfig.Condition(type = conditionType, config = conditionConfig)
 
             val actionConfig = when (actionType) {
-                AutomationConfig.Action.CREATE_QUICK_NOTE -> JsonObject(mapOf(
-                    "title" to kotlinx.serialization.json.JsonPrimitive(noteTitle),
-                    "content" to kotlinx.serialization.json.JsonPrimitive(noteContent),
-                    "tags" to kotlinx.serialization.json.JsonPrimitive(noteTags),
-                ))
-                AutomationConfig.Action.CALL_TOOL -> JsonObject(mapOf(
-                    "toolId" to kotlinx.serialization.json.JsonPrimitive(toolId),
-                    "params" to runCatching { AppJson.decodeFromString(kotlinx.serialization.json.JsonElement.serializer(), toolParams) }.getOrElse { JsonObject(emptyMap()) },
-                ))
-                AutomationConfig.Action.NOTIFY -> JsonObject(mapOf(
-                    "title" to kotlinx.serialization.json.JsonPrimitive(notifyTitle),
-                    "message" to kotlinx.serialization.json.JsonPrimitive(notifyMessage),
-                ))
+                AutomationConfig.Action.CREATE_QUICK_NOTE -> JsonObject(
+                    mapOf(
+                        "title" to kotlinx.serialization.json.JsonPrimitive(noteTitle),
+                        "content" to kotlinx.serialization.json.JsonPrimitive(noteContent),
+                        "tags" to kotlinx.serialization.json.JsonPrimitive(noteTags),
+                    ),
+                )
+                AutomationConfig.Action.CALL_TOOL -> JsonObject(
+                    mapOf(
+                        "toolId" to kotlinx.serialization.json.JsonPrimitive(toolId),
+                        "params" to runCatching {
+                            AppJson.decodeFromString(kotlinx.serialization.json.JsonElement.serializer(), toolParams)
+                        }.getOrElse { JsonObject(emptyMap()) },
+                    ),
+                )
+                AutomationConfig.Action.NOTIFY -> JsonObject(
+                    mapOf(
+                        "title" to kotlinx.serialization.json.JsonPrimitive(notifyTitle),
+                        "message" to kotlinx.serialization.json.JsonPrimitive(notifyMessage),
+                    ),
+                )
                 else -> JsonObject(emptyMap())
             }
             val action = AutomationConfig.Action(type = actionType, config = actionConfig)
@@ -1017,7 +1136,10 @@ private fun TaskDialog(
             title = stringResource(R.string.schedule_unsaved_title),
             content = { Text(text = stringResource(R.string.schedule_unsaved_message), style = MaterialTheme.typography.bodyMedium) },
             confirmText = stringResource(R.string.schedule_discard),
-            onConfirm = { showDiscardConfirm = false; onDismiss() },
+            onConfirm = {
+                showDiscardConfirm = false
+                onDismiss()
+            },
             dismissText = stringResource(R.string.schedule_cancel),
             onDismiss = { showDiscardConfirm = false },
             destructive = true,
@@ -1029,11 +1151,7 @@ private fun TaskDialog(
  * 助手选择器:展示当前选中助手名称,点击展开下拉菜单选择,绑定 assistantId。
  */
 @Composable
-private fun AssistantSelector(
-    selectedName: String,
-    assistants: List<AssistantEntity>,
-    onSelect: (String) -> Unit,
-) {
+private fun AssistantSelector(selectedName: String, assistants: List<AssistantEntity>, onSelect: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         Surface(
@@ -1045,7 +1163,11 @@ private fun AssistantSelector(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(stringResource(R.string.schedule_assistant), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    stringResource(R.string.schedule_assistant),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Spacer(Modifier.size(8.dp))
                 Text(
                     selectedName,
@@ -1055,14 +1177,18 @@ private fun AssistantSelector(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Icon(MuseIcons.chevronDown, stringResource(R.string.schedule_select_assistant), tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+                Icon(
+                    MuseIcons.chevronDown,
+                    stringResource(R.string.schedule_select_assistant),
+                    tint = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.size(18.dp),
+                )
             }
         }
         MuseAnchoredMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
-
             if (assistants.isEmpty()) {
                 MuseListItem(
                     onClick = { expanded = false },
@@ -1071,7 +1197,10 @@ private fun AssistantSelector(
             } else {
                 assistants.forEach { a ->
                     MuseListItem(
-                        onClick = { onSelect(a.id); expanded = false },
+                        onClick = {
+                            onSelect(a.id)
+                            expanded = false
+                        },
                         headlineContent = {
                             Column {
                                 Text(a.name.ifBlank { a.id })
@@ -1090,7 +1219,6 @@ private fun AssistantSelector(
                     )
                 }
             }
-        
         }
     }
 }
@@ -1119,7 +1247,11 @@ private fun AutomationConditionSection(
     onEndHourChange: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.schedule_condition_title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Text(
+            stringResource(R.string.schedule_condition_title),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1225,7 +1357,11 @@ private fun AutomationActionSection(
     onNotifyMessageChange: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.schedule_action_title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Text(
+            stringResource(R.string.schedule_action_title),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1310,7 +1446,6 @@ private fun AutomationActionSection(
                         expanded = showToolTemplates,
                         onDismissRequest = { showToolTemplates = false },
                     ) {
-
                         TOOL_TEMPLATES.forEach { t ->
                             MuseListItem(
                                 onClick = {
@@ -1321,7 +1456,6 @@ private fun AutomationActionSection(
                                 headlineContent = { Text(t.label) },
                             )
                         }
-                    
                     }
                 }
                 // U-13: 高级工具说明,引导用户优先用 AI 描述
@@ -1378,15 +1512,19 @@ private fun hasChainCycle(
  * 从候选任务列表多选后续任务,当前任务成功执行后会触发这些任务立即执行。
  */
 @Composable
-private fun AutomationChainSection(
-    candidates: List<TaskIdName>,
-    selectedIds: List<String>,
-    onSelectionChange: (List<String>) -> Unit,
-) {
+private fun AutomationChainSection(candidates: List<TaskIdName>, selectedIds: List<String>, onSelectionChange: (List<String>) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.schedule_chain_title), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Text(
+            stringResource(R.string.schedule_chain_title),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
         if (candidates.isEmpty()) {
-            Text(stringResource(R.string.schedule_chain_empty), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+            Text(
+                stringResource(R.string.schedule_chain_empty),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
         } else {
             candidates.forEach { candidate ->
                 val selected = selectedIds.contains(candidate.id)
@@ -1405,4 +1543,3 @@ private fun AutomationChainSection(
         }
     }
 }
-

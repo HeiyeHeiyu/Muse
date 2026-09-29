@@ -28,13 +28,14 @@ import kotlinx.serialization.Serializable
  * 展示定时任务/心跳/编译的执行历史及状态。
  */
 @Composable
-fun ActivityPanel(
-    activities: List<ActivityEntry>,
-    modifier: Modifier = Modifier,
-) {
+fun ActivityPanel(activities: List<ActivityEntry>, modifier: Modifier = Modifier) {
     LazyColumn(modifier = modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item {
-            Text(stringResource(R.string.activity_log_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(bottom = 8.dp))
+            Text(
+                stringResource(R.string.activity_log_title),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
         }
         if (activities.isEmpty()) {
             item {
@@ -58,12 +59,12 @@ private fun ActivityCard(entry: ActivityEntry) {
     MuseSurface(
         modifier = Modifier.fillMaxWidth(),
         color = when (entry.status) {
-                "success" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                "error" -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                else -> MaterialTheme.colorScheme.surfaceVariant
-            },
+            "success" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            "error" -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+            else -> MaterialTheme.colorScheme.surfaceVariant
+        },
     ) {
-Row(modifier = Modifier.padding(12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.padding(12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = when (entry.status) {
                     "success" -> MuseIcons.circleCheck
@@ -81,7 +82,12 @@ Row(modifier = Modifier.padding(12.dp).fillMaxWidth(), verticalAlignment = Align
             Column(modifier = Modifier.padding(start = 12.dp).weight(1f)) {
                 Text(entry.stepName, style = MaterialTheme.typography.titleSmall)
                 if (entry.message.isNotBlank()) {
-                    Text(entry.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                    Text(
+                        entry.message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                    )
                 }
             }
             Text(entry.timestamp, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

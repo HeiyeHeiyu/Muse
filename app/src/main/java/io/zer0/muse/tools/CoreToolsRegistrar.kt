@@ -114,8 +114,14 @@ private object Calculator {
         var v = parseTerm(chars, pos)
         while (pos[0] < chars.size) {
             when (chars[pos[0]]) {
-                '+' -> { pos[0]++; v += parseTerm(chars, pos) }
-                '-' -> { pos[0]++; v -= parseTerm(chars, pos) }
+                '+' -> {
+                    pos[0]++
+                    v += parseTerm(chars, pos)
+                }
+                '-' -> {
+                    pos[0]++
+                    v -= parseTerm(chars, pos)
+                }
                 else -> break
             }
         }
@@ -126,8 +132,14 @@ private object Calculator {
         var v = parseFactor(chars, pos)
         while (pos[0] < chars.size) {
             when (chars[pos[0]]) {
-                '*' -> { pos[0]++; v *= parseFactor(chars, pos) }
-                '/' -> { pos[0]++; v /= parseFactor(chars, pos) }
+                '*' -> {
+                    pos[0]++
+                    v *= parseFactor(chars, pos)
+                }
+                '/' -> {
+                    pos[0]++
+                    v /= parseFactor(chars, pos)
+                }
                 else -> break
             }
         }

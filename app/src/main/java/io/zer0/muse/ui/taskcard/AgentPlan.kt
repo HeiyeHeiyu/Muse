@@ -1,7 +1,6 @@
 package io.zer0.muse.ui.taskcard
 
 import io.zer0.muse.R
-
 import kotlinx.serialization.Serializable
 
 /**
@@ -29,6 +28,7 @@ data class AgentPlan(
 ) {
     val totalSteps: Int get() = steps.size
     val completedSteps: Int get() = steps.count { it.status == AgentPlanStepStatus.DONE }
+
     /** 失败步骤数(含执行超时;超时同为失败终态,计入摘要)。 */
     val failedSteps: Int get() = steps.count {
         it.status == AgentPlanStepStatus.FAILED || it.status == AgentPlanStepStatus.TIMED_OUT
@@ -45,10 +45,12 @@ data class AgentPlan(
             it.status == AgentPlanStepStatus.CANCELLED ||
             it.status == AgentPlanStepStatus.TIMED_OUT
     }
+
     /** 全部步骤成功完成(无 FAILED / SKIPPED)。 */
     val isAllSucceeded: Boolean get() = steps.isNotEmpty() && steps.all {
         it.status == AgentPlanStepStatus.DONE
     }
+
     // 保留 isAllDone 作为 isAllSettled 的别名,向后兼容现有调用方(标题栏判断"是否还在跑")
     val isAllDone: Boolean get() = isAllSettled
     val progress: Float get() = if (steps.isEmpty()) 0f else completedSteps.toFloat() / steps.size

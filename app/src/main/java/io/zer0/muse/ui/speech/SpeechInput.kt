@@ -43,8 +43,7 @@ object SpeechInput {
      * 直接 launch 会抛 ActivityNotFoundException。启动前应调用本方法判断,
      * 不可用时给用户 Toast 提示,避免崩溃。
      */
-    fun isAvailable(context: Context): Boolean =
-        createIntent().resolveActivity(context.packageManager) != null
+    fun isAvailable(context: Context): Boolean = createIntent().resolveActivity(context.packageManager) != null
 
     /** 从 Activity result 取出识别文本。 */
     fun parseResult(resultCode: Int, data: Bundle?): String? {

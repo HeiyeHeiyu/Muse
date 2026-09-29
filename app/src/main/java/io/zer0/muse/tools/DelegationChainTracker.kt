@@ -25,14 +25,14 @@ class DelegationChainTracker {
         val requestId: String,
         val parentRequestId: String?,
         val task: String,
-        val targetType: String,         // "assistant" | "team"
+        val targetType: String, // "assistant" | "team"
         val targetId: String,
         val targetName: String,
         val status: DelegationNodeStatus,
         val startedAt: Long,
         val finishedAt: Long? = null,
         val errorMessage: String? = null,
-        val resultPreview: String? = null,  // 结果预览(前 200 字)
+        val resultPreview: String? = null, // 结果预览(前 200 字)
         val subNodes: List<ChainNode> = emptyList(),
     )
 
@@ -84,8 +84,11 @@ class DelegationChainTracker {
         _chains.update { current ->
             updateNode(current, requestId) { node ->
                 node.copy(
-                    status = if (success) DelegationNodeStatus.COMPLETED
-                             else DelegationNodeStatus.FAILED,
+                    status = if (success) {
+                        DelegationNodeStatus.COMPLETED
+                    } else {
+                        DelegationNodeStatus.FAILED
+                    },
                     finishedAt = System.currentTimeMillis(),
                     errorMessage = error,
                     resultPreview = resultText.take(200),
@@ -112,20 +115,17 @@ class DelegationChainTracker {
      *
      * 找到父节点 [parentRequestId] 的 subNodes 中对应 [childRequestId] 的节点,更新状态。
      */
-    fun updateSubNode(
-        parentRequestId: String,
-        childRequestId: String,
-        success: Boolean,
-        resultText: String?,
-        error: String?,
-    ) {
+    fun updateSubNode(parentRequestId: String, childRequestId: String, success: Boolean, resultText: String?, error: String?) {
         _chains.update { current ->
             updateNode(current, parentRequestId) { parent ->
                 val newSubs = parent.subNodes.map { child ->
                     if (child.requestId == childRequestId) {
                         child.copy(
-                            status = if (success) DelegationNodeStatus.COMPLETED
-                                     else DelegationNodeStatus.FAILED,
+                            status = if (success) {
+                                DelegationNodeStatus.COMPLETED
+                            } else {
+                                DelegationNodeStatus.FAILED
+                            },
                             finishedAt = System.currentTimeMillis(),
                             resultPreview = resultText?.take(200),
                             errorMessage = error,
@@ -153,11 +153,7 @@ class DelegationChainTracker {
      * 递归查找父节点并把子节点加入其 subNodes。
      * 返回 null 表示未找到父节点。
      */
-    private fun insertSubNode(
-        nodes: Map<String, ChainNode>,
-        parentRequestId: String,
-        child: ChainNode,
-    ): Map<String, ChainNode>? {
+    private fun insertSubNode(nodes: Map<String, ChainNode>, parentRequestId: String, child: ChainNode): Map<String, ChainNode>? {
         // 顶层命中
         val parent = nodes[parentRequestId]
         if (parent != null) {
@@ -179,11 +175,7 @@ class DelegationChainTracker {
     }
 
     /** 在 [list] 中递归查找父节点并插入子节点;未变更则返回原列表引用。 */
-    private fun insertSubNodeInList(
-        list: List<ChainNode>,
-        parentRequestId: String,
-        child: ChainNode,
-    ): List<ChainNode> {
+    private fun insertSubNodeInList(list: List<ChainNode>, parentRequestId: String, child: ChainNode): List<ChainNode> {
         var updated = false
         val newList = list.map { node ->
             if (node.requestId == parentRequestId) {
@@ -231,11 +223,7 @@ class DelegationChainTracker {
     }
 
     /** 在 [list] 中递归查找并更新节点;未变更则返回原列表引用。 */
-    private fun updateNodeInList(
-        list: List<ChainNode>,
-        requestId: String,
-        transform: (ChainNode) -> ChainNode,
-    ): List<ChainNode> {
+    private fun updateNodeInList(list: List<ChainNode>, requestId: String, transform: (ChainNode) -> ChainNode): List<ChainNode> {
         var updated = false
         val newList = list.map { node ->
             if (node.requestId == requestId) {

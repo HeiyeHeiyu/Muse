@@ -17,8 +17,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,12 +33,12 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -68,18 +68,17 @@ import io.zer0.muse.data.plugin.market.PluginMarketInstaller
 import io.zer0.muse.data.plugin.market.PluginMarketTrustRoots
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseBottomSheet
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseCapsuleTab
 import io.zer0.muse.ui.common.form.MuseDropdown
 import io.zer0.muse.ui.common.form.MuseFloatingButton
 import io.zer0.muse.ui.common.form.MuseFormDialog
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.markdown.RichContentCard
 import io.zer0.muse.ui.common.form.MuseSwitch
+import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.media.WindowWidthClass
 import io.zer0.muse.ui.common.media.rememberWindowWidthClass
 import io.zer0.muse.ui.common.navigation.MuseTopBar
@@ -87,6 +86,7 @@ import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseIndeterminateProgressBar
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.common.surface.MuseSurface
+import io.zer0.muse.ui.markdown.RichContentCard
 import io.zer0.muse.ui.theme.MuseActionColors
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MusePaddings
@@ -95,11 +95,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 import java.io.File
 
@@ -113,9 +113,7 @@ import java.io.File
  * 导入入口统一：自动识别文件类型（ZIP 头 PK → 外部插件；JSON → Provider 插件）。
  */
 @Composable
-fun PluginManagePage(
-    onBack: () -> Unit,
-) {
+fun PluginManagePage(onBack: () -> Unit) {
     val pluginManager: PluginManager = koinInject()
     val registry: ProviderPluginRegistry = koinInject()
     val settings: SettingsRepository = koinInject()
@@ -126,11 +124,13 @@ fun PluginManagePage(
     var externalPlugins by remember { mutableStateOf(pluginManager.list()) }
     var providerPlugins by remember { mutableStateOf(registry.list()) }
     var importing by remember { mutableStateOf(false) }
+
     /** UI-FIX: 插件页三档层级 —— 0 已安装 / 1 市场 / 2 信任管理。 */
     var pluginTab by rememberSaveable { mutableIntStateOf(0) }
     var pendingExternalInstall by remember { mutableStateOf<PendingExternalInstall?>(null) }
     var pendingDeleteExternal by remember { mutableStateOf<PluginManager.InstalledPlugin?>(null) }
     var pendingDeleteProvider by remember { mutableStateOf<ProviderPlugin?>(null) }
+
     /** 待用户确认“签名并启用”的助手自写草稿；确认前不会签名、不会写信任根。 */
     var pendingSignDraft by remember { mutableStateOf<PluginManager.InstalledPlugin?>(null) }
 
@@ -157,6 +157,7 @@ fun PluginManagePage(
 
     /** null = 设置读取中；空串 = 明确未配置。 */
     var catalogUrl by remember { mutableStateOf<String?>(null) }
+
     /** 用户自定义的目录地址；空表示正在使用内置官方目录。 */
     var catalogUrlOverride by remember { mutableStateOf("") }
     var marketEntries by remember { mutableStateOf<List<PluginCatalogEntry>>(emptyList()) }
@@ -167,12 +168,14 @@ fun PluginManagePage(
     var marketInstallJob by remember { mutableStateOf<Job?>(null) }
     // 市场网格里点开的那张卡（null = 未打开详情）
     var marketDetailEntry by remember { mutableStateOf<PluginCatalogEntry?>(null) }
+
     /** 待确认的回滚请求：插件 id 与目标版本。 */
     var rollbackRequest by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     // ── P0-9: 信任管理(撤销入口)──
     /** 信任的发行者列表(与安装校验同一 trust store 实例)。 */
     var trustedPublishers by remember { mutableStateOf(pluginManager.trustedPublishers()) }
+
     /** 待确认撤销的发行者 id。 */
     var revokePublisherId by remember { mutableStateOf<String?>(null) }
 
@@ -486,273 +489,272 @@ fun PluginManagePage(
                 }
             }
             if (pluginTab == 1) {
-            // ── 插件市场区（Phase 5）──
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = MusePaddings.screen, vertical = MusePaddings.tightGap),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.muse_plugins_market_title),
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (marketRefreshing) {
-                        MuseSpinner(
-                            size = MuseIconSizes.iconSmall,
+                // ── 插件市场区（Phase 5）──
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = MusePaddings.screen, vertical = MusePaddings.tightGap),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = stringResource(R.string.muse_plugins_market_title),
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f),
                         )
-                    } else if (catalogUrl?.isNotBlank() == true) {
+                        if (marketRefreshing) {
+                            MuseSpinner(
+                                size = MuseIconSizes.iconSmall,
+                            )
+                        } else if (catalogUrl?.isNotBlank() == true) {
+                            MuseTactileButton(
+                                icon = MuseIcons.refresh,
+                                onClick = { refreshMarketCatalog() },
+                                contentDescription = stringResource(R.string.muse_plugins_market_refresh),
+                            )
+                        }
                         MuseTactileButton(
-                            icon = MuseIcons.refresh,
-                            onClick = { refreshMarketCatalog() },
-                            contentDescription = stringResource(R.string.muse_plugins_market_refresh),
+                            icon = MuseIcons.sliders,
+                            onClick = { showMarketSettings = true },
+                            contentDescription = stringResource(R.string.muse_plugins_market_configure),
                         )
                     }
-                    MuseTactileButton(
-                        icon = MuseIcons.sliders,
-                        onClick = { showMarketSettings = true },
-                        contentDescription = stringResource(R.string.muse_plugins_market_configure),
-                    )
                 }
-            }
-            when {
-                // 设置读取中：既不显示“未配置”，也不假装目录可用。
-                catalogUrl == null -> item { MarketLoadingRow() }
-                catalogUrl.isNullOrBlank() -> item {
-                    MuseEmptyState(
-                        icon = MuseIcons.puzzle,
-                        title = stringResource(R.string.muse_plugins_market_not_configured),
-                        subtitle = stringResource(R.string.muse_plugins_market_not_configured_hint),
-                        actionText = stringResource(R.string.muse_plugins_market_configure),
-                        onAction = { showMarketSettings = true },
-                    )
-                }
-                marketEntries.isEmpty() && marketRefreshing -> item { MarketLoadingRow() }
-                marketEntries.isEmpty() -> item {
-                    val failure = marketError
-                    MuseEmptyState(
-                        icon = if (failure != null) MuseIcons.alertCircle else MuseIcons.puzzle,
-                        title = failure ?: stringResource(R.string.muse_plugins_market_empty),
-                        subtitle = if (failure != null) {
-                            stringResource(R.string.muse_plugins_market_error_hint)
-                        } else {
-                            null
-                        },
-                        actionText = if (failure != null) stringResource(R.string.common_retry) else null,
-                        onAction = if (failure != null) ({ refreshMarketCatalog() }) else null,
-                    )
-                }
-                else -> {
-                    marketError?.let { reason ->
-                        item { MarketErrorRow(reason = reason, onRetry = { refreshMarketCatalog() }) }
+                when {
+                    // 设置读取中：既不显示“未配置”，也不假装目录可用。
+                    catalogUrl == null -> item { MarketLoadingRow() }
+                    catalogUrl.isNullOrBlank() -> item {
+                        MuseEmptyState(
+                            icon = MuseIcons.puzzle,
+                            title = stringResource(R.string.muse_plugins_market_not_configured),
+                            subtitle = stringResource(R.string.muse_plugins_market_not_configured_hint),
+                            actionText = stringResource(R.string.muse_plugins_market_configure),
+                            onAction = { showMarketSettings = true },
+                        )
                     }
-                    // 两列网格：每排两张插件卡，点开进详情页再安装（原大列表太占地方）。
-                    // 注意不用 LazyVerticalGrid：它会嵌进当前 LazyColumn 造成无界高度崩溃，
-                    // 这里按「每排两格」成对排布，视觉等价且结构安全。
-                    items(marketEntries.chunked(2), key = { "market_row_${it.first().id}" }) { pair ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = MusePaddings.screen, vertical = MusePaddings.tightGap),
-                            horizontalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
-                            verticalAlignment = Alignment.Top,
-                        ) {
-                            pair.forEach { entry ->
-                                MarketEntryCell(
-                                    entry = entry,
-                                    installedVersion = externalPlugins.firstOrNull { it.id == entry.id }?.version,
-                                    phase = marketInstall?.takeIf { it.entryId == entry.id }?.phase,
-                                    onClick = { marketDetailEntry = entry },
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                            if (pair.size == 1) {
-                                Spacer(Modifier.weight(1f))
-                            }
+                    marketEntries.isEmpty() && marketRefreshing -> item { MarketLoadingRow() }
+                    marketEntries.isEmpty() -> item {
+                        val failure = marketError
+                        MuseEmptyState(
+                            icon = if (failure != null) MuseIcons.alertCircle else MuseIcons.puzzle,
+                            title = failure ?: stringResource(R.string.muse_plugins_market_empty),
+                            subtitle = if (failure != null) {
+                                stringResource(R.string.muse_plugins_market_error_hint)
+                            } else {
+                                null
+                            },
+                            actionText = if (failure != null) stringResource(R.string.common_retry) else null,
+                            onAction = if (failure != null) ({ refreshMarketCatalog() }) else null,
+                        )
+                    }
+                    else -> {
+                        marketError?.let { reason ->
+                            item { MarketErrorRow(reason = reason, onRetry = { refreshMarketCatalog() }) }
                         }
-                    }
-                }
-            }
-
-            // ── P0-9: 信任管理(信任的发行者 / 目录信任根)──
-            }
-            if (pluginTab == 2) {
-            item { SectionHeader(stringResource(R.string.muse_plugins_trust_title)) }
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = MusePaddings.screen, vertical = MusePaddings.tightGap),
-                    verticalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
-                ) {
-                    Text(
-                        text = stringResource(R.string.muse_plugins_trust_publishers_title),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (trustedPublishers.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.muse_plugins_trust_publishers_empty),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
-                        trustedPublishers.forEach { publisher ->
-                            TrustedPublisherRow(
-                                publisherId = publisher.publisherId,
-                                fingerprint = publisher.fingerprint,
-                                onRevoke = { revokePublisherId = publisher.publisherId },
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(MusePaddings.contentGap))
-                    Text(
-                        text = stringResource(R.string.muse_plugins_trust_catalog_title),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    val userRootKeys = catalogRootKeys.keys - PluginMarketDefaults.catalogRootKeys.keys
-                    if (userRootKeys.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.muse_plugins_trust_catalog_empty),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    } else {
-                        userRootKeys.forEach { keyId ->
-                            CatalogRootKeyRow(
-                                keyId = keyId,
-                                onRemove = {
-                                    scope.launch {
-                                        marketSettings.removeCatalogRootKey(keyId)
-                                        // P0-9: 目录根撤销后清空市场缓存条目,避免旧信任根验证的条目残留
-                                        marketRepository.clearCache()
-                                        marketTrustRoots.reload()
-                                        marketEntries = emptyList()
-                                        catalogUrl = marketSettings.catalogUrl()
-                                        MuseToast.show(context.getString(R.string.muse_plugins_trust_catalog_removed))
-                                        refreshMarketCatalog()
-                                    }
-                                },
-                            )
-                        }
-                    }
-                }
-            }
-
-            }
-            if (pluginTab == 0) {
-            // ── 外部插件区 ──
-            item { SectionHeader(stringResource(R.string.muse_plugins_external)) }
-            if (importing && externalPlugins.isEmpty()) {
-                item {
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        MuseSpinner(
-                            size = MuseIconSizes.iconMedium,
-                        )
-                    }
-                }
-            } else if (externalPlugins.isEmpty()) {
-                item {
-                    MuseEmptyState(
-                        icon = MuseIcons.puzzle,
-                        title = stringResource(R.string.muse_plugins_empty_hint),
-                    )
-                }
-            } else {
-                items(externalPlugins, key = { "ext_${it.id}" }) { plugin ->
-                    val verified = pluginManager.loadVerifiedPlugin(plugin.id)
-                    val configEntries = verified?.let {
-                        pluginManager.getPluginConfigsWithDefaults(it.manifest)
-                    }
-                    val panelHtml = remember(plugin.id, plugin.version) {
-                        if (plugin.enabled) pluginManager.loadPluginPanel(plugin.id) else null
-                    }
-                    InstalledPluginRow(
-                        plugin = plugin,
-                        configEntries = configEntries,
-                        panelHtml = panelHtml,
-                        onConfigChanged = { key, value ->
-                            scope.launch {
-                                pluginManager.setPluginConfig(plugin.id, key, value)
-                                externalPlugins = pluginManager.list()
-                            }
-                        },
-                        onToggle = {
-                            scope.launch {
-                                pluginManager.setEnabled(plugin.id, !plugin.enabled)
-                                externalPlugins = pluginManager.list()
-                            }
-                        },
-                        onConfirm = if (
-                            plugin.signatureStatus == PluginSecurityGate.SignatureStatus.VALID_TRUSTED ||
-                                plugin.signatureStatus == PluginSecurityGate.SignatureStatus.VALID_UNTRUSTED
-                        ) {
-                            {
-                                scope.launch {
-                                    pluginManager.confirmInstallation(
-                                        plugin.id,
-                                        trustPublisher = plugin.signatureStatus ==
-                                            PluginSecurityGate.SignatureStatus.VALID_UNTRUSTED,
+                        // 两列网格：每排两张插件卡，点开进详情页再安装（原大列表太占地方）。
+                        // 注意不用 LazyVerticalGrid：它会嵌进当前 LazyColumn 造成无界高度崩溃，
+                        // 这里按「每排两格」成对排布，视觉等价且结构安全。
+                        items(marketEntries.chunked(2), key = { "market_row_${it.first().id}" }) { pair ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = MusePaddings.screen, vertical = MusePaddings.tightGap),
+                                horizontalArrangement = Arrangement.spacedBy(MusePaddings.itemGap),
+                                verticalAlignment = Alignment.Top,
+                            ) {
+                                pair.forEach { entry ->
+                                    MarketEntryCell(
+                                        entry = entry,
+                                        installedVersion = externalPlugins.firstOrNull { it.id == entry.id }?.version,
+                                        phase = marketInstall?.takeIf { it.entryId == entry.id }?.phase,
+                                        onClick = { marketDetailEntry = entry },
+                                        modifier = Modifier.weight(1f),
                                     )
-                                        .onSuccess {
-                                            externalPlugins = pluginManager.list()
-                                            MuseToast.show(context.getString(R.string.muse_plugins_confirmed))
-                                        }
-                                        .onFailure { error ->
-                                            val msg = error.message ?: error::class.simpleName ?: "unknown"
-                                            MuseToast.show(
-                                                context.getString(R.string.provider_plugins_import_failed, msg),
-                                                3500,
-                                            )
-                                        }
+                                }
+                                if (pair.size == 1) {
+                                    Spacer(Modifier.weight(1f))
                                 }
                             }
-                        } else {
-                            null
-                        },
-                        onDelete = { pendingDeleteExternal = plugin },
-                        // 助手起草的未签名草稿：只有本机作者密钥签名并启用后才可执行。
-                        onSignAndEnable = if (
-                            plugin.signatureStatus == PluginSecurityGate.SignatureStatus.UNSIGNED &&
-                                !plugin.installationConfirmed
-                        ) {
-                            { pendingSignDraft = plugin }
-                        } else {
-                            null
-                        },
-                        rollbackVersion = pluginManager.listRetainedVersions(plugin.id)
-                            .firstOrNull { it.version != plugin.version }
-                            ?.version,
-                        onRollback = { version -> rollbackRequest = plugin.id to version },
-                    )
+                        }
+                    }
                 }
-            }
 
-            // ── Provider 插件区 ──
-            item {
-                Spacer(Modifier.height(MusePaddings.contentGap))
-                SectionHeader(stringResource(R.string.provider_plugins_title))
+                // ── P0-9: 信任管理(信任的发行者 / 目录信任根)──
             }
-            if (providerPlugins.isEmpty()) {
+            if (pluginTab == 2) {
+                item { SectionHeader(stringResource(R.string.muse_plugins_trust_title)) }
                 item {
-                    MuseEmptyState(
-                        icon = MuseIcons.puzzle,
-                        title = stringResource(R.string.provider_plugins_empty),
-                    )
-                }
-            } else {
-                items(providerPlugins, key = { "prov_${it.id}" }) { plugin ->
-                    PluginCard(
-                        plugin = plugin,
-                        onDelete = { pendingDeleteProvider = plugin },
-                        onConvert = { convertToProvider(plugin) },
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = MusePaddings.screen, vertical = MusePaddings.tightGap),
+                        verticalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.muse_plugins_trust_publishers_title),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (trustedPublishers.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.muse_plugins_trust_publishers_empty),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            trustedPublishers.forEach { publisher ->
+                                TrustedPublisherRow(
+                                    publisherId = publisher.publisherId,
+                                    fingerprint = publisher.fingerprint,
+                                    onRevoke = { revokePublisherId = publisher.publisherId },
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(MusePaddings.contentGap))
+                        Text(
+                            text = stringResource(R.string.muse_plugins_trust_catalog_title),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        val userRootKeys = catalogRootKeys.keys - PluginMarketDefaults.catalogRootKeys.keys
+                        if (userRootKeys.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.muse_plugins_trust_catalog_empty),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            userRootKeys.forEach { keyId ->
+                                CatalogRootKeyRow(
+                                    keyId = keyId,
+                                    onRemove = {
+                                        scope.launch {
+                                            marketSettings.removeCatalogRootKey(keyId)
+                                            // P0-9: 目录根撤销后清空市场缓存条目,避免旧信任根验证的条目残留
+                                            marketRepository.clearCache()
+                                            marketTrustRoots.reload()
+                                            marketEntries = emptyList()
+                                            catalogUrl = marketSettings.catalogUrl()
+                                            MuseToast.show(context.getString(R.string.muse_plugins_trust_catalog_removed))
+                                            refreshMarketCatalog()
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    }
                 }
             }
+            if (pluginTab == 0) {
+                // ── 外部插件区 ──
+                item { SectionHeader(stringResource(R.string.muse_plugins_external)) }
+                if (importing && externalPlugins.isEmpty()) {
+                    item {
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            MuseSpinner(
+                                size = MuseIconSizes.iconMedium,
+                            )
+                        }
+                    }
+                } else if (externalPlugins.isEmpty()) {
+                    item {
+                        MuseEmptyState(
+                            icon = MuseIcons.puzzle,
+                            title = stringResource(R.string.muse_plugins_empty_hint),
+                        )
+                    }
+                } else {
+                    items(externalPlugins, key = { "ext_${it.id}" }) { plugin ->
+                        val verified = pluginManager.loadVerifiedPlugin(plugin.id)
+                        val configEntries = verified?.let {
+                            pluginManager.getPluginConfigsWithDefaults(it.manifest)
+                        }
+                        val panelHtml = remember(plugin.id, plugin.version) {
+                            if (plugin.enabled) pluginManager.loadPluginPanel(plugin.id) else null
+                        }
+                        InstalledPluginRow(
+                            plugin = plugin,
+                            configEntries = configEntries,
+                            panelHtml = panelHtml,
+                            onConfigChanged = { key, value ->
+                                scope.launch {
+                                    pluginManager.setPluginConfig(plugin.id, key, value)
+                                    externalPlugins = pluginManager.list()
+                                }
+                            },
+                            onToggle = {
+                                scope.launch {
+                                    pluginManager.setEnabled(plugin.id, !plugin.enabled)
+                                    externalPlugins = pluginManager.list()
+                                }
+                            },
+                            onConfirm = if (
+                                plugin.signatureStatus == PluginSecurityGate.SignatureStatus.VALID_TRUSTED ||
+                                plugin.signatureStatus == PluginSecurityGate.SignatureStatus.VALID_UNTRUSTED
+                            ) {
+                                {
+                                    scope.launch {
+                                        pluginManager.confirmInstallation(
+                                            plugin.id,
+                                            trustPublisher = plugin.signatureStatus ==
+                                                PluginSecurityGate.SignatureStatus.VALID_UNTRUSTED,
+                                        )
+                                            .onSuccess {
+                                                externalPlugins = pluginManager.list()
+                                                MuseToast.show(context.getString(R.string.muse_plugins_confirmed))
+                                            }
+                                            .onFailure { error ->
+                                                val msg = error.message ?: error::class.simpleName ?: "unknown"
+                                                MuseToast.show(
+                                                    context.getString(R.string.provider_plugins_import_failed, msg),
+                                                    3500,
+                                                )
+                                            }
+                                    }
+                                }
+                            } else {
+                                null
+                            },
+                            onDelete = { pendingDeleteExternal = plugin },
+                            // 助手起草的未签名草稿：只有本机作者密钥签名并启用后才可执行。
+                            onSignAndEnable = if (
+                                plugin.signatureStatus == PluginSecurityGate.SignatureStatus.UNSIGNED &&
+                                !plugin.installationConfirmed
+                            ) {
+                                { pendingSignDraft = plugin }
+                            } else {
+                                null
+                            },
+                            rollbackVersion = pluginManager.listRetainedVersions(plugin.id)
+                                .firstOrNull { it.version != plugin.version }
+                                ?.version,
+                            onRollback = { version -> rollbackRequest = plugin.id to version },
+                        )
+                    }
+                }
+
+                // ── Provider 插件区 ──
+                item {
+                    Spacer(Modifier.height(MusePaddings.contentGap))
+                    SectionHeader(stringResource(R.string.provider_plugins_title))
+                }
+                if (providerPlugins.isEmpty()) {
+                    item {
+                        MuseEmptyState(
+                            icon = MuseIcons.puzzle,
+                            title = stringResource(R.string.provider_plugins_empty),
+                        )
+                    }
+                } else {
+                    items(providerPlugins, key = { "prov_${it.id}" }) { plugin ->
+                        PluginCard(
+                            plugin = plugin,
+                            onDelete = { pendingDeleteProvider = plugin },
+                            onConvert = { convertToProvider(plugin) },
+                        )
+                    }
+                }
             }
         }
     }
@@ -992,7 +994,6 @@ fun PluginManagePage(
             }
         }
     }
-
 
     // 回滚确认：回滚会重新校验历史副本的签名与内容摘要，失败不会改变当前版本。
     rollbackRequest?.let { (pluginId, version) ->
@@ -1404,11 +1405,7 @@ private fun signatureStatusLabel(status: PluginSecurityGate.SignatureStatus): St
 
 /** B7-01: 单个配置字段行 —— 按 manifest 声明类型渲染(string/boolean/number/select)。 */
 @Composable
-private fun ConfigFieldRow(
-    item: ConfigItem,
-    currentValue: JsonElement?,
-    onChanged: (JsonElement) -> Unit,
-) {
+private fun ConfigFieldRow(item: ConfigItem, currentValue: JsonElement?, onChanged: (JsonElement) -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
@@ -1511,11 +1508,7 @@ private fun ConfigFieldRow(
 }
 
 @Composable
-private fun PluginCard(
-    plugin: ProviderPlugin,
-    onDelete: () -> Unit,
-    onConvert: () -> Unit,
-) {
+private fun PluginCard(plugin: ProviderPlugin, onDelete: () -> Unit, onConvert: () -> Unit) {
     Surface(
         shape = MuseShapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -1633,10 +1626,7 @@ private fun MarketLoadingRow() {
 }
 
 @Composable
-private fun MarketErrorRow(
-    reason: String,
-    onRetry: () -> Unit,
-) {
+private fun MarketErrorRow(reason: String, onRetry: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1671,6 +1661,7 @@ private fun isDowngrade(installedVersion: String?, catalogVersion: String): Bool
     val candidate = PluginVersion.parse(catalogVersion) ?: return false
     return candidate < installed
 }
+
 /**
  * 市场网格卡片 —— 图标 + 名称 + 版本/发行者 + 状态，点开进详情页。
  */
@@ -1734,11 +1725,7 @@ private fun MarketEntryCell(
 
 /** 卡片上的状态行（下载中 / 安装中 / 已安装 / 失败 / 可安装）。 */
 @Composable
-private fun MarketEntryStateLine(
-    entryVersion: String,
-    installedVersion: String?,
-    phase: MarketInstallPhase?,
-) {
+private fun MarketEntryStateLine(entryVersion: String, installedVersion: String?, phase: MarketInstallPhase?) {
     val (label, color) = when {
         phase == MarketInstallPhase.Downloading || phase == MarketInstallPhase.Preparing ->
             stringResource(R.string.muse_plugins_market_downloading) to MuseActionColors.mutedContent
@@ -1926,15 +1913,9 @@ private fun MarketInstallActions(
     }
 }
 
-
-
 /** P0-9: 信任的发行者行 — 展示 id + 指纹,提供撤销入口。 */
 @Composable
-private fun TrustedPublisherRow(
-    publisherId: String,
-    fingerprint: String,
-    onRevoke: () -> Unit,
-) {
+private fun TrustedPublisherRow(publisherId: String, fingerprint: String, onRevoke: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1969,10 +1950,7 @@ private fun TrustedPublisherRow(
 
 /** P0-9: 目录信任根行 — 展示 keyId,提供移除入口(内置根不可移除)。 */
 @Composable
-private fun CatalogRootKeyRow(
-    keyId: String,
-    onRemove: () -> Unit,
-) {
+private fun CatalogRootKeyRow(keyId: String, onRemove: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

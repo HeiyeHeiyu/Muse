@@ -69,110 +69,108 @@ class PdfVisionParser(
      * @param onPageProgress 进度回调,(currentPage, totalPages),currentPage 从 1 开始
      * @return 解析结果
      */
-    suspend fun parse(
-        pdfPath: String,
-        onPageProgress: (currentPage: Int, totalPages: Int) -> Unit = { _, _ -> },
-    ): ParseResult = withContext(Dispatchers.IO) {
-        val file = File(pdfPath)
-        if (!file.exists() || !file.isFile) {
-            return@withContext ParseResult(false, "", 0, 0, "PDF 文件不存在: $pdfPath")
-        }
-        if (!file.canRead()) {
-            return@withContext ParseResult(false, "", 0, 0, "PDF 文件不可读: $pdfPath")
-        }
-
-        // 检查视觉模型可用性(早失败,避免渲染一半才发现无视觉模型)
-        if (!ocrClient.isAvailable()) {
-            return@withContext ParseResult(
-                success = false,
-                text = "",
-                pagesProcessed = 0,
-                pageCount = 0,
-                error = "未配置支持视觉的 AI 模型,请在设置中配置支持 vision 的模型(如 GPT-4o / Gemini / Claude)",
-            )
-        }
-
-        val pfd: ParcelFileDescriptor = runCatching {
-            ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-        }.getOrElse {
-            return@withContext ParseResult(false, "", 0, 0, "打开 PDF 失败: ${it.message}")
-        }
-
-        val renderer = PdfRenderer(pfd)
-        try {
-            val pageCount = renderer.pageCount
-            if (pageCount <= 0) {
-                return@withContext ParseResult(false, "", 0, 0, "PDF 页数为 0")
+    suspend fun parse(pdfPath: String, onPageProgress: (currentPage: Int, totalPages: Int) -> Unit = { _, _ -> }): ParseResult =
+        withContext(Dispatchers.IO) {
+            val file = File(pdfPath)
+            if (!file.exists() || !file.isFile) {
+                return@withContext ParseResult(false, "", 0, 0, "PDF 文件不存在: $pdfPath")
+            }
+            if (!file.canRead()) {
+                return@withContext ParseResult(false, "", 0, 0, "PDF 文件不可读: $pdfPath")
             }
 
-            // 每页 OCR 结果按 pageIndex 索引存放,保证拼接顺序与原 PDF 一致
-            val results = Array<String?>(pageCount) { null }
-            val errors = Array<String?>(pageCount) { null }
-            val semaphore = Semaphore(pageConcurrency.coerceAtLeast(1))
-
-            coroutineScope {
-                (0 until pageCount).map { pageIndex ->
-                    async {
-                        semaphore.withPermit {
-                            try {
-                                val base64 = renderPageToBase64(renderer, pageIndex)
-                                val ocrText = ocrClient.ocr(base64)
-                                results[pageIndex] = ocrText
-                            } catch (t: Throwable) {
-                                Logger.w(TAG, "OCR 第 ${pageIndex + 1} 页失败", t)
-                                errors[pageIndex] = t.message ?: t.javaClass.simpleName
-                            } finally {
-                                // 每页完成(无论成功失败)都回调进度
-                                onPageProgress(pageIndex + 1, pageCount)
-                            }
-                        }
-                    }
-                }.awaitAll()
-            }
-
-            val pagesProcessed = results.count { it != null }
-            val text = buildString {
-                for (i in 0 until pageCount) {
-                    val pageText = results[i]
-                    if (pageText != null) {
-                        appendLine("--- Page ${i + 1} ---")
-                        appendLine(pageText)
-                        appendLine()
-                    }
-                }
-            }.trimEnd()
-
-            // 全部失败 → success=false
-            if (pagesProcessed == 0) {
-                val firstError = errors.firstOrNull { it != null } ?: "未知错误"
+            // 检查视觉模型可用性(早失败,避免渲染一半才发现无视觉模型)
+            if (!ocrClient.isAvailable()) {
                 return@withContext ParseResult(
                     success = false,
                     text = "",
                     pagesProcessed = 0,
-                    pageCount = pageCount,
-                    error = "所有页面 OCR 失败,首张错误: $firstError",
+                    pageCount = 0,
+                    error = "未配置支持视觉的 AI 模型,请在设置中配置支持 vision 的模型(如 GPT-4o / Gemini / Claude)",
                 )
             }
 
-            // 部分成功也算成功,但拼接错误信息到正文末尾(便于 LLM 知道哪些页失败)
-            val finalText = if (pagesProcessed < pageCount) {
-                val failedPages = errors.indices.filter { errors[it] != null }.joinToString(",") { (it + 1).toString() }
-                "$text\n\n[注意: 第 $failedPages 页 OCR 失败,内容可能缺失]"
-            } else {
-                text
+            val pfd: ParcelFileDescriptor = runCatching {
+                ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+            }.getOrElse {
+                return@withContext ParseResult(false, "", 0, 0, "打开 PDF 失败: ${it.message}")
             }
 
-            ParseResult(
-                success = true,
-                text = finalText,
-                pagesProcessed = pagesProcessed,
-                pageCount = pageCount,
-            )
-        } finally {
-            runCatching { renderer.close() }
-            runCatching { pfd.close() }
+            val renderer = PdfRenderer(pfd)
+            try {
+                val pageCount = renderer.pageCount
+                if (pageCount <= 0) {
+                    return@withContext ParseResult(false, "", 0, 0, "PDF 页数为 0")
+                }
+
+                // 每页 OCR 结果按 pageIndex 索引存放,保证拼接顺序与原 PDF 一致
+                val results = Array<String?>(pageCount) { null }
+                val errors = Array<String?>(pageCount) { null }
+                val semaphore = Semaphore(pageConcurrency.coerceAtLeast(1))
+
+                coroutineScope {
+                    (0 until pageCount).map { pageIndex ->
+                        async {
+                            semaphore.withPermit {
+                                try {
+                                    val base64 = renderPageToBase64(renderer, pageIndex)
+                                    val ocrText = ocrClient.ocr(base64)
+                                    results[pageIndex] = ocrText
+                                } catch (t: Throwable) {
+                                    Logger.w(TAG, "OCR 第 ${pageIndex + 1} 页失败", t)
+                                    errors[pageIndex] = t.message ?: t.javaClass.simpleName
+                                } finally {
+                                    // 每页完成(无论成功失败)都回调进度
+                                    onPageProgress(pageIndex + 1, pageCount)
+                                }
+                            }
+                        }
+                    }.awaitAll()
+                }
+
+                val pagesProcessed = results.count { it != null }
+                val text = buildString {
+                    for (i in 0 until pageCount) {
+                        val pageText = results[i]
+                        if (pageText != null) {
+                            appendLine("--- Page ${i + 1} ---")
+                            appendLine(pageText)
+                            appendLine()
+                        }
+                    }
+                }.trimEnd()
+
+                // 全部失败 → success=false
+                if (pagesProcessed == 0) {
+                    val firstError = errors.firstOrNull { it != null } ?: "未知错误"
+                    return@withContext ParseResult(
+                        success = false,
+                        text = "",
+                        pagesProcessed = 0,
+                        pageCount = pageCount,
+                        error = "所有页面 OCR 失败,首张错误: $firstError",
+                    )
+                }
+
+                // 部分成功也算成功,但拼接错误信息到正文末尾(便于 LLM 知道哪些页失败)
+                val finalText = if (pagesProcessed < pageCount) {
+                    val failedPages = errors.indices.filter { errors[it] != null }.joinToString(",") { (it + 1).toString() }
+                    "$text\n\n[注意: 第 $failedPages 页 OCR 失败,内容可能缺失]"
+                } else {
+                    text
+                }
+
+                ParseResult(
+                    success = true,
+                    text = finalText,
+                    pagesProcessed = pagesProcessed,
+                    pageCount = pageCount,
+                )
+            } finally {
+                runCatching { renderer.close() }
+                runCatching { pfd.close() }
+            }
         }
-    }
 
     /**
      * 渲染指定页为 Bitmap 并转 base64。

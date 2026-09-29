@@ -30,8 +30,7 @@ class AgentTokenBudget private constructor(
          * 创建预算实例。
          * @param limitTokens 上限;null 时返回 null(表示不限制)。
          */
-        fun of(limitTokens: Int?): AgentTokenBudget? =
-            limitTokens?.takeIf { it > 0 }?.let { AgentTokenBudget(it) }
+        fun of(limitTokens: Int?): AgentTokenBudget? = limitTokens?.takeIf { it > 0 }?.let { AgentTokenBudget(it) }
     }
 
     private var spent = 0

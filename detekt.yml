@@ -1,4 +1,4 @@
-﻿# detekt 静态分析配置
+# detekt 静态分析配置
 build:
   maxIssues: 0
 
@@ -13,6 +13,11 @@ complexity:
 style:
   MagicNumber:
     active: false
+  MaxLineLength:
+    active: true
+    # 与根 .editorconfig 的 max_line_length 对齐。detekt 默认 120 会把 121–140 字符
+    # 的行记成另一套债务；项目明确采用 140 后，>140 的行仍由该规则真实拦截。
+    maxLineLength: 140
   UnusedImports:
     active: true
   TrailingWhitespace:

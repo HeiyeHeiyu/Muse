@@ -29,7 +29,9 @@ data class MessageSearchJoin(
 interface MessageDao {
 
     /** 观察指定会话的全部消息(按 seq 单调序列升序)。备份导出用,需全量加载。 */
-    @Query("SELECT * FROM messages WHERE sessionId = :sessionId ORDER BY CASE WHEN commitSeq > 0 THEN commitSeq ELSE seq END ASC, createdAt ASC, id ASC")
+    @Query(
+        "SELECT * FROM messages WHERE sessionId = :sessionId ORDER BY CASE WHEN commitSeq > 0 THEN commitSeq ELSE seq END ASC, createdAt ASC, id ASC",
+    )
     fun observeBySession(sessionId: String): Flow<List<MessageEntity>>
 
     /**
@@ -40,7 +42,9 @@ interface MessageDao {
      * 更早的历史由 [getOlderBySession] 分页加载。limit 由调用方传入
      * (如 [SessionRepository.OBSERVE_LIMIT])。
      */
-    @Query("SELECT * FROM (SELECT * FROM messages WHERE sessionId = :sessionId AND deletedAt IS NULL ORDER BY CASE WHEN commitSeq > 0 THEN commitSeq ELSE seq END DESC, createdAt DESC, id DESC LIMIT :limit) ORDER BY CASE WHEN commitSeq > 0 THEN commitSeq ELSE seq END ASC, createdAt ASC, id ASC")
+    @Query(
+        "SELECT * FROM (SELECT * FROM messages WHERE sessionId = :sessionId AND deletedAt IS NULL ORDER BY CASE WHEN commitSeq > 0 THEN commitSeq ELSE seq END DESC, createdAt DESC, id DESC LIMIT :limit) ORDER BY CASE WHEN commitSeq > 0 THEN commitSeq ELSE seq END ASC, createdAt ASC, id ASC",
+    )
     fun observeRecentBySession(sessionId: String, limit: Int): Flow<List<MessageEntity>>
 
     /**
@@ -49,7 +53,9 @@ interface MessageDao {
      * 用于初始加载时分页:只取最近 PAGE_SIZE 条,避免一次性加载全部导致卡顿/OOM。
      * 返回顺序为降序(最新在前),调用方需自行 reversed()。
      */
-    @Query("SELECT * FROM messages WHERE sessionId = :sessionId AND deletedAt IS NULL ORDER BY CASE WHEN commitSeq > 0 THEN commitSeq ELSE seq END DESC, createdAt DESC, id DESC LIMIT :limit")
+    @Query(
+        "SELECT * FROM messages WHERE sessionId = :sessionId AND deletedAt IS NULL ORDER BY CASE WHEN commitSeq > 0 THEN commitSeq ELSE seq END DESC, createdAt DESC, id DESC LIMIT :limit",
+    )
     suspend fun getRecentBySession(sessionId: String, limit: Int): List<MessageEntity>
 
     /** 计划历史恢复用:只读取带工具展示信息的消息,避免为恢复计划加载整段长会话。 */
@@ -85,7 +91,9 @@ interface MessageDao {
     suspend fun getMaxSeq(sessionId: String): Long
 
     /** v1.58: 查询会话中到指定时间戳为止(含)的全部消息(升序),用于对话分叉 Fork。 */
-    @Query("SELECT * FROM messages WHERE sessionId = :sessionId AND createdAt <= :untilCreatedAt ORDER BY CASE WHEN commitSeq > 0 THEN commitSeq ELSE seq END ASC")
+    @Query(
+        "SELECT * FROM messages WHERE sessionId = :sessionId AND createdAt <= :untilCreatedAt ORDER BY CASE WHEN commitSeq > 0 THEN commitSeq ELSE seq END ASC",
+    )
     suspend fun getUpToBySession(sessionId: String, untilCreatedAt: Long): List<MessageEntity>
 
     /** 插入消息(冲突时替换,支持流式更新 assistant 消息)。 */
@@ -93,7 +101,9 @@ interface MessageDao {
     suspend fun upsert(message: MessageEntity)
 
     /** 每日总结用:取指定时间区间内的用户消息(升序,限量)。 */
-    @Query("SELECT * FROM messages WHERE role = 'USER' AND createdAt >= :fromCreatedAt AND createdAt < :toCreatedAt ORDER BY createdAt ASC, rowid ASC LIMIT :limit")
+    @Query(
+        "SELECT * FROM messages WHERE role = 'USER' AND createdAt >= :fromCreatedAt AND createdAt < :toCreatedAt ORDER BY createdAt ASC, rowid ASC LIMIT :limit",
+    )
     suspend fun getUserMessagesBetween(fromCreatedAt: Long, toCreatedAt: Long, limit: Int): List<MessageEntity>
 
     /** 兼容其他调用方的下界查询。 */
@@ -166,7 +176,8 @@ interface MessageDao {
      * @param pattern 已转义的 LIKE 模式串(如 %keyword%),配合 ESCAPE '\'
      * @param limit 最大返回条数(默认 50)
      */
-    @Query("""
+    @Query(
+        """
         SELECT
             m.id as messageId,
             m.sessionId as sessionId,
@@ -179,7 +190,8 @@ interface MessageDao {
         WHERE m.content LIKE :pattern ESCAPE '\'
         ORDER BY m.createdAt DESC
         LIMIT :limit
-    """)
+    """,
+    )
     suspend fun searchMessageContentLike(pattern: String, limit: Int = 50): List<MessageSearchJoin>
 
     /** 消息总数流(统计面板用)。 */
@@ -308,7 +320,9 @@ interface MessageDao {
      * JOIN sessions 取 assistantId,按助手聚合全部消息数。
      * 用于在 ViewModel 层反查 AssistantRepository 得到助手显示名。
      */
-    @Query("SELECT s.assistantId as assistantId, COUNT(*) as cnt FROM messages m JOIN sessions s ON m.sessionId = s.id GROUP BY s.assistantId")
+    @Query(
+        "SELECT s.assistantId as assistantId, COUNT(*) as cnt FROM messages m JOIN sessions s ON m.sessionId = s.id GROUP BY s.assistantId",
+    )
     suspend fun countByAssistant(): List<AssistantCount>
 
     /**
@@ -317,7 +331,9 @@ interface MessageDao {
      * createdAt 为毫秒时间戳,/1000 转秒后用 strftime 取本地时区小时(00-23)。
      * 缺失的小时由 ViewModel 补 0,凑成 24 元素列表。
      */
-    @Query("SELECT strftime('%H', createdAt/1000, 'unixepoch', 'localtime') as hour, COUNT(*) as cnt FROM messages GROUP BY hour ORDER BY hour")
+    @Query(
+        "SELECT strftime('%H', createdAt/1000, 'unixepoch', 'localtime') as hour, COUNT(*) as cnt FROM messages GROUP BY hour ORDER BY hour",
+    )
     suspend fun countByHour(): List<HourCount>
 
     /**

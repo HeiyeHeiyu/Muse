@@ -12,8 +12,8 @@ import io.zer0.muse.data.promptinjection.PromptInjectionRepository
 import io.zer0.muse.data.quickmsg.QuickMessageEntity
 import io.zer0.muse.data.quickmsg.QuickMessageRepository
 import io.zer0.muse.data.session.FolderRepository
-import io.zer0.muse.data.session.SessionRepository
 import io.zer0.muse.data.session.SearchResult
+import io.zer0.muse.data.session.SessionRepository
 import io.zer0.muse.ui.ChatError
 import io.zer0.muse.ui.ChatErrorType
 import kotlinx.coroutines.flow.first
@@ -88,7 +88,12 @@ class ChatMiscCoordinator(
             resultOf { folderRepository.moveSessionToFolder(sessionId, folderId) }
                 .onError { msg, t ->
                     Logger.e(tag, "moveSessionToFolder failed", t)
-                    reportError(appContext.getString(R.string.err_chat_misc_move_session_failed, t?.message ?: appContext.getString(R.string.err_chat_unknown)))
+                    reportError(
+                        appContext.getString(
+                            R.string.err_chat_misc_move_session_failed,
+                            t?.message ?: appContext.getString(R.string.err_chat_unknown),
+                        ),
+                    )
                 }
         }
     }
@@ -155,7 +160,9 @@ class ChatMiscCoordinator(
                     isSearching = false,
                     searchError = if (failed) {
                         appContext.getString(R.string.err_chat_request_failed, detail ?: appContext.getString(R.string.err_chat_unknown))
-                    } else null,
+                    } else {
+                        null
+                    },
                 )
             }
         }
@@ -221,7 +228,9 @@ class ChatMiscCoordinator(
                     isSearchingMessages = false,
                     searchError = if (failed) {
                         appContext.getString(R.string.err_chat_request_failed, detail ?: appContext.getString(R.string.err_chat_unknown))
-                    } else null,
+                    } else {
+                        null
+                    },
                 )
             }
         }
@@ -277,8 +286,11 @@ class ChatMiscCoordinator(
         accessor.updateMessages { newMessages }
         accessor.update { st ->
             val newFavs = if (newFav) {
-                if (st.favoriteMessages.none { it.id == messageId }) st.favoriteMessages + target.copy(favorite = newFav)
-                else st.favoriteMessages
+                if (st.favoriteMessages.none { it.id == messageId }) {
+                    st.favoriteMessages + target.copy(favorite = newFav)
+                } else {
+                    st.favoriteMessages
+                }
             } else {
                 st.favoriteMessages.filterNot { it.id == messageId }
             }
@@ -296,10 +308,21 @@ class ChatMiscCoordinator(
                             st.favoriteMessages.filterNot { it.id == messageId }
                         } else {
                             val tgt = st.favoriteMessages.firstOrNull { it.id == messageId }
-                            if (tgt != null) st.favoriteMessages + tgt.copy(favorite = !newFav)
-                            else st.favoriteMessages
+                            if (tgt != null) {
+                                st.favoriteMessages + tgt.copy(favorite = !newFav)
+                            } else {
+                                st.favoriteMessages
+                            }
                         }
-                        st.copy(favoriteMessages = rolledFavs, errors = listOf(ChatError(type = ChatErrorType.UNKNOWN, message = appContext.getString(R.string.err_chat_misc_favorite_failed, t?.message ?: ""))))
+                        st.copy(
+                            favoriteMessages = rolledFavs,
+                            errors = listOf(
+                                ChatError(
+                                    type = ChatErrorType.UNKNOWN,
+                                    message = appContext.getString(R.string.err_chat_misc_favorite_failed, t?.message ?: ""),
+                                ),
+                            ),
+                        )
                     }
                 }
         }
@@ -327,7 +350,12 @@ class ChatMiscCoordinator(
                         }
                         st.copy(
                             favoriteMessages = rolled,
-                            errors = listOf(ChatError(type = ChatErrorType.UNKNOWN, message = appContext.getString(R.string.err_chat_misc_set_tag_failed, t?.message ?: ""))),
+                            errors = listOf(
+                                ChatError(
+                                    type = ChatErrorType.UNKNOWN,
+                                    message = appContext.getString(R.string.err_chat_misc_set_tag_failed, t?.message ?: ""),
+                                ),
+                            ),
                         )
                     }
                 }
@@ -366,7 +394,14 @@ class ChatMiscCoordinator(
                 }
                 accessor.updateMessages { rolled }
                 accessor.update { st ->
-                    st.copy(errors = listOf(ChatError(type = ChatErrorType.UNKNOWN, message = appContext.getString(R.string.err_chat_misc_delete_msg_failed, t?.message ?: ""))))
+                    st.copy(
+                        errors = listOf(
+                            ChatError(
+                                type = ChatErrorType.UNKNOWN,
+                                message = appContext.getString(R.string.err_chat_misc_delete_msg_failed, t?.message ?: ""),
+                            ),
+                        ),
+                    )
                 }
             }
         }
@@ -399,7 +434,14 @@ class ChatMiscCoordinator(
                 }
                 accessor.updateMessages { rolled }
                 accessor.update { st ->
-                    st.copy(errors = listOf(ChatError(type = ChatErrorType.UNKNOWN, message = appContext.getString(R.string.err_chat_misc_delete_msg_failed, t?.message ?: ""))))
+                    st.copy(
+                        errors = listOf(
+                            ChatError(
+                                type = ChatErrorType.UNKNOWN,
+                                message = appContext.getString(R.string.err_chat_misc_delete_msg_failed, t?.message ?: ""),
+                            ),
+                        ),
+                    )
                 }
             }
         }

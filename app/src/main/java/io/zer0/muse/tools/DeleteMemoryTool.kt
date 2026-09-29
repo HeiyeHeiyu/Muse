@@ -32,11 +32,7 @@ object DeleteMemoryTool {
         riskLevel = ToolRiskLevel.HIGH,
     )
 
-    suspend fun execute(
-        args: Map<String, String>,
-        factStore: FactStore,
-        executionContext: ToolExecutionContext,
-    ): String {
+    suspend fun execute(args: Map<String, String>, factStore: FactStore, executionContext: ToolExecutionContext): String {
         val idArg = args["id"]?.trim()?.toLongOrNull()
         val match = args["match"]?.trim().orEmpty()
         val target = when {

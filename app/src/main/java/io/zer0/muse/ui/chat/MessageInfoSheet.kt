@@ -42,10 +42,7 @@ import java.util.Locale
  * 入口:MessageBubble 长按扩展菜单 / 桌面右键菜单的「消息信息」项。
  */
 @Composable
-fun MessageInfoSheet(
-    msg: UIMessage,
-    onDismiss: () -> Unit,
-) {
+fun MessageInfoSheet(msg: UIMessage, onDismiss: () -> Unit) {
     val modelLabel = stringResource(R.string.msg_info_model)
     val timeLabel = stringResource(R.string.msg_info_time)
     val durationLabel = stringResource(R.string.msg_info_duration)
@@ -144,7 +141,7 @@ private fun InfoRow(label: String, value: String, tag: String? = null) {
 
 /** 生成耗时格式化: <1s 用 ms;<60s 用秒(1 位小数);否则 分+秒。 */
 private fun formatDuration(ms: Long): String = when {
-    ms < 1_000L -> "${ms} ms"
+    ms < 1_000L -> "$ms ms"
     ms < 60_000L -> String.format(Locale.US, "%.1f s", ms / 1000f)
     else -> "${ms / 60_000L} min ${(ms % 60_000L) / 1000L} s"
 }

@@ -12,11 +12,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -34,8 +34,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -80,7 +80,7 @@ fun AccountScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val accountState by settings.accountStateFlow.collectAsStateWithLifecycle(
-        initialValue = io.zer0.muse.data.AccountState()
+        initialValue = io.zer0.muse.data.AccountState(),
     )
 
     // 本地编辑态 — 进入页面时用当前 accountState 初始化
@@ -149,7 +149,7 @@ fun AccountScreen(
                 avatarUri = editAvatarUri,
                 onClick = {
                     pickAvatarLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
                     )
                 },
             )
@@ -243,10 +243,7 @@ fun AccountScreen(
  * 点击后进入完整用户画像编辑页。
  */
 @Composable
-private fun UserProfileEntryCard(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun UserProfileEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         onClick = onClick,
         shape = MuseShapes.extraLarge,
@@ -297,6 +294,7 @@ private fun UserProfileEntryCard(
         }
     }
 }
+
 /**
  * 大号头像 + 右下角相机编辑徽标。
  *
@@ -305,11 +303,7 @@ private fun UserProfileEntryCard(
  * @param onClick 点击头像触发(打开相册)
  */
 @Composable
-private fun AvatarPicker(
-    userName: String,
-    avatarUri: String?,
-    onClick: () -> Unit,
-) {
+private fun AvatarPicker(userName: String, avatarUri: String?, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(120.dp)
@@ -374,15 +368,14 @@ private fun AvatarPicker(
 // ── 保存按钮 ──────────────────────────────────────────
 
 @Composable
-private fun SaveButton(
-    enabled: Boolean,
-    saving: Boolean,
-    onClick: () -> Unit,
-) {
+private fun SaveButton(enabled: Boolean, saving: Boolean, onClick: () -> Unit) {
     Surface(
         shape = MuseShapes.huge,
-        color = if (enabled) MaterialTheme.colorScheme.inverseSurface
-            else MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.4f),
+        color = if (enabled) {
+            MaterialTheme.colorScheme.inverseSurface
+        } else {
+            MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.4f)
+        },
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 52.dp)
@@ -427,13 +420,10 @@ private fun SaveButton(
  * 点击进入 [AccountScreen] 编辑头像和昵称。
  */
 @Composable
-fun AccountCard(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun AccountCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val settings: SettingsRepository = koinInject()
     val accountState by settings.accountStateFlow.collectAsStateWithLifecycle(
-        initialValue = io.zer0.muse.data.AccountState()
+        initialValue = io.zer0.muse.data.AccountState(),
     )
 
     Surface(
@@ -501,4 +491,3 @@ fun AccountCard(
         }
     }
 }
-

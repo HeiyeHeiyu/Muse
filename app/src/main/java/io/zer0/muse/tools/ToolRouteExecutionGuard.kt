@@ -48,8 +48,7 @@ class ToolRouteExecutionGuard(private val registry: ToolRegistry) {
         }
     }
 
-    private fun definitionMatches(expected: ToolDefinition, current: ToolDefinition): Boolean =
-        expected.name == current.name &&
-            expected.description == current.description &&
-            expected.parametersJsonSchema == current.parametersJsonSchema
+    private fun definitionMatches(expected: ToolDefinition, current: ToolDefinition): Boolean = expected.name == current.name &&
+        expected.description == current.description &&
+        expected.parametersJsonSchema == current.parametersJsonSchema
 }

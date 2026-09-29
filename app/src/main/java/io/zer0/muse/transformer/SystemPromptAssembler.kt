@@ -764,10 +764,7 @@ class SystemPromptAssembler(
     }
 
     /** 5. 长期记忆摘要 — MemoryCompiler 编译后的 markdown。 */
-    internal suspend fun buildLongTermMemorySection(
-        scope: String? = null,
-        spaceId: String? = null,
-    ): String {
+    internal suspend fun buildLongTermMemorySection(scope: String? = null, spaceId: String? = null): String {
         // H-ASM1: memoryTicker.readCompiledMemoryMarkdown() 为 suspend,用 resultOf 正确重抛 CancellationException
         // M-ASM3: 用 <long_term_memory> 边界标签包裹,声明标签内为数据而非指令,防止提示词注入
         val md =
@@ -817,10 +814,7 @@ class SystemPromptAssembler(
      */
 
     /** 余弦相似度（维度不一致时返回 0，交由上层退回原顺序）。 */
-    private fun cosineSimilarity(
-        a: FloatArray,
-        b: FloatArray,
-    ): Float {
+    private fun cosineSimilarity(a: FloatArray, b: FloatArray): Float {
         if (a.size != b.size || a.isEmpty()) return 0f
         var dot = 0f
         var na = 0f
@@ -834,10 +828,7 @@ class SystemPromptAssembler(
         return dot / (kotlin.math.sqrt(na) * kotlin.math.sqrt(nb))
     }
 
-    private fun lexicalOverlap(
-        query: String,
-        fact: String,
-    ): Float {
+    private fun lexicalOverlap(query: String, fact: String): Float {
         val q = query.lowercase().trim()
         val f = fact.lowercase()
         if (q.isEmpty() || f.isEmpty()) return 0f
@@ -955,10 +946,7 @@ class SystemPromptAssembler(
      *       时调用方**不得**调用本方法;单聊上下文一律不注入群聊记忆(见调用方注释)。
      * @return 当前群聊记忆 section(可为空);仓库未注入、助手在当前群聊无记忆时返回空串
      */
-    internal suspend fun buildGroupChatMemorySection(
-        assistantId: String,
-        chatId: String,
-    ): String {
+    internal suspend fun buildGroupChatMemorySection(assistantId: String, chatId: String): String {
         val repo = groupChatMemoryRepository ?: return ""
         // A-09: 只取"当前助手在当前群聊"的记忆,不再是跨群无差别汇总。
         val memories =
@@ -1017,10 +1005,7 @@ class SystemPromptAssembler(
         Regex("[\\p{L}\\p{Nd}]+").findAll(text.lowercase()).map { it.value }.toList()
 
     /** P2-34: 经验条目对当前问题的相关性打分 — 命中词计词长,标签命中额外加权。 */
-    private fun experienceRelevance(
-        exp: ExperienceEntity,
-        tokens: List<String>,
-    ): Int {
+    private fun experienceRelevance(exp: ExperienceEntity, tokens: List<String>): Int {
         if (tokens.isEmpty()) return 0
         val titleTxt =
             if (exp.title.isBlank() && exp.content.isBlank()) {
@@ -1175,9 +1160,9 @@ class SystemPromptAssembler(
                     name = skill.id,
                     description = skill.description,
                     requiredParams =
-                        skill.requiredJson.takeIf { it.isNotBlank() }?.let {
-                            resultOf { AppJson.decodeFromString<List<String>>(it) }.getOrNull() ?: emptyList()
-                        } ?: emptyList(),
+                    skill.requiredJson.takeIf { it.isNotBlank() }?.let {
+                        resultOf { AppJson.decodeFromString<List<String>>(it) }.getOrNull() ?: emptyList()
+                    } ?: emptyList(),
                     optionalParams = emptyList(),
                     category = categorize(skill.id, skill.category),
                 )
@@ -1264,10 +1249,7 @@ class SystemPromptAssembler(
     }
 
     /** 按工具名映射到统一分类(本地工具的内置 category 是 built-in,需要细分到具体能力域)。 */
-    private fun categorize(
-        name: String,
-        defaultCategory: String,
-    ): String {
+    private fun categorize(name: String, defaultCategory: String): String {
         // L-ASM8: 用 companion object 的 Set 常量替代每次构造 listOf,避免重复分配
         // L-ASM9: 补齐 DECISION_TREE_SECTION 提到的 calendar_today / pin_memory 归类
         return when {
@@ -1292,15 +1274,14 @@ class SystemPromptAssembler(
     )
 
     /** 解析助手资源 id 列表;空/损坏值按未配置处理,兼容旧版助手记录。 */
-    private fun parseResourceIds(raw: String): List<String> =
-        if (raw.isBlank() || raw == "[]") {
-            emptyList()
-        } else {
-            resultOf { AppJson.decodeFromString<List<String>>(raw) }
-                .onError { msg, t -> Logger.w(TAG, "助手资源列表解析失败: ${t?.message ?: msg}") }
-                .getOrNull()
-                ?: emptyList()
-        }
+    private fun parseResourceIds(raw: String): List<String> = if (raw.isBlank() || raw == "[]") {
+        emptyList()
+    } else {
+        resultOf { AppJson.decodeFromString<List<String>>(raw) }
+            .onError { msg, t -> Logger.w(TAG, "助手资源列表解析失败: ${t?.message ?: msg}") }
+            .getOrNull()
+            ?: emptyList()
+    }
 
     /**
      * 7. Workspace 路径 — 告诉 LLM 应用沙盒根目录。
@@ -1574,11 +1555,7 @@ class SystemPromptAssembler(
          * @param currentAgentName 当前 agent 的显示名
          * @return 群聊提示文本
          */
-        fun buildGroupChatHintSection(
-            chatName: String,
-            members: List<String>,
-            currentAgentName: String,
-        ): String {
+        fun buildGroupChatHintSection(chatName: String, members: List<String>, currentAgentName: String): String {
             val sb = StringBuilder()
             sb.appendLine("群聊环境提示:")
             sb.appendLine("你当前正在群聊「$chatName」中,你的身份是「$currentAgentName」。")
@@ -1616,11 +1593,7 @@ class SystemPromptAssembler(
          * @param members 群聊所有成员显示名列表
          * @return 身份防混淆 guidance 文本
          */
-        fun buildIdentityGuidance(
-            chatName: String,
-            currentAgentName: String,
-            members: List<String>,
-        ): String {
+        fun buildIdentityGuidance(chatName: String, currentAgentName: String, members: List<String>): String {
             val memberNames = members.joinToString("、").ifBlank { currentAgentName }
             return """
                 【身份提醒】
@@ -1632,7 +1605,7 @@ class SystemPromptAssembler(
                 2. 你只代表 $currentAgentName 自己,其他成员的人设、记忆、专长不属于你
                 3. 不要替其他成员发言或把他们的经历当成你的
                 4. 保持你自己的风格和专长,不要模仿其他成员
-                """.trimIndent()
+            """.trimIndent()
         }
 
         /**

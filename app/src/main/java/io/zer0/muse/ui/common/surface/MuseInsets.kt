@@ -21,12 +21,10 @@ import androidx.compose.ui.unit.dp
  */
 fun Modifier.museTopBarInsets(): Modifier = statusBarsPadding()
 
-fun Modifier.museBottomBarInsets(): Modifier =
-    navigationBarsPadding()
-        .imePadding()
+fun Modifier.museBottomBarInsets(): Modifier = navigationBarsPadding()
+    .imePadding()
 
-fun Modifier.museDialogInsets(): Modifier =
-    imePadding().navigationBarsPadding()
+fun Modifier.museDialogInsets(): Modifier = imePadding().navigationBarsPadding()
 
 /**
  * v2.0.1: 可靠的状态栏顶部内边距（吸顶 / 滚动新结构专用）。

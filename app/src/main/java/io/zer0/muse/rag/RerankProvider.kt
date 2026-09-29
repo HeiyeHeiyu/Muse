@@ -20,11 +20,7 @@ interface RerankProvider {
      * @param topK 最终返回条数
      * @return 重排序后的列表(分数已归一化到 0-1)
      */
-    suspend fun rerank(
-        query: String,
-        candidates: List<RerankCandidate>,
-        topK: Int,
-    ): List<RerankResult>
+    suspend fun rerank(query: String, candidates: List<RerankCandidate>, topK: Int): List<RerankResult>
 }
 
 /** 重排序输入候选。 */
@@ -58,11 +54,7 @@ data class RerankResult(
  * 适用场景:无网络 / 未配置 rerank API 时的降级。
  */
 class LocalRerankProvider : RerankProvider {
-    override suspend fun rerank(
-        query: String,
-        candidates: List<RerankCandidate>,
-        topK: Int,
-    ): List<RerankResult> {
+    override suspend fun rerank(query: String, candidates: List<RerankCandidate>, topK: Int): List<RerankResult> {
         if (candidates.isEmpty()) return emptyList()
         val queryTerms = extractTerms(query)
         if (queryTerms.isEmpty()) {
@@ -95,8 +87,9 @@ class LocalRerankProvider : RerankProvider {
         val tokens = mutableListOf<String>()
         val current = StringBuilder()
         for (ch in query) {
-            if (ch.isLetterOrDigit()) current.append(ch)
-            else {
+            if (ch.isLetterOrDigit()) {
+                current.append(ch)
+            } else {
                 if (current.isNotEmpty()) {
                     tokens.add(current.toString())
                     current.clear()

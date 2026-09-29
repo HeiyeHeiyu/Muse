@@ -31,12 +31,7 @@ private const val MAX_DELAY_MS = 30_000L
  * @return block 的返回值
  * @throws IOException 当所有重试均失败时抛出最后一次的 IOException
  */
-suspend fun <T> retryOnNetworkError(
-    maxRetries: Int = 3,
-    initialDelayMs: Long = 500,
-    factor: Double = 2.0,
-    block: suspend () -> T,
-): T {
+suspend fun <T> retryOnNetworkError(maxRetries: Int = 3, initialDelayMs: Long = 500, factor: Double = 2.0, block: suspend () -> T): T {
     require(maxRetries >= 1) { "maxRetries must be >= 1" }
     var lastError: IOException? = null
     var delayMs = initialDelayMs

@@ -100,11 +100,7 @@ class DelegationPauseManagerTest {
         assertTrue(manager.activePauses.value.isEmpty())
     }
 
-    private fun pause(
-        requestId: String,
-        taskId: String,
-        parentRequestId: String? = null,
-    ) = DelegationPauseManager.PauseRequest(
+    private fun pause(requestId: String, taskId: String, parentRequestId: String? = null) = DelegationPauseManager.PauseRequest(
         requestId = requestId,
         taskId = taskId,
         taskTitle = "test",

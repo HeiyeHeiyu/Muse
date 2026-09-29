@@ -47,8 +47,10 @@ class UpdateChecker(
     sealed class Result {
         /** 发现新版本:携带 tag_name 与 release html_url。 */
         data class NewVersion(val tagName: String, val htmlUrl: String) : Result()
+
         /** 已是最新版本。 */
         data object UpToDate : Result()
+
         /** 检查失败(网络/解析错误)。 */
         data class Error(val message: String) : Result()
     }
@@ -103,21 +105,20 @@ class UpdateChecker(
      *  - 协程取消时调用 [Call.cancel],中断阻塞的网络调用
      *  - 不占用线程等待响应(enqueue 由 OkHttp 调度器线程回调)
      */
-    private suspend fun exec(request: Request): Response =
-        suspendCancellableCoroutine { cont ->
-            val call = client.newCall(request)
-            // M1: 统一用 resultOf{} 替代 runCatching{}(项目 Result 约定)
-            cont.invokeOnCancellation { resultOf { call.cancel() } }
-            call.enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    if (cont.isActive) cont.resumeWithException(e)
-                }
+    private suspend fun exec(request: Request): Response = suspendCancellableCoroutine { cont ->
+        val call = client.newCall(request)
+        // M1: 统一用 resultOf{} 替代 runCatching{}(项目 Result 约定)
+        cont.invokeOnCancellation { resultOf { call.cancel() } }
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                if (cont.isActive) cont.resumeWithException(e)
+            }
 
-                override fun onResponse(call: Call, response: Response) {
-                    if (cont.isActive) cont.resume(response) else response.close()
-                }
-            })
-        }
+            override fun onResponse(call: Call, response: Response) {
+                if (cont.isActive) cont.resume(response) else response.close()
+            }
+        })
+    }
 
     /**
      * 比较版本号(支持 "v0.29" / "0.28" 格式)。

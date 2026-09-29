@@ -44,10 +44,7 @@ object LlmBudget {
     /**
      * 给可见 maxTokens 加上 reasoning 缓冲，再 clamp 到模型上限。
      */
-    fun withReasoningHeadroom(
-        visibleMaxTokens: Int,
-        model: Model?,
-    ): Int {
+    fun withReasoningHeadroom(visibleMaxTokens: Int, model: Model?): Int {
         if (model == null) return visibleMaxTokens
         // v2.x: 优先用模型能力字段 — 仅按 id 子串判断会漏掉新型推理模型
         // (如 deepseek-flash / v4-pro: 目录 abilities=[TOOL, REASONING] 但 id 不带下列关键词),
@@ -80,8 +77,8 @@ object LlmBudget {
 
     /** 组装后的 memory markdown 中的一个 `##` 段。 */
     internal data class Segment(
-        val heading: String,   // 形如 "## 重要事实"
-        val body: String,      // 段正文(不含标题)
+        val heading: String, // 形如 "## 重要事实"
+        val body: String, // 段正文(不含标题)
     ) {
         fun render(): String = if (body.isEmpty()) heading else "$heading\n\n$body"
     }
@@ -126,8 +123,7 @@ object LlmBudget {
      * 把段落裁剪结果序列化回 markdown(段间空一行,整体以换行收尾),格式与
      * MemoryCompiler.assembleCompiledMarkdown 保持一致。
      */
-    private fun renderSegments(segments: List<Segment>): String =
-        segments.joinToString("\n\n", postfix = "\n") { it.render() }
+    private fun renderSegments(segments: List<Segment>): String = segments.joinToString("\n\n", postfix = "\n") { it.render() }
 
     /**
      * 统计一段文本的 token 数(失败回退到字符数/4)。纯计数,不截断。
@@ -172,7 +168,7 @@ object LlmBudget {
             Logger.w(
                 DEFAULT_TAG,
                 "LlmBudget.truncateBySegments: 高优先级段(facts+longterm)本身超预算" +
-                    "(需要 $highCost token >= 预算 $budget), 回退整段截断"
+                    "(需要 $highCost token >= 预算 $budget), 回退整段截断",
             )
             return segments
         }
@@ -195,14 +191,14 @@ object LlmBudget {
                     Logger.w(
                         DEFAULT_TAG,
                         "LlmBudget.truncateBySegments: 预算不足,裁剪段 '${segments[idx].heading}' " +
-                            "(drop $inChars 字符 / ${full.length} 字符)"
+                            "(drop $inChars 字符 / ${full.length} 字符)",
                     )
                 }
                 if (trimmed.isBlank()) {
                     // 连标题都没保住,直接丢弃该段(已记日志)
                     Logger.w(
                         DEFAULT_TAG,
-                        "LlmBudget.truncateBySegments: 预算不足,丢弃段 '${segments[idx].heading}'"
+                        "LlmBudget.truncateBySegments: 预算不足,丢弃段 '${segments[idx].heading}'",
                     )
                     continue
                 }

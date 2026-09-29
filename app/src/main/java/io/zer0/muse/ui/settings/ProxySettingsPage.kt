@@ -5,16 +5,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -25,8 +23,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
 import io.zer0.muse.data.ProxyConfig
 import io.zer0.muse.data.SettingsRepository
-import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
@@ -42,9 +42,7 @@ import org.koin.compose.koinInject
  * 修改后需重启应用生效(OkHttpClient 在 Koin 初始化时读取一次配置)。
  */
 @Composable
-fun ProxySettingsPage(
-    onBack: () -> Unit,
-) {
+fun ProxySettingsPage(onBack: () -> Unit) {
     val settings: SettingsRepository = koinInject()
     val proxyConfig by settings.proxyConfigFlow.collectAsStateWithLifecycle(initialValue = ProxyConfig())
     val scope = rememberCoroutineScope()
@@ -165,7 +163,7 @@ fun ProxySettingsPage(
                                     port = port,
                                     username = username.trim(),
                                     password = password,
-                                )
+                                ),
                             )
                             MuseToast.show(savedText)
                         } finally {

@@ -1,9 +1,9 @@
 package io.zer0.muse.data.preset
 
 import android.content.Context
-import io.zer0.common.AppJson
 import io.zer0.ai.core.Model
 import io.zer0.ai.core.VisionCapabilities
+import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -116,8 +116,30 @@ class ModelCatalogStore(
         add(entry("openai", "o3", "o3", 200_000, 100_000, tools = true, reasoning = true))
         add(entry("openai", "o4-mini", "o4-mini", 200_000, 100_000, vision = true, tools = true, reasoning = true))
         // Anthropic
-        add(entry("anthropic", "claude-sonnet-4-5-20250514", "Claude Sonnet 4.5", 200_000, 64_000, vision = true, tools = true, reasoning = true))
-        add(entry("anthropic", "claude-opus-4-1-20250805", "Claude Opus 4.1", 200_000, 32_000, vision = true, tools = true, reasoning = true))
+        add(
+            entry(
+                "anthropic",
+                "claude-sonnet-4-5-20250514",
+                "Claude Sonnet 4.5",
+                200_000,
+                64_000,
+                vision = true,
+                tools = true,
+                reasoning = true,
+            ),
+        )
+        add(
+            entry(
+                "anthropic",
+                "claude-opus-4-1-20250805",
+                "Claude Opus 4.1",
+                200_000,
+                32_000,
+                vision = true,
+                tools = true,
+                reasoning = true,
+            ),
+        )
         add(entry("anthropic", "claude-haiku-4-5-20251001", "Claude Haiku 4.5", 200_000, 64_000, vision = true, tools = true))
         // Gemini
         add(entry("gemini", "gemini-2.5-pro", "Gemini 2.5 Pro", 1_048_576, 65_536, vision = true, tools = true, reasoning = true))
@@ -257,11 +279,7 @@ class ModelCatalogStore(
      * 现有 Provider 模型会应用目录元数据；目录中的用户新增模型也会进入列表。
      * 这样“模型目录里维护了”与“模型选择器/请求实际使用了”保持同一份数据。
      */
-    fun mergeIntoModels(
-        providerId: String,
-        models: List<Model>,
-        runtimeProviderId: String = providerId,
-    ): List<Model> {
+    fun mergeIntoModels(providerId: String, models: List<Model>, runtimeProviderId: String = providerId): List<Model> {
         val catalogEntries = entries(providerId)
             .associateBy { keyOf(providerId, it.modelId) }
         val result = LinkedHashMap<String, Model>()
@@ -347,16 +365,15 @@ class ModelCatalogStore(
 
     /** 用户手动新增一个目录中不存在的模型。 */
     @Synchronized
-    fun addUserModel(providerId: String, modelId: String, displayName: String? = null): ModelCatalogEntry =
-        saveUserOverride(
-            providerId,
-            modelId,
-            ModelCatalogEntry(
-                providerId = providerId,
-                modelId = modelId,
-                displayName = displayName ?: modelId,
-            ),
-        )
+    fun addUserModel(providerId: String, modelId: String, displayName: String? = null): ModelCatalogEntry = saveUserOverride(
+        providerId,
+        modelId,
+        ModelCatalogEntry(
+            providerId = providerId,
+            modelId = modelId,
+            displayName = displayName ?: modelId,
+        ),
+    )
 
     /** 导出当前合并目录为 JSON（备份/分享用）。 */
     fun exportJson(): String = AppJson.encodeToString(
@@ -426,10 +443,7 @@ class ModelCatalogStore(
     }
 
     /** 把一层覆盖（远端/用户）原地应用到已合并表。 */
-    private fun applyLayer(
-        target: LinkedHashMap<String, ModelCatalogEntry>,
-        layer: List<ModelCatalogEntry>,
-    ) {
+    private fun applyLayer(target: LinkedHashMap<String, ModelCatalogEntry>, layer: List<ModelCatalogEntry>) {
         layer.forEach { entry ->
             val key = keyOf(entry.providerId, entry.modelId)
             if (entry.builtInRemoved) {
@@ -483,23 +497,22 @@ class ModelCatalogStore(
     )
 
     @Suppress("CyclomaticComplexMethod")
-    private fun ModelCatalogEntry.mergeFields(overlay: ModelCatalogEntry): ModelCatalogEntry =
-        copy(
-            displayName = overlay.displayName ?: displayName,
-            contextWindow = overlay.contextWindow ?: contextWindow,
-            maxOutputTokens = overlay.maxOutputTokens ?: maxOutputTokens,
-            supportsVision = overlay.supportsVision ?: supportsVision,
-            supportsStreaming = overlay.supportsStreaming ?: supportsStreaming,
-            supportsVideo = overlay.supportsVideo ?: supportsVideo,
-            supportsTools = overlay.supportsTools ?: supportsTools,
-            supportsReasoning = overlay.supportsReasoning ?: supportsReasoning,
-            inputModalities = overlay.inputModalities ?: inputModalities,
-            outputModalities = overlay.outputModalities ?: outputModalities,
-            visionCapabilities = overlay.visionCapabilities ?: visionCapabilities,
-            updatedAt = overlay.updatedAt.let { if (it > 0) it else updatedAt },
-            userEdited = overlay.userEdited || userEdited,
-            builtInRemoved = overlay.builtInRemoved || builtInRemoved,
-        )
+    private fun ModelCatalogEntry.mergeFields(overlay: ModelCatalogEntry): ModelCatalogEntry = copy(
+        displayName = overlay.displayName ?: displayName,
+        contextWindow = overlay.contextWindow ?: contextWindow,
+        maxOutputTokens = overlay.maxOutputTokens ?: maxOutputTokens,
+        supportsVision = overlay.supportsVision ?: supportsVision,
+        supportsStreaming = overlay.supportsStreaming ?: supportsStreaming,
+        supportsVideo = overlay.supportsVideo ?: supportsVideo,
+        supportsTools = overlay.supportsTools ?: supportsTools,
+        supportsReasoning = overlay.supportsReasoning ?: supportsReasoning,
+        inputModalities = overlay.inputModalities ?: inputModalities,
+        outputModalities = overlay.outputModalities ?: outputModalities,
+        visionCapabilities = overlay.visionCapabilities ?: visionCapabilities,
+        updatedAt = overlay.updatedAt.let { if (it > 0) it else updatedAt },
+        userEdited = overlay.userEdited || userEdited,
+        builtInRemoved = overlay.builtInRemoved || builtInRemoved,
+    )
 
     private fun loadUserOverrides(): List<ModelCatalogEntry> {
         val cached = userCache
@@ -525,8 +538,7 @@ class ModelCatalogStore(
         }
     }
 
-    private fun keyOf(providerId: String, modelId: String) =
-        "${providerId.trim().lowercase()}\u0000${modelId.trim().lowercase()}"
+    private fun keyOf(providerId: String, modelId: String) = "${providerId.trim().lowercase()}\u0000${modelId.trim().lowercase()}"
 
     private fun requirePositiveOrNull(value: Int?, field: String) {
         require(value == null || value > 0) { "$field must be positive when provided" }

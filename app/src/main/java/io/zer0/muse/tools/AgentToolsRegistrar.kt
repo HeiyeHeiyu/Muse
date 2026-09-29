@@ -1,5 +1,6 @@
 package io.zer0.muse.tools
 
+import android.content.Context
 import io.zer0.memory.fact.FactDbProvider
 import io.zer0.memory.fact.FactStore
 import io.zer0.memory.pin.PinnedMemoryStore
@@ -7,7 +8,6 @@ import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.experience.ExperienceRepository
 import io.zer0.muse.data.subagent.SubagentThreadStore
 import io.zer0.muse.notification.MuseNotificationManager
-import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -48,7 +48,9 @@ class AgentToolsRegistrar(
     // v2.0: 卡片数据绑定 — show_card 数据写入 + update_card_data 工具
     private val cardDataStore: io.zer0.muse.data.card.CardDataStore? = null,
 ) {
-    init { registerAll() }
+    init {
+        registerAll()
+    }
 
     fun registerAll() {
         // Phase 1C：置顶记忆
@@ -173,6 +175,5 @@ class AgentToolsRegistrar(
         toolRegistry.register(SubagentCloseTool.toolDef()) { args ->
             SubagentCloseTool.execute(args, subagentThreadStore)
         }
-
     }
 }

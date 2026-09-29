@@ -42,6 +42,7 @@ class ChatGenerationService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var observeJob: Job? = null
     private var emptyStateStopJob: Job? = null
+
     // v1.0.15: Wakelock 保活,防止 Doze 模式下 CPU 休眠导致网络挂起
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -217,8 +218,10 @@ class ChatGenerationService : Service() {
 
     companion object {
         private const val NOTIFICATION_ID = 2001
+
         /** P1 审计: 生成心跳超时阈值(15 分钟无任何进度则停止保活,避免永久常驻)。 */
         private const val HEARTBEAT_TIMEOUT_MS = 15 * 60 * 1000L
+
         /** 服务重启后没有任务时的短暂竞态缓冲,避免 START_STICKY 空转。 */
         private const val EMPTY_STATE_GRACE_MS = 5_000L
         const val ACTION_START = "io.zer0.muse.action.START_GENERATION"

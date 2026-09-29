@@ -1,9 +1,5 @@
 package io.zer0.muse.tools.script
 
-import java.net.InetAddress
-import java.net.Proxy
-import java.net.UnknownHostException
-import java.util.concurrent.TimeUnit
 import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -15,6 +11,10 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.net.InetAddress
+import java.net.Proxy
+import java.net.UnknownHostException
+import java.util.concurrent.TimeUnit
 
 /**
  * Connection-level tests for the isolated SkillBridge/http_get network outlet.
@@ -205,14 +205,12 @@ class SkillBridgeHttpClientTest {
         assertEquals(1, origin.requestCount)
     }
 
-    private fun testBaseClient(proxy: Proxy? = null): OkHttpClient =
-        OkHttpClient.Builder()
-            .connectTimeout(5, TimeUnit.SECONDS)
-            .readTimeout(5, TimeUnit.SECONDS)
-            .callTimeout(10, TimeUnit.SECONDS)
-            .apply { proxy?.let(::proxy) }
-            .build()
+    private fun testBaseClient(proxy: Proxy? = null): OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(5, TimeUnit.SECONDS)
+        .callTimeout(10, TimeUnit.SECONDS)
+        .apply { proxy?.let(::proxy) }
+        .build()
 
-    private fun okhttp3.HttpUrl.withHost(host: String): String =
-        newBuilder().host(host).build().toString()
+    private fun okhttp3.HttpUrl.withHost(host: String): String = newBuilder().host(host).build().toString()
 }

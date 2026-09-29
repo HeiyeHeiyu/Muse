@@ -17,7 +17,7 @@ enum class AndroidPermissionLevel {
     NONE,
     ACCESSIBILITY,
     SHIZUKU,
-    ROOT,;
+    ROOT, ;
 
     /** 当前等级是否达到 [required] 级别。 */
     fun atLeast(required: AndroidPermissionLevel): Boolean = this.ordinal >= required.ordinal

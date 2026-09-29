@@ -15,8 +15,7 @@ class Ed25519Test {
 
     private fun bytes(vararg values: Int): ByteArray = values.map { it.toByte() }.toByteArray()
 
-    private fun hexToBytes(hex: String): ByteArray =
-        ByteArray(hex.length / 2) { i -> hex.substring(i * 2, i * 2 + 2).toInt(16).toByte() }
+    private fun hexToBytes(hex: String): ByteArray = ByteArray(hex.length / 2) { i -> hex.substring(i * 2, i * 2 + 2).toInt(16).toByte() }
 
     /** 官方 DEMO:seed 重复补足到 32 字节派生指定公钥;公钥部分与官方向量一致。 */
     @Test

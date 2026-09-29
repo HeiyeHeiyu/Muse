@@ -132,8 +132,7 @@ class MediaGenToolsImpl(
      * v2.x (B3): 解析当前生效的投递宿主 — 协程作用域覆盖([MediaGenHostContext])优先,
      * 无覆盖时回退到全局安装的 UI 宿主。媒体工具三个 exec* 方法均走此入口。
      */
-    private suspend fun currentHost(): MediaGenHost? =
-        coroutineContext[MediaGenHostContext]?.host ?: host
+    private suspend fun currentHost(): MediaGenHost? = coroutineContext[MediaGenHostContext]?.host ?: host
 
     /**
      * 根据用户描述生成图片。

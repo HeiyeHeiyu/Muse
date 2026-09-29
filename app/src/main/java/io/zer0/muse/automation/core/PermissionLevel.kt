@@ -38,11 +38,7 @@ enum class PermissionLevel {
 
     companion object {
         /** 从可用标志位组合解析。 */
-        fun fromFlags(
-            accessibility: Boolean,
-            shell: Boolean,
-            root: Boolean,
-        ): Set<PermissionLevel> = buildSet {
+        fun fromFlags(accessibility: Boolean, shell: Boolean, root: Boolean): Set<PermissionLevel> = buildSet {
             if (accessibility) add(ACCESSIBILITY)
             if (shell) add(SHELL)
             if (root) add(ROOT)

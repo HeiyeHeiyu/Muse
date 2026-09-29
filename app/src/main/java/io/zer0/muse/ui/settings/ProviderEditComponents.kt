@@ -19,29 +19,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Surface
-import io.zer0.muse.ui.common.form.MuseChip
-import io.zer0.muse.ui.common.form.MuseSwitch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,13 +45,18 @@ import io.zer0.ai.core.OAuthConfig
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ProviderType
 import io.zer0.muse.R
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseErrorStateBox
-import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseSwitch
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.settings.SettingsGroup
+import io.zer0.muse.ui.common.state.MuseErrorStateBox
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.common.surface.museBottomBarInsets
-import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
@@ -95,8 +95,11 @@ internal fun ProviderEditBottomBar(
                     .weight(1f)
                     .height(MuseIconSizes.touchTarget) // 底部操作栏按钮统一 48dp 触摸目标
                     .background(
-                        color = if (canFetch) MaterialTheme.colorScheme.inverseSurface
-                        else MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.12f),
+                        color = if (canFetch) {
+                            MaterialTheme.colorScheme.inverseSurface
+                        } else {
+                            MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.12f)
+                        },
                         shape = MuseShapes.huge,
                     )
                     .clickable(enabled = canFetch) { onFetch(true) },
@@ -183,10 +186,7 @@ internal fun ProviderEditBottomBar(
 }
 
 @Composable
-internal fun AddModelDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit,
-) {
+internal fun AddModelDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var modelId by remember { mutableStateOf("") }
     MuseDialog(
         onDismissRequest = onDismiss,
@@ -376,14 +376,16 @@ internal fun ConfigTab(
                             horizontalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
                         ) {
                             // OAuth 登录胶囊按钮(非 Material3 Button,用 Surface + clickable 包裹)
-                            val oauthBtnBg = if (isOAuthLoading)
+                            val oauthBtnBg = if (isOAuthLoading) {
                                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            else
+                            } else {
                                 MaterialTheme.colorScheme.primaryContainer
-                            val oauthBtnContentColor = if (isOAuthLoading)
+                            }
+                            val oauthBtnContentColor = if (isOAuthLoading) {
                                 MaterialTheme.colorScheme.outline
-                            else
+                            } else {
                                 MaterialTheme.colorScheme.onPrimaryContainer
+                            }
                             Surface(
                                 shape = MuseShapes.pill,
                                 color = oauthBtnBg,
@@ -419,14 +421,16 @@ internal fun ConfigTab(
                             // - errorContainer 配色暗示「破坏性操作」
                             // - 已在登录流程中(isOAuthLoading)禁用,避免状态冲突
                             if (hasStoredOAuthToken) {
-                                val revokeBtnBg = if (isOAuthLoading)
+                                val revokeBtnBg = if (isOAuthLoading) {
                                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                else
+                                } else {
                                     MaterialTheme.colorScheme.errorContainer
-                                val revokeBtnContentColor = if (isOAuthLoading)
+                                }
+                                val revokeBtnContentColor = if (isOAuthLoading) {
                                     MaterialTheme.colorScheme.outline
-                                else
+                                } else {
                                     MaterialTheme.colorScheme.onErrorContainer
+                                }
                                 Surface(
                                     shape = MuseShapes.pill,
                                     color = revokeBtnBg,
@@ -463,7 +467,6 @@ internal fun ConfigTab(
                         }
                     }
 
-
                     // v2.4: 独立测试连接按钮 + 结果胶囊(既有实现/既有实现)
                     // - 测试中: 按钮内 CircularProgressIndicator
                     // - 成功: 绿色 ✓ 胶囊 + "连接正常 · N 个模型"
@@ -478,14 +481,16 @@ internal fun ConfigTab(
                         horizontalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
                     ) {
                         // 测试连接按钮(胶囊形,非 Material3 IconButton)
-                        val testBtnBg = if (canTestConnection)
+                        val testBtnBg = if (canTestConnection) {
                             MaterialTheme.colorScheme.primaryContainer
-                        else
+                        } else {
                             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        val testBtnContentColor = if (canTestConnection)
+                        }
+                        val testBtnContentColor = if (canTestConnection) {
                             MaterialTheme.colorScheme.onPrimaryContainer
-                        else
+                        } else {
                             MaterialTheme.colorScheme.outline
+                        }
                         Box(
                             modifier = Modifier
                                 .background(color = testBtnBg, shape = MuseShapes.pill)
@@ -528,14 +533,16 @@ internal fun ConfigTab(
                         if (testConnectionResult != null || testConnectionError != null) {
                             val isSuccess = testConnectionResult != null
                             val message = testConnectionResult ?: testConnectionError ?: ""
-                            val capsuleColor = if (isSuccess)
+                            val capsuleColor = if (isSuccess) {
                                 MaterialTheme.colorScheme.primary
-                            else
+                            } else {
                                 MaterialTheme.colorScheme.error
-                            val capsuleBg = if (isSuccess)
+                            }
+                            val capsuleBg = if (isSuccess) {
                                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                            else
+                            } else {
                                 MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                            }
                             Surface(
                                 shape = MuseShapes.pill,
                                 color = capsuleBg,
@@ -588,9 +595,11 @@ internal fun ConfigTab(
 
         // 自动获取失败后提示手动添加
         if (fetchError != null &&
-            (fetchError.contains(cannotConnectPrefix) ||
-                fetchError.contains("404") ||
-                fetchError.contains(fetchModelsFailedPrefix))
+            (
+                fetchError.contains(cannotConnectPrefix) ||
+                    fetchError.contains("404") ||
+                    fetchError.contains(fetchModelsFailedPrefix)
+                )
         ) {
             item {
                 Text(
@@ -694,7 +703,13 @@ internal fun ConfigTab(
                                         MuseTactileButton(
                                             icon = if (privateKeyVisible) MuseIcons.eyeOff else MuseIcons.eye,
                                             onClick = { onPrivateKeyVisibleChange(!privateKeyVisible) },
-                                            contentDescription = if (privateKeyVisible) stringResource(R.string.settings_common_hide) else stringResource(R.string.settings_common_show),
+                                            contentDescription = if (privateKeyVisible) {
+                                                stringResource(
+                                                    R.string.settings_common_hide,
+                                                )
+                                            } else {
+                                                stringResource(R.string.settings_common_show)
+                                            },
                                         )
                                     },
                                 )
@@ -727,7 +742,13 @@ internal fun ConfigTab(
                         )
                         Icon(
                             imageVector = if (showAdvanced) MuseIcons.chevronUp else MuseIcons.chevronDown,
-                            contentDescription = if (showAdvanced) stringResource(R.string.settings_common_collapse) else stringResource(R.string.settings_common_expand),
+                            contentDescription = if (showAdvanced) {
+                                stringResource(
+                                    R.string.settings_common_collapse,
+                                )
+                            } else {
+                                stringResource(R.string.settings_common_expand)
+                            },
                             tint = MaterialTheme.colorScheme.outline,
                             modifier = Modifier.size(MuseIconSizes.iconMedium),
                         )
@@ -782,10 +803,16 @@ internal fun ConfigTab(
                         val balanceEnabled = !isQueryingBalance && balanceApiPath.isNotBlank() && baseUrl.isNotBlank()
                         Surface(
                             shape = MuseShapes.pill,
-                            color = if (balanceEnabled) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = if (balanceEnabled) MaterialTheme.colorScheme.onPrimary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (balanceEnabled) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            },
+                            contentColor = if (balanceEnabled) {
+                                MaterialTheme.colorScheme.onPrimary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                             onClick = if (balanceEnabled) onQueryBalance else ({}),
                             modifier = Modifier.align(Alignment.End),
                         ) {
@@ -1019,7 +1046,13 @@ internal fun ApiKeyPoolField(
                 MuseTactileButton(
                     icon = if (apiKeyVisible) MuseIcons.eyeOff else MuseIcons.eye,
                     onClick = { onApiKeyVisibleChange(!apiKeyVisible) },
-                    contentDescription = if (apiKeyVisible) stringResource(R.string.settings_common_hide) else stringResource(R.string.settings_common_show),
+                    contentDescription = if (apiKeyVisible) {
+                        stringResource(
+                            R.string.settings_common_hide,
+                        )
+                    } else {
+                        stringResource(R.string.settings_common_show)
+                    },
                 )
             },
         )
@@ -1100,4 +1133,3 @@ private fun maskApiKey(key: String): String {
         key.take(3) + "***" + key.takeLast(3)
     }
 }
-

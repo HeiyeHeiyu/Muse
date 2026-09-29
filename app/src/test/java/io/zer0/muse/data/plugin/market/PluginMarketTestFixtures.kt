@@ -44,8 +44,7 @@ internal object PluginMarketTestFixtures {
         )
     }
 
-    fun catalogJson(signed: SignedPluginCatalog): String =
-        AppJson.encodeToString(SignedPluginCatalog.serializer(), signed)
+    fun catalogJson(signed: SignedPluginCatalog): String = AppJson.encodeToString(SignedPluginCatalog.serializer(), signed)
 
     fun entry(
         id: String = "safe-plugin",

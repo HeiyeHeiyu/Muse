@@ -190,11 +190,7 @@ class PluginCatalogRepositoryTest {
         private const val CATALOG_ID = "official"
     }
 
-    private fun repository(
-        dir: File,
-        transport: CatalogHttpTransport,
-        nowEpochMs: Long = 1_000L,
-    ) = PluginCatalogRepository(
+    private fun repository(dir: File, transport: CatalogHttpTransport, nowEpochMs: Long = 1_000L) = PluginCatalogRepository(
         client = PluginCatalogClient(transport = transport),
         cacheDir = dir,
         trustRootKeys = { trustRoot },
@@ -215,8 +211,7 @@ class PluginCatalogRepositoryTest {
 
     private fun unreachable(): CatalogHttpTransport = { _, _ -> throw IOException("不该发起请求") }
 
-    private fun tempDir(): File =
-        Files.createTempDirectory("plugin-market-test").toFile().also { tempDirs += it }
+    private fun tempDir(): File = Files.createTempDirectory("plugin-market-test").toFile().also { tempDirs += it }
 
     private fun writeCache(dir: File, catalogJson: String, sequence: Long) {
         dir.mkdirs()

@@ -55,8 +55,10 @@ class TimeReminderTransformerTest {
 
         assertEquals(2, result.size)
         assertTrue(result[0].content.contains("America/New_York"))
-        assertTrue(result[0].content.contains("-04:00") || result[0].content.contains("-05:00") || 
-            result[0].content.contains("-0"))
+        assertTrue(
+            result[0].content.contains("-04:00") || result[0].content.contains("-05:00") ||
+                result[0].content.contains("-0"),
+        )
     }
 
     @Test

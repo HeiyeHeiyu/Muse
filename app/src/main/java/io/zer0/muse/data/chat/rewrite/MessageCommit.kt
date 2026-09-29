@@ -31,10 +31,8 @@ sealed interface MessageCommitResult {
 class MessageCommit(
     private val sessionRepository: SessionRepository,
 ) {
-    suspend fun commit(request: MessageCommitRequest): MessageCommitResult =
-        sessionRepository.commitConversationMessage(request)
+    suspend fun commit(request: MessageCommitRequest): MessageCommitResult = sessionRepository.commitConversationMessage(request)
 }
-
 
 /** 从兼容 UIMessage 字段生成一次提交的基础 parts；旧消息不会被强制回填。 */
 fun buildCommitParts(message: UIMessage, createdAt: Long): List<MessagePartEntity> = buildList {

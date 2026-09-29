@@ -43,8 +43,7 @@ object PromptExampleGuard {
      * 清洗整份提取结果:剔除照抄示例的条目(实体 / 更新 / 合并 / 链接 / 画像行)。
      */
     fun sanitize(analysis: ParsedAnalysis, conversationText: String): ParsedAnalysis {
-        fun leaked(vararg parts: String?): Boolean =
-            parts.any { p -> !p.isNullOrBlank() && isUngroundedExample(p, conversationText) }
+        fun leaked(vararg parts: String?): Boolean = parts.any { p -> !p.isNullOrBlank() && isUngroundedExample(p, conversationText) }
 
         return analysis.copy(
             mainProblem = analysis.mainProblem?.takeUnless { leaked(it.title, it.content) },

@@ -29,19 +29,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.form.MuseTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,9 +55,11 @@ import io.zer0.ai.video.VideoGenerationService
 import io.zer0.ai.video.VideoTaskStatus
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
+import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.navigation.MuseTopBar
-import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.state.MuseIndeterminateProgressBar
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.theme.MuseIconSizes
@@ -78,8 +78,11 @@ import java.io.ByteArrayOutputStream
 private val VideoTaskStatusSaver = Saver<VideoTaskStatus?, String>(
     save = { it?.name ?: "" },
     restore = { name ->
-        if (name.isBlank()) null
-        else runCatching { VideoTaskStatus.valueOf(name) }.getOrNull()
+        if (name.isBlank()) {
+            null
+        } else {
+            runCatching { VideoTaskStatus.valueOf(name) }.getOrNull()
+        }
     },
 )
 
@@ -255,8 +258,11 @@ fun VideoGenerationPage(
                                 val isSelected = model.id == selectedModel
                                 Surface(
                                     shape = MuseShapes.medium,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.surface,
+                                    color = if (isSelected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.surface
+                                    },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable(enabled = !isGenerating) {
@@ -274,8 +280,11 @@ fun VideoGenerationPage(
                                             style = MaterialTheme.typography.bodyLarge.copy(
                                                 fontWeight = FontWeight.SemiBold,
                                             ),
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                                            else MaterialTheme.colorScheme.onSurface,
+                                            color = if (isSelected) {
+                                                MaterialTheme.colorScheme.onPrimary
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurface
+                                            },
                                         )
                                     }
                                 }
@@ -362,7 +371,6 @@ fun VideoGenerationPage(
                             iconSize = 16.dp,
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                
                                 .background(
                                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
                                     shape = CircleShape,
@@ -404,8 +412,11 @@ fun VideoGenerationPage(
                                 val isSelected = provider.id == selectedProvider?.id
                                 Surface(
                                     shape = MuseShapes.medium,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.surface,
+                                    color = if (isSelected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.surface
+                                    },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable(enabled = !isGenerating) {
@@ -425,15 +436,21 @@ fun VideoGenerationPage(
                                                 style = MaterialTheme.typography.bodyLarge.copy(
                                                     fontWeight = FontWeight.SemiBold,
                                                 ),
-                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary
-                                                else MaterialTheme.colorScheme.onSurface,
+                                                color = if (isSelected) {
+                                                    MaterialTheme.colorScheme.onPrimary
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurface
+                                                },
                                             )
                                             if (provider.baseUrl.isNotBlank()) {
                                                 Text(
                                                     text = provider.baseUrl,
                                                     style = MaterialTheme.typography.bodySmall,
-                                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    color = if (isSelected) {
+                                                        MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                                                    } else {
+                                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                                    },
                                                 )
                                             }
                                         }
@@ -441,8 +458,11 @@ fun VideoGenerationPage(
                                         Text(
                                             text = "••••${provider.apiKey.takeLast(4)}",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-                                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = if (isSelected) {
+                                                MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            },
                                         )
                                     }
                                 }
@@ -573,10 +593,7 @@ fun VideoGenerationPage(
  * 表单分组(标题 + 内容)。
  */
 @Composable
-private fun FormSection(
-    label: String,
-    content: @Composable () -> Unit,
-) {
+private fun FormSection(label: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(MusePaddings.tightGap)) {
         Text(
             text = label,
@@ -593,12 +610,7 @@ private fun FormSection(
  * 比 MuseCapsuleTab 多一个 `enabled` 禁用态,故保留本页私有实现)。
  */
 @Composable
-private fun <T> SegmentedOptions(
-    options: List<Pair<T, String>>,
-    selected: T,
-    onSelect: (T) -> Unit,
-    enabled: Boolean = true,
-) {
+private fun <T> SegmentedOptions(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit, enabled: Boolean = true) {
     Surface(
         shape = MuseShapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -645,11 +657,7 @@ private fun <T> SegmentedOptions(
  * 任务状态区(进度条 + 状态文本)。
  */
 @Composable
-private fun StatusSection(
-    status: VideoTaskStatus?,
-    statusMessage: String,
-    isGenerating: Boolean,
-) {
+private fun StatusSection(status: VideoTaskStatus?, statusMessage: String, isGenerating: Boolean) {
     // 预提取 stringResource(ifBlank lambda 非 @Composable,不能直接调用)
     val pendingText = stringResource(R.string.video_gen_pending)
     val processingText = stringResource(R.string.video_gen_processing)
@@ -697,10 +705,7 @@ private fun StatusSection(
  * 视频结果卡片 — 展示视频 URL + 「打开视频」按钮。
  */
 @Composable
-private fun VideoResultCard(
-    videoUrl: String,
-    onOpen: () -> Unit,
-) {
+private fun VideoResultCard(videoUrl: String, onOpen: () -> Unit) {
     Surface(
         shape = MuseShapes.large,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -837,7 +842,7 @@ private fun compressVideoReferenceImageToDataUri(
 
     if (base64Len > maxBase64Bytes) {
         // 仍超限:拒绝上传,避免 OOM/超时
-        error("image still too large after compression (${width}x${height}, ${bytes.size / 1024}KB)")
+        error("image still too large after compression (${width}x$height, ${bytes.size / 1024}KB)")
     }
 
     val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
@@ -867,15 +872,12 @@ private data class VideoReferenceImage(
     /** 人类可读的尺寸/体积描述,用于 Toast 提示。 */
     fun describe(): String {
         val kb = byteCount / 1024
-        return "${width}x${height}, ${kb}KB"
+        return "${width}x$height, ${kb}KB"
     }
 }
 
 /** 解码原图边界(宽高),不将像素加载到内存。 */
-private fun decodeVideoImageBounds(
-    resolver: android.content.ContentResolver,
-    uri: Uri,
-): Pair<Int, Int> {
+private fun decodeVideoImageBounds(resolver: android.content.ContentResolver, uri: Uri): Pair<Int, Int> {
     val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     resolver.openInputStream(uri)?.use { input ->
         BitmapFactory.decodeStream(input, null, opts)
@@ -884,11 +886,7 @@ private fun decodeVideoImageBounds(
 }
 
 /** 按 inSampleSize 解码 Bitmap。 */
-private fun decodeVideoSampledBitmap(
-    resolver: android.content.ContentResolver,
-    uri: Uri,
-    sampleSize: Int,
-): Bitmap? {
+private fun decodeVideoSampledBitmap(resolver: android.content.ContentResolver, uri: Uri, sampleSize: Int): Bitmap? {
     val opts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
     return resolver.openInputStream(uri)?.use { input ->
         BitmapFactory.decodeStream(input, null, opts)

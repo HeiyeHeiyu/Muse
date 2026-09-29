@@ -125,11 +125,7 @@ object PluginAuthoringRules {
     )
 
     /** 用宿主构建 ZIP 包；[extraFiles] 只用于重新打包已安装内容（签名启用路径）。 */
-    fun buildZip(
-        manifest: PluginManifest,
-        entryCode: String,
-        extraFiles: Map<String, String> = emptyMap(),
-    ): ByteArray {
+    fun buildZip(manifest: PluginManifest, entryCode: String, extraFiles: Map<String, String> = emptyMap()): ByteArray {
         val output = ByteArrayOutputStream()
         ZipOutputStream(output).use { zip ->
             zip.putNextEntry(ZipEntry(MANIFEST_ENTRY))

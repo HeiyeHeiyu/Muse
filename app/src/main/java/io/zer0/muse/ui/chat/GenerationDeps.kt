@@ -12,11 +12,11 @@ import io.zer0.muse.data.session.SessionRepository
 import io.zer0.muse.mcp.McpRegistry
 import io.zer0.muse.rag.RagService
 import io.zer0.muse.schedule.UserActivityProfile
+import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.transformer.SystemPromptAssembler
 import io.zer0.muse.transformer.TransformerPipeline
 import io.zer0.muse.ui.ChatErrorType
 import io.zer0.muse.ui.SessionMemoryCache
-import io.zer0.muse.tools.ToolRegistry
 import kotlinx.serialization.json.Json
 import kotlin.uuid.Uuid
 
@@ -53,7 +53,10 @@ internal class GenerationDeps(
     val milestoneChecker: MilestoneChecker?,
     val runToolLoop: suspend (StreamRunState) -> Boolean,
     val persistInterruptedAssistant: suspend (
-        sessionId: String, partialMsg: UIMessage?, expectedAssistantId: Uuid?, durationMs: Long?
+        sessionId: String,
+        partialMsg: UIMessage?,
+        expectedAssistantId: Uuid?,
+        durationMs: Long?,
     ) -> Unit,
     val classifyErrorType: (message: String, throwable: Throwable?) -> ChatErrorType,
     val transformerPipeline: TransformerPipeline,

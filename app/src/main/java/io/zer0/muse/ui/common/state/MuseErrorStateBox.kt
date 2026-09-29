@@ -1,10 +1,5 @@
 package io.zer0.muse.ui.common.state
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.theme.MuseMotion
-
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -23,15 +18,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import io.zer0.muse.R
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
@@ -55,12 +54,7 @@ import io.zer0.muse.ui.theme.pill
  * @param modifier 修饰符
  */
 @Composable
-fun MuseErrorStateBox(
-    message: String,
-    onRetry: (() -> Unit)? = null,
-    onDismiss: (() -> Unit)? = null,
-    modifier: Modifier = Modifier,
-) {
+fun MuseErrorStateBox(message: String, onRetry: (() -> Unit)? = null, onDismiss: (() -> Unit)? = null, modifier: Modifier = Modifier) {
     // v1.0.23: 首次组合触发 enter 转场(AnimatedVisibility 初始 visible=true 不播放动画)。
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }

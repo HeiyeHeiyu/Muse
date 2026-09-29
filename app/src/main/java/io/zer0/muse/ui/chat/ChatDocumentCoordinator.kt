@@ -1,18 +1,17 @@
 package io.zer0.muse.ui.chat
-import io.zer0.muse.R
-
 import android.content.Context
 import android.net.Uri
 import io.zer0.common.AppDispatchers
 import io.zer0.common.Logger
 import io.zer0.common.Result
+import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.doc.DocumentParser
+import io.zer0.muse.rag.RagConfig
 import io.zer0.muse.rag.SessionAttachmentService
 import kotlinx.coroutines.flow.first
-import org.koin.core.context.GlobalContext
-import io.zer0.muse.rag.RagConfig
 import kotlinx.coroutines.launch
+import org.koin.core.context.GlobalContext
 
 /**
  * v1.105 阶段 1: 从 ChatViewModel 抽离的文档解析 Coordinator。
@@ -78,7 +77,9 @@ class ChatDocumentCoordinator(
                 val truncated = if (text.length > DOC_MAX_CHARS) {
                     val remain = text.length - DOC_MAX_CHARS
                     text.take(DOC_MAX_CHARS) + context.getString(R.string.chat_doc_truncated, remain)
-                } else text
+                } else {
+                    text
+                }
                 // v1.136 T10: 从 URI 提取文件名(回退到 "文档")
                 val fileName = queryDisplayName(context, uri) ?: context.getString(R.string.chat_doc_default_name)
                 val doc = PendingDocument(

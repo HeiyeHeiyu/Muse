@@ -34,11 +34,10 @@ class BubbleSkinCatalogTest {
         dark = mapOf(BubbleRole.USER to style, BubbleRole.ASSISTANT to style),
     )
 
-    private fun encode(skins: List<BubbleSkin>): String =
-        AppJson.encodeToString(
-            kotlinx.serialization.builtins.ListSerializer(BubbleSkin.serializer()),
-            skins,
-        )
+    private fun encode(skins: List<BubbleSkin>): String = AppJson.encodeToString(
+        kotlinx.serialization.builtins.ListSerializer(BubbleSkin.serializer()),
+        skins,
+    )
 
     @Test
     fun `decode tolerates missing garbage and invalid entries`() {

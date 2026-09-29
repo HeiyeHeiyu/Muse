@@ -50,7 +50,8 @@ class MuseChatWidgetConfigureActivity : ComponentActivity() {
                         onAssistantSelected = { assistantId ->
                             WidgetPrefs.saveChatWidgetAssistant(this, appWidgetId, assistantId)
                             val resultIntent = Intent().putExtra(
-                                AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId,
+                                AppWidgetManager.EXTRA_APPWIDGET_ID,
+                                appWidgetId,
                             )
                             setResult(Activity.RESULT_OK, resultIntent)
                             val updateIntent = Intent(
@@ -74,10 +75,7 @@ class MuseChatWidgetConfigureActivity : ComponentActivity() {
 }
 
 @Composable
-fun WidgetAssistantPicker(
-    title: String,
-    onAssistantSelected: (String) -> Unit,
-) {
+fun WidgetAssistantPicker(title: String, onAssistantSelected: (String) -> Unit) {
     val repo: AssistantRepository = koinInject()
     var assistants by remember { mutableStateOf<List<AssistantEntity>>(emptyList()) }
     var selectedId by remember { mutableStateOf("default") }
@@ -99,7 +97,12 @@ fun WidgetAssistantPicker(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (selectedId == assistant.id) {
-                    Icon(MuseIcons.check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Icon(
+                        MuseIcons.check,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
                 }
                 Text(
                     text = assistant.name.ifBlank { "(未命名)" },

@@ -126,11 +126,7 @@ class DailySummaryWorker(
         const val KEY_SLOT_KEY = "slot_key"
 
         /** 计算距指定时点的延迟；恰好到点时顺延到下一天，避免重复执行。 */
-        fun computeDelayToNextTarget(
-            nowMillis: Long,
-            targetHour: Int = DEFAULT_HOUR,
-            targetMinute: Int = DEFAULT_MINUTE,
-        ): Long {
+        fun computeDelayToNextTarget(nowMillis: Long, targetHour: Int = DEFAULT_HOUR, targetMinute: Int = DEFAULT_MINUTE): Long {
             require(targetHour in 0..23) { "targetHour out of range" }
             require(targetMinute in 0..59) { "targetMinute out of range" }
             val now = java.util.Calendar.getInstance().apply { timeInMillis = nowMillis }
@@ -146,11 +142,7 @@ class DailySummaryWorker(
         }
 
         /** 下一个目标时点对应的本地日期。 */
-        fun nextTargetDate(
-            nowMillis: Long,
-            targetHour: Int,
-            targetMinute: Int,
-        ): java.time.LocalDate {
+        fun nextTargetDate(nowMillis: Long, targetHour: Int, targetMinute: Int): java.time.LocalDate {
             val now = java.util.Calendar.getInstance().apply { timeInMillis = nowMillis }
             val target = java.util.Calendar.getInstance().apply {
                 timeInMillis = nowMillis
@@ -192,10 +184,7 @@ class DailySummaryWorker(
          * WorkManager 负责被杀后的兜底；这里在进程内等到配置时点，立即投递对应 Worker，
          * 这样前台或仍存活的进程不依赖 WorkManager 的周期调度精度。
          */
-        fun startInProcess(
-            context: Context,
-            scope: CoroutineScope,
-        ): Job = scope.launch {
+        fun startInProcess(context: Context, scope: CoroutineScope): Job = scope.launch {
             while (isActive) {
                 val now = System.currentTimeMillis()
                 // B-10: 每次计算到最近配置时点(时段可变,重算覆盖用户最新设置)
@@ -260,11 +249,7 @@ class DailySummaryWorker(
          * 总结时点,补投递最近的时点到期任务。Worker 内部仍由 claimDailySummarySlot
          * 做幂等抢占,因此不会因为首页重组或多次回到前台而重复调用 LLM。
          */
-        suspend fun enqueueCatchUpIfDue(
-            context: Context,
-            settings: SettingsRepository,
-            nowMillis: Long = System.currentTimeMillis(),
-        ) {
+        suspend fun enqueueCatchUpIfDue(context: Context, settings: SettingsRepository, nowMillis: Long = System.currentTimeMillis()) {
             val now = java.util.Calendar.getInstance().apply { timeInMillis = nowMillis }
             val currentMinutes = now.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
                 now.get(java.util.Calendar.MINUTE)

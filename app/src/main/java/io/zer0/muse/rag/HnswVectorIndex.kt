@@ -94,12 +94,15 @@ class HnswVectorIndex(
         @Volatile var deleted: Boolean = false,
     )
 
-    private val nodes = mutableListOf<Node>()        // 内部 index → Node
-    private val idToIndex = HashMap<String, Int>()   // 外部 id → 内部 index
-    @Volatile private var entryPoint: Int = -1       // 入口点 index
-    @Volatile private var maxLayer: Int = -1         // 当前最大层级
+    private val nodes = mutableListOf<Node>() // 内部 index → Node
+    private val idToIndex = HashMap<String, Int>() // 外部 id → 内部 index
+
+    @Volatile private var entryPoint: Int = -1 // 入口点 index
+
+    @Volatile private var maxLayer: Int = -1 // 当前最大层级
     private val rng = Random(seed)
     private val lock = ReentrantReadWriteLock()
+
     /** mL = 1 / ln(M),用于按指数分布生成节点层级(论文公式)。 */
     private val mL: Double = 1.0 / ln(M.toDouble())
 
@@ -139,7 +142,7 @@ class HnswVectorIndex(
         val startLayer = minOf(level, maxLayer)
         for (layer in startLayer downTo 0) {
             val candidates = searchLayer(vector, listOf(cur), layer, efConstruction)
-                .filter { it.second != newIndex }  // 排除自己
+                .filter { it.second != newIndex } // 排除自己
             val selected = selectNeighborsHeuristic(vector, candidates, M)
             for ((_, neighborIdx) in selected) {
                 if (neighborIdx == newIndex) continue
@@ -234,12 +237,7 @@ class HnswVectorIndex(
      * @param ef 动态候选集大小
      * @return 候选列表(distance, index),按距离升序
      */
-    private fun searchLayer(
-        query: FloatArray,
-        entryPoints: List<Int>,
-        layer: Int,
-        ef: Int,
-    ): List<Pair<Float, Int>> {
+    private fun searchLayer(query: FloatArray, entryPoints: List<Int>, layer: Int, ef: Int): List<Pair<Float, Int>> {
         if (entryPoints.isEmpty()) return emptyList()
         val visited = HashSet<Int>()
         // candidates: min-heap by distance (smaller = closer = dequeued first)
@@ -280,7 +278,7 @@ class HnswVectorIndex(
             }
         }
 
-        return W.toList().sortedBy { it.first }  // 升序:最近的在前
+        return W.toList().sortedBy { it.first } // 升序:最近的在前
     }
 
     /**
@@ -290,13 +288,9 @@ class HnswVectorIndex(
      * 比 e 到 query 的距离更近,则跳过 e(避免聚集)。
      * 若启发式过滤后不足 m,补满(允许非启发式选入)。
      */
-    private fun selectNeighborsHeuristic(
-        query: FloatArray,
-        candidates: List<Pair<Float, Int>>,
-        m: Int,
-    ): List<Pair<Float, Int>> {
+    private fun selectNeighborsHeuristic(query: FloatArray, candidates: List<Pair<Float, Int>>, m: Int): List<Pair<Float, Int>> {
         if (candidates.isEmpty()) return emptyList()
-        val sorted = candidates.sortedBy { it.first }  // 升序:距离 query 最近的在前
+        val sorted = candidates.sortedBy { it.first } // 升序:距离 query 最近的在前
         val result = mutableListOf<Pair<Float, Int>>()
         for ((eDist, eIdx) in sorted) {
             if (result.size >= m) break
@@ -363,64 +357,64 @@ class HnswVectorIndex(
     }
 
 /**
- * HEADER + NODES 序列化载荷(供 [save] 写入临时文件)。
- *
- * 先收集存活节点并建立老 index → 紧凑 index 映射,再逐节点输出 id/level/向量/各层邻居连接。
- */
-private fun writePayload(out: DataOutputStream) {
-    // HEADER
-    out.write(MAGIC.toByteArray(Charsets.US_ASCII))
-    out.writeInt(VERSION)
-    out.writeInt(M)
-    out.writeInt(efConstruction)
-    out.writeInt(efSearch)
-    out.writeInt(maxLayer)
+     * HEADER + NODES 序列化载荷(供 [save] 写入临时文件)。
+     *
+     * 先收集存活节点并建立老 index → 紧凑 index 映射,再逐节点输出 id/level/向量/各层邻居连接。
+     */
+    private fun writePayload(out: DataOutputStream) {
+        // HEADER
+        out.write(MAGIC.toByteArray(Charsets.US_ASCII))
+        out.writeInt(VERSION)
+        out.writeInt(M)
+        out.writeInt(efConstruction)
+        out.writeInt(efSearch)
+        out.writeInt(maxLayer)
 
-    // 收集存活节点 + 建立老 index → 新(紧凑)index 映射
-    val alive = nodes.mapIndexedNotNull { idx, node ->
-        if (!node.deleted) idx to node else null
-    }
-    val oldToNew = HashMap<Int, Int>()
-    alive.forEachIndexed { newIdx, (oldIdx, _) -> oldToNew[oldIdx] = newIdx }
+        // 收集存活节点 + 建立老 index → 新(紧凑)index 映射
+        val alive = nodes.mapIndexedNotNull { idx, node ->
+            if (!node.deleted) idx to node else null
+        }
+        val oldToNew = HashMap<Int, Int>()
+        alive.forEachIndexed { newIdx, (oldIdx, _) -> oldToNew[oldIdx] = newIdx }
 
-    out.writeInt(oldToNew[entryPoint] ?: -1)
-    out.writeInt(alive.size)
+        out.writeInt(oldToNew[entryPoint] ?: -1)
+        out.writeInt(alive.size)
 
-    // NODES
-    for ((_, node) in alive) {
-        val idBytes = node.id.toByteArray(Charsets.UTF_8)
-        out.writeInt(idBytes.size)
-        out.write(idBytes)
-        out.writeInt(node.level)
-        out.writeInt(node.vector.size)
-        for (v in node.vector) out.writeFloat(v)
-        out.writeInt(node.level + 1)
-        for (layer in 0..node.level) {
-            // 过滤掉指向已删除节点的连接(老 index 不在 oldToNew 中)
-            val conns = node.connections[layer].mapNotNull { oldToNew[it] }
-            out.writeInt(conns.size)
-            for (c in conns) out.writeInt(c)
+        // NODES
+        for ((_, node) in alive) {
+            val idBytes = node.id.toByteArray(Charsets.UTF_8)
+            out.writeInt(idBytes.size)
+            out.write(idBytes)
+            out.writeInt(node.level)
+            out.writeInt(node.vector.size)
+            for (v in node.vector) out.writeFloat(v)
+            out.writeInt(node.level + 1)
+            for (layer in 0..node.level) {
+                // 过滤掉指向已删除节点的连接(老 index 不在 oldToNew 中)
+                val conns = node.connections[layer].mapNotNull { oldToNew[it] }
+                out.writeInt(conns.size)
+                for (c in conns) out.writeInt(c)
+            }
         }
     }
-}
 
-override fun load(file: File) = lock.write {
+    override fun load(file: File) = lock.write {
         if (!file.exists()) return@write
         DataInputStream(FileInputStream(file)).use { inp ->
             // HEADER
             val magicBuf = ByteArray(MAGIC.length)
             inp.readFully(magicBuf)
             if (String(magicBuf, Charsets.US_ASCII) != MAGIC) {
-                return@write  // magic 不匹配,跳过加载
+                return@write // magic 不匹配,跳过加载
             }
             val version = inp.readInt()
             if (version != VERSION) {
-                return@write  // 版本不兼容,跳过加载
+                return@write // 版本不兼容,跳过加载
             }
             // 读参数(忽略,沿用构造时设定的值)
-            inp.readInt()  // M
-            inp.readInt()  // efConstruction
-            inp.readInt()  // efSearch
+            inp.readInt() // M
+            inp.readInt() // efConstruction
+            inp.readInt() // efSearch
             maxLayer = inp.readInt()
             entryPoint = inp.readInt()
             val nodeCount = inp.readInt()
@@ -452,14 +446,19 @@ override fun load(file: File) = lock.write {
     companion object {
         /** 默认 M:每层最大连接数。M=16 在大多数场景下召回与构建速度平衡良好。 */
         const val DEFAULT_M = 16
+
         /** 默认 efConstruction:构建时候选集大小。200 是论文推荐值。 */
         const val DEFAULT_EF_CONSTRUCTION = 200
+
         /** 默认 efSearch:查询时候选集大小。50 兼顾召回(>95%)与速度。 */
         const val DEFAULT_EF_SEARCH = 50
+
         /** 默认随机种子(可复现构建过程)。 */
         const val DEFAULT_SEED = 42L
+
         /** 持久化文件 magic header(6 字节 ASCII)。 */
         private const val MAGIC = "HNSW01"
+
         /** 持久化文件版本。 */
         private const val VERSION = 1
     }

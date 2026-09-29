@@ -14,10 +14,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,9 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.ai.core.Model
-import io.zer0.muse.R
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ProviderType
+import io.zer0.muse.R
 import io.zer0.muse.data.ImageGenConfig
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.ui.common.form.MuseChip
@@ -59,10 +59,7 @@ import org.koin.compose.koinInject
  * 模型选择改为从已配置的 OPENAI / GEMINI 供应商中挑选。
  */
 @Composable
-fun ImageGenSection(
-    settings: SettingsRepository = koinInject(),
-    scope: CoroutineScope,
-) {
+fun ImageGenSection(settings: SettingsRepository = koinInject(), scope: CoroutineScope) {
     val config by settings.imageGenConfigFlow.collectAsStateWithLifecycle(initialValue = ImageGenConfig())
     var localConfig by remember(config) { mutableStateOf(config) }
     var showModelSelector by remember { mutableStateOf(false) }
@@ -129,11 +126,7 @@ fun ImageGenSection(
 }
 
 @Composable
-private fun ModelSelectorCard(
-    provider: ProviderConfig?,
-    model: Model?,
-    onClick: () -> Unit,
-) {
+private fun ModelSelectorCard(provider: ProviderConfig?, model: Model?, onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -284,17 +277,16 @@ private fun ImageModelSelectorDialog(
 }
 
 @Composable
-private fun ModelGridCard(
-    model: Model,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun ModelGridCard(model: Model, selected: Boolean, onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer
-        else MaterialTheme.colorScheme.surfaceContainerLow,
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
         shape = MuseShapes.medium,
         tonalElevation = if (selected) 2.dp else 1.dp,
     ) {

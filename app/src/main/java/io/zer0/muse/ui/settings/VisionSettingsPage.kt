@@ -27,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.ai.registry.ModelRegistry
+import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
@@ -39,7 +40,6 @@ import io.zer0.muse.ui.common.settings.SettingsSwitchRow
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.vision.VisionAnalysisException
 import io.zer0.muse.vision.VisionBridge
-import io.zer0.common.resultOf
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -56,9 +56,7 @@ import org.koin.compose.koinInject
  *  - P1: 新增"显示全部模型"开关(中转站高级模式),让用户可手动选择未被识别的视觉模型
  */
 @Composable
-fun VisionSettingsPage(
-    onBack: () -> Unit,
-) {
+fun VisionSettingsPage(onBack: () -> Unit) {
     val settings: SettingsRepository = koinInject()
     val visionBridge: VisionBridge = koinInject()
     val context = LocalContext.current

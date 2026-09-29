@@ -159,8 +159,7 @@ object ShellSandboxTool {
         }
     }
 
-    private fun ByteArray.copyOf(maxLength: Int): ByteArray =
-        if (size <= maxLength) this else copyOf(maxLength)
+    private fun ByteArray.copyOf(maxLength: Int): ByteArray = if (size <= maxLength) this else copyOf(maxLength)
 }
 
 /**
@@ -170,7 +169,9 @@ class ShellSandboxToolRegistrar(
     private val toolRegistry: ToolRegistry,
     private val workDir: File,
 ) {
-    init { registerAll() }
+    init {
+        registerAll()
+    }
 
     fun registerAll() {
         toolRegistry.register(ShellSandboxTool.toolDef()) { args ->

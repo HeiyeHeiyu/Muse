@@ -1,6 +1,6 @@
 @file:Suppress("FunctionNaming", "LongMethod")
-package io.zer0.muse.ui.translate
 
+package io.zer0.muse.ui.translate
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -103,11 +103,7 @@ internal fun TranslateHistorySection(
  * 底部:译 + 译文(单行省略)
  */
 @Composable
-private fun TranslateHistoryItemCard(
-    item: TranslateViewModel.TranslateHistoryItem,
-    onClick: () -> Unit,
-    onToggleFavorite: () -> Unit,
-) {
+private fun TranslateHistoryItemCard(item: TranslateViewModel.TranslateHistoryItem, onClick: () -> Unit, onToggleFavorite: () -> Unit) {
     val timeText = remember(item.timestamp) { formatHistoryTime(item.timestamp) }
 
     Surface(
@@ -172,14 +168,17 @@ private fun TranslateHistoryItemCard(
                         icon = if (item.favorite) MuseIcons.star else MuseIcons.star,
                         onClick = onToggleFavorite,
                         contentDescription = stringResource(
-                                if (item.favorite) R.string.translate_page_favorite_remove
-                                else R.string.translate_page_favorite_add
-                            ),
-                        tint = if (item.favorite) {
-                                MaterialTheme.colorScheme.primary
+                            if (item.favorite) {
+                                R.string.translate_page_favorite_remove
                             } else {
-                                MaterialTheme.colorScheme.outline
+                                R.string.translate_page_favorite_add
                             },
+                        ),
+                        tint = if (item.favorite) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.outline
+                        },
                         size = MuseIconSizes.touchTarget,
                         iconSize = MuseIconSizes.iconSmall,
                     )

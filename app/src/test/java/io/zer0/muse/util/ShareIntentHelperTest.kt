@@ -1,8 +1,8 @@
 package io.zer0.muse.util
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.ContextWrapper
-import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider

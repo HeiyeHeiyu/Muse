@@ -3,10 +3,9 @@ package io.zer0.muse.ui.speech
 import io.zer0.common.AppDispatchers
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
-import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -20,6 +19,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import java.io.File
+import kotlin.coroutines.resume
 
 /**
  * v1.97: 云端 TTS 服务 — 支持 OpenAI / MiniMax / Edge TTS。
@@ -51,18 +51,25 @@ class CloudTtsService(
 
         /** Phase 3 (P1): 二次音频下载默认超时(ms)。 */
         const val AUDIO_DOWNLOAD_TIMEOUT_MS = 30_000L
+
         /** OpenAI TTS 默认 endpoint。 */
         private const val OPENAI_DEFAULT_ENDPOINT = "https://api.openai.com/v1"
+
         /** OpenAI TTS 默认模型。 */
         private const val OPENAI_DEFAULT_MODEL = "gpt-4o-mini-tts"
+
         /** OpenAI TTS 默认音色。 */
         private const val OPENAI_DEFAULT_VOICE = "alloy"
+
         /** MiniMax TTS 默认 endpoint。 */
         private const val MINIMAX_DEFAULT_ENDPOINT = "https://api.minimaxi.com/v1"
+
         /** MiniMax TTS 默认模型。 */
         private const val MINIMAX_DEFAULT_MODEL = "speech-2.6-turbo"
+
         /** MiniMax TTS 默认音色。 */
         private const val MINIMAX_DEFAULT_VOICE = "female-shaonv"
+
         /**
          * Edge TTS 免费 endpoint(兼容 OpenAI 接口格式)。
          *
@@ -72,42 +79,61 @@ class CloudTtsService(
          * 上层回退系统 TTS,避免误导。
          */
         private const val EDGE_DEFAULT_ENDPOINT = ""
+
         /** DashScope TTS (阿里云) 默认 endpoint。 */
         private const val DASHSCOPE_DEFAULT_ENDPOINT = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
         /** DashScope TTS 默认模型。 */
         private const val DASHSCOPE_DEFAULT_MODEL = "cosyvoice-v2"
+
         /** DashScope TTS 默认音色。 */
         private const val DASHSCOPE_DEFAULT_VOICE = "longxiaochun"
+
         /** Fish Audio TTS 默认 endpoint。 */
         private const val FISH_DEFAULT_ENDPOINT = "https://api.fish.audio/v1"
+
         /** Fish Audio TTS 默认模型。 */
         private const val FISH_DEFAULT_MODEL = "s1"
+
         /** ElevenLabs TTS 默认 endpoint。 */
         private const val ELEVENLABS_DEFAULT_ENDPOINT = "https://api.elevenlabs.io/v1"
+
         /** ElevenLabs TTS 默认模型(多语言 v2)。 */
         private const val ELEVENLABS_DEFAULT_MODEL = "eleven_multilingual_v2"
+
         /** ElevenLabs TTS 默认 Voice ID(Rachel)。 */
         private const val ELEVENLABS_DEFAULT_VOICE = "21m00Tcm4TlvDq8ikWAM"
+
         /** Groq TTS 默认 endpoint(OpenAI 兼容路径)。 */
         private const val GROQ_DEFAULT_ENDPOINT = "https://api.groq.com/openai/v1"
+
         /** Groq TTS 默认模型。 */
         private const val GROQ_DEFAULT_MODEL = "playai-tts"
+
         /** Groq TTS 默认音色。 */
         private const val GROQ_DEFAULT_VOICE = "Fritz-PlayAI"
+
         /** Qwen TTS(DashScope 原生接口)默认 endpoint。与 dashscope(OpenAI 兼容模式)不同。 */
         private const val QWEN_DEFAULT_ENDPOINT = "https://dashscope.aliyuncs.com/api/v1"
+
         /** Qwen TTS 默认模型(cosyvoice-v1)。 */
         private const val QWEN_DEFAULT_MODEL = "cosyvoice-v1"
+
         /** Qwen TTS 默认音色(龙小淳)。 */
         private const val QWEN_DEFAULT_VOICE = "longxiaochun"
+
         /** StepFun TTS 默认 endpoint。 */
         private const val STEP_DEFAULT_ENDPOINT = "https://api.stepfun.com/v1"
+
         /** StepFun TTS 默认模型。 */
         private const val STEP_DEFAULT_MODEL = "step-tts-mini"
+
         /** StepFun TTS 默认音色。 */
         private const val STEP_DEFAULT_VOICE = "speaker1"
+
         /** xAI TTS 默认 endpoint。 */
         private const val XAI_DEFAULT_ENDPOINT = "https://api.x.ai/v1"
+
         /** xAI TTS 默认音色。 */
         private const val XAI_DEFAULT_VOICE = "Alloy"
 
@@ -246,11 +272,7 @@ class CloudTtsService(
      * @param endpoint 自定义 endpoint(留空用默认)
      * @return 音色列表;失败返回空列表
      */
-    suspend fun listVoices(
-        provider: CloudTtsProvider,
-        apiKey: String,
-        endpoint: String,
-    ): List<VoiceInfo> = withContext(AppDispatchers.io) {
+    suspend fun listVoices(provider: CloudTtsProvider, apiKey: String, endpoint: String): List<VoiceInfo> = withContext(AppDispatchers.io) {
         resultOf {
             when (provider) {
                 CloudTtsProvider.ELEVENLABS -> listElevenLabsVoices(apiKey, endpoint)
@@ -338,15 +360,18 @@ class CloudTtsService(
         val payload = kotlinx.serialization.json.buildJsonObject {
             put("model", JsonPrimitive(modelName))
             put("text", JsonPrimitive(text))
-            put("voice_setting", kotlinx.serialization.json.buildJsonObject {
-                put("voice_id", JsonPrimitive(voiceName))
-                if (cloudConfig.speed != 1.0f) {
-                    put("speed", JsonPrimitive(cloudConfig.speed.coerceIn(0.5f, 2.0f).toDouble()))
-                }
-                if (cloudConfig.emotion.isNotBlank()) {
-                    put("emotion", JsonPrimitive(cloudConfig.emotion))
-                }
-            })
+            put(
+                "voice_setting",
+                kotlinx.serialization.json.buildJsonObject {
+                    put("voice_id", JsonPrimitive(voiceName))
+                    if (cloudConfig.speed != 1.0f) {
+                        put("speed", JsonPrimitive(cloudConfig.speed.coerceIn(0.5f, 2.0f).toDouble()))
+                    }
+                    if (cloudConfig.emotion.isNotBlank()) {
+                        put("emotion", JsonPrimitive(cloudConfig.emotion))
+                    }
+                },
+            )
         }.toString()
 
         val req = Request.Builder().url("$baseUrl/t2a_v2")
@@ -449,28 +474,27 @@ class CloudTtsService(
      *
      * @return 响应体(需调用方自行 use/consume),网络失败或已取消返回 null
      */
-    private suspend fun executeCancellable(request: Request): Response? =
-        suspendCancellableCoroutine { cont ->
-            val call = client.newCall(request)
-            call.enqueue(object : okhttp3.Callback {
-                override fun onFailure(call: Call, e: java.io.IOException) {
-                    // 协程取消会触发 [invokeOnCancellation]→call.cancel(),此时 onFailure 也被触发。
-                    // 若挂起已取消,由协程取消机制抛 CancellationException 退出,这里无需重复 resume;
-                    // 仅当确为网络失败(未取消)时 resume(null) 走空结果路径。
-                    if (!cont.isCancelled) {
-                        cont.resume(null)
-                    }
+    private suspend fun executeCancellable(request: Request): Response? = suspendCancellableCoroutine { cont ->
+        val call = client.newCall(request)
+        call.enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: Call, e: java.io.IOException) {
+                // 协程取消会触发 [invokeOnCancellation]→call.cancel(),此时 onFailure 也被触发。
+                // 若挂起已取消,由协程取消机制抛 CancellationException 退出,这里无需重复 resume;
+                // 仅当确为网络失败(未取消)时 resume(null) 走空结果路径。
+                if (!cont.isCancelled) {
+                    cont.resume(null)
                 }
-                override fun onResponse(call: Call, response: Response) {
-                    if (!cont.isCancelled) {
-                        cont.resume(response)
-                    } else {
-                        runCatching { response.close() }
-                    }
+            }
+            override fun onResponse(call: Call, response: Response) {
+                if (!cont.isCancelled) {
+                    cont.resume(response)
+                } else {
+                    runCatching { response.close() }
                 }
-            })
-            cont.invokeOnCancellation { runCatching { call.cancel() } }
-        }
+            }
+        })
+        cont.invokeOnCancellation { runCatching { call.cancel() } }
+    }
 
     /**
      * Phase 3 (P1): 可取消的"请求 + 响应体读取" — 整段可被协程取消/withTimeout 中断。
@@ -482,40 +506,39 @@ class CloudTtsService(
      *
      * @return 响应体字节;HTTP 失败/网络失败/取消/超时返回 null
      */
-    private suspend fun executeBytesCancellable(request: Request): ByteArray? =
-        suspendCancellableCoroutine { cont ->
-            val call = client.newCall(request)
-            call.enqueue(object : okhttp3.Callback {
-                override fun onFailure(call: Call, e: java.io.IOException) {
-                    if (!cont.isCancelled) {
-                        cont.resume(null)
-                    }
+    private suspend fun executeBytesCancellable(request: Request): ByteArray? = suspendCancellableCoroutine { cont ->
+        val call = client.newCall(request)
+        call.enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: Call, e: java.io.IOException) {
+                if (!cont.isCancelled) {
+                    cont.resume(null)
                 }
+            }
 
-                override fun onResponse(call: Call, response: Response) {
-                    if (cont.isCancelled) {
-                        runCatching { response.close() }
-                        return
-                    }
-                    val bytes = runCatching {
-                        response.use { resp ->
-                            if (!resp.isSuccessful) {
-                                Logger.w(TAG, "TTS 下载失败: HTTP ${resp.code}")
-                                null
-                            } else {
-                                resp.body.bytes()
-                            }
-                        }
-                    }.onFailure { e ->
-                        Logger.w(TAG, "TTS 响应体读取失败: ${e.message}")
-                    }.getOrNull()
-                    if (!cont.isCancelled) {
-                        cont.resume(bytes)
-                    }
+            override fun onResponse(call: Call, response: Response) {
+                if (cont.isCancelled) {
+                    runCatching { response.close() }
+                    return
                 }
-            })
-            cont.invokeOnCancellation { runCatching { call.cancel() } }
-        }
+                val bytes = runCatching {
+                    response.use { resp ->
+                        if (!resp.isSuccessful) {
+                            Logger.w(TAG, "TTS 下载失败: HTTP ${resp.code}")
+                            null
+                        } else {
+                            resp.body.bytes()
+                        }
+                    }
+                }.onFailure { e ->
+                    Logger.w(TAG, "TTS 响应体读取失败: ${e.message}")
+                }.getOrNull()
+                if (!cont.isCancelled) {
+                    cont.resume(bytes)
+                }
+            }
+        })
+        cont.invokeOnCancellation { runCatching { call.cancel() } }
+    }
 
     /**
      * Gemini TTS — POST {endpoint}/models/{model}:generateContent
@@ -523,39 +546,58 @@ class CloudTtsService(
      * 通过 generateContent 端点使用 Gemini 的文本转语音能力。
      * 响应内含 base64 编码的音频数据。
      */
-    private suspend fun synthesizeGemini(
-        text: String,
-        apiKey: String,
-        model: String,
-        voice: String,
-        endpoint: String,
-    ): ByteArray {
+    private suspend fun synthesizeGemini(text: String, apiKey: String, model: String, voice: String, endpoint: String): ByteArray {
         val baseUrl = endpoint.ifBlank { "https://generativelanguage.googleapis.com/v1beta" }
         val modelName = model.ifBlank { "gemini-2.5-flash-preview-tts" }
         val voiceName = voice.ifBlank { "Kore" }
 
         val payload = kotlinx.serialization.json.buildJsonObject {
-            put("contents", kotlinx.serialization.json.buildJsonArray {
-                add(kotlinx.serialization.json.buildJsonObject {
-                    put("parts", kotlinx.serialization.json.buildJsonArray {
-                        add(kotlinx.serialization.json.buildJsonObject {
-                            put("text", JsonPrimitive(text))
-                        })
-                    })
-                })
-            })
-            put("generationConfig", kotlinx.serialization.json.buildJsonObject {
-                put("responseModalities", kotlinx.serialization.json.buildJsonArray {
-                    add(JsonPrimitive("AUDIO"))
-                })
-                put("speechConfig", kotlinx.serialization.json.buildJsonObject {
-                    put("voiceConfig", kotlinx.serialization.json.buildJsonObject {
-                        put("prebuiltVoiceConfig", kotlinx.serialization.json.buildJsonObject {
-                            put("voiceName", JsonPrimitive(voiceName))
-                        })
-                    })
-                })
-            })
+            put(
+                "contents",
+                kotlinx.serialization.json.buildJsonArray {
+                    add(
+                        kotlinx.serialization.json.buildJsonObject {
+                            put(
+                                "parts",
+                                kotlinx.serialization.json.buildJsonArray {
+                                    add(
+                                        kotlinx.serialization.json.buildJsonObject {
+                                            put("text", JsonPrimitive(text))
+                                        },
+                                    )
+                                },
+                            )
+                        },
+                    )
+                },
+            )
+            put(
+                "generationConfig",
+                kotlinx.serialization.json.buildJsonObject {
+                    put(
+                        "responseModalities",
+                        kotlinx.serialization.json.buildJsonArray {
+                            add(JsonPrimitive("AUDIO"))
+                        },
+                    )
+                    put(
+                        "speechConfig",
+                        kotlinx.serialization.json.buildJsonObject {
+                            put(
+                                "voiceConfig",
+                                kotlinx.serialization.json.buildJsonObject {
+                                    put(
+                                        "prebuiltVoiceConfig",
+                                        kotlinx.serialization.json.buildJsonObject {
+                                            put("voiceName", JsonPrimitive(voiceName))
+                                        },
+                                    )
+                                },
+                            )
+                        },
+                    )
+                },
+            )
         }.toString()
 
         val req = Request.Builder().url("$baseUrl/models/$modelName:generateContent")
@@ -635,13 +677,7 @@ class CloudTtsService(
      * 请求体: {"text": "...", "format": "mp3", "reference_id": "...", "normalize": true}
      * 响应: mp3 二进制流
      */
-    private suspend fun synthesizeFishAudio(
-        text: String,
-        apiKey: String,
-        model: String,
-        voice: String,
-        endpoint: String,
-    ): ByteArray {
+    private suspend fun synthesizeFishAudio(text: String, apiKey: String, model: String, voice: String, endpoint: String): ByteArray {
         val baseUrl = endpoint.ifBlank { FISH_DEFAULT_ENDPOINT }
 
         val payload = kotlinx.serialization.json.buildJsonObject {
@@ -698,10 +734,13 @@ class CloudTtsService(
         val payload = kotlinx.serialization.json.buildJsonObject {
             put("text", JsonPrimitive(text))
             put("model_id", JsonPrimitive(modelName))
-            put("voice_settings", kotlinx.serialization.json.buildJsonObject {
-                put("stability", JsonPrimitive(cloudConfig.stability.coerceIn(0f, 1f).toDouble()))
-                put("similarity_boost", JsonPrimitive(cloudConfig.similarityBoost.coerceIn(0f, 1f).toDouble()))
-            })
+            put(
+                "voice_settings",
+                kotlinx.serialization.json.buildJsonObject {
+                    put("stability", JsonPrimitive(cloudConfig.stability.coerceIn(0f, 1f).toDouble()))
+                    put("similarity_boost", JsonPrimitive(cloudConfig.similarityBoost.coerceIn(0f, 1f).toDouble()))
+                },
+            )
         }.toString()
 
         val req = Request.Builder().url("$baseUrl/text-to-speech/$voiceId")
@@ -775,25 +814,25 @@ class CloudTtsService(
      *         "parameters": {"voice": "longxiaochun"}}
      * 响应: JSON,音频在 output.audio.url 字段(需二次下载)。
      */
-    private suspend fun synthesizeQwen(
-        text: String,
-        apiKey: String,
-        model: String,
-        voice: String,
-        endpoint: String,
-    ): ByteArray {
+    private suspend fun synthesizeQwen(text: String, apiKey: String, model: String, voice: String, endpoint: String): ByteArray {
         val baseUrl = endpoint.ifBlank { QWEN_DEFAULT_ENDPOINT }
         val modelName = model.ifBlank { QWEN_DEFAULT_MODEL }
         val voiceName = voice.ifBlank { QWEN_DEFAULT_VOICE }
 
         val payload = kotlinx.serialization.json.buildJsonObject {
             put("model", JsonPrimitive(modelName))
-            put("input", kotlinx.serialization.json.buildJsonObject {
-                put("text", JsonPrimitive(text))
-            })
-            put("parameters", kotlinx.serialization.json.buildJsonObject {
-                put("voice", JsonPrimitive(voiceName))
-            })
+            put(
+                "input",
+                kotlinx.serialization.json.buildJsonObject {
+                    put("text", JsonPrimitive(text))
+                },
+            )
+            put(
+                "parameters",
+                kotlinx.serialization.json.buildJsonObject {
+                    put("voice", JsonPrimitive(voiceName))
+                },
+            )
         }.toString()
 
         val req = Request.Builder().url("$baseUrl/services/audio/tts/text-to-audio")
@@ -894,13 +933,7 @@ class CloudTtsService(
      * language 按音色名简单推断(含 "zh" → zh-CN,含 "en" → en-US,否则默认 zh-CN)。
      * 若上游接口实际不可用,调用失败后由上层 [synthesizeToFile] 回退系统 TTS。
      */
-    private suspend fun synthesizeXai(
-        text: String,
-        apiKey: String,
-        model: String,
-        voice: String,
-        endpoint: String,
-    ): ByteArray {
+    private suspend fun synthesizeXai(text: String, apiKey: String, model: String, voice: String, endpoint: String): ByteArray {
         val baseUrl = endpoint.ifBlank { XAI_DEFAULT_ENDPOINT }
         val voiceName = voice.ifBlank { XAI_DEFAULT_VOICE }
         val language = when {
@@ -1022,7 +1055,8 @@ enum class CloudTtsProvider(val engineId: String) {
     QWEN("qwen"),
     STEP("step"),
     XAI("xai"),
-    CLONED("cloned");
+    CLONED("cloned"),
+    ;
 
     companion object {
         fun fromEngine(id: String): CloudTtsProvider? = values().firstOrNull { it.engineId == id }

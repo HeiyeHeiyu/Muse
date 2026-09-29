@@ -1,10 +1,10 @@
 package io.zer0.muse.tools.script
 
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /** v2.2.1: 大沙盒文件动作的路径安全与基本读写。 */
 class SkillBridgeFsTest {

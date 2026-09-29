@@ -20,16 +20,22 @@ import kotlinx.serialization.Serializable
 enum class AsrProviderType {
     /** 系统 Intent 语音识别(默认,无网络依赖但依赖厂商服务)。 */
     SYSTEM,
+
     /** 阿里云 DashScope Paraformer(wss://dashscope.aliyuncs.com/api-ws/v1/inference)。 */
     DASHSCOPE,
+
     /** 阶跃星辰 Step-Audio(OpenAI 兼容 API,audio base64 输入)。 */
     STEP,
+
     /** Phase 11.1.5: DashScope 异步文件转录(POST submit → GET query 轮询)。 */
     DASHSCOPE_FILE,
+
     /** 通用 OpenAI Whisper 兼容端点(multipart POST /audio/transcriptions)。 */
     OPENAI_WHISPER,
+
     /** OpenAI Realtime WebSocket 流式(服务端 VAD + 增量 transcription)。 */
     OPENAI_REALTIME,
+
     /** Agnes 中转站(OpenAI 兼容,内部走 [OPENAI_WHISPER] 适配器,baseUrl 不同)。 */
     AGNES,
 }

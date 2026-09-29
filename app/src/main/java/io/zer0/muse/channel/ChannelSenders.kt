@@ -33,6 +33,7 @@ internal interface ChannelSender {
 /** 平台 access_token 缓存(有效期约 2 小时;提前 5 分钟视为过期)。 */
 private class TokenCache {
     @Volatile private var token: String? = null
+
     @Volatile private var expiresAt: Long = 0L
 
     fun get(): String? = token?.takeIf { System.currentTimeMillis() < expiresAt }
@@ -54,16 +55,15 @@ private val HTTP: OkHttpClient by lazy {
 private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
 
 /** 发送 JSON POST 请求;非 2xx 抛带响应片段的异常(用于 Result 链)。 */
-private fun postJson(url: String, body: String, headers: Map<String, String> = emptyMap()): Result<String> =
-    runCatching {
-        val builder = Request.Builder().url(url).post(body.toRequestBody(JSON_MEDIA))
-        headers.forEach { (k, v) -> builder.header(k, v) }
-        HTTP.newCall(builder.build()).execute().use { resp ->
-            val text = resp.body.string()
-            if (!resp.isSuccessful) error("HTTP ${resp.code}: ${text.take(300)}")
-            text
-        }
+private fun postJson(url: String, body: String, headers: Map<String, String> = emptyMap()): Result<String> = runCatching {
+    val builder = Request.Builder().url(url).post(body.toRequestBody(JSON_MEDIA))
+    headers.forEach { (k, v) -> builder.header(k, v) }
+    HTTP.newCall(builder.build()).execute().use { resp ->
+        val text = resp.body.string()
+        if (!resp.isSuccessful) error("HTTP ${resp.code}: ${text.take(300)}")
+        text
     }
+}
 
 /**
  * 飞书(开放平台自建应用)发送器。

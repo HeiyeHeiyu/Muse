@@ -1,9 +1,9 @@
 package io.zer0.muse.data.promptinjection
 
 import android.content.Context
+import io.zer0.muse.R
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import io.zer0.muse.R
 
 /**
  * PromptInjection 仓库 — Phase 8.5。
@@ -18,8 +18,7 @@ class PromptInjectionRepository(
     // L-PID5: 加 distinctUntilChanged,避免上游无意义重复发射触发 UI 重绘。
     fun observeAll(): Flow<List<PromptInjectionEntity>> = dao.observeAll().distinctUntilChanged()
 
-    suspend fun getEnabledByMode(mode: String): List<PromptInjectionEntity> =
-        dao.getEnabledByMode(mode)
+    suspend fun getEnabledByMode(mode: String): List<PromptInjectionEntity> = dao.getEnabledByMode(mode)
 
     suspend fun getByIdsEnabled(ids: List<String>): List<PromptInjectionEntity> =
         if (ids.isEmpty()) emptyList() else dao.getByIdsEnabled(ids)

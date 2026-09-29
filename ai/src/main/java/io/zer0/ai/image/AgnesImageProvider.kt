@@ -1,13 +1,13 @@
 package io.zer0.ai.image
 
+import io.zer0.ai.RefImageUrlValidator
+import io.zer0.ai.core.ProviderConfig
+import io.zer0.ai.core.ProviderHttpSupport
+import io.zer0.ai.core.ProviderKeyRotation
 import io.zer0.common.ErrorCode
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.common.toMessage
-import io.zer0.ai.RefImageUrlValidator
-import io.zer0.ai.core.ProviderHttpSupport
-import io.zer0.ai.core.ProviderKeyRotation
-import io.zer0.ai.core.ProviderConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -68,99 +68,98 @@ class AgnesImageProvider(
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    override suspend fun submit(request: ImageGenRequest): ImageSubmitResult =
-        withContext(Dispatchers.IO) {
-            val config = request.config
-                ?: error(ErrorCode.IMAGE_API_KEY_MISSING.toMessage())
-            if (config.apiKey.isBlank()) {
-                error(ErrorCode.IMAGE_API_KEY_MISSING.toMessage())
-            }
-
-            val baseUrl = config.resolvedBaseUrl().trimEnd('/')
-            val url = "$baseUrl/images/generations"
-            val modelId = request.model.takeIf { it.isNotBlank() } ?: DEFAULT_MODEL_ID
-            val size = resolveSize(request.size)
-            val refImages = request.referenceImages
-                // G4: 注入 SSRF 校验器 — http(s) 参考图下载前先过 SsrfGuard(由 app 装配传入)
-                .map { resolveReferenceImage(it, referenceImageUrlValidator) }
-                .takeIf { it.isNotEmpty() }
-
-            // extra_body 放 response_format 与参考图(对齐 既有实现 agnes 适配器)
-            val body = buildJsonObject {
-                put("model", modelId)
-                put("prompt", request.prompt)
-                put("size", size)
-                putJsonObject("extra_body") {
-                    put("response_format", request.responseFormat.ifBlank { "b64_json" })
-                    if (refImages != null) {
-                        putJsonArray("image") {
-                            refImages.forEach { add(JsonPrimitive(it)) }
-                        }
-                    }
-                }
-            }.toString()
-
-            Logger.i(TAG, "submit: model=$modelId size=$size refs=${refImages?.size ?: 0}")
-
-            // T1.2: 多 Key 轮换 — 用 effective key 构造 header;429 时切下一个 key 重试
-            val keyRotation = keyRotationFactory(config)
-            fun buildHttpRequest(apiKey: String): Request = Request.Builder()
-                .url(url)
-                .header("Authorization", "Bearer $apiKey")
-                .header("Content-Type", "application/json")
-                .post(body.toRequestBody("application/json".toMediaType()))
-                .build()
-
-            try {
-                val initialResp = exec(buildHttpRequest(keyRotation.effectiveApiKey()))
-                var resp = initialResp
-                // T1.2: 429 限流时切到下一个 key 重试一次(仅多 key 场景)
-                if (resp.code == 429 && keyRotation.switchToNextKey()) {
-                    Logger.i(TAG, "agnes image 429, 切换到下一个 key 重试")
-                    resp.close()
-                    resp = exec(buildHttpRequest(keyRotation.effectiveApiKey()))
-                }
-                resp.use { r ->
-                    if (!r.isSuccessful) {
-                        val errBody = readBodySafely(r)
-                        val apiMsg = parseApiErrorMessage(errBody)
-                        val hint = when (r.code) {
-                            401, 403 -> ErrorCode.AUTH_FAILED.toMessage()
-                            429 -> ErrorCode.RATE_LIMITED.toMessage()
-                            in 500..599 -> ErrorCode.SERVICE_UNAVAILABLE.toMessage()
-                            else -> null
-                        }
-                        val msg = buildString {
-                            append(ErrorCode.IMAGE_GEN_FAILED.toMessage())
-                            append(" HTTP ${r.code}")
-                            hint?.let { append(" [").append(it).append("]") }
-                            apiMsg?.let { append(": ").append(it) }
-                            if (hint == null && apiMsg == null && errBody.isNotBlank()) {
-                                append(": ").append(errBody)
-                            }
-                        }
-                        Logger.w(TAG, "agnes image HTTP ${r.code}")
-                        error(msg)
-                    }
-                    // B-03: contentLength 未知(chunked)时同样限长 — 流式读取,超限即中断
-                    val (respBody, overLimit) = ProviderHttpSupport.readBodyCappedStreaming(r, MAX_RESPONSE_BODY_BYTES)
-                    if (overLimit) {
-                        error(ErrorCode.IMAGE_RESPONSE_TOO_LARGE.toMessage(MAX_RESPONSE_BODY_BYTES / 1024 / 1024))
-                    }
-                    if (respBody.isBlank()) error(ErrorCode.IMAGE_EMPTY_RESPONSE.toMessage())
-                    val images = parseResponseImages(respBody)
-                    if (images.isEmpty()) error(ErrorCode.IMAGE_NO_RESULTS.toMessage())
-                    ImageSubmitResult(images = images, isAsync = false)
-                }
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: IllegalStateException) {
-                throw e
-            } catch (e: Exception) {
-                Logger.w(TAG, "agnes image failed: ${e.message}")
-                error(ErrorCode.IMAGE_GEN_FAILED.toMessage(e.message ?: ""))
-            }
+    override suspend fun submit(request: ImageGenRequest): ImageSubmitResult = withContext(Dispatchers.IO) {
+        val config = request.config
+            ?: error(ErrorCode.IMAGE_API_KEY_MISSING.toMessage())
+        if (config.apiKey.isBlank()) {
+            error(ErrorCode.IMAGE_API_KEY_MISSING.toMessage())
         }
+
+        val baseUrl = config.resolvedBaseUrl().trimEnd('/')
+        val url = "$baseUrl/images/generations"
+        val modelId = request.model.takeIf { it.isNotBlank() } ?: DEFAULT_MODEL_ID
+        val size = resolveSize(request.size)
+        val refImages = request.referenceImages
+            // G4: 注入 SSRF 校验器 — http(s) 参考图下载前先过 SsrfGuard(由 app 装配传入)
+            .map { resolveReferenceImage(it, referenceImageUrlValidator) }
+            .takeIf { it.isNotEmpty() }
+
+        // extra_body 放 response_format 与参考图(对齐 既有实现 agnes 适配器)
+        val body = buildJsonObject {
+            put("model", modelId)
+            put("prompt", request.prompt)
+            put("size", size)
+            putJsonObject("extra_body") {
+                put("response_format", request.responseFormat.ifBlank { "b64_json" })
+                if (refImages != null) {
+                    putJsonArray("image") {
+                        refImages.forEach { add(JsonPrimitive(it)) }
+                    }
+                }
+            }
+        }.toString()
+
+        Logger.i(TAG, "submit: model=$modelId size=$size refs=${refImages?.size ?: 0}")
+
+        // T1.2: 多 Key 轮换 — 用 effective key 构造 header;429 时切下一个 key 重试
+        val keyRotation = keyRotationFactory(config)
+        fun buildHttpRequest(apiKey: String): Request = Request.Builder()
+            .url(url)
+            .header("Authorization", "Bearer $apiKey")
+            .header("Content-Type", "application/json")
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .build()
+
+        try {
+            val initialResp = exec(buildHttpRequest(keyRotation.effectiveApiKey()))
+            var resp = initialResp
+            // T1.2: 429 限流时切到下一个 key 重试一次(仅多 key 场景)
+            if (resp.code == 429 && keyRotation.switchToNextKey()) {
+                Logger.i(TAG, "agnes image 429, 切换到下一个 key 重试")
+                resp.close()
+                resp = exec(buildHttpRequest(keyRotation.effectiveApiKey()))
+            }
+            resp.use { r ->
+                if (!r.isSuccessful) {
+                    val errBody = readBodySafely(r)
+                    val apiMsg = parseApiErrorMessage(errBody)
+                    val hint = when (r.code) {
+                        401, 403 -> ErrorCode.AUTH_FAILED.toMessage()
+                        429 -> ErrorCode.RATE_LIMITED.toMessage()
+                        in 500..599 -> ErrorCode.SERVICE_UNAVAILABLE.toMessage()
+                        else -> null
+                    }
+                    val msg = buildString {
+                        append(ErrorCode.IMAGE_GEN_FAILED.toMessage())
+                        append(" HTTP ${r.code}")
+                        hint?.let { append(" [").append(it).append("]") }
+                        apiMsg?.let { append(": ").append(it) }
+                        if (hint == null && apiMsg == null && errBody.isNotBlank()) {
+                            append(": ").append(errBody)
+                        }
+                    }
+                    Logger.w(TAG, "agnes image HTTP ${r.code}")
+                    error(msg)
+                }
+                // B-03: contentLength 未知(chunked)时同样限长 — 流式读取,超限即中断
+                val (respBody, overLimit) = ProviderHttpSupport.readBodyCappedStreaming(r, MAX_RESPONSE_BODY_BYTES)
+                if (overLimit) {
+                    error(ErrorCode.IMAGE_RESPONSE_TOO_LARGE.toMessage(MAX_RESPONSE_BODY_BYTES / 1024 / 1024))
+                }
+                if (respBody.isBlank()) error(ErrorCode.IMAGE_EMPTY_RESPONSE.toMessage())
+                val images = parseResponseImages(respBody)
+                if (images.isEmpty()) error(ErrorCode.IMAGE_NO_RESULTS.toMessage())
+                ImageSubmitResult(images = images, isAsync = false)
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: IllegalStateException) {
+            throw e
+        } catch (e: Exception) {
+            Logger.w(TAG, "agnes image failed: ${e.message}")
+            error(ErrorCode.IMAGE_GEN_FAILED.toMessage(e.message ?: ""))
+        }
+    }
 
     override suspend fun poll(taskId: String): ImagePollResult {
         // Agnes 同步返回,不会走到此分支;兜底返回 FAILED。
@@ -204,20 +203,19 @@ class AgnesImageProvider(
 
     private fun readBodySafely(resp: Response): String = ProviderHttpSupport.readBodySafely(resp)
 
-    private suspend fun exec(request: Request): Response =
-        suspendCancellableCoroutine { cont ->
-            val call = client.newCall(request)
-            cont.invokeOnCancellation { runCatching { call.cancel() } }
-            call.enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    if (cont.isActive) cont.resumeWithException(e)
-                }
+    private suspend fun exec(request: Request): Response = suspendCancellableCoroutine { cont ->
+        val call = client.newCall(request)
+        cont.invokeOnCancellation { runCatching { call.cancel() } }
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                if (cont.isActive) cont.resumeWithException(e)
+            }
 
-                override fun onResponse(call: Call, response: Response) {
-                    if (cont.isActive) cont.resume(response) else response.close()
-                }
-            })
-        }
+            override fun onResponse(call: Call, response: Response) {
+                if (cont.isActive) cont.resume(response) else response.close()
+            }
+        })
+    }
 
     companion object {
         private const val TAG = "AgnesImageProvider"
@@ -283,10 +281,7 @@ class AgnesImageProvider(
          * 返回 false 表示该 URL 命中内网/保留地址,拒绝请求。
          * null 时回退旧行为(直接下载,无逐跳校验),保持未接入状态。
          */
-        suspend fun resolveReferenceImage(
-            ref: String,
-            urlValidator: RefImageUrlValidator? = null,
-        ): String {
+        suspend fun resolveReferenceImage(ref: String, urlValidator: RefImageUrlValidator? = null): String {
             val trimmed = ref.trim()
             return when {
                 trimmed.startsWith("data:") -> {

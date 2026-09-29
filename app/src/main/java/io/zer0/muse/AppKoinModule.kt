@@ -1,16 +1,16 @@
 package io.zer0.muse
 
-import io.zer0.ai.aiModule
 import io.zer0.ai.ProviderConfigStore
-import io.zer0.memory.memoryModule
+import io.zer0.ai.aiModule
 import io.zer0.memory.llm.MemoryLlmClient
+import io.zer0.memory.memoryModule
 import io.zer0.muse.data.MemoryLlmClientImpl
 import io.zer0.muse.data.ProxyConfig
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.audit.AuditLogger
-import io.zer0.muse.data.preset.PresetProviders
 import io.zer0.muse.data.lorebook.LorebookRepository
+import io.zer0.muse.data.preset.PresetProviders
 import io.zer0.muse.data.promptinjection.PromptInjectionRepository
 import io.zer0.muse.data.quickmsg.QuickMessageRepository
 import io.zer0.muse.data.session.MuseDb
@@ -74,38 +74,38 @@ val appModule = module {
     single { MuseDb.get(androidContext()) }
     single { get<MuseDb>().sessionDao() }
     single { get<MuseDb>().messageDao() }
-    single { get<MuseDb>().artifactDao() }  // v1.43: 会话产物
-    single { get<MuseDb>().assistantDao() }  // Phase 8.2
-    single { get<MuseDb>().lorebookDao() }  // Phase 8.5
-    single { get<MuseDb>().worldBookDao() }  // P1-2: Worldbook 动态世界书
-    single { get<MuseDb>().quickMessageDao() }  // Phase 8.5
-    single { get<MuseDb>().promptInjectionDao() }  // Phase 8.5
-    single { get<MuseDb>().skillDao() }  // Phase 8.8
-    single { get<MuseDb>().folderDao() }  // Phase 9.1 (M13)
-    single { get<MuseDb>().scheduledTaskDao() }  // 定时任务
-    single { get<MuseDb>().knowledgeDocDao() }  // 知识�?
-    single { get<MuseDb>().knowledgeChunkDao() }  // v1.54: 知识库分�?RAG)
-    single { get<MuseDb>().scheduledTaskExecutionDao() }  // P1-7: 定时任务执行历史
-    single { get<MuseDb>().groupChatDao() }  // v1.30: 群聊
-    single { get<MuseDb>().groupChatMessageDao() }  // v1.30: 群聊消息
-    single { get<MuseDb>().groupChatMemoryDao() }  // v2.x: 群聊记忆隔离(独立 fact store)
-    single { get<MuseDb>().experienceDao() }  // v1.98
-    single { get<MuseDb>().milestoneDao() }  // Phase 2 2B: milestone
-    single { get<MuseDb>().agentMessageDao() }  // 既有工具系统 port: agent DM
-    single { get<MuseDb>().auditLogDao() }  // P2-4: 审计日志
-    single { get<MuseDb>().quickNoteDao() }  // v1.0.17: 快速记录
+    single { get<MuseDb>().artifactDao() } // v1.43: 会话产物
+    single { get<MuseDb>().assistantDao() } // Phase 8.2
+    single { get<MuseDb>().lorebookDao() } // Phase 8.5
+    single { get<MuseDb>().worldBookDao() } // P1-2: Worldbook 动态世界书
+    single { get<MuseDb>().quickMessageDao() } // Phase 8.5
+    single { get<MuseDb>().promptInjectionDao() } // Phase 8.5
+    single { get<MuseDb>().skillDao() } // Phase 8.8
+    single { get<MuseDb>().folderDao() } // Phase 9.1 (M13)
+    single { get<MuseDb>().scheduledTaskDao() } // 定时任务
+    single { get<MuseDb>().knowledgeDocDao() } // 知识�?
+    single { get<MuseDb>().knowledgeChunkDao() } // v1.54: 知识库分�?RAG)
+    single { get<MuseDb>().scheduledTaskExecutionDao() } // P1-7: 定时任务执行历史
+    single { get<MuseDb>().groupChatDao() } // v1.30: 群聊
+    single { get<MuseDb>().groupChatMessageDao() } // v1.30: 群聊消息
+    single { get<MuseDb>().groupChatMemoryDao() } // v2.x: 群聊记忆隔离(独立 fact store)
+    single { get<MuseDb>().experienceDao() } // v1.98
+    single { get<MuseDb>().milestoneDao() } // Phase 2 2B: milestone
+    single { get<MuseDb>().agentMessageDao() } // 既有工具系统 port: agent DM
+    single { get<MuseDb>().auditLogDao() } // P2-4: 审计日志
+    single { get<MuseDb>().quickNoteDao() } // v1.0.17: 快速记录
     // v1.134 P1-1/P1-2: 孤儿组件接入所需的 DAO(AutoBackupHelper / StatsCacheManager 依赖)
-    single { get<MuseDb>().autoBackupLogDao() }  // 自动备份日志
-    single { get<MuseDb>().statsCacheDao() }  // 统计缓存
-    single { get<MuseDb>().integrityLogDao() }  // P3-3: 数据库完整性日志
-    single { get<MuseDb>().translateHistoryDao() }  // v1.0.17: 翻译历史
+    single { get<MuseDb>().autoBackupLogDao() } // 自动备份日志
+    single { get<MuseDb>().statsCacheDao() } // 统计缓存
+    single { get<MuseDb>().integrityLogDao() } // P3-3: 数据库完整性日志
+    single { get<MuseDb>().translateHistoryDao() } // v1.0.17: 翻译历史
     single { get<MuseDb>().momentDao() }
     // v1.0.74: AI 日记本
     single { get<MuseDb>().diaryDao() }
     single { get<MuseDb>().patrolLogDao() }
     single { io.zer0.muse.data.diary.DiaryRepository(get()) }
-    single { io.zer0.muse.data.diary.DiaryGenerator(get(), get(), get()) }  // v1.0.72: AI 朋友圈
-    single { AuditLogger(get()) }  // P2-4: 审计日志记录器
+    single { io.zer0.muse.data.diary.DiaryGenerator(get(), get(), get()) } // v1.0.72: AI 朋友圈
+    single { AuditLogger(get()) } // P2-4: 审计日志记录器
     // P3-3: 数据库完整性校验器(供 DebugScreen 触发检查 + 展示最近一次结果)
     single {
         io.zer0.muse.data.stats.IntegrityChecker(
@@ -113,9 +113,9 @@ val appModule = module {
             db = get<MuseDb>().openHelper.writableDatabase,
         )
     }
-    single { io.zer0.muse.data.milestone.MilestoneChecker(get(), get(), get()) }  // Phase 2 2B: milestone checker
-    single { io.zer0.muse.data.experience.ExperienceRepository(get()) }  // v1.98
-    single { io.zer0.muse.data.agentdm.AgentDmRepository(get()) }  // 既有工具系统 port: agent DM
+    single { io.zer0.muse.data.milestone.MilestoneChecker(get(), get(), get()) } // Phase 2 2B: milestone checker
+    single { io.zer0.muse.data.experience.ExperienceRepository(get()) } // v1.98
+    single { io.zer0.muse.data.agentdm.AgentDmRepository(get()) } // 既有工具系统 port: agent DM
     // v1.134 P1-2: 消息图片存储服务,负责 base64 ↔ 文件路径转换,
     // 让大图片落盘到 filesDir/muse_images/,DB 只存路径,避免 messages 表行体积膨胀
     single {
@@ -123,16 +123,22 @@ val appModule = module {
             storageDir = java.io.File(androidContext().filesDir, "muse_images"),
         )
     }
-    single { SessionRepository(get(), get(), get(), androidContext(), get(), get(), get(), get()) }  // +MuseDb: 跨表事务(H-SESS1)
-    single { io.zer0.muse.data.artifact.ArtifactRepository(get()) }  // v1.43: 会话产物仓库
-    single { AssistantRepository(get(), androidContext(), get(), get()) }  // Phase 8.2 + v1.0.51 注入 SettingsRepository;P0-10 注入 FactDbProvider(删助手清分库)
-    single { LorebookRepository(get()) }  // Phase 8.5
-    single { io.zer0.muse.worldbook.WorldBookRepository(get()) }  // P1-2: Worldbook 动态世界书
-    single { QuickMessageRepository(get()) }  // Phase 8.5
-    single { PromptInjectionRepository(get(), androidContext()) }  // Phase 8.5
-    single { io.zer0.muse.data.skill.SkillRepository(get()) }  // Phase 8.8
-    single { io.zer0.muse.data.session.FolderRepository(get(), get(), get(), androidContext()) }  // Phase 9.1 (M13) +MuseDb: deleteFolder 事务(M-SESS8)
-    single { io.zer0.muse.data.groupchat.GroupChatRepository(get(), get(), get(), get(), get()) }  // v1.30: 群聊仓库(含 MuseDb 用于跨表事务)+ v2.x 遗留收尾 MessageImageStore
+    single { SessionRepository(get(), get(), get(), androidContext(), get(), get(), get(), get()) } // +MuseDb: 跨表事务(H-SESS1)
+    single { io.zer0.muse.data.artifact.ArtifactRepository(get()) } // v1.43: 会话产物仓库
+    single {
+        AssistantRepository(get(), androidContext(), get(), get())
+    } // Phase 8.2 + v1.0.51 注入 SettingsRepository;P0-10 注入 FactDbProvider(删助手清分库)
+    single { LorebookRepository(get()) } // Phase 8.5
+    single { io.zer0.muse.worldbook.WorldBookRepository(get()) } // P1-2: Worldbook 动态世界书
+    single { QuickMessageRepository(get()) } // Phase 8.5
+    single { PromptInjectionRepository(get(), androidContext()) } // Phase 8.5
+    single { io.zer0.muse.data.skill.SkillRepository(get()) } // Phase 8.8
+    single {
+        io.zer0.muse.data.session.FolderRepository(get(), get(), get(), androidContext())
+    } // Phase 9.1 (M13) +MuseDb: deleteFolder 事务(M-SESS8)
+    single {
+        io.zer0.muse.data.groupchat.GroupChatRepository(get(), get(), get(), get(), get())
+    } // v1.30: 群聊仓库(含 MuseDb 用于跨表事务)+ v2.x 遗留收尾 MessageImageStore
     // v2.x: 群聊记忆隔离仓库(独立 fact store,不污染主记忆)
     single { io.zer0.muse.data.groupchat.GroupChatMemoryRepository(get()) }
     // v1.0.72: AI 朋友圈
@@ -177,7 +183,9 @@ val appModule = module {
     //           用于巡检上下文构造(5.3/5.10)与新记忆/里程碑/经验差量检测
     // v2.1: 接入 UserActivityProfile,用活跃度/对话连续性/情绪三因子自适应调度替换随机偏移
     single { io.zer0.muse.schedule.UserActivityProfile(androidContext()) }
-    single { io.zer0.muse.schedule.ProactiveMessageRunner(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext(), get(), get(), get(), get()) }
+    single {
+        io.zer0.muse.schedule.ProactiveMessageRunner(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), androidContext(), get(), get(), get(), get())
+    }
 
     // v1.x: 问候语个性化提醒生成器(LLM 生成,失败回退规则版)
     single { io.zer0.muse.schedule.GreetingHintGenerator(get()) }
@@ -202,7 +210,9 @@ val appModule = module {
     single { io.zer0.muse.ui.groupchat.GroupChatActivityHub() }
     // v2.x: 末尾追加 GroupChatMemoryRepository,用于群聊记忆隔离(agent 回复摘要写入独立 fact store)
     // v1.0.53: 追加 SystemPromptAssembler,用于在群聊 system prompt 中注入长期记忆和群聊记忆
-    single { io.zer0.muse.schedule.GroupChatScheduler(get(), get(), get(), get(), get(), androidContext(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
+    single {
+        io.zer0.muse.schedule.GroupChatScheduler(get(), get(), get(), get(), get(), androidContext(), get(), get(), get(), get(), get(), get(), get(), get(), get())
+    }
 
     // v1.43: 应用级聊天生成管理器(切页/后台保持生成不中断)
     single { io.zer0.muse.schedule.ChatGenerationManager(get(), get(), androidContext()) }
@@ -430,34 +440,54 @@ val appModule = module {
     // P1-3b 拆域: Skill 文件工具实现(被 SkillExecutor 委托调用)
     single { io.zer0.muse.tools.SkillFileToolsImpl(androidContext(), get(named("chat"))) }
     // P1-3b 拆域: Skill 媒体/JS/插件工具实现(被 SkillExecutor 委托调用)
-    single { io.zer0.muse.tools.SkillMediaToolsImpl(
-        androidContext(),
-        get(),
-        get(),
-        { get<io.zer0.muse.data.SettingsRepository>().imageGenConfigFlow.first().let { cfg -> (if (cfg.providerId.isBlank()) null else runCatching { kotlinx.coroutines.runBlocking { get<io.zer0.muse.data.SettingsRepository>().getProviderById(cfg.providerId) } }.getOrNull()) to cfg.modelId } },
-        get(),
-    ) }
+    single {
+        io.zer0.muse.tools.SkillMediaToolsImpl(
+            androidContext(),
+            get(),
+            get(),
+            {
+                get<io.zer0.muse.data.SettingsRepository>().imageGenConfigFlow.first().let { cfg ->
+                    (
+                        if (cfg.providerId.isBlank()) {
+                            null
+                        } else {
+                            runCatching {
+                                kotlinx.coroutines.runBlocking {
+                                    get<io.zer0.muse.data.SettingsRepository>().getProviderById(cfg.providerId)
+                                }
+                            }.getOrNull()
+                        }
+                        ) to cfg.modelId
+                }
+            },
+            get(),
+        )
+    }
     // P1-3b 拆域: Skill 管理工具实现(被 SkillExecutor 委托调用)
     single { io.zer0.muse.tools.SkillManagementToolsImpl(androidContext(), get()) }
     // 助手自写插件工具实现(被 SkillExecutor 委托调用):只产出未签名草稿
     single { io.zer0.muse.tools.PluginAuthoringToolsImpl(androidContext(), get()) }
     // P1-3b 拆域: Skill 搜索/HTTP 工具实现(被 SkillExecutor 委托调用)
     single { io.zer0.muse.web.WebSearchCoordinator(get<WebSearchService>()) }
-    single { io.zer0.muse.tools.SkillSearchToolsImpl(
-        androidContext(),
-        get(named("chat")),
-        get<WebSearchService>(),
-        get(),
-        get(),
-        { get<io.zer0.muse.data.SettingsRepository>().getRagConfig() },
-        get<io.zer0.muse.web.WebSearchCoordinator>(),
-        { get<io.zer0.muse.data.SettingsRepository>().webSearchConfigFlow.first().let { cfg ->
-            io.zer0.muse.web.WebSearchPolicy(
-                maxSearchesPerTurn = cfg.maxSearchesPerTurn.coerceIn(1, 100),
-                maxResults = cfg.maxResults.coerceIn(1, 10),
-            )
-        } },
-    ) }
+    single {
+        io.zer0.muse.tools.SkillSearchToolsImpl(
+            androidContext(),
+            get(named("chat")),
+            get<WebSearchService>(),
+            get(),
+            get(),
+            { get<io.zer0.muse.data.SettingsRepository>().getRagConfig() },
+            get<io.zer0.muse.web.WebSearchCoordinator>(),
+            {
+                get<io.zer0.muse.data.SettingsRepository>().webSearchConfigFlow.first().let { cfg ->
+                    io.zer0.muse.web.WebSearchPolicy(
+                        maxSearchesPerTurn = cfg.maxSearchesPerTurn.coerceIn(1, 100),
+                        maxResults = cfg.maxResults.coerceIn(1, 10),
+                    )
+                }
+            },
+        )
+    }
     // P1-3e 拆域: Skill Agent 工作流/群聊工具实现(被 SkillExecutor 委托调用)
     single {
         io.zer0.muse.tools.SkillAgentToolsImpl(
@@ -508,7 +538,9 @@ val appModule = module {
                 val cfg = settings.imageGenConfigFlow.first()
                 val provider = if (cfg.providerId.isNotBlank()) {
                     kotlin.runCatching { settings.getProviderById(cfg.providerId) }.getOrNull()
-                } else null
+                } else {
+                    null
+                }
                 val modelId = if (provider != null && cfg.modelId.isNotBlank()) cfg.modelId else null
                 provider to modelId
             },
@@ -543,7 +575,6 @@ val appModule = module {
             },
         )
     }
-
 
     // B6-01: 外部插件管理器(导入/卸载/启停/工具注册)
     single { io.zer0.muse.data.plugin.PluginManager(androidContext(), get()) }
@@ -602,9 +633,6 @@ val appModule = module {
     // Phase 5-E: 文档解析�?
     single { DocumentParser(get(named("chat"))) }
 
-
-
-
     // v0.30-a: 系统提示组装�?6 步工作流�?1 �?9 �?section 集中拼装)
     // v0.32 实验�?透传 getExperiments 闭包,�?设置 �?实验�?页的开�?
     //         (forceMoodBlock / selfReflection)真正影响 system prompt
@@ -612,10 +640,6 @@ val appModule = module {
     //         而不是在构造时缓存,保证用户改完设置页立即生�?按 memoryConfigCache 写法)�?
     // v1.25: 同时透传 getMultiAgentConfig,�?Agent 协作提示读取 settings.multiAgentConfigCache�?
     // v1.97: 透传 assistantRepository,�?delegate_agent 提示注入可用助手 id 清单�?
-
-
-
-
 }
 
 /**

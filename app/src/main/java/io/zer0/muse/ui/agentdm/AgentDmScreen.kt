@@ -30,21 +30,21 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
 import io.zer0.muse.data.agentdm.AgentDmRepository
 import io.zer0.muse.data.agentdm.AgentMessageEntity
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.ui.common.navigation.MuseTopBar
+import io.zer0.muse.ui.theme.MuseDateFormats
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.ui.theme.MuseDateFormats
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -66,7 +66,9 @@ fun AgentDmScreen(
     assistantRepository: AssistantRepository = koinInject(),
 ) {
     val scope = rememberCoroutineScope()
-    val assistants by assistantRepository.observeAll.collectAsStateWithLifecycle(initialValue = emptyList<io.zer0.muse.data.assistant.AssistantEntity>())
+    val assistants by assistantRepository.observeAll.collectAsStateWithLifecycle(
+        initialValue = emptyList<io.zer0.muse.data.assistant.AssistantEntity>(),
+    )
 
     // 前端修复 (持久化-12): 消息列表为自定义实体列表,无法直接 saveable,保持 remember;
     // 更优做法:消息状态迁入 ViewModel 由状态层持有,UI 只订阅
@@ -91,8 +93,11 @@ fun AgentDmScreen(
     }
 
     LaunchedEffect(assistants) {
-        if (assistants.isNotEmpty()) refreshMessages()
-        else isLoading = false
+        if (assistants.isNotEmpty()) {
+            refreshMessages()
+        } else {
+            isLoading = false
+        }
     }
 
     val totalUnread = messages.count { !it.isRead }
@@ -108,13 +113,13 @@ fun AgentDmScreen(
                         MuseTactileButton(
                             icon = MuseIcons.mail,
                             onClick = {
-                            scope.launch {
-                                for (assistant in assistants) {
-                                    repository.markAllRead(assistant.id)
+                                scope.launch {
+                                    for (assistant in assistants) {
+                                        repository.markAllRead(assistant.id)
+                                    }
+                                    refreshMessages()
                                 }
-                                refreshMessages()
-                            }
-                        },
+                            },
                             contentDescription = stringResource(R.string.agent_dm_mark_all_read),
                         )
                     }
@@ -195,10 +200,11 @@ private fun AgentMessageCard(
     Surface(
         onClick = onClick,
         shape = MuseShapes.medium,
-        color = if (isUnread)
+        color = if (isUnread) {
             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-        else
-            MaterialTheme.colorScheme.surface,
+        } else {
+            MaterialTheme.colorScheme.surface
+        },
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
@@ -244,14 +250,14 @@ private fun AgentMessageCard(
             Text(
                 text = message.content,
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (isUnread)
+                color = if (isUnread) {
                     MaterialTheme.colorScheme.onSurface
-                else
-                    MaterialTheme.colorScheme.onSurfaceVariant,
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
         }
     }
 }
-

@@ -49,6 +49,7 @@ class GroupChatRepository(
     companion object {
         /** v1.53-GC: 群聊消息分页 — 首屏页大小(初始加载条数)。 */
         const val INITIAL_PAGE_SIZE = 30
+
         /** v1.53-GC: 群聊消息分页 — 上滑加载更多页大小。 */
         const val LOAD_MORE_PAGE_SIZE = 20
     }
@@ -79,10 +80,7 @@ class GroupChatRepository(
      * @param chatId 群聊 id
      * @param initialPageSize 首屏页大小,默认 [INITIAL_PAGE_SIZE]
      */
-    fun getPagedMessages(
-        chatId: String,
-        initialPageSize: Int = INITIAL_PAGE_SIZE,
-    ): Flow<List<GroupChatMessageEntity>> =
+    fun getPagedMessages(chatId: String, initialPageSize: Int = INITIAL_PAGE_SIZE): Flow<List<GroupChatMessageEntity>> =
         groupChatMessageDao.observeRecentMessages(chatId, initialPageSize)
             .map { list -> list.map(::hydrateMessage) }
             .flowOn(Dispatchers.IO)
@@ -97,12 +95,10 @@ class GroupChatRepository(
      * @param limit 页大小,默认 [INITIAL_PAGE_SIZE]
      * @return 消息列表(按时间升序)
      */
-    suspend fun getRecentMessagesPaged(
-        chatId: String,
-        limit: Int = INITIAL_PAGE_SIZE,
-    ): List<GroupChatMessageEntity> = withContext(Dispatchers.IO) {
-        groupChatMessageDao.getRecentMessages(chatId, limit).map(::hydrateMessage).reversed()
-    }
+    suspend fun getRecentMessagesPaged(chatId: String, limit: Int = INITIAL_PAGE_SIZE): List<GroupChatMessageEntity> =
+        withContext(Dispatchers.IO) {
+            groupChatMessageDao.getRecentMessages(chatId, limit).map(::hydrateMessage).reversed()
+        }
 
     /**
      * v1.53-GC: 分页加载更多 — 取早于锚点(beforeTimestamp, beforeId)的 limit 条消息(按 timestamp 升序)。
@@ -155,7 +151,7 @@ class GroupChatRepository(
                 teamId = teamId,
                 createdAt = now,
                 updatedAt = now,
-            )
+            ),
         )
         chatId
     }
@@ -237,11 +233,14 @@ class GroupChatRepository(
         // 在事务外先完成文件写,避免文件 IO 包在 DB 事务里。
         val persistableImageJson = runCatching {
             val images = AppJson.decodeFromString(ListSerializer(String.serializer()), imageBase64Json)
-            if (images.isEmpty()) imageBase64Json
-            else AppJson.encodeToString(
-                ListSerializer(String.serializer()),
-                messageImageStore.toPersistable(msgId, images),
-            )
+            if (images.isEmpty()) {
+                imageBase64Json
+            } else {
+                AppJson.encodeToString(
+                    ListSerializer(String.serializer()),
+                    messageImageStore.toPersistable(msgId, images),
+                )
+            }
         }.getOrElse { imageBase64Json }
         // H-GC2: 插入消息 + 更新会话时间戳必须原子,避免崩溃后消息已写但时间戳未更新
         // 审计修复 (5.2): 群聊不存在时返回 null,不再返回悬空 msgId(调用方以为发成功
@@ -266,7 +265,7 @@ class GroupChatRepository(
                     whisperTargetId = whisperTargetId,
                     replyToId = replyToId,
                     messageType = messageType,
-                )
+                ),
             )
             // 更新群聊的 updatedAt(列表页排序用)
             groupChatDao.touchUpdatedAt(chatId)
@@ -361,10 +360,11 @@ class GroupChatRepository(
     }
 
     /** v1.0.72: 群聊内搜索消息(关键词匹配正文,按时间倒序)。 */
-    suspend fun searchMessages(chatId: String, query: String, limit: Int = 100): List<GroupChatMessageEntity> = withContext(Dispatchers.IO) {
-        if (query.isBlank()) return@withContext emptyList()
-        groupChatMessageDao.searchMessages(chatId, query.trim(), limit).map(::hydrateMessage)
-    }
+    suspend fun searchMessages(chatId: String, query: String, limit: Int = 100): List<GroupChatMessageEntity> =
+        withContext(Dispatchers.IO) {
+            if (query.isBlank()) return@withContext emptyList()
+            groupChatMessageDao.searchMessages(chatId, query.trim(), limit).map(::hydrateMessage)
+        }
 
     /** 取指定群聊的最新一条消息(用于列表页预览)。 */
     suspend fun getLatestMessage(chatId: String): GroupChatMessageEntity? = withContext(Dispatchers.IO) {
@@ -425,7 +425,6 @@ class GroupChatRepository(
     suspend fun upsertGenerationLedger(entity: GroupChatGenerationLedgerEntity) {
         withContext(Dispatchers.IO) { db.groupChatGenerationLedgerDao().upsert(entity) }
     }
-
 
     suspend fun deleteGenerationLedger(id: String) {
         withContext(Dispatchers.IO) { db.groupChatGenerationLedgerDao().deleteById(id) }
@@ -491,7 +490,7 @@ class GroupChatRepository(
                     title = title.take(200),
                     content = content,
                     addedAt = System.currentTimeMillis(),
-                )
+                ),
             )
             val updated = chat.copy(
                 sharedDocsJson = serializeSharedDocs(docs),

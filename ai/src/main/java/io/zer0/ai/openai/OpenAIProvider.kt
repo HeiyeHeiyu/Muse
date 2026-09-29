@@ -1,6 +1,5 @@
 package io.zer0.ai.openai
 
-import io.zer0.common.ErrorCode
 import io.zer0.ai.core.ChatCompletion
 import io.zer0.ai.core.ChatRequest
 import io.zer0.ai.core.ChatRequestMode
@@ -18,6 +17,7 @@ import io.zer0.ai.core.ProviderHttpSupport
 import io.zer0.ai.core.ProviderPayloadNormalizer
 import io.zer0.ai.core.ProviderPromptPatches
 import io.zer0.ai.core.ProviderSpecificConfig
+import io.zer0.ai.core.ProviderTemplateEngine
 import io.zer0.ai.core.ReasoningCarrier
 import io.zer0.ai.core.ReasoningReplayPolicy
 import io.zer0.ai.core.ThinkingFormat
@@ -26,10 +26,10 @@ import io.zer0.ai.core.ToolCallSanitizer
 import io.zer0.ai.core.ToolDefinition
 import io.zer0.ai.core.UIMessage
 import io.zer0.ai.core.toProviderException
-import io.zer0.ai.core.ProviderTemplateEngine
 import io.zer0.ai.ollama.OllamaVisionInferrer
 import io.zer0.ai.registry.ModelRegistry
 import io.zer0.common.AppJson
+import io.zer0.common.ErrorCode
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.common.toMessage
@@ -45,14 +45,14 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -111,6 +111,7 @@ class OpenAIProvider(
     private val customConfig: ProviderSpecificConfig.Custom? by lazy {
         config.specific as? ProviderSpecificConfig.Custom
     }
+
     /** 普通 OpenAI specific 与 Custom specific 都支持附加请求字段。 */
     private val customHeaders: Map<String, String> by lazy {
         customConfig?.customHeaders ?: openAIConfig.customHeaders
@@ -324,14 +325,14 @@ class OpenAIProvider(
                 (
                     // 条件 A: 内容极少(combined < 10),且持续时间短(< 500ms) — 原有逻辑
                     (combinedChars in 0..9 && deltaDuration < 500) ||
-                    // 条件 B(v1.0.51): content 为 0 但有 reasoning,且持续时间短(< 2s) —
-                    //   模型只输出了思考没有产出正文,用户看到空回复,需回退
-                    (totalChars == 0 && reasoningChars > 0 && deltaDuration < 2000) ||
-                    // 条件 C(v1.0.52): finishReason=tool_calls 但存在空 name tool_call —
-                    //   模型流式模式下没有正确输出工具名(如 GLM-4-9B-0414),
-                    //   args 被缓冲但不能作为正文(是工具参数),触发非流式回退让模型重新生成
-                    (finishReason == "tool_calls" && hasEmptyNameToolCall)
-                )
+                        // 条件 B(v1.0.51): content 为 0 但有 reasoning,且持续时间短(< 2s) —
+                        //   模型只输出了思考没有产出正文,用户看到空回复,需回退
+                        (totalChars == 0 && reasoningChars > 0 && deltaDuration < 2000) ||
+                        // 条件 C(v1.0.52): finishReason=tool_calls 但存在空 name tool_call —
+                        //   模型流式模式下没有正确输出工具名(如 GLM-4-9B-0414),
+                        //   args 被缓冲但不能作为正文(是工具参数),触发非流式回退让模型重新生成
+                        (finishReason == "tool_calls" && hasEmptyNameToolCall)
+                    )
 
             // v1.0.52: 只在不回退时才恢复空 name tool_call 为 ContentDelta
             //   回退时不恢复(避免把工具参数当正文发给用户,然后又回退重复发送)
@@ -358,7 +359,9 @@ class OpenAIProvider(
                 pendingFallback.set(true)
                 Logger.w(
                     "OpenAIProvider",
-                    "stream-guard: 检测到流式过早结束 (chars=$totalChars, reasoning=$reasoningChars, duration=${deltaDuration}ms), 自动回退到非流式请求 | url=${sanitizeUrl(url)}",
+                    "stream-guard: 检测到流式过早结束 (chars=$totalChars, reasoning=$reasoningChars, duration=${deltaDuration}ms), 自动回退到非流式请求 | url=${sanitizeUrl(
+                        url,
+                    )}",
                 )
                 scope.launch {
                     try {
@@ -516,21 +519,329 @@ class OpenAIProvider(
                 return
             }
             streamSourceClosed.set(false)
-            val eventSource = sseFactory.newEventSource(httpRequest, object : EventSourceListener() {
-                override fun onOpen(eventSource: EventSource, response: Response) {
-                    firstByteAt = System.currentTimeMillis()
-                    Logger.i("OpenAIProvider", "streamChat TTFB: ${firstByteAt - requestStartAt}ms | url=${sanitizeUrl(url)}")
-                    if (!response.isSuccessful) {
-                        val code = response.code
-                        // v1.0.1: 429 限流时尝试切换 key重试(多 key 场景)
-                        if (code == 429 && !anyDeltaSent.get() && retryCount.get() < MAX_RETRIES &&
-                            !request.abortSignal.aborted && switchToNextKey()
+            val eventSource = sseFactory.newEventSource(
+                httpRequest,
+                object : EventSourceListener() {
+                    override fun onOpen(eventSource: EventSource, response: Response) {
+                        firstByteAt = System.currentTimeMillis()
+                        Logger.i("OpenAIProvider", "streamChat TTFB: ${firstByteAt - requestStartAt}ms | url=${sanitizeUrl(url)}")
+                        if (!response.isSuccessful) {
+                            val code = response.code
+                            // v1.0.1: 429 限流时尝试切换 key重试(多 key 场景)
+                            if (code == 429 && !anyDeltaSent.get() && retryCount.get() < MAX_RETRIES &&
+                                !request.abortSignal.aborted && switchToNextKey()
+                            ) {
+                                Logger.i("OpenAIProvider", "streamChat onOpen 429 限流,已切换到下一个 key,立即重试")
+                                httpRequest = buildHttpRequest()
+                                retryCount.incrementAndGet()
+                                eventSource.cancel()
+                                scope.launch {
+                                    if (!request.abortSignal.aborted && !scope.isClosedForSend) {
+                                        connect()
+                                    }
+                                }
+                                return
+                            }
+                            // L-OAI1: 用 readBodySafely 替代 runCatching
+                            val errText = ProviderHttpSupport.readBodySafely(response)
+                            val msg = parseErrorMessage(code, errText)
+                            Logger.w("OpenAIProvider", "streamChat onOpen HTTP $code: $msg")
+                            // v1.0.28: HTTP 400 时记录请求体和完整响应体,帮助诊断中转站参数错误
+                            // 审计修复 (7.2): 响应体截断 500 字符 — 部分中转站错误响应会回显
+                            // 请求内容(含对话/参数),全量打日志可能把用户对话写入日志文件。
+                            if (code == 400) {
+                                Logger.w("OpenAIProvider", "streamChat 400 请求摘要: ${describeRequestBody(body)}")
+                                Logger.w("OpenAIProvider", "streamChat 400 响应体(截断): ${errText.take(500)}")
+                            }
+                            // v1.0.1: 401/403 鉴权失败时标记当前 key 失败(多 key 场景)
+                            if (code == 401 || code == 403) {
+                                markKeyFailed(hardBlock = true)
+                            }
+                            // L-OAI17: 错误事件携带 throwable,便于上层据此区分错误类型
+                            trySend(ChatStreamEvent.Error(msg, OpenAIHttpException(code, msg)))
+                            close()
+                            return
+                        }
+                    }
+
+                    override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+                        if (data == "[DONE]") {
+                            // v1.0.47: 回退进行中时直接丢弃后续 [DONE] 事件,不进 emitDoneWithStreamGuard,
+                            //   从源头减少冗余日志(原商汤会连发 8-10 个空事件触发 diagnose 日志刷屏)
+                            if (pendingFallback.get()) return
+                            // v1.0.20: stream-guard — Done 事件时检查累积 toolCallAccMap,
+                            //   空 name 的 tool call 恢复为 ContentDelta
+                            emitDoneWithStreamGuard(null)
+                            return
+                        }
+                        // B3-05: Custom 供应商流式响应路径(如 $.choices[0].delta.content)
+                        val customStreamPath = customConfig?.streamResponsePath?.takeIf { it.isNotBlank() }
+                        if (customStreamPath != null) {
+                            val element = resultOf { AppJson.parseToJsonElement(data) }.getOrNull() ?: return
+                            val text = extractTextFromElement(
+                                ProviderTemplateEngine.extractByPath(element, customStreamPath),
+                            )
+                            if (!text.isNullOrEmpty()) {
+                                if (firstDeltaAt == 0L) {
+                                    firstDeltaAt = System.currentTimeMillis()
+                                    firstDeltaTimestamp.set(firstDeltaAt)
+                                }
+                                anyDeltaSent.set(true)
+                                contentCharsSent.addAndGet(text.length)
+                                trySend(ChatStreamEvent.ContentDelta(text))
+                            }
+                            val standardChunk = resultOf { AppJson.decodeFromString<OpenAIStreamChunk>(data) }.getOrNull()
+                            val finish = standardChunk?.choices?.firstOrNull()?.finishReason
+                            if (!finish.isNullOrBlank() && !pendingFallback.get()) {
+                                emitDoneWithStreamGuard(finish)
+                            }
+                            return
+                        }
+                        // M-OAI3: 改用 resultOf(会重抛 CancellationException),替代 runCatching(会吞 CancellationException)
+                        val chunk = resultOf {
+                            AppJson.decodeFromString<OpenAIStreamChunk>(data)
+                        }.getOrNull() ?: return
+
+                        // A5: stream_options.include_usage 时末 chunk 仅带 usage(choices 为空数组),
+                        // 必须在 choices 早退前解析,否则 usage chunk 被静默丢弃
+                        chunk.usage?.let { usage ->
+                            trySend(ChatStreamEvent.UsageDelta(usage.toUsageTokens()))
+                        }
+
+                        val choice = chunk.choices.firstOrNull() ?: return
+                        val delta = choice.delta
+                        if (delta != null) {
+                            if (firstDeltaAt == 0L) {
+                                firstDeltaAt = System.currentTimeMillis()
+                                firstDeltaTimestamp.set(firstDeltaAt)
+                                Logger.i(
+                                    "OpenAIProvider",
+                                    "streamChat first delta: ${firstDeltaAt - requestStartAt}ms " +
+                                        "(TTFB=${firstByteAt - requestStartAt}ms) | url=${sanitizeUrl(url)}",
+                                )
+                            }
+                            // v1.0.49: 回退等待期间仍正常发送 delta — 商汤"假过早结束"后后续 delta 会延迟到达,
+                            //   若丢弃则放弃回退时内容已丢失且 flow 被 close,用户只看到首字符。
+                            //   改为正常发送:放弃回退时内容不丢;回退成功时仅开头 <10 字符可能重复,可接受。
+                            delta.reasoningContent?.takeIf { it.isNotEmpty() }
+                                ?.let {
+                                    anyDeltaSent.set(true)
+                                    reasoningCharsSent.addAndGet(it.length)
+                                    trySend(ChatStreamEvent.ReasoningDelta(it))
+                                }
+                            delta.content?.takeIf { it.isNotEmpty() }
+                                ?.let {
+                                    anyDeltaSent.set(true)
+                                    contentCharsSent.addAndGet(it.length)
+                                    trySend(ChatStreamEvent.ContentDelta(it))
+                                }
+                            // Phase 7: 解析 tool_calls 增量(每个 index 对应一个工具调用,arguments 分片累积)
+                            delta.toolCalls?.forEach { tc ->
+                                // M-OAI4: 用累积 Map 按 index 分配,避免默认 0 合并多个调用。
+                                // 新工具调用(首片携带 id 或 name)触发新 index 分配。
+                                val apiIndex = tc.index
+                                val isNewCall = tc.id != null || tc.function?.name != null
+                                if (isNewCall) {
+                                    toolCallIndexMap[apiIndex] = nextToolCallIndex++
+                                }
+                                // L-OAI13: toolCallIndexMap 缺失时(首片丢了/乱序)不 fallback 到 0,
+                                //   否则会把该片误并入 index=0 的工具调用。跳过该片并记录警告。
+                                val localIndex = toolCallIndexMap[apiIndex]
+                                if (localIndex == null) {
+                                    Logger.w(
+                                        "OpenAIProvider",
+                                        "tool_calls 片段 apiIndex=$apiIndex 未在 map 中找到(首片丢失?),跳过该片",
+                                    )
+                                    return@forEach
+                                }
+                                // v1.0.20: stream-guard — 累积 name 和 arguments。
+                                //   即便 name 为空也累积,Done 时若 name 仍为空则恢复为 ContentDelta。
+                                val acc = toolCallAccMap.getOrPut(localIndex) { ToolCallAccState() }
+                                if (tc.id != null) acc.id = tc.id
+                                tc.function?.name?.takeIf { it.isNotBlank() }?.let { acc.name = it }
+                                tc.function?.arguments?.let { acc.args.append(it) }
+
+                                // v1.0.22: 已增量恢复为 ContentDelta 的 acc,后续 args 继续作为 ContentDelta 发送
+                                //   (一旦判定为空 name 异常 tool call 并增量恢复,name 后到也不撤回已发送的正文)
+                                // v1.0.52: recoveredAsContent 不再被增量设置为 true(改为 Done 时根据 finishReason 决定),
+                                //   此分支保留向后兼容但实际不会进入
+                                if (acc.recoveredAsContent) {
+                                    val argsDelta = tc.function?.arguments.orEmpty()
+                                    if (argsDelta.isNotEmpty()) {
+                                        trySend(ChatStreamEvent.ContentDelta(argsDelta))
+                                    }
+                                    return@forEach
+                                }
+
+                                // stream-guard: 空 name 处理
+                                //   v1.0.20: 缓冲到 Done 才恢复
+                                //   v1.0.22: 改为立即增量恢复为 ContentDelta
+                                //   v1.0.52: 回退为只缓冲不发送 — v1.0.22 的增量恢复导致真实工具调用
+                                //     (finishReason=tool_calls) 的 arguments 被误转为正文,用户看到 JSON 片段幻觉。
+                                //     改为缓冲到 Done,Done 时根据 finishReason 决定:
+                                //       - tool_calls + 空 name → 触发非流式回退(模型流式模式未正确输出工具名)
+                                //       - 其他 + 空 name → 恢复为 ContentDelta(正文幻觉)
+                                val currentName = acc.name
+                                if (currentName.isNullOrBlank()) {
+                                    toolCallDeltaSent.set(true)
+                                    anyDeltaSent.set(true)
+                                    // v1.0.52: 只缓冲,不发送 ContentDelta
+                                    val stormCount = emptyNameToolCallCount.incrementAndGet()
+                                    if (stormCount > MAX_EMPTY_NAME_TOOL_CALLS) {
+                                        // 风暴:小模型把正文拆成大量独立空 name tool call,继续缓冲会拖慢整轮。
+                                        // 超过阈值后按正文增量恢复,让上层尽快拿到文本。真实工具调用不会连续出现这么多空 name。
+                                        acc.recoveredAsContent = true
+                                        val argsDelta = tc.function?.arguments.orEmpty()
+                                        if (argsDelta.isNotEmpty()) {
+                                            contentCharsSent.addAndGet(argsDelta.length)
+                                            trySend(ChatStreamEvent.ContentDelta(argsDelta))
+                                        }
+                                        Logger.w(
+                                            "OpenAIProvider",
+                                            "stream-guard: 空 name tool call 超过 $MAX_EMPTY_NAME_TOOL_CALLS 条,按正文增量恢复 (localIndex=$localIndex)",
+                                        )
+                                        return@forEach
+                                    }
+                                    Logger.d(
+                                        "OpenAIProvider",
+                                        "stream-guard: 空 name tool call 缓冲中 (localIndex=$localIndex, 累积 args=${acc.args.length} chars)",
+                                    )
+                                    return@forEach
+                                }
+
+                                // name 已到 — 发送 ToolCallDelta
+                                toolCallDeltaSent.set(true)
+                                anyDeltaSent.set(true)
+                                if (!acc.hasEmitted) {
+                                    // 首次发送 — name 来晚了,一次性带上累积的 arguments(追赶)
+                                    trySend(
+                                        ChatStreamEvent.ToolCallDelta(
+                                            index = localIndex,
+                                            id = acc.id,
+                                            name = currentName,
+                                            argumentsDelta = acc.args.current(),
+                                        ),
+                                    )
+                                    acc.hasEmitted = true
+                                } else {
+                                    // 后续增量。
+                                    // v1.0.81: 若累积器发生过多 JSON 对象分片合并(模型把 arguments
+                                    // 拆成 {"a":1}{"b":2}),不能再发原始增量给下游 append(那会重新拼成
+                                    // 拼接串),改发合并后的完整 JSON 快照,下游用快照覆盖而非追加。
+                                    val deltaArgs = if (acc.args.hasMergedObjects()) {
+                                        acc.args.current()
+                                    } else {
+                                        tc.function?.arguments.orEmpty()
+                                    }
+                                    trySend(
+                                        ChatStreamEvent.ToolCallDelta(
+                                            index = localIndex,
+                                            id = tc.id,
+                                            name = tc.function?.name,
+                                            argumentsDelta = deltaArgs,
+                                            isSnapshot = acc.args.hasMergedObjects(),
+                                        ),
+                                    )
+                                }
+                            }
+                        }
+                        if (!choice.finishReason.isNullOrBlank()) {
+                            // v1.0.47: 回退进行中时丢弃 finishReason 事件(同 [DONE] 早退逻辑)
+                            if (pendingFallback.get()) return
+                            // v1.0.20: stream-guard — Done 事件时检查累积 toolCallAccMap,
+                            //   空 name 的 tool call 恢复为 ContentDelta
+                            emitDoneWithStreamGuard(choice.finishReason)
+                        }
+                    }
+
+                    override fun onClosed(eventSource: EventSource) {
+                        streamSourceClosed.set(true)
+                        if (request.abortSignal.aborted) {
+                            close()
+                            return
+                        }
+                        // v1.0.23: 商汤等 API 可能直接关闭连接,不发 [DONE] 也不发 finishReason
+                        //   若尚未触发 stream-guard,在此触发以检测流式过早结束并回退
+                        // v1.0.24: 回退进行中时不 close,等回退协程完成
+                        if (pendingFallback.get()) {
+                            Logger.d("OpenAIProvider", "streamChat onClosed: 回退进行中, 等待完成")
+                            return
+                        }
+                        if (!streamGuardDone.get()) {
+                            Logger.d("OpenAIProvider", "streamChat onClosed: 未收到 Done 事件, 触发 stream-guard")
+                            emitDoneWithStreamGuard(null)
+                        } else {
+                            close()
+                        }
+                    }
+
+                    override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+                        streamSourceClosed.set(true)
+                        // v1.0.24: 回退进行中时不 close,等回退协程完成
+                        if (pendingFallback.get()) {
+                            Logger.d("OpenAIProvider", "streamChat onFailure: 回退进行中, 忽略连接错误 t=${t?.message}")
+                            return
+                        }
+                        if (streamGuardDone.get() || consumerClosed.get() || scope.isClosedForSend) {
+                            Logger.d("OpenAIProvider", "streamChat onFailure: 流已完成或消费者已关闭,忽略收尾回调")
+                            close()
+                            return
+                        }
+                        if (request.abortSignal.aborted) {
+                            // v1.0.53: 区分真实中止与收尾清理 — 流正常完成后 ChatViewModel 会 abort signal
+                            //   清理资源,此时若 onFailure 回调在飞,原日志会误导为"用户中止"。
+                            if (streamGuardDone.get()) {
+                                Logger.d("OpenAIProvider", "streamChat onFailure: 流已完成后的收尾回调(忽略,非用户中止)")
+                            } else {
+                                Logger.d(
+                                    "OpenAIProvider",
+                                    "streamChat aborted by user | contentChars=${contentCharsSent.get()} | " +
+                                        "streamGuardDone=${streamGuardDone.get()} | anyDeltaSent=${anyDeltaSent.get()}",
+                                )
+                                // 用户主动停止：发 StreamInterrupted 让下游（含 FirstEventWatchdog）明确感知中断，
+                                // 避免静默 close 导致 watchdog 误判为“无首事件”继续触发非流式回退。
+                                scope.trySend(ChatStreamEvent.StreamInterrupted("用户已停止生成"))
+                            }
+                            close()
+                            return
+                        }
+                        // M-OAI3: 判断是否可重试(408/429/5xx/IOException),且未发出任何增量,且未达重试上限
+                        // H-OAI1: 重试条件改用 anyDeltaSent(覆盖 Content/Reasoning/ToolCall 三类增量),
+                        //   原仅检查 toolCallDeltaSent 会导致已流出的正文/推理被重发。
+                        val code = response?.code
+                        val isRetryable = (code != null && (code == 408 || code == 429 || code in 500..599)) ||
+                            (t is java.io.IOException)
+                        if (isRetryable && !anyDeltaSent.get() &&
+                            retryCount.incrementAndGet() <= MAX_RETRIES &&
+                            !request.abortSignal.aborted
                         ) {
-                            Logger.i("OpenAIProvider", "streamChat onOpen 429 限流,已切换到下一个 key,立即重试")
+                            val attempt = retryCount.get()
+                            var backoffMs = (1L shl attempt) * RETRY_BASE_DELAY_MS
+                            // M-OAI7: 429 限流优先用 Retry-After 响应头(秒数 → 毫秒)
+                            if (code == 429) {
+                                backoffMs = response?.header("Retry-After")?.toIntOrNull()
+                                    ?.let { it * 1000L } ?: backoffMs
+                                // v1.0.1: 429 时切换到下一个 key(多 key 场景)
+                                //  切换成功后立即重试(不等 backoff),因为新 key 可能未限流
+                                if (switchToNextKey()) {
+                                    Logger.i("OpenAIProvider", "streamChat 429 限流,已切换到下一个 key,立即重试")
+                                    backoffMs = 0L
+                                }
+                            }
+                            // L-OAI9: 加 jitter(0~499ms),避免多客户端同步重试引发惊群
+                            if (backoffMs > 0) {
+                                backoffMs += Random.nextLong(0, 500)
+                            }
+                            // v1.0.1: key 切换后重新构造 httpRequest(更新 Authorization header)
                             httpRequest = buildHttpRequest()
-                            retryCount.incrementAndGet()
-                            eventSource.cancel()
+                            // R-AI-03: 重试前清掉连接池中的半开/空闲连接,避免复用已 reset 连接
+                            ProviderHttpSupport.evictIdleConnections()
+                            Logger.w(
+                                "OpenAIProvider",
+                                "streamChat onFailure, retry $attempt/$MAX_RETRIES after ${backoffMs}ms: ${t?.message ?: code}",
+                            )
                             scope.launch {
+                                delay(backoffMs)
                                 if (!request.abortSignal.aborted && !scope.isClosedForSend) {
                                     connect()
                                 }
@@ -538,335 +849,28 @@ class OpenAIProvider(
                             return
                         }
                         // L-OAI1: 用 readBodySafely 替代 runCatching
-                        val errText = ProviderHttpSupport.readBodySafely(response)
-                        val msg = parseErrorMessage(code, errText)
-                        Logger.w("OpenAIProvider", "streamChat onOpen HTTP $code: $msg")
-                        // v1.0.28: HTTP 400 时记录请求体和完整响应体,帮助诊断中转站参数错误
-                        // 审计修复 (7.2): 响应体截断 500 字符 — 部分中转站错误响应会回显
-                        // 请求内容(含对话/参数),全量打日志可能把用户对话写入日志文件。
-                        if (code == 400) {
-                            Logger.w("OpenAIProvider", "streamChat 400 请求摘要: ${describeRequestBody(body)}")
-                            Logger.w("OpenAIProvider", "streamChat 400 响应体(截断): ${errText.take(500)}")
-                        }
-                        // v1.0.1: 401/403 鉴权失败时标记当前 key 失败(多 key 场景)
-                        if (code == 401 || code == 403) {
-                            markKeyFailed(hardBlock = true)
-                        }
-                        // L-OAI17: 错误事件携带 throwable,便于上层据此区分错误类型
-                        trySend(ChatStreamEvent.Error(msg, OpenAIHttpException(code, msg)))
-                        close()
-                        return
-                    }
-                }
-
-                override fun onEvent(
-                    eventSource: EventSource,
-                    id: String?,
-                    type: String?,
-                    data: String,
-                ) {
-                    if (data == "[DONE]") {
-                        // v1.0.47: 回退进行中时直接丢弃后续 [DONE] 事件,不进 emitDoneWithStreamGuard,
-                        //   从源头减少冗余日志(原商汤会连发 8-10 个空事件触发 diagnose 日志刷屏)
-                        if (pendingFallback.get()) return
-                        // v1.0.20: stream-guard — Done 事件时检查累积 toolCallAccMap,
-                        //   空 name 的 tool call 恢复为 ContentDelta
-                        emitDoneWithStreamGuard(null)
-                        return
-                    }
-                    // B3-05: Custom 供应商流式响应路径(如 $.choices[0].delta.content)
-                    val customStreamPath = customConfig?.streamResponsePath?.takeIf { it.isNotBlank() }
-                    if (customStreamPath != null) {
-                        val element = resultOf { AppJson.parseToJsonElement(data) }.getOrNull() ?: return
-                        val text = extractTextFromElement(
-                            ProviderTemplateEngine.extractByPath(element, customStreamPath),
-                        )
-                        if (!text.isNullOrEmpty()) {
-                            if (firstDeltaAt == 0L) {
-                                firstDeltaAt = System.currentTimeMillis()
-                                firstDeltaTimestamp.set(firstDeltaAt)
-                            }
-                            anyDeltaSent.set(true)
-                            contentCharsSent.addAndGet(text.length)
-                            trySend(ChatStreamEvent.ContentDelta(text))
-                        }
-                        val standardChunk = resultOf { AppJson.decodeFromString<OpenAIStreamChunk>(data) }.getOrNull()
-                        val finish = standardChunk?.choices?.firstOrNull()?.finishReason
-                        if (!finish.isNullOrBlank() && !pendingFallback.get()) {
-                            emitDoneWithStreamGuard(finish)
-                        }
-                        return
-                    }
-                    // M-OAI3: 改用 resultOf(会重抛 CancellationException),替代 runCatching(会吞 CancellationException)
-                    val chunk = resultOf {
-                        AppJson.decodeFromString<OpenAIStreamChunk>(data)
-                    }.getOrNull() ?: return
-
-                    // A5: stream_options.include_usage 时末 chunk 仅带 usage(choices 为空数组),
-                    // 必须在 choices 早退前解析,否则 usage chunk 被静默丢弃
-                    chunk.usage?.let { usage ->
-                        trySend(ChatStreamEvent.UsageDelta(usage.toUsageTokens()))
-                    }
-
-                    val choice = chunk.choices.firstOrNull() ?: return
-                    val delta = choice.delta
-                    if (delta != null) {
-                        if (firstDeltaAt == 0L) {
-                            firstDeltaAt = System.currentTimeMillis()
-                            firstDeltaTimestamp.set(firstDeltaAt)
-                            Logger.i(
-                                "OpenAIProvider",
-                                "streamChat first delta: ${firstDeltaAt - requestStartAt}ms " +
-                                    "(TTFB=${firstByteAt - requestStartAt}ms) | url=${sanitizeUrl(url)}",
-                            )
-                        }
-                        // v1.0.49: 回退等待期间仍正常发送 delta — 商汤"假过早结束"后后续 delta 会延迟到达,
-                        //   若丢弃则放弃回退时内容已丢失且 flow 被 close,用户只看到首字符。
-                        //   改为正常发送:放弃回退时内容不丢;回退成功时仅开头 <10 字符可能重复,可接受。
-                        delta.reasoningContent?.takeIf { it.isNotEmpty() }
-                            ?.let {
-                                anyDeltaSent.set(true)
-                                reasoningCharsSent.addAndGet(it.length)
-                                trySend(ChatStreamEvent.ReasoningDelta(it))
-                            }
-                        delta.content?.takeIf { it.isNotEmpty() }
-                            ?.let {
-                                anyDeltaSent.set(true)
-                                contentCharsSent.addAndGet(it.length)
-                                trySend(ChatStreamEvent.ContentDelta(it))
-                            }
-                        // Phase 7: 解析 tool_calls 增量(每个 index 对应一个工具调用,arguments 分片累积)
-                        delta.toolCalls?.forEach { tc ->
-                            // M-OAI4: 用累积 Map 按 index 分配,避免默认 0 合并多个调用。
-                            // 新工具调用(首片携带 id 或 name)触发新 index 分配。
-                            val apiIndex = tc.index
-                            val isNewCall = tc.id != null || tc.function?.name != null
-                            if (isNewCall) {
-                                toolCallIndexMap[apiIndex] = nextToolCallIndex++
-                            }
-                            // L-OAI13: toolCallIndexMap 缺失时(首片丢了/乱序)不 fallback 到 0,
-                            //   否则会把该片误并入 index=0 的工具调用。跳过该片并记录警告。
-                            val localIndex = toolCallIndexMap[apiIndex]
-                            if (localIndex == null) {
-                                Logger.w(
-                                    "OpenAIProvider",
-                                    "tool_calls 片段 apiIndex=$apiIndex 未在 map 中找到(首片丢失?),跳过该片",
-                                )
-                                return@forEach
-                            }
-                            // v1.0.20: stream-guard — 累积 name 和 arguments。
-                            //   即便 name 为空也累积,Done 时若 name 仍为空则恢复为 ContentDelta。
-                            val acc = toolCallAccMap.getOrPut(localIndex) { ToolCallAccState() }
-                            if (tc.id != null) acc.id = tc.id
-                            tc.function?.name?.takeIf { it.isNotBlank() }?.let { acc.name = it }
-                            tc.function?.arguments?.let { acc.args.append(it) }
-
-                            // v1.0.22: 已增量恢复为 ContentDelta 的 acc,后续 args 继续作为 ContentDelta 发送
-                            //   (一旦判定为空 name 异常 tool call 并增量恢复,name 后到也不撤回已发送的正文)
-                            // v1.0.52: recoveredAsContent 不再被增量设置为 true(改为 Done 时根据 finishReason 决定),
-                            //   此分支保留向后兼容但实际不会进入
-                            if (acc.recoveredAsContent) {
-                                val argsDelta = tc.function?.arguments.orEmpty()
-                                if (argsDelta.isNotEmpty()) {
-                                    trySend(ChatStreamEvent.ContentDelta(argsDelta))
-                                }
-                                return@forEach
-                            }
-
-                            // stream-guard: 空 name 处理
-                            //   v1.0.20: 缓冲到 Done 才恢复
-                            //   v1.0.22: 改为立即增量恢复为 ContentDelta
-                            //   v1.0.52: 回退为只缓冲不发送 — v1.0.22 的增量恢复导致真实工具调用
-                            //     (finishReason=tool_calls) 的 arguments 被误转为正文,用户看到 JSON 片段幻觉。
-                            //     改为缓冲到 Done,Done 时根据 finishReason 决定:
-                            //       - tool_calls + 空 name → 触发非流式回退(模型流式模式未正确输出工具名)
-                            //       - 其他 + 空 name → 恢复为 ContentDelta(正文幻觉)
-                            val currentName = acc.name
-                            if (currentName.isNullOrBlank()) {
-                                toolCallDeltaSent.set(true)
-                                anyDeltaSent.set(true)
-                                // v1.0.52: 只缓冲,不发送 ContentDelta
-                                val stormCount = emptyNameToolCallCount.incrementAndGet()
-                                if (stormCount > MAX_EMPTY_NAME_TOOL_CALLS) {
-                                    // 风暴:小模型把正文拆成大量独立空 name tool call,继续缓冲会拖慢整轮。
-                                    // 超过阈值后按正文增量恢复,让上层尽快拿到文本。真实工具调用不会连续出现这么多空 name。
-                                    acc.recoveredAsContent = true
-                                    val argsDelta = tc.function?.arguments.orEmpty()
-                                    if (argsDelta.isNotEmpty()) {
-                                        contentCharsSent.addAndGet(argsDelta.length)
-                                        trySend(ChatStreamEvent.ContentDelta(argsDelta))
-                                    }
-                                    Logger.w(
-                                        "OpenAIProvider",
-                                        "stream-guard: 空 name tool call 超过 $MAX_EMPTY_NAME_TOOL_CALLS 条,按正文增量恢复 (localIndex=$localIndex)",
-                                    )
-                                    return@forEach
-                                }
-                                Logger.d(
-                                    "OpenAIProvider",
-                                    "stream-guard: 空 name tool call 缓冲中 (localIndex=$localIndex, 累积 args=${acc.args.length} chars)",
-                                )
-                                return@forEach
-                            }
-
-                            // name 已到 — 发送 ToolCallDelta
-                            toolCallDeltaSent.set(true)
-                            anyDeltaSent.set(true)
-                            if (!acc.hasEmitted) {
-                                // 首次发送 — name 来晚了,一次性带上累积的 arguments(追赶)
-                                trySend(ChatStreamEvent.ToolCallDelta(
-                                    index = localIndex,
-                                    id = acc.id,
-                                    name = currentName,
-                                    argumentsDelta = acc.args.current(),
-                                ))
-                                acc.hasEmitted = true
+                        // v1.109 修复: SSE 已建立(2xx)后中断是连接断开,不是 HTTP 错误
+                        //   优先用 Throwable 信息,避免构造误导性的 "HTTP 200" 错误
+                        val msg = response?.let {
+                            if (it.code in 200..299) {
+                                t?.message?.takeIf { m -> m.isNotBlank() }
+                                    ?: ErrorCode.STREAM_INTERRUPTED.toMessage()
                             } else {
-                                // 后续增量。
-                                // v1.0.81: 若累积器发生过多 JSON 对象分片合并(模型把 arguments
-                                // 拆成 {"a":1}{"b":2}),不能再发原始增量给下游 append(那会重新拼成
-                                // 拼接串),改发合并后的完整 JSON 快照,下游用快照覆盖而非追加。
-                                val deltaArgs = if (acc.args.hasMergedObjects()) {
-                                    acc.args.current()
-                                } else {
-                                    tc.function?.arguments.orEmpty()
-                                }
-                                trySend(ChatStreamEvent.ToolCallDelta(
-                                    index = localIndex,
-                                    id = tc.id,
-                                    name = tc.function?.name,
-                                    argumentsDelta = deltaArgs,
-                                    isSnapshot = acc.args.hasMergedObjects(),
-                                ))
+                                val bodyText = ProviderHttpSupport.readBodySafely(it)
+                                parseErrorMessage(it.code, bodyText)
                             }
-                        }
-                    }
-                    if (!choice.finishReason.isNullOrBlank()) {
-                        // v1.0.47: 回退进行中时丢弃 finishReason 事件(同 [DONE] 早退逻辑)
-                        if (pendingFallback.get()) return
-                        // v1.0.20: stream-guard — Done 事件时检查累积 toolCallAccMap,
-                        //   空 name 的 tool call 恢复为 ContentDelta
-                        emitDoneWithStreamGuard(choice.finishReason)
-                    }
-                }
-
-                override fun onClosed(eventSource: EventSource) {
-                    streamSourceClosed.set(true)
-                    if (request.abortSignal.aborted) {
-                        close()
-                        return
-                    }
-                    // v1.0.23: 商汤等 API 可能直接关闭连接,不发 [DONE] 也不发 finishReason
-                    //   若尚未触发 stream-guard,在此触发以检测流式过早结束并回退
-                    // v1.0.24: 回退进行中时不 close,等回退协程完成
-                    if (pendingFallback.get()) {
-                        Logger.d("OpenAIProvider", "streamChat onClosed: 回退进行中, 等待完成")
-                        return
-                    }
-                    if (!streamGuardDone.get()) {
-                        Logger.d("OpenAIProvider", "streamChat onClosed: 未收到 Done 事件, 触发 stream-guard")
-                        emitDoneWithStreamGuard(null)
-                    } else {
-                        close()
-                    }
-                }
-
-                override fun onFailure(
-                    eventSource: EventSource,
-                    t: Throwable?,
-                    response: Response?,
-                ) {
-                    streamSourceClosed.set(true)
-                    // v1.0.24: 回退进行中时不 close,等回退协程完成
-                    if (pendingFallback.get()) {
-                        Logger.d("OpenAIProvider", "streamChat onFailure: 回退进行中, 忽略连接错误 t=${t?.message}")
-                        return
-                    }
-                    if (streamGuardDone.get() || consumerClosed.get() || scope.isClosedForSend) {
-                        Logger.d("OpenAIProvider", "streamChat onFailure: 流已完成或消费者已关闭,忽略收尾回调")
-                        close()
-                        return
-                    }
-                    if (request.abortSignal.aborted) {
-                        // v1.0.53: 区分真实中止与收尾清理 — 流正常完成后 ChatViewModel 会 abort signal
-                        //   清理资源,此时若 onFailure 回调在飞,原日志会误导为"用户中止"。
-                        if (streamGuardDone.get()) {
-                            Logger.d("OpenAIProvider", "streamChat onFailure: 流已完成后的收尾回调(忽略,非用户中止)")
+                        } ?: (t?.message ?: ErrorCode.NETWORK_ERROR.toMessage())
+                        Logger.e("OpenAIProvider", "streamChat onFailure: $msg", t)
+                        // v1.0.15: 已收到部分内容时发 StreamInterrupted,让 UI 保留已收内容并提示网络中断(可自动重连)
+                        if (anyDeltaSent.get()) {
+                            trySend(ChatStreamEvent.StreamInterrupted(msg, t))
                         } else {
-                            Logger.d(
-                                "OpenAIProvider",
-                                "streamChat aborted by user | contentChars=${contentCharsSent.get()} | " +
-                                    "streamGuardDone=${streamGuardDone.get()} | anyDeltaSent=${anyDeltaSent.get()}",
-                            )
-                            // 用户主动停止：发 StreamInterrupted 让下游（含 FirstEventWatchdog）明确感知中断，
-                            // 避免静默 close 导致 watchdog 误判为“无首事件”继续触发非流式回退。
-                            scope.trySend(ChatStreamEvent.StreamInterrupted("用户已停止生成"))
+                            trySend(ChatStreamEvent.Error(msg, t))
                         }
                         close()
-                        return
                     }
-                    // M-OAI3: 判断是否可重试(408/429/5xx/IOException),且未发出任何增量,且未达重试上限
-                    // H-OAI1: 重试条件改用 anyDeltaSent(覆盖 Content/Reasoning/ToolCall 三类增量),
-                    //   原仅检查 toolCallDeltaSent 会导致已流出的正文/推理被重发。
-                    val code = response?.code
-                    val isRetryable = (code != null && (code == 408 || code == 429 || code in 500..599))
-                        || (t is java.io.IOException)
-                    if (isRetryable && !anyDeltaSent.get()
-                        && retryCount.incrementAndGet() <= MAX_RETRIES
-                        && !request.abortSignal.aborted
-                    ) {
-                        val attempt = retryCount.get()
-                        var backoffMs = (1L shl attempt) * RETRY_BASE_DELAY_MS
-                        // M-OAI7: 429 限流优先用 Retry-After 响应头(秒数 → 毫秒)
-                        if (code == 429) {
-                            backoffMs = response?.header("Retry-After")?.toIntOrNull()
-                                ?.let { it * 1000L } ?: backoffMs
-                            // v1.0.1: 429 时切换到下一个 key(多 key 场景)
-                            //  切换成功后立即重试(不等 backoff),因为新 key 可能未限流
-                            if (switchToNextKey()) {
-                                Logger.i("OpenAIProvider", "streamChat 429 限流,已切换到下一个 key,立即重试")
-                                backoffMs = 0L
-                            }
-                        }
-                        // L-OAI9: 加 jitter(0~499ms),避免多客户端同步重试引发惊群
-                        if (backoffMs > 0) {
-                            backoffMs += Random.nextLong(0, 500)
-                        }
-                        // v1.0.1: key 切换后重新构造 httpRequest(更新 Authorization header)
-                        httpRequest = buildHttpRequest()
-                        // R-AI-03: 重试前清掉连接池中的半开/空闲连接,避免复用已 reset 连接
-                        ProviderHttpSupport.evictIdleConnections()
-                        Logger.w("OpenAIProvider", "streamChat onFailure, retry $attempt/$MAX_RETRIES after ${backoffMs}ms: ${t?.message ?: code}")
-                        scope.launch {
-                            delay(backoffMs)
-                            if (!request.abortSignal.aborted && !scope.isClosedForSend) {
-                                connect()
-                            }
-                        }
-                        return
-                    }
-                    // L-OAI1: 用 readBodySafely 替代 runCatching
-                    // v1.109 修复: SSE 已建立(2xx)后中断是连接断开,不是 HTTP 错误
-                    //   优先用 Throwable 信息,避免构造误导性的 "HTTP 200" 错误
-                    val msg = response?.let {
-                        if (it.code in 200..299) {
-                            t?.message?.takeIf { m -> m.isNotBlank() }
-                                ?: ErrorCode.STREAM_INTERRUPTED.toMessage()
-                        } else {
-                            val bodyText = ProviderHttpSupport.readBodySafely(it)
-                            parseErrorMessage(it.code, bodyText)
-                        }
-                    } ?: (t?.message ?: ErrorCode.NETWORK_ERROR.toMessage())
-                    Logger.e("OpenAIProvider", "streamChat onFailure: $msg", t)
-                    // v1.0.15: 已收到部分内容时发 StreamInterrupted,让 UI 保留已收内容并提示网络中断(可自动重连)
-                    if (anyDeltaSent.get()) {
-                        trySend(ChatStreamEvent.StreamInterrupted(msg, t))
-                    } else {
-                        trySend(ChatStreamEvent.Error(msg, t))
-                    }
-                    close()
-                }
-            })
+                },
+            )
             installEventSource(eventSource)
         }
 
@@ -966,7 +970,10 @@ class OpenAIProvider(
                     Logger.w("OpenAIProvider", "completeText 返回空文本(无 content/reasoning_content/tool_calls)")
                     throw ErrorCode.INVALID_RESPONSE.toProviderException("empty_text")
                 }
-                Logger.d("OpenAIProvider", "completeText OK: text=${text.length} chars, reasoning=${reasoningContent.length} chars, toolCalls=${toolCalls?.size ?: 0}")
+                Logger.d(
+                    "OpenAIProvider",
+                    "completeText OK: text=${text.length} chars, reasoning=${reasoningContent.length} chars, toolCalls=${toolCalls?.size ?: 0}",
+                )
                 ChatCompletion(
                     text = text,
                     finishReason = choice.finishReason,
@@ -1284,12 +1291,7 @@ class OpenAIProvider(
      *  - requestTemplate 非空时替换 {{model}} / {{messages}} / {{stream}} / {{prompt}} 等占位符
      *  - customBody 非空时合并到最终 JSON 顶层(模板与默认请求体均生效)
      */
-    private fun renderCustomRequestBody(
-        defaultBody: String,
-        request: ChatRequest,
-        effectiveModel: String,
-        stream: Boolean,
-    ): String {
+    private fun renderCustomRequestBody(defaultBody: String, request: ChatRequest, effectiveModel: String, stream: Boolean): String {
         val template = customConfig?.requestTemplate?.takeIf { it.isNotBlank() }
         val body = if (template != null) {
             val defaultElement = runCatching { AppJson.parseToJsonElement(defaultBody) }.getOrNull() as? JsonObject
@@ -1373,7 +1375,8 @@ class OpenAIProvider(
         //  (stripOrphanToolMessages 删孤儿 TOOL 消息 / stripNativeMediaAttachmentMarkers
         //   清理冗余图片标记),再做协议翻译。统一 payload 规范化。
         val normalizedMessages = ProviderPayloadNormalizer.normalizeMessages(
-            request.messages, request.model,
+            request.messages,
+            request.model,
         )
         // v1.0.7: Provider Prompt Patches — 注入厂商专属 system prompt 补丁
         //  (当前仅 DeepSeek 推理模型输出契约)
@@ -1423,9 +1426,11 @@ class OpenAIProvider(
             //   改为 null 不发送。
             // v1.0.7: thinkingFormat != null 时也不发 reasoning_effort
             //   (改走对应厂商扩展字段,如 thinking / enable_thinking / chat_template_kwargs)
-            reasoning_effort = if (compat.supportsReasoningEffort && compat.thinkingFormat == null)
+            reasoning_effort = if (compat.supportsReasoningEffort && compat.thinkingFormat == null) {
                 effort?.takeIf { !isDisabledReasoningEffort(it) }
-            else null,
+            } else {
+                null
+            },
         )
         Logger.d(
             "OpenAIProvider",
@@ -1481,11 +1486,7 @@ class OpenAIProvider(
      * @param level 推理等级(决定 enabled/disabled + effort 值)
      * @return 注入思考字段后的 JSON 字符串
      */
-    private fun injectThinkingFormat(
-        payload: OpenAIRequest,
-        format: ThinkingFormat,
-        level: io.zer0.ai.core.ReasoningLevel,
-    ): String {
+    private fun injectThinkingFormat(payload: OpenAIRequest, format: ThinkingFormat, level: io.zer0.ai.core.ReasoningLevel): String {
         // 先把 OpenAIRequest 序列化为 JsonObject
         val jsonElement = AppJson.encodeToJsonElement(OpenAIRequest.serializer(), payload)
         val baseObj = jsonElement as? kotlinx.serialization.json.JsonObject
@@ -1539,7 +1540,7 @@ class OpenAIProvider(
                         io.zer0.ai.core.ReasoningLevel.LOW -> "low"
                         io.zer0.ai.core.ReasoningLevel.MEDIUM -> "medium"
                         io.zer0.ai.core.ReasoningLevel.HIGH, io.zer0.ai.core.ReasoningLevel.XHIGH -> "high"
-                        else -> null  // AUTO/OFF 不发
+                        else -> null // AUTO/OFF 不发
                     }
                     openRouterEffort?.let {
                         baseMap["reasoning"] = buildJsonObject {
@@ -1621,64 +1622,72 @@ class OpenAIProvider(
      *  应已在调用 streamChat 前清空图片(由 VisionBridge.prepare 注入描述后清空)。
      *  此过滤仅用于兜底:历史消息残留图片 / 调用方遗漏清空等异常场景。
      */
-    private fun UIMessage.toOpenAI(model: Model, compat: ProviderCompat? = null, carriesTools: Boolean = false): OpenAIMessage = OpenAIMessage(
-        role = when (role) {
-            MessageRole.SYSTEM -> "system"
-            MessageRole.USER -> "user"
-            MessageRole.ASSISTANT -> "assistant"
-            MessageRole.TOOL -> "tool"
-        },
-        content = if (imageBase64List.isEmpty() || !model.supportsVisionInput()) {
-            // v1.0.5: 模型不支持视觉但消息携带图片时,丢弃图片走纯文本路径(防御性)
-            if (imageBase64List.isNotEmpty() && !model.supportsVisionInput()) {
-                Logger.w(
-                    "OpenAIProvider",
-                    "toOpenAI: 模型 ${model.id} 不支持视觉,丢弃 ${imageBase64List.size} 张图片(防御性过滤)",
-                )
-            }
-            // v1.0.2 修复 HTTP 400: assistant + tool_calls 时 content 为空,改传空字符串而非 JsonNull。
-            // 按兼容实践:assistant + tool_calls 时 content 规范化为空字符串。
-            // 将 null/undefined content 规范化为 "" 空字符串,避免 OpenAI 兼容协议(尤其严格的中转站)
-            // 拒绝 content: null 的 assistant 消息。原 L-OAI7 传 JsonNull 在部分中转站会触发 400。
-            // OpenAI 兼容协议也要求 content 为空字符串而非 null。
-            if (role == MessageRole.ASSISTANT && !toolCalls.isNullOrEmpty() && content.isBlank()) {
-                JsonPrimitive("")
+    private fun UIMessage.toOpenAI(model: Model, compat: ProviderCompat? = null, carriesTools: Boolean = false): OpenAIMessage =
+        OpenAIMessage(
+            role = when (role) {
+                MessageRole.SYSTEM -> "system"
+                MessageRole.USER -> "user"
+                MessageRole.ASSISTANT -> "assistant"
+                MessageRole.TOOL -> "tool"
+            },
+            content = if (imageBase64List.isEmpty() || !model.supportsVisionInput()) {
+                // v1.0.5: 模型不支持视觉但消息携带图片时,丢弃图片走纯文本路径(防御性)
+                if (imageBase64List.isNotEmpty() && !model.supportsVisionInput()) {
+                    Logger.w(
+                        "OpenAIProvider",
+                        "toOpenAI: 模型 ${model.id} 不支持视觉,丢弃 ${imageBase64List.size} 张图片(防御性过滤)",
+                    )
+                }
+                // v1.0.2 修复 HTTP 400: assistant + tool_calls 时 content 为空,改传空字符串而非 JsonNull。
+                // 按兼容实践:assistant + tool_calls 时 content 规范化为空字符串。
+                // 将 null/undefined content 规范化为 "" 空字符串,避免 OpenAI 兼容协议(尤其严格的中转站)
+                // 拒绝 content: null 的 assistant 消息。原 L-OAI7 传 JsonNull 在部分中转站会触发 400。
+                // OpenAI 兼容协议也要求 content 为空字符串而非 null。
+                if (role == MessageRole.ASSISTANT && !toolCalls.isNullOrEmpty() && content.isBlank()) {
+                    JsonPrimitive("")
+                } else {
+                    JsonPrimitive(content)
+                }
             } else {
-                JsonPrimitive(content)
-            }
-        } else {
-            buildJsonArray {
-                // 文本 part(即使为空也添加,避免 messages[].content 为空数组)
-                add(buildJsonObject {
-                    put("type", "text")
-                    put("text", content)
-                })
-                // M-OAI8: 图片数量限制 + 单张大小限制,超限丢弃
-                val validImages = imageBase64List.filter { it.isNotEmpty() }
-                if (validImages.size > MAX_VISION_IMAGES) {
-                    Logger.w("OpenAIProvider", "图片数量 ${validImages.size} 超过上限 $MAX_VISION_IMAGES,丢弃多余的")
-                }
-                validImages.take(MAX_VISION_IMAGES).forEach { b64 ->
-                    if (b64.length > MAX_IMAGE_BASE64_LEN) {
-                        Logger.w("OpenAIProvider", "图片 base64 长度 ${b64.length} 超过 $MAX_IMAGE_BASE64_LEN,丢弃")
-                        return@forEach
+                buildJsonArray {
+                    // 文本 part(即使为空也添加,避免 messages[].content 为空数组)
+                    add(
+                        buildJsonObject {
+                            put("type", "text")
+                            put("text", content)
+                        },
+                    )
+                    // M-OAI8: 图片数量限制 + 单张大小限制,超限丢弃
+                    val validImages = imageBase64List.filter { it.isNotEmpty() }
+                    if (validImages.size > MAX_VISION_IMAGES) {
+                        Logger.w("OpenAIProvider", "图片数量 ${validImages.size} 超过上限 $MAX_VISION_IMAGES,丢弃多余的")
                     }
-                    // M-OAI5: 从 magic bytes 推断 mime type
-                    val mimeType = inferMimeType(b64)
-                    add(buildJsonObject {
-                        put("type", "image_url")
-                        put("image_url", buildJsonObject {
-                            put("url", "data:$mimeType;base64,$b64")
-                        })
-                    })
+                    validImages.take(MAX_VISION_IMAGES).forEach { b64 ->
+                        if (b64.length > MAX_IMAGE_BASE64_LEN) {
+                            Logger.w("OpenAIProvider", "图片 base64 长度 ${b64.length} 超过 $MAX_IMAGE_BASE64_LEN,丢弃")
+                            return@forEach
+                        }
+                        // M-OAI5: 从 magic bytes 推断 mime type
+                        val mimeType = inferMimeType(b64)
+                        add(
+                            buildJsonObject {
+                                put("type", "image_url")
+                                put(
+                                    "image_url",
+                                    buildJsonObject {
+                                        put("url", "data:$mimeType;base64,$b64")
+                                    },
+                                )
+                            },
+                        )
+                    }
                 }
-            }
-        },
-        toolCalls = toolCalls?.map { it.toOpenAI() },
-        toolCallId = toolCallId,
-        // v1.0.7: 历史推理回放 — 按 reasoningReplayContract.carrier/policy 决定是否注入 reasoning_content
-        reasoningContent = computeReasoningContentForReplay(compat, carriesTools),
-    )
+            },
+            toolCalls = toolCalls?.map { it.toOpenAI() },
+            toolCallId = toolCallId,
+            // v1.0.7: 历史推理回放 — 按 reasoningReplayContract.carrier/policy 决定是否注入 reasoning_content
+            reasoningContent = computeReasoningContentForReplay(compat, carriesTools),
+        )
 
     /**
      * v1.0.7: 计算历史推理回放的 reasoning_content 值。
@@ -1697,10 +1706,7 @@ class OpenAIProvider(
      * 其他 carrier(REASONING_ITEMS / REASONING_DETAILS / THINKING_BLOCKS / THOUGHT_SIGNATURE)
      * 不通过此函数处理 — 它们走 Responses API / OpenRouter / Anthropic / Gemini 各自路径。
      */
-    private fun UIMessage.computeReasoningContentForReplay(
-        compat: ProviderCompat?,
-        carriesTools: Boolean,
-    ): String? {
+    private fun UIMessage.computeReasoningContentForReplay(compat: ProviderCompat?, carriesTools: Boolean): String? {
         val contract = compat?.reasoningReplayContract ?: return null
         if (contract.carrier != ReasoningCarrier.REASONING_CONTENT) return null
         return when (contract.policy) {
@@ -1734,10 +1740,7 @@ class OpenAIProvider(
      * 注:本函数只处理 Chat Completions 协议(messages 数组);
      *   Responses API 的 instructions 字段在 [buildResponsesRequestBody] 中单独处理。
      */
-    private fun injectSystemPromptPatches(
-        messages: List<UIMessage>,
-        patches: List<String>,
-    ): List<UIMessage> {
+    private fun injectSystemPromptPatches(messages: List<UIMessage>, patches: List<String>): List<UIMessage> {
         if (patches.isEmpty()) return messages
         val patchText = patches.joinToString("\n\n")
         val firstSystemIdx = messages.indexOfFirst { it.role == MessageRole.SYSTEM }
@@ -1960,267 +1963,272 @@ class OpenAIProvider(
                 if (request.abortSignal.aborted) close()
                 return
             }
-            val eventSource = sseFactory.newEventSource(httpRequest, object : EventSourceListener() {
-                override fun onOpen(eventSource: EventSource, response: Response) {
-                    firstByteAt = System.currentTimeMillis()
-                    Logger.i("OpenAIProvider", "streamChatResponses TTFB: ${firstByteAt - requestStartAt}ms | url=${sanitizeUrl(url)}")
-                    if (!response.isSuccessful) {
-                        val code = response.code
-                        if (code == 429 && !anyDeltaSent.get() && retryCount.get() < MAX_RETRIES &&
-                            !request.abortSignal.aborted && switchToNextKey()
-                        ) {
-                            Logger.i("OpenAIProvider", "streamChatResponses onOpen 429 限流,已切换 key,立即重试")
-                            httpRequest = buildHttpRequest()
-                            retryCount.incrementAndGet()
-                            eventSource.cancel()
+            val eventSource = sseFactory.newEventSource(
+                httpRequest,
+                object : EventSourceListener() {
+                    override fun onOpen(eventSource: EventSource, response: Response) {
+                        firstByteAt = System.currentTimeMillis()
+                        Logger.i("OpenAIProvider", "streamChatResponses TTFB: ${firstByteAt - requestStartAt}ms | url=${sanitizeUrl(url)}")
+                        if (!response.isSuccessful) {
+                            val code = response.code
+                            if (code == 429 && !anyDeltaSent.get() && retryCount.get() < MAX_RETRIES &&
+                                !request.abortSignal.aborted && switchToNextKey()
+                            ) {
+                                Logger.i("OpenAIProvider", "streamChatResponses onOpen 429 限流,已切换 key,立即重试")
+                                httpRequest = buildHttpRequest()
+                                retryCount.incrementAndGet()
+                                eventSource.cancel()
+                                scope.launch {
+                                    if (!request.abortSignal.aborted && !scope.isClosedForSend) {
+                                        connect()
+                                    }
+                                }
+                                return
+                            }
+                            val errText = ProviderHttpSupport.readBodySafely(response)
+                            val msg = parseErrorMessage(code, errText)
+                            Logger.w("OpenAIProvider", "streamChatResponses onOpen HTTP $code: $msg")
+                            if (code == 401 || code == 403) {
+                                markKeyFailed(hardBlock = true)
+                            }
+                            trySend(ChatStreamEvent.Error(msg, OpenAIHttpException(code, msg)))
+                            close()
+                            return
+                        }
+                    }
+
+                    override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+                        // Responses API 同时用 [DONE] 和 response.completed 作结束标记
+                        if (data == "[DONE]") {
+                            // v1.0.20: stream-guard — Done 事件时检查累积 toolCallAccMap,
+                            //   空 name 的 tool call 恢复为 ContentDelta
+                            emitDoneWithStreamGuard(null)
+                            return
+                        }
+
+                        val event = resultOf {
+                            AppJson.decodeFromString<ResponsesStreamEvent>(data)
+                        }.getOrNull() ?: return
+
+                        if (firstDeltaAt == 0L && (event.delta != null || event.text != null)) {
+                            firstDeltaAt = System.currentTimeMillis()
+                            Logger.i(
+                                "OpenAIProvider",
+                                "streamChatResponses first delta: ${firstDeltaAt - requestStartAt}ms " +
+                                    "(TTFB=${firstByteAt - requestStartAt}ms) | url=${sanitizeUrl(url)}",
+                            )
+                        }
+
+                        when (event.type) {
+                            "response.output_text.delta" -> {
+                                event.delta?.takeIf { it.isNotEmpty() }?.let {
+                                    anyDeltaSent.set(true)
+                                    trySend(ChatStreamEvent.ContentDelta(it))
+                                }
+                            }
+                            "response.output_text.done" -> {
+                                // 兜底完整文本(若 delta 累积为空才用)
+                                // 此处不直接发送,留给 response.completed 处理
+                            }
+                            "response.reasoning_summary_text.delta" -> {
+                                event.delta?.takeIf { it.isNotEmpty() }?.let {
+                                    anyDeltaSent.set(true)
+                                    trySend(ChatStreamEvent.ReasoningDelta(it))
+                                }
+                            }
+                            "response.function_call_arguments.delta" -> {
+                                // 工具调用参数增量,按 item_id 累积
+                                val itemId = event.item_id ?: return
+                                val localIndex = toolCallIndexMap.getOrPut(itemId) { nextToolCallIndex++ }
+                                anyDeltaSent.set(true)
+                                // v1.0.20: stream-guard — 累积 name 和 arguments。
+                                //   name 来自 output_item.added(可能为空),args 来自本事件增量。
+                                val acc = toolCallAccMap.getOrPut(localIndex) { ToolCallAccState() }
+                                // 首片附带 id+name(若 output_item.added 已缓存);后续片不重复取
+                                if (!acc.hasEmitted) {
+                                    val (callId, name) = pendingFunctionCalls.remove(itemId) ?: ("" to "")
+                                    if (callId.isNotEmpty()) acc.id = callId
+                                    if (name.isNotBlank()) acc.name = name
+                                }
+                                event.delta?.let { acc.args.append(it) }
+
+                                // v1.0.22: 已增量恢复为 ContentDelta 的 acc,后续 args 继续作为 ContentDelta 发送
+                                if (acc.recoveredAsContent) {
+                                    val argsDelta = event.delta.orEmpty()
+                                    if (argsDelta.isNotEmpty()) {
+                                        trySend(ChatStreamEvent.ContentDelta(argsDelta))
+                                    }
+                                    return
+                                }
+
+                                // stream-guard: 空 name 处理
+                                //   v1.0.20: 缓冲到 Done 才恢复 — 导致小模型"只输出首字即结束"假象
+                                //   v1.0.22: 改为立即增量恢复为 ContentDelta
+                                val currentName = acc.name
+                                if (currentName.isNullOrBlank()) {
+                                    val argsDelta = event.delta.orEmpty()
+                                    if (argsDelta.isNotEmpty()) {
+                                        acc.recoveredAsContent = true
+                                        trySend(ChatStreamEvent.ContentDelta(argsDelta))
+                                        Logger.d(
+                                            "OpenAIProvider",
+                                            "stream-guard(Responses): 增量恢复空 name tool call 为 ContentDelta (localIndex=$localIndex, 本次=${argsDelta.length} chars, 累积=${acc.args.length} chars)",
+                                        )
+                                    } else {
+                                        Logger.d(
+                                            "OpenAIProvider",
+                                            "stream-guard(Responses): 空 name tool call 无 args 增量,跳过 (localIndex=$localIndex, 累积 args=${acc.args.length} chars)",
+                                        )
+                                    }
+                                    return
+                                }
+
+                                // name 已到 — 发送 ToolCallDelta
+                                if (!acc.hasEmitted) {
+                                    // 首次发送 — 一次性带上累积的 arguments(追赶)
+                                    trySend(
+                                        ChatStreamEvent.ToolCallDelta(
+                                            index = localIndex,
+                                            id = acc.id,
+                                            name = currentName,
+                                            argumentsDelta = acc.args.current(),
+                                        ),
+                                    )
+                                    acc.hasEmitted = true
+                                } else {
+                                    // 后续增量
+                                    trySend(
+                                        ChatStreamEvent.ToolCallDelta(
+                                            index = localIndex,
+                                            id = null,
+                                            name = null,
+                                            argumentsDelta = event.delta.orEmpty(),
+                                        ),
+                                    )
+                                }
+                            }
+                            "response.output_item.added" -> {
+                                // 新增 output item,解析 function_call 起始信息
+                                val item = event.item ?: return
+                                val itemType = (item as? kotlinx.serialization.json.JsonObject)
+                                    ?.get("type")?.let { (it as? JsonPrimitive)?.content }
+                                if (itemType == "function_call") {
+                                    val obj = item as? kotlinx.serialization.json.JsonObject ?: return
+                                    val itemId = obj["id"]?.let { (it as? JsonPrimitive)?.content } ?: return
+                                    val callId = obj["call_id"]?.let { (it as? JsonPrimitive)?.content } ?: ""
+                                    val name = obj["name"]?.let { (it as? JsonPrimitive)?.content } ?: ""
+                                    // v1.0.20: stream-guard — 同步写入 accumulator(name 可能为空,后续 delta 据此判断)
+                                    val localIndex = toolCallIndexMap.getOrPut(itemId) { nextToolCallIndex++ }
+                                    val acc = toolCallAccMap.getOrPut(localIndex) { ToolCallAccState() }
+                                    if (callId.isNotEmpty()) acc.id = callId
+                                    if (name.isNotBlank()) acc.name = name
+                                    // 仍保留 pendingFunctionCalls 兼容旧路径(args delta 首片会尝试取)
+                                    pendingFunctionCalls[itemId] = callId to name
+                                }
+                            }
+                            "response.completed" -> {
+                                // 流结束,带最终 response 对象
+                                val status = event.response?.status
+                                // Responses API 用 status=incomplete + incomplete_details.reason 表示
+                                // 输出达到上限；向上层透传具体原因，否则 UI 只能看到 incomplete，
+                                // 无法提示用户“回复因长度限制被截断”。
+                                val finishReason = event.response?.incompleteDetails?.reason ?: status
+                                // A5: 最终 response 携带 usage(实测值) — 在 Done 前发出,
+                                // 消费方(StreamRunState)累积最后非 null 一次
+                                event.response?.usage?.let { usage ->
+                                    trySend(ChatStreamEvent.UsageDelta(usage.toUsageTokens()))
+                                }
+                                // B5-03: 从最终 output 提取 reasoning 签名/encrypted_content 供落库回放
+                                val reasoningItem = event.response?.output?.firstOrNull { it.type == "reasoning" }
+                                if (reasoningItem != null &&
+                                    (!reasoningItem.id.isNullOrBlank() || !reasoningItem.encryptedContent.isNullOrBlank())
+                                ) {
+                                    trySend(
+                                        ChatStreamEvent.ReasoningDelta(
+                                            "",
+                                            signature = reasoningItem.id,
+                                            encryptedContent = reasoningItem.encryptedContent,
+                                        ),
+                                    )
+                                }
+                                if (request.nativeWebSearch) {
+                                    val urls = event.response?.output.orEmpty()
+                                        .flatMap { it.content.orEmpty() }
+                                        .flatMap { it.annotations }
+                                        .mapNotNull { it.url }
+                                        .filter { it.startsWith("https://") || it.startsWith("http://") }
+                                        .distinct()
+                                    if (urls.isNotEmpty()) trySend(ChatStreamEvent.CitationDelta(urls))
+                                }
+                                // v1.0.20: stream-guard — Done 事件时检查累积 toolCallAccMap,
+                                //   空 name 的 tool call 恢复为 ContentDelta
+                                emitDoneWithStreamGuard(finishReason)
+                            }
+                        }
+                    }
+
+                    override fun onClosed(eventSource: EventSource) {
+                        // v1.0.23: 同 ChatCompletions 路径,未收到 Done 事件时触发 stream-guard
+                        if (!streamGuardDone.get()) {
+                            Logger.d("OpenAIProvider", "streamChatResponses onClosed: 未收到 Done 事件, 触发 stream-guard")
+                            emitDoneWithStreamGuard(null)
+                        } else {
+                            close()
+                        }
+                    }
+
+                    override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+                        if (streamGuardDone.get() || consumerClosed.get() || scope.isClosedForSend) {
+                            Logger.d("OpenAIProvider", "streamChatResponses onFailure: 流已完成或消费者已关闭,忽略收尾回调")
+                            close()
+                            return
+                        }
+                        if (request.abortSignal.aborted) {
+                            Logger.d("OpenAIProvider", "streamChatResponses aborted by user")
+                            trySend(ChatStreamEvent.StreamInterrupted("用户已停止生成", t))
+                            close()
+                            return
+                        }
+                        val code = response?.code ?: -1
+                        // 有限次指数退避重连(仅网络层错误,且未发出任何 delta)
+                        if (code <= 0 && !anyDeltaSent.get() && retryCount.get() < MAX_RETRIES) {
+                            val attempt = retryCount.incrementAndGet()
+                            val backoffMs = (RETRY_BASE_DELAY_MS * (1 shl (attempt - 1))) +
+                                Random.nextLong(0, 200)
+                            // R-AI-03: 重试前清掉连接池中的半开/空闲连接
+                            ProviderHttpSupport.evictIdleConnections()
+                            Logger.w(
+                                "OpenAIProvider",
+                                "streamChatResponses onFailure, retry $attempt/$MAX_RETRIES after ${backoffMs}ms: ${t?.message ?: code}",
+                            )
                             scope.launch {
+                                delay(backoffMs)
                                 if (!request.abortSignal.aborted && !scope.isClosedForSend) {
                                     connect()
                                 }
                             }
                             return
                         }
-                        val errText = ProviderHttpSupport.readBodySafely(response)
-                        val msg = parseErrorMessage(code, errText)
-                        Logger.w("OpenAIProvider", "streamChatResponses onOpen HTTP $code: $msg")
-                        if (code == 401 || code == 403) {
-                            markKeyFailed(hardBlock = true)
-                        }
-                        trySend(ChatStreamEvent.Error(msg, OpenAIHttpException(code, msg)))
-                        close()
-                        return
-                    }
-                }
-
-                override fun onEvent(
-                    eventSource: EventSource,
-                    id: String?,
-                    type: String?,
-                    data: String,
-                ) {
-                    // Responses API 同时用 [DONE] 和 response.completed 作结束标记
-                    if (data == "[DONE]") {
-                        // v1.0.20: stream-guard — Done 事件时检查累积 toolCallAccMap,
-                        //   空 name 的 tool call 恢复为 ContentDelta
-                        emitDoneWithStreamGuard(null)
-                        return
-                    }
-
-                    val event = resultOf {
-                        AppJson.decodeFromString<ResponsesStreamEvent>(data)
-                    }.getOrNull() ?: return
-
-                    if (firstDeltaAt == 0L && (event.delta != null || event.text != null)) {
-                        firstDeltaAt = System.currentTimeMillis()
-                        Logger.i(
-                            "OpenAIProvider",
-                            "streamChatResponses first delta: ${firstDeltaAt - requestStartAt}ms " +
-                                "(TTFB=${firstByteAt - requestStartAt}ms) | url=${sanitizeUrl(url)}",
-                        )
-                    }
-
-                    when (event.type) {
-                        "response.output_text.delta" -> {
-                            event.delta?.takeIf { it.isNotEmpty() }?.let {
-                                anyDeltaSent.set(true)
-                                trySend(ChatStreamEvent.ContentDelta(it))
-                            }
-                        }
-                        "response.output_text.done" -> {
-                            // 兜底完整文本(若 delta 累积为空才用)
-                            // 此处不直接发送,留给 response.completed 处理
-                        }
-                        "response.reasoning_summary_text.delta" -> {
-                            event.delta?.takeIf { it.isNotEmpty() }?.let {
-                                anyDeltaSent.set(true)
-                                trySend(ChatStreamEvent.ReasoningDelta(it))
-                            }
-                        }
-                        "response.function_call_arguments.delta" -> {
-                            // 工具调用参数增量,按 item_id 累积
-                            val itemId = event.item_id ?: return
-                            val localIndex = toolCallIndexMap.getOrPut(itemId) { nextToolCallIndex++ }
-                            anyDeltaSent.set(true)
-                            // v1.0.20: stream-guard — 累积 name 和 arguments。
-                            //   name 来自 output_item.added(可能为空),args 来自本事件增量。
-                            val acc = toolCallAccMap.getOrPut(localIndex) { ToolCallAccState() }
-                            // 首片附带 id+name(若 output_item.added 已缓存);后续片不重复取
-                            if (!acc.hasEmitted) {
-                                val (callId, name) = pendingFunctionCalls.remove(itemId) ?: ("" to "")
-                                if (callId.isNotEmpty()) acc.id = callId
-                                if (name.isNotBlank()) acc.name = name
-                            }
-                            event.delta?.let { acc.args.append(it) }
-
-                            // v1.0.22: 已增量恢复为 ContentDelta 的 acc,后续 args 继续作为 ContentDelta 发送
-                            if (acc.recoveredAsContent) {
-                                val argsDelta = event.delta.orEmpty()
-                                if (argsDelta.isNotEmpty()) {
-                                    trySend(ChatStreamEvent.ContentDelta(argsDelta))
-                                }
-                                return
-                            }
-
-                            // stream-guard: 空 name 处理
-                            //   v1.0.20: 缓冲到 Done 才恢复 — 导致小模型"只输出首字即结束"假象
-                            //   v1.0.22: 改为立即增量恢复为 ContentDelta
-                            val currentName = acc.name
-                            if (currentName.isNullOrBlank()) {
-                                val argsDelta = event.delta.orEmpty()
-                                if (argsDelta.isNotEmpty()) {
-                                    acc.recoveredAsContent = true
-                                    trySend(ChatStreamEvent.ContentDelta(argsDelta))
-                                    Logger.d(
-                                        "OpenAIProvider",
-                                        "stream-guard(Responses): 增量恢复空 name tool call 为 ContentDelta (localIndex=$localIndex, 本次=${argsDelta.length} chars, 累积=${acc.args.length} chars)",
-                                    )
-                                } else {
-                                    Logger.d(
-                                        "OpenAIProvider",
-                                        "stream-guard(Responses): 空 name tool call 无 args 增量,跳过 (localIndex=$localIndex, 累积 args=${acc.args.length} chars)",
-                                    )
-                                }
-                                return
-                            }
-
-                            // name 已到 — 发送 ToolCallDelta
-                            if (!acc.hasEmitted) {
-                                // 首次发送 — 一次性带上累积的 arguments(追赶)
-                                trySend(ChatStreamEvent.ToolCallDelta(
-                                    index = localIndex,
-                                    id = acc.id,
-                                    name = currentName,
-                                    argumentsDelta = acc.args.current(),
-                                ))
-                                acc.hasEmitted = true
+                        val msg = response?.let {
+                            if (it.code in 200..299) {
+                                t?.message?.takeIf { m -> m.isNotBlank() }
+                                    ?: ErrorCode.STREAM_INTERRUPTED.toMessage()
                             } else {
-                                // 后续增量
-                                trySend(ChatStreamEvent.ToolCallDelta(
-                                    index = localIndex,
-                                    id = null,
-                                    name = null,
-                                    argumentsDelta = event.delta.orEmpty(),
-                                ))
+                                val bodyText = ProviderHttpSupport.readBodySafely(it)
+                                parseErrorMessage(it.code, bodyText)
                             }
-                        }
-                        "response.output_item.added" -> {
-                            // 新增 output item,解析 function_call 起始信息
-                            val item = event.item ?: return
-                            val itemType = (item as? kotlinx.serialization.json.JsonObject)
-                                ?.get("type")?.let { (it as? JsonPrimitive)?.content }
-                            if (itemType == "function_call") {
-                                val obj = item as? kotlinx.serialization.json.JsonObject ?: return
-                                val itemId = obj["id"]?.let { (it as? JsonPrimitive)?.content } ?: return
-                                val callId = obj["call_id"]?.let { (it as? JsonPrimitive)?.content } ?: ""
-                                val name = obj["name"]?.let { (it as? JsonPrimitive)?.content } ?: ""
-                                // v1.0.20: stream-guard — 同步写入 accumulator(name 可能为空,后续 delta 据此判断)
-                                val localIndex = toolCallIndexMap.getOrPut(itemId) { nextToolCallIndex++ }
-                                val acc = toolCallAccMap.getOrPut(localIndex) { ToolCallAccState() }
-                                if (callId.isNotEmpty()) acc.id = callId
-                                if (name.isNotBlank()) acc.name = name
-                                // 仍保留 pendingFunctionCalls 兼容旧路径(args delta 首片会尝试取)
-                                pendingFunctionCalls[itemId] = callId to name
-                            }
-                        }
-                        "response.completed" -> {
-                            // 流结束,带最终 response 对象
-                            val status = event.response?.status
-                            // Responses API 用 status=incomplete + incomplete_details.reason 表示
-                            // 输出达到上限；向上层透传具体原因，否则 UI 只能看到 incomplete，
-                            // 无法提示用户“回复因长度限制被截断”。
-                            val finishReason = event.response?.incompleteDetails?.reason ?: status
-                            // A5: 最终 response 携带 usage(实测值) — 在 Done 前发出,
-                            // 消费方(StreamRunState)累积最后非 null 一次
-                            event.response?.usage?.let { usage ->
-                                trySend(ChatStreamEvent.UsageDelta(usage.toUsageTokens()))
-                            }
-                            // B5-03: 从最终 output 提取 reasoning 签名/encrypted_content 供落库回放
-                            val reasoningItem = event.response?.output?.firstOrNull { it.type == "reasoning" }
-                            if (reasoningItem != null &&
-                                (!reasoningItem.id.isNullOrBlank() || !reasoningItem.encryptedContent.isNullOrBlank())
-                            ) {
-                                trySend(ChatStreamEvent.ReasoningDelta(
-                                    "", signature = reasoningItem.id, encryptedContent = reasoningItem.encryptedContent,
-                                ))
-                            }
-                            if (request.nativeWebSearch) {
-                                val urls = event.response?.output.orEmpty()
-                                    .flatMap { it.content.orEmpty() }
-                                    .flatMap { it.annotations }
-                                    .mapNotNull { it.url }
-                                    .filter { it.startsWith("https://") || it.startsWith("http://") }
-                                    .distinct()
-                                if (urls.isNotEmpty()) trySend(ChatStreamEvent.CitationDelta(urls))
-                            }
-                            // v1.0.20: stream-guard — Done 事件时检查累积 toolCallAccMap,
-                            //   空 name 的 tool call 恢复为 ContentDelta
-                            emitDoneWithStreamGuard(finishReason)
-                        }
-                    }
-                }
-
-                override fun onClosed(eventSource: EventSource) {
-                    // v1.0.23: 同 ChatCompletions 路径,未收到 Done 事件时触发 stream-guard
-                    if (!streamGuardDone.get()) {
-                        Logger.d("OpenAIProvider", "streamChatResponses onClosed: 未收到 Done 事件, 触发 stream-guard")
-                        emitDoneWithStreamGuard(null)
-                    } else {
-                        close()
-                    }
-                }
-
-                override fun onFailure(
-                    eventSource: EventSource,
-                    t: Throwable?,
-                    response: Response?,
-                ) {
-                    if (streamGuardDone.get() || consumerClosed.get() || scope.isClosedForSend) {
-                        Logger.d("OpenAIProvider", "streamChatResponses onFailure: 流已完成或消费者已关闭,忽略收尾回调")
-                        close()
-                        return
-                    }
-                    if (request.abortSignal.aborted) {
-                        Logger.d("OpenAIProvider", "streamChatResponses aborted by user")
-                        trySend(ChatStreamEvent.StreamInterrupted("用户已停止生成", t))
-                        close()
-                        return
-                    }
-                    val code = response?.code ?: -1
-                    // 有限次指数退避重连(仅网络层错误,且未发出任何 delta)
-                    if (code <= 0 && !anyDeltaSent.get() && retryCount.get() < MAX_RETRIES) {
-                        val attempt = retryCount.incrementAndGet()
-                        val backoffMs = (RETRY_BASE_DELAY_MS * (1 shl (attempt - 1))) +
-                            Random.nextLong(0, 200)
-                        // R-AI-03: 重试前清掉连接池中的半开/空闲连接
-                        ProviderHttpSupport.evictIdleConnections()
-                        Logger.w("OpenAIProvider", "streamChatResponses onFailure, retry $attempt/$MAX_RETRIES after ${backoffMs}ms: ${t?.message ?: code}")
-                        scope.launch {
-                            delay(backoffMs)
-                            if (!request.abortSignal.aborted && !scope.isClosedForSend) {
-                                connect()
-                            }
-                        }
-                        return
-                    }
-                    val msg = response?.let {
-                        if (it.code in 200..299) {
-                            t?.message?.takeIf { m -> m.isNotBlank() }
-                                ?: ErrorCode.STREAM_INTERRUPTED.toMessage()
+                        } ?: (t?.message ?: ErrorCode.NETWORK_ERROR.toMessage())
+                        Logger.e("OpenAIProvider", "streamChatResponses onFailure: $msg", t)
+                        // v1.0.15: 已收到部分内容时发 StreamInterrupted,让 UI 保留已收内容并提示网络中断(可自动重连)
+                        if (anyDeltaSent.get()) {
+                            trySend(ChatStreamEvent.StreamInterrupted(msg, t))
                         } else {
-                            val bodyText = ProviderHttpSupport.readBodySafely(it)
-                            parseErrorMessage(it.code, bodyText)
+                            trySend(ChatStreamEvent.Error(msg, t))
                         }
-                    } ?: (t?.message ?: ErrorCode.NETWORK_ERROR.toMessage())
-                    Logger.e("OpenAIProvider", "streamChatResponses onFailure: $msg", t)
-                    // v1.0.15: 已收到部分内容时发 StreamInterrupted,让 UI 保留已收内容并提示网络中断(可自动重连)
-                    if (anyDeltaSent.get()) {
-                        trySend(ChatStreamEvent.StreamInterrupted(msg, t))
-                    } else {
-                        trySend(ChatStreamEvent.Error(msg, t))
+                        close()
                     }
-                    close()
-                }
-            })
+                },
+            )
             installEventSource(eventSource)
         }
 
@@ -2291,7 +2299,10 @@ class OpenAIProvider(
                     Logger.w("OpenAIProvider", "completeTextResponses 返回空(output 无 message/reasoning/function_call)")
                     throw ErrorCode.INVALID_RESPONSE.toProviderException("empty_text")
                 }
-                Logger.d("OpenAIProvider", "completeTextResponses OK: text=${text.length} chars, reasoning=${reasoningContent.length} chars, toolCalls=${toolCalls?.size ?: 0}")
+                Logger.d(
+                    "OpenAIProvider",
+                    "completeTextResponses OK: text=${text.length} chars, reasoning=${reasoningContent.length} chars, toolCalls=${toolCalls?.size ?: 0}",
+                )
                 ChatCompletion(
                     text = text,
                     // Responses API 的 incomplete 只是外层状态，具体截断原因在 details 中。
@@ -2357,7 +2368,8 @@ class OpenAIProvider(
     private fun buildResponsesRequestBody(request: ChatRequest, stream: Boolean = true): String {
         val effectiveModel = effectiveModelId(request.model.id)
         val normalizedMessages = ProviderPayloadNormalizer.normalizeMessages(
-            request.messages, request.model,
+            request.messages,
+            request.model,
         )
         // v1.0.7: compat 派生(Responses API 路径,用于 ProviderPromptPatches 判定)
         val compat: ProviderCompat = config.resolvedCompat(effectiveModel)
@@ -2379,25 +2391,29 @@ class OpenAIProvider(
             } else {
                 // B5-03: OpenAI Responses 多轮 thinking 回放 — 在 assistant 消息前插入 reasoning item
                 if (msg.role == MessageRole.ASSISTANT && !msg.thinkingEncryptedContent.isNullOrBlank()) {
-                    inputItems.add(ResponsesInputItem(
-                        type = "reasoning",
-                        id = msg.thinkingSignature,
-                        encrypted_content = msg.thinkingEncryptedContent,
-                        // input 规范的 reasoning item 要求 summary 为必填数组;
-                        // 原始结构化摘要未单独持久化,按官方回放示例回填空数组。
-                        summary = buildJsonArray { },
-                    ))
+                    inputItems.add(
+                        ResponsesInputItem(
+                            type = "reasoning",
+                            id = msg.thinkingSignature,
+                            encrypted_content = msg.thinkingEncryptedContent,
+                            // input 规范的 reasoning item 要求 summary 为必填数组;
+                            // 原始结构化摘要未单独持久化,按官方回放示例回填空数组。
+                            summary = buildJsonArray { },
+                        ),
+                    )
                 }
                 inputItems.add(msg.toResponsesInputItem(request.model))
                 // ASSISTANT 消息的 toolCalls 转为 function_call 顶层 sibling
                 if (msg.role == MessageRole.ASSISTANT && !msg.toolCalls.isNullOrEmpty()) {
                     msg.toolCalls.forEach { tc ->
-                        inputItems.add(ResponsesInputItem(
-                            type = "function_call",
-                            call_id = tc.id,
-                            name = tc.name,
-                            arguments = tc.arguments,
-                        ))
+                        inputItems.add(
+                            ResponsesInputItem(
+                                type = "function_call",
+                                call_id = tc.id,
+                                name = tc.name,
+                                arguments = tc.arguments,
+                            ),
+                        )
                     }
                 }
             }
@@ -2490,7 +2506,7 @@ class OpenAIProvider(
             MessageRole.USER -> "user"
             MessageRole.ASSISTANT -> "assistant"
             MessageRole.SYSTEM -> "system"
-            MessageRole.TOOL -> "user"  // 兜底(理论上不会到这里)
+            MessageRole.TOOL -> "user" // 兜底(理论上不会到这里)
         }
 
         val contentElement = if (imageBase64List.isEmpty() || !model.supportsVisionInput()) {
@@ -2504,10 +2520,12 @@ class OpenAIProvider(
         } else {
             // 多模态:Responses API 用 input_text / input_image(注意与 Chat Completions 的 text / image_url 不同)
             buildJsonArray {
-                add(buildJsonObject {
-                    put("type", "input_text")
-                    put("text", content)
-                })
+                add(
+                    buildJsonObject {
+                        put("type", "input_text")
+                        put("text", content)
+                    },
+                )
                 val validImages = imageBase64List.filter { it.isNotEmpty() }
                 if (validImages.size > MAX_VISION_IMAGES) {
                     Logger.w("OpenAIProvider", "图片数量 ${validImages.size} 超过上限 $MAX_VISION_IMAGES,丢弃多余的")
@@ -2518,10 +2536,12 @@ class OpenAIProvider(
                         return@forEach
                     }
                     val mimeType = inferMimeType(b64)
-                    add(buildJsonObject {
-                        put("type", "input_image")
-                        put("image_url", "data:$mimeType;base64,$b64")
-                    })
+                    add(
+                        buildJsonObject {
+                            put("type", "input_image")
+                            put("image_url", "data:$mimeType;base64,$b64")
+                        },
+                    )
                 }
             }
         }
@@ -2597,16 +2617,20 @@ class OpenAIProvider(
         //   且 OkHttp 对 application/json 默认即按 UTF-8 解码;显式 charset 在某些中转下
         //   反而被严格校验导致 415)。
         val JSON_MEDIA_TYPE = "application/json".toMediaType()
+
         // M-OAI3: 流式重连参数
         const val MAX_RETRIES = 3
         const val RETRY_BASE_DELAY_MS = 1000L
+
         // completeText 429 切换 key 最大次数,防止无限递归
         const val MAX_KEY_SWITCHES = 3
+
         /** 空 name tool call 风暴阈值:超过后按正文增量恢复,避免无限缓冲拖慢流式。 */
         const val MAX_EMPTY_NAME_TOOL_CALLS = 10
+
         // M-OAI8: Vision 图片限制
         const val MAX_VISION_IMAGES = 4
-        const val MAX_IMAGE_BASE64_LEN = 2 * 1024 * 1024  // 2MB
+        const val MAX_IMAGE_BASE64_LEN = 2 * 1024 * 1024 // 2MB
     }
 }
 
@@ -2639,12 +2663,16 @@ internal class OpenAIHttpException(val code: Int, message: String) : ProviderExc
 private class ToolCallAccState {
     /** 工具调用 id(首个 chunk 携带)。 */
     var id: String? = null
+
     /** 函数名(累积首个非空值;Done 时若仍为 null/blank 视为无效 tool call)。 */
     var name: String? = null
+
     /** 累积的 arguments（v1.0.81: 智能合并多 JSON 对象分片，杜绝拼接串）。 */
     val args: ToolCallArgsAccumulator = ToolCallArgsAccumulator()
+
     /** 是否已向下游发送过 ToolCallDelta(用于 name 来晚时的追赶发送)。 */
     var hasEmitted: Boolean = false
+
     /**
      * v1.0.22: 是否已作为 ContentDelta 增量恢复过(空 name tool call 增量恢复模式)。
      *

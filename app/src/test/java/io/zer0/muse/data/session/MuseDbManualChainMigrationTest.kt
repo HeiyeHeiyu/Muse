@@ -73,17 +73,9 @@ class MuseDbManualChainMigrationTest {
                         }
                     }
 
-                    override fun onUpgrade(
-                        db: androidx.sqlite.db.SupportSQLiteDatabase,
-                        oldVersion: Int,
-                        newVersion: Int,
-                    ) = Unit
+                    override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
 
-                    override fun onDowngrade(
-                        db: androidx.sqlite.db.SupportSQLiteDatabase,
-                        oldVersion: Int,
-                        newVersion: Int,
-                    ) = Unit
+                    override fun onDowngrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
                 })
                 .build(),
         )

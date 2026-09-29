@@ -165,8 +165,7 @@ object FrontmatterParser {
 
     // ── 内部工具 ─────────────────────────────────────────────────────────
 
-    private fun stripBom(text: String): String =
-        if (text.startsWith('\uFEFF')) text.substring(1) else text
+    private fun stripBom(text: String): String = if (text.startsWith('\uFEFF')) text.substring(1) else text
 
     /** 去掉匹配的首尾引号("xxx" / 'xxx'),不匹配则原样返回。 */
     private fun stripQuotes(value: String): String {

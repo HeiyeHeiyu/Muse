@@ -100,10 +100,9 @@ object AssistantCardExporter {
     }
 
     /** v2.x: 角色包文件名安全化(去除路径分隔/保留字符/空白)。 */
-    private fun safePackName(name: String): String =
-        name.ifBlank { "assistant" }
-            .replace(Regex("[\\\\/:*?\"<>|\\s]+"), "_")
-            .take(60)
+    private fun safePackName(name: String): String = name.ifBlank { "assistant" }
+        .replace(Regex("[\\\\/:*?\"<>|\\s]+"), "_")
+        .take(60)
 
     /**
      * 导出角色卡到 [outputUri](SAF 保存)。
@@ -111,12 +110,11 @@ object AssistantCardExporter {
      * - id 清空为 ""(导入时重新生成),其余字段原样保留(本地卡片,敏感字段不清除)
      * - 若 [AssistantEntity.avatarImageUrl] 指向存在的本地文件,把头像字节一并打包
      */
-    suspend fun export(context: Context, assistant: AssistantEntity, outputUri: Uri) =
-        withContext(Dispatchers.IO) {
-            context.contentResolver.openOutputStream(outputUri)?.use { os ->
-                writeZip(os, assistant)
-            } ?: Logger.w(TAG, "openOutputStream failed for $outputUri")
-        }
+    suspend fun export(context: Context, assistant: AssistantEntity, outputUri: Uri) = withContext(Dispatchers.IO) {
+        context.contentResolver.openOutputStream(outputUri)?.use { os ->
+            writeZip(os, assistant)
+        } ?: Logger.w(TAG, "openOutputStream failed for $outputUri")
+    }
 
     /**
      * v2.x: 一键分享 — 打包角色包到 cacheDir 并经系统分享面板发送(ACTION_SEND)。
@@ -207,11 +205,7 @@ object AssistantCardExporter {
      * - 头像字节写回 filesDir/avatars/ 并更新 avatarImageUrl
      * - 用 [repo].upsert 存入数据库
      */
-    suspend fun commitParsed(
-        context: Context,
-        repo: AssistantRepository,
-        card: ParsedCard,
-    ): AssistantEntity = withContext(Dispatchers.IO) {
+    suspend fun commitParsed(context: Context, repo: AssistantRepository, card: ParsedCard): AssistantEntity = withContext(Dispatchers.IO) {
         val newId = Uuid.random().toString()
         val now = System.currentTimeMillis()
 
@@ -242,11 +236,7 @@ object AssistantCardExporter {
      *
      * @return 导入后的 [AssistantEntity];若文件格式无效或解析失败返回 null
      */
-    suspend fun import(
-        context: Context,
-        repo: AssistantRepository,
-        inputUri: Uri,
-    ): AssistantEntity? {
+    suspend fun import(context: Context, repo: AssistantRepository, inputUri: Uri): AssistantEntity? {
         val card = parse(context, inputUri) ?: return null
         return commitParsed(context, repo, card)
     }

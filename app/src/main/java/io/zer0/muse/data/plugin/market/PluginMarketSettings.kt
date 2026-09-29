@@ -89,12 +89,10 @@ class PluginMarketSettings(private val context: Context) {
     }
 
     /** 用户显式追加的信任根（不含内置项）。 */
-    private suspend fun userRootKeys(): Map<String, String> =
-        decodeRootKeys(store.data.first()[KEY_CATALOG_ROOT_KEYS])
+    private suspend fun userRootKeys(): Map<String, String> = decodeRootKeys(store.data.first()[KEY_CATALOG_ROOT_KEYS])
 
     /** 生效信任根 = 用户追加项与内置项合并；同名时以内置项为准。 */
-    private fun effectiveRootKeys(configured: Map<String, String>): Map<String, String> =
-        configured + PluginMarketDefaults.catalogRootKeys
+    private fun effectiveRootKeys(configured: Map<String, String>): Map<String, String> = configured + PluginMarketDefaults.catalogRootKeys
 
     private fun decodeRootKeys(raw: String?): Map<String, String> {
         if (raw.isNullOrBlank()) return emptyMap()
@@ -108,8 +106,7 @@ class PluginMarketSettings(private val context: Context) {
         }
     }
 
-    private fun encodeRootKeys(keys: Map<String, String>): String =
-        AppJson.encodeToString(ROOT_KEYS_SERIALIZER, keys)
+    private fun encodeRootKeys(keys: Map<String, String>): String = AppJson.encodeToString(ROOT_KEYS_SERIALIZER, keys)
 
     private companion object {
         private const val TAG = "PluginMarketSettings"

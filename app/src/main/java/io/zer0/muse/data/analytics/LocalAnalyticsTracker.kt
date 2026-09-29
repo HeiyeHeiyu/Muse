@@ -41,6 +41,7 @@ class LocalAnalyticsTracker(
 
     companion object {
         private const val TAG = "Analytics"
+
         // v1.131: SimpleDateFormat 改为 ThreadLocal 缓存,避免每次 todayStr/monthStr 调用都新建。
         // SimpleDateFormat 非线程安全,不能直接提为静态 val;ThreadLocal 保证每线程一份独立实例。
         // 埋点是高频路径(每条消息发送/会话切换都触发),旧实现 GC 压力明显。

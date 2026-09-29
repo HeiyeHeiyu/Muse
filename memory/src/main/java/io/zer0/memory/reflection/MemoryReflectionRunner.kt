@@ -36,10 +36,7 @@ class MemoryReflectionRunner(
      * @param spaceId 记忆空间(默认 default)
      * @return 本轮整理统计
      */
-    suspend fun runReflection(
-        scope: String = "main",
-        spaceId: String = "default",
-    ): ReflectionResult = withContext(Dispatchers.IO) {
+    suspend fun runReflection(scope: String = "main", spaceId: String = "default"): ReflectionResult = withContext(Dispatchers.IO) {
         // 1. 回填实体键(合并的前提)
         val backfilled = resultOf { factStore.backfillEntityKeys(scope, spaceId) }
             .onError { msg, t -> Logger.w(TAG, "反思回填实体键失败: ${t?.message ?: msg}") }

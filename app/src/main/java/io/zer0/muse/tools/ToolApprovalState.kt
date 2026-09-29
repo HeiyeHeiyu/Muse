@@ -51,8 +51,10 @@ sealed class ToolApprovalState {
 enum class ToolApprovalPolicy {
     /** 始终自动批准（如 get_time 等安全工具的默认值）。 */
     ALWAYS_ALLOW,
+
     /** 始终拒绝（相当于禁用该工具）。 */
     ALWAYS_DENY,
+
     /** 每次都询问用户。 */
     ASK_EVERY_TIME,
 }

@@ -102,7 +102,7 @@
     <!-- ===== data/DocumentParser ===== -->
     <!-- Document parsing error messages (via Result.Error to UI) -->
     <string name="doc_err_open_pdf">Не могу открыть PDF-файл</string>
-    <string name="doc_err_pdf_text_empty">Извлечение текста PDF пусто (может быть отсканированный PDF-файл, требуется OCR).</string>
+    <string name="doc_err_pdf_text_empty">Текст PDF не извлечен (возможно, это скан, требующий OCR). Всего страниц: %1$d.</string>
     <string name="doc_err_docx_no_document">Невозможно прочитать DOCX: отсутствует слово/документ.xml</string>
     <string name="doc_err_pptx_no_slides">Невозможно прочитать PPTX: слайды не найдены</string>
     <string name="doc_err_xlsx_no_sheets">Невозможно прочитать XLSX: листы не найдены</string>

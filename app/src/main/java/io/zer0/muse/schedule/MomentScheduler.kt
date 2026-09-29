@@ -1,5 +1,7 @@
 package io.zer0.muse.schedule
 
+import androidx.work.CoroutineWorker
+import androidx.work.WorkerParameters
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.data.SettingsRepository
@@ -7,9 +9,6 @@ import io.zer0.muse.data.moment.MomentGenerator
 import io.zer0.muse.data.moment.MomentInteractionEngine
 import io.zer0.muse.data.moment.MomentRepository
 import io.zer0.muse.util.GlobalCoroutineExceptionHandler
-import androidx.work.CoroutineWorker
-import androidx.work.WorkerParameters
-import org.koin.core.context.GlobalContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -17,6 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.koin.core.context.GlobalContext
 import kotlin.random.Random
 
 /**
@@ -89,7 +89,10 @@ class MomentScheduler(
         val assistant = pickAssistant()
         val generated = generator.generate(assistant) ?: return false
         repository.insertMoment(
-            generated.content, generated.type, generated.mood, source = "manual",
+            generated.content,
+            generated.type,
+            generated.mood,
+            source = "manual",
             imageUrl = generated.imageUrl,
             senderName = assistant?.name?.takeIf { it.isNotBlank() } ?: "Muse",
             senderId = assistant?.id,
@@ -107,22 +110,25 @@ class MomentScheduler(
             return
         }
         val dailyCount = settings.dailyMomentCountFlow.firstSafeValue() ?: 2
-        if (dailyCount <= 0) return  // 用户关闭
+        if (dailyCount <= 0) return // 用户关闭
 
         val todayCount = repository.countToday()
-        if (todayCount >= dailyCount) return  // 已达今日上限
+        if (todayCount >= dailyCount) return // 已达今日上限
 
         val now = System.currentTimeMillis()
         // 检查当前是否在"该发"的时间段:第 (todayCount+1) 条对应第 (todayCount+1) 段
         val nextSegment = todayCount + 1
         val targetTime = segmentTargetTime(nextSegment, dailyCount)
-        if (now < targetTime) return  // 未到时间
+        if (now < targetTime) return // 未到时间
 
         // 到期:随机选一个助手生成一条
         val assistant = pickAssistant()
         val generated = generator.generate(assistant) ?: return
         val moment = repository.insertMoment(
-            generated.content, generated.type, generated.mood, source = "scheduled",
+            generated.content,
+            generated.type,
+            generated.mood,
+            source = "scheduled",
             imageUrl = generated.imageUrl,
             senderName = assistant?.name?.takeIf { it.isNotBlank() } ?: "Muse",
             senderId = assistant?.id,
@@ -159,7 +165,7 @@ class MomentScheduler(
 
     companion object {
         private const val TAG_C = "MomentScheduler"
-        private const val CHECK_INTERVAL_MS = 10 * 60 * 1000L  // 10 分钟检查一次
+        private const val CHECK_INTERVAL_MS = 10 * 60 * 1000L // 10 分钟检查一次
     }
 }
 

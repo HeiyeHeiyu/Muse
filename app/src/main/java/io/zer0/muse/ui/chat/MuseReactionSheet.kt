@@ -54,16 +54,11 @@ internal fun reactionLabelRes(key: String): Int? = when (key) {
 }
 
 /** reaction key → 图标;未知 key 返回 null。 */
-internal fun reactionIcon(key: String): ImageVector? =
-    REACTION_PRESETS.firstOrNull { it.first == key }?.second
+internal fun reactionIcon(key: String): ImageVector? = REACTION_PRESETS.firstOrNull { it.first == key }?.second
 
 /** 表情回应选择面板 — 预设回应横排 + 清除(已有回应时)。 */
 @Composable
-internal fun MuseReactionSheet(
-    current: String?,
-    onSelect: (String?) -> Unit,
-    onDismiss: () -> Unit,
-) {
+internal fun MuseReactionSheet(current: String?, onSelect: (String?) -> Unit, onDismiss: () -> Unit) {
     MuseBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
@@ -101,12 +96,7 @@ internal fun MuseReactionSheet(
 
 /** 单个回应按钮 — 选中态高亮描边;内容描述用本地化标签(TalkBack)。 */
 @Composable
-private fun ReactionButton(
-    key: String,
-    icon: ImageVector,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun ReactionButton(key: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
     // 标签在 Composable 上下文取值(semantics lambda 内不能调用 stringResource)
     val label = reactionLabelRes(key)?.let { stringResource(it) }
     Icon(

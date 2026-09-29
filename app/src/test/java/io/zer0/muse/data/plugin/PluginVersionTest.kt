@@ -22,7 +22,7 @@ class PluginVersionTest {
 
     @Test
     fun rejectsMalformedVersions() {
-        listOf("", "1.0", "1", "v1.0.0", "1.0.0.0", "1.0.0-", "1.0.0-01", "1.0.0-alpha..1", "abc", "1.0.x", " 1.0.0 " ).forEach {
+        listOf("", "1.0", "1", "v1.0.0", "1.0.0.0", "1.0.0-", "1.0.0-01", "1.0.0-alpha..1", "abc", "1.0.x", " 1.0.0 ").forEach {
             // 允许首尾空白的裁剪，但其它形态必须判为不合法，避免「猜一个版本」。
             if (it == " 1.0.0 ") {
                 assertEquals(PluginVersion(1, 0, 0), PluginVersion.parse(it))

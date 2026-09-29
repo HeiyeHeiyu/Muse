@@ -141,24 +141,24 @@ class ToolTraceProjectionTest {
                 role = MessageRole.ASSISTANT,
                 content = "",
                 toolCallInfo =
-                    ToolCallInfo(
-                        toolName = "search",
-                        arguments = "{}",
-                        result = "old card result",
-                        isSuccess = true,
-                    ),
+                ToolCallInfo(
+                    toolName = "search",
+                    arguments = "{}",
+                    result = "old card result",
+                    isSuccess = true,
+                ),
             )
         val failedCard =
             UIMessage(
                 role = MessageRole.ASSISTANT,
                 content = "",
                 toolCallInfo =
-                    ToolCallInfo(
-                        toolName = "write_file",
-                        arguments = "{}",
-                        result = "permission denied",
-                        isSuccess = false,
-                    ),
+                ToolCallInfo(
+                    toolName = "write_file",
+                    arguments = "{}",
+                    result = "permission denied",
+                    isSuccess = false,
+                ),
             )
         val next = UIMessage(role = MessageRole.USER, content = "next")
         val messages = listOf(oldCard, next, failedCard)

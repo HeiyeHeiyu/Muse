@@ -1,15 +1,15 @@
 package io.zer0.muse.automation.core
 
 import android.content.Context
+import io.zer0.common.Logger
 import io.zer0.muse.automation.executors.AccessibilityExecutor
 import io.zer0.muse.automation.executors.RootExecutor
 import io.zer0.muse.automation.executors.RootRequestResult
 import io.zer0.muse.tools.system.ShizukuAuthorizer
-import io.zer0.common.Logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -34,6 +34,7 @@ class AutomationManager(
     private val rootExecutor: RootExecutor = RootExecutor(context),
 ) {
     val accessibility = AccessibilityExecutor(context)
+
     // UI 自动化 Shell 与状态检查共用同一个 Shizuku 授权器，避免“显示已授权、执行却走普通 sh”。
     val shell = io.zer0.muse.automation.executors.ShellExecutor(context, shizukuAuthorizer)
     val root: RootExecutor = rootExecutor
@@ -41,6 +42,7 @@ class AutomationManager(
     private val mutex = Mutex()
 
     private val _permissionState = MutableStateFlow(PermissionState())
+
     /** 当前各层权限状态,设置页和工具执行时观察。 */
     val permissionState: StateFlow<PermissionState> = _permissionState.asStateFlow()
 
@@ -159,36 +161,34 @@ class AutomationManager(
 
     /** 点击:优先无障碍,再按真实授权降级到 Shizuku/Root。 */
     suspend fun tap(x: Int, y: Int): Boolean = mutex.withLock {
-        if (accessibility.isAvailable()) accessibility.tap(x, y)
-        else if (shell.isAvailable()) shell.tap(x, y) else root.tap(x, y)
+        if (accessibility.isAvailable()) {
+            accessibility.tap(x, y)
+        } else if (shell.isAvailable()) shell.tap(x, y) else root.tap(x, y)
     }
 
     /** 长按。 */
     suspend fun longPress(x: Int, y: Int, durationMs: Long = 600): Boolean = mutex.withLock {
-        if (accessibility.isAvailable()) accessibility.longPress(x, y, durationMs)
-        else if (shell.isAvailable()) shell.longPress(x, y, durationMs) else root.longPress(x, y, durationMs)
+        if (accessibility.isAvailable()) {
+            accessibility.longPress(x, y, durationMs)
+        } else if (shell.isAvailable()) shell.longPress(x, y, durationMs) else root.longPress(x, y, durationMs)
     }
 
     /** 滑动。 */
-    suspend fun swipe(
-        x1: Int, y1: Int,
-        x2: Int, y2: Int,
-        durationMs: Long = 400,
-    ): Boolean = mutex.withLock {
-        if (accessibility.isAvailable()) accessibility.swipe(x1, y1, x2, y2, durationMs)
-        else if (shell.isAvailable()) shell.swipe(x1, y1, x2, y2, durationMs)
-        else root.swipe(x1, y1, x2, y2, durationMs)
+    suspend fun swipe(x1: Int, y1: Int, x2: Int, y2: Int, durationMs: Long = 400): Boolean = mutex.withLock {
+        if (accessibility.isAvailable()) {
+            accessibility.swipe(x1, y1, x2, y2, durationMs)
+        } else if (shell.isAvailable()) {
+            shell.swipe(x1, y1, x2, y2, durationMs)
+        } else {
+            root.swipe(x1, y1, x2, y2, durationMs)
+        }
     }
 
     /**
      * v2.x: 双指缩放 — 无障碍 dispatchGesture 双指实现;
      * Shell/Root 的 input 命令无多指注入能力,不可用时返回 false。
      */
-    suspend fun pinch(
-        centerX: Int, centerY: Int,
-        startDistance: Int, endDistance: Int,
-        durationMs: Long = 300,
-    ): Boolean = mutex.withLock {
+    suspend fun pinch(centerX: Int, centerY: Int, startDistance: Int, endDistance: Int, durationMs: Long = 300): Boolean = mutex.withLock {
         if (accessibility.isAvailable()) {
             accessibility.pinch(centerX, centerY, startDistance, endDistance, durationMs)
         } else {
@@ -197,10 +197,7 @@ class AutomationManager(
     }
 
     /** v2.x: 多段滑动 — 无障碍精确逐点;其余层降级首末两点直滑。 */
-    suspend fun swipePath(
-        points: List<Pair<Int, Int>>,
-        durationMs: Long = 400,
-    ): Boolean = mutex.withLock {
+    suspend fun swipePath(points: List<Pair<Int, Int>>, durationMs: Long = 400): Boolean = mutex.withLock {
         if (points.size < 2) return@withLock false
         if (accessibility.isAvailable()) return@withLock accessibility.swipePath(points, durationMs)
         val first = points.first()
@@ -214,14 +211,16 @@ class AutomationManager(
 
     /** 输入文本。 */
     suspend fun inputText(text: String): Boolean = mutex.withLock {
-        if (accessibility.isAvailable()) accessibility.inputText(text)
-        else if (shell.isAvailable()) shell.inputText(text) else root.inputText(text)
+        if (accessibility.isAvailable()) {
+            accessibility.inputText(text)
+        } else if (shell.isAvailable()) shell.inputText(text) else root.inputText(text)
     }
 
     /** 按键。 */
     suspend fun pressKey(keyCode: Int): Boolean = mutex.withLock {
-        if (accessibility.isAvailable()) accessibility.pressKey(keyCode)
-        else if (shell.isAvailable()) shell.pressKey(keyCode) else root.pressKey(keyCode)
+        if (accessibility.isAvailable()) {
+            accessibility.pressKey(keyCode)
+        } else if (shell.isAvailable()) shell.pressKey(keyCode) else root.pressKey(keyCode)
     }
 
     /** 启动 App。 */
@@ -288,10 +287,7 @@ class AutomationManager(
      * @param maxRetries number of additional attempts after first failure (default 1)
      * @return true if any attempt succeeded
      */
-    suspend fun executeWithRetry(
-        action: suspend () -> Boolean,
-        maxRetries: Int = 1,
-    ): Boolean {
+    suspend fun executeWithRetry(action: suspend () -> Boolean, maxRetries: Int = 1): Boolean {
         var lastSuccess = action()
         if (lastSuccess) return true
         for (i in 1..maxRetries) {

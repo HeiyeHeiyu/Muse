@@ -1,9 +1,9 @@
 package io.zer0.muse.ui.common.settings
 
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -29,12 +29,7 @@ import io.zer0.muse.ui.theme.MuseMotion
  * @param contentDescription 无障碍描述(如"已连接"),为 null 时不注册语义
  */
 @Composable
-fun StatusDot(
-    color: Color,
-    size: Dp = 8.dp,
-    pulse: Boolean = false,
-    contentDescription: String? = null,
-) {
+fun StatusDot(color: Color, size: Dp = 8.dp, pulse: Boolean = false, contentDescription: String? = null) {
     val reducedMotion = MuseMotion.isReducedMotion()
     val alpha = if (!pulse) {
         1f

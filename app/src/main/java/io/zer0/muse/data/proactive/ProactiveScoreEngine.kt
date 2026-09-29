@@ -29,7 +29,7 @@ class ProactiveScoreEngine {
         private const val TAG = "ProactiveScore"
         private const val MAX_DAILY_MESSAGES = 3
         private const val QUIET_HOUR_START = 22 // 22:00
-        private const val QUIET_HOUR_END = 8    // 08:00
+        private const val QUIET_HOUR_END = 8 // 08:00
         private const val NEW_USER_INTERVAL_DAYS = 3
         private const val OLD_USER_INTERVAL_DAYS = 7
         private const val OLD_USER_THRESHOLD_DAYS = 30 // 使用30天以上算老用户
@@ -181,5 +181,8 @@ data class ScoreContext(
 
 /** 情绪枚举。 */
 enum class Mood {
-    POSITIVE, NEGATIVE, NEUTRAL, UNKNOWN
+    POSITIVE,
+    NEGATIVE,
+    NEUTRAL,
+    UNKNOWN,
 }

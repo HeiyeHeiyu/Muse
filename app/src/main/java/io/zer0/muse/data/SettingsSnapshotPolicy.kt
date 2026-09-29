@@ -36,7 +36,8 @@ object SettingsSnapshotPolicy {
     )
 
     val safeIntKeys = listOf(
-        "default_home_page", "sticker_send_probability",
+        "default_home_page",
+        "sticker_send_probability",
     )
 
     val safeLongKeys = listOf(

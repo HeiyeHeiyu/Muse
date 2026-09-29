@@ -72,12 +72,7 @@ class ChatGenerationManager(
      * @param sessionId 会话 id(单聊为会话 id,群聊为 "group:$chatId")
      */
     /** 兼容旧调用方：由 manager 为未接入统一身份的后台生成分配代际。 */
-    fun launchGeneration(
-        sessionId: String,
-        assistantId: String,
-        sessionTitle: String,
-        block: suspend () -> Unit,
-    ): Job = launchGeneration(
+    fun launchGeneration(sessionId: String, assistantId: String, sessionTitle: String, block: suspend () -> Unit): Job = launchGeneration(
         sessionId = sessionId,
         assistantId = assistantId,
         sessionTitle = sessionTitle,

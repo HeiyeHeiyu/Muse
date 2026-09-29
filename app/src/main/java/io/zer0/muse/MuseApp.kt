@@ -887,35 +887,34 @@ class MuseApp : Application(), ImageLoaderFactory {
      * - GIF: 用于动图表情 / 动态贴纸(minSdk 26 ≥ api19,GifDecoder 可用;
      *   api28+ 系统会自动走 ImageDecoderDecoder,性能更优)
      */
-    override fun newImageLoader(): ImageLoader =
-        ImageLoader.Builder(this)
-            .components {
-                add(SvgDecoder.Factory())
-                // v1.112 (F3): GIF 动图解码器 — 根据API级别选择最优实现。
-                // - API 28+ (Android 9+):用 ImageDecoderDecoder(基于 ImageDecoder API),
-                //   性能更好,内存占用更低,且 Movie 在部分 OEM ROM(OPPO/MIUI 高版本)上渲染异常,
-                //   导致 GIF 只显示第一帧变静态图。
-                // - API < 28:用 GifDecoder(基于 Movie),兼容旧设备。
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    add(ImageDecoderDecoder.Factory())
-                } else {
-                    add(GifDecoder.Factory())
-                }
+    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
+        .components {
+            add(SvgDecoder.Factory())
+            // v1.112 (F3): GIF 动图解码器 — 根据API级别选择最优实现。
+            // - API 28+ (Android 9+):用 ImageDecoderDecoder(基于 ImageDecoder API),
+            //   性能更好,内存占用更低,且 Movie 在部分 OEM ROM(OPPO/MIUI 高版本)上渲染异常,
+            //   导致 GIF 只显示第一帧变静态图。
+            // - API < 28:用 GifDecoder(基于 Movie),兼容旧设备。
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                add(ImageDecoderDecoder.Factory())
+            } else {
+                add(GifDecoder.Factory())
             }
-            // v0.36 性能优化:限制内存缓存为可用内存 25%,避免大图OOM;添加磁盘缓存减少重复下载。
-            .memoryCache {
-                MemoryCache.Builder(this)
-                    .maxSizePercent(0.25)
-                    .build()
-            }
-            .diskCache {
-                DiskCache.Builder()
-                    .directory(this.cacheDir.resolve("image_cache"))
-                    .maxSizeBytes(256L * 1024 * 1024) // 256 MB
-                    .build()
-            }
-            .crossfade(true)
-            .build()
+        }
+        // v0.36 性能优化:限制内存缓存为可用内存 25%,避免大图OOM;添加磁盘缓存减少重复下载。
+        .memoryCache {
+            MemoryCache.Builder(this)
+                .maxSizePercent(0.25)
+                .build()
+        }
+        .diskCache {
+            DiskCache.Builder()
+                .directory(this.cacheDir.resolve("image_cache"))
+                .maxSizeBytes(256L * 1024 * 1024) // 256 MB
+                .build()
+        }
+        .crossfade(true)
+        .build()
 
     companion object {
         /** v1.0.17: 快速记录迁移标志的 SharedPreferences key(文件 muse_migration)。 */

@@ -33,67 +33,64 @@ import kotlin.coroutines.resume
  * @param displayName 保存后的显示文件名(不含扩展名)
  * @return 保存后的本地文件路径或 MediaStore URI 字符串
  */
-suspend fun saveImageToGallery(
-    context: Context,
-    uri: String,
-    displayName: String = "muse_${System.currentTimeMillis()}",
-): String = withContext(Dispatchers.IO) {
-    val bitmap = loadBitmapFromUri(context, uri)
-        ?: throw IllegalStateException(context.getString(R.string.image_save_decode_failed))
+suspend fun saveImageToGallery(context: Context, uri: String, displayName: String = "muse_${System.currentTimeMillis()}"): String =
+    withContext(Dispatchers.IO) {
+        val bitmap = loadBitmapFromUri(context, uri)
+            ?: throw IllegalStateException(context.getString(R.string.image_save_decode_failed))
 
-    try {
-        val fileName = "$displayName.png"
+        try {
+            val fileName = "$displayName.png"
 
-        // 1. 先写入应用外部私有目录(Pictures/Muse/),作为稳定缓存
-        val appPicturesDir = File(
-            context.getExternalFilesDir(Environment.DIRECTORY_PICTURES),
-            "Muse",
-        ).apply { mkdirs() }
-        val cacheFile = File(appPicturesDir, fileName)
-        FileOutputStream(cacheFile).use { outputStream ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+            // 1. 先写入应用外部私有目录(Pictures/Muse/),作为稳定缓存
+            val appPicturesDir = File(
+                context.getExternalFilesDir(Environment.DIRECTORY_PICTURES),
+                "Muse",
+            ).apply { mkdirs() }
+            val cacheFile = File(appPicturesDir, fileName)
+            FileOutputStream(cacheFile).use { outputStream ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+            }
+
+            // 2. Android Q+ 同时插入 MediaStore 使相册可见
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
+                    put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+                    put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/Muse")
+                    put(MediaStore.Images.Media.IS_PENDING, 1)
+                }
+                val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                var imageUri: Uri? = null
+                try {
+                    imageUri = context.contentResolver.insert(collection, contentValues)
+                        ?: throw IllegalStateException(context.getString(R.string.image_save_mediastore_insert_failed))
+                    context.contentResolver.openOutputStream(imageUri)?.use { outputStream ->
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
+                    } ?: throw IllegalStateException(context.getString(R.string.image_save_open_stream_failed))
+                    contentValues.clear()
+                    contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
+                    context.contentResolver.update(imageUri, contentValues, null, null)
+                    return@withContext imageUri.toString()
+                } catch (e: Throwable) {
+                    imageUri?.let { context.contentResolver.delete(it, null, null) }
+                    throw e
+                }
+            } else {
+                // Android P 及以下: 扫描到相册
+                suspendCancellableCoroutine { continuation ->
+                    MediaScannerConnection.scanFile(
+                        context,
+                        arrayOf(cacheFile.absolutePath),
+                        arrayOf("image/png"),
+                    ) { path, _ -> continuation.resume(path) }
+                }
+                return@withContext cacheFile.absolutePath
+            }
+        } finally {
+            // 写入完成后释放 Bitmap 内存,避免 OOM(特别是手动 createBitmap 创建的 Bitmap)
+            bitmap.recycle()
         }
-
-        // 2. Android Q+ 同时插入 MediaStore 使相册可见
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val contentValues = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
-                put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/Muse")
-                put(MediaStore.Images.Media.IS_PENDING, 1)
-            }
-            val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            var imageUri: Uri? = null
-            try {
-                imageUri = context.contentResolver.insert(collection, contentValues)
-                    ?: throw IllegalStateException(context.getString(R.string.image_save_mediastore_insert_failed))
-                context.contentResolver.openOutputStream(imageUri)?.use { outputStream ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputStream)
-                } ?: throw IllegalStateException(context.getString(R.string.image_save_open_stream_failed))
-                contentValues.clear()
-                contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
-                context.contentResolver.update(imageUri, contentValues, null, null)
-                return@withContext imageUri.toString()
-            } catch (e: Throwable) {
-                imageUri?.let { context.contentResolver.delete(it, null, null) }
-                throw e
-            }
-        } else {
-            // Android P 及以下: 扫描到相册
-            suspendCancellableCoroutine { continuation ->
-                MediaScannerConnection.scanFile(
-                    context,
-                    arrayOf(cacheFile.absolutePath),
-                    arrayOf("image/png"),
-                ) { path, _ -> continuation.resume(path) }
-            }
-            return@withContext cacheFile.absolutePath
-        }
-    } finally {
-        // 写入完成后释放 Bitmap 内存,避免 OOM(特别是手动 createBitmap 创建的 Bitmap)
-        bitmap.recycle()
     }
-}
 
 private suspend fun loadBitmapFromUri(context: Context, uri: String): Bitmap? = withContext(Dispatchers.IO) {
     when {

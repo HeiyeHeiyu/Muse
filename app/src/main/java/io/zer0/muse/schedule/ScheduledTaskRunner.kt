@@ -12,17 +12,16 @@ import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
-import kotlinx.serialization.json.JsonObject
 import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantRepository
+import io.zer0.muse.data.quicknote.QuickNoteDao
+import io.zer0.muse.data.quicknote.QuickNoteEntity
 import io.zer0.muse.data.schedule.AutomationConfig
 import io.zer0.muse.data.schedule.AutomationConfig.toAction
 import io.zer0.muse.data.schedule.AutomationConfig.toCondition
 import io.zer0.muse.data.schedule.AutomationConfig.toIdsList
-import io.zer0.muse.data.quicknote.QuickNoteDao
-import io.zer0.muse.data.quicknote.QuickNoteEntity
 import io.zer0.muse.data.schedule.ScheduledTaskDao
 import io.zer0.muse.data.schedule.ScheduledTaskEntity
 import io.zer0.muse.data.schedule.ScheduledTaskExecutionEntity
@@ -39,6 +38,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.JsonObject
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -101,6 +101,7 @@ class ScheduledTaskRunner(
             else -> 0L
         }
         private const val POLL_INTERVAL_MS = 60_000L // 每分钟检查一次
+
         // 执行历史展开后展示正文;限制上限避免异常工具输出无限膨胀数据库。
         private const val EXECUTION_DETAIL_MAX_LEN = 10_000
 
@@ -111,14 +112,19 @@ class ScheduledTaskRunner(
          * 行数 > 0 即判定领取成功;负数/意外值按失败处理(保守跳过,杜绝重复执行)。
          */
         internal fun claimTaskSucceeded(rowsAffected: Int): Boolean = rowsAffected > 0
+
         /** 单次任务 AI 调用超时(毫秒)。 */
         private const val LLM_TIMEOUT_MS = 60_000L
+
         /** v1.0.17: 链式任务最大递归深度,防止无限循环。 */
         private const val MAX_CHAIN_DEPTH = 10
+
         /** v1.0.17: 重试退避上限(毫秒,5 分钟)。 */
         private const val RETRY_BACKOFF_MAX_MS = 300_000L
+
         /** v1.0.17: 重试退避步长(毫秒,每次递增 1 分钟)。 */
         private const val RETRY_BACKOFF_STEP_MS = 60_000L
+
         /**
          * B-12: 领取后临时推进的 next_run_at 哨兵值(远未来,≈146 亿年后)。
          *
@@ -126,6 +132,7 @@ class ScheduledTaskRunner(
          * 再领取都不命中;执行结束 [executeTask] 会用真实的下次执行时间覆盖它。
          */
         private const val CLAIM_NEXT_RUN_SENTINEL = Long.MAX_VALUE
+
         /**
          * B-26: 哨兵看门狗阈值 —— claim 后超过该时长仍停在哨兵值视为"卡死"(领取后
          * recordExecutionAndScheduleNext 事务失败回滚),允许重置 next_run_at。
@@ -407,7 +414,9 @@ class ScheduledTaskRunner(
                     val batteryStatus = context.registerReceiver(null, filter)
                     val status = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
                     status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
-                } else true
+                } else {
+                    true
+                }
             }
             else -> true
         }
@@ -572,7 +581,7 @@ class ScheduledTaskRunner(
         if (id.isBlank() || id == "default") {
             return assistants.firstOrNull { it.id == "default" }
                 ?: assistants.firstOrNull()
-            ?: error(context.getString(R.string.schedule_err_no_assistant))
+                ?: error(context.getString(R.string.schedule_err_no_assistant))
         }
         return assistants.firstOrNull { it.id == id }
             ?: assistants.firstOrNull { it.id == "default" }
@@ -633,7 +642,8 @@ class ScheduledTaskRunner(
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
-            CHANNEL_ID, context.getString(R.string.schedule_channel_name),
+            CHANNEL_ID,
+            context.getString(R.string.schedule_channel_name),
             NotificationManager.IMPORTANCE_HIGH,
         ).apply { description = context.getString(R.string.schedule_channel_desc) }
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -646,11 +656,7 @@ class ScheduledTaskRunner(
      * v1.64: 弹出定时任务到期通知 — 点击直达对应任务并展开执行历史。
      * 用 muse://scheduled-task/{taskId} deep link,经 ShareIntentHandler 解析后导航到指定任务路由。
      */
-    private fun showNotification(
-        title: String,
-        content: String,
-        target: MuseNotificationTarget,
-    ) {
+    private fun showNotification(title: String, content: String, target: MuseNotificationTarget) {
         val notificationManager = MuseNotificationManager(context)
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)

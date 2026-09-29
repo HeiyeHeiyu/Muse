@@ -4,8 +4,8 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Transaction
 import androidx.room.SkipQueryVerification
+import androidx.room.Transaction
 
 /**
  * v1.54: 知识库分块 Dao。
@@ -115,8 +115,7 @@ interface KnowledgeChunkDao {
     ): List<KnowledgeChunkEntity>
 
     /** v1.133 别名:语义同 [getPageWithEmbedding]。 */
-    suspend fun getPageWithEmbeddingBlob(limit: Int, offset: Int): List<KnowledgeChunkEntity> =
-        getPageWithEmbedding(limit, offset)
+    suspend fun getPageWithEmbeddingBlob(limit: Int, offset: Int): List<KnowledgeChunkEntity> = getPageWithEmbedding(limit, offset)
 
     /** 按文档 ID 删除全部分块。 */
     @Query("DELETE FROM knowledge_chunks WHERE doc_id = :docId")

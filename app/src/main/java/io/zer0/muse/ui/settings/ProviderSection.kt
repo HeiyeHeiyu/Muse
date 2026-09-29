@@ -29,23 +29,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.muse.R
+import io.zer0.muse.data.ProviderCollisionDetector
 import io.zer0.muse.data.catalog.ModelCatalogRepository
-import io.zer0.muse.ui.common.icons.MuseIcons
-import kotlinx.coroutines.launch
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.state.MuseEmptyState
-import io.zer0.muse.ui.common.surface.MuseListItem
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
+import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseSpinner
+import io.zer0.muse.ui.common.surface.MuseListItem
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.data.ProviderCollisionDetector
+import kotlinx.coroutines.launch
 
 /**
  * v1.133: 供应商批量健康检测状态(列表头部"全部检测"按钮触发)。
@@ -346,8 +346,11 @@ private fun ModelCatalogRow() {
         }
         MuseCapsuleButton(
             text = stringResource(
-                if (refreshing) R.string.settings_model_catalog_refreshing
-                else R.string.settings_model_catalog_refresh,
+                if (refreshing) {
+                    R.string.settings_model_catalog_refreshing
+                } else {
+                    R.string.settings_model_catalog_refresh
+                },
             ),
             onClick = {
                 if (!refreshing) {
@@ -403,8 +406,11 @@ private fun ProviderRow(
             Text(
                 text = config.displayName.ifBlank { config.id },
                 style = MaterialTheme.typography.titleMedium,
-                color = if (isActive) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurface,
+                color = if (isActive) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
             )
             Text(
                 text = providerDisplayTypeName(config.type),
@@ -510,11 +516,7 @@ private fun ProviderRow(
  * ```
  */
 @Composable
-private fun ProviderListHeader(
-    totalCount: Int,
-    isTestingAll: Boolean,
-    onTestAll: () -> Unit,
-) {
+private fun ProviderListHeader(totalCount: Int, isTestingAll: Boolean, onTestAll: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

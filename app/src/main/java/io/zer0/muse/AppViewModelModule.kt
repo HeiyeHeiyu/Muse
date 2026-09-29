@@ -100,7 +100,6 @@ val appViewModelModule = module {
         )
     }
 
-
     // Multi-Agent 工作流可视化编排已折叠进团队协作设置,WorkflowEditorViewModel 随不可达页面一并移除
     // v1.30: 群聊 ViewModel(注入 GroupChatRepository + Scheduler + AssistantRepo + Settings)
     // H-GC2 修复: 移除 appScope 参数,init 中 Flow 收集器改用 viewModelScope 自动取消

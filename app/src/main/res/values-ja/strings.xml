@@ -219,7 +219,7 @@
     <string name="recently_deleted_auto_clear">7日後に自動削除される</string>
 
     <string name="chat_draft_label">下書き</string>
-    <string name="chat_list_archive_confirm">このチャットはアーカイブされ、リストから非表示になります。</string>
+    <string name="chat_list_archive_confirm">チャット「%1$s」をアーカイブしますか？アーカイブ一覧から復元できます。</string>
     <string name="chat_list_archive_confirm_button">アーカイブ</string>
     <string name="chat_list_archive_title">アーカイブチャット</string>
     <string name="chat_list_section_in_progress">進行中</string>
@@ -241,14 +241,14 @@
     <string name="err_image_empty_response">イメージ生成は空の応答を返しました。</string>
     <string name="err_image_invalid_uri">画像の URI またはパスが無効です。</string>
     <string name="err_image_no_results">画像は生成されませんでした。</string>
-    <string name="err_image_reference_download_failed">参照画像のダウンロードに失敗しました。</string>
-    <string name="err_image_reference_too_large">参考画像が大きすぎます。</string>
-    <string name="err_image_response_too_large">生成された画像が大きすぎて表示できません。</string>
-    <string name="err_image_unsupported_model">選択したモデルは画像生成をサポートしていません。</string>
+    <string name="err_image_reference_download_failed">参照画像のダウンロードに失敗しました。 (%1$s)</string>
+    <string name="err_image_reference_too_large">参考画像が大きすぎます。 (%1$s)</string>
+    <string name="err_image_response_too_large">生成された画像が大きすぎて表示できません。 (%1$s)</string>
+    <string name="err_image_unsupported_model">選択したモデルは画像生成をサポートしていません。 (%1$s)</string>
     <string name="err_invalid_argument">無効な引数が指定されました。</string>
-    <string name="err_invalid_response">サーバーからの応答が無効です。</string>
-    <string name="err_memory_config_invalid">メモリ構成が無効です。</string>
-    <string name="err_memory_token_budget_invalid">メモリ トークン バジェットが無効です。</string>
+    <string name="err_invalid_response">サーバーからの応答が無効です。 (%1$s)</string>
+    <string name="err_memory_config_invalid">メモリ構成が無効です。 (%1$s)</string>
+    <string name="err_memory_token_budget_invalid">メモリ トークン バジェットが無効です。 (%1$s)</string>
     <string name="err_network_error">ネットワークエラー。</string>
     <string name="err_no_model_selected">モデルが選択されていません。</string>
     <string name="err_no_provider_configured">プロバイダーが設定されていません。</string>
@@ -261,8 +261,8 @@
     <string name="err_resource_exhausted">リソースが枯渇しました。</string>
     <string name="err_service_unavailable">サービスが一時的に利用できなくなりました。</string>
     <string name="err_stream_interrupted">ストリームが中断されました。</string>
-    <string name="err_vertex_ai_config_invalid">Vertex AI 構成が無効です。</string>
-    <string name="err_vertex_ai_token_failed">Vertex AI アクセス トークンの取得に失敗しました。</string>
+    <string name="err_vertex_ai_config_invalid">Vertex AI 構成が無効です。 (%1$s)</string>
+    <string name="err_vertex_ai_token_failed">Vertex AI アクセス トークンの取得に失敗しました。 (%1$s)</string>
 
     <!-- Assistant detail: capabilities -->
     <string name="assistant_detail_capabilities_title">能力</string>

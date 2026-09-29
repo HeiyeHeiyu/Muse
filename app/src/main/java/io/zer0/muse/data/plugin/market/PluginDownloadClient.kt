@@ -69,7 +69,6 @@ internal class PluginDownloadClient(
         internal const val MAX_ARTIFACT_BYTES = 20 * 1024 * 1024
 
         /** staging 文件的唯一命名规则；安装计划据此确认可删除的文件。 */
-        internal fun stagedFileName(entry: PluginCatalogEntry): String =
-            "${entry.id}-${entry.version}.muse-plugin"
+        internal fun stagedFileName(entry: PluginCatalogEntry): String = "${entry.id}-${entry.version}.muse-plugin"
     }
 }

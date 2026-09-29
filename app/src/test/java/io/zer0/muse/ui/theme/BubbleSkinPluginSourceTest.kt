@@ -46,10 +46,7 @@ class BubbleSkinPluginSourceTest {
         }
     }
 
-    private suspend fun selectAndFallBack(
-        store: BubbleSkinStore,
-        source: FakePluginSkinSource,
-    ) {
+    private suspend fun selectAndFallBack(store: BubbleSkinStore, source: FakePluginSkinSource) {
         // 无插件皮肤时保持既有行为:选中内置 id → null。
         assertNull(store.selectedSkinFlow.first())
 
@@ -146,8 +143,7 @@ class BubbleSkinPluginSourceTest {
         val revision = MutableStateFlow(0)
         var entries: List<InstalledSkin> = emptyList()
 
-        override fun listInstalledSkins(includeDisabled: Boolean): List<InstalledSkin> =
-            entries.filter { includeDisabled || it.enabled }
+        override fun listInstalledSkins(includeDisabled: Boolean): List<InstalledSkin> = entries.filter { includeDisabled || it.enabled }
 
         override val revisionFlow: Flow<Int> = revision
     }

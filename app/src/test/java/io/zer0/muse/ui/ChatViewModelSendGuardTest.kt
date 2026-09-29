@@ -20,7 +20,10 @@ class ChatViewModelSendGuardTest {
         assertTrue(canStartGeneration("你好", emptyList(), isStreaming = false, isCreatingAgentSession = false))
         assertTrue(
             canStartGeneration(
-                "", listOf("data:image/png;base64,xxx"), isStreaming = false, isCreatingAgentSession = false,
+                "",
+                listOf("data:image/png;base64,xxx"),
+                isStreaming = false,
+                isCreatingAgentSession = false,
             ),
         )
     }

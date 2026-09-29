@@ -69,7 +69,7 @@ class IntegrityChecker(
                     details = details,
                     dbSizeBytes = dbSize,
                     checkedAt = System.currentTimeMillis(),
-                )
+                ),
             )
         } catch (e: Exception) {
             Logger.e(TAG, "checkAndLog: 写入完整性日志失败", e)

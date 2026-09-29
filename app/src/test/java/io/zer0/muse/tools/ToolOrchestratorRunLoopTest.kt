@@ -96,31 +96,28 @@ class ToolOrchestratorRunLoopTest {
         reasoningLevel = ReasoningLevel.OFF,
     )
 
-    private fun toolRound(toolCalls: List<ToolCall>): StreamRoundResult.Success =
-        StreamRoundResult.Success(
-            assistantMessage = UIMessage(
-                role = MessageRole.ASSISTANT,
-                content = "",
-                toolCalls = toolCalls,
-            ),
-            hasToolCalls = toolCalls.isNotEmpty(),
-            contentLength = 0,
-            firstTokenTime = 0L,
-        )
+    private fun toolRound(toolCalls: List<ToolCall>): StreamRoundResult.Success = StreamRoundResult.Success(
+        assistantMessage = UIMessage(
+            role = MessageRole.ASSISTANT,
+            content = "",
+            toolCalls = toolCalls,
+        ),
+        hasToolCalls = toolCalls.isNotEmpty(),
+        contentLength = 0,
+        firstTokenTime = 0L,
+    )
 
-    private fun finalRound(): StreamRoundResult.Success =
-        StreamRoundResult.Success(
-            assistantMessage = UIMessage(role = MessageRole.ASSISTANT, content = "done"),
-            hasToolCalls = false,
-            contentLength = 0,
-            firstTokenTime = 0L,
-        )
+    private fun finalRound(): StreamRoundResult.Success = StreamRoundResult.Success(
+        assistantMessage = UIMessage(role = MessageRole.ASSISTANT, content = "done"),
+        hasToolCalls = false,
+        contentLength = 0,
+        firstTokenTime = 0L,
+    )
 
     private class FakeToolLoopHost(
         private val results: ArrayDeque<StreamRoundResult>,
     ) : ToolLoopHost {
-        override suspend fun streamRound(params: StreamRoundParams): StreamRoundResult =
-            results.removeFirst()
+        override suspend fun streamRound(params: StreamRoundParams): StreamRoundResult = results.removeFirst()
 
         override suspend fun requestToolApproval(
             toolName: String,

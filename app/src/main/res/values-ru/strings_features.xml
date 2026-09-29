@@ -279,7 +279,7 @@
     <string name="quick_notes_export_folder">Папка: %1$s</string>
     <string name="quick_notes_export_updated_at">Обновлено: %1$s</string>
     <string name="quick_notes_delete_permanent_title">Удалить навсегда</string>
-    <string name="quick_notes_delete_permanent_confirm">Это невозможно отменить.</string>
+    <string name="quick_notes_delete_permanent_confirm">Это действие нельзя отменить. Удалить «%1$s» навсегда?</string>
     <string name="quick_notes_clear_trash">Очистить мусор</string>
     <string name="quick_notes_clear_trash_confirm">Это приведет к безвозвратному удалению всех заметок %1$d из корзины.</string>
     <string name="quick_notes_trash_count">Мусор: %1$d</string>

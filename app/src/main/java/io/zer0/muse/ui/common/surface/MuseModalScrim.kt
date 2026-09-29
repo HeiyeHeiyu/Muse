@@ -6,5 +6,4 @@ import androidx.compose.ui.graphics.Color
 
 /** Shared visual scrim for modal surfaces; platform window dim remains disabled. */
 @Composable
-internal fun museModalScrimColor(): Color =
-    MaterialTheme.colorScheme.scrim.copy(alpha = 0.38f)
+internal fun museModalScrimColor(): Color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.38f)

@@ -250,7 +250,7 @@ class SubagentRunner(
         val (threadId, isNew) = try {
             threadStore.getOrCreate(
                 threadId = params.threadId,
-                parentSessionId = "subagent_run",  // 路径 B 无父会话,用占位
+                parentSessionId = "subagent_run", // 路径 B 无父会话,用占位
                 assistantId = "passive_subagent",
                 access = params.access,
             )
@@ -355,10 +355,15 @@ class SubagentRunner(
             tokenBudget?.accumulate(summaryCompletion.usageTokens)
             lastText = summaryCompletion.text.trim()
             if (params.persistSession && lastText.isNotBlank()) {
-                threadStore.appendMessages(threadId, listOf(UIMessage(
-                    role = MessageRole.ASSISTANT,
-                    content = lastText,
-                )))
+                threadStore.appendMessages(
+                    threadId,
+                    listOf(
+                        UIMessage(
+                            role = MessageRole.ASSISTANT,
+                            content = lastText,
+                        ),
+                    ),
+                )
             }
         }
 
@@ -420,10 +425,15 @@ class SubagentRunner(
                         lastText = completion.text.trim()
                         // v1.0.53: 持久化最终总结
                         if (params.persistSession && lastText.isNotBlank()) {
-                            threadStore.appendMessages(threadId, listOf(UIMessage(
-                                role = MessageRole.ASSISTANT,
-                                content = lastText,
-                            )))
+                            threadStore.appendMessages(
+                                threadId,
+                                listOf(
+                                    UIMessage(
+                                        role = MessageRole.ASSISTANT,
+                                        content = lastText,
+                                    ),
+                                ),
+                            )
                         }
                         break
                     }
@@ -436,10 +446,15 @@ class SubagentRunner(
                         // 全部无效,取 text 作为总结
                         lastText = completion.text.trim()
                         if (params.persistSession && lastText.isNotBlank()) {
-                            threadStore.appendMessages(threadId, listOf(UIMessage(
-                                role = MessageRole.ASSISTANT,
-                                content = lastText,
-                            )))
+                            threadStore.appendMessages(
+                                threadId,
+                                listOf(
+                                    UIMessage(
+                                        role = MessageRole.ASSISTANT,
+                                        content = lastText,
+                                    ),
+                                ),
+                            )
                         }
                         break
                     }
@@ -470,13 +485,15 @@ class SubagentRunner(
                         }
                         totalToolCalls++
                         val toolResult = executeAllowedTool(tc)
-                        progressEntries.add(ProgressEntry(
-                            round = rounds,
-                            toolName = tc.name,
-                            argsJson = tc.arguments,
-                            result = toolResult.result,
-                            success = toolResult.success,
-                        ))
+                        progressEntries.add(
+                            ProgressEntry(
+                                round = rounds,
+                                toolName = tc.name,
+                                argsJson = tc.arguments,
+                                result = toolResult.result,
+                                success = toolResult.success,
+                            ),
+                        )
                         // 把工具结果作为 TOOL 消息加入历史
                         val toolMsg = UIMessage(
                             role = MessageRole.TOOL,
@@ -584,17 +601,12 @@ class SubagentRunner(
      *
      * @param status resolved|failed|aborted
      */
-    private suspend fun recordRunAndMaybeClose(
-        params: Params,
-        threadId: String,
-        status: String,
-        summary: String,
-    ) {
+    private suspend fun recordRunAndMaybeClose(params: Params, threadId: String, status: String, summary: String) {
         threadStore.recordRun(
             threadId = threadId,
             status = status,
             summary = summary.takeIf { it.isNotBlank() },
-            sessionPath = null,  // childSessionPath 已在 getOrCreate 时记录
+            sessionPath = null, // childSessionPath 已在 getOrCreate 时记录
         )
         if (params.closeAfterRun) {
             threadStore.close(threadId)
@@ -760,12 +772,11 @@ class SubagentRunner(
      * 其前续所有消息(含已配对的 tool 链),因为子 agent 恢复历史是自尾部向前裁剪,
      * 孤儿只可能出现在尾部。
      */
-    private fun dropOrphanToolCalls(messages: List<UIMessage>): List<UIMessage> =
-        messages.filterIndexed { index, msg ->
-            if (msg.role == MessageRole.ASSISTANT && !msg.toolCalls.isNullOrEmpty()) {
-                messages.getOrNull(index + 1)?.role == MessageRole.TOOL
-            } else {
-                true
-            }
+    private fun dropOrphanToolCalls(messages: List<UIMessage>): List<UIMessage> = messages.filterIndexed { index, msg ->
+        if (msg.role == MessageRole.ASSISTANT && !msg.toolCalls.isNullOrEmpty()) {
+            messages.getOrNull(index + 1)?.role == MessageRole.TOOL
+        } else {
+            true
         }
+    }
 }

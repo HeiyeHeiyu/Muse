@@ -71,8 +71,7 @@ data class Model(
     fun supportsReasoning(): Boolean = ModelAbility.REASONING in abilities
 
     /** 便捷判断:是否支持视觉输入。 */
-    fun supportsVisionInput(): Boolean =
-        supportsVision || "image" in inputModalities
+    fun supportsVisionInput(): Boolean = supportsVision || "image" in inputModalities
 
     /** 便捷判断:是否支持图片输出(绘图模型)。 */
     fun supportsImageOutput(): Boolean = "image" in outputModalities
@@ -81,8 +80,7 @@ data class Model(
     fun supportsVideoOutput(): Boolean = supportsVideo
 
     /** v1.0.4: 便捷判断:是否支持视觉 grounding(坐标定位)。 */
-    fun supportsVisionGrounding(): Boolean =
-        visionCapabilities?.grounding == true
+    fun supportsVisionGrounding(): Boolean = visionCapabilities?.grounding == true
 }
 
 /**

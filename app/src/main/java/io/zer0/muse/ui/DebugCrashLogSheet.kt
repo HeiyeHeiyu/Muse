@@ -2,12 +2,6 @@
 
 package io.zer0.muse.ui
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.theme.MuseMotion
 import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
@@ -32,8 +26,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -47,16 +43,20 @@ import io.zer0.muse.R
 import io.zer0.muse.crash.MuseCrashHandler
 import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.MuseBottomSheet
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.theme.MuseMonoFontFamily
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.util.ShareIntentHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 // P1-4:崩溃日志面板 — 把 MuseCrashHandler 已有但仅 SafeMode 使用的崩溃日志
 //       列表 / ZIP 打包 / 单条分享能力,在正常模式下也透出给用户。
@@ -79,9 +79,7 @@ import kotlinx.coroutines.withContext
  * 设计说明:SafeModeScreen 已有的 shareCrashLog,这里把同一能力在正常模式下复用。
  */
 @Composable
-internal fun CrashLogSheet(
-    onDismiss: () -> Unit,
-) {
+internal fun CrashLogSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
 
     // ── 数据状态 ─────────────────────────────────────────────────────────
@@ -198,13 +196,7 @@ internal fun CrashLogSheet(
  * 展开时:在折叠信息下方追加内联预览(等宽字体,可垂直滚动)
  */
 @Composable
-private fun CrashLogItem(
-    file: File,
-    expanded: Boolean,
-    expandedContent: String?,
-    onToggleExpand: () -> Unit,
-    onShare: () -> Unit,
-) {
+private fun CrashLogItem(file: File, expanded: Boolean, expandedContent: String?, onToggleExpand: () -> Unit, onShare: () -> Unit) {
     // 文件名形如 crash-20260721-153012.txt;直接展示原文件名,保持与磁盘一致便于排查
     val sizeStr = remember(file.length()) { DebugFormatters.formatFileSize(file.length()) }
     val timeStr = remember(file.lastModified()) {
@@ -351,7 +343,6 @@ private fun shareCrashFile(context: Context, file: File) {
         MuseToast.show(context.getString(R.string.debug_share_failed_no_uri))
     }
 }
-
 
 /** 崩溃日志内联预览的最大字符数,避免一次性把超大堆栈读入 Compose 状态。 */
 private const val CRASH_PREVIEW_CHARS = 2000

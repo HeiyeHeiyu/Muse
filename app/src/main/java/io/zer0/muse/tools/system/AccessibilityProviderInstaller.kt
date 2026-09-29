@@ -37,11 +37,10 @@ class AccessibilityProviderInstaller(private val context: Context) {
     fun isProviderInstalled(): Boolean = client.isProviderInstalled()
 
     /** v2.2.1: 独立 Provider APK 是否随包附带(assets 中存在)。 */
-    fun isProviderApkBundled(): Boolean =
-        runCatching {
-            context.assets.open(PROVIDER_ASSET_PATH).close()
-            true
-        }.getOrDefault(false)
+    fun isProviderApkBundled(): Boolean = runCatching {
+        context.assets.open(PROVIDER_ASSET_PATH).close()
+        true
+    }.getOrDefault(false)
 
     /**
      * v2.2.1: 解出内置 Provider APK 并拉起系统安装器。

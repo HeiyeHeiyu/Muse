@@ -24,7 +24,9 @@ import java.util.Locale
  * - [PDF]:PDF 文档,Android 原生 [PdfDocument] 渲染,A4 分页
  */
 enum class ExportFormat {
-    MARKDOWN, HTML, PDF
+    MARKDOWN,
+    HTML,
+    PDF,
 }
 
 /**
@@ -84,11 +86,7 @@ object ConversationExporter {
      *  [java.util.Locale.getDefault] 兜底。
      * @return Markdown 字符串
      */
-    fun exportToMarkdown(
-        messages: List<UIMessage>,
-        chatTitle: String,
-        locale: Locale = Locale.getDefault(),
-    ): String {
+    fun exportToMarkdown(messages: List<UIMessage>, chatTitle: String, locale: Locale = Locale.getDefault()): String {
         val sb = StringBuilder()
         sb.append("# ").append(chatTitle).append("\n\n")
         sb.append("> ").append(localized(locale, "导出时间", "Exported at")).append(": ")
@@ -153,9 +151,11 @@ object ConversationExporter {
         sb.append("<header class=\"chat-header\">")
         sb.append("<h1>").append(escapeHtml(chatTitle)).append("</h1>")
         sb.append("<p class=\"meta\">").append(localized(locale, "导出时间", "Exported at")).append(": ")
-            .append(escapeHtml(
-                SimpleDateFormat(MuseDateFormats.DATE_TIME_FULL, locale).format(Date())
-            ))
+            .append(
+                escapeHtml(
+                    SimpleDateFormat(MuseDateFormats.DATE_TIME_FULL, locale).format(Date()),
+                ),
+            )
             .append("</p></header>")
 
         // 消息列表
@@ -200,9 +200,11 @@ object ConversationExporter {
             // 时间戳
             if (msg.createdAt > 0) {
                 sb.append("<div class=\"time\">")
-                    .append(escapeHtml(
-                        SimpleDateFormat(MuseDateFormats.DATE_TIME_FULL, locale).format(Date(msg.createdAt))
-                    ))
+                    .append(
+                        escapeHtml(
+                            SimpleDateFormat(MuseDateFormats.DATE_TIME_FULL, locale).format(Date(msg.createdAt)),
+                        ),
+                    )
                     .append("</div>")
             }
             sb.append("</div>")
@@ -229,12 +231,7 @@ object ConversationExporter {
      *  [java.util.Locale.getDefault] 兜底。
      * @return 已写入的 PDF 文件(位于 cacheDir/export/)
      */
-    fun exportToPdf(
-        context: Context,
-        messages: List<UIMessage>,
-        chatTitle: String,
-        locale: Locale = Locale.getDefault(),
-    ): File {
+    fun exportToPdf(context: Context, messages: List<UIMessage>, chatTitle: String, locale: Locale = Locale.getDefault()): File {
         val pdf = PdfDocument()
 
         // 共用画笔
@@ -291,14 +288,20 @@ object ConversationExporter {
             if (y + SIZE_BODY * 1.6f > bottomLimit) {
                 val (np, nc) = turnPage(pdf, page, pageIndex, chatTitle, exportTime, titlePaint, headerPaint, metaPaint)
                 pageIndex++
-                page = np; canvas = nc; y = topY
+                page = np
+                canvas = nc
+                y = topY
             }
             canvas.drawText(roleLabel(msg.role, locale), PAGE_MARGIN, y + SIZE_BODY, rolePaint)
             y += SIZE_BODY * 1.6f
 
             // 正文:用 StaticLayout 算出换行后的所有行,逐行绘制并按需换页
             val layout = StaticLayout.Builder.obtain(
-                msg.content, 0, msg.content.length, bodyPaint, contentWidth.toInt()
+                msg.content,
+                0,
+                msg.content.length,
+                bodyPaint,
+                contentWidth.toInt(),
             ).setLineSpacing(0f, 1.2f).build()
 
             val lineHeight = if (layout.lineCount > 0) layout.getLineBottom(0) - layout.getLineTop(0) else SIZE_BODY * 1.2f
@@ -307,10 +310,13 @@ object ConversationExporter {
                 if (y + lineHeight.toFloat() > bottomLimit) {
                     val (np, nc) = turnPage(pdf, page, pageIndex, chatTitle, exportTime, titlePaint, headerPaint, metaPaint)
                     pageIndex++
-                    page = np; canvas = nc; y = topY
+                    page = np
+                    canvas = nc
+                    y = topY
                 }
                 val lineText = layout.text.subSequence(
-                    layout.getLineStart(i), layout.getLineEnd(i)
+                    layout.getLineStart(i),
+                    layout.getLineEnd(i),
                 ).toString()
                 // drawText 的 y 参数是基线位置 = 顶部 + ascent 的绝对值
                 canvas.drawText(lineText, PAGE_MARGIN, y - bodyPaint.fontMetrics.ascent, bodyPaint)
@@ -322,7 +328,9 @@ object ConversationExporter {
                 if (y + SIZE_META * 1.8f > bottomLimit) {
                     val (np, nc) = turnPage(pdf, page, pageIndex, chatTitle, exportTime, titlePaint, headerPaint, metaPaint)
                     pageIndex++
-                    page = np; canvas = nc; y = topY
+                    page = np
+                    canvas = nc
+                    y = topY
                 }
                 val timeText = SimpleDateFormat(MuseDateFormats.DATE_TIME_FULL, locale)
                     .format(Date(msg.createdAt))
@@ -365,7 +373,7 @@ object ConversationExporter {
         pdf.finishPage(currentPage)
         val newPageIndex = currentPageIndex + 1
         val newPage = pdf.startPage(
-            PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, newPageIndex).create()
+            PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, newPageIndex).create(),
         )
         val newCanvas = newPage.canvas
         drawHeader(newCanvas, title, exportTime, titlePaint, timePaint)
@@ -389,8 +397,7 @@ object ConversationExporter {
      * 导出产物是文件内容而非 UI 字符串资源,按双语 when 映射就地处理即可(不引入
      * strings 资源,避免为文件输出维护一套 Android 资源)。
      */
-    private fun localized(locale: Locale, zh: String, en: String): String =
-        if (locale.language.lowercase().startsWith("zh")) zh else en
+    private fun localized(locale: Locale, zh: String, en: String): String = if (locale.language.lowercase().startsWith("zh")) zh else en
 
     /**
      * 绘制页眉(标题 + 日期 + 分隔线)。
@@ -398,13 +405,7 @@ object ConversationExporter {
      * @param titlePaint 会话标题画笔(16pt 加粗)
      * @param timePaint 日期/分隔线画笔(10pt)
      */
-    private fun drawHeader(
-        canvas: Canvas,
-        title: String,
-        exportTime: String,
-        titlePaint: Paint,
-        timePaint: Paint,
-    ) {
+    private fun drawHeader(canvas: Canvas, title: String, exportTime: String, titlePaint: Paint, timePaint: Paint) {
         // 顶部标题(16pt 加粗,超过 40 字截断)
         val titleText = if (title.length > 40) title.take(40) + "…" else title
         canvas.drawText(titleText, PAGE_MARGIN, PAGE_MARGIN + SIZE_TITLE, titlePaint)
@@ -418,8 +419,11 @@ object ConversationExporter {
         )
         // 标题下分隔线
         canvas.drawLine(
-            PAGE_MARGIN, PAGE_MARGIN + SIZE_TITLE + 4f,
-            PAGE_WIDTH - PAGE_MARGIN, PAGE_MARGIN + SIZE_TITLE + 4f, timePaint,
+            PAGE_MARGIN,
+            PAGE_MARGIN + SIZE_TITLE + 4f,
+            PAGE_WIDTH - PAGE_MARGIN,
+            PAGE_MARGIN + SIZE_TITLE + 4f,
+            timePaint,
         )
     }
 
@@ -474,30 +478,26 @@ object ConversationExporter {
     }
 
     /** 转义 HTML 文本内容(& < >)。 */
-    private fun escapeHtml(s: String): String =
-        s.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
+    private fun escapeHtml(s: String): String = s.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
 
     /**
      * C-09: 转义 HTML 双引号属性值(& < > " + ')。
      * 文本内容用 [escapeHtml] 即可,但注入到 `class="..."` 属性时还须转义引号,
      * 防止属性值逃逸闭合标签(attribute-context 转义)。
      */
-    private fun escapeHtmlAttr(s: String): String =
-        s.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\"", "&quot;")
-            .replace("'", "&#39;")
+    private fun escapeHtmlAttr(s: String): String = s.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&#39;")
 
     /** 转义 HTML 属性值(额外转义引号)。 */
-    private fun escapeAttr(s: String): String =
-        escapeHtml(s).replace("\"", "&quot;")
+    private fun escapeAttr(s: String): String = escapeHtml(s).replace("\"", "&quot;")
 
     /** 把会话标题转为安全文件名。 */
-    private fun sanitizeFileName(name: String): String =
-        name.replace(Regex("""[\\/:*?"<>|\n\r\t]"""), "_").take(40).ifBlank { "muse" }
+    private fun sanitizeFileName(name: String): String = name.replace(Regex("""[\\/:*?"<>|\n\r\t]"""), "_").take(40).ifBlank { "muse" }
 
     /** HTML 内联 CSS(聊天气泡风格 + 深浅色适配)。 */
     private val CSS = """

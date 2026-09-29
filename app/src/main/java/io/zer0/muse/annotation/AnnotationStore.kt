@@ -52,8 +52,7 @@ object AnnotationStore {
     }
 
     /** 某条消息的全部批注(按时间升序)。 */
-    fun ofMessage(messageId: String): List<Annotation> =
-        _all.value.filter { it.messageId == messageId }.sortedBy { it.createdAt }
+    fun ofMessage(messageId: String): List<Annotation> = _all.value.filter { it.messageId == messageId }.sortedBy { it.createdAt }
 
     /** 新增一条批注。 */
     fun add(messageId: String, sessionId: String, text: String) {

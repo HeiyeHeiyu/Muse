@@ -17,6 +17,5 @@ internal object AccessibilityPathUtils {
     }
 
     /** 转义文本中的换行/制表符/反斜杠/方括号,保证单行输出。 */
-    fun escapeText(text: String): String =
-        text.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t").replace("]", "\\]")
+    fun escapeText(text: String): String = text.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t").replace("]", "\\]")
 }

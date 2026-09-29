@@ -31,11 +31,7 @@ object SaveMemoryTool {
         riskLevel = ToolRiskLevel.HIGH,
     )
 
-    suspend fun execute(
-        args: Map<String, String>,
-        factStore: FactStore,
-        executionContext: ToolExecutionContext,
-    ): String {
+    suspend fun execute(args: Map<String, String>, factStore: FactStore, executionContext: ToolExecutionContext): String {
         val content = args["content"]?.trim().orEmpty()
         if (content.isEmpty()) return "Error: content parameter is required."
         val tags = args["tags"]

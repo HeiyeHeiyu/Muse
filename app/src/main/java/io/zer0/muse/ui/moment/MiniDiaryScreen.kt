@@ -1,7 +1,5 @@
 package io.zer0.muse.ui.moment
 
-import androidx.compose.foundation.layout.defaultMinSize
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -10,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -34,11 +33,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
@@ -56,10 +55,7 @@ import kotlinx.coroutines.launch
  * 数据由 LLM 基于当天动态/记忆生成,打开当天日记时懒生成并持久化。
  */
 @Composable
-fun MiniDiaryScreen(
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun MiniDiaryScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     // 当前浏览的年月
     val today = java.time.LocalDate.now()
     // 前端修复 (持久化-5): viewYear/viewMonth/selectedDate 均为 Int/String,改 rememberSaveable,旋转不丢浏览位置
@@ -164,10 +160,10 @@ fun MiniDiaryScreen(
                 },
                 contentDescription = "编辑日记",
                 tint = if (diaryContent != null && !loadingDiary) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.outline
-                    },
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.outline
+                },
                 enabled = diaryContent != null && !loadingDiary,
             )
         }

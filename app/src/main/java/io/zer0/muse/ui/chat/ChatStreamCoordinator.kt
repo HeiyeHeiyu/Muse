@@ -76,11 +76,10 @@ class ChatStreamCoordinator(
     private val hookRegistry: io.zer0.muse.hook.HookRegistry? = null,
 ) {
     /** MOOD/MOD 的两种标签写法，正文与 reasoning 通道共用。 */
-    private fun containsMoodMarker(text: String): Boolean =
-        text.contains("<mood>", ignoreCase = true) ||
-            text.contains("[mood]", ignoreCase = true) ||
-            text.contains("<mod>", ignoreCase = true) ||
-            text.contains("[mod]", ignoreCase = true)
+    private fun containsMoodMarker(text: String): Boolean = text.contains("<mood>", ignoreCase = true) ||
+        text.contains("[mood]", ignoreCase = true) ||
+        text.contains("<mod>", ignoreCase = true) ||
+        text.contains("[mod]", ignoreCase = true)
 
     private val tag = "ChatVM"
 
@@ -98,9 +97,8 @@ class ChatStreamCoordinator(
      * v1.0.27 Phase 4-A.2: id 列表 JSON 解析辅助。
      * 与 ChatViewModel.parseIdList 保持一致的语义,避免跨类调用。
      */
-    private fun parseIdList(json: String): List<String> =
-        runCatching { idListJson.decodeFromString<List<String>>(json) }
-            .getOrDefault(emptyList())
+    private fun parseIdList(json: String): List<String> = runCatching { idListJson.decodeFromString<List<String>>(json) }
+        .getOrDefault(emptyList())
 
     // ── 流式状态控制 ──────────────────────────────────────────────────
 
@@ -312,12 +310,7 @@ class ChatStreamCoordinator(
      * 注意:本方法不做 mood/think 标签提取 — 媒体追加的 content 均为本地生成的纯文本占位,
      * 不含模型标签,与 updateAssistant 完整路径对无标签内容的处理等价。
      */
-    fun appendMediaToAssistant(
-        id: Uuid,
-        content: String? = null,
-        imageUrls: List<String>? = null,
-        videoFileUri: String? = null,
-    ) {
+    fun appendMediaToAssistant(id: Uuid, content: String? = null, imageUrls: List<String>? = null, videoFileUri: String? = null) {
         accessor.updateMessages { list ->
             list.map { msg ->
                 if (msg.id != id) {
@@ -496,10 +489,7 @@ class ChatStreamCoordinator(
      *
      * 与 MoodTagTransformer 保持一致的逻辑,但只在确认含标签时调用,避免流式中高频正则。
      */
-    private fun extractTagContent(
-        input: String,
-        tagName: String,
-    ): Pair<String, String?> {
+    private fun extractTagContent(input: String, tagName: String): Pair<String, String?> {
         if (!input.contains("<$tagName>", ignoreCase = true)) return input to null
         val regex = Regex("""<$tagName>([\s\S]*?)</$tagName>""", RegexOption.IGNORE_CASE)
         val sb = StringBuilder()
@@ -688,11 +678,7 @@ class ChatStreamCoordinator(
      * 便于排查"上游误标视觉能力 → 中转站 400"类问题。
      * 独立成函数:prepareVisionContext 复杂度已顶格,新增分支须外移。
      */
-    private fun visionPreflightDiagnostics(
-        model: Model?,
-        modelSupportsVision: Boolean,
-        historyImageCount: Int,
-    ): String {
+    private fun visionPreflightDiagnostics(model: Model?, modelSupportsVision: Boolean, historyImageCount: Int): String {
         val snapshot =
             if (model != null) {
                 io.zer0.ai.registry.ModelCapabilityQuery.snapshot(model.id)
@@ -741,12 +727,12 @@ class ChatStreamCoordinator(
                             accessor.update {
                                 it.copy(
                                     visionProgress =
-                                        io.zer0.muse.vision.VisionProgress(
-                                            idle = false,
-                                            index = 0,
-                                            total = lastUserMsg.imageBase64List.size,
-                                            messageId = lastUserMsg.id.toString(),
-                                        ),
+                                    io.zer0.muse.vision.VisionProgress(
+                                        idle = false,
+                                        index = 0,
+                                        total = lastUserMsg.imageBase64List.size,
+                                        messageId = lastUserMsg.id.toString(),
+                                    ),
                                 )
                             }
                             try {
@@ -760,12 +746,12 @@ class ChatStreamCoordinator(
                                         accessor.update {
                                             it.copy(
                                                 visionProgress =
-                                                    io.zer0.muse.vision.VisionProgress(
-                                                        idle = false,
-                                                        index = current,
-                                                        total = total,
-                                                        messageId = lastUserMsg.id.toString(),
-                                                    ),
+                                                io.zer0.muse.vision.VisionProgress(
+                                                    idle = false,
+                                                    index = current,
+                                                    total = total,
+                                                    messageId = lastUserMsg.id.toString(),
+                                                ),
                                             )
                                         }
                                     },
@@ -778,10 +764,10 @@ class ChatStreamCoordinator(
                         lastUserMsg.copy(
                             // M4.3: 视觉描述注入受统一 ContextBudget 上限约束(截断可诊断)
                             content =
-                                io.zer0.muse.context.ContextBudget().clampText(
-                                    io.zer0.muse.context.ContextSection.VISION_DESCRIPTION,
-                                    prepareResult.text,
-                                ),
+                            io.zer0.muse.context.ContextBudget().clampText(
+                                io.zer0.muse.context.ContextSection.VISION_DESCRIPTION,
+                                prepareResult.text,
+                            ),
                             imageBase64List = prepareResult.images,
                         )
                     if (prepareResult.success) {
@@ -856,7 +842,7 @@ class ChatStreamCoordinator(
                     (
                         resultOf { promptInjectionRepository.getByIdsEnabled(injIds) }
                             .getOrNull() ?: emptyList()
-                    )
+                        )
                         .filter { it.mode == currentMode }
                 } else {
                     resultOf { promptInjectionRepository.getEnabledByMode(currentMode) }
@@ -875,41 +861,41 @@ class ChatStreamCoordinator(
                     temperature = effectiveTemperature,
                     maxTokens = assistant?.maxTokens,
                     extras =
-                        mapOf(
-                            // v0.30-a: 已由 SystemPromptAssembler 接管,关闭 Transformer 管道里的对应职责
-                            "memory_enabled" to false,
-                            "time_reminder_enabled" to false,
-                            "current_scope" to (assistant?.id?.takeIf { it.isNotBlank() && it != "default" } ?: "main"),
-                            "current_space" to settings.currentSpaceIdFlow.firstOrNull().orEmpty().ifBlank { "default" },
-                            // Phase 8.5
-                            "lorebook_entries" to lorebookEntries,
-                            "prompt_injections" to modeInjections,
-                            // v1.97: 助手级正则规则(预解析,供 RegexMessageTransformer 使用)
-                            "regex_rules" to (
-                                assistant?.let {
-                                    io.zer0.muse.transformer.RegexTransformer.parseRules(it)
-                                } ?: emptyList()
+                    mapOf(
+                        // v0.30-a: 已由 SystemPromptAssembler 接管,关闭 Transformer 管道里的对应职责
+                        "memory_enabled" to false,
+                        "time_reminder_enabled" to false,
+                        "current_scope" to (assistant?.id?.takeIf { it.isNotBlank() && it != "default" } ?: "main"),
+                        "current_space" to settings.currentSpaceIdFlow.firstOrNull().orEmpty().ifBlank { "default" },
+                        // Phase 8.5
+                        "lorebook_entries" to lorebookEntries,
+                        "prompt_injections" to modeInjections,
+                        // v1.97: 助手级正则规则(预解析,供 RegexMessageTransformer 使用)
+                        "regex_rules" to (
+                            assistant?.let {
+                                io.zer0.muse.transformer.RegexTransformer.parseRules(it)
+                            } ?: emptyList()
                             ),
-                            // v1.97: 模板变量 — 用户昵称与助手名(供 {{user}} / {{char}} 等)
-                            "user_nickname" to userNickname,
-                            "assistant_name" to assistantName,
-                            // v2.x: 调试开关透传(供 MoodTag 等 transformer 输出诊断日志)
-                            "debug_mode" to experiments.debugMode,
-                            // v0.25: 长上下文压缩 — 默认启用,20 条触发,保留最近 15 条
-                            // v0.32 实验性 longMemoryCompression:阈值从 20 降到 10,更早触发摘要压缩
-                            // v2.3.2: 预热轮跳过压缩 — 预热的设计目的就是"全量历史优先"(见 WarmupHistory),
-                            // 首轮再压缩会把刚装载的历史摘要掉,重新引入"导入会话首轮近乎失忆"的老问题,
-                            // 且白等一次压缩调用(最多 20s 首字延迟)。
-                            "compress_enabled" to !warmupActive,
-                            // v1.138: 修复 compress_threshold < compress_keep_recent 导致压缩无法触发。
-                            // longMemoryCompression 模式下 threshold=10,keep_recent 必须小于 threshold。
-                            "compress_threshold" to if (experiments.longMemoryCompression) 10 else 20,
-                            "compress_keep_recent" to if (experiments.longMemoryCompression) 8 else 15,
-                            // v2.3.2: 字符预算(与预热同一口径:窗口的 60%)—— 长消息会话不能只靠条数判断
-                            // (20 条长消息可能早已超窗口);中文约 1 字符 ≈ 1 token,故用字符数当预算单位
-                            "compress_char_budget" to
-                                WarmupHistory.compressCharBudgetFor(accessor.snapshot.contextMaxTokens),
-                        ),
+                        // v1.97: 模板变量 — 用户昵称与助手名(供 {{user}} / {{char}} 等)
+                        "user_nickname" to userNickname,
+                        "assistant_name" to assistantName,
+                        // v2.x: 调试开关透传(供 MoodTag 等 transformer 输出诊断日志)
+                        "debug_mode" to experiments.debugMode,
+                        // v0.25: 长上下文压缩 — 默认启用,20 条触发,保留最近 15 条
+                        // v0.32 实验性 longMemoryCompression:阈值从 20 降到 10,更早触发摘要压缩
+                        // v2.3.2: 预热轮跳过压缩 — 预热的设计目的就是"全量历史优先"(见 WarmupHistory),
+                        // 首轮再压缩会把刚装载的历史摘要掉,重新引入"导入会话首轮近乎失忆"的老问题,
+                        // 且白等一次压缩调用(最多 20s 首字延迟)。
+                        "compress_enabled" to !warmupActive,
+                        // v1.138: 修复 compress_threshold < compress_keep_recent 导致压缩无法触发。
+                        // longMemoryCompression 模式下 threshold=10,keep_recent 必须小于 threshold。
+                        "compress_threshold" to if (experiments.longMemoryCompression) 10 else 20,
+                        "compress_keep_recent" to if (experiments.longMemoryCompression) 8 else 15,
+                        // v2.3.2: 字符预算(与预热同一口径:窗口的 60%)—— 长消息会话不能只靠条数判断
+                        // (20 条长消息可能早已超窗口);中文约 1 字符 ≈ 1 token,故用字符数当预算单位
+                        "compress_char_budget" to
+                            WarmupHistory.compressCharBudgetFor(accessor.snapshot.contextMaxTokens),
+                    ),
                 )
             // v2.3.2: 原「流式 Compaction UI」整块删除 —— 复核确认 CompactionState 有 3 处写入、
             // **0 处读取**(UI 从未接入),属死代码;删掉后"取消/异常时卡在 Compacting"的隐患一并消失。
@@ -1186,7 +1172,7 @@ class ChatStreamCoordinator(
                         boundProviderId != null ||
                         resolvedModel == null ||
                         toolModel.providerId == resolvedModel.providerId
-                )
+                    )
             // C-12: 主模型固定为主对话模型(可能支持视觉),不再被 toolModel 整体替换。
             //  effectiveModel 直接参与视觉辅助判定(prepareVisionContext)与最终回复轮路由,
             //  避免"工具启用 + 配置 toolModel"后所有轮次都走 toolModel、主模型视觉被降级为文本描述。

@@ -3,21 +3,15 @@
 package io.zer0.muse.ui.quicknotes
 
 import android.content.Intent
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.util.ShareIntentHelper
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateContentSize
-import io.zer0.muse.ui.theme.MuseAnimation
-import io.zer0.muse.ui.theme.MuseMotion
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -42,11 +35,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,20 +57,25 @@ import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.quicknote.QuickNoteEntity
 import io.zer0.muse.ui.common.feedback.MuseDialog
-import io.zer0.muse.ui.common.form.MuseBottomSheet
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseBottomSheet
 import io.zer0.muse.ui.common.form.MuseChip
 import io.zer0.muse.ui.common.form.MuseSwitch
+import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
 import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseErrorStateBox
 import io.zer0.muse.ui.markdown.MarkdownText
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
+import io.zer0.muse.util.ShareIntentHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -147,8 +147,11 @@ fun QuickNotesScreen(
                 } else {
                     val count = viewModel.importFromJson(json)
                     MuseToast.show(
-                        if (count > 0) context.getString(R.string.quick_notes_import_done, count)
-                        else context.getString(R.string.quick_notes_parse_empty),
+                        if (count > 0) {
+                            context.getString(R.string.quick_notes_import_done, count)
+                        } else {
+                            context.getString(R.string.quick_notes_parse_empty)
+                        },
                     )
                 }
             }
@@ -685,12 +688,7 @@ private fun QuickCaptureSettingRow(
 }
 
 @Composable
-private fun QuickNoteSearchField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    modifier: Modifier = Modifier,
-) {
+private fun QuickNoteSearchField(value: String, onValueChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {
     MuseTextField(
         value = value,
         onValueChange = onValueChange,
@@ -726,12 +724,7 @@ private fun QuickNoteSearchField(
 }
 
 @Composable
-private fun QuickNoteInputCard(
-    value: String,
-    onValueChange: (String) -> Unit,
-    onSend: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun QuickNoteInputCard(value: String, onValueChange: (String) -> Unit, onSend: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         shape = MuseShapes.extraLarge,
         color = MaterialTheme.colorScheme.surface,
@@ -771,10 +764,7 @@ private fun QuickNoteInputCard(
 }
 
 @Composable
-private fun SendButton(
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
+private fun SendButton(enabled: Boolean, onClick: () -> Unit) {
     Surface(
         shape = MuseShapes.pill,
         color = if (enabled) {
@@ -1098,5 +1088,3 @@ private fun QuickNoteCard(
         }
     }
 }
-
-

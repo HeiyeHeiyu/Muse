@@ -55,12 +55,7 @@ class PendingMessageManager(
      * @param assistantId 助手 ID
      * @param sendAtMillis 计划发送时间(毫秒时间戳)
      */
-    suspend fun scheduleMessage(
-        content: String,
-        sessionId: String,
-        assistantId: String,
-        sendAtMillis: Long,
-    ): PendingMessage {
+    suspend fun scheduleMessage(content: String, sessionId: String, assistantId: String, sendAtMillis: Long): PendingMessage {
         val msg = PendingMessage(
             id = "pm-${java.util.UUID.randomUUID()}",
             content = content,
@@ -71,8 +66,11 @@ class PendingMessageManager(
         )
         store.edit { prefs ->
             val current = prefs[KEY_PENDING_MESSAGES]?.let { json ->
-                try { AppJson.decodeFromString(ListSerializer(PendingMessage.serializer()), json) }
-                catch (_: Exception) { emptyList() }
+                try {
+                    AppJson.decodeFromString(ListSerializer(PendingMessage.serializer()), json)
+                } catch (_: Exception) {
+                    emptyList()
+                }
             } ?: emptyList()
             prefs[KEY_PENDING_MESSAGES] = AppJson.encodeToString(
                 ListSerializer(PendingMessage.serializer()),
@@ -89,8 +87,11 @@ class PendingMessageManager(
     suspend fun cancelMessage(messageId: String) {
         store.edit { prefs ->
             val current = prefs[KEY_PENDING_MESSAGES]?.let { json ->
-                try { AppJson.decodeFromString(ListSerializer(PendingMessage.serializer()), json) }
-                catch (_: Exception) { emptyList() }
+                try {
+                    AppJson.decodeFromString(ListSerializer(PendingMessage.serializer()), json)
+                } catch (_: Exception) {
+                    emptyList()
+                }
             } ?: emptyList()
             prefs[KEY_PENDING_MESSAGES] = AppJson.encodeToString(
                 ListSerializer(PendingMessage.serializer()),
@@ -110,8 +111,11 @@ class PendingMessageManager(
         var due: List<PendingMessage> = emptyList()
         store.edit { prefs ->
             val current = prefs[KEY_PENDING_MESSAGES]?.let { json ->
-                try { AppJson.decodeFromString(ListSerializer(PendingMessage.serializer()), json) }
-                catch (_: Exception) { emptyList() }
+                try {
+                    AppJson.decodeFromString(ListSerializer(PendingMessage.serializer()), json)
+                } catch (_: Exception) {
+                    emptyList()
+                }
             } ?: emptyList()
             due = current.filter { it.sendAtMillis <= now }
             val remaining = current.filter { it.sendAtMillis > now }

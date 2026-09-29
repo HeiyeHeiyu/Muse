@@ -31,11 +31,10 @@ enum class ProactivePace(
 
     companion object {
         /** 从当前三值反推档位；不匹配任何档位返回 null（界面显示「自定义」）。 */
-        fun from(intervalMinutes: Int, sendProbability: Int, maxDailyMessages: Int): ProactivePace? =
-            values().firstOrNull {
-                it.intervalMinutes == intervalMinutes &&
-                    it.sendProbability == sendProbability &&
-                    it.maxDailyMessages == maxDailyMessages
-            }
+        fun from(intervalMinutes: Int, sendProbability: Int, maxDailyMessages: Int): ProactivePace? = values().firstOrNull {
+            it.intervalMinutes == intervalMinutes &&
+                it.sendProbability == sendProbability &&
+                it.maxDailyMessages == maxDailyMessages
+        }
     }
 }

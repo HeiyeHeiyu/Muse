@@ -86,12 +86,18 @@ class WorkflowOrchestrator {
 
     class Builder {
         internal val steps = mutableListOf<Step>()
-        fun task(name: String, action: suspend () -> String) { steps.add(Step.Task(name, action)) }
+        fun task(name: String, action: suspend () -> String) {
+            steps.add(Step.Task(name, action))
+        }
         fun parallel(block: Builder.() -> Unit) {
-            val inner = Builder(); inner.block(); steps.add(Step.Parallel(inner.steps.toList()))
+            val inner = Builder()
+            inner.block()
+            steps.add(Step.Parallel(inner.steps.toList()))
         }
         fun pipeline(block: Builder.() -> Unit) {
-            val inner = Builder(); inner.block(); steps.add(Step.Pipeline(inner.steps.toList()))
+            val inner = Builder()
+            inner.block()
+            steps.add(Step.Pipeline(inner.steps.toList()))
         }
     }
 

@@ -113,7 +113,7 @@ class MuseDbMigrationTest {
                     assertTrue("v$fromVersion 迁移后应有 proactiveNextTriggerAt 列", hasProactiveNext)
                 }
                 db.openHelper.writableDatabase.query(
-                    "SELECT content, moodSkin FROM messages WHERE id='legacy-msg'"
+                    "SELECT content, moodSkin FROM messages WHERE id='legacy-msg'",
                 ).use { cursor ->
                     assertTrue("v$fromVersion 迁移后历史消息应保留", cursor.moveToFirst())
                     assertEquals("迁移前的历史消息", cursor.getString(0))
@@ -128,16 +128,22 @@ class MuseDbMigrationTest {
                     assertTrue("v$fromVersion 迁移后应有 isLocked 列", hasIsLocked)
                 }
                 db.openHelper.writableDatabase.query(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='generation_checkpoints'"
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='generation_checkpoints'",
                 ).use { cursor ->
                     assertTrue("v$fromVersion 迁移后应有 generation_checkpoints 表", cursor.moveToFirst())
                 }
                 db.openHelper.writableDatabase.query(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='group_chat_generation_ledger'"
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='group_chat_generation_ledger'",
                 ).use { cursor ->
                     assertTrue("v$fromVersion 迁移后应有 group_chat_generation_ledger 表", cursor.moveToFirst())
                 }
-                listOf("conversation_turns", "conversation_events", "tool_rounds", "session_branch_heads", "message_parts").forEach { table ->
+                listOf(
+                    "conversation_turns",
+                    "conversation_events",
+                    "tool_rounds",
+                    "session_branch_heads",
+                    "message_parts",
+                ).forEach { table ->
                     db.openHelper.writableDatabase.query(
                         "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
                         arrayOf(table),
@@ -193,7 +199,7 @@ class MuseDbMigrationTest {
                 assertTrue("真实 v68 迁移后应有 parentGroupId 列", hasParentGroup)
             }
             db.openHelper.writableDatabase.query(
-                "SELECT content FROM messages WHERE id='legacy-msg'"
+                "SELECT content FROM messages WHERE id='legacy-msg'",
             ).use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("迁移前的历史消息", cursor.getString(0))
@@ -219,11 +225,7 @@ class MuseDbMigrationTest {
                     .name(dbFile.absolutePath)
                     .callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(68) {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {}
-                        override fun onUpgrade(
-                            db: androidx.sqlite.db.SupportSQLiteDatabase,
-                            oldVersion: Int,
-                            newVersion: Int,
-                        ) {}
+                        override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
                     })
                     .build(),
             ).writableDatabase
@@ -238,17 +240,17 @@ class MuseDbMigrationTest {
                     imageBase64Json TEXT NOT NULL DEFAULT '[]',
                     timestamp INTEGER NOT NULL DEFAULT 0
                 )
-                """.trimIndent()
+                """.trimIndent(),
             )
             helper.execSQL(
                 "INSERT INTO group_chat_messages (id, chatId, senderId, body, imageBase64Json, timestamp) " +
-                    "SELECT id, chatId, senderId, body, imageBase64Json, timestamp FROM group_chat_messages_full"
+                    "SELECT id, chatId, senderId, body, imageBase64Json, timestamp FROM group_chat_messages_full",
             )
             helper.execSQL("DROP TABLE group_chat_messages_full")
             helper.execSQL("CREATE INDEX IF NOT EXISTS index_group_chat_messages_chatId ON group_chat_messages(chatId)")
             helper.execSQL(
                 "INSERT INTO group_chat_messages (id, chatId, senderId, body, timestamp) " +
-                    "VALUES ('legacy-group-msg', 'legacy-group', 'u1', '迁移前的群聊消息', 1)"
+                    "VALUES ('legacy-group-msg', 'legacy-group', 'u1', '迁移前的群聊消息', 1)",
             )
             helper.close()
 
@@ -264,8 +266,14 @@ class MuseDbMigrationTest {
                 val columns = mutableSetOf<String>()
                 while (cursor.moveToNext()) columns.add(cursor.getString(1))
                 for (name in listOf(
-                    "senderType", "senderName", "mood", "reasoning", "whisper_target_id",
-                    "reply_to_id", "messageType", "fileAttachmentsJson",
+                    "senderType",
+                    "senderName",
+                    "mood",
+                    "reasoning",
+                    "whisper_target_id",
+                    "reply_to_id",
+                    "messageType",
+                    "fileAttachmentsJson",
                 )) {
                     assertTrue("迁移后应有 $name 列", name in columns)
                 }
@@ -282,7 +290,7 @@ class MuseDbMigrationTest {
             assertEquals("'[]'", defaults["fileAttachmentsJson"])
             db.openHelper.writableDatabase.query(
                 "SELECT senderType, senderName, body, mood, reasoning, whisper_target_id, reply_to_id, messageType, fileAttachmentsJson " +
-                    "FROM group_chat_messages WHERE id='legacy-group-msg'"
+                    "FROM group_chat_messages WHERE id='legacy-group-msg'",
             ).use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("", cursor.getString(0))
@@ -297,11 +305,11 @@ class MuseDbMigrationTest {
             }
             db.openHelper.writableDatabase.execSQL(
                 "INSERT INTO group_chat_messages (id, chatId, senderType, senderId, senderName, body) " +
-                    "VALUES ('new-group-msg', 'legacy-group', 'assistant', 'a1', '助手', '迁移后写入')"
+                    "VALUES ('new-group-msg', 'legacy-group', 'assistant', 'a1', '助手', '迁移后写入')",
             )
             db.openHelper.writableDatabase.query(
                 "SELECT body, messageType, fileAttachmentsJson, whisper_target_id, reply_to_id, reasoning, mood " +
-                    "FROM group_chat_messages WHERE id='new-group-msg'"
+                    "FROM group_chat_messages WHERE id='new-group-msg'",
             ).use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("迁移后写入", cursor.getString(0))
@@ -318,7 +326,6 @@ class MuseDbMigrationTest {
             context.deleteDatabase(dbFile.name)
         }
     }
-
 
     /**
      * 回归:从"手写迁移产出的真实旧库"(scheduled_tasks 无 created_by)升级后,
@@ -340,11 +347,7 @@ class MuseDbMigrationTest {
                             db.execSQL("CREATE TABLE scheduled_tasks (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL)")
                         }
 
-                        override fun onUpgrade(
-                            db: androidx.sqlite.db.SupportSQLiteDatabase,
-                            oldVersion: Int,
-                            newVersion: Int,
-                        ) = Unit
+                        override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
                     })
                     .build(),
             )
@@ -378,11 +381,7 @@ class MuseDbMigrationTest {
                             db.execSQL("CREATE TABLE group_chats (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL)")
                         }
 
-                        override fun onUpgrade(
-                            db: androidx.sqlite.db.SupportSQLiteDatabase,
-                            oldVersion: Int,
-                            newVersion: Int,
-                        ) = Unit
+                        override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
                     })
                     .build(),
             )
@@ -425,11 +424,7 @@ class MuseDbMigrationTest {
                     .name(dbFile.absolutePath)
                     .callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(75) {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {}
-                        override fun onUpgrade(
-                            db: androidx.sqlite.db.SupportSQLiteDatabase,
-                            oldVersion: Int,
-                            newVersion: Int,
-                        ) {}
+                        override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
                     })
                     .build(),
             ).writableDatabase
@@ -449,7 +444,7 @@ class MuseDbMigrationTest {
                 .build()
 
             db.openHelper.writableDatabase.query(
-                "SELECT imageBase64Json FROM messages WHERE id = 'legacy-msg'"
+                "SELECT imageBase64Json FROM messages WHERE id = 'legacy-msg'",
             ).use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 val stored = JSONArray(cursor.getString(0))
@@ -473,7 +468,6 @@ class MuseDbMigrationTest {
         }
     }
 
-
     @Test
     fun migrateV76To77_rebuildsMessageFtsTable() {
         val dbFile = context.getDatabasePath("muse_migration_76_fts.db").apply {
@@ -492,7 +486,7 @@ class MuseDbMigrationTest {
                 .allowMainThreadQueries()
                 .build()
             db.openHelper.writableDatabase.query(
-                "SELECT sql FROM sqlite_master WHERE type='table' AND name='messages_fts'"
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='messages_fts'",
             ).use { cursor ->
                 assertTrue("76→77 迁移后 messages_fts 应存在", cursor.moveToFirst())
                 val sql = cursor.getString(0)
@@ -504,7 +498,6 @@ class MuseDbMigrationTest {
             context.deleteDatabase(dbFile.name)
         }
     }
-
 
     /** 模拟"已崩溃设备":v79 用旧版迁移 SQL 建出带索引的坏 schema → user_version 已到 80 →
      * 新版用 MIGRATION_80_81 清理索引后校验必须通过。 */
@@ -522,12 +515,12 @@ class MuseDbMigrationTest {
                 "CREATE TABLE ai_moments (id TEXT NOT NULL PRIMARY KEY, " +
                     "content TEXT NOT NULL, type TEXT NOT NULL DEFAULT 'life', mood TEXT, " +
                     "likes INTEGER NOT NULL DEFAULT 0, likedByUser INTEGER NOT NULL DEFAULT 0, " +
-                    "source TEXT NOT NULL DEFAULT 'scheduled', createdAt INTEGER NOT NULL DEFAULT 0)"
+                    "source TEXT NOT NULL DEFAULT 'scheduled', createdAt INTEGER NOT NULL DEFAULT 0)",
             )
             raw.execSQL(
                 "CREATE TABLE ai_moment_comments (id TEXT NOT NULL PRIMARY KEY, " +
                     "momentId TEXT NOT NULL, sender TEXT NOT NULL, content TEXT NOT NULL, " +
-                    "createdAt INTEGER NOT NULL DEFAULT 0)"
+                    "createdAt INTEGER NOT NULL DEFAULT 0)",
             )
             raw.execSQL("CREATE INDEX idx_moments_created ON ai_moments(createdAt DESC)")
             raw.execSQL("CREATE INDEX idx_moment_comments_moment ON ai_moment_comments(momentId)")
@@ -545,9 +538,11 @@ class MuseDbMigrationTest {
                 assertTrue("坏设备遗留动态应保留", c.moveToFirst() && c.getInt(0) == 1)
             }
             // 索引已清理
-            db.query(androidx.sqlite.db.SimpleSQLiteQuery(
-                "SELECT count(*) FROM sqlite_master WHERE type='index' AND name LIKE 'idx_moments%'"
-            )).use { c ->
+            db.query(
+                androidx.sqlite.db.SimpleSQLiteQuery(
+                    "SELECT count(*) FROM sqlite_master WHERE type='index' AND name LIKE 'idx_moments%'",
+                ),
+            ).use { c ->
                 assertTrue("残留索引应被清理", c.moveToFirst() && c.getInt(0) == 0)
             }
             db.close()
@@ -572,12 +567,12 @@ class MuseDbMigrationTest {
                 "CREATE TABLE ai_moments (id TEXT NOT NULL PRIMARY KEY, " +
                     "content TEXT NOT NULL, type TEXT NOT NULL DEFAULT 'life', mood TEXT DEFAULT NULL, " +
                     "likes INTEGER NOT NULL DEFAULT 0, likedByUser INTEGER NOT NULL DEFAULT 0, " +
-                    "source TEXT NOT NULL DEFAULT 'scheduled', createdAt INTEGER NOT NULL DEFAULT 0)"
+                    "source TEXT NOT NULL DEFAULT 'scheduled', createdAt INTEGER NOT NULL DEFAULT 0)",
             )
             raw.execSQL(
                 "CREATE TABLE ai_moment_comments (id TEXT NOT NULL PRIMARY KEY, " +
                     "momentId TEXT NOT NULL, sender TEXT NOT NULL, content TEXT NOT NULL, " +
-                    "createdAt INTEGER NOT NULL DEFAULT 0)"
+                    "createdAt INTEGER NOT NULL DEFAULT 0)",
             )
             raw.execSQL("CREATE INDEX idx_moments_created ON ai_moments(createdAt DESC)")
             raw.execSQL("INSERT INTO ai_moments (id, content, mood, createdAt) VALUES ('m1', '中间版动态', '开心', 100)")
@@ -590,9 +585,11 @@ class MuseDbMigrationTest {
                 .build()
             db.openHelper.writableDatabase
             // 数据(含 mood 值)保留
-            db.query(androidx.sqlite.db.SimpleSQLiteQuery(
-                "SELECT content, mood FROM ai_moments WHERE id='m1'"
-            )).use { c ->
+            db.query(
+                androidx.sqlite.db.SimpleSQLiteQuery(
+                    "SELECT content, mood FROM ai_moments WHERE id='m1'",
+                ),
+            ).use { c ->
                 assertTrue("中间版动态应保留", c.moveToFirst())
                 assertEquals("中间版动态", c.getString(0))
                 assertEquals("开心", c.getString(1))
@@ -603,7 +600,6 @@ class MuseDbMigrationTest {
             context.deleteDatabase(dbFile.name)
         }
     }
-
 
     /**
      * 审查修复 (2.0 B-27): 早期迁移链加入 Robolectric 覆盖 — schemas/ 目录实际存在
@@ -621,8 +617,7 @@ class MuseDbMigrationTest {
      *  - 本 Room 校验矩阵保留 55+ 起点(校验行为真实可靠);
      *  - 22..54 起点由 [migrateEveryLegacyVersionManually] 手动链测试覆盖(真机等价)。
      */
-    private fun availableSchemaVersions(): List<Int> =
-        (55..68).filter { schemaExists(it) }
+    private fun availableSchemaVersions(): List<Int> = (55..68).filter { schemaExists(it) }
 
     private val imageStorageDir: File get() = File(context.cacheDir, "muse_images_migration_test")
 
@@ -636,10 +631,7 @@ class MuseDbMigrationTest {
     }
 
     /** 用反射收集 MuseDb 已注册迁移,按 fromVersion 排序得到完整升级链。 */
-    private fun migrationsFrom(
-        fromVersion: Int,
-        imageDir: File = imageStorageDir,
-    ): List<androidx.room.migration.Migration> {
+    private fun migrationsFrom(fromVersion: Int, imageDir: File = imageStorageDir): List<androidx.room.migration.Migration> {
         // MIGRATION_* 是 MuseDb companion object 里的 val。编译后 Kotlin 只为它们生成
         // 公开 getter(getMIGRATION_x_y),反射取不到对应的字段(实体字段被隐藏/合成),
         // 因此这里从 Companion 实例的公开方法枚举 —— MuseDb::class.java.declaredFields 也是空的。
@@ -698,7 +690,7 @@ class MuseDbMigrationTest {
                                     val index = indices.getJSONObject(j)
                                     db.execSQL(
                                         index.getString("createSql")
-                                            .replace("\${TABLE_NAME}", tableName)
+                                            .replace("\${TABLE_NAME}", tableName),
                                     )
                                 }
                             }
@@ -709,11 +701,7 @@ class MuseDbMigrationTest {
                         }
                     }
 
-                    override fun onUpgrade(
-                        db: androidx.sqlite.db.SupportSQLiteDatabase,
-                        oldVersion: Int,
-                        newVersion: Int,
-                    ) {
+                    override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
                         // Room migration 接管
                     }
                 })
@@ -729,9 +717,7 @@ class MuseDbMigrationTest {
     }
 
     /** 旧 schema 中 NOT NULL 且无默认值的 messages 列,插入测试数据时按类型补默认值。 */
-    private fun requiredExtraMessageColumns(
-        helper: androidx.sqlite.db.SupportSQLiteDatabase,
-    ): List<Pair<String, String>> {
+    private fun requiredExtraMessageColumns(helper: androidx.sqlite.db.SupportSQLiteDatabase): List<Pair<String, String>> {
         val result = mutableListOf<Pair<String, String>>()
         val base = setOf("id", "sessionId", "role", "content", "createdAt")
         helper.query("PRAGMA table_info(messages)").use { cursor ->
@@ -753,11 +739,7 @@ class MuseDbMigrationTest {
                     override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                     }
 
-                    override fun onUpgrade(
-                        db: androidx.sqlite.db.SupportSQLiteDatabase,
-                        oldVersion: Int,
-                        newVersion: Int,
-                    ) {
+                    override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
                     }
                 })
                 .build(),
@@ -767,7 +749,7 @@ class MuseDbMigrationTest {
             """
             INSERT INTO sessions (id, title, createdAt, updatedAt, lastMessagePreview, assistantId)
             VALUES ('legacy-session', '迁移测试', 1, 1, '', 'default')
-            """.trimIndent()
+            """.trimIndent(),
         )
         val requiredExtra = requiredExtraMessageColumns(helper)
         val messageColumns = listOf("id", "sessionId", "role", "content", "createdAt") + requiredExtra.map { it.first }
@@ -776,7 +758,7 @@ class MuseDbMigrationTest {
         ) + requiredExtra.map { it.second }
         helper.execSQL(
             "INSERT INTO messages (${messageColumns.joinToString(", ")}) " +
-                "VALUES (${messageValues.joinToString(", ")})"
+                "VALUES (${messageValues.joinToString(", ")})",
         )
         helper.close()
     }

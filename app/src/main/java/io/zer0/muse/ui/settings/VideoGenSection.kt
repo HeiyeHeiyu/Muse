@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -36,8 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.ai.core.Model
-import io.zer0.muse.R
 import io.zer0.ai.core.ProviderConfig
+import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.VideoGenConfig
 import io.zer0.muse.ui.common.form.MuseChip
@@ -50,6 +49,7 @@ import io.zer0.muse.ui.theme.MuseShapes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import androidx.compose.foundation.lazy.items as lazyItems
 
 /**
  * 视频生成默认参数设置。
@@ -58,10 +58,7 @@ import org.koin.compose.koinInject
  * ChatViewModel.execGenerateVideo 在 LLM 未显式指定时优先使用此配置。
  */
 @Composable
-fun VideoGenSection(
-    settings: SettingsRepository = koinInject(),
-    scope: CoroutineScope,
-) {
+fun VideoGenSection(settings: SettingsRepository = koinInject(), scope: CoroutineScope) {
     val config by settings.videoGenConfigFlow.collectAsStateWithLifecycle(initialValue = VideoGenConfig())
     var localConfig by remember(config) { mutableStateOf(config) }
     var showModelSelector by remember { mutableStateOf(false) }
@@ -130,11 +127,7 @@ fun VideoGenSection(
 }
 
 @Composable
-private fun VideoModelSelectorCard(
-    provider: ProviderConfig?,
-    model: Model?,
-    onClick: () -> Unit,
-) {
+private fun VideoModelSelectorCard(provider: ProviderConfig?, model: Model?, onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -285,17 +278,16 @@ private fun VideoModelSelectorDialog(
 }
 
 @Composable
-private fun VideoModelGridCard(
-    model: Model,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun VideoModelGridCard(model: Model, selected: Boolean, onClick: () -> Unit) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer
-        else MaterialTheme.colorScheme.surfaceContainerLow,
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
         shape = MuseShapes.medium,
         tonalElevation = if (selected) 2.dp else 1.dp,
     ) {

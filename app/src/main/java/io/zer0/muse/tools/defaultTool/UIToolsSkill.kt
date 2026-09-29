@@ -98,8 +98,11 @@ object UIToolsSkill {
             required = setOf("start_x", "start_y", "end_x", "end_y"),
             category = "built-in",
             parameterTypes = mapOf(
-                "start_x" to "integer", "start_y" to "integer",
-                "end_x" to "integer", "end_y" to "integer", "duration" to "integer",
+                "start_x" to "integer",
+                "start_y" to "integer",
+                "end_x" to "integer",
+                "end_y" to "integer",
+                "duration" to "integer",
             ),
             riskLevel = ToolRiskLevel.HIGH,
         ),
@@ -187,10 +190,7 @@ object UIToolsSkill {
         return if (ok) "[成功] 已长按 ($x, $y)" else "[失败] 长按未完成"
     }
 
-    suspend fun swipe(
-        client: AccessibilityClient,
-        startX: Int, startY: Int, endX: Int, endY: Int, duration: Long,
-    ): String {
+    suspend fun swipe(client: AccessibilityClient, startX: Int, startY: Int, endX: Int, endY: Int, duration: Long): String {
         if (!ensureConnected(client)) return "[错误] 无障碍服务未启用"
         val ok = client.swipe(startX, startY, endX, endY, duration)
         return if (ok) "[成功] 已滑动 ($startX,$startY) -> ($endX,$endY)" else "[失败] 滑动未完成"
@@ -265,7 +265,9 @@ class UIToolsRegistrar(
     private val accessibilityClient: AccessibilityClient,
     private val context: Context,
 ) {
-    init { registerAll() }
+    init {
+        registerAll()
+    }
 
     fun registerAll() {
         val client = accessibilityClient

@@ -28,8 +28,8 @@ import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.receive
 import io.ktor.server.request.receiveText
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondText
 import io.ktor.server.response.respondBytes
+import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
@@ -40,6 +40,8 @@ import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.BuildConfig
+import io.zer0.muse.R
+import io.zer0.muse.channel.ChannelInbox
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.session.SessionEntity
 import io.zer0.muse.data.session.SessionRepository
@@ -53,14 +55,12 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
-import java.security.MessageDigest
-import java.util.Date
-import java.util.concurrent.ConcurrentHashMap
-import io.zer0.muse.R
-import io.zer0.muse.channel.ChannelInbox
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.security.MessageDigest
+import java.util.Date
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Phase 8.11: 嵌入式 Web 服务器(Ktor Netty + JWT + mDNS,可选 HTTPS)。
@@ -117,19 +117,23 @@ class WebServer(
     private val channelManager: io.zer0.muse.channel.ChannelManager,
 ) {
     private val hostWebSocketGateway = HostWebSocketGateway(chatViewModel, generationManager, sessionRepo)
+
     @Volatile
     private var server: EmbeddedServer<*, *>? = null
     private val lifecycleMutex = Mutex()
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning
     private val _lastError = MutableStateFlow<String?>(null)
+
     /** 最近一次启动失败的可诊断原因；成功启动后清除。 */
     val lastError: StateFlow<String?> = _lastError
 
     @Volatile
     private var currentPort: Int = 0
+
     @Volatile
     private var currentPassword: String = ""
+
     @Volatile
     private var currentPin: String = ""
 
@@ -550,17 +554,26 @@ class WebServer(
                 val clientIp = call.request.local.remoteHost
                 if (!checkRateLimit(clientIp)) {
                     val remaining = getRateLimitRemainingSeconds(clientIp)
-                    call.respond(HttpStatusCode.TooManyRequests, ErrorResponse("rate_limited", context.getString(R.string.webserver_rate_limited_remaining, remaining)))
+                    call.respond(
+                        HttpStatusCode.TooManyRequests,
+                        ErrorResponse("rate_limited", context.getString(R.string.webserver_rate_limited_remaining, remaining)),
+                    )
                     return@post
                 }
                 val req = resultOf { call.receive<LoginRequest>() }
                     .onError { msg, _ ->
-                        call.respond(HttpStatusCode.BadRequest, ErrorResponse("bad_request", context.getString(R.string.webserver_bad_request, msg)))
+                        call.respond(
+                            HttpStatusCode.BadRequest,
+                            ErrorResponse("bad_request", context.getString(R.string.webserver_bad_request, msg)),
+                        )
                     }.getOrNull()
                 if (req == null) return@post
                 if (!MessageDigest.isEqual(req.password.toByteArray(Charsets.UTF_8), password.toByteArray(Charsets.UTF_8))) {
                     recordFailedAttempt(clientIp)
-                    call.respond(HttpStatusCode.Unauthorized, ErrorResponse("auth_failed", context.getString(R.string.webserver_auth_failed)))
+                    call.respond(
+                        HttpStatusCode.Unauthorized,
+                        ErrorResponse("auth_failed", context.getString(R.string.webserver_auth_failed)),
+                    )
                     return@post
                 }
                 clearAttempts(clientIp)
@@ -577,12 +590,18 @@ class WebServer(
                 val clientIp = call.request.local.remoteHost
                 if (!checkRateLimit(clientIp)) {
                     val remaining = getRateLimitRemainingSeconds(clientIp)
-                    call.respond(HttpStatusCode.TooManyRequests, ErrorResponse("rate_limited", context.getString(R.string.webserver_rate_limited_remaining, remaining)))
+                    call.respond(
+                        HttpStatusCode.TooManyRequests,
+                        ErrorResponse("rate_limited", context.getString(R.string.webserver_rate_limited_remaining, remaining)),
+                    )
                     return@post
                 }
                 val req = resultOf { call.receive<PinLoginRequest>() }
                     .onError { msg, _ ->
-                        call.respond(HttpStatusCode.BadRequest, ErrorResponse("bad_request", context.getString(R.string.webserver_bad_request, msg)))
+                        call.respond(
+                            HttpStatusCode.BadRequest,
+                            ErrorResponse("bad_request", context.getString(R.string.webserver_bad_request, msg)),
+                        )
                     }.getOrNull()
                 if (req == null) return@post
                 if (!pin.matches(PIN_REGEX) || !MessageDigest.isEqual(req.pin.toByteArray(Charsets.UTF_8), pin.toByteArray(Charsets.UTF_8))) {
@@ -616,7 +635,10 @@ class WebServer(
                 get("/api/sessions/{id}/messages") {
                     val id = call.parameters["id"]
                     if (id.isNullOrBlank()) {
-                        call.respond(HttpStatusCode.BadRequest, ErrorResponse("bad_request", context.getString(R.string.webserver_missing_session_id)))
+                        call.respond(
+                            HttpStatusCode.BadRequest,
+                            ErrorResponse("bad_request", context.getString(R.string.webserver_missing_session_id)),
+                        )
                         return@get
                     }
                     // M12: Flow.first() 加超时
@@ -635,7 +657,7 @@ class WebServer(
                             providers = providers.map { it.toSummaryDto() },
                             activeProviderId = activeId,
                             selectedModelId = modelId,
-                        )
+                        ),
                     )
                 }
 
@@ -674,10 +696,7 @@ class WebServer(
 
     /** 签发 24h 有效期的 JWT,与密码登录共用同一签名密钥(password → HMAC-SHA256)。 */
     @Suppress("ReturnCount")
-    private suspend fun servePackagedAsset(
-        call: ApplicationCall,
-        assetPath: String,
-    ): Boolean {
+    private suspend fun servePackagedAsset(call: ApplicationCall, assetPath: String): Boolean {
         if (assetPath.contains("..") || assetPath.startsWith("/") || assetPath.contains("\\")) return false
         val bytes = resultOf { context.assets.open(assetPath).use { it.readBytes() } }.getOrNull() ?: return false
         val contentType = when {
@@ -758,14 +777,13 @@ class WebServer(
         createdAt = createdAt,
     )
 
-    private fun io.zer0.ai.core.ProviderConfig.toSummaryDto(): ProviderSummaryDto =
-        ProviderSummaryDto(
-            id = id,
-            name = displayName,
-            type = type.name,
-            modelCount = models.size,
-            enabled = enabled,
-        )
+    private fun io.zer0.ai.core.ProviderConfig.toSummaryDto(): ProviderSummaryDto = ProviderSummaryDto(
+        id = id,
+        name = displayName,
+        type = type.name,
+        modelCount = models.size,
+        enabled = enabled,
+    )
 
     // ── DTO 数据类 ────────────────────────────────────────────────────────
 
@@ -861,6 +879,7 @@ class WebServer(
         // P2-13: Web 端 PIN 安全相关
         /** PIN/密码登录后下发的 Cookie 名,Web 端浏览器会自动携带。 */
         private const val TOKEN_COOKIE_NAME = "token"
+
         /** 6 位数字 PIN 校验正则。 */
         private val PIN_REGEX = Regex("^\\d{6}$")
 
@@ -887,7 +906,11 @@ class WebServer(
                     return true
                 }
                 return !WebServerAuthPolicy.isRateLimited(
-                    now, tracker.firstAttemptAt, tracker.count, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX_FAILURES,
+                    now,
+                    tracker.firstAttemptAt,
+                    tracker.count,
+                    RATE_LIMIT_WINDOW_MS,
+                    RATE_LIMIT_MAX_FAILURES,
                 )
             }
         }

@@ -1,17 +1,9 @@
 package io.zer0.muse.ui
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.surface.MuseSurface
-import io.zer0.muse.ui.common.surface.museBottomBarInsets
-
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,36 +19,43 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import io.zer0.muse.ui.common.form.MuseTextField
-import io.zer0.muse.ui.common.form.MuseDropdown
-import io.zer0.muse.ui.common.form.MuseFloatingButton
-import io.zer0.muse.ui.common.form.MuseSwitch
 import androidx.compose.material3.Text
-import io.zer0.muse.ui.common.navigation.MuseTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow  // v1.48 (h21): 名称/预览省略号
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.text.style.TextOverflow // v1.48 (h21): 名称/预览省略号
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
 import io.zer0.muse.data.promptinjection.PromptInjectionEntity
-import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
-import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseDropdown
+import io.zer0.muse.ui.common.form.MuseFloatingButton
+import io.zer0.muse.ui.common.form.MuseSwitch
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.navigation.MuseTopBar
+import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.common.settings.SettingsSwitchRow
-import io.zer0.muse.ui.theme.MuseShapes
+import io.zer0.muse.ui.common.state.MuseEmptyState
+import io.zer0.muse.ui.common.surface.MuseSurface
+import io.zer0.muse.ui.common.surface.museBottomBarInsets
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseShapes
 import org.koin.androidx.compose.koinViewModel
 
 /**
@@ -68,10 +67,7 @@ import org.koin.androidx.compose.koinViewModel
  * 与 Lorebook 区别: PromptInjection 由用户在会话中切换"模式"触发,无需关键词匹配。
  */
 @Composable
-fun PromptInjectionScreen(
-    onBack: () -> Unit,
-    viewModel: ChatViewModel = koinViewModel(),
-) {
+fun PromptInjectionScreen(onBack: () -> Unit, viewModel: ChatViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // v1.97 (P1-1): 进入管理页时懒加载 PromptInjection 列表
     LaunchedEffect(Unit) { viewModel.refreshPromptInjections() }
@@ -93,7 +89,10 @@ fun PromptInjectionScreen(
         PromptInjectionEditPage(
             initial = entity,
             isNew = isNew,
-            onBack = { editing = null; isNew = false },
+            onBack = {
+                editing = null
+                isNew = false
+            },
             onSave = { saved ->
                 viewModel.savePromptInjection(saved)
                 editing = null
@@ -147,7 +146,10 @@ fun PromptInjectionScreen(
             items(state.promptInjections, key = { it.id }) { entry ->
                 PromptInjectionCard(
                     entry = entry,
-                    onEdit = { editing = entry; isNew = false },
+                    onEdit = {
+                        editing = entry
+                        isNew = false
+                    },
                     onDelete = { deleteTarget = entry },
                     onToggleEnabled = {
                         viewModel.savePromptInjection(entry.copy(enabled = !entry.enabled))
@@ -203,10 +205,13 @@ private fun PromptInjectionCard(
     MuseSurface(
         modifier = Modifier.fillMaxWidth(),
         shape = MuseShapes.medium,
-        color = if (entry.enabled) MaterialTheme.colorScheme.surfaceVariant
-            else MaterialTheme.colorScheme.surface,
+        color = if (entry.enabled) {
+            MaterialTheme.colorScheme.surfaceVariant
+        } else {
+            MaterialTheme.colorScheme.surface
+        },
     ) {
-Row(
+        Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -223,8 +228,11 @@ Row(
                         text = entry.name.ifBlank { unnamedText },
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
-                        color = if (entry.enabled) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.outline,
+                        color = if (entry.enabled) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.outline
+                        },
                         // v1.48 (h21): 名称单行 + 省略号,防止长名撑破布局
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -343,18 +351,18 @@ private fun PromptInjectionEditPage(
                     MuseCapsuleButton(
                         text = saveText,
                         onClick = {
-                        // L-PID8: updatedAt 由 ViewModel.savePromptInjection 统一设置,此处不再重复
-                        val saved = initial.copy(
-                            name = name.trim().ifBlank { unnamedText },
-                            mode = mode,
-                            displayName = displayName.trim(),
-                            content = content,
-                            priority = priority.trim().toIntOrNull() ?: 0,
-                            insertionPosition = insertionPosition,
-                            enabled = enabled,
-                        )
-                        onSave(saved)
-                    },
+                            // L-PID8: updatedAt 由 ViewModel.savePromptInjection 统一设置,此处不再重复
+                            val saved = initial.copy(
+                                name = name.trim().ifBlank { unnamedText },
+                                mode = mode,
+                                displayName = displayName.trim(),
+                                content = content,
+                                priority = priority.trim().toIntOrNull() ?: 0,
+                                insertionPosition = insertionPosition,
+                                enabled = enabled,
+                            )
+                            onSave(saved)
+                        },
                         variant = IosCapsuleButtonVariant.Text,
                         fillWidth = false,
                     )

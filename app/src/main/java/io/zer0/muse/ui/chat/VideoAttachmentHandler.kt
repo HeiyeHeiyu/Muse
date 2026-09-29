@@ -141,11 +141,7 @@ class VideoAttachmentHandler {
      * @param frameCount 期望的关键帧数量（默认 3：首/中/末），实际帧数可能少于该值
      * @return base64 字符串列表（无 data: 前缀），失败时返回空列表
      */
-    suspend fun extractKeyFrames(
-        uri: Uri,
-        context: Context,
-        frameCount: Int = 3,
-    ): List<String> = withContext(Dispatchers.IO) {
+    suspend fun extractKeyFrames(uri: Uri, context: Context, frameCount: Int = 3): List<String> = withContext(Dispatchers.IO) {
         val retriever = MediaMetadataRetriever()
         try {
             retriever.setDataSource(context, uri)

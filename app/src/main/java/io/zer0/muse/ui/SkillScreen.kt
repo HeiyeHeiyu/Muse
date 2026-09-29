@@ -17,22 +17,18 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseSwitch
 import androidx.compose.material3.Text
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.navigation.MuseTopBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -45,13 +41,17 @@ import io.zer0.common.AppJson
 import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.data.skill.SkillEntity
-import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.data.skill.SkillRepository
 import io.zer0.muse.tools.SkillExecutor
 import io.zer0.muse.tools.SkillImporter
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseSwitch
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.settings.SettingsGroup
+import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseMonoFontFamily
@@ -77,10 +77,7 @@ import org.koin.compose.koinInject
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SkillScreen(
-    onBack: () -> Unit,
-    skillRepository: SkillRepository = koinInject(),
-) {
+fun SkillScreen(onBack: () -> Unit, skillRepository: SkillRepository = koinInject()) {
     val skills by skillRepository.observeAll.collectAsStateWithLifecycle(initialValue = null)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -125,22 +122,24 @@ fun SkillScreen(
                     } ?: ""
                 }
                 val recipeResult = SkillImporter.parseRecipe(text)
-            if (recipeResult is SkillImporter.RecipeParseResult.Ok) {
-                var count = 0
-                recipeResult.skills.forEach { skill ->
-                    resultOf { skillRepository.upsert(skill) }
-                        .onSuccess { count++ }
-                        .onError { msg, _ -> MuseToast.show(context.getString(R.string.skill_operation_failed, msg)) }
-                }
-                importMessage = context.getString(R.string.skill_recipe_imported, count)
-            } else when (val result = SkillImporter.parse(text)) {
-                    is SkillImporter.Result.Ok -> {
-                        // M-SKUI1: 用 resultOf 替代 runCatching,避免吞 CancellationException
-                        resultOf { skillRepository.upsert(result.skill) }
-                            .onSuccess { importMessage = context.getString(R.string.skill_imported, result.skill.name) }
-                            .onError { msg, _ -> importMessage = context.getString(R.string.skill_import_failed, msg) }
+                if (recipeResult is SkillImporter.RecipeParseResult.Ok) {
+                    var count = 0
+                    recipeResult.skills.forEach { skill ->
+                        resultOf { skillRepository.upsert(skill) }
+                            .onSuccess { count++ }
+                            .onError { msg, _ -> MuseToast.show(context.getString(R.string.skill_operation_failed, msg)) }
                     }
-                    is SkillImporter.Result.Err -> importMessage = result.reason
+                    importMessage = context.getString(R.string.skill_recipe_imported, count)
+                } else {
+                    when (val result = SkillImporter.parse(text)) {
+                        is SkillImporter.Result.Ok -> {
+                            // M-SKUI1: 用 resultOf 替代 runCatching,避免吞 CancellationException
+                            resultOf { skillRepository.upsert(result.skill) }
+                                .onSuccess { importMessage = context.getString(R.string.skill_imported, result.skill.name) }
+                                .onError { msg, _ -> importMessage = context.getString(R.string.skill_import_failed, msg) }
+                        }
+                        is SkillImporter.Result.Err -> importMessage = result.reason
+                    }
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -254,7 +253,9 @@ fun SkillScreen(
             skill = skill,
             isBuiltIn = skill.id in builtInIds,
             onDismiss = { detailTarget = null },
-            onDelete = if (skill.id in builtInIds) null else {
+            onDelete = if (skill.id in builtInIds) {
+                null
+            } else {
                 {
                     detailTarget = null
                     deleteConfirmTarget = skill
@@ -358,12 +359,7 @@ fun SkillScreen(
 }
 
 @Composable
-private fun SkillRow(
-    skill: SkillEntity,
-    isBuiltIn: Boolean,
-    onToggleEnabled: (Boolean) -> Unit,
-    onShowDetail: () -> Unit,
-) {
+private fun SkillRow(skill: SkillEntity, isBuiltIn: Boolean, onToggleEnabled: (Boolean) -> Unit, onShowDetail: () -> Unit) {
     val unnamedText = stringResource(R.string.skill_unnamed)
     val stateLabel = if (skill.enabled) stringResource(R.string.skill_enabled) else stringResource(R.string.skill_disabled)
     // 预提取 semantics contentDescription(semantics lambda 非 @Composable,不能直接调用 stringResource)
@@ -392,8 +388,11 @@ private fun SkillRow(
                         text = skill.name.ifBlank { unnamedText },
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
-                        color = if (skill.enabled) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.outline,
+                        color = if (skill.enabled) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.outline
+                        },
                     )
                     if (!skill.enabled) {
                         Spacer(Modifier.size(6.dp))
@@ -576,10 +575,7 @@ private fun SkillDetailDialog(
  * 每个参数显示:名称、type、是否必填、description。
  */
 @Composable
-private fun ParameterSchemaView(
-    parametersJson: String,
-    requiredSet: Set<String>,
-) {
+private fun ParameterSchemaView(parametersJson: String, requiredSet: Set<String>) {
     val params: List<Pair<String, JsonObject?>> = remember(parametersJson) {
         val schemaObj = resultOf<JsonObject> {
             AppJson.decodeFromString(JsonObject.serializer(), parametersJson)

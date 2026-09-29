@@ -164,20 +164,19 @@ class UpdateChecker(
      *  - 协程取消时调用 [Call.cancel],中断阻塞的网络调用
      *  - 不占用线程等待响应(enqueue 由 OkHttp 调度器线程回调)
      */
-    private suspend fun exec(request: Request): Response =
-        suspendCancellableCoroutine { cont ->
-            val call = client.newCall(request)
-            cont.invokeOnCancellation { resultOf { call.cancel() } }
-            call.enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    if (cont.isActive) cont.resumeWithException(e)
-                }
+    private suspend fun exec(request: Request): Response = suspendCancellableCoroutine { cont ->
+        val call = client.newCall(request)
+        cont.invokeOnCancellation { resultOf { call.cancel() } }
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                if (cont.isActive) cont.resumeWithException(e)
+            }
 
-                override fun onResponse(call: Call, response: Response) {
-                    if (cont.isActive) cont.resume(response) else response.close()
-                }
-            })
-        }
+            override fun onResponse(call: Call, response: Response) {
+                if (cont.isActive) cont.resume(response) else response.close()
+            }
+        })
+    }
 
     /**
      * 解析 ISO8601 字符串(如 "2025-01-01T00:00:00Z")为毫秒时间戳。
@@ -194,6 +193,7 @@ class UpdateChecker(
 
     companion object {
         private const val TAG = "UpdateChecker"
+
         /** User-Agent(GitHub API 强制要求,否则 403)。 */
         private const val USER_AGENT = "muse-android"
         private val SHA256_REGEX = Regex("^[0-9a-fA-F]{64}$")
@@ -214,10 +214,9 @@ class UpdateChecker(
         }.getOrDefault(false)
 
         /** 检查 Release 资产是否可作为 APK 下载入口。缺失 sha256 仅表示旧 Release 无摘要。 */
-        fun isTrustedApkAsset(asset: ApkAsset): Boolean =
-            asset.name.endsWith(".apk", ignoreCase = true) &&
-                isTrustedDownloadUrl(asset.downloadUrl) &&
-                (asset.sha256 == null || SHA256_REGEX.matches(asset.sha256))
+        fun isTrustedApkAsset(asset: ApkAsset): Boolean = asset.name.endsWith(".apk", ignoreCase = true) &&
+            isTrustedDownloadUrl(asset.downloadUrl) &&
+            (asset.sha256 == null || SHA256_REGEX.matches(asset.sha256))
         /** 默认 GitHub 仓库(owner/name)。 */
         /** v1.0.55: 修正为实际仓库 Zer0Qing/Muse(原误写 zer0/muse,404 后一直显示已是最新)。 */
         const val DEFAULT_REPO = "Zer0Qing/Muse"

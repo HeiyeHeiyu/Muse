@@ -49,10 +49,7 @@ class ChatMessageController(
      * 从已持久化的工具展示消息恢复 Agent 计划。
      * 计划本体只存在 SkillAgentToolsImpl 内存缓存,切换会话/重启后需按消息顺序重放恢复。
      */
-    suspend fun restoreAgentPlansForSession(
-        sessionId: String,
-        visibleMessages: List<UIMessage>,
-    ): Map<String, AgentPlan> {
+    suspend fun restoreAgentPlansForSession(sessionId: String, visibleMessages: List<UIMessage>): Map<String, AgentPlan> {
         val persistedToolMessages =
             resultOf {
                 sessionRepository.getToolCallMessages(sessionId)
@@ -108,10 +105,7 @@ class ChatMessageController(
         }
     }
 
-    fun selectUserVariant(
-        userGroupId: String,
-        variantIndex: Int,
-    ) {
+    fun selectUserVariant(userGroupId: String, variantIndex: Int) {
         val tree = treeState.value
         val node =
             tree.userNodes.firstOrNull { user ->
@@ -125,22 +119,14 @@ class ChatMessageController(
     /**
      * 切换助手回复变体（P0 对话树）：作用域仅限当前用户变体下的指定助手组。
      */
-    fun selectAssistantVariant(
-        userGroupId: String,
-        assistantGroupId: String,
-        index: Int,
-    ) {
+    fun selectAssistantVariant(userGroupId: String, assistantGroupId: String, index: Int) {
         val updated = treeState.value.selectAssistantVariant(userGroupId, assistantGroupId, index)
         treeState.value = updated
         accessor.updateMessages { updated.displayMessages }
     }
 
     /** v1.0.63: 把归一化后的分支索引/计数回写数据库,修复历史坏数据。 */
-    suspend fun healBranchCounts(
-        sessionId: String,
-        original: List<UIMessage>,
-        tree: ConversationTree,
-    ) {
+    suspend fun healBranchCounts(sessionId: String, original: List<UIMessage>, tree: ConversationTree) {
         val originalById = original.associateBy { it.id.toString() }
         val normalizedAll =
             buildList {
@@ -200,10 +186,7 @@ class ChatMessageController(
     }
 
     /** 编辑 assistant 消息内容(乐观更新消息列表 + 落库)。 */
-    fun editAssistantMessage(
-        messageId: kotlin.uuid.Uuid,
-        newContent: String,
-    ) {
+    fun editAssistantMessage(messageId: kotlin.uuid.Uuid, newContent: String) {
         val snapshot = accessor.snapshot
         val messages = accessor.messagesSnapshot
         val index = messages.indexOfFirst { it.id == messageId && it.role == MessageRole.ASSISTANT }
@@ -228,10 +211,7 @@ class ChatMessageController(
     }
 
     /** 缓存列表滚动位置,切页/后台后恢复。Agent 模式写入独立缓存(见 ChatUiState 字段注释),退出/切换不互相污染。 */
-    fun onListScrollPositionChanged(
-        index: Int,
-        offset: Int,
-    ) {
+    fun onListScrollPositionChanged(index: Int, offset: Int) {
         accessor.update {
             if (it.isAgentMode) {
                 it.copy(agentListFirstVisibleItemIndex = index, agentListFirstVisibleItemScrollOffset = offset)
@@ -249,8 +229,8 @@ class ChatMessageController(
             val newExpanded = !(currentState.isMoodExpanded ?: default)
             current.copy(
                 messageExpandedStates =
-                    current.messageExpandedStates +
-                        (messageId to currentState.copy(isMoodExpanded = newExpanded)),
+                current.messageExpandedStates +
+                    (messageId to currentState.copy(isMoodExpanded = newExpanded)),
             )
         }
     }
@@ -263,8 +243,8 @@ class ChatMessageController(
             val newExpanded = !(currentState.isReasoningExpanded ?: default)
             current.copy(
                 messageExpandedStates =
-                    current.messageExpandedStates +
-                        (messageId to currentState.copy(isReasoningExpanded = newExpanded)),
+                current.messageExpandedStates +
+                    (messageId to currentState.copy(isReasoningExpanded = newExpanded)),
             )
         }
     }
@@ -277,8 +257,8 @@ class ChatMessageController(
             val newExpanded = !(currentState.isReflectionExpanded ?: default)
             current.copy(
                 messageExpandedStates =
-                    current.messageExpandedStates +
-                        (messageId to currentState.copy(isReflectionExpanded = newExpanded)),
+                current.messageExpandedStates +
+                    (messageId to currentState.copy(isReflectionExpanded = newExpanded)),
             )
         }
     }

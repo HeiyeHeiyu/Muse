@@ -44,10 +44,7 @@ import io.zer0.muse.ui.theme.statusColors
  * 卡片右上角带下载 PNG 按钮(经 [onDownload] 回调,由调用方实现 Canvas→Bitmap→相册)。
  */
 @Composable
-fun DataCardRenderer(
-    card: DataCard,
-    onDownload: ((DataCard) -> Unit)? = null,
-) {
+fun DataCardRenderer(card: DataCard, onDownload: ((DataCard) -> Unit)? = null) {
     val colorScheme = MaterialTheme.colorScheme
     val accent = MaterialTheme.colorScheme.primary
 
@@ -157,12 +154,8 @@ internal fun sectorColor(palette: List<Color>, index: Int): Color =
     if (palette.isEmpty()) Color.Unspecified else palette[index % palette.size]
 
 /** 图例色点:donut 与扇区同序同色,其余图表用主题强调色。 */
-internal fun legendSwatchColor(
-    cardType: String,
-    index: Int,
-    accent: Color,
-    donutPalette: List<Color>,
-): Color = if (cardType == "donut") sectorColor(donutPalette, index) else accent
+internal fun legendSwatchColor(cardType: String, index: Int, accent: Color, donutPalette: List<Color>): Color =
+    if (cardType == "donut") sectorColor(donutPalette, index) else accent
 
 /** 柱状图。 */
 @Composable

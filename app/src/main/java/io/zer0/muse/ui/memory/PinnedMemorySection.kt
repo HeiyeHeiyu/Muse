@@ -25,11 +25,7 @@ import io.zer0.muse.ui.theme.MuseMotion
  * 显示所有置顶记忆及移除按钮。
  */
 @Composable
-fun PinnedMemorySection(
-    pinnedEntries: List<PinnedMemoryStore.PinnedEntry>,
-    onRemove: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun PinnedMemorySection(pinnedEntries: List<PinnedMemoryStore.PinnedEntry>, onRemove: (String) -> Unit, modifier: Modifier = Modifier) {
     AnimatedVisibility(
         visible = pinnedEntries.isNotEmpty(),
         modifier = modifier,
@@ -40,7 +36,7 @@ fun PinnedMemorySection(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             color = MaterialTheme.colorScheme.secondaryContainer,
         ) {
-Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(MuseIcons.pin, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
                     Text(

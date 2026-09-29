@@ -194,19 +194,18 @@ private fun List<UIMessage>.filterRenderableChatMessages(): List<UIMessage> = fi
  * [android.view.KeyEvent],访问 keyCode/action(Compose 包装层 type/key 属性
  * 在不同版本可用性不一致,nativeKeyEvent 稳定可靠)。
  */
-private fun Modifier.onVolumeKeyEvent(onScroll: (Float) -> Unit): Modifier =
-    this.onKeyEvent { event ->
-        val native = event.nativeKeyEvent
-        if (native.action != KeyEvent.ACTION_DOWN) return@onKeyEvent false
-        val direction =
-            when (native.keyCode) {
-                KeyEvent.KEYCODE_VOLUME_UP -> -1f
-                KeyEvent.KEYCODE_VOLUME_DOWN -> 1f
-                else -> return@onKeyEvent false
-            }
-        onScroll(direction)
-        true
-    }
+private fun Modifier.onVolumeKeyEvent(onScroll: (Float) -> Unit): Modifier = this.onKeyEvent { event ->
+    val native = event.nativeKeyEvent
+    if (native.action != KeyEvent.ACTION_DOWN) return@onKeyEvent false
+    val direction =
+        when (native.keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> -1f
+            KeyEvent.KEYCODE_VOLUME_DOWN -> 1f
+            else -> return@onKeyEvent false
+        }
+    onScroll(direction)
+    true
+}
 
 /**
  * 聊天页 — 顶部 Tab 导航化,移除 Drawer 架构。
@@ -266,17 +265,17 @@ fun ChatScreen(
     val listState =
         rememberLazyListState(
             initialFirstVisibleItemIndex =
-                if (state.isAgentMode && agentCachedIndex != null) {
-                    agentCachedIndex
-                } else {
-                    state.listFirstVisibleItemIndex
-                },
+            if (state.isAgentMode && agentCachedIndex != null) {
+                agentCachedIndex
+            } else {
+                state.listFirstVisibleItemIndex
+            },
             initialFirstVisibleItemScrollOffset =
-                if (state.isAgentMode && agentCachedIndex != null) {
-                    state.agentListFirstVisibleItemScrollOffset
-                } else {
-                    state.listFirstVisibleItemScrollOffset
-                },
+            if (state.isAgentMode && agentCachedIndex != null) {
+                state.agentListFirstVisibleItemScrollOffset
+            } else {
+                state.listFirstVisibleItemScrollOffset
+            },
         )
     // v1.45: 滚动位置变化时同步缓存到 ViewModel
     // v1.100: 加 distinctUntilChanged + sample(100ms) 降频,避免滚动时高频
@@ -391,11 +390,11 @@ fun ChatScreen(
     var savedPaginatorScrollOffset by remember { mutableStateOf(0) }
     val visibleMessages by produceState(
         initialValue =
-            if (isAgentMode && !state.isAgentMode && !state.isSwitchingSession) {
-                emptyList()
-            } else {
-                messages.filterRenderableChatMessages()
-            },
+        if (isAgentMode && !state.isAgentMode && !state.isSwitchingSession) {
+            emptyList()
+        } else {
+            messages.filterRenderableChatMessages()
+        },
         messages,
         paginatorPageCount,
         performanceMode,
@@ -459,7 +458,7 @@ fun ChatScreen(
                     (
                         msg.toolCallInfo != null ||
                             msg.reasoning?.isNotBlank() == true
-                    )
+                        )
             }.filterIsInstance<io.zer0.muse.ui.chat.ChatDisplayItem.Grouped>()
                 .flatMap { run -> run.msgs.map { it.id.toString() to run } }
                 .toMap()
@@ -937,17 +936,17 @@ fun ChatScreen(
             if (gradient != null) {
                 androidx.compose.foundation.layout.Box(
                     modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .background(
-                                androidx.compose.ui.graphics.Brush.linearGradient(
-                                    colors =
-                                        listOf(
-                                            Color(gradient.startColorArgb.toInt()),
-                                            Color(gradient.endColorArgb.toInt()),
-                                        ),
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            androidx.compose.ui.graphics.Brush.linearGradient(
+                                colors =
+                                listOf(
+                                    Color(gradient.startColorArgb.toInt()),
+                                    Color(gradient.endColorArgb.toInt()),
                                 ),
                             ),
+                        ),
                 )
             }
         }
@@ -984,11 +983,11 @@ fun ChatScreen(
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Row(
                                 modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .statusBarsPadding()
-                                        // v1.0.75 fix (用户反馈): 8dp → 4dp,三岛更贴近状态栏
-                                        .padding(horizontal = MusePaddings.screen, vertical = 4.dp),
+                                Modifier
+                                    .fillMaxWidth()
+                                    .statusBarsPadding()
+                                    // v1.0.75 fix (用户反馈): 8dp → 4dp,三岛更贴近状态栏
+                                    .padding(horizontal = MusePaddings.screen, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
                             ) {
@@ -1014,16 +1013,16 @@ fun ChatScreen(
                                 ) {
                                     Box(
                                         modifier =
-                                            Modifier
-                                                .fillMaxWidth()
-                                                // v1.136 T1: 点击=切换会话,长按=更换助手
-                                                .combinedClickable(
-                                                    interactionSource = sessionTitleInteractionSource,
-                                                    indication = null,
-                                                    onClick = { sheetState.showSessionSheet = true },
-                                                    onLongClick = { sheetState.showAssistantSwitchSheet = true },
-                                                )
-                                                .semantics { contentDescription = sessionCd },
+                                        Modifier
+                                            .fillMaxWidth()
+                                            // v1.136 T1: 点击=切换会话,长按=更换助手
+                                            .combinedClickable(
+                                                interactionSource = sessionTitleInteractionSource,
+                                                indication = null,
+                                                onClick = { sheetState.showSessionSheet = true },
+                                                onLongClick = { sheetState.showAssistantSwitchSheet = true },
+                                            )
+                                            .semantics { contentDescription = sessionCd },
                                         contentAlignment = Alignment.Center,
                                     ) {
                                         Column(
@@ -1033,9 +1032,9 @@ fun ChatScreen(
                                             Text(
                                                 text = assistantTitle,
                                                 style =
-                                                    MaterialTheme.typography.titleMedium.copy(
-                                                        fontWeight = FontWeight.Bold,
-                                                    ),
+                                                MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                ),
                                                 color = MaterialTheme.colorScheme.onBackground,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
@@ -1083,91 +1082,91 @@ fun ChatScreen(
                                         // v1.0.90: 保持右上角三点浮层（曾改成底部面板，按反馈改回）。
                                         MuseFloatingActionMenu(
                                             items =
-                                                listOf(
-                                                    MuseFloatingActionItem(
-                                                        key = "assistant",
-                                                        icon = MuseIcons.chat,
-                                                        label = stringResource(R.string.chat_switch_assistant),
-                                                        enabled = !isStreaming,
-                                                        onClick = {
-                                                            showTopMenu = false
-                                                            // 复用标题长按的会话级助手切换 Sheet，
-                                                            // 不跳助手管理页，也不修改全局默认助手。
-                                                            sheetState.showAssistantSwitchSheet = true
-                                                        },
-                                                    ),
-                                                    MuseFloatingActionItem(
-                                                        key = "proactive_toggle",
-                                                        icon = MuseIcons.sparkle,
-                                                        label = stringResource(R.string.chat_proactive_toggle),
-                                                        enabled = !isStreaming,
-                                                        checked = proactiveConfig.enabled,
-                                                        onClick = {
-                                                            showTopMenu = false
-                                                            ioScope.launch {
-                                                                settings.saveProactiveMessageConfig(
-                                                                    proactiveConfig.copy(enabled = !proactiveConfig.enabled),
-                                                                )
-                                                            }
-                                                        },
-                                                    ),
-                                                    MuseFloatingActionItem(
-                                                        key = "provider",
-                                                        // UI-FIX: 原来与「主动消息」共用 AutoAwesome(闪光)，两项图标撞车，
-                                                        // 供应商/模型改用芯片图标。
-                                                        icon = MuseIcons.memoryChip,
-                                                        label = stringResource(R.string.chat_select_provider),
-                                                        enabled = !isStreaming,
-                                                        onClick = {
-                                                            showTopMenu = false
-                                                            sheetState.showModelSheet = true
-                                                        },
-                                                    ),
-                                                    MuseFloatingActionItem(
-                                                        key = "compress",
-                                                        icon = MuseIcons.gitMerge,
-                                                        label = stringResource(R.string.chat_update_compress),
-                                                        enabled = !isStreaming && !state.isCompressing && messages.size >= 2,
-                                                        onClick = {
-                                                            showTopMenu = false
-                                                            compressKeepText = ""
-                                                            compressInstruction = ""
-                                                            showCompressDialog = true
-                                                        },
-                                                    ),
-                                                    MuseFloatingActionItem(
-                                                        key = "find",
-                                                        icon = MuseIcons.search,
-                                                        label = stringResource(R.string.chat_find_in_conversation),
-                                                        enabled = messages.isNotEmpty(),
-                                                        onClick = {
-                                                            showTopMenu = false
-                                                            showInChatSearch = true
-                                                        },
-                                                    ),
-                                                    // v2.0.1: 工具调用记录（浮标改为仅生成中显示，历史入口收到菜单）
-                                                    MuseFloatingActionItem(
-                                                        key = "tool_history",
-                                                        icon = MuseIcons.wrench,
-                                                        label = stringResource(R.string.chat_tool_calls_title),
-                                                        enabled = messages.isNotEmpty(),
-                                                        onClick = {
-                                                            showTopMenu = false
-                                                            sheetState.showToolCallSheet = true
-                                                        },
-                                                    ),
-                                                    // v2.x: 委员会 — 从对话中随时召唤一组助手开临时群聊讨论
-                                                    MuseFloatingActionItem(
-                                                        key = "committee",
-                                                        icon = MuseIcons.users,
-                                                        label = stringResource(R.string.chat_committee),
-                                                        enabled = !isStreaming,
-                                                        onClick = {
-                                                            showTopMenu = false
-                                                            showCommitteeDialog = true
-                                                        },
-                                                    ),
+                                            listOf(
+                                                MuseFloatingActionItem(
+                                                    key = "assistant",
+                                                    icon = MuseIcons.chat,
+                                                    label = stringResource(R.string.chat_switch_assistant),
+                                                    enabled = !isStreaming,
+                                                    onClick = {
+                                                        showTopMenu = false
+                                                        // 复用标题长按的会话级助手切换 Sheet，
+                                                        // 不跳助手管理页，也不修改全局默认助手。
+                                                        sheetState.showAssistantSwitchSheet = true
+                                                    },
                                                 ),
+                                                MuseFloatingActionItem(
+                                                    key = "proactive_toggle",
+                                                    icon = MuseIcons.sparkle,
+                                                    label = stringResource(R.string.chat_proactive_toggle),
+                                                    enabled = !isStreaming,
+                                                    checked = proactiveConfig.enabled,
+                                                    onClick = {
+                                                        showTopMenu = false
+                                                        ioScope.launch {
+                                                            settings.saveProactiveMessageConfig(
+                                                                proactiveConfig.copy(enabled = !proactiveConfig.enabled),
+                                                            )
+                                                        }
+                                                    },
+                                                ),
+                                                MuseFloatingActionItem(
+                                                    key = "provider",
+                                                    // UI-FIX: 原来与「主动消息」共用 AutoAwesome(闪光)，两项图标撞车，
+                                                    // 供应商/模型改用芯片图标。
+                                                    icon = MuseIcons.memoryChip,
+                                                    label = stringResource(R.string.chat_select_provider),
+                                                    enabled = !isStreaming,
+                                                    onClick = {
+                                                        showTopMenu = false
+                                                        sheetState.showModelSheet = true
+                                                    },
+                                                ),
+                                                MuseFloatingActionItem(
+                                                    key = "compress",
+                                                    icon = MuseIcons.gitMerge,
+                                                    label = stringResource(R.string.chat_update_compress),
+                                                    enabled = !isStreaming && !state.isCompressing && messages.size >= 2,
+                                                    onClick = {
+                                                        showTopMenu = false
+                                                        compressKeepText = ""
+                                                        compressInstruction = ""
+                                                        showCompressDialog = true
+                                                    },
+                                                ),
+                                                MuseFloatingActionItem(
+                                                    key = "find",
+                                                    icon = MuseIcons.search,
+                                                    label = stringResource(R.string.chat_find_in_conversation),
+                                                    enabled = messages.isNotEmpty(),
+                                                    onClick = {
+                                                        showTopMenu = false
+                                                        showInChatSearch = true
+                                                    },
+                                                ),
+                                                // v2.0.1: 工具调用记录（浮标改为仅生成中显示，历史入口收到菜单）
+                                                MuseFloatingActionItem(
+                                                    key = "tool_history",
+                                                    icon = MuseIcons.wrench,
+                                                    label = stringResource(R.string.chat_tool_calls_title),
+                                                    enabled = messages.isNotEmpty(),
+                                                    onClick = {
+                                                        showTopMenu = false
+                                                        sheetState.showToolCallSheet = true
+                                                    },
+                                                ),
+                                                // v2.x: 委员会 — 从对话中随时召唤一组助手开临时群聊讨论
+                                                MuseFloatingActionItem(
+                                                    key = "committee",
+                                                    icon = MuseIcons.users,
+                                                    label = stringResource(R.string.chat_committee),
+                                                    enabled = !isStreaming,
+                                                    onClick = {
+                                                        showTopMenu = false
+                                                        showCommitteeDialog = true
+                                                    },
+                                                ),
+                                            ),
                                             onDismiss = { showTopMenu = false },
                                         )
                                     }
@@ -1188,9 +1187,9 @@ fun ChatScreen(
                             BrowserStatusCapsule(
                                 manager = currentBrowserManager,
                                 modifier =
-                                    Modifier
-                                        .align(Alignment.CenterHorizontally)
-                                        .padding(bottom = MusePaddings.tightGap),
+                                Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(bottom = MusePaddings.tightGap),
                             )
                         }
                     }
@@ -1305,11 +1304,11 @@ fun ChatScreen(
                                 onInterject = viewModel::interject,
                                 onEnqueuePending = viewModel::enqueuePendingSend,
                                 replyingTo =
-                                    state.replyingTo?.let { r ->
-                                        // v1.0.72 fix: 引用块用最新消息对象 — 流式消息内容实时更新,
-                                        // 引用时捕获的旧对象可能 content 为空(第一条消息引用 UI 为空的根因)
-                                        messages.find { it.id == r.id } ?: r
-                                    },
+                                state.replyingTo?.let { r ->
+                                    // v1.0.72 fix: 引用块用最新消息对象 — 流式消息内容实时更新,
+                                    // 引用时捕获的旧对象可能 content 为空(第一条消息引用 UI 为空的根因)
+                                    messages.find { it.id == r.id } ?: r
+                                },
                                 onClearReply = { viewModel.setReplyingTo(null) },
                                 replyQuoteOverride = state.replyQuoteOverride,
                                 onEditReply = { viewModel.setReplyQuoteOverride(it) },
@@ -1481,11 +1480,11 @@ fun ChatScreen(
             },
             // 背景图/渐变都由外层 Box 绘制; Scaffold 必须透明,否则默认 background 会把渐变盖住。
             containerColor =
-                if (chatBackground.isNullOrBlank() && chatGradient == null) {
-                    MaterialTheme.colorScheme.background
-                } else {
-                    androidx.compose.ui.graphics.Color.Transparent
-                },
+            if (chatBackground.isNullOrBlank() && chatGradient == null) {
+                MaterialTheme.colorScheme.background
+            } else {
+                androidx.compose.ui.graphics.Color.Transparent
+            },
         ) { innerPadding ->
             val scrollToBottomScope = rememberCoroutineScope()
             // P2-13: 桌面端快捷键拦截 — Ctrl+Shift+C 复制最后一条 AI 回复
@@ -1519,24 +1518,24 @@ fun ChatScreen(
             val topInset = innerPadding.calculateTopPadding()
             Box(
                 modifier =
-                    Modifier
-                        .fillMaxSize()
-                        // v1.0.72 fix: 去掉 top/bottom 外层 padding — 悬浮控件延伸到系统栏边界。
-                        // 消息列表自身在 contentPadding 中避让输入栏,右侧导航条不再提前结束。
-                        // P2-13: 桌面端快捷键 — Ctrl+Shift+C 复制最后一条 AI 回复
-                        // 仅在物理键盘 + Expanded 窗口下生效,避免与软键盘 IME Action 冲突
-                        .onKeyEvent { event ->
-                            if (!desktopShortcutsEnabled) return@onKeyEvent false
-                            if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
-                            if (event.key == DesktopShortcuts.COPY_LAST_REPLY &&
-                                event.isCtrlPressed && event.isShiftPressed
-                            ) {
-                                copyLastReply()
-                                true
-                            } else {
-                                false
-                            }
-                        },
+                Modifier
+                    .fillMaxSize()
+                    // v1.0.72 fix: 去掉 top/bottom 外层 padding — 悬浮控件延伸到系统栏边界。
+                    // 消息列表自身在 contentPadding 中避让输入栏,右侧导航条不再提前结束。
+                    // P2-13: 桌面端快捷键 — Ctrl+Shift+C 复制最后一条 AI 回复
+                    // 仅在物理键盘 + Expanded 窗口下生效,避免与软键盘 IME Action 冲突
+                    .onKeyEvent { event ->
+                        if (!desktopShortcutsEnabled) return@onKeyEvent false
+                        if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                        if (event.key == DesktopShortcuts.COPY_LAST_REPLY &&
+                            event.isCtrlPressed && event.isShiftPressed
+                        ) {
+                            copyLastReply()
+                            true
+                        } else {
+                            false
+                        }
+                    },
                 contentAlignment = Alignment.Center,
             ) {
                 // B7-01: 多选操作条
@@ -1571,13 +1570,13 @@ fun ChatScreen(
                         },
                         onExit = { viewModel.setSelectionMode(false) },
                         modifier =
-                            Modifier
-                                .align(Alignment.TopCenter)
-                                // v1.0.72: 让位悬浮三岛(不遮挡)
-                                .padding(top = topInset)
-                                .fillMaxWidth()
-                                .padding(horizontal = MusePaddings.screen, vertical = MusePaddings.contentGap)
-                                .zIndex(10f),
+                        Modifier
+                            .align(Alignment.TopCenter)
+                            // v1.0.72: 让位悬浮三岛(不遮挡)
+                            .padding(top = topInset)
+                            .fillMaxWidth()
+                            .padding(horizontal = MusePaddings.screen, vertical = MusePaddings.contentGap)
+                            .zIndex(10f),
                     )
                     // 审计修复 (8.5): 多选删除确认对话框
                     if (showDeleteConfirm) {
@@ -1716,27 +1715,27 @@ fun ChatScreen(
                                 LazyColumn(
                                     state = listState,
                                     modifier =
-                                        Modifier
-                                            .fillMaxSize()
-                                            .then(
-                                                if (widthClass == WindowWidthClass.Expanded) {
-                                                    Modifier.widthIn(max = 720.dp)
-                                                } else {
-                                                    Modifier
-                                                },
-                                            )
-                                            // v0.31: 音量键滚动受 chatPrefs.volumeKeyScroll 开关控制
-                                            .then(
-                                                if (state.chatPreferences.volumeKeyScroll) {
-                                                    Modifier.onVolumeKeyEvent { direction ->
-                                                        volumeScrollScope.launch {
-                                                            listState.scrollBy(direction * VOLUME_SCROLL_DISTANCE_PX)
-                                                        }
+                                    Modifier
+                                        .fillMaxSize()
+                                        .then(
+                                            if (widthClass == WindowWidthClass.Expanded) {
+                                                Modifier.widthIn(max = 720.dp)
+                                            } else {
+                                                Modifier
+                                            },
+                                        )
+                                        // v0.31: 音量键滚动受 chatPrefs.volumeKeyScroll 开关控制
+                                        .then(
+                                            if (state.chatPreferences.volumeKeyScroll) {
+                                                Modifier.onVolumeKeyEvent { direction ->
+                                                    volumeScrollScope.launch {
+                                                        listState.scrollBy(direction * VOLUME_SCROLL_DISTANCE_PX)
                                                     }
-                                                } else {
-                                                    Modifier
-                                                },
-                                            ),
+                                                }
+                                            } else {
+                                                Modifier
+                                            },
+                                        ),
                                     // v1.0.92: 消息间距不再用 spacedBy —— 它按 item 数量计间距,而操作组卡
                                     // 会把组内其余消息渲染为空 item(保持消息索引不变),每个空 item 仍贡献
                                     // 一份 messageGap,工具调用一多就叠出大段幽灵空白(用户实测:22 个操作
@@ -1746,10 +1745,10 @@ fun ChatScreen(
                                     // v1.0.72: 顶部让位给悬浮三岛;底部避让输入栏。
                                     // 外层 Box 保持全高,让右侧消息地图延伸到输入栏上缘。
                                     contentPadding =
-                                        PaddingValues(
-                                            top = innerPadding.calculateTopPadding(),
-                                            bottom = innerPadding.calculateBottomPadding(),
-                                        ),
+                                    PaddingValues(
+                                        top = innerPadding.calculateTopPadding(),
+                                        bottom = innerPadding.calculateBottomPadding(),
+                                    ),
                                 ) {
                                     // v1.0.47 P6: Agent Mode 提示卡片 — 会话锁定/弱工具降级/Agent Mode 提示。
                                     // v1.0.54: 去掉"Agent 模式已锁定会话"提示(用户反馈不需要),仅保留降级/提示。
@@ -1805,9 +1804,9 @@ fun ChatScreen(
                                                 ToolRunCard(
                                                     msgs = groupedRun.msgs,
                                                     modifier =
-                                                        Modifier
-                                                            .padding(horizontal = MusePaddings.screen)
-                                                            .padding(bottom = MusePaddings.messageGap),
+                                                    Modifier
+                                                        .padding(horizontal = MusePaddings.screen)
+                                                        .padding(bottom = MusePaddings.messageGap),
                                                 )
                                             }
                                             return@itemsIndexed
@@ -1898,8 +1897,8 @@ fun ChatScreen(
                                         // 避免内容增量和列表布局动画同时运行造成抖动。
                                         Column(
                                             modifier =
-                                                museAnimateItem(enabled = !(isLast && isStreaming))
-                                                    .padding(bottom = MusePaddings.messageGap),
+                                            museAnimateItem(enabled = !(isLast && isStreaming))
+                                                .padding(bottom = MusePaddings.messageGap),
                                         ) {
                                             // 日期分隔线渲染在消息上方
                                             if (showDateSeparator) {
@@ -1917,9 +1916,9 @@ fun ChatScreen(
                                                 isTranslating = isTranslating,
                                                 // H11: 译文消息携带源消息内容(原文对照折叠),源消息缺失时不传
                                                 translationSourceContent =
-                                                    msg.translationSourceId?.let { srcId ->
-                                                        messages.find { it.id.toString() == srcId }?.content
-                                                    },
+                                                msg.translationSourceId?.let { srcId ->
+                                                    messages.find { it.id.toString() == srcId }?.content
+                                                },
                                                 // v2.3: debug 模式性能摘要(仅最后一条 assistant 消息)
                                                 debugInfo = if (isLast && msg.role == MessageRole.ASSISTANT) state.debugInfo else null,
                                                 onEdit = onEdit,
@@ -1989,25 +1988,25 @@ fun ChatScreen(
                                                 // v2.0.1: 图片作品条提示词（向前找最近一次 generate_image 调用；
                                                 // toolCalls 不持久化，重启后走 toolCallInfo 持久化路径）
                                                 imageGenPrompt =
-                                                    remember(msg.id, visibleMessages) {
-                                                        val genCall =
-                                                            visibleMessages.take(index + 1).asReversed()
-                                                                .firstNotNullOfOrNull { m ->
-                                                                    val fromCalls = m.toolCalls?.firstOrNull { it.name == "generate_image" }
-                                                                    val fromInfo = m.toolCallInfo?.takeIf { it.toolName == "generate_image" }
-                                                                    when {
-                                                                        fromCalls != null -> fromCalls.arguments
-                                                                        fromInfo != null -> fromInfo.arguments
-                                                                        else -> null
-                                                                    }
+                                                remember(msg.id, visibleMessages) {
+                                                    val genCall =
+                                                        visibleMessages.take(index + 1).asReversed()
+                                                            .firstNotNullOfOrNull { m ->
+                                                                val fromCalls = m.toolCalls?.firstOrNull { it.name == "generate_image" }
+                                                                val fromInfo = m.toolCallInfo?.takeIf { it.toolName == "generate_image" }
+                                                                when {
+                                                                    fromCalls != null -> fromCalls.arguments
+                                                                    fromInfo != null -> fromInfo.arguments
+                                                                    else -> null
                                                                 }
-                                                        genCall
-                                                            ?.let { args ->
-                                                                runCatching { org.json.JSONObject(args).optString("prompt") }.getOrNull()
                                                             }
-                                                            ?.takeIf { it.isNotBlank() }
-                                                            ?.let { if (it.length > 60) it.take(60) + "…" else it }
-                                                    },
+                                                    genCall
+                                                        ?.let { args ->
+                                                            runCatching { org.json.JSONObject(args).optString("prompt") }.getOrNull()
+                                                        }
+                                                        ?.takeIf { it.isNotBlank() }
+                                                        ?.let { if (it.length > 60) it.take(60) + "…" else it }
+                                                },
                                                 // v1.45: mood/reasoning 展开状态由 ViewModel 集中管理
                                                 isMoodExpanded = expandedState?.isMoodExpanded,
                                                 isReasoningExpanded = expandedState?.isReasoningExpanded,
@@ -2022,19 +2021,19 @@ fun ChatScreen(
                                                 // v1.137: 计划卡按 messageId 关联到创建它的助手消息,随该消息滚动。
                                                 // 旧计划(无 messageId)回退到 lastAssistantId 兜底,保持向后兼容。
                                                 agentPlan =
-                                                    if (msg.role == MessageRole.ASSISTANT) {
-                                                        plansByMessageId[msg.id.toString()]
-                                                            ?: if (
-                                                                msg.id == lastAssistantId &&
-                                                                latestPlan?.let { it.messageId == null || it.messageId !in visibleMessageIds } == true
-                                                            ) {
-                                                                latestPlan
-                                                            } else {
-                                                                null
-                                                            }
-                                                    } else {
-                                                        null
-                                                    },
+                                                if (msg.role == MessageRole.ASSISTANT) {
+                                                    plansByMessageId[msg.id.toString()]
+                                                        ?: if (
+                                                            msg.id == lastAssistantId &&
+                                                            latestPlan?.let { it.messageId == null || it.messageId !in visibleMessageIds } == true
+                                                        ) {
+                                                            latestPlan
+                                                        } else {
+                                                            null
+                                                        }
+                                                } else {
+                                                    null
+                                                },
                                                 // HTML/SVG 代码块全屏预览
                                                 onHtmlPreview = onHtmlPreview,
                                                 // v1.0.92: 卡片回传 — 脚本消息发送 / 保存为工件
@@ -2053,14 +2052,14 @@ fun ChatScreen(
                                                 // v1.0.16: 进度只在正在分析的那条消息上显示(messageId 匹配),避免所有 USER 消息同时显示"分析中"
                                                 // v1.0.20 (Task 3): visionProgress 读派生值,避免每条消息因 input 按键重组
                                                 visionAssistProgress =
-                                                    if (
-                                                        msg.role == MessageRole.USER &&
-                                                        visionProgress?.messageId == msg.id.toString()
-                                                    ) {
-                                                        visionProgress
-                                                    } else {
-                                                        null
-                                                    },
+                                                if (
+                                                    msg.role == MessageRole.USER &&
+                                                    visionProgress?.messageId == msg.id.toString()
+                                                ) {
+                                                    visionProgress
+                                                } else {
+                                                    null
+                                                },
                                                 visionAssisted = if (msg.role == MessageRole.USER) msg.id.toString() in state.visionAssistedMessageIds else false,
                                                 // v1.0.53: 最后一条标记 + 分支切换数据
                                                 isLast = isLast,
@@ -2094,24 +2093,24 @@ fun ChatScreen(
                                                     }
                                                 },
                                                 tokenStats =
-                                                    if (isLast && msg.role == MessageRole.ASSISTANT && state.tokenEstimateEnabled) {
-                                                        {
-                                                            TokenStatsBar(
-                                                                message = msg,
-                                                                historyTokens = state.contextTokenCount,
-                                                                contextWindow = state.contextMaxTokens,
-                                                                // v2.0: 有 provider 真实用量时直接展示输入/输出,否则回退到估算(~)
-                                                                promptTokens = msg.promptTokens,
-                                                                completionTokens = msg.completionTokens,
-                                                                modifier =
-                                                                    Modifier
-                                                                        .fillMaxWidth()
-                                                                        .padding(top = MusePaddings.tightGap),
-                                                            )
-                                                        }
-                                                    } else {
-                                                        null
-                                                    },
+                                                if (isLast && msg.role == MessageRole.ASSISTANT && state.tokenEstimateEnabled) {
+                                                    {
+                                                        TokenStatsBar(
+                                                            message = msg,
+                                                            historyTokens = state.contextTokenCount,
+                                                            contextWindow = state.contextMaxTokens,
+                                                            // v2.0: 有 provider 真实用量时直接展示输入/输出,否则回退到估算(~)
+                                                            promptTokens = msg.promptTokens,
+                                                            completionTokens = msg.completionTokens,
+                                                            modifier =
+                                                            Modifier
+                                                                .fillMaxWidth()
+                                                                .padding(top = MusePaddings.tightGap),
+                                                        )
+                                                    }
+                                                } else {
+                                                    null
+                                                },
                                             )
                                         }
                                     }
@@ -2188,36 +2187,36 @@ fun ChatScreen(
                     enter = MuseMotion.verticalSlideFadeEnter(initialOffsetY = { it / 2 }),
                     exit = MuseMotion.verticalSlideFadeExit(targetOffsetY = { it / 2 }),
                     modifier =
-                        Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = MusePaddings.screen)
-                            .navigationBarsPadding(),
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = MusePaddings.screen)
+                        .navigationBarsPadding(),
                 ) {
                     Box(
                         modifier =
-                            Modifier
-                                .size(MuseIconSizes.touchTarget)
-                                .clickable {
-                                    userScrolledUp = false
-                                    isProgrammaticScroll.value = true
-                                    scrollToBottomScope.launch {
-                                        val msgs = visibleMessages
-                                        if (msgs.isEmpty()) return@launch
-                                        try {
-                                            // v2.x: 与自动跟随统一口径 — 向列表末端滚到不能再滚,
-                                            // 不再依赖“消息底部偏移”(长消息上方向相反)。
-                                            var snapGuard = 0
-                                            while (listState.canScrollForward && snapGuard < 100) {
-                                                listState.scrollBy(SNAP_SCROLL_STEP_PX)
-                                                snapGuard++
-                                            }
-                                        } finally {
-                                            isProgrammaticScroll.value = false
-                                            // v1.0.92: 消费紧随的程序滚动结束事件,防误锁
-                                            programmaticScrollCooldownUntil = System.currentTimeMillis() + 250L
+                        Modifier
+                            .size(MuseIconSizes.touchTarget)
+                            .clickable {
+                                userScrolledUp = false
+                                isProgrammaticScroll.value = true
+                                scrollToBottomScope.launch {
+                                    val msgs = visibleMessages
+                                    if (msgs.isEmpty()) return@launch
+                                    try {
+                                        // v2.x: 与自动跟随统一口径 — 向列表末端滚到不能再滚,
+                                        // 不再依赖“消息底部偏移”(长消息上方向相反)。
+                                        var snapGuard = 0
+                                        while (listState.canScrollForward && snapGuard < 100) {
+                                            listState.scrollBy(SNAP_SCROLL_STEP_PX)
+                                            snapGuard++
                                         }
+                                    } finally {
+                                        isProgrammaticScroll.value = false
+                                        // v1.0.92: 消费紧随的程序滚动结束事件,防误锁
+                                        programmaticScrollCooldownUntil = System.currentTimeMillis() + 250L
                                     }
-                                },
+                                }
+                            },
                         contentAlignment = Alignment.Center,
                     ) {
                         Surface(
@@ -2264,9 +2263,9 @@ fun ChatScreen(
                         shape = MuseShapes.medium,
                         tonalElevation = 3.dp,
                         modifier =
-                            Modifier
-                                .padding(MusePaddings.itemGap)
-                                .semantics { contentDescription = pendingCd },
+                        Modifier
+                            .padding(MusePaddings.itemGap)
+                            .semantics { contentDescription = pendingCd },
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(MusePaddings.itemGap),
@@ -2284,10 +2283,10 @@ fun ChatScreen(
                             ) {
                                 Text(
                                     text =
-                                        stringResource(
-                                            R.string.chat_pending_tools_banner_title,
-                                            state.pendingToolCallCount,
-                                        ),
+                                    stringResource(
+                                        R.string.chat_pending_tools_banner_title,
+                                        state.pendingToolCallCount,
+                                    ),
                                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
@@ -2422,8 +2421,8 @@ fun ChatScreen(
                 // 点击跳转模型设置面板;仅在无更高优先级横幅时展示,避免与错误横幅重叠。
                 AnimatedVisibility(
                     visible =
-                        !state.isConfigured &&
-                            state.errors.isEmpty() && !showPendingResume && !state.isCompressing,
+                    !state.isConfigured &&
+                        state.errors.isEmpty() && !showPendingResume && !state.isCompressing,
                     enter = MuseMotion.expandFadeEnter(),
                     exit = MuseMotion.expandFadeExit(),
                     modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
@@ -2433,9 +2432,9 @@ fun ChatScreen(
                         shape = MuseShapes.medium,
                         tonalElevation = 1.dp,
                         modifier =
-                            Modifier
-                                .padding(MusePaddings.itemGap)
-                                .clickable { sheetState.showModelSheet = true },
+                        Modifier
+                            .padding(MusePaddings.itemGap)
+                            .clickable { sheetState.showModelSheet = true },
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(MusePaddings.itemGap),
@@ -2481,9 +2480,9 @@ fun ChatScreen(
                                         shape = MuseShapes.medium,
                                         tonalElevation = 3.dp,
                                         modifier =
-                                            Modifier.semantics {
-                                                contentDescription = errorCd
-                                            },
+                                        Modifier.semantics {
+                                            contentDescription = errorCd
+                                        },
                                     ) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth().padding(MusePaddings.itemGap),
@@ -2523,10 +2522,10 @@ fun ChatScreen(
                 // 仅当 TTS 正在播放/暂停时显示(Idle 时由 AnimatedVisibility 自动隐藏)
                 TtsControllerWidget(
                     modifier =
-                        Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(end = MusePaddings.screen, bottom = MusePaddings.screen)
-                            .navigationBarsPadding(),
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = MusePaddings.screen, bottom = MusePaddings.screen)
+                        .navigationBarsPadding(),
                 )
                 // A1: 会话内查找条 — 顶层悬浮(消息列表之上、顶栏三岛之下,自带背景 Surface)
                 if (showInChatSearch) {
@@ -2544,16 +2543,16 @@ fun ChatScreen(
                             viewModel.setTargetMessage(null, null)
                         },
                         modifier =
-                            Modifier
-                                .align(Alignment.TopCenter)
-                                .statusBarsPadding()
-                                // 顶栏高度约 56dp,查找条固定落在标题岛下方,不再压住三岛。
-                                .padding(
-                                    top = 56.dp,
-                                    start = MusePaddings.screen,
-                                    end = MusePaddings.screen,
-                                    bottom = 4.dp,
-                                ),
+                        Modifier
+                            .align(Alignment.TopCenter)
+                            .statusBarsPadding()
+                            // 顶栏高度约 56dp,查找条固定落在标题岛下方,不再压住三岛。
+                            .padding(
+                                top = 56.dp,
+                                start = MusePaddings.screen,
+                                end = MusePaddings.screen,
+                                bottom = 4.dp,
+                            ),
                     )
                 }
             } // Box
@@ -2576,22 +2575,22 @@ fun ChatScreen(
                                 targetSessions.take(20).forEach { s ->
                                     Row(
                                         modifier =
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .clip(MuseShapes.small)
-                                                .clickable {
-                                                    forwardText = null
-                                                    ioScope.launch {
-                                                        val ok = viewModel.forwardMessageToSession(s.id, text)
-                                                        MuseToast.show(
-                                                            context.getString(
-                                                                if (ok) R.string.chat_forward_done else R.string.chat_forward_no_session,
-                                                                s.title,
-                                                            ),
-                                                        )
-                                                    }
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .clip(MuseShapes.small)
+                                            .clickable {
+                                                forwardText = null
+                                                ioScope.launch {
+                                                    val ok = viewModel.forwardMessageToSession(s.id, text)
+                                                    MuseToast.show(
+                                                        context.getString(
+                                                            if (ok) R.string.chat_forward_done else R.string.chat_forward_no_session,
+                                                            s.title,
+                                                        ),
+                                                    )
                                                 }
-                                                .padding(MusePaddings.cardInner),
+                                            }
+                                            .padding(MusePaddings.cardInner),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
                                         Icon(
@@ -2624,11 +2623,11 @@ fun ChatScreen(
                         listState = listState,
                         messageStartIndex = messageStartIndex,
                         modifier =
-                            Modifier
-                                .align(Alignment.CenterEnd)
-                                .statusBarsPadding()
-                                .navigationBarsPadding()
-                                .padding(end = MusePaddings.tightGap),
+                        Modifier
+                            .align(Alignment.CenterEnd)
+                            .statusBarsPadding()
+                            .navigationBarsPadding()
+                            .padding(end = MusePaddings.tightGap),
                     )
                 }
             }
@@ -2649,10 +2648,10 @@ fun ChatScreen(
             BrowserStatusCapsule(
                 manager = currentBrowserManager,
                 modifier =
-                    Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = MusePaddings.contentGap)
-                        .zIndex(10f),
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = MusePaddings.contentGap)
+                    .zIndex(10f),
             )
         }
 
@@ -2661,13 +2660,13 @@ fun ChatScreen(
             visible = showVoiceConversation,
             // v2.x: 裸 fade 换令牌(时长随系统动画缩放)
             enter =
-                androidx.compose.animation.fadeIn(
-                    animationSpec = MuseMotion.tween(MuseAnimation.SLOW_MS),
-                ),
+            androidx.compose.animation.fadeIn(
+                animationSpec = MuseMotion.tween(MuseAnimation.SLOW_MS),
+            ),
             exit =
-                androidx.compose.animation.fadeOut(
-                    animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
-                ),
+            androidx.compose.animation.fadeOut(
+                animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
+            ),
         ) {
             VoiceConversationMode(
                 onClose = { showVoiceConversation = false },
@@ -2683,17 +2682,14 @@ fun ChatScreen(
  * @param onDismiss 点击取消置顶回调
  */
 @Composable
-private fun PinnedMessageBanner(
-    content: String,
-    onDismiss: () -> Unit,
-) {
+private fun PinnedMessageBanner(content: String, onDismiss: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
         shape = MuseShapes.medium,
         modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = MusePaddings.contentGap),
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = MusePaddings.contentGap),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = MusePaddings.contentGap, vertical = MusePaddings.tightGap),
@@ -2712,9 +2708,9 @@ private fun PinnedMessageBanner(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier =
-                    Modifier
-                        .weight(1f, fill = false)
-                        .padding(start = MusePaddings.tightGap),
+                Modifier
+                    .weight(1f, fill = false)
+                    .padding(start = MusePaddings.tightGap),
             )
             MuseCapsuleButton(
                 text = stringResource(R.string.action_close),

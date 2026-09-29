@@ -158,11 +158,11 @@ object DelegationContract {
         val assistantId: String,
         val assistantName: String,
         val task: String,
-        val status: String,  // running/success/failed
+        val status: String, // running/success/failed
         val resultText: String? = null,
         val error: String? = null,
         val durationMs: Long = 0,
-        val children: List<SubResultNode> = emptyList(),  // 递归子节点
+        val children: List<SubResultNode> = emptyList(), // 递归子节点
     )
 
     /**

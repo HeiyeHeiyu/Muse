@@ -153,14 +153,18 @@ fun MiniPhoneScreen(
     val conversations = remember(sessions, searchQuery) {
         sessions
             .filter { !it.archived }
-            .filter { searchQuery.isBlank() || it.title.contains(searchQuery, ignoreCase = true) || it.lastMessagePreview.contains(searchQuery, ignoreCase = true) }
+            .filter {
+                searchQuery.isBlank() || it.title.contains(searchQuery, ignoreCase = true) || it.lastMessagePreview.contains(searchQuery, ignoreCase = true)
+            }
             .sortedByDescending { it.updatedAt }
     }
 
     // 小手机私信空间会话（第一页）
     val miniPhoneConversations = remember(miniPhoneSessions, searchQuery) {
         miniPhoneSessions
-            .filter { searchQuery.isBlank() || it.title.contains(searchQuery, ignoreCase = true) || it.lastMessagePreview.contains(searchQuery, ignoreCase = true) }
+            .filter {
+                searchQuery.isBlank() || it.title.contains(searchQuery, ignoreCase = true) || it.lastMessagePreview.contains(searchQuery, ignoreCase = true)
+            }
             .sortedByDescending { it.updatedAt }
     }
 
@@ -169,7 +173,16 @@ fun MiniPhoneScreen(
         assistants.values
             .filter { searchQuery.isBlank() || it.name.contains(searchQuery, ignoreCase = true) }
             .sortedBy { it.name }
-            .map { MiniPhoneContact(key = it.id, name = it.name, posts = 0, lastAt = 0L, subtitle = it.summary, avatarUrl = it.avatarImageUrl) }
+            .map {
+                MiniPhoneContact(
+                    key = it.id,
+                    name = it.name,
+                    posts = 0,
+                    lastAt = 0L,
+                    subtitle = it.summary,
+                    avatarUrl = it.avatarImageUrl,
+                )
+            }
     }
 
     Box(
@@ -290,7 +303,13 @@ fun MiniPhoneScreen(
                             searching = searching,
                             query = searchQuery,
                             onQueryChange = { searchQuery = it },
-                            onOpen = { session -> onOpenChat(session.assistantId, getAssistantName(assistants, session.assistantId), assistants[session.assistantId]?.avatarImageUrl) },
+                            onOpen = { session ->
+                                onOpenChat(
+                                    session.assistantId,
+                                    getAssistantName(assistants, session.assistantId),
+                                    assistants[session.assistantId]?.avatarImageUrl,
+                                )
+                            },
                             onNew = onNewSession,
                             isMiniPhoneSpace = true,
                         )
@@ -299,7 +318,13 @@ fun MiniPhoneScreen(
                             searching = searching,
                             query = searchQuery,
                             onQueryChange = { searchQuery = it },
-                            onOpenDetail = { assistantId -> onOpenChat(assistantId, assistants[assistantId]?.name ?: "", assistants[assistantId]?.avatarImageUrl) },
+                            onOpenDetail = { assistantId ->
+                                onOpenChat(
+                                    assistantId,
+                                    assistants[assistantId]?.name ?: "",
+                                    assistants[assistantId]?.avatarImageUrl,
+                                )
+                            },
                         )
                         2 -> DiscoverTab(
                             userAvatarUri = userAvatarUri,
@@ -336,10 +361,22 @@ fun MiniPhoneScreen(
                         .padding(top = 6.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    MiniPhoneTab(MuseIcons.chat, tabTitles[0], tab == 0, unreadMessages) { tab = 0; searching = false }
-                    MiniPhoneTab(MuseIcons.users, tabTitles[1], tab == 1, 0) { tab = 1; searching = false }
-                    MiniPhoneTab(MuseIcons.globe, tabTitles[2], tab == 2, unreadMoments) { tab = 2; searching = false }
-                    MiniPhoneTab(MuseIcons.user, tabTitles[3], tab == 3, 0) { tab = 3; searching = false }
+                    MiniPhoneTab(MuseIcons.chat, tabTitles[0], tab == 0, unreadMessages) {
+                        tab = 0
+                        searching = false
+                    }
+                    MiniPhoneTab(MuseIcons.users, tabTitles[1], tab == 1, 0) {
+                        tab = 1
+                        searching = false
+                    }
+                    MiniPhoneTab(MuseIcons.globe, tabTitles[2], tab == 2, unreadMoments) {
+                        tab = 2
+                        searching = false
+                    }
+                    MiniPhoneTab(MuseIcons.user, tabTitles[3], tab == 3, 0) {
+                        tab = 3
+                        searching = false
+                    }
                 }
             }
         }
@@ -496,13 +533,7 @@ private fun ContactsTab(
 
 /** 第三页「发现」：朋友圈（封面预览）+ 相册。 */
 @Composable
-private fun DiscoverTab(
-    userAvatarUri: String?,
-    userName: String,
-    unreadMoments: Int,
-    onOpenMoments: () -> Unit,
-    onOpenAlbum: () -> Unit,
-) {
+private fun DiscoverTab(userAvatarUri: String?, userName: String, unreadMoments: Int, onOpenMoments: () -> Unit, onOpenAlbum: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize()) {
         Spacer(Modifier.height(10.dp))
         WeChatGroup {
@@ -729,11 +760,7 @@ private fun ChevronRightIcon() {
 
 /** 头像：有图用图，没图用名字首字。 */
 @Composable
-private fun AvatarBubble(
-    avatarUrl: String?,
-    seed: String,
-    size: androidx.compose.ui.unit.Dp,
-) {
+private fun AvatarBubble(avatarUrl: String?, seed: String, size: androidx.compose.ui.unit.Dp) {
     Box(
         modifier = Modifier
             .size(size)
@@ -760,14 +787,7 @@ private fun AvatarBubble(
 
 /** 会话/联系人行：头像 + 主副标题 + 右侧时间（会话行）。 */
 @Composable
-private fun WeChatRow(
-    avatarUrl: String?,
-    avatarSeed: String,
-    title: String,
-    subtitle: String,
-    time: String,
-    onClick: () -> Unit,
-) {
+private fun WeChatRow(avatarUrl: String?, avatarSeed: String, title: String, subtitle: String, time: String, onClick: () -> Unit) {
     Column {
         Row(
             modifier = Modifier
@@ -813,12 +833,7 @@ private fun WeChatRow(
 
 /** 设置式行：图标 + 标题 + 可选红点 + 箭头。 */
 @Composable
-private fun WeChatListRow(
-    icon: ImageVector,
-    title: String,
-    badge: Int,
-    onClick: () -> Unit,
-) {
+private fun WeChatListRow(icon: ImageVector, title: String, badge: Int, onClick: () -> Unit) {
     Column {
         Row(
             modifier = Modifier
@@ -953,5 +968,3 @@ internal data class MiniPhoneChatTarget(
     val name: String,
     val avatar: String?,
 )
-
-

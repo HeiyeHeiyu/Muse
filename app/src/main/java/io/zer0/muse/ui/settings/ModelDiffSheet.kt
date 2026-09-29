@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.runtime.getValue
-import io.zer0.muse.ui.common.form.MuseChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -37,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import io.zer0.ai.core.Model
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.form.MuseBottomSheet
+import io.zer0.muse.ui.common.form.MuseChip
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.settings.SectionLabel
 import io.zer0.muse.ui.theme.MuseIconSizes
@@ -254,10 +254,16 @@ fun ModelDiffSheet(
                 modifier = Modifier.fillMaxWidth(),
                 label = stringResource(R.string.model_diff_apply),
                 icon = MuseIcons.check,
-                containerColor = if (applyEnabled) MaterialTheme.colorScheme.inverseSurface
-                else MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.12f),
-                contentColor = if (applyEnabled) MaterialTheme.colorScheme.inverseOnSurface
-                else MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.5f),
+                containerColor = if (applyEnabled) {
+                    MaterialTheme.colorScheme.inverseSurface
+                } else {
+                    MaterialTheme.colorScheme.inverseSurface.copy(alpha = 0.12f)
+                },
+                contentColor = if (applyEnabled) {
+                    MaterialTheme.colorScheme.inverseOnSurface
+                } else {
+                    MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.5f)
+                },
                 enabled = applyEnabled,
                 onClick = {
                     val toAdd = newModels.filter { addSelected[it.id] == true }
@@ -324,13 +330,7 @@ private fun DiffActionButton(
  * FilterChip 作为分类徽标(不可点击,selected=true 固定),配合图标强化分类语义。
  */
 @Composable
-private fun DiffSectionHeader(
-    label: String,
-    chipText: String,
-    chipIcon: ImageVector,
-    chipColor: Color,
-    chipTextColor: Color,
-) {
+private fun DiffSectionHeader(label: String, chipText: String, chipIcon: ImageVector, chipColor: Color, chipTextColor: Color) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -379,12 +379,7 @@ private fun DiffEmptyHint(text: String) {
  * @param onToggle 点击行或勾选圈时触发
  */
 @Composable
-private fun DiffModelRow(
-    model: Model,
-    selected: Boolean,
-    onToggle: () -> Unit,
-    badgeText: String? = null,
-) {
+private fun DiffModelRow(model: Model, selected: Boolean, onToggle: () -> Unit, badgeText: String? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -401,8 +396,11 @@ private fun DiffModelRow(
             modifier = Modifier
                 .size(22.dp)
                 .background(
-                    color = if (selected) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+                    },
                     shape = CircleShape,
                 ),
             contentAlignment = Alignment.Center,

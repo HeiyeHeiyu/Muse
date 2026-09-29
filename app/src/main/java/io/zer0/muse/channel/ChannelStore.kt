@@ -34,15 +34,13 @@ class ChannelStore(private val file: File) {
         AtomicFileStore.writeText(file, AppJson.encodeToString(Payload.serializer(), payload))
     }
 
-    private suspend fun encrypt(config: ChannelConfig): ChannelConfig =
-        config.copy(
-            appSecret = if (config.appSecret.isBlank()) "" else SecureKeyStore.encrypt(config.appSecret),
-        )
+    private suspend fun encrypt(config: ChannelConfig): ChannelConfig = config.copy(
+        appSecret = if (config.appSecret.isBlank()) "" else SecureKeyStore.encrypt(config.appSecret),
+    )
 
-    private suspend fun decrypt(config: ChannelConfig): ChannelConfig =
-        config.copy(
-            appSecret = if (config.appSecret.isBlank()) "" else SecureKeyStore.decrypt(config.appSecret),
-        )
+    private suspend fun decrypt(config: ChannelConfig): ChannelConfig = config.copy(
+        appSecret = if (config.appSecret.isBlank()) "" else SecureKeyStore.decrypt(config.appSecret),
+    )
 
     companion object {
         private const val TAG = "ChannelStore"

@@ -4,25 +4,25 @@ import androidx.compose.runtime.remember
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
+import io.zer0.muse.license.LicensesScreen
 import io.zer0.muse.ui.DebugScreen
-import io.zer0.muse.ui.terminal.TerminalScreen
+import io.zer0.muse.ui.MemoryScreen
 import io.zer0.muse.ui.SettingsScreen
 import io.zer0.muse.ui.WorkspaceScreen
 import io.zer0.muse.ui.account.AccountScreen
 import io.zer0.muse.ui.dev.ComponentGalleryScreen
 import io.zer0.muse.ui.knowledge.KnowledgeBaseManagePage
-import io.zer0.muse.license.LicensesScreen
 import io.zer0.muse.ui.settings.AgentSettingsPage
-import io.zer0.muse.ui.settings.ProactiveMessageSettingsPage
 import io.zer0.muse.ui.settings.AuditLogPage
 import io.zer0.muse.ui.settings.ChatSettingsPage
 import io.zer0.muse.ui.settings.CloudBackupPage
 import io.zer0.muse.ui.settings.ExperimentsSettingsPage
 import io.zer0.muse.ui.settings.MediaSettingsPage
-import io.zer0.muse.ui.MemoryScreen
 import io.zer0.muse.ui.settings.MemorySettingsPage
 import io.zer0.muse.ui.settings.MultiAgentSettingsPage
+import io.zer0.muse.ui.settings.PermissionWizardScreen
 import io.zer0.muse.ui.settings.PluginManagePage
+import io.zer0.muse.ui.settings.ProactiveMessageSettingsPage
 import io.zer0.muse.ui.settings.ProxySettingsPage
 import io.zer0.muse.ui.settings.RagSettingsPage
 import io.zer0.muse.ui.settings.SecuritySettingsPage
@@ -36,11 +36,11 @@ import io.zer0.muse.ui.settings.SettingsMcpPage
 import io.zer0.muse.ui.settings.SettingsModelPage
 import io.zer0.muse.ui.settings.SettingsTutorialPage
 import io.zer0.muse.ui.settings.SettingsWebSearchPage
-import io.zer0.muse.ui.settings.ToolsSettingsPage
 import io.zer0.muse.ui.settings.TaskRoutingSettingsPage
+import io.zer0.muse.ui.settings.ToolsSettingsPage
 import io.zer0.muse.ui.settings.UserProfileEditPage
-import io.zer0.muse.ui.settings.PermissionWizardScreen
 import io.zer0.muse.ui.settings.VisionSettingsPage
+import io.zer0.muse.ui.terminal.TerminalScreen
 
 /**
  * 设置域 NavGraph — 包含设置主页 + 31 个二级/三级设置页(账户/模型/外观/代理/多 Agent/
@@ -49,9 +49,7 @@ import io.zer0.muse.ui.settings.VisionSettingsPage
  * 从 MainActivity 抽取以解决后者过载问题(原 1804 行 → 目标 ≤ 800 行)。
  * 所有 composable 统一使用 [MuseTransitions.horizontalPushEnter] / [horizontalPushPopExit] 过渡。
  */
-fun NavGraphBuilder.settingsNavGraph(
-    navController: NavHostController,
-) {
+fun NavGraphBuilder.settingsNavGraph(navController: NavHostController) {
     // 设置页(slide-in)
     composable<SettingsRoute>(
         enterTransition = { MuseTransitions.horizontalPushEnter() },

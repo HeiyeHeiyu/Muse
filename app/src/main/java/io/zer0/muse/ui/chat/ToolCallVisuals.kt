@@ -612,7 +612,5 @@ internal object ToolCallVisuals {
         "termux_exec" to R.string.tool_label_termux_exec,
     )
 
-    private fun prettify(name: String): String =
-        name.split('_').joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+    private fun prettify(name: String): String = name.split('_').joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
 }
-

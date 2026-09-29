@@ -27,11 +27,11 @@ object MessageFtsManager {
     /** 判断字符是否为 CJK(中文/日文/韩文)。 */
     private fun isCjk(ch: Char): Boolean {
         val code = ch.code
-        return (code in 0x4E00..0x9FFF) ||  // CJK 统一表意文字
-               (code in 0x3400..0x4DBF) ||  // CJK 扩展 A
-               (code in 0x3040..0x309F) ||  // 平假名
-               (code in 0x30A0..0x30FF) ||  // 片假名
-               (code in 0xAC00..0xD7AF)     // 韩文音节
+        return (code in 0x4E00..0x9FFF) || // CJK 统一表意文字
+            (code in 0x3400..0x4DBF) || // CJK 扩展 A
+            (code in 0x3040..0x309F) || // 平假名
+            (code in 0x30A0..0x30FF) || // 片假名
+            (code in 0xAC00..0xD7AF) // 韩文音节
     }
 
     /**

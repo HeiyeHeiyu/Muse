@@ -71,10 +71,7 @@ object ToolTraceProjection {
      * @param keepRecentRounds 原样保留的最近完整工具回合数，负数按 0 处理
      * @return 只读语义上的新消息列表；没有可压缩回合时返回原列表
      */
-    fun project(
-        messages: List<UIMessage>,
-        keepRecentRounds: Int = DEFAULT_KEEP_RECENT_ROUNDS,
-    ): List<UIMessage> {
+    fun project(messages: List<UIMessage>, keepRecentRounds: Int = DEFAULT_KEEP_RECENT_ROUNDS): List<UIMessage> {
         if (messages.isEmpty()) return messages
 
         val rounds = findCompletedRounds(messages)
@@ -129,10 +126,7 @@ object ToolTraceProjection {
      * toolCalls 字段，因此连续的 assistant.toolCallInfo 展示消息按一个回合处理。任何
      * 缺失、重复、乱序插入普通消息或不匹配的结果都会让协议块保持原样。
      */
-    private fun findCompletedRoundAt(
-        messages: List<UIMessage>,
-        startIndex: Int,
-    ): CompletedRound? {
+    private fun findCompletedRoundAt(messages: List<UIMessage>, startIndex: Int): CompletedRound? {
         val assistant = messages[startIndex]
         if (assistant.role != MessageRole.ASSISTANT) return null
 
@@ -170,22 +164,19 @@ object ToolTraceProjection {
             endIndexExclusive = index,
             source = assistant,
             entries =
-                calls.map { call ->
-                    val result = resultsById.getValue(call.id)
-                    TraceEntry(
-                        toolName = call.name,
-                        isSuccess = !isFailureResult(result),
-                        result = result.content,
-                    )
-                },
+            calls.map { call ->
+                val result = resultsById.getValue(call.id)
+                TraceEntry(
+                    toolName = call.name,
+                    isSuccess = !isFailureResult(result),
+                    result = result.content,
+                )
+            },
             preamble = assistant.content,
         )
     }
 
-    private fun findDisplayRound(
-        messages: List<UIMessage>,
-        startIndex: Int,
-    ): CompletedRound? {
+    private fun findDisplayRound(messages: List<UIMessage>, startIndex: Int): CompletedRound? {
         val entries = mutableListOf<TraceEntry>()
         val preambles = mutableListOf<String>()
         var index = startIndex

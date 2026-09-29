@@ -219,7 +219,7 @@
     <string name="recently_deleted_auto_clear">Auto-deleted after 7 days</string>
 
     <string name="chat_draft_label">Draft</string>
-    <string name="chat_list_archive_confirm">This chat will be archived and hidden from the list.</string>
+    <string name="chat_list_archive_confirm">Archive chat "%1$s"? It can be restored from the archive.</string>
     <string name="chat_list_archive_confirm_button">Archive</string>
     <string name="chat_list_archive_title">Archive Chat</string>
     <string name="chat_list_section_in_progress">In Progress</string>
@@ -241,14 +241,14 @@
     <string name="err_image_empty_response">Image generation returned an empty response.</string>
     <string name="err_image_invalid_uri">Invalid image URI or path.</string>
     <string name="err_image_no_results">No images were generated. Try a different prompt.</string>
-    <string name="err_image_reference_download_failed">Failed to download reference image.</string>
-    <string name="err_image_reference_too_large">Reference image is too large. Please use a smaller image.</string>
-    <string name="err_image_response_too_large">Generated image is too large to display.</string>
-    <string name="err_image_unsupported_model">The selected model does not support image generation.</string>
+    <string name="err_image_reference_download_failed">Failed to download reference image. (%1$s)</string>
+    <string name="err_image_reference_too_large">Reference image is too large. Please use a smaller image. (%1$s)</string>
+    <string name="err_image_response_too_large">Generated image is too large to display. (%1$s)</string>
+    <string name="err_image_unsupported_model">The selected model does not support image generation. (%1$s)</string>
     <string name="err_invalid_argument">Invalid argument provided.</string>
-    <string name="err_invalid_response">Invalid response from server.</string>
-    <string name="err_memory_config_invalid">Memory configuration is invalid.</string>
-    <string name="err_memory_token_budget_invalid">Invalid memory token budget.</string>
+    <string name="err_invalid_response">Invalid response from server. (%1$s)</string>
+    <string name="err_memory_config_invalid">Memory configuration is invalid. (%1$s)</string>
+    <string name="err_memory_token_budget_invalid">Invalid memory token budget. (%1$s)</string>
     <string name="err_network_error">Network error. Please check your connection.</string>
     <string name="err_no_model_selected">No model selected. Please choose a model in Settings.</string>
     <string name="err_no_provider_configured">No provider configured. Please add a provider in Settings.</string>
@@ -262,8 +262,8 @@
     <string name="err_service_unavailable">Service is temporarily unavailable.</string>
     <string name="err_stream_interrupted">Stream was interrupted. Response may be incomplete.</string>
     <string name="err_reply_truncated">(Reply truncated due to length limit)</string>
-    <string name="err_vertex_ai_config_invalid">Vertex AI configuration is invalid.</string>
-    <string name="err_vertex_ai_token_failed">Failed to obtain Vertex AI access token.</string>
+    <string name="err_vertex_ai_config_invalid">Vertex AI configuration is invalid. (%1$s)</string>
+    <string name="err_vertex_ai_token_failed">Failed to obtain Vertex AI access token. (%1$s)</string>
 
     <!-- Assistant detail: capabilities -->
     <string name="assistant_detail_capabilities_title">Capabilities</string>

@@ -32,7 +32,7 @@ interface WorldBookDao {
         WHERE enabled = 1 AND alwaysActive = 1
           AND (assistantId IS NULL OR assistantId = :assistantId)
         ORDER BY priority DESC, name ASC
-        """
+        """,
     )
     suspend fun getAlwaysActive(assistantId: String?): List<WorldBookEntryEntity>
 

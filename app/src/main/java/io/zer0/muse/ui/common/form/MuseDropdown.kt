@@ -88,10 +88,10 @@ fun MuseDropdown(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { expanded = true }
-            // v1.0.74 fix (前端审计 3.6): 移除 Box 的 role/contentDescription,
-            // 避免与内层 readOnly TextField 的语义节点重复(TalkBack 读到两个焦点)。
-            // 交互仍由 clickable 处理,语义交给 TextField。
+            .clickable { expanded = true },
+        // v1.0.74 fix (前端审计 3.6): 移除 Box 的 role/contentDescription,
+        // 避免与内层 readOnly TextField 的语义节点重复(TalkBack 读到两个焦点)。
+        // 交互仍由 clickable 处理,语义交给 TextField。
     ) {
         OutlinedTextField(
             value = selectedDisplay,

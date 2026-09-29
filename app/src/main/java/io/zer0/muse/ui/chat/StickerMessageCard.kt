@@ -44,11 +44,7 @@ import org.koin.compose.koinInject
  *  - 动图(GIF/WebP)由全局 Coil ImageLoader 的 GifDecoder 自动播放
  */
 @Composable
-internal fun StickerMessageCard(
-    category: String,
-    seed: Long,
-    modifier: Modifier = Modifier,
-) {
+internal fun StickerMessageCard(category: String, seed: Long, modifier: Modifier = Modifier) {
     val repo: StickerLibraryRepository = koinInject()
     // 容错解析分类 + 种子选取;分类不存在/为空 → item 为 null → 不渲染
     val item by
@@ -87,15 +83,15 @@ internal fun StickerMessageCard(
         contentDescription = null,
         contentScale = ContentScale.Fit,
         modifier =
-            modifier
-                .widthIn(max = 160.dp)
-                .heightIn(max = 200.dp)
-                .aspectRatio(ratio.coerceIn(0.4f, 2.5f))
-                .clip(MuseShapes.small)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) { previewing = true },
+        modifier
+            .widthIn(max = 160.dp)
+            .heightIn(max = 200.dp)
+            .aspectRatio(ratio.coerceIn(0.4f, 2.5f))
+            .clip(MuseShapes.small)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) { previewing = true },
     )
     if (previewing) {
         FullScreenMediaViewer(

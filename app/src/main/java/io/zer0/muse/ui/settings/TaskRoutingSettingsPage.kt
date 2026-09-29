@@ -278,11 +278,7 @@ fun TaskRoutingSettingsPage(
 }
 
 /** v2.x: 按档位保存辅助模型绑定(null=清除绑定,走级联)。 */
-private suspend fun saveUtilityBinding(
-    settings: SettingsRepository,
-    tier: UtilityTier,
-    binding: UtilityModelBinding?,
-) {
+private suspend fun saveUtilityBinding(settings: SettingsRepository, tier: UtilityTier, binding: UtilityModelBinding?) {
     when (tier) {
         UtilityTier.SMALL -> settings.saveUtilityModelBinding(binding)
         UtilityTier.LARGE -> settings.saveUtilityLargeModelBinding(binding)

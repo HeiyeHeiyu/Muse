@@ -23,7 +23,7 @@ import java.util.Locale
 object Logger {
     private const val DEFAULT_TAG = "Muse"
     private const val LOG_FILE_NAME = "muse.log"
-    private const val MAX_LOG_FILE_BYTES = 1_000 * 1024L  // 1MB rolling
+    private const val MAX_LOG_FILE_BYTES = 1_000 * 1024L // 1MB rolling
 
     @Volatile
     var enabled: Boolean = true
@@ -101,10 +101,13 @@ object Logger {
     // H-SEC-2: 扩展覆盖身份证号、银行卡号、IPv4 地址,与 app.privacy.PiiGuard 对齐
     private val PHONE_REGEX = Regex("""\b1[3-9]\d{9}\b""")
     private val EMAIL_REGEX = Regex("""\b[\w.-]+@[\w.-]+\.\w+\b""")
+
     // 18位身份证(含15位兼容): 地区码+生日+顺序码+校验位
     private val ID_CARD_REGEX = Regex("""\b[1-9]\d{5}(?:18|19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx]\b""")
+
     // 银行卡号: 16-19位连续数字,或 4-4-4-4 分隔格式
     private val BANK_CARD_REGEX = Regex("""\b\d{16,19}\b|\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4,7}\b""")
+
     // IPv4 地址
     private val IPV4_REGEX = Regex("""\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\b""")
 
@@ -122,7 +125,8 @@ object Logger {
     //    refresh_token/client_secret/client_id),分隔符 [=:] 兼容 JSON 中的冒号
     // 3) URL_QUERY_CRED_REGEX:URL query 参数 ?key=xxx / &api_key=xxx,保留前导 ?/& 符号
     private val HEADER_CRED_REGEX = Regex("""(?i)\b(authorization|bearer|x-api-key)\s*[:\s]\s*[^\n,;]+""")
-    private val KV_CRED_REGEX = Regex("""(?i)(token|password|secret|apikey|api_key|access_token|refresh_token|client_secret|client_id)\s*[=:]\s*\S+""")
+    private val KV_CRED_REGEX =
+        Regex("""(?i)(token|password|secret|apikey|api_key|access_token|refresh_token|client_secret|client_id)\s*[=:]\s*\S+""")
     private val URL_QUERY_CRED_REGEX = Regex("""(?i)([?&])(key|token|api_key|apikey)=\S+""")
 
     /**

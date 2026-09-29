@@ -7,6 +7,8 @@ import android.os.Looper
 import android.provider.Settings
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.DurationBasedAnimationSpec
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -17,9 +19,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.core.DurationBasedAnimationSpec
-import androidx.compose.animation.core.Easing
-import androidx.compose.animation.core.tween as composeTween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -32,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.roundToInt
+import androidx.compose.animation.core.tween as composeTween
 
 /**
  * Muse 全局动效策略。
@@ -86,168 +86,133 @@ object MuseMotion {
      * 0ms 代表立即完成；循环动画不要仅依赖 0ms，而应由调用方改为静态内容。
      */
     @Composable
-    fun <T> tween(
-        durationMillis: Int,
-        easing: Easing = MuseAnimation.Standard,
-        delayMillis: Int = 0,
-    ): DurationBasedAnimationSpec<T> = tweenForScale(durationMillis, easing, delayMillis, animatorScale())
+    fun <T> tween(durationMillis: Int, easing: Easing = MuseAnimation.Standard, delayMillis: Int = 0): DurationBasedAnimationSpec<T> =
+        tweenForScale(durationMillis, easing, delayMillis, animatorScale())
 
     /**
      * 创建供非 Composable 回调使用的 tween，例如 Navigation Compose 的 transition helper。
      * 缩放值由 [Provide] 的单一观察器同步；未进入主题时安全地按 1x 处理。
      */
-    fun <T> tweenSpec(
-        durationMillis: Int,
-        easing: Easing = MuseAnimation.Standard,
-        delayMillis: Int = 0,
-    ): DurationBasedAnimationSpec<T> = tweenForScale(
-        durationMillis = durationMillis,
-        easing = easing,
-        delayMillis = delayMillis,
-        scale = staticAnimatorScale.get(),
-    )
+    fun <T> tweenSpec(durationMillis: Int, easing: Easing = MuseAnimation.Standard, delayMillis: Int = 0): DurationBasedAnimationSpec<T> =
+        tweenForScale(
+            durationMillis = durationMillis,
+            easing = easing,
+            delayMillis = delayMillis,
+            scale = staticAnimatorScale.get(),
+        )
 
     /** 纯淡入的统一进入过渡。 */
-    fun fadeEnter(
-        durationMillis: Int = MuseAnimation.NORMAL_MS,
-        delayMillis: Int = 0,
-    ): EnterTransition =
-        fadeIn(
-            tweenSpec(
-                durationMillis = durationMillis,
-                easing = MuseAnimation.EaseOutCubic,
-                delayMillis = delayMillis,
-            ),
-        )
+    fun fadeEnter(durationMillis: Int = MuseAnimation.NORMAL_MS, delayMillis: Int = 0): EnterTransition = fadeIn(
+        tweenSpec(
+            durationMillis = durationMillis,
+            easing = MuseAnimation.EaseOutCubic,
+            delayMillis = delayMillis,
+        ),
+    )
 
     /** 纯淡出的统一退出过渡。 */
-    fun fadeExit(
-        durationMillis: Int = MuseAnimation.NORMAL_MS,
-        delayMillis: Int = 0,
-    ): ExitTransition =
-        fadeOut(
-            tweenSpec(
-                durationMillis = durationMillis,
-                easing = MuseAnimation.EaseInCubic,
-                delayMillis = delayMillis,
-            ),
-        )
+    fun fadeExit(durationMillis: Int = MuseAnimation.NORMAL_MS, delayMillis: Int = 0): ExitTransition = fadeOut(
+        tweenSpec(
+            durationMillis = durationMillis,
+            easing = MuseAnimation.EaseInCubic,
+            delayMillis = delayMillis,
+        ),
+    )
 
     /** 仅展开内容的统一进入过渡。 */
-    fun expandEnter(durationMillis: Int = MuseAnimation.NORMAL_MS): EnterTransition =
-        expandVertically(
-            animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseOutCubic),
-        )
+    fun expandEnter(durationMillis: Int = MuseAnimation.NORMAL_MS): EnterTransition = expandVertically(
+        animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseOutCubic),
+    )
 
     /** 仅收起内容的统一退出过渡。 */
-    fun expandExit(durationMillis: Int = MuseAnimation.NORMAL_MS): ExitTransition =
-        shrinkVertically(
-            animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseInCubic),
-        )
+    fun expandExit(durationMillis: Int = MuseAnimation.NORMAL_MS): ExitTransition = shrinkVertically(
+        animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseInCubic),
+    )
 
     /** 展开/折叠内容的统一进入过渡。 */
-    fun expandFadeEnter(
-        durationMillis: Int = MuseAnimation.NORMAL_MS,
-        fadeDurationMillis: Int = durationMillis,
-    ): EnterTransition =
+    fun expandFadeEnter(durationMillis: Int = MuseAnimation.NORMAL_MS, fadeDurationMillis: Int = durationMillis): EnterTransition =
         expandEnter(durationMillis) + fadeEnter(fadeDurationMillis)
 
     /** 展开/折叠内容的统一退出过渡。 */
-    fun expandFadeExit(
-        durationMillis: Int = MuseAnimation.NORMAL_MS,
-        fadeDurationMillis: Int = durationMillis,
-    ): ExitTransition =
+    fun expandFadeExit(durationMillis: Int = MuseAnimation.NORMAL_MS, fadeDurationMillis: Int = durationMillis): ExitTransition =
         expandExit(durationMillis) + fadeExit(fadeDurationMillis)
 
     /** 仅水平展开的统一进入过渡。 */
     fun horizontalExpandEnter(
         durationMillis: Int = MuseAnimation.NORMAL_MS,
         expandFrom: Alignment.Horizontal = Alignment.Start,
-    ): EnterTransition =
-        expandHorizontally(
-            animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseOutCubic),
-            expandFrom = expandFrom,
-        )
+    ): EnterTransition = expandHorizontally(
+        animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseOutCubic),
+        expandFrom = expandFrom,
+    )
 
     /** 仅水平收起的统一退出过渡。 */
     fun horizontalExpandExit(
         durationMillis: Int = MuseAnimation.NORMAL_MS,
         shrinkTowards: Alignment.Horizontal = Alignment.Start,
-    ): ExitTransition =
-        shrinkHorizontally(
-            animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseInCubic),
-            shrinkTowards = shrinkTowards,
-        )
+    ): ExitTransition = shrinkHorizontally(
+        animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseInCubic),
+        shrinkTowards = shrinkTowards,
+    )
 
     /** 水平展开并淡入，适用于从边缘出现的内容卡片。 */
     fun horizontalExpandFadeEnter(
         durationMillis: Int = MuseAnimation.NORMAL_MS,
         fadeDurationMillis: Int = durationMillis,
         expandFrom: Alignment.Horizontal = Alignment.End,
-    ): EnterTransition =
-        horizontalExpandEnter(durationMillis, expandFrom) + fadeEnter(fadeDurationMillis)
+    ): EnterTransition = horizontalExpandEnter(durationMillis, expandFrom) + fadeEnter(fadeDurationMillis)
 
     /** 水平收起并淡出，适用于从边缘消失的内容卡片。 */
     fun horizontalExpandFadeExit(
         durationMillis: Int = MuseAnimation.NORMAL_MS,
         fadeDurationMillis: Int = durationMillis,
         shrinkTowards: Alignment.Horizontal = Alignment.End,
-    ): ExitTransition =
-        horizontalExpandExit(durationMillis, shrinkTowards) + fadeExit(fadeDurationMillis)
+    ): ExitTransition = horizontalExpandExit(durationMillis, shrinkTowards) + fadeExit(fadeDurationMillis)
 
     /** 纵向滑入并淡入。 */
     fun verticalSlideFadeEnter(
         durationMillis: Int = MuseAnimation.NORMAL_MS,
         fadeDurationMillis: Int = durationMillis,
         initialOffsetY: (Int) -> Int = { it / 2 },
-    ): EnterTransition =
-        slideInVertically(
-            animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseOutCubic),
-            initialOffsetY = initialOffsetY,
-        ) + fadeEnter(fadeDurationMillis)
+    ): EnterTransition = slideInVertically(
+        animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseOutCubic),
+        initialOffsetY = initialOffsetY,
+    ) + fadeEnter(fadeDurationMillis)
 
     /** 纵向滑出并淡出。 */
     fun verticalSlideFadeExit(
         durationMillis: Int = MuseAnimation.NORMAL_MS,
         fadeDurationMillis: Int = durationMillis,
         targetOffsetY: (Int) -> Int = { it / 2 },
-    ): ExitTransition =
-        slideOutVertically(
-            animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseInCubic),
-            targetOffsetY = targetOffsetY,
-        ) + fadeExit(fadeDurationMillis)
+    ): ExitTransition = slideOutVertically(
+        animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseInCubic),
+        targetOffsetY = targetOffsetY,
+    ) + fadeExit(fadeDurationMillis)
 
     /** 水平滑入并淡入。 */
     fun horizontalSlideFadeEnter(
         durationMillis: Int = MuseAnimation.NORMAL_MS,
         fadeDurationMillis: Int = durationMillis,
         initialOffsetX: (Int) -> Int = { it },
-    ): EnterTransition =
-        slideInHorizontally(
-            animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseOutCubic),
-            initialOffsetX = initialOffsetX,
-        ) + fadeEnter(fadeDurationMillis)
+    ): EnterTransition = slideInHorizontally(
+        animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseOutCubic),
+        initialOffsetX = initialOffsetX,
+    ) + fadeEnter(fadeDurationMillis)
 
     /** 水平滑出并淡出。 */
     fun horizontalSlideFadeExit(
         durationMillis: Int = MuseAnimation.NORMAL_MS,
         fadeDurationMillis: Int = durationMillis,
         targetOffsetX: (Int) -> Int = { it },
-    ): ExitTransition =
-        slideOutHorizontally(
-            animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseInCubic),
-            targetOffsetX = targetOffsetX,
-        ) + fadeExit(fadeDurationMillis)
+    ): ExitTransition = slideOutHorizontally(
+        animationSpec = tweenSpec(durationMillis, easing = MuseAnimation.EaseInCubic),
+        targetOffsetX = targetOffsetX,
+    ) + fadeExit(fadeDurationMillis)
 
     @Composable
     private fun animatorScale(): Float = LocalAnimatorScale.current
 
-    private fun <T> tweenForScale(
-        durationMillis: Int,
-        easing: Easing,
-        delayMillis: Int,
-        scale: Float,
-    ): DurationBasedAnimationSpec<T> {
+    private fun <T> tweenForScale(durationMillis: Int, easing: Easing, delayMillis: Int, scale: Float): DurationBasedAnimationSpec<T> {
         val safeScale = sanitizeScale(scale)
         val scaledDuration = scaleDuration(durationMillis, safeScale)
         val scaledDelay = if (scaledDuration == 0 || delayMillis <= 0 || safeScale <= 0f) {
@@ -268,8 +233,7 @@ object MuseMotion {
         return (durationMillis * safeScale).roundToInt().coerceAtLeast(1)
     }
 
-    private fun sanitizeScale(value: Float): Float =
-        if (value.isFinite()) value.coerceAtLeast(0f) else 1f
+    private fun sanitizeScale(value: Float): Float = if (value.isFinite()) value.coerceAtLeast(0f) else 1f
 
     private fun readAnimatorScale(context: Context): Float {
         return try {

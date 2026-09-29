@@ -256,7 +256,7 @@
     <string name="tool_url_opened">열린 링크: %1$s</string>
     <string name="tool_open_url_failed">링크를 열지 못했습니다: %1$s</string>
     <string name="tool_installed_apps_header">설치된 앱(%1$d 총):\n</string>
-    <string name="tool_installed_apps_item">%1$s |</string>
+    <string name="tool_installed_apps_item">%1$s | %2$s</string>
     <string name="tool_installed_apps_empty">일치하는 앱이 없습니다.</string>
     <string name="tool_installed_apps_failed">설치된 앱을 가져오지 못했습니다.</string>
     <string name="tool_network_info">온라인: %1$s\n네트워크 유형: %2$s\n종량제: %3$s</string>
@@ -304,7 +304,7 @@
     <string name="tool_bluetooth_enabled">블루투스: 활성화됨</string>
     <string name="tool_bluetooth_disabled">블루투스: 비활성화됨</string>
     <string name="tool_bluetooth_header">페어링된 Bluetooth 장치(%1$d 총):\n</string>
-    <string name="tool_bluetooth_item">- %1$s |</string>
+    <string name="tool_bluetooth_item">- %1$s | %2$s</string>
     <string name="tool_bluetooth_empty">페어링된 블루투스 기기가 없습니다.</string>
     <string name="tool_phone_call_opened">열린 다이얼러: %1$s</string>
     <string name="tool_phone_call_missing">누락된 매개변수: 전화</string>
@@ -328,7 +328,7 @@
     <string name="tool_reminder_cancelled">취소된 알림: %1$s</string>
     <string name="tool_reminder_not_found">알림을 찾을 수 없습니다: %1$s</string>
     <string name="tool_reminder_list_header">예약된 알림(%1$d 총계):\n</string>
-    <string name="tool_reminder_list_item">- ID: %1$s |</string>
+    <string name="tool_reminder_list_item">- ID: %1$s | 시간: %2$s | 제목: %3$s</string>
     <string name="tool_reminder_list_empty">예약된 알림 없음</string>
     <string name="tool_reminder_missing_title">누락된 매개변수: 제목</string>
     <string name="tool_reminder_missing_message">누락된 매개변수: 메시지</string>
@@ -342,9 +342,9 @@
     <string name="tool_resource_deleted">삭제된 리소스: %1$s</string>
     <string name="tool_resource_not_found">리소스를 찾을 수 없습니다: %1$s</string>
     <string name="tool_resource_list_header">리소스 라이브러리(%1$d 총계):\n</string>
-    <string name="tool_resource_list_item">- ID: %1$s |</string>
+    <string name="tool_resource_list_item">- ID: %1$s | 제목: %2$s | 태그: %3$s</string>
     <string name="tool_resource_list_empty">리소스 라이브러리가 비어 있습니다.</string>
-    <string name="tool_resource_item_detail">리소스 세부정보\nID: %1$s\n제목: %2$s\n태그: %3$s\n생성됨:</string>
+    <string name="tool_resource_item_detail">리소스 세부정보\nID: %1$s\n제목: %2$s\n태그: %3$s\n생성 시간: %4$s\n내용:\n%5$s</string>
     <string name="tool_resource_missing_title">누락된 매개변수: 제목</string>
     <string name="tool_resource_missing_content">매개변수 누락: 콘텐츠</string>
     <string name="tool_resource_missing_id">누락된 매개변수: ID</string>
@@ -370,9 +370,9 @@
     <string name="tool_quick_note_not_found">메모를 찾을 수 없습니다: %1$s</string>
     <string name="tool_quick_note_pinned">참고 %1$s 고정됨: %2$s</string>
     <string name="tool_quick_note_list_header">빠른 메모(%1$d 총계):\n</string>
-    <string name="tool_quick_note_list_item">- %1$s%2$s %3$s |</string>
+    <string name="tool_quick_note_list_item">- %1$s%2$s %3$s | 태그: %4$s</string>
     <string name="tool_quick_note_list_empty">아직 빠른 메모가 없습니다.</string>
-    <string name="tool_quick_note_item_detail">메모 세부정보\nID: %1$s\n제목: %2$s\n고정됨: %3$s\n태그:</string>
+    <string name="tool_quick_note_item_detail">메모 세부정보\nID: %1$s\n제목: %2$s\n고정됨: %3$s\n태그: %4$s\n내용:\n%5$s</string>
     <string name="tool_quick_note_missing_title">누락된 매개변수: 제목</string>
     <string name="tool_quick_note_missing_id">누락된 매개변수: ID</string>
 

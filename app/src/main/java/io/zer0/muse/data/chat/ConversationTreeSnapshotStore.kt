@@ -113,6 +113,5 @@ class ConversationTreeSnapshotStore(private val context: Context) {
         )
     }
 
-    private fun fileName(sessionId: String): String =
-        sessionId.replace(Regex("[^A-Za-z0-9._-]"), "_") + ".json"
+    private fun fileName(sessionId: String): String = sessionId.replace(Regex("[^A-Za-z0-9._-]"), "_") + ".json"
 }

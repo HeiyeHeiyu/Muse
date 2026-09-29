@@ -44,18 +44,18 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import io.zer0.muse.R
 import io.zer0.muse.data.cover.CoverItem
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.surface.MusePageScaffold
 import io.zer0.muse.data.cover.CoverLibraryRepository
-import io.zer0.muse.ui.common.form.MuseFloatingButton
-import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseFloatingButton
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.surface.MusePageScaffold
 import io.zer0.muse.ui.theme.MuseCornerRadius
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.ui.theme.semiLarge
 import io.zer0.muse.ui.theme.pill
+import io.zer0.muse.ui.theme.semiLarge
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -73,10 +73,7 @@ import org.koin.compose.koinInject
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun CoverManagerScreen(
-    onBack: () -> Unit,
-    onPick: ((String) -> Unit)? = null,
-) {
+fun CoverManagerScreen(onBack: () -> Unit, onPick: ((String) -> Unit)? = null) {
     val repo: CoverLibraryRepository = koinInject()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -281,7 +278,7 @@ private fun CoverGridItem(
                     )
                 } else {
                     Modifier
-                }
+                },
             )
             .combinedClickable(
                 onClick = onClick,

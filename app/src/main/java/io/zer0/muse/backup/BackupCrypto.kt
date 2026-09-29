@@ -25,6 +25,7 @@ object BackupCrypto {
     private const val SALT_LENGTH = 16
     private const val IV_LENGTH = 12
     private const val GCM_TAG_LENGTH_BITS = 128
+
     /** H-SEC-5: NIST SP 800-132 推荐最小 210,000 次(SHA-256)。提升抗暴力破解强度。 */
     private const val PBKDF2_ITERATIONS = 210_000
     private const val KEY_LENGTH_BITS = 256
@@ -41,10 +42,14 @@ object BackupCrypto {
         // 拼装: magic(4) + version(1) + salt(16) + iv(12) + ciphertext
         return ByteArray(MAGIC.length + 1 + SALT_LENGTH + IV_LENGTH + ciphertext.size).also { out ->
             var offset = 0
-            MAGIC.toByteArray(Charsets.US_ASCII).copyInto(out, offset); offset += MAGIC.length
-            out[offset] = VERSION; offset += 1
-            salt.copyInto(out, offset); offset += SALT_LENGTH
-            iv.copyInto(out, offset); offset += IV_LENGTH
+            MAGIC.toByteArray(Charsets.US_ASCII).copyInto(out, offset)
+            offset += MAGIC.length
+            out[offset] = VERSION
+            offset += 1
+            salt.copyInto(out, offset)
+            offset += SALT_LENGTH
+            iv.copyInto(out, offset)
+            offset += IV_LENGTH
             ciphertext.copyInto(out, offset)
         }
     }
@@ -58,8 +63,10 @@ object BackupCrypto {
         val version = data[MAGIC.length]
         require(version == VERSION) { "unsupported version: $version" }
         var offset = MAGIC.length + 1
-        val salt = data.copyOfRange(offset, offset + SALT_LENGTH); offset += SALT_LENGTH
-        val iv = data.copyOfRange(offset, offset + IV_LENGTH); offset += IV_LENGTH
+        val salt = data.copyOfRange(offset, offset + SALT_LENGTH)
+        offset += SALT_LENGTH
+        val iv = data.copyOfRange(offset, offset + IV_LENGTH)
+        offset += IV_LENGTH
         val ciphertext = data.copyOfRange(offset, data.size)
         val key = deriveKey(password, salt)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")

@@ -74,7 +74,6 @@ class VectorSearchService(
         val createdAt: Long = 0L,
     )
 
-
     /**
      * B4-03: 元数据过滤条件(全部可选,均为「与」关系;为空表示不约束)。
      *
@@ -95,9 +94,8 @@ class VectorSearchService(
         /** 来源关键字(忽略大小写包含匹配,命中分块 metadata_json 的 source/file 等字段;空 = 不按来源过滤)。 */
         val sourceKeyword: String = "",
     ) {
-        fun isEmpty(): Boolean =
-            docIds.isEmpty() && tag.isBlank() && startTime == 0L && endTime == 0L &&
-                titleKeyword.isBlank() && sourceKeyword.isBlank()
+        fun isEmpty(): Boolean = docIds.isEmpty() && tag.isBlank() && startTime == 0L && endTime == 0L &&
+            titleKeyword.isBlank() && sourceKeyword.isBlank()
 
         /**
          * B4-03: 判定单条分块是否满足全部过滤条件。
@@ -107,12 +105,7 @@ class VectorSearchService(
          * @param metadataJson 分块元数据 JSON(对应 [sourceKeyword]/[tag])
          * @param createdAt 分块创建时间戳(对应 [startTime]/[endTime])
          */
-        fun matches(
-            docId: String,
-            docTitle: String,
-            metadataJson: String,
-            createdAt: Long,
-        ): Boolean {
+        fun matches(docId: String, docTitle: String, metadataJson: String, createdAt: Long): Boolean {
             if (docIds.isNotEmpty() && docId !in docIds) return false
             if (titleKeyword.isNotBlank() && !docTitle.contains(titleKeyword, ignoreCase = true)) return false
             if (sourceKeyword.isNotBlank() && !metadataJson.contains(sourceKeyword, ignoreCase = true)) return false
@@ -135,8 +128,9 @@ class VectorSearchService(
 
     @Volatile
     private var cache: List<CachedVector>? = null
+
     @Volatile
-    private var cacheKey: String? = null  // v1.133: scopeDocIds hash,不同 scope 独立缓存
+    private var cacheKey: String? = null // v1.133: scopeDocIds hash,不同 scope 独立缓存
     private val mutex = Mutex()
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -204,8 +198,11 @@ class VectorSearchService(
             if (vectors.isEmpty()) return emptyList()
             val candidates = vectors.mapNotNull { v ->
                 val score = scoreOf(v.vector, v.norm, queryVector, queryNorm)
-                if (score == Float.NEGATIVE_INFINITY || score < threshold) null
-                else v to score
+                if (score == Float.NEGATIVE_INFINITY || score < threshold) {
+                    null
+                } else {
+                    v to score
+                }
             }
             return applyMMR(candidates, topK, mmrLambda)
         }
@@ -289,11 +286,7 @@ class VectorSearchService(
     }
 
     /** v1.133: 应用 MMR 多样性重排。candidates 已按 score 降序排好。 */
-    private fun applyMMR(
-        candidates: List<Pair<CachedVector, Float>>,
-        topK: Int,
-        mmrLambda: Float,
-    ): List<SearchResult> {
+    private fun applyMMR(candidates: List<Pair<CachedVector, Float>>, topK: Int, mmrLambda: Float): List<SearchResult> {
         if (candidates.isEmpty()) return emptyList()
         // λ=1.0 时纯按相似度排序(禁用 MMR)
         if (mmrLambda >= 1.0f) {
@@ -379,22 +372,14 @@ class VectorSearchService(
         return applyMMR(heap.toList(), topK, mmrLambda)
     }
 
-    private fun scoreOf(
-        vector: FloatArray,
-        vectorNorm: Float,
-        queryVector: FloatArray,
-        queryNorm: Float,
-    ): Float = if (vector.size != queryVector.size) {
-        Float.NEGATIVE_INFINITY
-    } else {
-        dotProduct(vector, queryVector) / (vectorNorm * queryNorm)
-    }
+    private fun scoreOf(vector: FloatArray, vectorNorm: Float, queryVector: FloatArray, queryNorm: Float): Float =
+        if (vector.size != queryVector.size) {
+            Float.NEGATIVE_INFINITY
+        } else {
+            dotProduct(vector, queryVector) / (vectorNorm * queryNorm)
+        }
 
-    private suspend fun getOrLoadCache(
-        total: Int,
-        scopeDocIds: List<String>?,
-        metadataFilter: MetadataFilter?,
-    ): List<CachedVector> {
+    private suspend fun getOrLoadCache(total: Int, scopeDocIds: List<String>?, metadataFilter: MetadataFilter?): List<CachedVector> {
         val filterKey = metadataFilter?.let {
             "${it.docIds.sorted().joinToString(",")}#${it.tag}#${it.startTime}#${it.endTime}" +
                 "#${it.titleKeyword}#${it.sourceKeyword}"
@@ -408,7 +393,9 @@ class VectorSearchService(
             // v1.133: 若有 scope,在内存中过滤(避免 provider 走全量)
             val filtered = if (scopeDocIds != null && scopeDocIds.isNotEmpty()) {
                 chunks.filter { it.docId in scopeDocIds }
-            } else chunks
+            } else {
+                chunks
+            }
             val filteredByMetadata = filtered.filter { chunkMatchesMetadata(it, metadataFilter) }
             val parsed = filteredByMetadata.mapNotNull { chunk ->
                 val vector = parseEmbedding(chunk) ?: return@mapNotNull null

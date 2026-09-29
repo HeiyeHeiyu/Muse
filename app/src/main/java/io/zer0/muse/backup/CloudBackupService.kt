@@ -30,10 +30,13 @@ class CloudBackupService(private val client: OkHttpClient) {
     companion object {
         /** M-004: 单次云端网络操作超时(毫秒)。 */
         private const val NETWORK_TIMEOUT_MS = 30_000L
+
         /** latest 备份文件名(downloadLatestBackup / hasBackup / uploadBackupWithLatest 复用)。 */
         private const val LATEST_FILE_NAME = "muse-backup-latest.json"
+
         /** v1.132: 备份文件名前缀(用于 listBackups 过滤归档版本)。 */
         private const val BACKUP_FILE_PREFIX = "muse-backup-"
+
         /** v1.132: listBackups 单次最多返回条数(防止远端目录爆炸)。 */
         private const val LIST_MAX_ITEMS = 100
     }
@@ -102,8 +105,7 @@ class CloudBackupService(private val client: OkHttpClient) {
     ) : AsyncCloudClient {
         override suspend fun list(prefix: String): List<RemoteFile> = s3.list(bucket, prefix)
 
-        override suspend fun download(path: String, localFile: File): Boolean =
-            s3.download(bucket, path, localFile)
+        override suspend fun download(path: String, localFile: File): Boolean = s3.download(bucket, path, localFile)
 
         override suspend fun downloadBytes(path: String): ByteArray? = s3.getObject(bucket, path)
 

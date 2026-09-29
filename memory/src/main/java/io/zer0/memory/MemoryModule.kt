@@ -65,7 +65,7 @@ val memoryModule: Module = module {
     single { get<FactDb>().memoryLinkDao() }
 
     // ── 核心服务 ──
-    single { SessionSummaryManager(get(), get()) }   // dao + llmClient
+    single { SessionSummaryManager(get(), get()) } // dao + llmClient
     // v6: 记忆编译产物同时输出到文件系统(memory.md + daily/)
     // 审查修复 (2.0 C-03): 移除下方重复注册(同 key 单例,后者恒覆盖前者,属死装配)
     single { io.zer0.memory.compile.MemoryFileWriter(androidContext().filesDir) }
@@ -80,15 +80,25 @@ val memoryModule: Module = module {
             scopedSectionDao = get(),
             compileContext = io.zer0.memory.compile.MemoryCompileContext(),
         )
-    }    // legacy sectionDao + llmClient + fileWriter + factStore + scoped DAO
-    single { FactStore(get(), get(), java.io.File(androidContext().filesDir, "fact_tombstones.json"), get<io.zer0.memory.fact.FactDedupJudge>(), get()) }
-    single { DeepMemoryProcessor(get<io.zer0.memory.fact.FactDbProvider>(), get()) }  // factDbProvider + llmClient
+    } // legacy sectionDao + llmClient + fileWriter + factStore + scoped DAO
+    single {
+        FactStore(
+            get(),
+            get(),
+            java.io.File(androidContext().filesDir, "fact_tombstones.json"),
+            get<io.zer0.memory.fact.FactDedupJudge>(),
+            get(),
+        )
+    }
+    single { DeepMemoryProcessor(get<io.zer0.memory.fact.FactDbProvider>(), get()) } // factDbProvider + llmClient
 
     // v12 (T3-1): 记忆反思任务 — 每日整理(回填实体键/合并重复/矛盾检测/晋升)
     // P2-32: 注入矛盾清单落库(不再只打日志,记忆中心可读可清)
-    single { io.zer0.memory.reflection.MemoryContradictionStore(
-        java.io.File(androidContext().filesDir, "memory_contradictions.json"),
-    ) }
+    single {
+        io.zer0.memory.reflection.MemoryContradictionStore(
+            java.io.File(androidContext().filesDir, "memory_contradictions.json"),
+        )
+    }
     single {
         io.zer0.memory.reflection.MemoryReflectionRunner(
             factStore = get(),

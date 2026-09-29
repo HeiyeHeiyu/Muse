@@ -17,23 +17,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.navigation.MuseTopBar
-import io.zer0.muse.ui.common.form.MuseTextField
-import io.zer0.muse.ui.common.form.MuseFormDialog
-import io.zer0.muse.ui.common.feedback.MuseDialog
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -43,15 +34,24 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
 import io.zer0.muse.R
+import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.form.MuseFormDialog
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.museAnimateItem
+import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseErrorStateBox
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.common.surface.MuseSurface
 import io.zer0.muse.ui.markdown.MarkdownText
 import io.zer0.muse.ui.theme.MuseDateFormats
-import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseShapes
 import org.koin.androidx.compose.koinViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -71,10 +71,7 @@ import java.util.Locale
  * 长按卡片弹"设置分组"对话框,可自定义分组名(留空 = 移到未分组)。
  */
 @Composable
-fun FavoritesScreen(
-    onBack: () -> Unit,
-    viewModel: ChatViewModel = koinViewModel(),
-) {
+fun FavoritesScreen(onBack: () -> Unit, viewModel: ChatViewModel = koinViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val dateFormat = remember { SimpleDateFormat(MuseDateFormats.DATE_TIME_FULL, Locale.getDefault()) }
 
@@ -178,13 +175,13 @@ fun FavoritesScreen(
                 ) {
                     items(visibleFavorites, key = { it.id }) { msg ->
                         Box(modifier = museAnimateItem()) {
-                        FavoriteCard(
-                            message = msg,
-                            dateFormat = dateFormat,
-                            onUnfavorite = { viewModel.toggleFavorite(msg.id) },
-                            onLongClick = { tagEditTarget = msg },
-                            onClick = { favoriteGroupTarget = msg },
-                        )
+                            FavoriteCard(
+                                message = msg,
+                                dateFormat = dateFormat,
+                                onUnfavorite = { viewModel.toggleFavorite(msg.id) },
+                                onLongClick = { tagEditTarget = msg },
+                                onClick = { favoriteGroupTarget = msg },
+                            )
                         }
                     }
                 }
@@ -221,11 +218,7 @@ fun FavoritesScreen(
  * v2.0: 收藏时分组选择对话框 — 显示预设分类供用户选择。
  */
 @Composable
-private fun FavoriteGroupSelectDialog(
-    currentTag: String?,
-    onSelect: (String?) -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun FavoriteGroupSelectDialog(currentTag: String?, onSelect: (String?) -> Unit, onDismiss: () -> Unit) {
     val groups = listOf(
         null to stringResource(R.string.favorites_group_all),
         ChatViewModel.FAVORITE_GROUP_INSPIRATION to stringResource(R.string.favorites_group_inspiration),
@@ -323,11 +316,7 @@ private fun FavoriteTagFilterRow(
  * - 取消按钮:关闭对话框,不改任何东西
  */
 @Composable
-private fun FavoriteTagEditDialog(
-    currentTag: String?,
-    onConfirm: (String?) -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun FavoriteTagEditDialog(currentTag: String?, onConfirm: (String?) -> Unit, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf(currentTag ?: "") }
     MuseFormDialog(
         onDismissRequest = onDismiss,
@@ -392,7 +381,7 @@ private fun FavoriteCard(
         shape = MuseShapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
-Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(14.dp)) {
             // 顶部行: 角色标签 + 模型 + 时间 + 取消收藏按钮
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -470,4 +459,3 @@ Column(modifier = Modifier.padding(14.dp)) {
         }
     }
 }
-

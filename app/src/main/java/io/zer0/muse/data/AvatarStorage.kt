@@ -5,13 +5,13 @@ package io.zer0.muse.data
 import android.content.Context
 import android.net.Uri
 import io.zer0.common.Logger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /**
  * 个人头像的私有存储边界。
@@ -51,61 +51,57 @@ object AvatarStorage {
     }
 
     /** 把本地头像路径转换成 Coil 可直接加载的模型。 */
-    fun imageModel(uri: String): Any =
-        when {
-            uri.startsWith("/") -> File(uri)
-            uri.startsWith("file://") -> Uri.parse(uri).path?.let(::File) ?: uri
-            else -> uri
-        }
+    fun imageModel(uri: String): Any = when {
+        uri.startsWith("/") -> File(uri)
+        uri.startsWith("file://") -> Uri.parse(uri).path?.let(::File) ?: uri
+        else -> uri
+    }
 
-    private fun isPrivateAvatarFile(context: Context, file: File): Boolean =
+    private fun isPrivateAvatarFile(context: Context, file: File): Boolean = try {
+        val avatarDir = File(context.filesDir, "avatar").canonicalFile
+        file.canonicalFile.parentFile == avatarDir
+    } catch (e: IOException) {
+        Logger.w("AvatarStorage", "无法判断头像文件是否属于私有目录", e)
+        false
+    }
+
+    private suspend fun copyFile(context: Context, sourceFile: File): String? = withContext(Dispatchers.IO) {
         try {
-            val avatarDir = File(context.filesDir, "avatar").canonicalFile
-            file.canonicalFile.parentFile == avatarDir
+            sourceFile.inputStream().use { input ->
+                copyInputStream(context, input, sourceFile.extension)
+            }
         } catch (e: IOException) {
-            Logger.w("AvatarStorage", "无法判断头像文件是否属于私有目录", e)
-            false
+            Logger.e("AvatarStorage", "头像文件复制失败", e)
+            null
+        } catch (e: SecurityException) {
+            Logger.e("AvatarStorage", "头像文件读取权限失败", e)
+            null
         }
+    }
 
-    private suspend fun copyFile(context: Context, sourceFile: File): String? =
-        withContext(Dispatchers.IO) {
-            try {
-                sourceFile.inputStream().use { input ->
-                    copyInputStream(context, input, sourceFile.extension)
-                }
-            } catch (e: IOException) {
-                Logger.e("AvatarStorage", "头像文件复制失败", e)
-                null
-            } catch (e: SecurityException) {
-                Logger.e("AvatarStorage", "头像文件读取权限失败", e)
-                null
+    private suspend fun copyContentUri(context: Context, sourceUri: Uri): String? = withContext(Dispatchers.IO) {
+        val resolver = context.contentResolver
+        try {
+            val input = resolver.openInputStream(sourceUri)
+            if (input == null) {
+                Logger.w("AvatarStorage", "无法读取头像 URI: $sourceUri")
+                return@withContext null
             }
-        }
-
-    private suspend fun copyContentUri(context: Context, sourceUri: Uri): String? =
-        withContext(Dispatchers.IO) {
-            val resolver = context.contentResolver
-            try {
-                val input = resolver.openInputStream(sourceUri)
-                if (input == null) {
-                    Logger.w("AvatarStorage", "无法读取头像 URI: $sourceUri")
-                    return@withContext null
-                }
-                val extension = when (resolver.getType(sourceUri)?.lowercase()) {
-                    "image/png" -> "png"
-                    "image/webp" -> "webp"
-                    "image/gif" -> "gif"
-                    else -> "jpg"
-                }
-                input.use { copyInputStream(context, it, extension) }
-            } catch (e: IOException) {
-                Logger.e("AvatarStorage", "头像复制失败", e)
-                null
-            } catch (e: SecurityException) {
-                Logger.e("AvatarStorage", "头像读取权限失败", e)
-                null
+            val extension = when (resolver.getType(sourceUri)?.lowercase()) {
+                "image/png" -> "png"
+                "image/webp" -> "webp"
+                "image/gif" -> "gif"
+                else -> "jpg"
             }
+            input.use { copyInputStream(context, it, extension) }
+        } catch (e: IOException) {
+            Logger.e("AvatarStorage", "头像复制失败", e)
+            null
+        } catch (e: SecurityException) {
+            Logger.e("AvatarStorage", "头像读取权限失败", e)
+            null
         }
+    }
 
     private fun copyInputStream(context: Context, input: InputStream, extension: String): String? {
         val dir = File(context.filesDir, "avatar")

@@ -109,13 +109,7 @@ fun providerDisplayTypeName(type: ProviderType): String = when (type) {
  * 底色 = 品牌色 10% 透明度;描边 = 品牌色 18% 透明度;圆角默认 12dp。
  */
 @Composable
-fun ProviderLogo(
-    type: ProviderType,
-    name: String,
-    modifier: Modifier = Modifier,
-    size: Dp = 40.dp,
-    cornerRadius: Dp = 12.dp,
-) {
+fun ProviderLogo(type: ProviderType, name: String, modifier: Modifier = Modifier, size: Dp = 40.dp, cornerRadius: Dp = 12.dp) {
     val tint = providerBrandColor(type, name)
     val icon = providerBrandIconOrNull(type, name)
     val shape = RoundedCornerShape(cornerRadius)

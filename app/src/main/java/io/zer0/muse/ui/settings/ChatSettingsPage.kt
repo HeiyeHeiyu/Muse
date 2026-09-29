@@ -199,9 +199,9 @@ fun ChatSettingsPage(
                     }
                 Row(
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(MusePaddings.cardInner),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(MusePaddings.cardInner),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -284,13 +284,13 @@ fun ChatSettingsPage(
             SettingsGroup {
                 Row(
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 56.dp)
-                            .clickable {
-                                bgLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                            }
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp)
+                        .clickable {
+                            bgLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -316,26 +316,26 @@ fun ChatSettingsPage(
                         Text(
                             text = stringResource(R.string.action_clear),
                             style =
-                                MaterialTheme.typography.bodySmall.copy(
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Medium,
-                                ),
+                            MaterialTheme.typography.bodySmall.copy(
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium,
+                            ),
                             modifier =
-                                Modifier
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .clickable {
-                                        bgScope.launch { settings.saveChatBackground(null) }
-                                    }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                            Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .clickable {
+                                    bgScope.launch { settings.saveChatBackground(null) }
+                                }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
                         )
                     } else {
                         Text(
                             text = stringResource(R.string.settings_chat_background_choose),
                             style =
-                                MaterialTheme.typography.bodySmall.copy(
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Medium,
-                                ),
+                            MaterialTheme.typography.bodySmall.copy(
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium,
+                            ),
                         )
                     }
                 }
@@ -348,10 +348,10 @@ fun ChatSettingsPage(
             SettingsGroup {
                 Row(
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 56.dp)
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -377,53 +377,53 @@ fun ChatSettingsPage(
                         Text(
                             text = stringResource(R.string.action_clear),
                             style =
-                                MaterialTheme.typography.bodySmall.copy(
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Medium,
-                                ),
+                            MaterialTheme.typography.bodySmall.copy(
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Medium,
+                            ),
                             modifier =
-                                Modifier
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .clickable {
-                                        gradScope.launch { settings.saveChatGradient(null) }
-                                    }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                            Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .clickable {
+                                    gradScope.launch { settings.saveChatGradient(null) }
+                                }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
                         )
                     }
                 }
                 SettingsGroupDivider()
                 Row(
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     PRESET_CHAT_GRADIENTS.forEach { (start, end) ->
                         val selected = chatGradient?.startColorArgb == start && chatGradient?.endColorArgb == end
                         Box(
                             modifier =
-                                Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(Color(start.toInt()), Color(end.toInt())),
-                                        ),
-                                    )
-                                    .border(
-                                        width = if (selected) 2.dp else 1.dp,
-                                        color =
-                                            if (selected) {
-                                                MaterialTheme.colorScheme.primary
-                                            } else {
-                                                MaterialTheme.colorScheme.outlineVariant
-                                            },
-                                        shape = RoundedCornerShape(10.dp),
-                                    )
-                                    .clickable {
-                                        gradScope.launch { settings.saveChatGradient(ChatGradient(start, end)) }
+                            Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(Color(start.toInt()), Color(end.toInt())),
+                                    ),
+                                )
+                                .border(
+                                    width = if (selected) 2.dp else 1.dp,
+                                    color =
+                                    if (selected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.outlineVariant
                                     },
+                                    shape = RoundedCornerShape(10.dp),
+                                )
+                                .clickable {
+                                    gradScope.launch { settings.saveChatGradient(ChatGradient(start, end)) }
+                                },
                         )
                     }
                 }
@@ -534,9 +534,9 @@ fun ChatSettingsPage(
                 }
                 Column(
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(MusePaddings.cardInner),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(MusePaddings.cardInner),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -584,9 +584,9 @@ fun ChatSettingsPage(
                 }
                 Column(
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(MusePaddings.cardInner),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(MusePaddings.cardInner),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -628,9 +628,9 @@ fun ChatSettingsPage(
                 // 温度滑块:0-2,步长 0.1
                 Row(
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(MusePaddings.cardInner),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(MusePaddings.cardInner),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -1100,10 +1100,7 @@ fun ChatSettingsPage(
  * 三档:never / when_unfocused / always,用 MuseChip 横向排列。
  */
 @Composable
-private fun NotificationPolicyRow(
-    current: String,
-    onChange: (String) -> Unit,
-) {
+private fun NotificationPolicyRow(current: String, onChange: (String) -> Unit) {
     val replyNotificationCd = stringResource(R.string.settings_memory_reply_notification_cd)
     val replyNotificationTitle = stringResource(R.string.settings_memory_reply_notification)
     val replyNotificationSubtitle = stringResource(R.string.settings_memory_reply_notification_subtitle)
@@ -1115,9 +1112,9 @@ private fun NotificationPolicyRow(
         )
     Column(
         modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Icon(
@@ -1141,9 +1138,9 @@ private fun NotificationPolicyRow(
         }
         Row(
             modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             policies.forEach { (value, labelRes) ->
@@ -1158,14 +1155,13 @@ private fun NotificationPolicyRow(
 }
 
 /** 把温度值转成可读提示的资源 ID(0=确定 1=平衡 2=创造性)。 */
-private fun temperatureHint(value: Float): Int =
-    when {
-        value <= 0.3f -> R.string.settings_chat_temp_hint_certain
-        value <= 0.7f -> R.string.settings_chat_temp_hint_balanced_low
-        value <= 1.2f -> R.string.settings_chat_temp_hint_balanced
-        value <= 1.6f -> R.string.settings_chat_temp_hint_creative_low
-        else -> R.string.settings_chat_temp_hint_creative
-    }
+private fun temperatureHint(value: Float): Int = when {
+    value <= 0.3f -> R.string.settings_chat_temp_hint_certain
+    value <= 0.7f -> R.string.settings_chat_temp_hint_balanced_low
+    value <= 1.2f -> R.string.settings_chat_temp_hint_balanced
+    value <= 1.6f -> R.string.settings_chat_temp_hint_creative_low
+    else -> R.string.settings_chat_temp_hint_creative
+}
 
 /** 解析压缩模型的显示名称(未绑定回退默认文本)。 */
 
@@ -1178,16 +1174,13 @@ private fun temperatureHint(value: Float): Int =
  * @param scope 协程作用域(保存操作)
  */
 @Composable
-private fun SessionCacheSizeRow(
-    settings: SettingsRepository,
-    scope: CoroutineScope,
-) {
+private fun SessionCacheSizeRow(settings: SettingsRepository, scope: CoroutineScope) {
     val current by settings.sessionCacheSizeFlow.collectAsStateWithLifecycle(initialValue = 5)
     Row(
         modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(MusePaddings.cardInner),
+        Modifier
+            .fillMaxWidth()
+            .padding(MusePaddings.cardInner),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -1244,10 +1237,7 @@ private fun SessionCacheSizeRow(
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
-private fun StickerLibrarySection(
-    settings: SettingsRepository,
-    scope: CoroutineScope,
-) {
+private fun StickerLibrarySection(settings: SettingsRepository, scope: CoroutineScope) {
     val context = LocalContext.current
     val stickerRepo: StickerLibraryRepository = koinInject()
     val stickerEnabled by settings.stickerEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
@@ -1335,9 +1325,9 @@ private fun StickerLibrarySection(
             // v2.x: 发送频率档位(标记链路;替代旧概率滑块)
             Row(
                 modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(MusePaddings.cardInner),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(MusePaddings.cardInner),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -1396,9 +1386,9 @@ private fun StickerLibrarySection(
             if (importingSticker) {
                 Column(
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
                     if (stickerImportText.isNotBlank()) {
                         Text(
@@ -1414,18 +1404,18 @@ private fun StickerLibrarySection(
                 SettingsGroupDivider()
                 Row(
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     MuseCapsuleButton(
                         text =
-                            if (batchDeleteMode) {
-                                stringResource(R.string.settings_sticker_batch_done)
-                            } else {
-                                stringResource(R.string.settings_sticker_batch_delete)
-                            },
+                        if (batchDeleteMode) {
+                            stringResource(R.string.settings_sticker_batch_done)
+                        } else {
+                            stringResource(R.string.settings_sticker_batch_delete)
+                        },
                         onClick = {
                             batchDeleteMode = !batchDeleteMode
                             if (!batchDeleteMode) selectedIds.clear()
@@ -1450,9 +1440,9 @@ private fun StickerLibrarySection(
         if (stickers.isNotEmpty()) {
             LazyRow(
                 modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 48.dp, max = 56.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp, max = 56.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(horizontal = 2.dp),
             ) {
@@ -1478,9 +1468,9 @@ private fun StickerLibrarySection(
             // 空态:灰色图标 + 标题 + 副标题
             Box(
                 modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 32.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1512,9 +1502,9 @@ private fun StickerLibrarySection(
             LazyVerticalGrid(
                 columns = gridColumns,
                 modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 360.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 360.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(vertical = 4.dp),
@@ -1527,39 +1517,39 @@ private fun StickerLibrarySection(
                     val isSelected = selectedIds[item.id] == true
                     Box(
                         modifier =
-                            Modifier
-                                .size(80.dp)
-                                .clip(MuseShapes.medium)
-                                .background(
-                                    if (isSelected) {
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                        Modifier
+                            .size(80.dp)
+                            .clip(MuseShapes.medium)
+                            .background(
+                                if (isSelected) {
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                },
+                            )
+                            .combinedClickable(
+                                onClick = {
+                                    if (batchDeleteMode) {
+                                        selectedIds[item.id] = !isSelected
                                     } else {
-                                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                    },
-                                )
-                                .combinedClickable(
-                                    onClick = {
-                                        if (batchDeleteMode) {
-                                            selectedIds[item.id] = !isSelected
-                                        } else {
-                                            // v1.0.52: 非批量模式点击预览大图
-                                            previewItem = item
-                                        }
-                                    },
-                                    onLongClick = {
-                                        if (!batchDeleteMode) pendingDelete = item
-                                    },
-                                ),
+                                        // v1.0.52: 非批量模式点击预览大图
+                                        previewItem = item
+                                    }
+                                },
+                                onLongClick = {
+                                    if (!batchDeleteMode) pendingDelete = item
+                                },
+                            ),
                         contentAlignment = Alignment.Center,
                     ) {
                         AsyncImage(
                             model =
-                                coil.request.ImageRequest.Builder(context)
-                                    .data(file)
-                                    // v1.112 (F5): 限制解码尺寸为 80dp,避免大图全分辨率解码浪费内存
-                                    .size(160)
-                                    .crossfade(false)
-                                    .build(),
+                            coil.request.ImageRequest.Builder(context)
+                                .data(file)
+                                // v1.112 (F5): 限制解码尺寸为 80dp,避免大图全分辨率解码浪费内存
+                                .size(160)
+                                .crossfade(false)
+                                .build(),
                             contentDescription = item.fileName,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize(),
@@ -1568,9 +1558,9 @@ private fun StickerLibrarySection(
                         if (batchDeleteMode && isSelected) {
                             Box(
                                 modifier =
-                                    Modifier
-                                        .fillMaxSize()
-                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
@@ -1591,9 +1581,9 @@ private fun StickerLibrarySection(
                     color = MaterialTheme.colorScheme.error,
                     shape = MuseShapes.pill,
                     modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
                 ) {
                     Text(
                         text = stringResource(R.string.settings_sticker_delete_selected, selectedIds.count { it.value }),
@@ -1601,9 +1591,9 @@ private fun StickerLibrarySection(
                         color = MaterialTheme.colorScheme.onError,
                         textAlign = TextAlign.Center,
                         modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 12.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
                     )
                 }
             }

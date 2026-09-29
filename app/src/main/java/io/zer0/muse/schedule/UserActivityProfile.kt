@@ -129,11 +129,7 @@ class UserActivityProfile(
      * @param allowedHourEnd 允许发送时段结束小时(0-23,支持跨夜,如 22-8 表示22点到次日8点)
      */
     @Synchronized
-    fun getNextActiveWindow(
-        fromTime: Long,
-        allowedHourStart: Int = 8,
-        allowedHourEnd: Int = 22,
-    ): Long {
+    fun getNextActiveWindow(fromTime: Long, allowedHourStart: Int = 8, allowedHourEnd: Int = 22): Long {
         applyDecayIfNeeded(fromTime)
         val currentHour = hourOf(fromTime)
         // 当前就在高活跃且在允许时段 → 立即返回
@@ -275,12 +271,16 @@ class UserActivityProfile(
         private const val PREFS_NAME = "user_activity_profile"
         private const val KEY_STATE = "profile_state"
         private const val DEFAULT_PROBABILITY = 1f / 24f
+
         /** 高活跃阈值因子:概率 ≥ 平均概率 × 此因子 才算高活跃。 */
         private const val ACTIVE_THRESHOLD_FACTOR = 1.5f
+
         /** 每日衰减因子(0.85 → 7 天后权重 ≈ 0.32)。 */
         private const val DECAY_FACTOR = 0.85f
+
         /** 单次最多补算的衰减天数(防止 App 长期未打开后衰减到 0)。 */
         private const val MAX_DECAY_DAYS = 30
+
         /**
          * 冷启动默认画像覆盖天数 — 累计真实数据达到此天数后完全用真实画像。
          * 不足此天数时,默认画像与真实画像按"天数/[DEFAULT_PROFILE_DAYS]"权重混合。

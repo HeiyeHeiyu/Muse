@@ -1,10 +1,10 @@
 package io.zer0.ai.core
 
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**

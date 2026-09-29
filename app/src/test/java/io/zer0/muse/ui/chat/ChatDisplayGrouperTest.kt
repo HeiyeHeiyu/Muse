@@ -14,19 +14,17 @@ import org.junit.Test
 class ChatDisplayGrouperTest {
 
     /** 用 content 当稳定标识(避免依赖实验性的 Uuid.parse)。 */
-    private fun msg(marker: String) =
-        UIMessage(role = MessageRole.ASSISTANT, content = marker, createdAt = 1L)
+    private fun msg(marker: String) = UIMessage(role = MessageRole.ASSISTANT, content = marker, createdAt = 1L)
 
     /** 可聚合 = content 以 "tool" 开头(与业务无关,仅测试用)。 */
     private val isGroupable: (UIMessage) -> Boolean = { it.content.startsWith("tool") }
 
-    private fun contentsOf(items: List<ChatDisplayItem>): List<String> =
-        items.flatMap { item ->
-            when (item) {
-                is ChatDisplayItem.Single -> listOf(item.msg.content)
-                is ChatDisplayItem.Grouped -> item.msgs.map { it.content }
-            }
+    private fun contentsOf(items: List<ChatDisplayItem>): List<String> = items.flatMap { item ->
+        when (item) {
+            is ChatDisplayItem.Single -> listOf(item.msg.content)
+            is ChatDisplayItem.Grouped -> item.msgs.map { it.content }
         }
+    }
 
     @Test
     fun `empty list yields empty result`() {

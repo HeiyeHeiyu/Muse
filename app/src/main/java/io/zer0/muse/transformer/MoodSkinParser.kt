@@ -15,7 +15,14 @@ object MoodSkinParser {
     private val MOODFX_REGEX = Regex("""<moodfx>([\s\S]*?)</moodfx>""", RegexOption.IGNORE_CASE)
 
     private val INLINE_EFFECTS = listOf(
-        "glow", "big", "huge", "whisper", "red", "shake", "blur", "glitch",
+        "glow",
+        "big",
+        "huge",
+        "whisper",
+        "red",
+        "shake",
+        "blur",
+        "glitch",
     )
 
     /**
@@ -32,12 +39,11 @@ object MoodSkinParser {
         return skin to cleaned
     }
 
-
     /** 判断文本是否包含任何内联特效标签(用于选择富文本渲染路径)。 */
-    fun containsInlineEffect(text: String): Boolean =
-        INLINE_EFFECTS.any { effect ->
-            Regex("""\[$effect\]([\s\S]*?)\[/$effect\]""", RegexOption.IGNORE_CASE).containsMatchIn(text)
-        }
+    fun containsInlineEffect(text: String): Boolean = INLINE_EFFECTS.any { effect ->
+        Regex("""\[$effect\]([\s\S]*?)\[/$effect\]""", RegexOption.IGNORE_CASE).containsMatchIn(text)
+    }
+
     /** 清除所有内联特效标签,保留被包裹的文字。 */
     fun stripInlineEffects(text: String): String {
         var result = text

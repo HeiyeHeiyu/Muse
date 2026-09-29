@@ -151,8 +151,7 @@ class StatsCacheManager(
      * @param key 缓存键
      * @return 推送当前缓存值(无缓存时为 null)的 Flow
      */
-    fun observe(key: String): Flow<String?> =
-        statsCacheDao.observe(key).map { it?.value }
+    fun observe(key: String): Flow<String?> = statsCacheDao.observe(key).map { it?.value }
 
     /**
      * 清空全部统计缓存。

@@ -29,7 +29,10 @@ class SessionSummaryManager(
     private val llmClient: MemoryLlmClient,
 ) {
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     data class SummaryOwnership(
         val assistantId: String = "",
@@ -102,7 +105,10 @@ class SessionSummaryManager(
      */
     suspend fun delete(sessionId: String): Boolean = withContext(Dispatchers.IO) {
         // v1.78 (M1): 包装 suspend DAO 调用必须用 resultOf,避免吞 CancellationException
-        resultOf { dao.deleteById(sessionId); true }.onError { msg, t ->
+        resultOf {
+            dao.deleteById(sessionId)
+            true
+        }.onError { msg, t ->
             // v1.78 (M5): 记录删除失败原因
             Logger.w("SessionSummaryManager", "delete(${sessionId.take(8)}…) 失败: $msg", t)
         }.getOrNull() ?: false
@@ -186,7 +192,10 @@ class SessionSummaryManager(
         val budgetText = if (isZh) {
             "$factTitle 最多 $factsBudget 字。$timelineTitle 最多 $eventsBudget 字。"
         } else {
-            "$factTitle max ${maxOf(10, (factsBudget * 0.6).toInt())} words. $timelineTitle max ${maxOf(20, (eventsBudget * 0.6).toInt())} words."
+            "$factTitle max ${maxOf(
+                10,
+                (factsBudget * 0.6).toInt(),
+            )} words. $timelineTitle max ${maxOf(20, (eventsBudget * 0.6).toInt())} words."
         }
         val prevLabel = if (isZh) "## 已有摘要" else "## Existing Summary"
         val newLabel = if (isZh) "## 新增对话" else "## New Conversation"
@@ -293,11 +302,7 @@ class SessionSummaryManager(
     private data class Budget(val totalBudget: Int, val visibleMaxTokens: Int)
 
     /** 从消息列表构建带时间戳的对话文本(供 LLM 总结)。 */
-    private fun buildConversationText(
-        messages: List<UIMessage>,
-        locale: String,
-        zone: java.time.ZoneId,
-    ): String {
+    private fun buildConversationText(messages: List<UIMessage>, locale: String, zone: java.time.ZoneId): String {
         val isZh = locale.startsWith("zh")
         val userLabel = if (isZh) "用户" else "User"
         val assistantLabel = if (isZh) "助手" else "Assistant"
@@ -309,7 +314,9 @@ class SessionSummaryManager(
                 val instant = Instant.ofEpochMilli(msg.createdAt)
                 val formatted = TimeContext.formatSummaryTimestamp(instant, zone)
                 "[$formatted] "
-            } else ""
+            } else {
+                ""
+            }
             val speaker = if (msg.role == io.zer0.ai.core.MessageRole.USER) userLabel else assistantLabel
             parts.add("$timePrefix【$speaker】$content")
         }

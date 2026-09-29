@@ -6,7 +6,6 @@ import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.BuildConfig
-import io.zer0.muse.R
 import io.zer0.muse.data.AtomicFileStore
 import io.zer0.muse.data.skill.SkillEntity
 import io.zer0.muse.data.skill.SkillRepository
@@ -23,12 +22,12 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-import java.io.File
-import java.io.InputStream
-import java.util.Base64
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import java.io.File
+import java.io.InputStream
+import java.util.Base64
 
 /**
  * 插件配置存储：按插件 id 存储用户自定义配置值。
@@ -164,48 +163,42 @@ class PluginManager(
      * 该路径不会写入信任根、不会注册为可执行插件，并会重新比较内容摘要，避免用户确认
      * 预览后 URI 被替换成另一份包。有效签名包应使用 [installConfirmedFromUri]。
      */
-    suspend fun installDraftFromUri(
-        uri: Uri,
-        expectedPreview: PluginSecurityGate.InstallPreview,
-    ): Result<InstalledPlugin> = withTempPluginFile(uri, "muse-plugin") { file ->
-        installDraftFromFile(file, expectedPreview)
-    }
-
-    suspend fun installDraftFromFile(
-        file: File,
-        expectedPreview: PluginSecurityGate.InstallPreview,
-    ): Result<InstalledPlugin> = withContext(Dispatchers.IO) {
-        val loaded = loadPackage(file)
-            .getOrElse { error -> return@withContext Result.failure(error) }
-        val decision = PluginSecurityGate.review(loaded, trustedPublisherKeys())
-        if (!decision.allowed) {
-            return@withContext Result.failure(
-                IllegalStateException(decision.reason ?: "插件安全审查未通过"),
-            )
+    suspend fun installDraftFromUri(uri: Uri, expectedPreview: PluginSecurityGate.InstallPreview): Result<InstalledPlugin> =
+        withTempPluginFile(uri, "muse-plugin") { file ->
+            installDraftFromFile(file, expectedPreview)
         }
-        if (!PluginSecurityGate.hasSameContentIdentity(expectedPreview, decision.preview)) {
-            return@withContext Result.failure(
-                IllegalStateException("插件内容在确认后发生变化，请重新预览"),
-            )
-        }
-        commitInstall(
-            loaded,
-            installationConfirmed = false,
-            signature = decision.signature,
-        )
-    }
 
-    /** 读取文件并返回纯逻辑安全门的决策，供确认 UI 和单测使用。 */
-    suspend fun reviewFromFile(file: File): Result<PluginSecurityGate.Decision> =
+    suspend fun installDraftFromFile(file: File, expectedPreview: PluginSecurityGate.InstallPreview): Result<InstalledPlugin> =
         withContext(Dispatchers.IO) {
             val loaded = loadPackage(file)
                 .getOrElse { error -> return@withContext Result.failure(error) }
-            Result.success(PluginSecurityGate.review(loaded, trustedPublisherKeys()))
+            val decision = PluginSecurityGate.review(loaded, trustedPublisherKeys())
+            if (!decision.allowed) {
+                return@withContext Result.failure(
+                    IllegalStateException(decision.reason ?: "插件安全审查未通过"),
+                )
+            }
+            if (!PluginSecurityGate.hasSameContentIdentity(expectedPreview, decision.preview)) {
+                return@withContext Result.failure(
+                    IllegalStateException("插件内容在确认后发生变化，请重新预览"),
+                )
+            }
+            commitInstall(
+                loaded,
+                installationConfirmed = false,
+                signature = decision.signature,
+            )
         }
 
+    /** 读取文件并返回纯逻辑安全门的决策，供确认 UI 和单测使用。 */
+    suspend fun reviewFromFile(file: File): Result<PluginSecurityGate.Decision> = withContext(Dispatchers.IO) {
+        val loaded = loadPackage(file)
+            .getOrElse { error -> return@withContext Result.failure(error) }
+        Result.success(PluginSecurityGate.review(loaded, trustedPublisherKeys()))
+    }
+
     /** 当前 Android 私有信任根的只读公钥映射；不把私钥或存储路径暴露给调用方。 */
-    private fun trustedPublisherKeys(): Map<String, String> =
-        trustStore.list().associate { it.publisherId to it.publicKey }
+    private fun trustedPublisherKeys(): Map<String, String> = trustStore.list().associate { it.publisherId to it.publicKey }
 
     /**
      * 在用户已查看 [expectedPreview] 后确认并安装外部插件。
@@ -271,7 +264,6 @@ class PluginManager(
         )
     }
 
-
     /**
      * 显式确认已安装的草稿插件。
      *
@@ -279,10 +271,7 @@ class PluginManager(
      * manifest 策略、ECDSA 签名、本机信任根和内容摘要；未签名/未知发行者/篡改包一律
      * 不能变成可执行插件。
      */
-    suspend fun confirmInstallation(
-        id: String,
-        trustPublisher: Boolean = false,
-    ): Result<InstalledPlugin> = withContext(Dispatchers.IO) {
+    suspend fun confirmInstallation(id: String, trustPublisher: Boolean = false): Result<InstalledPlugin> = withContext(Dispatchers.IO) {
         val plugin = findPlugin(id)
             ?: return@withContext Result.failure(IllegalStateException("插件未安装: $id"))
         if (plugin.contentSha256.isBlank()) {
@@ -360,41 +349,40 @@ class PluginManager(
      * 校验先于写盘：id/名称/版本/代码大小/工具形状/函数是否存在/能力白名单任何一条
      * 不通过都直接返回中文原因，不在插件目录或注册表留下半成品。
      */
-    suspend fun createAuthoredDraft(request: AuthoredPluginRequest): Result<InstalledPlugin> =
-        withContext(Dispatchers.IO) {
-            PluginAuthoringRules.validate(request)?.let { reason ->
-                Logger.w(TAG, "助手插件草稿被拒: ${request.id} ($reason)")
-                return@withContext Result.failure(IllegalArgumentException(reason))
-            }
-            val manifest = PluginAuthoringRules.manifestOf(request)
-            val zipBytes = runCatching {
-                PluginAuthoringRules.buildZip(manifest, request.code)
-            }.getOrElse { error ->
+    suspend fun createAuthoredDraft(request: AuthoredPluginRequest): Result<InstalledPlugin> = withContext(Dispatchers.IO) {
+        PluginAuthoringRules.validate(request)?.let { reason ->
+            Logger.w(TAG, "助手插件草稿被拒: ${request.id} ($reason)")
+            return@withContext Result.failure(IllegalArgumentException(reason))
+        }
+        val manifest = PluginAuthoringRules.manifestOf(request)
+        val zipBytes = runCatching {
+            PluginAuthoringRules.buildZip(manifest, request.code)
+        }.getOrElse { error ->
+            return@withContext Result.failure(
+                IllegalStateException("插件包构建失败: ${error.message}", error),
+            )
+        }
+        val temp = File(context.cacheDir, "authored_draft_${System.nanoTime()}.muse-plugin")
+        try {
+            temp.writeBytes(zipBytes)
+            val decision = reviewFromFile(temp)
+                .getOrElse { error -> return@withContext Result.failure(error) }
+            if (!decision.allowed) {
                 return@withContext Result.failure(
-                    IllegalStateException("插件包构建失败: ${error.message}", error),
+                    IllegalStateException(decision.reason ?: "插件安全审查未通过"),
                 )
             }
-            val temp = File(context.cacheDir, "authored_draft_${System.nanoTime()}.muse-plugin")
-            try {
-                temp.writeBytes(zipBytes)
-                val decision = reviewFromFile(temp)
-                    .getOrElse { error -> return@withContext Result.failure(error) }
-                if (!decision.allowed) {
-                    return@withContext Result.failure(
-                        IllegalStateException(decision.reason ?: "插件安全审查未通过"),
-                    )
-                }
-                // 复用既有草稿落库路径：内容摘要与预览绑定，且不写信任根、不启用。
-                installDraftFromFile(temp, decision.preview)
-            } catch (cancellation: kotlinx.coroutines.CancellationException) {
-                throw cancellation
-            } catch (error: Exception) {
-                Logger.e(TAG, "助手插件草稿写入失败: ${request.id}", error)
-                Result.failure(error)
-            } finally {
-                runCatching { if (temp.exists()) temp.delete() }
-            }
+            // 复用既有草稿落库路径：内容摘要与预览绑定，且不写信任根、不启用。
+            installDraftFromFile(temp, decision.preview)
+        } catch (cancellation: kotlinx.coroutines.CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            Logger.e(TAG, "助手插件草稿写入失败: ${request.id}", error)
+            Result.failure(error)
+        } finally {
+            runCatching { if (temp.exists()) temp.delete() }
         }
+    }
 
     /**
      * 用本机作者密钥签名并启用一份已安装的未签名草稿。
@@ -480,25 +468,22 @@ class PluginManager(
         }
     }
 
-    private suspend fun <T> withTempPluginFile(
-        uri: Uri,
-        suffix: String,
-        operation: suspend (File) -> Result<T>,
-    ): Result<T> = withContext(Dispatchers.IO) {
-        val temp = File(context.cacheDir, "plugin_import_${System.nanoTime()}.$suffix")
-        try {
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                temp.outputStream().use { output -> copyLimited(input, output, MAX_PLUGIN_PACKAGE_BYTES) }
-            } ?: return@withContext Result.failure(IllegalStateException("无法打开所选文件"))
-            operation(temp)
-        } catch (ce: kotlinx.coroutines.CancellationException) {
-            throw ce
-        } catch (error: Exception) {
-            Result.failure(error)
-        } finally {
-            runCatching { if (temp.exists()) temp.delete() }
+    private suspend fun <T> withTempPluginFile(uri: Uri, suffix: String, operation: suspend (File) -> Result<T>): Result<T> =
+        withContext(Dispatchers.IO) {
+            val temp = File(context.cacheDir, "plugin_import_${System.nanoTime()}.$suffix")
+            try {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    temp.outputStream().use { output -> copyLimited(input, output, MAX_PLUGIN_PACKAGE_BYTES) }
+                } ?: return@withContext Result.failure(IllegalStateException("无法打开所选文件"))
+                operation(temp)
+            } catch (ce: kotlinx.coroutines.CancellationException) {
+                throw ce
+            } catch (error: Exception) {
+                Result.failure(error)
+            } finally {
+                runCatching { if (temp.exists()) temp.delete() }
+            }
         }
-    }
 
     private fun loadPackage(file: File): Result<PluginPackageLoader.LoadedPluginPackage> {
         val bytes = readPluginPackage(file).getOrElse { error -> return Result.failure(error) }
@@ -779,39 +764,38 @@ class PluginManager(
      * 并比对保留时记录的内容摘要，任何一步不通过都不会写盘。校验通过后复用安装提交路径
      * （显式允许降级），因此技能注册、活跃目录切换与失败恢复都与正常安装完全一致。
      */
-    suspend fun rollbackTo(id: String, version: String): Result<InstalledPlugin> =
-        withContext(Dispatchers.IO) {
-            val retained = versionStore.find(id, version)
-                ?: return@withContext Result.failure(
-                    IllegalStateException("没有可回滚的版本: $id@$version"),
-                )
-            val loaded = loadInstalledPackage(retained.directory)
-                ?: return@withContext Result.failure(IllegalStateException("历史版本内容不可读"))
-            if (loaded.manifest.id != id) {
-                return@withContext Result.failure(IllegalStateException("历史版本插件 id 与目标不一致"))
-            }
-            if (PluginSecurityGate.contentSha256(loaded) != retained.record.contentSha256) {
-                return@withContext Result.failure(IllegalStateException("历史版本内容已被改动，拒绝回滚"))
-            }
-            val decision = PluginSecurityGate.review(loaded, trustedPublisherKeys())
-            if (!decision.isInstallable) {
-                return@withContext Result.failure(
-                    IllegalStateException(decision.reason ?: "历史版本签名校验失败，拒绝回滚"),
-                )
-            }
-            val signature = decision.signature
-            if (signature.publisherId != retained.record.publisherId ||
-                !signature.fingerprint.equals(retained.record.publisherKeyFingerprint, ignoreCase = true)
-            ) {
-                return@withContext Result.failure(IllegalStateException("历史版本发行者与保留记录不一致"))
-            }
-            commitInstall(
-                loaded,
-                installationConfirmed = true,
-                signature = signature,
-                allowDowngrade = true,
+    suspend fun rollbackTo(id: String, version: String): Result<InstalledPlugin> = withContext(Dispatchers.IO) {
+        val retained = versionStore.find(id, version)
+            ?: return@withContext Result.failure(
+                IllegalStateException("没有可回滚的版本: $id@$version"),
+            )
+        val loaded = loadInstalledPackage(retained.directory)
+            ?: return@withContext Result.failure(IllegalStateException("历史版本内容不可读"))
+        if (loaded.manifest.id != id) {
+            return@withContext Result.failure(IllegalStateException("历史版本插件 id 与目标不一致"))
+        }
+        if (PluginSecurityGate.contentSha256(loaded) != retained.record.contentSha256) {
+            return@withContext Result.failure(IllegalStateException("历史版本内容已被改动，拒绝回滚"))
+        }
+        val decision = PluginSecurityGate.review(loaded, trustedPublisherKeys())
+        if (!decision.isInstallable) {
+            return@withContext Result.failure(
+                IllegalStateException(decision.reason ?: "历史版本签名校验失败，拒绝回滚"),
             )
         }
+        val signature = decision.signature
+        if (signature.publisherId != retained.record.publisherId ||
+            !signature.fingerprint.equals(retained.record.publisherKeyFingerprint, ignoreCase = true)
+        ) {
+            return@withContext Result.failure(IllegalStateException("历史版本发行者与保留记录不一致"))
+        }
+        commitInstall(
+            loaded,
+            installationConfirmed = true,
+            signature = signature,
+            allowDowngrade = true,
+        )
+    }
 
     /**
      * 已安装插件提供的声明式气泡皮肤。
@@ -824,13 +808,12 @@ class PluginManager(
      * @param includeDisabled true 时同时返回已安装但当前不可用(未确认/已禁用/信任失效)的皮肤,
      * 其 [InstalledSkin.enabled] 为 false;渲染路径必须使用默认值,只消费可用皮肤。
      */
-    override fun listInstalledSkins(includeDisabled: Boolean): List<InstalledSkin> =
-        cached.asSequence()
-            .filter { it.kind == PluginSecurityGate.UI_SKIN_KIND }
-            .mapNotNull { plugin -> skinEntry(plugin, includeDisabled) }
-            // 皮肤 id 是选择与回退的唯一键:同一 id 只保留一个来源,避免选择语义歧义。
-            .distinctBy { it.skin.id }
-            .toList()
+    override fun listInstalledSkins(includeDisabled: Boolean): List<InstalledSkin> = cached.asSequence()
+        .filter { it.kind == PluginSecurityGate.UI_SKIN_KIND }
+        .mapNotNull { plugin -> skinEntry(plugin, includeDisabled) }
+        // 皮肤 id 是选择与回退的唯一键:同一 id 只保留一个来源,避免选择语义歧义。
+        .distinctBy { it.skin.id }
+        .toList()
 
     /**
      * 读取单个插件的皮肤条目。
@@ -869,10 +852,7 @@ class PluginManager(
      * 不在这里检查 [InstalledPlugin.enabled]/[InstalledPlugin.installationConfirmed],
      * 由调用方区分「不可用但仍可展示」与「拒绝加载」。
      */
-    private fun verifyInstalledPackage(
-        plugin: InstalledPlugin,
-        loaded: PluginPackageLoader.LoadedPluginPackage,
-    ): Boolean = runCatching {
+    private fun verifyInstalledPackage(plugin: InstalledPlugin, loaded: PluginPackageLoader.LoadedPluginPackage): Boolean = runCatching {
         val decision = PluginSecurityGate.review(loaded, trustedPublisherKeys())
         check(decision.isInstallable) {
             decision.reason ?: "插件必须具有受本机信任根信任的有效签名"
@@ -987,8 +967,7 @@ class PluginManager(
         )
     }.getOrNull()
 
-    private fun isWithin(root: File, file: File): Boolean =
-        file == root || file.path.startsWith(root.path + File.separator)
+    private fun isWithin(root: File, file: File): Boolean = file == root || file.path.startsWith(root.path + File.separator)
 
     private suspend fun registerSkills(plugin: InstalledPlugin) {
         plugin.tools.forEach { tool ->
@@ -1055,10 +1034,7 @@ class PluginManager(
     /**
      * 计算本次安装后注册表应记录的 skill id 集合（累积历史，供卸载兜底清理）。
      */
-    private fun collectRegisteredSkillIds(
-        previous: InstalledPlugin?,
-        manifest: PluginManifest,
-    ): List<String> = buildList {
+    private fun collectRegisteredSkillIds(previous: InstalledPlugin?, manifest: PluginManifest): List<String> = buildList {
         if (previous != null) {
             addAll(previous.registeredSkillIds)
             previous.tools.forEach { tool ->
@@ -1090,11 +1066,7 @@ class PluginManager(
         return null
     }
 
-    private fun writePluginDirectory(
-        directory: File,
-        manifest: PluginManifest,
-        pluginPackage: PluginPackageLoader.LoadedPluginPackage,
-    ) {
+    private fun writePluginDirectory(directory: File, manifest: PluginManifest, pluginPackage: PluginPackageLoader.LoadedPluginPackage) {
         check(directory.mkdirs() || directory.isDirectory) { "无法创建插件 staging 目录" }
         File(directory, "manifest.json").writeText(
             AppJson.encodeToString(PluginManifest.serializer(), manifest),
@@ -1191,6 +1163,7 @@ class PluginManager(
 
     companion object {
         private const val TAG = "PluginManager"
+
         /** 压缩包原始大小上限；与 loader 的解压后上限配合，防止 readBytes/copyTo 无界增长。 */
         internal const val MAX_PLUGIN_PACKAGE_BYTES = 20L * 1024 * 1024
 
@@ -1201,16 +1174,14 @@ class PluginManager(
          * 旧的 `plugin_<id>_<tool>` 会让不同 (pluginId, toolName) 组合碰撞（例如
          * `a_b`+`c` 与 `a`+`b_c`）。长度前缀让 id 可无歧义解码，任何组合都不会碰撞。
          */
-        internal fun skillId(pluginId: String, toolName: String): String =
-            "plugin_${pluginId.length}_${pluginId}_$toolName"
+        internal fun skillId(pluginId: String, toolName: String): String = "plugin_${pluginId.length}_${pluginId}_$toolName"
 
         /**
          * 长度前缀编码引入前的旧格式 id。
          *
          * 仅用于迁移清理历史安装留下的 skill，不再用于注册新 skill。
          */
-        internal fun legacySkillId(pluginId: String, toolName: String): String =
-            "plugin_${pluginId}_$toolName"
+        internal fun legacySkillId(pluginId: String, toolName: String): String = "plugin_${pluginId}_$toolName"
 
         /**
          * v2.0: 解析插件 skill id(`plugin_<len>_<pluginId>_<toolName>`)。
@@ -1251,7 +1222,7 @@ class PluginManager(
             if (!isWithin(root, panelFile) || !panelFile.isFile) return null
             panelFile.readText()
         }.onFailure { error ->
-            Logger.w(TAG, "读取插件面板失败: ${pluginId} — ${error.message}")
+            Logger.w(TAG, "读取插件面板失败: $pluginId — ${error.message}")
         }.getOrNull()
     }
 

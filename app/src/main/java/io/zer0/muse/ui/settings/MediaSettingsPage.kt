@@ -6,23 +6,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
-import io.zer0.muse.ui.common.form.MuseAnchoredMenu
-import io.zer0.muse.ui.common.form.MuseCapsuleButton
-import io.zer0.muse.ui.common.form.MuseTactileButton
-import io.zer0.muse.ui.common.form.MuseTextField
-import io.zer0.muse.ui.common.form.MuseSelectionSheet
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.surface.MuseListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -33,13 +24,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
 import io.zer0.muse.data.MediaConfig
 import io.zer0.muse.data.SettingsRepository
-import io.zer0.muse.ui.common.settings.ChevronRight
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseAnchoredMenu
+import io.zer0.muse.ui.common.form.MuseCapsuleButton
+import io.zer0.muse.ui.common.form.MuseSelectionSheet
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.settings.ChevronRight
 import io.zer0.muse.ui.common.settings.SectionLabel
-import io.zer0.muse.ui.common.settings.SettingsSliderRow
 import io.zer0.muse.ui.common.settings.SettingsGroup
 import io.zer0.muse.ui.common.settings.SettingsGroupDivider
 import io.zer0.muse.ui.common.settings.SettingsItemRow
+import io.zer0.muse.ui.common.settings.SettingsSliderRow
+import io.zer0.muse.ui.common.surface.MuseListItem
 import io.zer0.muse.ui.speech.TtsManager
 import io.zer0.muse.ui.speech.VoiceInfo
 import io.zer0.muse.ui.theme.MusePaddings
@@ -155,11 +154,7 @@ fun MediaSettingsPage(
  * TTS 声音选择器 — 下拉菜单列出系统可用的 TTS 声音。
  */
 @Composable
-private fun TtsVoiceSelector(
-    ttsManager: TtsManager,
-    currentVoice: String,
-    onVoiceSelected: (String) -> Unit,
-) {
+private fun TtsVoiceSelector(ttsManager: TtsManager, currentVoice: String, onVoiceSelected: (String) -> Unit) {
     val voices = remember { ttsManager.getAvailableVoices() }
 
     var expanded by remember { mutableStateOf(false) }
@@ -218,11 +213,7 @@ private fun TtsVoiceSelector(
  * 动态拉取并展示可选音色,选中后写回 [MediaConfig.ttsVoice]。
  */
 @Composable
-private fun CloudTtsConfigSection(
-    config: MediaConfig,
-    settings: SettingsRepository,
-    ttsManager: TtsManager,
-) {
+private fun CloudTtsConfigSection(config: MediaConfig, settings: SettingsRepository, ttsManager: TtsManager) {
     val scope = rememberCoroutineScope()
     val systemLabel = stringResource(R.string.settings_media_tts_engine_system)
     val savedToast = stringResource(R.string.settings_media_tts_saved)
@@ -239,8 +230,11 @@ private fun CloudTtsConfigSection(
         // stringResource 必须在 @Composable 作用域直接调用,不能在 let/lambda 内嵌套
         val matchedResId = TtsManager.CLOUD_TTS_ENGINES
             .firstOrNull { it.first == config.ttsEngine }?.second
-        val currentLabel = if (config.ttsEngine == "system" || matchedResId == null) systemLabel
-        else stringResource(matchedResId)
+        val currentLabel = if (config.ttsEngine == "system" || matchedResId == null) {
+            systemLabel
+        } else {
+            stringResource(matchedResId)
+        }
 
         Box {
             SettingsItemRow(
@@ -255,7 +249,6 @@ private fun CloudTtsConfigSection(
                 expanded = engineExpanded,
                 onDismissRequest = { engineExpanded = false },
             ) {
-
                 MuseListItem(
                     onClick = {
                         scope.launch { settings.saveMediaConfig(config.copy(ttsEngine = "system")) }
@@ -272,7 +265,6 @@ private fun CloudTtsConfigSection(
                         headlineContent = { Text(stringResource(labelRes)) },
                     )
                 }
-            
             }
         }
 
@@ -294,12 +286,20 @@ private fun CloudTtsConfigSection(
                 label = { Text(stringResource(R.string.settings_media_tts_api_key)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                visualTransformation = if (apiKeyVisible) VisualTransformation.None
-                else PasswordVisualTransformation(),
+                visualTransformation = if (apiKeyVisible) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
                 trailingIcon = {
                     MuseCapsuleButton(
-                        text = stringResource(if (apiKeyVisible) R.string.settings_media_tts_show
-                        else R.string.settings_media_tts_hide),
+                        text = stringResource(
+                            if (apiKeyVisible) {
+                                R.string.settings_media_tts_show
+                            } else {
+                                R.string.settings_media_tts_hide
+                            },
+                        ),
                         onClick = { apiKeyVisible = !apiKeyVisible },
                         variant = IosCapsuleButtonVariant.Text,
                         fillWidth = false,
@@ -490,10 +490,7 @@ private fun CloudTtsConfigSection(
  *  - 其他: 仅语速滑块(若支持)
  */
 @Composable
-private fun AdvancedTtsParamsSection(
-    config: MediaConfig,
-    settings: SettingsRepository,
-) {
+private fun AdvancedTtsParamsSection(config: MediaConfig, settings: SettingsRepository) {
     val scope = rememberCoroutineScope()
     val savedToast = stringResource(R.string.settings_media_tts_saved)
     val engine = config.ttsEngine
@@ -580,7 +577,6 @@ private fun AdvancedTtsParamsSection(
                     expanded = formatExpanded,
                     onDismissRequest = { formatExpanded = false },
                 ) {
-
                     listOf("mp3", "opus", "aac", "flac", "wav").forEach { fmt ->
                         MuseListItem(
                             onClick = {
@@ -590,7 +586,6 @@ private fun AdvancedTtsParamsSection(
                             headlineContent = { Text(fmt) },
                         )
                     }
-                
                 }
             }
             SettingsGroupDivider()
@@ -627,18 +622,15 @@ private fun AdvancedTtsParamsSection(
 /**
  * 引擎是否支持语速参数(OpenAI 兼容 + MiniMax + Edge)。
  */
-private fun supportsSpeed(engine: String): Boolean =
-    engine in listOf("openai", "minimax", "dashscope", "groq", "step", "edge")
+private fun supportsSpeed(engine: String): Boolean = engine in listOf("openai", "minimax", "dashscope", "groq", "step", "edge")
 
 /**
  * 引擎是否支持音频格式选择(OpenAI 兼容 + Edge)。
  */
-private fun supportsResponseFormat(engine: String): Boolean =
-    engine in listOf("openai", "dashscope", "groq", "step", "edge")
+private fun supportsResponseFormat(engine: String): Boolean = engine in listOf("openai", "dashscope", "groq", "step", "edge")
 
 /**
  * 引擎是否有可配置的高级参数(决定是否显示「高级参数」section)。
  */
-private fun hasAdvancedParams(engine: String): Boolean =
-    engine == "elevenlabs" || engine == "minimax" ||
-        supportsSpeed(engine) || supportsResponseFormat(engine)
+private fun hasAdvancedParams(engine: String): Boolean = engine == "elevenlabs" || engine == "minimax" ||
+    supportsSpeed(engine) || supportsResponseFormat(engine)

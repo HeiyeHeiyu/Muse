@@ -16,7 +16,8 @@ enum class SlashCommand(
     COMPACT("compact", R.string.slash_command_compact),
     RESET("reset", R.string.slash_command_reset),
     PIN("pin", R.string.slash_command_pin),
-    ARCHIVE("archive", R.string.slash_command_archive);
+    ARCHIVE("archive", R.string.slash_command_archive),
+    ;
 
     companion object {
         /** 从输入文本解析命令。返回 null 表示不是斜杠命令。 */

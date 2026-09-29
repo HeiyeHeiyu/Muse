@@ -120,12 +120,11 @@ object SkillImporter {
      * 解析提示词技能的指令文本(剥离 `prompt:` 前缀)。
      * @return 非提示词技能返回 null;`prompt:` 后为空文本时返回空串
      */
-    fun decodePromptText(implementationKotlin: String): String? =
-        if (implementationKotlin.startsWith(PROMPT_PREFIX)) {
-            implementationKotlin.removePrefix(PROMPT_PREFIX)
-        } else {
-            null
-        }
+    fun decodePromptText(implementationKotlin: String): String? = if (implementationKotlin.startsWith(PROMPT_PREFIX)) {
+        implementationKotlin.removePrefix(PROMPT_PREFIX)
+    } else {
+        null
+    }
 
     /** 编码提示词技能指令文本为 [SkillEntity.implementationKotlin] 存储形式。 */
     fun encodePromptText(text: String): String = PROMPT_PREFIX + text
@@ -201,13 +200,7 @@ object SkillImporter {
      * @param promptText 提示词技能的指令文本(非提示词技能为 null);
      *   非 null 表示这是提示词技能,此时跳过 [BLOCKED_KEYWORDS] 关键词黑名单
      */
-    private fun safetyReview(
-        id: String,
-        name: String,
-        description: String,
-        params: JsonObject,
-        promptText: String? = null,
-    ): String? {
+    private fun safetyReview(id: String, name: String, description: String, params: JsonObject, promptText: String? = null): String? {
         // 1. 基本长度检查
         if (name.length < 2) return "name 长度过短(至少 2 个字符)"
         if (description.length < 5) return "description 长度过短(至少 5 个字符),请补充该 skill 的用途和触发场景"
@@ -268,21 +261,24 @@ object SkillImporter {
             put("recipe", 1)
             put("name", name)
             put("exportedAt", System.currentTimeMillis())
-            put("skills", kotlinx.serialization.json.buildJsonArray {
-                skills.forEach { s ->
-                    add(
-                        kotlinx.serialization.json.buildJsonObject {
-                            put("id", s.id)
-                            put("name", s.name)
-                            put("description", s.description)
-                            put("category", s.category)
-                            put("implementationKotlin", s.implementationKotlin)
-                            put("parametersJson", s.parametersJson)
-                            put("requiredJson", s.requiredJson)
-                        },
-                    )
-                }
-            })
+            put(
+                "skills",
+                kotlinx.serialization.json.buildJsonArray {
+                    skills.forEach { s ->
+                        add(
+                            kotlinx.serialization.json.buildJsonObject {
+                                put("id", s.id)
+                                put("name", s.name)
+                                put("description", s.description)
+                                put("category", s.category)
+                                put("implementationKotlin", s.implementationKotlin)
+                                put("parametersJson", s.parametersJson)
+                                put("requiredJson", s.requiredJson)
+                            },
+                        )
+                    }
+                },
+            )
         }
         return AppJson.encodeToString(kotlinx.serialization.json.JsonObject.serializer(), obj)
     }
@@ -491,6 +487,5 @@ object SkillImporter {
     }
 
     /** 读取字符串字段;字段缺失或不是字符串时返回 null(不抛异常)。 */
-    private fun stringField(raw: JsonObject, name: String): String? =
-        (raw[name] as? JsonPrimitive)?.contentOrNull
+    private fun stringField(raw: JsonObject, name: String): String? = (raw[name] as? JsonPrimitive)?.contentOrNull
 }

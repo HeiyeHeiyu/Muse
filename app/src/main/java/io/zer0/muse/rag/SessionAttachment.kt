@@ -59,8 +59,7 @@ data class SessionAttachment(
         const val DOC_ID_PREFIX = "session-attach-"
 
         /** 生成会话附件的 docId。 */
-        fun buildDocId(sessionId: String, attachmentId: String): String =
-            "$DOC_ID_PREFIX$sessionId-$attachmentId"
+        fun buildDocId(sessionId: String, attachmentId: String): String = "$DOC_ID_PREFIX$sessionId-$attachmentId"
 
         /** 判断 docId 是否属于会话附件。 */
         fun isSessionAttachmentDocId(docId: String): Boolean = docId.startsWith(DOC_ID_PREFIX)

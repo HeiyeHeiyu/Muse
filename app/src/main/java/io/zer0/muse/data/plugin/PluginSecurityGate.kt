@@ -66,12 +66,16 @@ object PluginSecurityGate {
     enum class SignatureStatus {
         /** 签名有效且发行者 ID 与本机信任根中的公钥绑定。 */
         VALID_TRUSTED,
+
         /** 签名有效，但发行者公钥尚未由用户加入本机信任根。 */
         VALID_UNTRUSTED,
+
         /** 旧包或恶意包没有发行者签名。 */
         UNSIGNED,
+
         /** 签名、清单或包内容不匹配。 */
         INVALID,
+
         /** 使用了不支持的签名算法或公钥格式。 */
         UNSUPPORTED,
     }
@@ -149,10 +153,7 @@ object PluginSecurityGate {
      * [trustedPublisherKeys] 只应来自 Android 私有信任根，键为发行者 ID，值为 X.509
      * 公钥的标准 Base64。未知但签名有效的发行者仍可展示预览，但必须由用户显式作出信任决定。
      */
-    fun review(
-        pluginPackage: PluginPackageLoader.LoadedPluginPackage,
-        trustedPublisherKeys: Map<String, String> = emptyMap(),
-    ): Decision {
+    fun review(pluginPackage: PluginPackageLoader.LoadedPluginPackage, trustedPublisherKeys: Map<String, String> = emptyMap()): Decision {
         val signature = verifySignature(pluginPackage, trustedPublisherKeys)
         val preview = summarize(pluginPackage, signature)
         val policyReason = rejectionReason(pluginPackage.manifest)
@@ -258,12 +259,14 @@ object PluginSecurityGate {
                 initVerify(key)
                 update(signaturePayload(pluginPackage))
             }.verify(signatureBytes)
-        }.getOrElse { return SignatureVerification(
-            status = SignatureStatus.UNSUPPORTED,
-            publisherId = publisherId,
-            fingerprint = fingerprint,
-            reason = "无法验证发行者签名: ${it.message}",
-        ) }
+        }.getOrElse {
+            return SignatureVerification(
+                status = SignatureStatus.UNSUPPORTED,
+                publisherId = publisherId,
+                fingerprint = fingerprint,
+                reason = "无法验证发行者签名: ${it.message}",
+            )
+        }
         if (!valid) {
             return SignatureVerification(
                 status = SignatureStatus.INVALID,
@@ -375,13 +378,12 @@ object PluginSecurityGate {
      * VALID_TRUSTED；确认仍必须绑定同一份内容和同一把公钥，不能因为状态变化被误判为
      * TOCTOU。此方法不忽略 publisherId/fingerprint，只忽略本机信任状态。
      */
-    fun hasSameContentIdentity(expected: InstallPreview, actual: InstallPreview): Boolean =
-        expected.id == actual.id &&
-            expected.entry == actual.entry &&
-            expected.entrySha256 == actual.entrySha256 &&
-            expected.contentSha256 == actual.contentSha256 &&
-            expected.publisherId == actual.publisherId &&
-            expected.publisherKeyFingerprint == actual.publisherKeyFingerprint
+    fun hasSameContentIdentity(expected: InstallPreview, actual: InstallPreview): Boolean = expected.id == actual.id &&
+        expected.entry == actual.entry &&
+        expected.entrySha256 == actual.entrySha256 &&
+        expected.contentSha256 == actual.contentSha256 &&
+        expected.publisherId == actual.publisherId &&
+        expected.publisherKeyFingerprint == actual.publisherKeyFingerprint
 
     /** 计算入口代码摘要，供 UI 展示和单测断言。 */
     fun entrySha256(entryCode: String): String = sha256(entryCode.toByteArray(Charsets.UTF_8))
@@ -403,10 +405,12 @@ object PluginSecurityGate {
             pluginPackage.manifest.copy(signature = envelope.copy(signature = ""))
         } ?: pluginPackage.manifest
         val parts = buildList {
-            add("manifest.json" to AppJson.encodeToString(
-                PluginManifest.serializer(),
-                manifestForSignature,
-            ).toByteArray(Charsets.UTF_8))
+            add(
+                "manifest.json" to AppJson.encodeToString(
+                    PluginManifest.serializer(),
+                    manifestForSignature,
+                ).toByteArray(Charsets.UTF_8),
+            )
             add(pluginPackage.manifest.entry to pluginPackage.entryCode.toByteArray(Charsets.UTF_8))
             pluginPackage.extraFiles.toSortedMap().forEach { (path, content) ->
                 add(path to content.toByteArray(Charsets.UTF_8))
@@ -449,11 +453,10 @@ object PluginSecurityGate {
     /** 校验发行者 ID，避免信任根中出现路径、空白或超长标识。 */
     internal fun isValidPublisherId(publisherId: String): Boolean = PUBLISHER_ID_REGEX.matches(publisherId)
 
-    private fun publicKeyBytes(encoded: String): Result<ByteArray> =
-        decodeBase64(encoded, MAX_PUBLIC_KEY_BYTES).map { bytes ->
-            require(bytes.isNotEmpty()) { "公钥为空" }
-            bytes
-        }
+    private fun publicKeyBytes(encoded: String): Result<ByteArray> = decodeBase64(encoded, MAX_PUBLIC_KEY_BYTES).map { bytes ->
+        require(bytes.isNotEmpty()) { "公钥为空" }
+        bytes
+    }
 
     private fun publicKey(encoded: ByteArray): Result<PublicKey> = runCatching {
         val key = KeyFactory.getInstance(KEY_ALGORITHM)
@@ -490,10 +493,9 @@ object PluginSecurityGate {
             normalized.split('/').none { it.isBlank() || it == "." }
     }
 
-    private fun sha256(bytes: ByteArray): String =
-        MessageDigest.getInstance("SHA-256")
-            .digest(bytes)
-            .joinToString("") { byte -> "%02x".format(byte) }
+    private fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256")
+        .digest(bytes)
+        .joinToString("") { byte -> "%02x".format(byte) }
 
     private fun appendHashPart(digest: MessageDigest, path: String, bytes: ByteArray) {
         digest.update(path.toByteArray())

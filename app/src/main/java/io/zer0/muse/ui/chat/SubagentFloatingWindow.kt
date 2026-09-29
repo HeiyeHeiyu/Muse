@@ -344,5 +344,4 @@ private fun SubagentWindowRow(
 }
 
 /** 条目显示标题:优先 label,回退任务摘要。 */
-private fun DeferredResultStore.DeferredTask.pendingTitle(): String =
-    label?.takeIf { it.isNotBlank() } ?: taskSummary
+private fun DeferredResultStore.DeferredTask.pendingTitle(): String = label?.takeIf { it.isNotBlank() } ?: taskSummary

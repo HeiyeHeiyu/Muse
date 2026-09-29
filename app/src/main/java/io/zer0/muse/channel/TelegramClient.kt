@@ -43,90 +43,87 @@ internal object TelegramClient {
     data class Updates(val messages: List<InboundMsg>, val nextOffset: Long?)
 
     /** 长轮询收消息。 */
-    suspend fun getUpdates(token: String, offset: Long?, timeoutSeconds: Int = 30): Result<Updates> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val params = buildString {
-                    append("?timeout=").append(timeoutSeconds)
-                    if (offset != null) append("&offset=").append(offset)
+    suspend fun getUpdates(token: String, offset: Long?, timeoutSeconds: Int = 30): Result<Updates> = withContext(Dispatchers.IO) {
+        runCatching {
+            val params = buildString {
+                append("?timeout=").append(timeoutSeconds)
+                if (offset != null) append("&offset=").append(offset)
+            }
+            val resp = request(
+                "GET",
+                "https://api.telegram.org/bot$token/getUpdates$params",
+            ).getOrThrow()
+            val obj = AppJson.parseToJsonElement(resp).jsonObject
+            if (obj["ok"]?.jsonPrimitive?.booleanOrNull == false) {
+                error(
+                    "Telegram getUpdates 失败: " +
+                        obj["description"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                )
+            }
+            val array = obj["result"] as? JsonArray ?: JsonArray(emptyList())
+            var maxUpdateId: Long? = null
+            val messages = mutableListOf<InboundMsg>()
+            for (element in array) {
+                val update = element as? JsonObject ?: continue
+                val updateId = update["update_id"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+                if (updateId != null && (maxUpdateId == null || updateId > maxUpdateId)) {
+                    maxUpdateId = updateId
                 }
-                val resp = request(
-                    "GET",
-                    "https://api.telegram.org/bot$token/getUpdates$params",
-                ).getOrThrow()
-                val obj = AppJson.parseToJsonElement(resp).jsonObject
-                if (obj["ok"]?.jsonPrimitive?.booleanOrNull == false) {
-                    error(
-                        "Telegram getUpdates 失败: " +
-                            obj["description"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                    )
-                }
-                val array = obj["result"] as? JsonArray ?: JsonArray(emptyList())
-                var maxUpdateId: Long? = null
-                val messages = mutableListOf<InboundMsg>()
-                for (element in array) {
-                    val update = element as? JsonObject ?: continue
-                    val updateId = update["update_id"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
-                    if (updateId != null && (maxUpdateId == null || updateId > maxUpdateId)) {
-                        maxUpdateId = updateId
-                    }
-                    val message = update["message"] as? JsonObject ?: continue
-                    val text = message["text"]?.jsonPrimitive?.contentOrNull.orEmpty()
-                    if (text.isBlank()) continue
-                    val chat = message["chat"] as? JsonObject ?: continue
-                    val chatId = chat["id"]?.jsonPrimitive?.contentOrNull?.toLongOrNull() ?: continue
-                    messages += InboundMsg(
-                        chatId = chatId,
-                        text = text,
-                        chatType = chat["type"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                    )
-                }
-                Updates(
-                    messages = messages,
-                    nextOffset = maxUpdateId?.plus(1) ?: offset,
+                val message = update["message"] as? JsonObject ?: continue
+                val text = message["text"]?.jsonPrimitive?.contentOrNull.orEmpty()
+                if (text.isBlank()) continue
+                val chat = message["chat"] as? JsonObject ?: continue
+                val chatId = chat["id"]?.jsonPrimitive?.contentOrNull?.toLongOrNull() ?: continue
+                messages += InboundMsg(
+                    chatId = chatId,
+                    text = text,
+                    chatType = chat["type"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                )
+            }
+            Updates(
+                messages = messages,
+                nextOffset = maxUpdateId?.plus(1) ?: offset,
+            )
+        }
+    }
+
+    /** 发送文本到指定会话(chat_id 兼容数字与 @channelusername 两种形式)。 */
+    suspend fun sendMessage(token: String, chatId: String, text: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val body = buildJsonObject {
+                put("chat_id", chatId)
+                put("text", text)
+            }.toString()
+            val resp = request(
+                "POST",
+                "https://api.telegram.org/bot$token/sendMessage",
+                body,
+            ).getOrThrow()
+            val obj = AppJson.parseToJsonElement(resp).jsonObject
+            if (obj["ok"]?.jsonPrimitive?.booleanOrNull == false) {
+                error(
+                    "Telegram 发送失败: " +
+                        obj["description"]?.jsonPrimitive?.contentOrNull.orEmpty(),
                 )
             }
         }
-
-    /** 发送文本到指定会话(chat_id 兼容数字与 @channelusername 两种形式)。 */
-    suspend fun sendMessage(token: String, chatId: String, text: String): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val body = buildJsonObject {
-                    put("chat_id", chatId)
-                    put("text", text)
-                }.toString()
-                val resp = request(
-                    "POST",
-                    "https://api.telegram.org/bot$token/sendMessage",
-                    body,
-                ).getOrThrow()
-                val obj = AppJson.parseToJsonElement(resp).jsonObject
-                if (obj["ok"]?.jsonPrimitive?.booleanOrNull == false) {
-                    error(
-                        "Telegram 发送失败: " +
-                            obj["description"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                    )
-                }
-            }
-        }
+    }
 
     /** v2.0.1: 校验 Bot Token — getMe 成功时返回 bot 用户名(如 @xxx_bot)。 */
-    suspend fun getMe(token: String): Result<String> =
-        withContext(Dispatchers.IO) {
-            runCatching {
-                val resp = request("GET", "https://api.telegram.org/bot$token/getMe").getOrThrow()
-                val obj = AppJson.parseToJsonElement(resp).jsonObject
-                if (obj["ok"]?.jsonPrimitive?.booleanOrNull == false) {
-                    error(
-                        "Telegram 校验失败: " +
-                            obj["description"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-                    )
-                }
-                obj["result"]?.jsonObject?.get("username")?.jsonPrimitive?.contentOrNull
-                    ?.let { "@$it" } ?: "Bot"
+    suspend fun getMe(token: String): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val resp = request("GET", "https://api.telegram.org/bot$token/getMe").getOrThrow()
+            val obj = AppJson.parseToJsonElement(resp).jsonObject
+            if (obj["ok"]?.jsonPrimitive?.booleanOrNull == false) {
+                error(
+                    "Telegram 校验失败: " +
+                        obj["description"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                )
             }
+            obj["result"]?.jsonObject?.get("username")?.jsonPrimitive?.contentOrNull
+                ?.let { "@$it" } ?: "Bot"
         }
+    }
 
     private fun request(method: String, url: String, body: String? = null): Result<String> = runCatching {
         val builder = Request.Builder().url(url)

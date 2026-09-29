@@ -65,7 +65,7 @@ class MarketSigningFixtureTest {
 
             val loaded = PluginPackageLoader.loadFromZip(bytes)
             val package_ = (loaded as? PluginPackageLoader.Result.Ok)?.package_
-            assertTrue("包加载失败: ${loaded}", package_ != null)
+            assertTrue("包加载失败: $loaded", package_ != null)
             val decision = PluginSecurityGate.review(package_!!, keys.publishers)
 
             assertTrue("签名未被信任: ${decision.reason}", decision.isInstallable)
@@ -152,7 +152,7 @@ class MarketSigningFixtureTest {
             assertTrue("皮肤包未解析出皮肤: ${entry.id}", skin != null)
             assertEquals("皮肤不应携带可执行入口: ${entry.id}", "", loaded.package_.entryCode)
             val errors = BubbleSkinValidator.validate(skin!!)
-            assertTrue("皮肤未通过宿主校验: ${entry.id} ${errors}", errors.isEmpty())
+            assertTrue("皮肤未通过宿主校验: ${entry.id} $errors", errors.isEmpty())
             assertEquals(entry.id, skin.id)
         }
     }

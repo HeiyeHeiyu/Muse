@@ -9,17 +9,20 @@ import java.util.UUID
  */
 class AgentDmRepository(private val dao: AgentMessageDao) {
 
-    suspend fun sendMessage(fromAgentId: String, toAgentId: String, content: String, replyToId: String? = null): AgentMessageEntity = withContext(Dispatchers.IO) {
-        val msg = AgentMessageEntity(
-            id = UUID.randomUUID().toString(),
-            fromAgentId = fromAgentId,
-            toAgentId = toAgentId,
-            content = content,
-            replyToId = replyToId,
-        )
-        dao.upsert(msg)
-        msg
-    }
+    suspend fun sendMessage(fromAgentId: String, toAgentId: String, content: String, replyToId: String? = null): AgentMessageEntity =
+        withContext(
+            Dispatchers.IO,
+        ) {
+            val msg = AgentMessageEntity(
+                id = UUID.randomUUID().toString(),
+                fromAgentId = fromAgentId,
+                toAgentId = toAgentId,
+                content = content,
+                replyToId = replyToId,
+            )
+            dao.upsert(msg)
+            msg
+        }
 
     suspend fun getInbox(agentId: String, limit: Int = 50) = dao.getInbox(agentId, limit)
     suspend fun getSent(agentId: String, limit: Int = 50) = dao.getSent(agentId, limit)

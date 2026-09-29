@@ -1,14 +1,6 @@
 package io.zer0.muse.ui
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import io.zer0.muse.ui.common.form.MuseChip
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.ui.common.surface.MusePageScaffold
 import android.content.Context
-import androidx.compose.ui.platform.LocalContext
-
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,24 +12,27 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -47,23 +42,27 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.zer0.muse.R
+import io.zer0.muse.ui.common.form.MuseCapsuleTab
+import io.zer0.muse.ui.common.form.MuseChip
+import io.zer0.muse.ui.common.icons.MuseIcons
+import io.zer0.muse.ui.common.museAnimateItem
+import io.zer0.muse.ui.common.state.MuseErrorStateBox
+import io.zer0.muse.ui.common.state.MuseLoadingState
+import io.zer0.muse.ui.common.state.MuseSpinner
+import io.zer0.muse.ui.common.surface.MusePageScaffold
+import io.zer0.muse.ui.theme.MuseDateFormats
+import io.zer0.muse.ui.theme.MuseElevation
+import io.zer0.muse.ui.theme.MusePaddings
+import io.zer0.muse.ui.theme.MuseShapes
+import io.zer0.muse.ui.theme.semiLarge
+import io.zer0.muse.ui.theme.statusColors
 import kotlinx.coroutines.delay
 import org.koin.androidx.compose.koinViewModel
-import io.zer0.muse.R
-import io.zer0.muse.ui.common.museAnimateItem
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
-import io.zer0.muse.ui.common.form.MuseCapsuleTab
-import io.zer0.muse.ui.common.state.MuseErrorStateBox
-import io.zer0.muse.ui.common.state.MuseLoadingState
-import io.zer0.muse.ui.theme.MuseElevation
-import io.zer0.muse.ui.theme.MusePaddings
-import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.ui.theme.MuseDateFormats
-import io.zer0.muse.ui.theme.semiLarge
-import io.zer0.muse.ui.theme.statusColors
 
 /**
  * v0.45: 独立全局搜索页。
@@ -263,10 +262,7 @@ fun SearchScreen(
 
 /** 无输入空状态:居中灰色搜索图标 + 提示 + 建议词 chip。 */
 @Composable
-private fun EmptySearchState(
-    onSuggestionClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun EmptySearchState(onSuggestionClick: (String) -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center,
@@ -308,7 +304,6 @@ private fun EmptySearchState(
         }
     }
 }
-
 
 /** Tab=会话 搜索结果:会话标题/预览匹配 + 消息内容匹配(参考图样式)。 */
 @Composable
@@ -400,12 +395,12 @@ private fun SearchResults(
                 key = { index, session -> "session_${session.id}_$index" },
             ) { _, session ->
                 Box(modifier = museAnimateItem()) {
-                SessionResultRow(
-                    title = session.title.ifBlank { stringResource(R.string.search_new_session) },
-                    preview = session.lastMessagePreview,
-                    updatedAt = session.updatedAt,
-                    onClick = { onOpenSession(session.id) },
-                )
+                    SessionResultRow(
+                        title = session.title.ifBlank { stringResource(R.string.search_new_session) },
+                        preview = session.lastMessagePreview,
+                        updatedAt = session.updatedAt,
+                        onClick = { onOpenSession(session.id) },
+                    )
                 }
             }
         }
@@ -417,14 +412,14 @@ private fun SearchResults(
                 key = { index, result -> "msg_${result.messageId}_$index" },
             ) { _, result ->
                 Box(modifier = museAnimateItem()) {
-                MessageSearchResultRow(
-                    sessionTitle = result.sessionTitle,
-                    content = result.content,
-                    fallbackSnippet = result.contentSnippet,
-                    query = query,
-                    timestamp = result.createdAt,
-                    onClick = { onOpenMessage(result.sessionId, result.messageId, query) },
-                )
+                    MessageSearchResultRow(
+                        sessionTitle = result.sessionTitle,
+                        content = result.content,
+                        fallbackSnippet = result.contentSnippet,
+                        query = query,
+                        timestamp = result.createdAt,
+                        onClick = { onOpenMessage(result.sessionId, result.messageId, query) },
+                    )
                 }
             }
         }
@@ -443,12 +438,7 @@ private fun SectionTitle(title: String) {
 
 /** 会话结果项:左侧聊天气泡图标 + 标题 + 副标题(预览/来源 · 相对时间)。 */
 @Composable
-private fun SessionResultRow(
-    title: String,
-    preview: String,
-    updatedAt: Long,
-    onClick: () -> Unit,
-) {
+private fun SessionResultRow(title: String, preview: String, updatedAt: Long, onClick: () -> Unit) {
     val context = LocalContext.current
     val timeText = remember(updatedAt, context) { formatSearchRelativeTime(updatedAt, context) }
     val subtitle = if (preview.isNotBlank()) {
@@ -624,18 +614,15 @@ private fun MessageSearchResults(
 internal fun filterSearchSessions(
     sessions: List<io.zer0.muse.data.session.SessionEntity>,
     query: String,
-): List<io.zer0.muse.data.session.SessionEntity> =
-    sessions
-        .filter {
-            it.title.contains(query, ignoreCase = true) ||
-                it.lastMessagePreview.contains(query, ignoreCase = true)
-        }
-        .distinctBy { it.id }
-        .take(20)
+): List<io.zer0.muse.data.session.SessionEntity> = sessions
+    .filter {
+        it.title.contains(query, ignoreCase = true) ||
+            it.lastMessagePreview.contains(query, ignoreCase = true)
+    }
+    .distinctBy { it.id }
+    .take(20)
 
-internal fun uniqueSearchResults(
-    results: List<io.zer0.muse.data.session.SearchResult>,
-): List<io.zer0.muse.data.session.SearchResult> =
+internal fun uniqueSearchResults(results: List<io.zer0.muse.data.session.SearchResult>): List<io.zer0.muse.data.session.SearchResult> =
     results.distinctBy { it.messageId }
 
 /**
@@ -667,15 +654,21 @@ private fun MessageSearchResultRow(
 ) {
     // 任务 2:优先用原文提取前后 2 句上下文,无原文时用 FTS4 snippet([xxx] 标记)
     val displayText = remember(content, fallbackSnippet, query) {
-        if (content.isNotBlank()) extractContext(content, query, sentencesAround = 2)
-        else fallbackSnippet
+        if (content.isNotBlank()) {
+            extractContext(content, query, sentencesAround = 2)
+        } else {
+            fallbackSnippet
+        }
     }
     // 任务 2:高亮 — 原文可用时直接用 query 高亮;否则解析 FTS4 snippet 的 [xxx] 标记
     // v1.0.52: 高亮色从主题状态色读取,不再硬编码裸色
     val highlightColor = MaterialTheme.statusColors.highlight
     val annotatedText = remember(displayText, content, query, highlightColor) {
-        if (content.isNotBlank()) buildHighlightedText(displayText, query, highlightColor)
-        else buildHighlightedSnippet(displayText, highlightColor)
+        if (content.isNotBlank()) {
+            buildHighlightedText(displayText, query, highlightColor)
+        } else {
+            buildHighlightedSnippet(displayText, highlightColor)
+        }
     }
     Surface(
         onClick = onClick,
@@ -822,8 +815,7 @@ private fun buildHighlightedSnippet(snippet: String, highlightColor: Color): Ann
 }
 
 /** v2.x: 格式化时间戳为相对时间(刚刚 / N分钟前 / 今天 HH:mm / 昨天 / MM-dd)。 */
-private fun formatSearchTimestamp(timestamp: Long, context: Context): String =
-    formatSearchRelativeTime(timestamp, context)
+private fun formatSearchTimestamp(timestamp: Long, context: Context): String = formatSearchRelativeTime(timestamp, context)
 
 /** 搜索列表相对时间格式化(今天 HH:mm / 昨天 / MM-dd)。 */
 private fun formatSearchRelativeTime(timestamp: Long, context: Context): String {

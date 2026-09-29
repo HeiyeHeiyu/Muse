@@ -34,6 +34,7 @@ class ToolApprovalRouter {
     private val TAG = "ToolApprovalRouter"
     private val lock = Any()
     private val inFlight = java.util.concurrent.atomic.AtomicInteger(0)
+
     @Volatile
     private var backingDelegate: ToolApprovalBridge? = null
 

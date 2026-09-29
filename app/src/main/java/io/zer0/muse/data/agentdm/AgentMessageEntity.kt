@@ -48,7 +48,9 @@ interface AgentMessageDao {
     @Query("SELECT * FROM agent_messages WHERE from_agent_id = :agentId ORDER BY created_at DESC LIMIT :limit")
     suspend fun getSent(agentId: String, limit: Int = 50): List<AgentMessageEntity>
 
-    @Query("SELECT * FROM agent_messages WHERE (from_agent_id = :a AND to_agent_id = :b) OR (from_agent_id = :b AND to_agent_id = :a) ORDER BY created_at ASC LIMIT :limit")
+    @Query(
+        "SELECT * FROM agent_messages WHERE (from_agent_id = :a AND to_agent_id = :b) OR (from_agent_id = :b AND to_agent_id = :a) ORDER BY created_at ASC LIMIT :limit",
+    )
     suspend fun getConversation(a: String, b: String, limit: Int = 100): List<AgentMessageEntity>
 
     @Query("SELECT COUNT(*) FROM agent_messages WHERE to_agent_id = :agentId AND is_read = 0")

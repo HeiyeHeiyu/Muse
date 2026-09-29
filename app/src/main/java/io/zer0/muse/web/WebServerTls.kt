@@ -134,7 +134,12 @@ internal object WebServerTls {
         val name = X500Name(SUBJECT)
 
         val builder = JcaX509v3CertificateBuilder(
-            name, serial, notBefore, notAfter, name, keyPair.public,
+            name,
+            serial,
+            notBefore,
+            notAfter,
+            name,
+            keyPair.public,
         ).apply {
             addExtension(Extension.basicConstraints, true, BasicConstraints(false))
             addExtension(

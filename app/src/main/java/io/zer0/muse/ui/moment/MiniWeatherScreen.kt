@@ -56,10 +56,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * 展示: 当前温度 + 天气描述 + 7 天预报。
  */
 @Composable
-fun MiniWeatherScreen(
-    onBack: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun MiniWeatherScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var city by remember { mutableStateOf("") }
     var cityInput by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(true) }
@@ -379,7 +376,10 @@ private suspend fun tryLocate(context: android.content.Context): Pair<String, Pa
 /** Open-Meteo 城市搜索 → (名称, 经纬度)。 */
 private suspend fun geocode(name: String): Pair<String, Pair<Double, Double>>? {
     return try {
-        val url = "https://geocoding-api.open-meteo.com/v1/search?name=${java.net.URLEncoder.encode(name, "UTF-8")}&count=1&language=zh&format=json"
+        val url = "https://geocoding-api.open-meteo.com/v1/search?name=${java.net.URLEncoder.encode(
+            name,
+            "UTF-8",
+        )}&count=1&language=zh&format=json"
         val json = httpGet(url) ?: return null
         val root = io.zer0.common.AppJson.parseToJsonElement(json).jsonObject
         val results = root["results"]?.jsonArray ?: return null

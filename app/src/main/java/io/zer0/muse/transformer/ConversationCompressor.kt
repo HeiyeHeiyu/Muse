@@ -3,8 +3,8 @@ package io.zer0.muse.transformer
 import io.zer0.ai.ChatService
 import io.zer0.ai.core.ChatRequestMode
 import io.zer0.ai.core.ChatStreamEvent
-import io.zer0.ai.core.Model
 import io.zer0.ai.core.MessageRole
+import io.zer0.ai.core.Model
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.UIMessage
 import io.zer0.common.Logger
@@ -47,14 +47,19 @@ class ConversationCompressor(
 
     companion object {
         private const val TAG = "ConversationCompressor"
+
         /** 每块最多消息条数(超过则切分为多块并行)。 */
         private const val CHUNK_SIZE = 256
+
         /** 压缩温度(低温度保证摘要稳定、不编造)。 */
         private const val COMPRESS_TEMPERATURE = 0.3f
+
         /** 单块摘要最大 token 数。 */
         private const val COMPRESS_MAX_TOKENS = 1000
+
         /** 单条消息送入 LLM 时的最大字符数(超过则截断,与 ContextCompressTransformer 对齐)。 */
         private const val MAX_MSG_CHARS = 1500
+
         /** v1.0.51: 并行压缩块数上限 — 避免长对话切出大量块时并发轰炸 API。 */
         private const val MAX_CONCURRENT_CHUNKS = 3
 

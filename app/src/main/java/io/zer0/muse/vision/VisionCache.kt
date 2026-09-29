@@ -140,7 +140,9 @@ class VisionCache(context: Context) {
                 entry.lastUsedAt = System.currentTimeMillis()
                 Logger.d(TAG, "视觉缓存命中: model=${key.modelId}, promptVer=${key.promptVersion}")
                 entry.description
-            } else null
+            } else {
+                null
+            }
         }
     }
 
@@ -152,12 +154,7 @@ class VisionCache(context: Context) {
      * @param key 缓存 key
      * @param description 视觉描述(不含 <vision-context> 标签)
      */
-    suspend fun put(
-        sessionId: String,
-        imageBase64: String,
-        key: CacheKey,
-        description: String,
-    ) {
+    suspend fun put(sessionId: String, imageBase64: String, key: CacheKey, description: String) {
         ensureLoaded()
         val imageHash = hash(imageBase64)
         val fullKey = key.copy(imageHash = imageHash)
@@ -177,7 +174,9 @@ class VisionCache(context: Context) {
             val existing = memoryCache[fullKey.toString()]
             val mergedSessions = if (existing != null) {
                 (existing.sessionIds + sessionId).distinct()
-            } else listOf(sessionId)
+            } else {
+                listOf(sessionId)
+            }
             val finalEntry = entry.copy(sessionIds = mergedSessions)
             memoryCache[fullKey.toString()] = finalEntry
             pendingFlush[fullKey.toString()] = finalEntry
@@ -268,15 +267,17 @@ class VisionCache(context: Context) {
         }
     }
 
-    private fun keyOf(entry: CacheEntry): String =
-        "${entry.imageHash}|${entry.modelId}|${entry.userRequestHash}|v${entry.promptVersion}"
+    private fun keyOf(entry: CacheEntry): String = "${entry.imageHash}|${entry.modelId}|${entry.userRequestHash}|v${entry.promptVersion}"
 
     private suspend fun loadSidecar(): List<CacheEntry> = withContext(Dispatchers.IO) {
         if (!sidecarFile.exists()) return@withContext emptyList()
         resultOf {
             val text = sidecarFile.readText()
-            if (text.isBlank()) emptyList()
-            else AppJson.decodeFromString(ListSerializer(CacheEntry.serializer()), text)
+            if (text.isBlank()) {
+                emptyList()
+            } else {
+                AppJson.decodeFromString(ListSerializer(CacheEntry.serializer()), text)
+            }
         }.onError { msg, t ->
             Logger.w(TAG, "加载视觉缓存 sidecar 失败: $msg", t)
         }.getOrNull() ?: emptyList()
@@ -289,8 +290,10 @@ class VisionCache(context: Context) {
 
     companion object {
         private const val TAG = "VisionCache"
+
         /** 内存缓存上限(LRU 淘汰),对齐 既有实现 的 _maxCacheEntries。 */
         private const val MAX_MEMORY_ENTRIES = 256
+
         /** 每多少次 put 触发一次刷盘。 */
         private const val FLUSH_INTERVAL = 5
     }

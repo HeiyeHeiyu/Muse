@@ -1,10 +1,6 @@
 package io.zer0.muse.ui.common.media
 
-import androidx.compose.runtime.getValue
-import io.zer0.muse.ui.theme.MuseMotion
-
 import androidx.compose.animation.core.animateFloatAsState
-import io.zer0.muse.ui.theme.MuseAnimation
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -26,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,11 +33,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import io.zer0.muse.ui.common.surface.MuseDialogWindowEffect
+import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseElevation
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.ui.common.surface.MuseDialogWindowEffect
 
 /**
  * P2-13: 桌面端右键菜单项。
@@ -75,10 +74,7 @@ data class ContextMenuItem(
  * @param onDismiss 用户点击外部 / Esc / 选择菜单项后的关闭回调
  */
 @Composable
-fun DesktopContextMenu(
-    items: List<ContextMenuItem>,
-    onDismiss: () -> Unit,
-) {
+fun DesktopContextMenu(items: List<ContextMenuItem>, onDismiss: () -> Unit) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -118,10 +114,7 @@ fun DesktopContextMenu(
  * 单个菜单项行 — 全宽点击区 + 左侧图标 + 文字 + 按压透明度反馈。
  */
 @Composable
-private fun ContextMenuRow(
-    item: ContextMenuItem,
-    onDismiss: () -> Unit,
-) {
+private fun ContextMenuRow(item: ContextMenuItem, onDismiss: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -147,7 +140,10 @@ private fun ContextMenuRow(
                     onDismiss()
                 },
             )
-            .graphicsLayer { scaleX = scale; scaleY = scale }
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
             .padding(horizontal = MusePaddings.screen),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MusePaddings.iconPadding),

@@ -101,7 +101,7 @@ class AutoBackupHelper(
             if (vacuumInto(dbFile, snap)) {
                 snapshotFiles.add(name to snap)
             } else {
-                Logger.w(TAG, "backupNow: ${name} 快照失败,跳过该库计入部分成功")
+                Logger.w(TAG, "backupNow: $name 快照失败,跳过该库计入部分成功")
             }
         }
 
@@ -283,14 +283,7 @@ class AutoBackupHelper(
      * @param error 失败时的错误信息(成功时传空串)
      * @param messageCount 备份时消息总数
      */
-    private suspend fun logResult(
-        success: Boolean,
-        path: String,
-        size: Long,
-        now: Long,
-        error: String,
-        messageCount: Long = 0L,
-    ) {
+    private suspend fun logResult(success: Boolean, path: String, size: Long, now: Long, error: String, messageCount: Long = 0L) {
         try {
             autoBackupLogDao.insert(
                 AutoBackupLogEntity(
@@ -300,7 +293,7 @@ class AutoBackupHelper(
                     errorMessage = error,
                     messageCount = messageCount,
                     createdAt = now,
-                )
+                ),
             )
         } catch (e: Exception) {
             Logger.e(TAG, "logResult: 写入备份日志失败", e)

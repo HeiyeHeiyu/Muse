@@ -75,7 +75,10 @@ class FactStore(
     private val reconcileHook: FactReconcileHook? = null,
 ) {
 
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     /** v6: 是否已经做过 FTS 索引一致性检查(避免每次搜索都重复 COUNT)。 */
     private var ftsConsistencyChecked = false
@@ -239,8 +242,7 @@ class FactStore(
         }
 
     /** 否定词数量(不/没/未/别/无/非)。 */
-    private fun negationCount(text: String): Int =
-        NEGATION_RE.findAll(text).count()
+    private fun negationCount(text: String): Int = NEGATION_RE.findAll(text).count()
 
     /** 字符 bigram Jaccard 相似度。 */
     private fun bigramSimilarity(a: String, b: String): Double {
@@ -332,7 +334,11 @@ class FactStore(
 
     /** v12: PII 占位符形态 — scrub 硬脱敏输出 [REDACTED];mask 可逆占位符 [NAME_1] 等;兼容旧 {{name_0}}。
      * IGNORE_CASE: normalizeDedupText 已 lowercase,大写占位符需不敏感匹配。 */
-    private val piiPlaceholderRe = Regex("\\[REDACTED\\]|\\[(?:API_KEY|INLINE_SECRET|PRIVATE_KEY|ID_CARD|CREDIT_CARD|SSN|EMAIL|PHONE|IPV4|ADDRESS|NAME|ENGLISH_NAME)_\\d+\\]|\\{\\{name_\\d+\\}\\}", RegexOption.IGNORE_CASE)
+    private val piiPlaceholderRe =
+        Regex(
+            "\\[REDACTED\\]|\\[(?:API_KEY|INLINE_SECRET|PRIVATE_KEY|ID_CARD|CREDIT_CARD|SSN|EMAIL|PHONE|IPV4|ADDRESS|NAME|ENGLISH_NAME)_\\d+\\]|\\{\\{name_\\d+\\}\\}",
+            RegexOption.IGNORE_CASE,
+        )
 
     /** v12: 人名专属占位符(mask 可逆 [NAME_N] / 旧 {{name_N}}) — 仅此形态可作为实体键。 */
     private val namePlaceholderRe = Regex("\\[(?:NAME|ENGLISH_NAME)_\\d+\\]|\\{\\{name_\\d+\\}\\}", RegexOption.IGNORE_CASE)
@@ -501,25 +507,26 @@ class FactStore(
      *
      * @return 矛盾事实对列表(每对按 id 升序)
      */
-    suspend fun detectContradictions(scope: String = "main", spaceId: String = "default"): List<Pair<Fact, Fact>> = withContext(Dispatchers.IO) {
-        val byKey = dao.getByScopeAndSpace(scope, spaceId)
-            .filter { !it.entityKey.isNullOrBlank() }
-            .groupBy { it.entityKey!! }
-        if (byKey.isEmpty()) return@withContext emptyList()
-        val result = mutableListOf<Pair<Fact, Fact>>()
-        for ((_, facts) in byKey) {
-            for (i in facts.indices) {
-                for (j in i + 1 until facts.size) {
-                    val a = facts[i].toDomainFact()
-                    val b = facts[j].toDomainFact()
-                    if (isContradictory(a.fact, b.fact)) {
-                        result.add(if (a.id < b.id) a to b else b to a)
+    suspend fun detectContradictions(scope: String = "main", spaceId: String = "default"): List<Pair<Fact, Fact>> =
+        withContext(Dispatchers.IO) {
+            val byKey = dao.getByScopeAndSpace(scope, spaceId)
+                .filter { !it.entityKey.isNullOrBlank() }
+                .groupBy { it.entityKey!! }
+            if (byKey.isEmpty()) return@withContext emptyList()
+            val result = mutableListOf<Pair<Fact, Fact>>()
+            for ((_, facts) in byKey) {
+                for (i in facts.indices) {
+                    for (j in i + 1 until facts.size) {
+                        val a = facts[i].toDomainFact()
+                        val b = facts[j].toDomainFact()
+                        if (isContradictory(a.fact, b.fact)) {
+                            result.add(if (a.id < b.id) a to b else b to a)
+                        }
                     }
                 }
             }
+            result
         }
-        result
-    }
 
     /**
      * v12 (T3-2): 关键词级矛盾判定 — 同一实体下相反断言视为矛盾。
@@ -548,25 +555,26 @@ class FactStore(
      *
      * @return 晋升条数
      */
-    suspend fun promoteRepeatedFacts(scope: String = "main", spaceId: String = "default", minConfirmations: Int = 2): Int = withContext(Dispatchers.IO) {
-        val byKey = dao.getByScopeAndSpace(scope, spaceId)
-            .filter { !it.entityKey.isNullOrBlank() }
-            .groupBy { it.entityKey!! }
-        if (byKey.isEmpty()) return@withContext 0
-        var promoted = 0
-        for ((_, facts) in byKey) {
-            if (facts.size < minConfirmations) continue
-            for (f in facts) {
-                if (f.importance < 2) {
-                    if (dao.updateImportance(f.id, f.importance + 1) > 0) promoted++
+    suspend fun promoteRepeatedFacts(scope: String = "main", spaceId: String = "default", minConfirmations: Int = 2): Int =
+        withContext(Dispatchers.IO) {
+            val byKey = dao.getByScopeAndSpace(scope, spaceId)
+                .filter { !it.entityKey.isNullOrBlank() }
+                .groupBy { it.entityKey!! }
+            if (byKey.isEmpty()) return@withContext 0
+            var promoted = 0
+            for ((_, facts) in byKey) {
+                if (facts.size < minConfirmations) continue
+                for (f in facts) {
+                    if (f.importance < 2) {
+                        if (dao.updateImportance(f.id, f.importance + 1) > 0) promoted++
+                    }
                 }
             }
+            if (promoted > 0) {
+                Logger.i("FactStore", "反思晋升: $promoted 条事实提升重要度(scope=$scope, space=$spaceId)")
+            }
+            promoted
         }
-        if (promoted > 0) {
-            Logger.i("FactStore", "反思晋升: $promoted 条事实提升重要度(scope=$scope, space=$spaceId)")
-        }
-        promoted
-    }
 
     /** D6 第 2 期: 同实体多断言分组 —— “合并建议”的确定性候选,不代表应合并。 */
     data class SameEntityAssertions(
@@ -630,7 +638,7 @@ class FactStore(
                     newContent = newContent,
                     changedAt = Instant.now().toString(),
                     reason = reason,
-                )
+                ),
             )
         }.onError { msg, t ->
             Logger.w("FactStore", "记录修订失败(fact=$factId): $msg", t)
@@ -879,7 +887,12 @@ class FactStore(
                 merged.entityKey,
             )
             syncFtsRow(merged.id, FactFtsManager.toNgram(merged.fact))
-            io.zer0.common.Logger.d("FactStore", "合并相似事实(scope=$scope, space=$spaceId, entity=$entityKey): ${existingSimilar.fact.take(30)}… ↔ ${cleaned.take(30)}… → id=${existingSimilar.id}")
+            io.zer0.common.Logger.d(
+                "FactStore",
+                "合并相似事实(scope=$scope, space=$spaceId, entity=$entityKey): ${existingSimilar.fact.take(
+                    30,
+                )}… ↔ ${cleaned.take(30)}… → id=${existingSimilar.id}",
+            )
             // Phase 3 (P1): 合并后的最终文本立即对账,注入不再携带旧表述
             scheduleReconcile(
                 listOf(Fact(id = merged.id, fact = merged.fact, scope = scope, spaceId = spaceId)),
@@ -968,24 +981,26 @@ class FactStore(
                     touched.add(Fact(id = merged.id, fact = merged.fact, scope = scope, spaceId = spaceId))
                 } else {
                     val importance = if (newEntry.importance > 0) newEntry.importance else inferImportanceScore(cleaned)
-                    val insertedId = dao.insert(FactEntity(
-                        fact = cleaned,
-                        tags = json.encodeToString(ListSerializer(String.serializer()), newEntry.tags),
-                        time = newEntry.time,
-                        sessionId = newEntry.sessionId,
-                        createdAt = now,
-                        importance = importance.coerceIn(0, 2),
-                        category = newEntry.category.takeIf { it.isNotBlank() } ?: "general",
-                        confidence = newEntry.confidence.coerceIn(0f, 1f),
-                        source = newEntry.source.takeIf { it.isNotBlank() } ?: "inferred",
-                        expiresAt = newEntry.expiresAt,
-                        lastConfirmedAt = newEntry.lastConfirmedAt,
-                        lastHitAt = newEntry.lastHitAt ?: now,
-                        scope = scope,
-                        spaceId = spaceId,
-                        pinnedAt = newEntry.pinnedAt,
-                        entityKey = entityKey,
-                    ))
+                    val insertedId = dao.insert(
+                        FactEntity(
+                            fact = cleaned,
+                            tags = json.encodeToString(ListSerializer(String.serializer()), newEntry.tags),
+                            time = newEntry.time,
+                            sessionId = newEntry.sessionId,
+                            createdAt = now,
+                            importance = importance.coerceIn(0, 2),
+                            category = newEntry.category.takeIf { it.isNotBlank() } ?: "general",
+                            confidence = newEntry.confidence.coerceIn(0f, 1f),
+                            source = newEntry.source.takeIf { it.isNotBlank() } ?: "inferred",
+                            expiresAt = newEntry.expiresAt,
+                            lastConfirmedAt = newEntry.lastConfirmedAt,
+                            lastHitAt = newEntry.lastHitAt ?: now,
+                            scope = scope,
+                            spaceId = spaceId,
+                            pinnedAt = newEntry.pinnedAt,
+                            entityKey = entityKey,
+                        ),
+                    )
                     dao.insertFts(insertedId, FactFtsManager.toNgram(cleaned))
                     // 新插入的 id 不会有重复 FTS,直接 insertFts 即可(upsertFts 多一次 DELETE 无必要)
                     touched.add(Fact(id = insertedId, fact = cleaned, scope = scope, spaceId = spaceId))
@@ -1009,26 +1024,18 @@ class FactStore(
     }
 
     /** 按 scope + space 搜索，供会话内 search_memory 使用。 */
-    suspend fun searchFullTextScoped(
-        query: String,
-        scope: String,
-        spaceId: String,
-        limit: Int = 20,
-    ): List<Fact> = withContext(Dispatchers.IO) {
-        if (query.isBlank()) return@withContext emptyList()
-        ensureFtsIndexConsistent()
-        runFtsOrLikeSearchScoped(query.trim(), limit, scope, spaceId).filterNot { it.isExpired() }
-    }
+    suspend fun searchFullTextScoped(query: String, scope: String, spaceId: String, limit: Int = 20): List<Fact> =
+        withContext(Dispatchers.IO) {
+            if (query.isBlank()) return@withContext emptyList()
+            ensureFtsIndexConsistent()
+            runFtsOrLikeSearchScoped(query.trim(), limit, scope, spaceId).filterNot { it.isExpired() }
+        }
 
     /**
      * 审查修复 (B-19): 按 space_id 过滤、scope 不限(全部作用域)的全文搜索。
      * 记忆中心 scope=null 语义(全部)下仍按当前 [spaceId] 隔离,避免跨空间搜索泄漏。
      */
-    suspend fun searchFullTextBySpace(
-        query: String,
-        spaceId: String,
-        limit: Int = 20,
-    ): List<Fact> = withContext(Dispatchers.IO) {
+    suspend fun searchFullTextBySpace(query: String, spaceId: String, limit: Int = 20): List<Fact> = withContext(Dispatchers.IO) {
         if (query.isBlank()) return@withContext emptyList()
         ensureFtsIndexConsistent()
         runFtsOrLikeSearchBySpaceId(query.trim(), limit, spaceId).filterNot { it.isExpired() }
@@ -1039,24 +1046,20 @@ class FactStore(
      * 在 [searchFullText] 基础上增加 scope + space 过滤,防止跨助手/跨空间串记忆;
      * 用于 system prompt 的 <relevant_memory> 段(按 query 召回,而非全量注入)。
      */
-    suspend fun searchRelevantFacts(
-        query: String,
-        scope: String = "main",
-        spaceId: String = "default",
-        limit: Int = 8,
-    ): List<Fact> = withContext(Dispatchers.IO) {
-        if (query.isBlank()) return@withContext emptyList()
-        ensureFtsIndexConsistent()
-        // 必须在 SQL/FTS 查询阶段就按 scope + space 过滤。
-        // 先全库取 limit*3 再在内存过滤会被其他助手/空间的高相关结果占满，
-        // 造成当前作用域明明有事实却返回空或不完整结果。
-        val hits = runFtsOrLikeSearchScoped(query.trim(), limit, scope, spaceId)
-            .filterNot { it.isExpired() }
-            .take(limit)
-        // 命中回写:让 last_hit_at 反映真实使用情况(衰减加成与“最近命中”都依赖它)
-        recordHits(hits)
-        hits
-    }
+    suspend fun searchRelevantFacts(query: String, scope: String = "main", spaceId: String = "default", limit: Int = 8): List<Fact> =
+        withContext(Dispatchers.IO) {
+            if (query.isBlank()) return@withContext emptyList()
+            ensureFtsIndexConsistent()
+            // 必须在 SQL/FTS 查询阶段就按 scope + space 过滤。
+            // 先全库取 limit*3 再在内存过滤会被其他助手/空间的高相关结果占满，
+            // 造成当前作用域明明有事实却返回空或不完整结果。
+            val hits = runFtsOrLikeSearchScoped(query.trim(), limit, scope, spaceId)
+                .filterNot { it.isExpired() }
+                .take(limit)
+            // 命中回写:让 last_hit_at 反映真实使用情况(衰减加成与“最近命中”都依赖它)
+            recordHits(hits)
+            hits
+        }
 
     /**
      * 检索命中回写 —— 刷新 last_hit_at。
@@ -1074,12 +1077,7 @@ class FactStore(
             .onFailure { Logger.w("FactStore", "命中计数失败(不影响检索): ${it.message}") }
     }
 
-    private suspend fun runFtsOrLikeSearchScoped(
-        trimmed: String,
-        limit: Int,
-        scope: String,
-        spaceId: String,
-    ): List<Fact> {
+    private suspend fun runFtsOrLikeSearchScoped(trimmed: String, limit: Int, scope: String, spaceId: String): List<Fact> {
         if (FactFtsManager.shouldFallbackToLike(trimmed)) {
             return dao.likeSearchBySpace(trimmed, limit, scope, spaceId).map { it.toDomainFact() }
         }
@@ -1097,11 +1095,7 @@ class FactStore(
     }
 
     /** 审查修复 (B-19): 仅按 space_id 过滤的 FTS/LIKE 全文搜索(FTS 失败回退 LIKE 同空间查询)。 */
-    private suspend fun runFtsOrLikeSearchBySpaceId(
-        trimmed: String,
-        limit: Int,
-        spaceId: String,
-    ): List<Fact> {
+    private suspend fun runFtsOrLikeSearchBySpaceId(trimmed: String, limit: Int, spaceId: String): List<Fact> {
         if (FactFtsManager.shouldFallbackToLike(trimmed)) {
             return dao.likeSearchBySpaceId(trimmed, limit, spaceId).map { it.toDomainFact() }
         }
@@ -1141,11 +1135,8 @@ class FactStore(
      * 使用 json_each 精确匹配标签值,避免 LIKE 子串误匹配。
      * B-06: 结果过滤已过期事实。
      */
-    suspend fun searchByTags(
-        queryTags: List<String>,
-        dateRange: DateRange? = null,
-        limit: Int = 20,
-    ): List<Fact> = searchByTagsInternal(queryTags, dateRange, limit, null, null)
+    suspend fun searchByTags(queryTags: List<String>, dateRange: DateRange? = null, limit: Int = 20): List<Fact> =
+        searchByTagsInternal(queryTags, dateRange, limit, null, null)
 
     /** 按 scope + space 搜索标签，供会话内 search_memory 使用。 */
     suspend fun searchByTagsScoped(
@@ -1172,7 +1163,9 @@ class FactStore(
                     // TagSearchRow 兼容旧 Room 投影时可能没有回填新增列；
                     // SQL 已经按边界过滤，这里把宿主边界明确写回领域对象。
                     fact.copy(scope = scope, spaceId = spaceId)
-                } else fact
+                } else {
+                    fact
+                }
             }
             .filterNot { it.isExpired() }
     }
@@ -1264,12 +1257,15 @@ class FactStore(
                 // v12: excludeId=自身 — 更新后 findSimilarFact 不应匹配到自己
                 val dup = findSimilarFact(scrubbed, mergedEntity.scope, mergedEntity.spaceId, mergedEntity.entityKey, excludeId = id)
                 if (dup != null && dup.id != id) {
-                    val merged = mergeFact(dup, Fact(
-                        fact = scrubbed,
-                        scope = dup.scope,
-                        spaceId = dup.spaceId,
-                        entityKey = dup.entityKey,
-                    ))
+                    val merged = mergeFact(
+                        dup,
+                        Fact(
+                            fact = scrubbed,
+                            scope = dup.scope,
+                            spaceId = dup.spaceId,
+                            entityKey = dup.entityKey,
+                        ),
+                    )
                     dao.updateEntity(
                         merged.id, merged.fact, merged.tags, merged.time, merged.sessionId,
                         merged.createdAt, merged.importance, merged.category, merged.confidence,
@@ -1308,6 +1304,7 @@ class FactStore(
     suspend fun setPinned(id: Long, pinned: Boolean): Boolean = withContext(Dispatchers.IO) {
         dao.updatePinnedAt(id, if (pinned) Instant.now().toString() else null) > 0
     }
+
     /**
      * v10 P2-3: 更新指定 fact 的分类和标签(用于 AI 记忆管理)。
      *
@@ -1315,13 +1312,14 @@ class FactStore(
      * @param tags 标签列表(null 保留原值,非 null 则替换)
      * @return 是否更新成功
      */
-    suspend fun updateCategoryAndTags(id: Long, category: String? = null, tags: List<String>? = null): Boolean = withContext(Dispatchers.IO) {
-        // B-17: tags 逐项 PII 脱敏 — 调用方含 LLM 路径(autoCategorize/AI 记忆管理),
-        // prompt 鼓励用人名做标签,不脱敏会把姓名明文落库。
-        val scrubbedTags = tags?.map { PiiGuard.scrub(it).cleaned }
-        val tagsJson = scrubbedTags?.let { json.encodeToString(ListSerializer(String.serializer()), it) }
-        dao.updateCategoryAndTags(id, category, tagsJson) > 0
-    }
+    suspend fun updateCategoryAndTags(id: Long, category: String? = null, tags: List<String>? = null): Boolean =
+        withContext(Dispatchers.IO) {
+            // B-17: tags 逐项 PII 脱敏 — 调用方含 LLM 路径(autoCategorize/AI 记忆管理),
+            // prompt 鼓励用人名做标签,不脱敏会把姓名明文落库。
+            val scrubbedTags = tags?.map { PiiGuard.scrub(it).cleaned }
+            val tagsJson = scrubbedTags?.let { json.encodeToString(ListSerializer(String.serializer()), it) }
+            dao.updateCategoryAndTags(id, category, tagsJson) > 0
+        }
 
     /** 清空所有。 */
     suspend fun clearAll(): Unit = withContext(Dispatchers.IO) {
@@ -1472,7 +1470,9 @@ class FactStore(
                 ?: runCatching {
                     if (file.exists()) {
                         json.decodeFromString(ListSerializer(String.serializer()), file.readText())
-                    } else emptyList()
+                    } else {
+                        emptyList()
+                    }
                 }.getOrElse {
                     Logger.w("FactStore", "readTombstones failed: ${it.message}")
                     emptyList()
@@ -1503,8 +1503,7 @@ class FactStore(
     }
 
     /** 规范化: 去首尾空白 + 压缩连续空白,保证跨措辞微差仍可匹配。 */
-    private fun normalizeTombstone(text: String): String =
-        text.trim().replace(WHITESPACE_RE, " ")
+    private fun normalizeTombstone(text: String): String = text.trim().replace(WHITESPACE_RE, " ")
 
     companion object {
         /** D6 第 2 期: “多断言实体”默认阈值 —— 同实体 ≥3 条不同断言才值得提示整合。 */
@@ -1640,37 +1639,34 @@ class FactStore(
      *
      * @return 实际删除的 fact 数
      */
-    suspend fun applyDecay(
-        config: io.zer0.memory.ticker.MemoryConfig,
-        scope: String? = null,
-        spaceId: String? = null,
-    ): Int = withContext(Dispatchers.IO) {
-        val neverHitCutoff = io.zer0.memory.ticker.MemoryConfig.safeCutoffDays(config, hit = false)
-        val hitCutoff = io.zer0.memory.ticker.MemoryConfig.safeCutoffDays(config, hit = true)
-        if (neverHitCutoff.isInfinite() || neverHitCutoff.isNaN() || hitCutoff.isInfinite() || hitCutoff.isNaN()) {
-            return@withContext 0
+    suspend fun applyDecay(config: io.zer0.memory.ticker.MemoryConfig, scope: String? = null, spaceId: String? = null): Int =
+        withContext(Dispatchers.IO) {
+            val neverHitCutoff = io.zer0.memory.ticker.MemoryConfig.safeCutoffDays(config, hit = false)
+            val hitCutoff = io.zer0.memory.ticker.MemoryConfig.safeCutoffDays(config, hit = true)
+            if (neverHitCutoff.isInfinite() || neverHitCutoff.isNaN() || hitCutoff.isInfinite() || hitCutoff.isNaN()) {
+                return@withContext 0
+            }
+            val now = java.time.Instant.now()
+            // B-18: 先清理已过期事实(expires_at < now) — 时效性事实过期后不再驻留/注入
+            dao.deleteExpired(now.toString(), scope, spaceId)
+            if (neverHitCutoff <= 0f || hitCutoff <= 0f) {
+                // base 已低于阈值,配置上等同于"立即遗忘全部" —— 但 v4: 关键事实(importance=2)仍保留
+                io.zer0.common.Logger.w("FactStore", "applyDecay: cutoff<=0, deleting non-critical facts (config=$config, scope=$scope)")
+                return@withContext dao.deleteOlderThanExceptImportant(now.toString(), 2, scope, spaceId)
+            }
+            val neverHitCutoffInstant = now.minus(neverHitCutoff.toLong(), java.time.temporal.ChronoUnit.DAYS)
+            val hitCutoffInstant = now.minus(hitCutoff.toLong(), java.time.temporal.ChronoUnit.DAYS)
+            // v4: minImportance=2 表示仅删除 importance < 2 的 fact,关键事实(importance=2)永不衰减
+            // v7: 区分命中/未命中事实,分别用不同 cutoff
+            // v8: scope 非 null 时仅衰减指定作用域
+            dao.deleteOlderThanWithHit(
+                neverHitCutoffInstant.toString(),
+                hitCutoffInstant.toString(),
+                2,
+                scope,
+                spaceId,
+            )
         }
-        val now = java.time.Instant.now()
-        // B-18: 先清理已过期事实(expires_at < now) — 时效性事实过期后不再驻留/注入
-        dao.deleteExpired(now.toString(), scope, spaceId)
-        if (neverHitCutoff <= 0f || hitCutoff <= 0f) {
-            // base 已低于阈值,配置上等同于"立即遗忘全部" —— 但 v4: 关键事实(importance=2)仍保留
-            io.zer0.common.Logger.w("FactStore", "applyDecay: cutoff<=0, deleting non-critical facts (config=$config, scope=$scope)")
-            return@withContext dao.deleteOlderThanExceptImportant(now.toString(), 2, scope, spaceId)
-        }
-        val neverHitCutoffInstant = now.minus(neverHitCutoff.toLong(), java.time.temporal.ChronoUnit.DAYS)
-        val hitCutoffInstant = now.minus(hitCutoff.toLong(), java.time.temporal.ChronoUnit.DAYS)
-        // v4: minImportance=2 表示仅删除 importance < 2 的 fact,关键事实(importance=2)永不衰减
-        // v7: 区分命中/未命中事实,分别用不同 cutoff
-        // v8: scope 非 null 时仅衰减指定作用域
-        dao.deleteOlderThanWithHit(
-            neverHitCutoffInstant.toString(),
-            hitCutoffInstant.toString(),
-            2,
-            scope,
-            spaceId,
-        )
-    }
 
     // ── v8: 按作用域(scope)查询/观察/衰减 ────────────────────────────────
 
@@ -1678,8 +1674,7 @@ class FactStore(
      * v8: 按 scope 观察事实列表(Flow 形式),用于 UI 实时刷新。
      * 排序与 [getAll] 一致:importance DESC + time DESC。
      */
-    fun observeByScope(scope: String): Flow<List<Fact>> =
-        dao.observeByScope(scope).map { entities -> entities.map { it.toDomainFact() } }
+    fun observeByScope(scope: String): Flow<List<Fact>> = dao.observeByScope(scope).map { entities -> entities.map { it.toDomainFact() } }
 
     /**
      * v8: 按 scope 同步查询事实列表。
@@ -1857,27 +1852,31 @@ private class TagSearchPlan(
                 kotlinx.serialization.json.Json.decodeFromString<List<String>>(row.tags)
             }.getOrDefault(emptyList())
             val matchCount = tags.count { it in tagSet }
-            if (matchCount > 0) FactStore.Fact(
-                id = row.id,
-                fact = row.fact,
-                tags = tags,
-                time = row.time,
-                sessionId = row.sessionId,
-                createdAt = row.createdAt,
-                importance = row.importance,
-                category = row.category,
-                confidence = row.confidence,
-                source = row.source,
-                expiresAt = row.expiresAt,
-                lastConfirmedAt = row.lastConfirmedAt,
-                lastHitAt = row.lastHitAt,
-                entityKey = row.entityKey,
-                matchCount = matchCount,
-            ) else null
+            if (matchCount > 0) {
+                FactStore.Fact(
+                    id = row.id,
+                    fact = row.fact,
+                    tags = tags,
+                    time = row.time,
+                    sessionId = row.sessionId,
+                    createdAt = row.createdAt,
+                    importance = row.importance,
+                    category = row.category,
+                    confidence = row.confidence,
+                    source = row.source,
+                    expiresAt = row.expiresAt,
+                    lastConfirmedAt = row.lastConfirmedAt,
+                    lastHitAt = row.lastHitAt,
+                    entityKey = row.entityKey,
+                    matchCount = matchCount,
+                )
+            } else {
+                null
+            }
         }.sortedWith(
             compareByDescending<FactStore.Fact> { it.importance }
                 .thenByDescending { it.matchCount }
-                .thenByDescending { it.time }
+                .thenByDescending { it.time },
         ).take(limit)
     }
 }

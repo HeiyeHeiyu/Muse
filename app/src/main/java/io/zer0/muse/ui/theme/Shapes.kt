@@ -27,11 +27,11 @@ import androidx.compose.ui.unit.dp
  */
 val MuseShapes: Shapes = Shapes(
     // L-SH2: 由 MuseCornerRadius 常量驱动,消除数值重复(改动只需改一处)。
-    extraSmall = RoundedCornerShape(MuseCornerRadius.BUBBLE_TAIL.dp),  // 气泡尾巴角 / 小标签
-    small = RoundedCornerShape(MuseCornerRadius.SMALL.dp),            // 行内代码 / 小型标签
-    medium = RoundedCornerShape(MuseCornerRadius.BUTTON.dp),          // 按钮 / 代码块 / 列表项
-    large = RoundedCornerShape(MuseCornerRadius.BUBBLE.dp),           // 消息气泡主力
-    extraLarge = RoundedCornerShape(MuseCornerRadius.CARD.dp),        // 大卡片 / 大型容器
+    extraSmall = RoundedCornerShape(MuseCornerRadius.BUBBLE_TAIL.dp), // 气泡尾巴角 / 小标签
+    small = RoundedCornerShape(MuseCornerRadius.SMALL.dp), // 行内代码 / 小型标签
+    medium = RoundedCornerShape(MuseCornerRadius.BUTTON.dp), // 按钮 / 代码块 / 列表项
+    large = RoundedCornerShape(MuseCornerRadius.BUBBLE.dp), // 消息气泡主力
+    extraLarge = RoundedCornerShape(MuseCornerRadius.CARD.dp), // 大卡片 / 大型容器
 )
 
 /**
@@ -98,15 +98,19 @@ val Shapes.pill: RoundedCornerShape get() = PillShape
  */
 /** 用户气泡:右下角小圆角模拟尾巴(主体 20dp + 尾巴 6dp)。 */
 private val UserBubbleShape = RoundedCornerShape(
-    MuseCornerRadius.CARD.dp, MuseCornerRadius.CARD.dp,
-    MuseCornerRadius.BUBBLE_TAIL.dp, MuseCornerRadius.CARD.dp,
+    MuseCornerRadius.CARD.dp,
+    MuseCornerRadius.CARD.dp,
+    MuseCornerRadius.BUBBLE_TAIL.dp,
+    MuseCornerRadius.CARD.dp,
 )
 val Shapes.userBubble: RoundedCornerShape get() = UserBubbleShape
 
 /** AI 气泡:左下角小圆角模拟尾巴(主体 20dp + 尾巴 6dp)。 */
 private val AssistantBubbleShape = RoundedCornerShape(
-    MuseCornerRadius.CARD.dp, MuseCornerRadius.CARD.dp,
-    MuseCornerRadius.CARD.dp, MuseCornerRadius.BUBBLE_TAIL.dp,
+    MuseCornerRadius.CARD.dp,
+    MuseCornerRadius.CARD.dp,
+    MuseCornerRadius.CARD.dp,
+    MuseCornerRadius.BUBBLE_TAIL.dp,
 )
 val Shapes.assistantBubble: RoundedCornerShape get() = AssistantBubbleShape
 
@@ -120,14 +124,19 @@ val Shapes.assistantBubble: RoundedCornerShape get() = AssistantBubbleShape
 object MuseCornerRadius {
     /** 气泡尾巴角(非对称角)。 */
     const val BUBBLE_TAIL = 6
+
     /** 行内代码 / 小型标签。 */
     const val SMALL = 8
+
     /** 按钮 / 代码块 / 列表项。 */
     const val BUTTON = 12
+
     /** 消息气泡主力。 */
     const val BUBBLE = 18
+
     /** 卡片 / 大型容器。 */
     const val CARD = 20
+
     /** 底部弹出面板顶部。 */
     const val SHEET = 24
 
@@ -135,12 +144,16 @@ object MuseCornerRadius {
 
     /** 标签 / 徽标。 */
     const val TINY = 4
+
     /** 输入框 / 中卡片。 */
     const val SEMI_LARGE = 16
+
     /** 特殊大圆角(FAB)。 */
     const val MEGA = 28
+
     /** v2.0.1: 大卡片(设置分组 / 面板卡)。 */
     const val LARGE_CARD = 24
+
     /** 胶囊形(50% 圆角)。 */
     const val PILL = 50
 }

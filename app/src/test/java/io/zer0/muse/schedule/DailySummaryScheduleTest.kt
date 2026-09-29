@@ -8,11 +8,10 @@ import java.util.Calendar
 /** 每日总结四个固定时点的时间计算测试。 */
 class DailySummaryScheduleTest {
 
-    private fun calendar(year: Int, month: Int, day: Int, hour: Int, minute: Int): Long =
-        Calendar.getInstance().apply {
-            set(year, month, day, hour, minute, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
+    private fun calendar(year: Int, month: Int, day: Int, hour: Int, minute: Int): Long = Calendar.getInstance().apply {
+        set(year, month, day, hour, minute, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
 
     @Test
     fun `each configured slot is scheduled on the same day before it`() {

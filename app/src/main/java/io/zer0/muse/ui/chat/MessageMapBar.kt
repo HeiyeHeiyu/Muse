@@ -32,10 +32,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
-import io.zer0.muse.ui.theme.MusePaddings
-import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MusePaddings
+import io.zer0.muse.ui.theme.MuseShapes
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -56,12 +56,7 @@ internal const val MESSAGE_MAP_MIN_MESSAGES = 25
 
 @Suppress("CyclomaticComplexMethod")
 @Composable
-internal fun MessageMapBar(
-    messages: List<UIMessage>,
-    listState: LazyListState,
-    messageStartIndex: Int,
-    modifier: Modifier = Modifier,
-) {
+internal fun MessageMapBar(messages: List<UIMessage>, listState: LazyListState, messageStartIndex: Int, modifier: Modifier = Modifier) {
     val total = messages.size
     if (total == 0) return
 

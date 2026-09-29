@@ -5,23 +5,23 @@ import io.ktor.websocket.Frame
 import io.zer0.ai.core.UIMessage
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
-import io.zer0.muse.ui.SsrfGuard
 import io.zer0.muse.data.session.SessionEntity
 import io.zer0.muse.data.session.SessionRepository
 import io.zer0.muse.schedule.ChatGenerationManager
-import java.util.UUID
 import io.zer0.muse.ui.ChatViewModel
+import io.zer0.muse.ui.SsrfGuard
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
+import java.util.UUID
 
 /**
  * Host Mode WebSocket adapter.
@@ -103,8 +103,7 @@ class HostWebSocketGateway(
         const val MAX_COMPLETED_REQUESTS = 256
 
         /** B-31: chat.send 与其他网络入口共用统一 SSRF 文本判定。 */
-        fun containsBlockedUrl(text: String): Boolean =
-            SsrfGuard.hasBlockedUrlInText(text)
+        fun containsBlockedUrl(text: String): Boolean = SsrfGuard.hasBlockedUrlInText(text)
     }
 
     suspend fun serve(connection: DefaultWebSocketServerSession) = coroutineScope {
@@ -134,7 +133,7 @@ class HostWebSocketGateway(
             for (frame in connection.incoming) {
                 if (frame !is Frame.Text) continue
                 try {
-                        val command = decodeCommand(frame.data.decodeToString())
+                    val command = decodeCommand(frame.data.decodeToString())
                     if (command.protocolVersion != CURRENT_PROTOCOL_VERSION) {
                         throw HostProtocolException("unsupported host protocol version: ${command.protocolVersion}")
                     }
@@ -436,9 +435,8 @@ class HostWebSocketGateway(
         }
     }
 
-    private fun requireSessionId(command: HostCommand): String =
-        command.sessionId?.trim()?.takeIf { it.isNotEmpty() }
-            ?: throw HostProtocolException("${command.type} requires sessionId")
+    private fun requireSessionId(command: HostCommand): String = command.sessionId?.trim()?.takeIf { it.isNotEmpty() }
+        ?: throw HostProtocolException("${command.type} requires sessionId")
 
     private suspend fun syncFromCursor(
         command: HostCommand,
@@ -478,11 +476,7 @@ class HostWebSocketGateway(
         }
     }
 
-    private suspend fun sendRawEvent(
-        connection: DefaultWebSocketServerSession,
-        event: HostEvent,
-        sendMutex: Mutex,
-    ) {
+    private suspend fun sendRawEvent(connection: DefaultWebSocketServerSession, event: HostEvent, sendMutex: Mutex) {
         sendMutex.withLock { connection.send(Frame.Text(AppJson.encodeToString(event))) }
     }
 
@@ -522,29 +516,29 @@ class HostWebSocketGateway(
         active: ChatGenerationManager.ActiveGeneration? = null,
     ): HostEvent {
         return HostEvent(
-        type = "state.snapshot",
-        sessionId = sessionId,
-        turnId = active?.turnId,
-        generationId = active?.generationId,
-        isStreaming = isStreaming,
-        sessions = sessions.filterNot { it.archived || it.deletedAt != null }.map { it.toHostSession() },
-        messages = messages.map { it.toHostMessage() },
-        pendingApprovals = chatViewModel.state.value.pendingToolApprovals.map {
-            HostApproval(it.toolCallId, it.toolName, it.argumentsPreview)
-        },
-        // F-36: capabilityFlags 只声明有对应协议命令的实现能力。memory_host/rag_host 尚无
-        // 对应命令且无后端实现,若声明浏览器会显示"记忆/RAG 可用"却操作无效,故移除;
-        // 待阶段四落地 memory/rag 命令后再恢复声明。
-        capabilityFlags = listOf(
-            "chat",
-            "streaming",
-            "generation_control",
-            "session_crud",
-            "tool_approval",
-            "history",
-            "message_clipboard",
-            "android_runtime",
-        ),
+            type = "state.snapshot",
+            sessionId = sessionId,
+            turnId = active?.turnId,
+            generationId = active?.generationId,
+            isStreaming = isStreaming,
+            sessions = sessions.filterNot { it.archived || it.deletedAt != null }.map { it.toHostSession() },
+            messages = messages.map { it.toHostMessage() },
+            pendingApprovals = chatViewModel.state.value.pendingToolApprovals.map {
+                HostApproval(it.toolCallId, it.toolName, it.argumentsPreview)
+            },
+            // F-36: capabilityFlags 只声明有对应协议命令的实现能力。memory_host/rag_host 尚无
+            // 对应命令且无后端实现,若声明浏览器会显示"记忆/RAG 可用"却操作无效,故移除;
+            // 待阶段四落地 memory/rag 命令后再恢复声明。
+            capabilityFlags = listOf(
+                "chat",
+                "streaming",
+                "generation_control",
+                "session_crud",
+                "tool_approval",
+                "history",
+                "message_clipboard",
+                "android_runtime",
+            ),
         )
     }
 

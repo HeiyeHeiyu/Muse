@@ -21,8 +21,7 @@ class SettingsRepositoryTest {
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
-    private fun newRepository(): SettingsRepository =
-        SettingsRepository(context, mockk(relaxed = true))
+    private fun newRepository(): SettingsRepository = SettingsRepository(context, mockk(relaxed = true))
 
     @Test
     fun enterGuestMode_keepsOnboardingNickname() = runBlocking {

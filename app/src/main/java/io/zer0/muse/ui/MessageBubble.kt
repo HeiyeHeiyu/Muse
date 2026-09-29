@@ -1,33 +1,27 @@
 package io.zer0.muse.ui
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.layout.boundsInWindow
-import io.zer0.muse.ui.common.icons.MuseIcons
-import io.zer0.muse.ui.common.state.MuseSpinner
-import io.zer0.muse.util.ShareIntentHelper
-import androidx.compose.ui.layout.onGloballyPositioned
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -35,87 +29,93 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import io.zer0.common.resultOf
-import io.zer0.muse.ui.common.feedback.MuseDialog
-import io.zer0.muse.ui.common.form.MuseBottomSheet
-import io.zer0.muse.ui.common.feedback.MuseToast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.isUnspecified
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import io.zer0.muse.ui.common.MusePopover
-import io.zer0.muse.R
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
+import io.zer0.common.resultOf
+import io.zer0.muse.R
 import io.zer0.muse.data.artifact.ArtifactEntity
+import io.zer0.muse.transformer.InternalMarkupSanitizer
+import io.zer0.muse.transformer.MoodSkinParser
 import io.zer0.muse.ui.artifact.ArtifactCardList
 import io.zer0.muse.ui.chat.BranchSelector
-import io.zer0.muse.ui.chat.parseQuotedContent
-import io.zer0.muse.ui.chat.buildHighlightedText
-import io.zer0.muse.ui.chat.buildMoodSkinAnnotated
 import io.zer0.muse.ui.chat.MessageInfoSheet
 import io.zer0.muse.ui.chat.MuseReactionSheet
+import io.zer0.muse.ui.chat.StickerAwareMarkdownBody
+import io.zer0.muse.ui.chat.VideoAttachment
+import io.zer0.muse.ui.chat.buildHighlightedText
+import io.zer0.muse.ui.chat.buildMoodSkinAnnotated
+import io.zer0.muse.ui.chat.parseQuotedContent
 import io.zer0.muse.ui.chat.reactionIcon
 import io.zer0.muse.ui.chat.reactionLabelRes
-import io.zer0.muse.ui.chat.StickerAwareMarkdownBody
+import io.zer0.muse.ui.common.MusePopover
+import io.zer0.muse.ui.common.feedback.MuseDialog
+import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseBottomSheet
+import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.media.AssistantAvatar
 import io.zer0.muse.ui.common.media.ContextMenuItem
 import io.zer0.muse.ui.common.media.DesktopContextMenu
-import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.media.FullScreenMediaViewer
 import io.zer0.muse.ui.common.media.rememberDesktopShortcutsEnabled
+import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.markdown.CardAction
-import io.zer0.muse.transformer.MoodSkinParser
-import io.zer0.muse.transformer.InternalMarkupSanitizer
 import io.zer0.muse.ui.taskcard.AgentPlan
 import io.zer0.muse.ui.taskcard.PlanCard
-import io.zer0.muse.ui.theme.MuseElevation
-import io.zer0.muse.ui.theme.MuseHaptics
-import io.zer0.muse.ui.theme.MuseIconSizes
-import io.zer0.muse.ui.theme.MusePaddings
-import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.ui.theme.MuseAvatarSize
-import io.zer0.muse.ui.theme.MuseBubbleStyles
 import io.zer0.muse.ui.theme.BubbleRole
 import io.zer0.muse.ui.theme.BubbleSkin
 import io.zer0.muse.ui.theme.BubbleSkinResolver
 import io.zer0.muse.ui.theme.MuseAnimation
+import io.zer0.muse.ui.theme.MuseAvatarSize
+import io.zer0.muse.ui.theme.MuseBubbleStyles
+import io.zer0.muse.ui.theme.MuseElevation
+import io.zer0.muse.ui.theme.MuseHaptics
+import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseMotion
+import io.zer0.muse.ui.theme.MusePaddings
+import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.tiny
-import io.zer0.muse.ui.common.media.FullScreenMediaViewer
-import io.zer0.muse.ui.chat.VideoAttachment
+import io.zer0.muse.util.ShareIntentHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -229,7 +229,7 @@ internal fun MessageBubble(
     highlightText: String? = null,
     // v2.3: debug 模式性能摘要(仅最后一条 assistant 消息底部显示)
     debugInfo: String? = null,
-        /** P1 UI: Token 统计条(由 ChatScreen 传入,显示在助手消息快捷按钮组下方)。 */
+    /** P1 UI: Token 统计条(由 ChatScreen 传入,显示在助手消息快捷按钮组下方)。 */
     tokenStats: (@Composable () -> Unit)? = null,
     // v1.55: Agent 工作流计划卡(显示最新的活跃计划,随消息一起滚动)
     agentPlan: AgentPlan? = null,
@@ -365,7 +365,9 @@ internal fun MessageBubble(
     if (!isUser && !hasAssistantPayload) return
 
     // 历史消息可能只有 content 没有 mood 字段，显示层仍把内嵌 mood/mod 恢复成可折叠块。
-    val visibleMood = if (isUser) null else {
+    val visibleMood = if (isUser) {
+        null
+    } else {
         msg.mood?.takeIf { it.isNotBlank() }
             ?: InternalMarkupSanitizer.extractMood(msg.content)
             ?: InternalMarkupSanitizer.extractMood(msg.reasoning.orEmpty())
@@ -390,8 +392,9 @@ internal fun MessageBubble(
             // v1.0.72: 长按消息任意位置(含文字区域,已去掉 SelectionContainer 拦截)都弹操作菜单;
             // 点击:多选模式切换选中 / 文本选择模式退出
             onClick = {
-                if (selectionMode) onToggleSelection?.invoke()
-                else if (textSelectMode) textSelectMode = false
+                if (selectionMode) {
+                    onToggleSelection?.invoke()
+                } else if (textSelectMode) textSelectMode = false
             },
             onLongClick = {
                 MuseHaptics.medium(hapticFeedback)
@@ -433,1097 +436,1152 @@ internal fun MessageBubble(
         modifier = Modifier
             .fillMaxWidth()
             .then(
-                            if (isAnimating) {
-                                Modifier.animateContentSize(
-                                    animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
-                                )
-                            } else {
-                                Modifier
-                            },
-                        ),
-    ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = horizontalAlignment,
-    ) {
-
-
-        // B7-01: 多选模式指示
-        if (selectionMode) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 4.dp),
-                horizontalArrangement = if (isUser == isLtr) Arrangement.End else Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier.size(22.dp),
-                ) {
-                    Icon(
-                        imageVector = if (selected) MuseIcons.check else MuseIcons.circle,
-                        // C-21: 多选指示器专用语义(此前复用 skill_enabled/skill_disabled,TalkBack 语义错误)
-                        contentDescription = stringResource(if (selected) R.string.chat_msg_selected else R.string.chat_msg_not_selected),
-                        tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(2.dp),
+                if (isAnimating) {
+                    Modifier.animateContentSize(
+                        animationSpec = MuseMotion.tween(MuseAnimation.NORMAL_MS),
                     )
-                }
-            }
-        }
-        // v0.30-b: MOOD 块(6 步工作流第 2 步 — AI 内部腹稿,可折叠)
-        // v0.31: 受 chatPrefs.showMoodBlock 开关控制,默认展开状态由 chatPrefs.moodExpandedByDefault 决定
-        if (chatPrefs.showMoodBlock) {
-            visibleMood?.let { mood ->
-                // v1.45: 优先使用外部受控状态;未控制时用默认值
-                val moodExpanded = isMoodExpanded ?: chatPrefs.moodExpandedByDefault
-                // 流式阶段不展开 MOOD 内容:标签文本还在逐段解析,强制展开会让整段腹稿
-                // 在某一帧集中闪出,再被清洗器收回。生成结束后再按用户默认/手动状态展示。
-                val showMoodExpanded = if (isLastAssistant && isStreaming) false else moodExpanded
-            Surface(
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                shape = MuseShapes.medium,
-                tonalElevation = MuseElevation.none,
-                modifier = Modifier
-                    .padding(horizontal = MusePaddings.screen)
-                    .widthIn(max = 360.dp)
-                    .padding(bottom = 6.dp),
-            ) {
-                Column(modifier = Modifier.padding(MusePaddings.bubbleInner)) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onToggleMoodExpanded() }
-                            .padding(vertical = MusePaddings.tinyGap),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "MOOD",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Icon(
-                            imageVector = if (showMoodExpanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
-                            // L-MB1: contentDescription 更明确
-                            contentDescription = if (showMoodExpanded) stringResource(R.string.chat_mood_collapse_cd) else stringResource(R.string.chat_mood_expand_cd),
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(MuseIconSizes.iconTiny),
-                        )
-                    }
-                    if (showMoodExpanded) {
-                        Spacer(Modifier.height(MusePaddings.tinyGap))
-                        Text(
-                            text = mood,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        }
-        }
-
-        // Phase 8.3: 推理过程折叠卡片(推理折叠区)
-        // v0.31: 受 chatPrefs.showReasoning 开关控制,默认展开状态由 chatPrefs.reasoningExpandedByDefault 决定
-        // v1.45: 改为外部受控,切页/后台后保持折叠状态
-        // v1.118: 折叠时标题显示思考内容摘要(而非静态"思考过程"四字),让用户快速了解思考了什么
-        // v1.0.54: 工具轮消息(带 toolCalls/toolCallInfo)不显示思考块 — 工具调用的推理过程
-        //   对用户无价值且出戏(send_sticker 选贴纸的思考会被完整展示),兜底过滤。
-        val isToolRoundMessage = !msg.toolCalls.isNullOrEmpty() || msg.toolCallInfo != null
-        if (chatPrefs.showReasoning && !isToolRoundMessage) {
-            msg.reasoning?.takeIf { it.isNotBlank() }?.let { reasoning ->
-                val reasoningExpanded = isReasoningExpanded ?: chatPrefs.reasoningExpandedByDefault
-                // v1.0.92: 移除"流式最后一条强制展开"(用户反馈:没开默认展开但思考仍自动展开);
-                // 思考块只按默认值/手动切换展开,流式进度改由标题行右侧的实时计时器呈现。
-                val showExpanded = reasoningExpanded
-                // v1.0.92: 思考计时器 — 流式期间每秒刷新;结束后保留本次展示生命周期的累计时长
-                // (回收/切页后重新计时,不做持久化;数据源为本地时钟,不触碰消息存储)。
-                var reasoningElapsedSec by remember(msg.id) { mutableStateOf(0) }
-                LaunchedEffect(isLastAssistant, isStreaming) {
-                    if (isLastAssistant && isStreaming) {
-                        val startedAt = System.currentTimeMillis()
-                        while (true) {
-                            reasoningElapsedSec = ((System.currentTimeMillis() - startedAt) / 1000L).toInt()
-                            delay(1_000L)
-                        }
-                    }
-                }
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    shape = MuseShapes.medium,
-                    tonalElevation = MuseElevation.low,
-                    modifier = Modifier
-                        .padding(horizontal = MusePaddings.screen)
-                        .widthIn(max = 360.dp)
-                        .padding(bottom = 6.dp),
-                ) {
-                    Column(modifier = Modifier.padding(MusePaddings.bubbleInner)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onToggleReasoningExpanded() }
-                                .padding(vertical = MusePaddings.tinyGap),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            // v1.118: 折叠时标题显示思考内容摘要,展开时显示"思考过程"标题
-                            // 摘要取 reasoning 前约 40 字符(合并换行),前缀"思考 · "标识来源
-                            val titleText = if (showExpanded) {
-                                stringResource(R.string.chat_reasoning_title)
-                            } else {
-                                val cleaned = reasoning.replace("\n", " ").trim()
-                                if (cleaned.length > 40) {
-                                    stringResource(R.string.chat_thinking_preview, cleaned.take(40) + "…")
-                                } else {
-                                    stringResource(R.string.chat_thinking_preview, cleaned)
-                                }
-                            }
-                            Text(
-                                text = titleText,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f),
-                            )
-                            // v1.0.92: 标题行右侧的思考计时(流式实时 / 结束后定格)
-                            if (reasoningElapsedSec > 0) {
-                                Text(
-                                    text = stringResource(R.string.chat_reasoning_elapsed, reasoningElapsedSec),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Spacer(Modifier.width(MusePaddings.tightGap))
-                            }
-                            Icon(
-                                imageVector = if (showExpanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
-                                // L-MB1: contentDescription 更明确
-                                contentDescription = if (showExpanded) stringResource(R.string.chat_reasoning_collapse_cd) else stringResource(R.string.chat_reasoning_expand_cd),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(MuseIconSizes.iconTiny),
-                            )
-                        }
-                        if (showExpanded) {
-                            Spacer(Modifier.height(MusePaddings.tinyGap))
-                            Text(
-                                text = reasoning,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // v1.64: 反思块(reflection — AI 对自身回答的准确性/完整性/语气自评,可折叠)
-        // 与 mood/reasoning 块同构:受 chatPrefs.showReflectionBlock 开关 + 默认展开状态控制
-        if (chatPrefs.showReflectionBlock) {
-            msg.reflection?.takeIf { it.isNotBlank() }?.let { reflection ->
-                val reflectionExpanded = isReflectionExpanded ?: chatPrefs.reflectionExpandedByDefault
-                val showReflectionExpanded = (isLastAssistant && isStreaming) || reflectionExpanded
-                Surface(
-                    color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f),
-                    shape = MuseShapes.medium,
-                    tonalElevation = MuseElevation.none,
-                    modifier = Modifier
-                        .padding(horizontal = MusePaddings.screen)
-                        .widthIn(max = 360.dp)
-                        .padding(bottom = 6.dp),
-                ) {
-                    Column(modifier = Modifier.padding(MusePaddings.bubbleInner)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onToggleReflectionExpanded() }
-                            .padding(vertical = MusePaddings.tinyGap),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = stringResource(R.string.chat_reflection_title),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.tertiary,
-                            )
-                            Icon(
-                                imageVector = if (showReflectionExpanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
-                                // L-MB1: contentDescription 更明确
-                                contentDescription = if (showReflectionExpanded) stringResource(R.string.chat_reflection_collapse_cd) else stringResource(R.string.chat_reflection_expand_cd),
-                                tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier.size(MuseIconSizes.iconTiny),
-                            )
-                        }
-                        if (showReflectionExpanded) {
-                            Spacer(Modifier.height(MusePaddings.tinyGap))
-                            Text(
-                                text = reflection,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        if (isUser) {
-            if (showUserAvatar) {
+                } else {
+                    Modifier
+                },
+            ),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = horizontalAlignment,
+        ) {
+            // B7-01: 多选模式指示
+            if (selectionMode) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = MusePaddings.screen, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.End,
+                        .padding(bottom = 4.dp),
+                    horizontalArrangement = if (isUser == isLtr) Arrangement.End else Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Surface(
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(28.dp),
+                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.size(22.dp),
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = userAvatarText.take(1).ifBlank { "U" },
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            )
+                        Icon(
+                            imageVector = if (selected) MuseIcons.check else MuseIcons.circle,
+                            // C-21: 多选指示器专用语义(此前复用 skill_enabled/skill_disabled,TalkBack 语义错误)
+                            contentDescription = stringResource(
+                                if (selected) R.string.chat_msg_selected else R.string.chat_msg_not_selected,
+                            ),
+                            tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(2.dp),
+                        )
+                    }
+                }
+            }
+            // v0.30-b: MOOD 块(6 步工作流第 2 步 — AI 内部腹稿,可折叠)
+            // v0.31: 受 chatPrefs.showMoodBlock 开关控制,默认展开状态由 chatPrefs.moodExpandedByDefault 决定
+            if (chatPrefs.showMoodBlock) {
+                visibleMood?.let { mood ->
+                    // v1.45: 优先使用外部受控状态;未控制时用默认值
+                    val moodExpanded = isMoodExpanded ?: chatPrefs.moodExpandedByDefault
+                    // 流式阶段不展开 MOOD 内容:标签文本还在逐段解析,强制展开会让整段腹稿
+                    // 在某一帧集中闪出,再被清洗器收回。生成结束后再按用户默认/手动状态展示。
+                    val showMoodExpanded = if (isLastAssistant && isStreaming) false else moodExpanded
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                        shape = MuseShapes.medium,
+                        tonalElevation = MuseElevation.none,
+                        modifier = Modifier
+                            .padding(horizontal = MusePaddings.screen)
+                            .widthIn(max = 360.dp)
+                            .padding(bottom = 6.dp),
+                    ) {
+                        Column(modifier = Modifier.padding(MusePaddings.bubbleInner)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onToggleMoodExpanded() }
+                                    .padding(vertical = MusePaddings.tinyGap),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "MOOD",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Icon(
+                                    imageVector = if (showMoodExpanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
+                                    // L-MB1: contentDescription 更明确
+                                    contentDescription = if (showMoodExpanded) {
+                                        stringResource(
+                                            R.string.chat_mood_collapse_cd,
+                                        )
+                                    } else {
+                                        stringResource(R.string.chat_mood_expand_cd)
+                                    },
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(MuseIconSizes.iconTiny),
+                                )
+                            }
+                            if (showMoodExpanded) {
+                                Spacer(Modifier.height(MusePaddings.tinyGap))
+                                Text(
+                                    text = mood,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }
             }
-            // 用户消息: 浅色圆角气泡 + 右下小尾巴(决策 D1,与群聊一致)
-            // F-41: 圆角由 chatPrefs.bubbleRadius 控制(0=方形/8=圆角/20=大圆角/28=胶囊)
-            val bubbleRadius = chatPrefs.bubbleRadius.coerceIn(0, 28).toFloat()
-            val hasImages = msg.imageBase64List.isNotEmpty()
-            // 皮肤只覆盖外壳(颜色/圆角/内边距/最大宽度);null 皮肤保持原有样式。
-            val userSurfaceColor = resolvedSkin?.let { Color(it.style.surfaceArgb) }
-                ?: MuseBubbleStyles.userSurfaceColor()
-            // v2.0: 无皮肤时给用户气泡加主色描边,避免气泡在浅色背景上"看不见"
-            val userBorder = if (resolvedSkin == null) {
-                androidx.compose.foundation.BorderStroke(1.dp, MuseBubbleStyles.userBorderColor())
-            } else {
-                null
-            }
-            val userShape = resolvedSkin?.style?.radiusDp?.dp?.let { RoundedCornerShape(it) }
-                ?: MuseBubbleStyles.userBubbleShape(bubbleRadius)
-            val userContentColor = resolvedSkin?.let { Color(it.style.contentArgb) }
-                ?: MuseBubbleStyles.userContentColor()
-            // v2.0: 用户消息保持右侧紧凑气泡 —— 通栏开关只作用于助手长文,
-            // 用户短句不再被拉满整行贴左侧;按内容自适应宽度,最大不超过屏幕 78%。
-            val userWidthFraction = resolvedSkin?.style?.maxWidthFraction ?: outerLayout.widthFraction
-            val userMaxWidthDp = with(androidx.compose.ui.platform.LocalConfiguration.current) {
-                (screenWidthDp * userWidthFraction).dp
-            }
-            val userPadding = resolvedSkin?.style?.let {
-                PaddingValues(horizontal = it.paddingHorizontalDp.dp, vertical = it.paddingVerticalDp.dp)
-            } ?: MusePaddings.bubbleInner
-            Surface(
-                color = userSurfaceColor,
-                shape = userShape,
-                border = userBorder,
-                // v1.0.29: 移除阴影,避免浅色气泡在深色/浅色背景下出现奇怪阴影边缘。
-                modifier = bubbleClickModifier
-                    .padding(horizontal = MusePaddings.tinyGap, vertical = 3.dp),
-            ) {
-                Column(
-                    modifier = Modifier
-                        // v2.0: 按内容自适应宽度(最多 78% 屏宽),短消息不再被拉成通栏长条
-                        .widthIn(max = userMaxWidthDp)
-                        .padding(userPadding),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    // 引用回复:用户消息顶部显示引用块
-                    quote?.let {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            shape = MuseShapes.small,
-                        ) {
-                            Text(
-                                text = it,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(MusePaddings.contentGap),
-                            )
+
+            // Phase 8.3: 推理过程折叠卡片(推理折叠区)
+            // v0.31: 受 chatPrefs.showReasoning 开关控制,默认展开状态由 chatPrefs.reasoningExpandedByDefault 决定
+            // v1.45: 改为外部受控,切页/后台后保持折叠状态
+            // v1.118: 折叠时标题显示思考内容摘要(而非静态"思考过程"四字),让用户快速了解思考了什么
+            // v1.0.54: 工具轮消息(带 toolCalls/toolCallInfo)不显示思考块 — 工具调用的推理过程
+            //   对用户无价值且出戏(send_sticker 选贴纸的思考会被完整展示),兜底过滤。
+            val isToolRoundMessage = !msg.toolCalls.isNullOrEmpty() || msg.toolCallInfo != null
+            if (chatPrefs.showReasoning && !isToolRoundMessage) {
+                msg.reasoning?.takeIf { it.isNotBlank() }?.let { reasoning ->
+                    val reasoningExpanded = isReasoningExpanded ?: chatPrefs.reasoningExpandedByDefault
+                    // v1.0.92: 移除"流式最后一条强制展开"(用户反馈:没开默认展开但思考仍自动展开);
+                    // 思考块只按默认值/手动切换展开,流式进度改由标题行右侧的实时计时器呈现。
+                    val showExpanded = reasoningExpanded
+                    // v1.0.92: 思考计时器 — 流式期间每秒刷新;结束后保留本次展示生命周期的累计时长
+                    // (回收/切页后重新计时,不做持久化;数据源为本地时钟,不触碰消息存储)。
+                    var reasoningElapsedSec by remember(msg.id) { mutableStateOf(0) }
+                    LaunchedEffect(isLastAssistant, isStreaming) {
+                        if (isLastAssistant && isStreaming) {
+                            val startedAt = System.currentTimeMillis()
+                            while (true) {
+                                reasoningElapsedSec = ((System.currentTimeMillis() - startedAt) / 1000L).toInt()
+                                delay(1_000L)
+                            }
                         }
                     }
-                    // 视频附件:缩略图 + 时长 + 播放图标,点击用 ACTION_VIEW 调起系统播放器
-                    // 缩略图缺失时降级为深色占位 + 视频图标,保持高度一致避免布局抖动
-                    videoAttachment?.let { va ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 220.dp)
-                                .clip(MuseShapes.medium)
-                                .clickable {
-                                    // 调用系统播放器播放视频;无应用可处理时 Toast 提示
-                                    runCatching {
-                                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                                            setDataAndType(va.uri, "video/*")
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        }
-                                        context.startActivity(intent)
-                                    }.onFailure { e ->
-                                        MuseToast.show(
-                                            context.getString(R.string.chat_video_open_failed, e.message ?: ""),
-                                        )
-                                    }
-                                },
-                        ) {
-                            val thumb = va.thumbnail
-                            if (!thumb.isNullOrBlank()) {
-                                SmartImage(
-                                    model = "data:image/jpeg;base64,$thumb",
-                                    contentDescription = stringResource(R.string.chat_user_video_cd),
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentScale = ContentScale.Crop,
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(160.dp)
-                                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        imageVector = MuseIcons.video,
-                                        contentDescription = stringResource(R.string.chat_user_video_cd),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(MuseIconSizes.iconEmpty),
-                                    )
-                                }
-                            }
-                            // 中央播放图标(scrim 半透明背景提升对比度)
-                            Box(
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = MuseShapes.medium,
+                        tonalElevation = MuseElevation.low,
+                        modifier = Modifier
+                            .padding(horizontal = MusePaddings.screen)
+                            .widthIn(max = 360.dp)
+                            .padding(bottom = 6.dp),
+                    ) {
+                        Column(modifier = Modifier.padding(MusePaddings.bubbleInner)) {
+                            Row(
                                 modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .size(56.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f)),
-                                contentAlignment = Alignment.Center,
+                                    .fillMaxWidth()
+                                    .clickable { onToggleReasoningExpanded() }
+                                    .padding(vertical = MusePaddings.tinyGap),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                // v1.118: 折叠时标题显示思考内容摘要,展开时显示"思考过程"标题
+                                // 摘要取 reasoning 前约 40 字符(合并换行),前缀"思考 · "标识来源
+                                val titleText = if (showExpanded) {
+                                    stringResource(R.string.chat_reasoning_title)
+                                } else {
+                                    val cleaned = reasoning.replace("\n", " ").trim()
+                                    if (cleaned.length > 40) {
+                                        stringResource(R.string.chat_thinking_preview, cleaned.take(40) + "…")
+                                    } else {
+                                        stringResource(R.string.chat_thinking_preview, cleaned)
+                                    }
+                                }
+                                Text(
+                                    text = titleText,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                // v1.0.92: 标题行右侧的思考计时(流式实时 / 结束后定格)
+                                if (reasoningElapsedSec > 0) {
+                                    Text(
+                                        text = stringResource(R.string.chat_reasoning_elapsed, reasoningElapsedSec),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Spacer(Modifier.width(MusePaddings.tightGap))
+                                }
                                 Icon(
-                                    imageVector = MuseIcons.play,
-                                    contentDescription = stringResource(R.string.chat_video_play_cd),
-                                    tint = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(MuseIconSizes.iconLarge),
+                                    imageVector = if (showExpanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
+                                    // L-MB1: contentDescription 更明确
+                                    contentDescription = if (showExpanded) {
+                                        stringResource(
+                                            R.string.chat_reasoning_collapse_cd,
+                                        )
+                                    } else {
+                                        stringResource(R.string.chat_reasoning_expand_cd)
+                                    },
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(MuseIconSizes.iconTiny),
                                 )
                             }
-                            // 右下角时长标签(黑底白字,与系统相册风格一致)
-                            Surface(
-                                color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.7f),
-                                shape = MuseShapes.tiny,
+                            if (showExpanded) {
+                                Spacer(Modifier.height(MusePaddings.tinyGap))
+                                Text(
+                                    text = reasoning,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // v1.64: 反思块(reflection — AI 对自身回答的准确性/完整性/语气自评,可折叠)
+            // 与 mood/reasoning 块同构:受 chatPrefs.showReflectionBlock 开关 + 默认展开状态控制
+            if (chatPrefs.showReflectionBlock) {
+                msg.reflection?.takeIf { it.isNotBlank() }?.let { reflection ->
+                    val reflectionExpanded = isReflectionExpanded ?: chatPrefs.reflectionExpandedByDefault
+                    val showReflectionExpanded = (isLastAssistant && isStreaming) || reflectionExpanded
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.08f),
+                        shape = MuseShapes.medium,
+                        tonalElevation = MuseElevation.none,
+                        modifier = Modifier
+                            .padding(horizontal = MusePaddings.screen)
+                            .widthIn(max = 360.dp)
+                            .padding(bottom = 6.dp),
+                    ) {
+                        Column(modifier = Modifier.padding(MusePaddings.bubbleInner)) {
+                            Row(
                                 modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(MusePaddings.labelVerticalGap),
+                                    .fillMaxWidth()
+                                    .clickable { onToggleReflectionExpanded() }
+                                    .padding(vertical = MusePaddings.tinyGap),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
-                                    text = MessageBubbleFormatters.formatVideoDuration(va.durationMs),
+                                    text = stringResource(R.string.chat_reflection_title),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.padding(horizontal = MusePaddings.labelVerticalGap, vertical = MusePaddings.tinyGap),
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                )
+                                Icon(
+                                    imageVector = if (showReflectionExpanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
+                                    // L-MB1: contentDescription 更明确
+                                    contentDescription = if (showReflectionExpanded) {
+                                        stringResource(
+                                            R.string.chat_reflection_collapse_cd,
+                                        )
+                                    } else {
+                                        stringResource(R.string.chat_reflection_expand_cd)
+                                    },
+                                    tint = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.size(MuseIconSizes.iconTiny),
+                                )
+                            }
+                            if (showReflectionExpanded) {
+                                Spacer(Modifier.height(MusePaddings.tinyGap))
+                                Text(
+                                    text = reflection,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
                     }
-                    if (hasImages) {
-                        // v1.60-B: 用户图片也可点击放大进入全屏媒体查看器
-                        val userImageUris = msg.imageBase64List.map { "data:image/jpeg;base64,$it" }
-                        userImageUris.forEachIndexed { index, uri ->
-                            SmartImage(
-                                model = uri,
-                                contentDescription = stringResource(R.string.chat_user_image_cd),
+                }
+            }
+
+            if (isUser) {
+                if (showUserAvatar) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = MusePaddings.screen, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = userAvatarText.take(1).ifBlank { "U" },
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                )
+                            }
+                        }
+                    }
+                }
+                // 用户消息: 浅色圆角气泡 + 右下小尾巴(决策 D1,与群聊一致)
+                // F-41: 圆角由 chatPrefs.bubbleRadius 控制(0=方形/8=圆角/20=大圆角/28=胶囊)
+                val bubbleRadius = chatPrefs.bubbleRadius.coerceIn(0, 28).toFloat()
+                val hasImages = msg.imageBase64List.isNotEmpty()
+                // 皮肤只覆盖外壳(颜色/圆角/内边距/最大宽度);null 皮肤保持原有样式。
+                val userSurfaceColor = resolvedSkin?.let { Color(it.style.surfaceArgb) }
+                    ?: MuseBubbleStyles.userSurfaceColor()
+                // v2.0: 无皮肤时给用户气泡加主色描边,避免气泡在浅色背景上"看不见"
+                val userBorder = if (resolvedSkin == null) {
+                    androidx.compose.foundation.BorderStroke(1.dp, MuseBubbleStyles.userBorderColor())
+                } else {
+                    null
+                }
+                val userShape = resolvedSkin?.style?.radiusDp?.dp?.let { RoundedCornerShape(it) }
+                    ?: MuseBubbleStyles.userBubbleShape(bubbleRadius)
+                val userContentColor = resolvedSkin?.let { Color(it.style.contentArgb) }
+                    ?: MuseBubbleStyles.userContentColor()
+                // v2.0: 用户消息保持右侧紧凑气泡 —— 通栏开关只作用于助手长文,
+                // 用户短句不再被拉满整行贴左侧;按内容自适应宽度,最大不超过屏幕 78%。
+                val userWidthFraction = resolvedSkin?.style?.maxWidthFraction ?: outerLayout.widthFraction
+                val userMaxWidthDp = with(androidx.compose.ui.platform.LocalConfiguration.current) {
+                    (screenWidthDp * userWidthFraction).dp
+                }
+                val userPadding = resolvedSkin?.style?.let {
+                    PaddingValues(horizontal = it.paddingHorizontalDp.dp, vertical = it.paddingVerticalDp.dp)
+                } ?: MusePaddings.bubbleInner
+                Surface(
+                    color = userSurfaceColor,
+                    shape = userShape,
+                    border = userBorder,
+                    // v1.0.29: 移除阴影,避免浅色气泡在深色/浅色背景下出现奇怪阴影边缘。
+                    modifier = bubbleClickModifier
+                        .padding(horizontal = MusePaddings.tinyGap, vertical = 3.dp),
+                ) {
+                    Column(
+                        modifier = Modifier
+                            // v2.0: 按内容自适应宽度(最多 78% 屏宽),短消息不再被拉成通栏长条
+                            .widthIn(max = userMaxWidthDp)
+                            .padding(userPadding),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        // 引用回复:用户消息顶部显示引用块
+                        quote?.let {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                shape = MuseShapes.small,
+                            ) {
+                                Text(
+                                    text = it,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(MusePaddings.contentGap),
+                                )
+                            }
+                        }
+                        // 视频附件:缩略图 + 时长 + 播放图标,点击用 ACTION_VIEW 调起系统播放器
+                        // 缩略图缺失时降级为深色占位 + 视频图标,保持高度一致避免布局抖动
+                        videoAttachment?.let { va ->
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .heightIn(max = 220.dp)
                                     .clip(MuseShapes.medium)
-                                    .clickable { mediaPreview = userImageUris to index },
-                            )
-                        }
-                        // v1.138: 视觉辅助标签 — 在图片下方显示"辅助视觉"状态
-                        // 分析中:显示进度"辅助视觉 · 分析中 x/y"
-                        // 已完成:显示"辅助视觉 · 已分析"(成功)或"辅助视觉 · 失败"
-                        val showVisionLabel = visionAssistProgress?.isActive == true || visionAssisted
-                        if (showVisionLabel) {
-                            val (labelText, labelColor, labelIcon) = when {
-                                visionAssistProgress?.isActive == true -> Triple(
-                                    stringResource(R.string.vision_assist_analyzing, visionAssistProgress.index, visionAssistProgress.total),
-                                    MaterialTheme.colorScheme.tertiary,
-                                    MuseIcons.eye,
-                                )
-                                visionAssisted -> Triple(
-                                    stringResource(R.string.vision_assist_done),
-                                    MaterialTheme.colorScheme.primary,
-                                    MuseIcons.check,
-                                )
-                                else -> Triple(
-                                    stringResource(R.string.vision_assist_label),
-                                    MaterialTheme.colorScheme.outline,
-                                    MuseIcons.eye,
-                                )
-                            }
-                            Surface(
-                                color = labelColor.copy(alpha = 0.12f),
-                                shape = MuseShapes.tiny,
-                                modifier = Modifier.padding(top = 2.dp),
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(MusePaddings.chipInnerLoose),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(MusePaddings.tinyGap),
-                                ) {
-                                    if (visionAssistProgress?.isActive == true) {
-                                        MuseSpinner(
-                                            size = MusePaddings.itemGap,
-                                            strokeWidth = 1.5.dp,
-                                            color = labelColor,
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = labelIcon,
-                                            contentDescription = null,
-                                            tint = labelColor,
-                                            modifier = Modifier.size(MusePaddings.itemGap),
-                                        )
-                                    }
-                                    Text(
-                                        text = labelText,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = labelColor,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    val userText = body.ifEmpty { if (hasImages || videoAttachment != null) "" else " " }
-                    if (userText.isNotBlank()) {
-                        Text(
-                            text = userText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = userContentColor,
-                        )
-                    }
-                }
-            }
-            // v0.48: USER 消息气泡下方右对齐显示时间戳(受 showTimestamp && chatPrefs.showTimestamp 控制)
-            if (showTimestamp && chatPrefs.showTimestamp) {
-                Text(
-                    text = formatMessageTime(msg.createdAt, use24Hour = chatPrefs.use24Hour),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(top = 2.dp, end = MusePaddings.tinyGap),
-                )
-            }
-        } else {
-            // v1.0.54: 空 assistant 消息(content 空 + 无图片/卡片/思考/反思/情绪)不渲染 —
-            //   工具轮占位消息 updateAssistant 不更新 toolCalls(恒为 null),无法按工具轮判断;
-            //   流式期间保留(ThinkingIndicator 是正常生成反馈),结束后/加载时空消息隐藏。
-            // C-22: 含产物卡(artifactIds)/任务卡(经 taskCardInfo)的消息即使正文为空也不隐藏
-            val isToolRoundPlaceholder = !isStreaming &&
-                body.isBlank() &&
-                msg.imageUrls.isEmpty() && msg.imageBase64List.isEmpty() &&
-                msg.artifactIds.isEmpty() &&
-                msg.toolCallInfo == null &&
-                msg.reasoning.isNullOrBlank() &&
-                msg.mood.isNullOrBlank() &&
-                msg.reflection.isNullOrBlank()
-            // v1.0.80: 纯工具消息(content 空 + 有工具/任务卡片)不包气泡底。
-            // 用户反馈:流式时工具卡片下方露出一圈偏深的气泡底,像先占位的空 UI。
-            // 工具卡片(ToolCallCard/TaskCard)自带 surface + 边框,无需再套一层气泡。
-            // v2.0: 补上两大类无正文消息 — ①有 toolCalls(无 toolCallInfo/taskCard)的工具轮;
-            // ②只有 reasoning 的“思考”消息。它们原先不命中此条件,思考块又自带近隐形的
-            // surfaceVariant 底,气泡底只在左侧露出 48px 宽灰条(实测的“灰色残块”);
-            // 与工具轮同理,自带背景块的内容不需要再套气泡。
-            val isPureToolBubble = body.isBlank() &&
-                msg.imageUrls.isEmpty() && msg.imageBase64List.isEmpty() &&
-                msg.artifactIds.isEmpty() && msg.videoFileUri.isNullOrBlank() &&
-                (
-                    msg.toolCallInfo != null || taskCard != null ||
-                        !msg.toolCalls.isNullOrEmpty() || msg.reasoning?.isNotBlank() == true
-                    )
-            // v0.48: AI 头像 — 消息分组时连续同角色消息压缩头像(showAvatar=false 时跳过)
-            if (showAvatar && !isToolRoundPlaceholder) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth(outerLayout.widthFraction)
-                        .padding(
-                            start = MusePaddings.screen,
-                            end = MusePaddings.screen,
-                            bottom = MusePaddings.tinyGap,
-                        ),
-                    horizontalArrangement = Arrangement.Start,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    AssistantAvatar(
-                        assistant = assistant ?: io.zer0.muse.data.assistant.AssistantEntity(
-                            id = "default",
-                            name = "Muse",
-                        ),
-                        avatarSize = MuseAvatarSize.inline,
-                    )
-                    if (showTimestamp && chatPrefs.showTimestamp) {
-                        Spacer(Modifier.width(MusePaddings.contentGap))
-                        Text(
-                            text = (assistant?.name ?: "Muse") +
-                                " · " + formatMessageTime(msg.createdAt, use24Hour = chatPrefs.use24Hour),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-                    }
-                }
-            }
-            // D1: 助手消息 = 浅色卡片(群聊口径,左下小尾巴);纯工具消息自带卡片不包气泡底(v1.0.80)。
-            if (!isToolRoundPlaceholder) {
-            Column(
-                // 助手消息:内容层;非纯工具消息套浅色卡片底。
-                modifier = Modifier
-                    .fillMaxWidth(if (chatPrefs.bubbleFullWidth) 1f else outerLayout.widthFraction)
-                    // v2.0.1: 左右呼吸边 — 助手卡与思考块等底色块不再顶满屏幕（用户反馈"太满、挤"）。
-                    .padding(horizontal = MusePaddings.screen)
-                    .then(bubbleClickModifier),
-            ) {
-                val assistantSurfaceColor = resolvedSkin?.let { Color(it.style.surfaceArgb) }
-                    ?: MuseBubbleStyles.assistantSurfaceColor()
-                val assistantShape = resolvedSkin?.style?.radiusDp?.dp?.let { RoundedCornerShape(it) }
-                    ?: MuseBubbleStyles.assistantBubbleShape()
-                // v2.x: 长文校准 — 结构型/超长回复"不进卡":外壳容器取消(底色/描边/圆角/70% 宽度上限全去),
-                // 内容直接落在呼吸边上全宽排版(长内容阅读节奏)。皮肤模式下以皮肤为准。
-                val isLongFormBubble = !isPureToolBubble && resolvedSkin == null &&
-                    isLongFormContent(msg.content)
-                Column(
-                    modifier = if (isPureToolBubble) {
-                        Modifier.padding(PaddingValues(0.dp))
-                    } else if (isLongFormBubble) {
-                        // v2.x: 长文"不进卡" — 无底色/无描边/无圆角/无宽度上限,全宽直排
-                        Modifier.padding(
-                            PaddingValues(horizontal = 0.dp, vertical = MusePaddings.contentGap), // inset-guard: allow
-                        )
-                    } else {
-                        Modifier
-                            .clip(assistantShape)
-                            .background(assistantSurfaceColor)
-                            .then(
-                                if (resolvedSkin == null) {
-                                    // v2.0: 无皮肤时给助手卡片加描边,避免浅色卡片在浅色背景上几乎隐形
-                                    Modifier.border(1.dp, MuseBubbleStyles.assistantBorderColor(), assistantShape)
-                                } else {
-                                    Modifier
-                                },
-                            )
-                            .then(
-                                if (chatPrefs.bubbleFullWidth) {
-                                    // 通栏模式：去掉气泡最大宽度上限
-                                    Modifier
-                                } else {
-                                    Modifier.widthIn(max = MuseBubbleStyles.maxBubbleWidth())
-                                },
-                            )
-                            .padding(
-                                if (chatPrefs.bubbleFullWidth) {
-                                    PaddingValues(
-                                        // v1.0.92: 通栏也保留呼吸边 — 旧实现 horizontal=0 会直接贴屏
-                                        // (用户反馈"左右一点空隙都没有");与用户侧通栏的 8dp 对齐。
-                                        horizontal = MusePaddings.contentGap,
-                                        vertical = MusePaddings.cardInner.calculateTopPadding(),
-                                    )
-                                } else {
-                                    MusePaddings.cardInner
-                                },
-                            )
-                    },
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    // 流式/思考状态:AI 消息顶部显示"正在思考…"带绿色脉动圆点
-                    if (isLastAssistant && isStreaming && !isPureToolBubble) {
-                        ThinkingIndicator()
-                    }
-            // Phase 5-G / Phase 8.6: 渲染生成的图片(URL 或 base64 data URI)
-            // 统一显示源:优先用 imageUrls,避免 Gemini 同时有 imageUrls(data URI) 和 imageBase64List 时重复渲染
-            // v1.95: 同时扫描 content 中的表情包绝对路径(filesDir/stickers/...),由 send_sticker 工具产生
-            val displayImageUris = remember(msg.imageUrls, msg.imageBase64List, msg.content, isLastAssistant, isStreaming) {
-                val fromUrls = if (msg.imageUrls.isNotEmpty()) msg.imageUrls
-                else msg.imageBase64List.map { "data:image/png;base64,$it" }
-                // v1.100: 流式期间跳过表情包路径扫描(正则开销随 content 增长),
-                // 流式结束后(非 isStreaming)才扫描,与 MarkdownText 降级策略对齐
-                if (isLastAssistant && isStreaming) {
-                    fromUrls
-                } else {
-                    val stickerUris = extractStickerPaths(msg.content).map { "file://$it" }
-                    if (stickerUris.isEmpty()) fromUrls else fromUrls + stickerUris
-                }
-            }
-            if (displayImageUris.size > 1) {
-                // v2.0.1: 多图网格 — 两列排布（单图仍走下方大图展示，多图不再纵向堆叠）。
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    displayImageUris.chunked(2).forEachIndexed { rowIndex, rowUris ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            rowUris.forEachIndexed { colIndex, imageUri ->
-                                val globalIndex = rowIndex * 2 + colIndex
-                                GeneratedImageCard(
-                                    imageUri = imageUri,
-                                    onPreview = { mediaPreview = displayImageUris to globalIndex },
-                                    onSave = {
-                                        scope.launch {
-                                            resultOf {
-                                                saveImageToGallery(context, imageUri)
-                                            }.onSuccess { path ->
-                                                MuseToast.show(context.getString(R.string.chat_image_saved_toast, path))
-                                            }.onError { msg, t ->
-                                                MuseToast.show(context.getString(R.string.chat_image_save_failed_toast, msg))
+                                    .clickable {
+                                        // 调用系统播放器播放视频;无应用可处理时 Toast 提示
+                                        runCatching {
+                                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                                setDataAndType(va.uri, "video/*")
+                                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                             }
+                                            context.startActivity(intent)
+                                        }.onFailure { e ->
+                                            MuseToast.show(
+                                                context.getString(R.string.chat_video_open_failed, e.message ?: ""),
+                                            )
                                         }
                                     },
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                            if (rowUris.size == 1) {
-                                Box(Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
-            } else {
-                // v2.0.1: 作品卡 — 提示词摘要 + 保存 / 分享（本地资源才给分享）
-                val genPromptSummary = remember(msg.toolCalls, msg.toolCallInfo) {
-                    val genArgs = msg.toolCalls?.firstOrNull { it.name == "generate_image" }?.arguments
-                        ?: msg.toolCallInfo?.takeIf { it.toolName == "generate_image" }?.arguments
-                    genArgs
-                        ?.let { args ->
-                            runCatching { org.json.JSONObject(args).optString("prompt") }.getOrNull()
-                        }
-                        ?.takeIf { it.isNotBlank() }
-                        ?.let { if (it.length > 60) it.take(60) + "…" else it }
-                }
-                displayImageUris.forEachIndexed { index, imageUri ->
-                    GeneratedImageCard(
-                        imageUri = imageUri,
-                        onPreview = { mediaPreview = displayImageUris to index },
-                        onSave = {
-                            scope.launch {
-                                resultOf {
-                                    saveImageToGallery(context, imageUri)
-                                }.onSuccess { path ->
-                                    // M-MB2: 改用 MuseToast 替代原生 Toast,保持主题一致
-                                    MuseToast.show(context.getString(R.string.chat_image_saved_toast, path))
-                                }.onError { msg, t ->
-                                    MuseToast.show(context.getString(R.string.chat_image_save_failed_toast, msg))
-                                }
-                            }
-                        },
-                        promptSummary = genPromptSummary ?: imageGenPrompt,
-                        onShare = if (imageUri.startsWith("file") || imageUri.startsWith("content")) {
-                            {
-                                runCatching {
-                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "image/*"
-                                        putExtra(Intent.EXTRA_STREAM, android.net.Uri.parse(imageUri))
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            ) {
+                                val thumb = va.thumbnail
+                                if (!thumb.isNullOrBlank()) {
+                                    SmartImage(
+                                        model = "data:image/jpeg;base64,$thumb",
+                                        contentDescription = stringResource(R.string.chat_user_video_cd),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        contentScale = ContentScale.Crop,
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(160.dp)
+                                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            imageVector = MuseIcons.video,
+                                            contentDescription = stringResource(R.string.chat_user_video_cd),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(MuseIconSizes.iconEmpty),
+                                        )
                                     }
-                                    io.zer0.muse.util.ShareIntentHelper.startChooserSafely(
-                                        context = context,
-                                        shareIntent = shareIntent,
-                                        chooserTitle = context.getString(R.string.action_share),
+                                }
+                                // 中央播放图标(scrim 半透明背景提升对比度)
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        .size(56.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = MuseIcons.play,
+                                        contentDescription = stringResource(R.string.chat_video_play_cd),
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(MuseIconSizes.iconLarge),
+                                    )
+                                }
+                                // 右下角时长标签(黑底白字,与系统相册风格一致)
+                                Surface(
+                                    color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.7f),
+                                    shape = MuseShapes.tiny,
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .padding(MusePaddings.labelVerticalGap),
+                                ) {
+                                    Text(
+                                        text = MessageBubbleFormatters.formatVideoDuration(va.durationMs),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.padding(
+                                            horizontal = MusePaddings.labelVerticalGap,
+                                            vertical = MusePaddings.tinyGap,
+                                        ),
                                     )
                                 }
                             }
-                        } else {
-                            null
-                        },
-                    )
+                        }
+                        if (hasImages) {
+                            // v1.60-B: 用户图片也可点击放大进入全屏媒体查看器
+                            val userImageUris = msg.imageBase64List.map { "data:image/jpeg;base64,$it" }
+                            userImageUris.forEachIndexed { index, uri ->
+                                SmartImage(
+                                    model = uri,
+                                    contentDescription = stringResource(R.string.chat_user_image_cd),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 220.dp)
+                                        .clip(MuseShapes.medium)
+                                        .clickable { mediaPreview = userImageUris to index },
+                                )
+                            }
+                            // v1.138: 视觉辅助标签 — 在图片下方显示"辅助视觉"状态
+                            // 分析中:显示进度"辅助视觉 · 分析中 x/y"
+                            // 已完成:显示"辅助视觉 · 已分析"(成功)或"辅助视觉 · 失败"
+                            val showVisionLabel = visionAssistProgress?.isActive == true || visionAssisted
+                            if (showVisionLabel) {
+                                val (labelText, labelColor, labelIcon) = when {
+                                    visionAssistProgress?.isActive == true -> Triple(
+                                        stringResource(
+                                            R.string.vision_assist_analyzing,
+                                            visionAssistProgress.index,
+                                            visionAssistProgress.total,
+                                        ),
+                                        MaterialTheme.colorScheme.tertiary,
+                                        MuseIcons.eye,
+                                    )
+                                    visionAssisted -> Triple(
+                                        stringResource(R.string.vision_assist_done),
+                                        MaterialTheme.colorScheme.primary,
+                                        MuseIcons.check,
+                                    )
+                                    else -> Triple(
+                                        stringResource(R.string.vision_assist_label),
+                                        MaterialTheme.colorScheme.outline,
+                                        MuseIcons.eye,
+                                    )
+                                }
+                                Surface(
+                                    color = labelColor.copy(alpha = 0.12f),
+                                    shape = MuseShapes.tiny,
+                                    modifier = Modifier.padding(top = 2.dp),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(MusePaddings.chipInnerLoose),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(MusePaddings.tinyGap),
+                                    ) {
+                                        if (visionAssistProgress?.isActive == true) {
+                                            MuseSpinner(
+                                                size = MusePaddings.itemGap,
+                                                strokeWidth = 1.5.dp,
+                                                color = labelColor,
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = labelIcon,
+                                                contentDescription = null,
+                                                tint = labelColor,
+                                                modifier = Modifier.size(MusePaddings.itemGap),
+                                            )
+                                        }
+                                        Text(
+                                            text = labelText,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = labelColor,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        val userText = body.ifEmpty { if (hasImages || videoAttachment != null) "" else " " }
+                        if (userText.isNotBlank()) {
+                            Text(
+                                text = userText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = userContentColor,
+                            )
+                        }
+                    }
                 }
-            }
-            // 审计修复 (S-02): 视频生成结果卡片(generate_video 写入的 videoFileUri)
-            // 此前只存在于内存 UIMessage 且无渲染,重启/切页后视频永久丢失;
-            // 现在随消息落库(v88 迁移)并在此渲染,点击调起系统播放器。
-            val generatedVideoUri = msg.videoFileUri
-            if (!generatedVideoUri.isNullOrBlank()) {
-                AssistantVideoCard(videoUri = generatedVideoUri)
-            }
-            // v1.112 (C1): 任务清单与工具调用胶囊拆分布局
-            // 展开态:TaskCard 占满宽度垂直堆叠(步骤列表需要空间),ToolCallCard 在下方
-            val toolInfo = msg.toolCallInfo
-            // v1.0.53: 静默工具(send_sticker)— 表情包是趣味交互,不展示工具调用卡片,
-            //   避免"调用工具"的提示破坏贴纸体验。贴纸图片本身照常渲染。
-            // v1.0.54: list_stickers 同样静默(列表情包是内部工作)。
-            val isSilentTool = toolInfo?.toolName == "send_sticker" ||
-                toolInfo?.toolName == "list_stickers"
-            if (taskCard != null) {
-                // 消重:任务卡已把每次工具调用作为“步骤”展示;
-                // 此前二者并存时 TaskCard + ToolCallCard 会同时渲染,同一操作显示两遍,
-                // 多轮操作串成长串卡片。现在只保留任务卡;孤立工具调用才单独成卡。
-                io.zer0.muse.ui.taskcard.TaskCard(
-                    data = taskCard,
-                    onToggleExpand = onToggleTaskCardExpand,
-                    onRetryStep = onRetryTaskCardStep,
-                    onCancel = onCancelTask,
-                    delegationChain = delegationChain,
-                )
-            } else if (toolInfo != null && !isSilentTool) {
-                // 孤立工具调用(不在任何任务里)——保持单卡展示
-                ToolCallCard(
-                    toolName = toolInfo.toolName,
-                    arguments = toolInfo.arguments,
-                    result = toolInfo.result,
-                    isSuccess = toolInfo.isSuccess,
-                    modifier = Modifier.widthIn(max = 360.dp),
-                )
-            } else {
-            // v5: 已压缩标记 — SYSTEM 消息且内容以 [COMPRESSED] 开头时显示
-            val isCompressed = msg.role == io.zer0.ai.core.MessageRole.SYSTEM && msg.content.startsWith("[COMPRESSED]")
-            if (isCompressed) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(MusePaddings.tinyGap),
-                    modifier = Modifier.padding(bottom = MusePaddings.tinyGap),
-                ) {
-                    Icon(
-                        imageVector = MuseIcons.gitMerge,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(14.dp),
-                    )
+                // v0.48: USER 消息气泡下方右对齐显示时间戳(受 showTimestamp && chatPrefs.showTimestamp 控制)
+                if (showTimestamp && chatPrefs.showTimestamp) {
                     Text(
-                        text = stringResource(R.string.msg_compressed),
+                        text = formatMessageTime(msg.createdAt, use24Hour = chatPrefs.use24Hour),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(top = 2.dp, end = MusePaddings.tinyGap),
                     )
                 }
-            }
-            // 文本内容(Markdown 渲染);图片消息可能 content 也含 markdown 图片语法,双渲染避免空泡
-            // v1.0.54: send_sticker 的 content 只有贴纸绝对路径(用于渲染图片),渲染文本时剔除,
-            //   避免"莫名其妙的路径"显示成文本。
-            val stickerPathTexts = if (msg.imageUrls.isEmpty() && msg.imageBase64List.isEmpty()) {
-                extractStickerPaths(msg.content)
-            } else emptyList()
-            val bodyWithoutStickerPaths = if (stickerPathTexts.isNotEmpty()) {
-                STICKER_PATH_PATTERN.replace(body, "").trim()
-            } else body
-            val content = if (isCompressed) {
-                body.removePrefix("[COMPRESSED]").trim()
-            } else bodyWithoutStickerPaths.ifEmpty {
-                if (msg.imageUrls.isEmpty() && msg.imageBase64List.isEmpty()) " " else ""
-            }
-            // Markdown 标题提取:若内容以 # 标题开头,顶部显示粗体标题行,正文不再重复渲染标题
-            val firstLineEnd = content.indexOf('\n').takeIf { it >= 0 } ?: content.length
-            val firstLine = content.substring(0, firstLineEnd)
-            val hasHeading = !isStreaming && firstLine.isNotBlank() && firstLine.startsWith("#")
-            val titleText = if (hasHeading) firstLine else null
-            val bodyContent = (if (hasHeading) content.substring(firstLineEnd + 1).trimStart() else content)
-                .replace(ARTIFACT_MARKER_RE, "")
-            if (content.isNotBlank()) {
-                // Markdown 标题行
-                titleText?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (bodyContent.isNotBlank()) {
-                        Spacer(Modifier.height(MusePaddings.tinyGap))
-                    }
-                }
-                // 引用回复:AI 消息顶部显示引用块(兼容含引用标记的内容)
-                quote?.let {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        shape = MuseShapes.small,
+            } else {
+                // v1.0.54: 空 assistant 消息(content 空 + 无图片/卡片/思考/反思/情绪)不渲染 —
+                //   工具轮占位消息 updateAssistant 不更新 toolCalls(恒为 null),无法按工具轮判断;
+                //   流式期间保留(ThinkingIndicator 是正常生成反馈),结束后/加载时空消息隐藏。
+                // C-22: 含产物卡(artifactIds)/任务卡(经 taskCardInfo)的消息即使正文为空也不隐藏
+                val isToolRoundPlaceholder = !isStreaming &&
+                    body.isBlank() &&
+                    msg.imageUrls.isEmpty() && msg.imageBase64List.isEmpty() &&
+                    msg.artifactIds.isEmpty() &&
+                    msg.toolCallInfo == null &&
+                    msg.reasoning.isNullOrBlank() &&
+                    msg.mood.isNullOrBlank() &&
+                    msg.reflection.isNullOrBlank()
+                // v1.0.80: 纯工具消息(content 空 + 有工具/任务卡片)不包气泡底。
+                // 用户反馈:流式时工具卡片下方露出一圈偏深的气泡底,像先占位的空 UI。
+                // 工具卡片(ToolCallCard/TaskCard)自带 surface + 边框,无需再套一层气泡。
+                // v2.0: 补上两大类无正文消息 — ①有 toolCalls(无 toolCallInfo/taskCard)的工具轮;
+                // ②只有 reasoning 的“思考”消息。它们原先不命中此条件,思考块又自带近隐形的
+                // surfaceVariant 底,气泡底只在左侧露出 48px 宽灰条(实测的“灰色残块”);
+                // 与工具轮同理,自带背景块的内容不需要再套气泡。
+                val isPureToolBubble = body.isBlank() &&
+                    msg.imageUrls.isEmpty() && msg.imageBase64List.isEmpty() &&
+                    msg.artifactIds.isEmpty() && msg.videoFileUri.isNullOrBlank() &&
+                    (
+                        msg.toolCallInfo != null || taskCard != null ||
+                            !msg.toolCalls.isNullOrEmpty() || msg.reasoning?.isNotBlank() == true
+                        )
+                // v0.48: AI 头像 — 消息分组时连续同角色消息压缩头像(showAvatar=false 时跳过)
+                if (showAvatar && !isToolRoundPlaceholder) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth(outerLayout.widthFraction)
+                            .padding(
+                                start = MusePaddings.screen,
+                                end = MusePaddings.screen,
+                                bottom = MusePaddings.tinyGap,
+                            ),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box {
+                        AssistantAvatar(
+                            assistant = assistant ?: io.zer0.muse.data.assistant.AssistantEntity(
+                                id = "default",
+                                name = "Muse",
+                            ),
+                            avatarSize = MuseAvatarSize.inline,
+                        )
+                        if (showTimestamp && chatPrefs.showTimestamp) {
+                            Spacer(Modifier.width(MusePaddings.contentGap))
                             Text(
-                                text = it,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(MusePaddings.contentGap),
-                            )
-                            val bgColor = MaterialTheme.colorScheme.surface
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(
-                                        Brush.verticalGradient(
-                                            0.5f to Color.Transparent,
-                                            1.0f to bgColor,
-                                        ),
-                                    ),
+                                text = (assistant?.name ?: "Muse") +
+                                    " · " + formatMessageTime(msg.createdAt, use24Hour = chatPrefs.use24Hour),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline,
                             )
                         }
                     }
-                    Spacer(Modifier.height(6.dp))
                 }
-                // v1.24: 正文不再整体折叠,仅 Markdown 代码块/作文块内部可折叠
-                // v1.42: 流式中禁用 LinkableText 的链接点击检测,避免 pointerInput 随内容变化反复重建。
-                // v1.52: 用 SelectionContainer 包裹,支持长按选取部分文本复制(非流式时)。
-                //        流式中不启用选择,避免与光标/内容更新冲突;
-                //        SelectionContainer 会消费文本上的长按手势(用于选择),
-                //        父 Column 的 combinedClickable 仅在非文本区域触发操作菜单。
-                // v1.0.53: 数据卡片(```card JSON)优先渲染,其余走 markdown
-                val dataCard = remember(bodyContent) {
-                    if (io.zer0.muse.ui.markdown.DataCardParser.containsCardBlock(bodyContent)) {
-                        io.zer0.muse.ui.markdown.DataCardParser.parse(bodyContent)
-                    } else null
-                }
-                // v2.0: 正文排版 — 字号缩放与字间距走用户偏好(默认值下与旧版一致)
-                val bodyBase = MaterialTheme.typography.bodyMedium
-                val bodyScale = chatPrefs.messageFontScale.coerceIn(0.85f, 1.3f)
-                val bodyStyle = bodyBase.copy(
-                    fontSize = bodyBase.fontSize * bodyScale,
-                    lineHeight = bodyBase.lineHeight.let { if (it.isUnspecified) it else it * bodyScale },
-                    letterSpacing = chatPrefs.messageLetterSpacingEm.coerceIn(-0.02f, 0.1f).em,
-                )
-                val markdownContent = @Composable {
-                    // v1.79 (H-B3): 防御性处理 citationUrls,MarkdownText 内部应保证 [N] 不越界
-                    val safeCitationUrls = msg.citationUrls ?: emptyList()
-                    if (highlightText != null && bodyContent.contains(highlightText, ignoreCase = true)) {
-                        androidx.compose.material3.Text(
-                            text = buildHighlightedText(bodyContent, highlightText),
-                            style = bodyStyle,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    } else if (MoodSkinParser.containsInlineEffect(bodyContent)) {
-                        Text(
-                            text = buildMoodSkinAnnotated(bodyContent),
-                            style = bodyStyle,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    } else {
-                        // v2.x: 表情包标记 [[sticker:分类]] → 纯图片卡片;无标记时零开销直通原 MarkdownText
-                        StickerAwareMarkdownBody(
-                            text = MoodSkinParser.stripInlineEffects(bodyContent),
-                            stickerSeed = msg.id.hashCode().toLong(),
-                            style = bodyStyle,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.fillMaxWidth(),
-                            citationUrls = safeCitationUrls,
-                            isStreaming = isLastAssistant && isStreaming,
-                            // v1.0.72: 选择模式或文本选择模式都禁用链接检测:
-                            // 文本选择模式必须禁用,否则 LinkableText 的 pointerInput 拦截长按,
-                            // 系统文本选择手柄永远无法激活(用户反馈"选择文本完全失效")
-                            disableLinks = selectionMode || textSelectMode,
-                            onHtmlPreview = onHtmlPreview,
-                            onCardAction = onCardAction,
-                            // v1.0.72: 长按非链接区域 → 弹气泡长按菜单(修复长按消息无反应)
-                            onLongPressOutside = {
-                                textSelectMode = false
-                                actionSurface = MessageActionSurface.Compact
+                // D1: 助手消息 = 浅色卡片(群聊口径,左下小尾巴);纯工具消息自带卡片不包气泡底(v1.0.80)。
+                if (!isToolRoundPlaceholder) {
+                    Column(
+                        // 助手消息:内容层;非纯工具消息套浅色卡片底。
+                        modifier = Modifier
+                            .fillMaxWidth(if (chatPrefs.bubbleFullWidth) 1f else outerLayout.widthFraction)
+                            // v2.0.1: 左右呼吸边 — 助手卡与思考块等底色块不再顶满屏幕（用户反馈"太满、挤"）。
+                            .padding(horizontal = MusePaddings.screen)
+                            .then(bubbleClickModifier),
+                    ) {
+                        val assistantSurfaceColor = resolvedSkin?.let { Color(it.style.surfaceArgb) }
+                            ?: MuseBubbleStyles.assistantSurfaceColor()
+                        val assistantShape = resolvedSkin?.style?.radiusDp?.dp?.let { RoundedCornerShape(it) }
+                            ?: MuseBubbleStyles.assistantBubbleShape()
+                        // v2.x: 长文校准 — 结构型/超长回复"不进卡":外壳容器取消(底色/描边/圆角/70% 宽度上限全去),
+                        // 内容直接落在呼吸边上全宽排版(长内容阅读节奏)。皮肤模式下以皮肤为准。
+                        val isLongFormBubble = !isPureToolBubble && resolvedSkin == null &&
+                            isLongFormContent(msg.content)
+                        Column(
+                            modifier = if (isPureToolBubble) {
+                                Modifier.padding(PaddingValues(0.dp))
+                            } else if (isLongFormBubble) {
+                                // v2.x: 长文"不进卡" — 无底色/无描边/无圆角/无宽度上限,全宽直排
+                                Modifier.padding(
+                                    PaddingValues(horizontal = 0.dp, vertical = MusePaddings.contentGap), // inset-guard: allow
+                                )
+                            } else {
+                                Modifier
+                                    .clip(assistantShape)
+                                    .background(assistantSurfaceColor)
+                                    .then(
+                                        if (resolvedSkin == null) {
+                                            // v2.0: 无皮肤时给助手卡片加描边,避免浅色卡片在浅色背景上几乎隐形
+                                            Modifier.border(1.dp, MuseBubbleStyles.assistantBorderColor(), assistantShape)
+                                        } else {
+                                            Modifier
+                                        },
+                                    )
+                                    .then(
+                                        if (chatPrefs.bubbleFullWidth) {
+                                            // 通栏模式：去掉气泡最大宽度上限
+                                            Modifier
+                                        } else {
+                                            Modifier.widthIn(max = MuseBubbleStyles.maxBubbleWidth())
+                                        },
+                                    )
+                                    .padding(
+                                        if (chatPrefs.bubbleFullWidth) {
+                                            PaddingValues(
+                                                // v1.0.92: 通栏也保留呼吸边 — 旧实现 horizontal=0 会直接贴屏
+                                                // (用户反馈"左右一点空隙都没有");与用户侧通栏的 8dp 对齐。
+                                                horizontal = MusePaddings.contentGap,
+                                                vertical = MusePaddings.cardInner.calculateTopPadding(),
+                                            )
+                                        } else {
+                                            MusePaddings.cardInner
+                                        },
+                                    )
                             },
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            // 流式/思考状态:AI 消息顶部显示"正在思考…"带绿色脉动圆点
+                            if (isLastAssistant && isStreaming && !isPureToolBubble) {
+                                ThinkingIndicator()
+                            }
+                            // Phase 5-G / Phase 8.6: 渲染生成的图片(URL 或 base64 data URI)
+                            // 统一显示源:优先用 imageUrls,避免 Gemini 同时有 imageUrls(data URI) 和 imageBase64List 时重复渲染
+                            // v1.95: 同时扫描 content 中的表情包绝对路径(filesDir/stickers/...),由 send_sticker 工具产生
+                            val displayImageUris = remember(msg.imageUrls, msg.imageBase64List, msg.content, isLastAssistant, isStreaming) {
+                                val fromUrls = if (msg.imageUrls.isNotEmpty()) {
+                                    msg.imageUrls
+                                } else {
+                                    msg.imageBase64List.map { "data:image/png;base64,$it" }
+                                }
+                                // v1.100: 流式期间跳过表情包路径扫描(正则开销随 content 增长),
+                                // 流式结束后(非 isStreaming)才扫描,与 MarkdownText 降级策略对齐
+                                if (isLastAssistant && isStreaming) {
+                                    fromUrls
+                                } else {
+                                    val stickerUris = extractStickerPaths(msg.content).map { "file://$it" }
+                                    if (stickerUris.isEmpty()) fromUrls else fromUrls + stickerUris
+                                }
+                            }
+                            if (displayImageUris.size > 1) {
+                                // v2.0.1: 多图网格 — 两列排布（单图仍走下方大图展示，多图不再纵向堆叠）。
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    displayImageUris.chunked(2).forEachIndexed { rowIndex, rowUris ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        ) {
+                                            rowUris.forEachIndexed { colIndex, imageUri ->
+                                                val globalIndex = rowIndex * 2 + colIndex
+                                                GeneratedImageCard(
+                                                    imageUri = imageUri,
+                                                    onPreview = { mediaPreview = displayImageUris to globalIndex },
+                                                    onSave = {
+                                                        scope.launch {
+                                                            resultOf {
+                                                                saveImageToGallery(context, imageUri)
+                                                            }.onSuccess { path ->
+                                                                MuseToast.show(context.getString(R.string.chat_image_saved_toast, path))
+                                                            }.onError { msg, t ->
+                                                                MuseToast.show(
+                                                                    context.getString(R.string.chat_image_save_failed_toast, msg),
+                                                                )
+                                                            }
+                                                        }
+                                                    },
+                                                    modifier = Modifier.weight(1f),
+                                                )
+                                            }
+                                            if (rowUris.size == 1) {
+                                                Box(Modifier.weight(1f))
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                // v2.0.1: 作品卡 — 提示词摘要 + 保存 / 分享（本地资源才给分享）
+                                val genPromptSummary = remember(msg.toolCalls, msg.toolCallInfo) {
+                                    val genArgs = msg.toolCalls?.firstOrNull { it.name == "generate_image" }?.arguments
+                                        ?: msg.toolCallInfo?.takeIf { it.toolName == "generate_image" }?.arguments
+                                    genArgs
+                                        ?.let { args ->
+                                            runCatching { org.json.JSONObject(args).optString("prompt") }.getOrNull()
+                                        }
+                                        ?.takeIf { it.isNotBlank() }
+                                        ?.let { if (it.length > 60) it.take(60) + "…" else it }
+                                }
+                                displayImageUris.forEachIndexed { index, imageUri ->
+                                    GeneratedImageCard(
+                                        imageUri = imageUri,
+                                        onPreview = { mediaPreview = displayImageUris to index },
+                                        onSave = {
+                                            scope.launch {
+                                                resultOf {
+                                                    saveImageToGallery(context, imageUri)
+                                                }.onSuccess { path ->
+                                                    // M-MB2: 改用 MuseToast 替代原生 Toast,保持主题一致
+                                                    MuseToast.show(context.getString(R.string.chat_image_saved_toast, path))
+                                                }.onError { msg, t ->
+                                                    MuseToast.show(context.getString(R.string.chat_image_save_failed_toast, msg))
+                                                }
+                                            }
+                                        },
+                                        promptSummary = genPromptSummary ?: imageGenPrompt,
+                                        onShare = if (imageUri.startsWith("file") || imageUri.startsWith("content")) {
+                                            {
+                                                runCatching {
+                                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                        type = "image/*"
+                                                        putExtra(Intent.EXTRA_STREAM, android.net.Uri.parse(imageUri))
+                                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    }
+                                                    io.zer0.muse.util.ShareIntentHelper.startChooserSafely(
+                                                        context = context,
+                                                        shareIntent = shareIntent,
+                                                        chooserTitle = context.getString(R.string.action_share),
+                                                    )
+                                                }
+                                            }
+                                        } else {
+                                            null
+                                        },
+                                    )
+                                }
+                            }
+                            // 审计修复 (S-02): 视频生成结果卡片(generate_video 写入的 videoFileUri)
+                            // 此前只存在于内存 UIMessage 且无渲染,重启/切页后视频永久丢失;
+                            // 现在随消息落库(v88 迁移)并在此渲染,点击调起系统播放器。
+                            val generatedVideoUri = msg.videoFileUri
+                            if (!generatedVideoUri.isNullOrBlank()) {
+                                AssistantVideoCard(videoUri = generatedVideoUri)
+                            }
+                            // v1.112 (C1): 任务清单与工具调用胶囊拆分布局
+                            // 展开态:TaskCard 占满宽度垂直堆叠(步骤列表需要空间),ToolCallCard 在下方
+                            val toolInfo = msg.toolCallInfo
+                            // v1.0.53: 静默工具(send_sticker)— 表情包是趣味交互,不展示工具调用卡片,
+                            //   避免"调用工具"的提示破坏贴纸体验。贴纸图片本身照常渲染。
+                            // v1.0.54: list_stickers 同样静默(列表情包是内部工作)。
+                            val isSilentTool = toolInfo?.toolName == "send_sticker" ||
+                                toolInfo?.toolName == "list_stickers"
+                            if (taskCard != null) {
+                                // 消重:任务卡已把每次工具调用作为“步骤”展示;
+                                // 此前二者并存时 TaskCard + ToolCallCard 会同时渲染,同一操作显示两遍,
+                                // 多轮操作串成长串卡片。现在只保留任务卡;孤立工具调用才单独成卡。
+                                io.zer0.muse.ui.taskcard.TaskCard(
+                                    data = taskCard,
+                                    onToggleExpand = onToggleTaskCardExpand,
+                                    onRetryStep = onRetryTaskCardStep,
+                                    onCancel = onCancelTask,
+                                    delegationChain = delegationChain,
+                                )
+                            } else if (toolInfo != null && !isSilentTool) {
+                                // 孤立工具调用(不在任何任务里)——保持单卡展示
+                                ToolCallCard(
+                                    toolName = toolInfo.toolName,
+                                    arguments = toolInfo.arguments,
+                                    result = toolInfo.result,
+                                    isSuccess = toolInfo.isSuccess,
+                                    modifier = Modifier.widthIn(max = 360.dp),
+                                )
+                            } else {
+                                // v5: 已压缩标记 — SYSTEM 消息且内容以 [COMPRESSED] 开头时显示
+                                val isCompressed = msg.role == io.zer0.ai.core.MessageRole.SYSTEM && msg.content.startsWith("[COMPRESSED]")
+                                if (isCompressed) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(MusePaddings.tinyGap),
+                                        modifier = Modifier.padding(bottom = MusePaddings.tinyGap),
+                                    ) {
+                                        Icon(
+                                            imageVector = MuseIcons.gitMerge,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.outline,
+                                            modifier = Modifier.size(14.dp),
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.msg_compressed),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.outline,
+                                        )
+                                    }
+                                }
+                                // 文本内容(Markdown 渲染);图片消息可能 content 也含 markdown 图片语法,双渲染避免空泡
+                                // v1.0.54: send_sticker 的 content 只有贴纸绝对路径(用于渲染图片),渲染文本时剔除,
+                                //   避免"莫名其妙的路径"显示成文本。
+                                val stickerPathTexts = if (msg.imageUrls.isEmpty() && msg.imageBase64List.isEmpty()) {
+                                    extractStickerPaths(msg.content)
+                                } else {
+                                    emptyList()
+                                }
+                                val bodyWithoutStickerPaths = if (stickerPathTexts.isNotEmpty()) {
+                                    STICKER_PATH_PATTERN.replace(body, "").trim()
+                                } else {
+                                    body
+                                }
+                                val content = if (isCompressed) {
+                                    body.removePrefix("[COMPRESSED]").trim()
+                                } else {
+                                    bodyWithoutStickerPaths.ifEmpty {
+                                        if (msg.imageUrls.isEmpty() && msg.imageBase64List.isEmpty()) " " else ""
+                                    }
+                                }
+                                // Markdown 标题提取:若内容以 # 标题开头,顶部显示粗体标题行,正文不再重复渲染标题
+                                val firstLineEnd = content.indexOf('\n').takeIf { it >= 0 } ?: content.length
+                                val firstLine = content.substring(0, firstLineEnd)
+                                val hasHeading = !isStreaming && firstLine.isNotBlank() && firstLine.startsWith("#")
+                                val titleText = if (hasHeading) firstLine else null
+                                val bodyContent = (if (hasHeading) content.substring(firstLineEnd + 1).trimStart() else content)
+                                    .replace(ARTIFACT_MARKER_RE, "")
+                                if (content.isNotBlank()) {
+                                    // Markdown 标题行
+                                    titleText?.let {
+                                        Text(
+                                            text = it,
+                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            modifier = Modifier.fillMaxWidth(),
+                                        )
+                                        if (bodyContent.isNotBlank()) {
+                                            Spacer(Modifier.height(MusePaddings.tinyGap))
+                                        }
+                                    }
+                                    // 引用回复:AI 消息顶部显示引用块(兼容含引用标记的内容)
+                                    quote?.let {
+                                        Surface(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                            shape = MuseShapes.small,
+                                        ) {
+                                            Box {
+                                                Text(
+                                                    text = it,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 3,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.padding(MusePaddings.contentGap),
+                                                )
+                                                val bgColor = MaterialTheme.colorScheme.surface
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .background(
+                                                            Brush.verticalGradient(
+                                                                0.5f to Color.Transparent,
+                                                                1.0f to bgColor,
+                                                            ),
+                                                        ),
+                                                )
+                                            }
+                                        }
+                                        Spacer(Modifier.height(6.dp))
+                                    }
+                                    // v1.24: 正文不再整体折叠,仅 Markdown 代码块/作文块内部可折叠
+                                    // v1.42: 流式中禁用 LinkableText 的链接点击检测,避免 pointerInput 随内容变化反复重建。
+                                    // v1.52: 用 SelectionContainer 包裹,支持长按选取部分文本复制(非流式时)。
+                                    //        流式中不启用选择,避免与光标/内容更新冲突;
+                                    //        SelectionContainer 会消费文本上的长按手势(用于选择),
+                                    //        父 Column 的 combinedClickable 仅在非文本区域触发操作菜单。
+                                    // v1.0.53: 数据卡片(```card JSON)优先渲染,其余走 markdown
+                                    val dataCard = remember(bodyContent) {
+                                        if (io.zer0.muse.ui.markdown.DataCardParser.containsCardBlock(bodyContent)) {
+                                            io.zer0.muse.ui.markdown.DataCardParser.parse(bodyContent)
+                                        } else {
+                                            null
+                                        }
+                                    }
+                                    // v2.0: 正文排版 — 字号缩放与字间距走用户偏好(默认值下与旧版一致)
+                                    val bodyBase = MaterialTheme.typography.bodyMedium
+                                    val bodyScale = chatPrefs.messageFontScale.coerceIn(0.85f, 1.3f)
+                                    val bodyStyle = bodyBase.copy(
+                                        fontSize = bodyBase.fontSize * bodyScale,
+                                        lineHeight = bodyBase.lineHeight.let { if (it.isUnspecified) it else it * bodyScale },
+                                        letterSpacing = chatPrefs.messageLetterSpacingEm.coerceIn(-0.02f, 0.1f).em,
+                                    )
+                                    val markdownContent = @Composable {
+                                        // v1.79 (H-B3): 防御性处理 citationUrls,MarkdownText 内部应保证 [N] 不越界
+                                        val safeCitationUrls = msg.citationUrls ?: emptyList()
+                                        if (highlightText != null && bodyContent.contains(highlightText, ignoreCase = true)) {
+                                            androidx.compose.material3.Text(
+                                                text = buildHighlightedText(bodyContent, highlightText),
+                                                style = bodyStyle,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.fillMaxWidth(),
+                                            )
+                                        } else if (MoodSkinParser.containsInlineEffect(bodyContent)) {
+                                            Text(
+                                                text = buildMoodSkinAnnotated(bodyContent),
+                                                style = bodyStyle,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.fillMaxWidth(),
+                                            )
+                                        } else {
+                                            // v2.x: 表情包标记 [[sticker:分类]] → 纯图片卡片;无标记时零开销直通原 MarkdownText
+                                            StickerAwareMarkdownBody(
+                                                text = MoodSkinParser.stripInlineEffects(bodyContent),
+                                                stickerSeed = msg.id.hashCode().toLong(),
+                                                style = bodyStyle,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.fillMaxWidth(),
+                                                citationUrls = safeCitationUrls,
+                                                isStreaming = isLastAssistant && isStreaming,
+                                                // v1.0.72: 选择模式或文本选择模式都禁用链接检测:
+                                                // 文本选择模式必须禁用,否则 LinkableText 的 pointerInput 拦截长按,
+                                                // 系统文本选择手柄永远无法激活(用户反馈"选择文本完全失效")
+                                                disableLinks = selectionMode || textSelectMode,
+                                                onHtmlPreview = onHtmlPreview,
+                                                onCardAction = onCardAction,
+                                                // v1.0.72: 长按非链接区域 → 弹气泡长按菜单(修复长按消息无反应)
+                                                onLongPressOutside = {
+                                                    textSelectMode = false
+                                                    actionSurface = MessageActionSurface.Compact
+                                                },
+                                            )
+                                        }
+                                    }
+                                    if (dataCard != null) {
+                                        io.zer0.muse.ui.markdown.DataCardRenderer(card = dataCard)
+                                    } else if (textSelectMode) {
+                                        // v1.0.72: 仅"选择文本"模式下用 SelectionContainer 支持划选复制;
+                                        // 其余情况不用(否则 SelectionContainer 会拦截长按,弹不出操作菜单)
+                                        SelectionContainer { markdownContent() }
+                                    } else {
+                                        markdownContent()
+                                    }
+                                }
+                                // 功能3: 链接预览卡片(仅非流式时,避免流式增量导致重抓)
+                                if (!isStreaming) {
+                                    val linkPreviews = rememberLinkPreviews(bodyContent)
+                                    if (linkPreviews.isNotEmpty()) {
+                                        linkPreviews.forEach { preview ->
+                                            LinkPreviewCard(preview = preview)
+                                        }
+                                    }
+                                }
+                                // 阶段 4: 流式光标(末尾 AI 流式时,在文本下方左对齐显示闪烁竖线)
+                                if (showStreamingCursor) {
+                                    StreamingCursor(
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(top = 2.dp),
+                                    )
+                                }
+                                // 功能2: TTS 语音消息播放器(仅非流式 AI 消息,且当 isSpeaking 时显示)
+                                if (!isUser && !isStreaming && isSpeaking) {
+                                    TtsAudioPlayer(
+                                        modifier = Modifier.padding(top = MusePaddings.contentGap),
+                                    )
+                                }
+                                // v2.3: debug 模式性能摘要(可选)
+                                if (!isStreaming && debugInfo != null) {
+                                    Text(
+                                        text = debugInfo,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.tertiary,
+                                        modifier = Modifier.padding(top = 2.dp),
+                                    )
+                                }
+                                // v1.43: 产物卡片列表(代码/文档/HTML/SVG/图片等)
+                                if (artifacts.isNotEmpty()) {
+                                    ArtifactCardList(
+                                        artifacts = artifacts,
+                                        onArtifactClick = onArtifactClick,
+                                        modifier = Modifier.padding(top = MusePaddings.contentGap),
+                                    )
+                                }
+                                // v1.133: RAG 引用 chip 列表(点击展开 snippet)
+                                if (!isUser && !isStreaming && msg.ragCitations.isNotEmpty()) {
+                                    RagCitationChips(
+                                        citations = msg.ragCitations,
+                                        modifier = Modifier.padding(top = MusePaddings.contentGap),
+                                    )
+                                }
+                            } // closes inner else (no taskCard/toolInfo)
+                            // v1.55: Agent 工作流计划卡随消息一起滚动,而不是固定在消息列表底部
+                            if (agentPlan != null) {
+                                PlanCard(plan = agentPlan)
+                            }
+                        } // closes AI bubble Surface Column
+                    }
+                } // closes AI bubble Surface
+            }
+
+            // v1.0.53: 用户消息底部快捷按钮 — 复制 + 重试(仅最后一条)
+            if (isUser && msg.content.isNotEmpty() && !isStreaming && !isTranslating) {
+                Row(
+                    modifier = Modifier.padding(top = 2.dp, end = MusePaddings.tinyGap),
+                    horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MuseTactileButton(
+                        icon = MuseIcons.copy,
+                        onClick = {
+                            MuseHaptics.light(hapticFeedback)
+                            onCopyMessage(MoodSkinParser.cleanForExport(msg.content))
+                        },
+                        contentDescription = stringResource(R.string.action_copy),
+                        tint = MaterialTheme.colorScheme.outline,
+                        size = MuseIconSizes.touchTarget,
+                        iconSize = MuseIconSizes.iconSmall,
+                    )
+                    if (isLastUserMessage) {
+                        MuseTactileButton(
+                            icon = MuseIcons.refresh,
+                            onClick = {
+                                MuseHaptics.light(hapticFeedback)
+                                onRegenerate()
+                            },
+                            contentDescription = stringResource(R.string.action_retry),
+                            tint = MaterialTheme.colorScheme.outline,
+                            size = MuseIconSizes.touchTarget,
+                            iconSize = MuseIconSizes.iconSmall,
                         )
                     }
                 }
-                if (dataCard != null) {
-                    io.zer0.muse.ui.markdown.DataCardRenderer(card = dataCard)
-                } else if (textSelectMode) {
-                    // v1.0.72: 仅"选择文本"模式下用 SelectionContainer 支持划选复制;
-                    // 其余情况不用(否则 SelectionContainer 会拦截长按,弹不出操作菜单)
-                    SelectionContainer { markdownContent() }
-                } else {
-                    markdownContent()
-                }
             }
-            // 功能3: 链接预览卡片(仅非流式时,避免流式增量导致重抓)
-            if (!isStreaming) {
-                val linkPreviews = rememberLinkPreviews(bodyContent)
-                if (linkPreviews.isNotEmpty()) {
-                    linkPreviews.forEach { preview ->
-                        LinkPreviewCard(preview = preview)
+
+            // v1.138 / v1.0.53: 助手消息底部快捷按钮 — 复制/翻译/分享/重新生成 + 分支切换器
+            // 翻译按钮复用长按菜单的语言子菜单(showActionMenu + showLanguageSubmenu)
+            // 分享按钮用系统 share sheet 分享单条消息内容
+            if (!isUser && msg.content.isNotEmpty() && !isStreaming && !isTranslating) {
+                Row(
+                    modifier = Modifier.padding(top = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    // 复制
+                    MuseTactileButton(
+                        icon = MuseIcons.copy,
+                        onClick = {
+                            onCopyMessage(MoodSkinParser.cleanForExport(msg.content))
+                            MuseHaptics.light(hapticFeedback)
+                        },
+                        contentDescription = stringResource(R.string.action_copy),
+                        tint = MaterialTheme.colorScheme.outline,
+                        size = MuseIconSizes.touchTarget,
+                        iconSize = MuseIconSizes.iconSmall,
+                    )
+                    // 翻译(直接弹语言子菜单)
+                    MuseTactileButton(
+                        icon = MuseIcons.languages,
+                        onClick = {
+                            MuseHaptics.light(hapticFeedback)
+                            // v1.0.88 (R-1): 直接进入语言子菜单 — 此前只设 showActionMenu=true,
+                            // 会先弹精简长按面板,用户得再点"更多"才看到语言列表,
+                            // 表现为"点快捷翻译出现长按菜单"。补 showExtendedMenu=true 跳过精简面板,
+                            // 直达完整菜单的语言子菜单。
+                            actionSurface = MessageActionSurface.Compact
+                            actionSurface = MessageActionSurface.Extended
+                            actionSurface = MessageActionSurface.TranslationLanguages
+                        },
+                        contentDescription = stringResource(R.string.action_translate),
+                        tint = MaterialTheme.colorScheme.outline,
+                        size = MuseIconSizes.touchTarget,
+                        iconSize = MuseIconSizes.iconSmall,
+                    )
+                    // 分享(系统 share sheet 分享单条消息)
+                    MuseTactileButton(
+                        icon = MuseIcons.share,
+                        onClick = {
+                            MuseHaptics.light(hapticFeedback)
+                            scope.launch {
+                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, msg.content)
+                                }
+                                ShareIntentHelper.startChooserSafely(context, sendIntent)
+                            }
+                        },
+                        contentDescription = stringResource(R.string.action_share),
+                        tint = MaterialTheme.colorScheme.outline,
+                        size = MuseIconSizes.touchTarget,
+                        iconSize = MuseIconSizes.iconSmall,
+                    )
+                    // 重新生成(仅最后一条助手消息)
+                    if (isLastAssistant) {
+                        MuseTactileButton(
+                            icon = MuseIcons.refresh,
+                            onClick = {
+                                MuseHaptics.light(hapticFeedback)
+                                onRegenerate()
+                            },
+                            contentDescription = stringResource(R.string.chat_regenerate_cd),
+                            tint = MaterialTheme.colorScheme.outline,
+                            size = MuseIconSizes.touchTarget,
+                            iconSize = MuseIconSizes.iconSmall,
+                        )
+                    }
+                    // B7-04: 继续生成(仅中断的最后一条助手消息)
+                    // v2.0.1: 长度截断的回复同样提供"继续生成"入口（不再只靠一行提示文案）。
+                    val truncatedMarker = stringResource(R.string.err_reply_truncated)
+                    val isInterruptedOrTruncated = msg.content.contains("[已中断]") ||
+                        (truncatedMarker.isNotBlank() && msg.content.contains(truncatedMarker))
+                    if (isLastAssistant && isInterruptedOrTruncated && onContinue != null) {
+                        MuseTactileButton(
+                            icon = MuseIcons.play,
+                            onClick = {
+                                MuseHaptics.light(hapticFeedback)
+                                onContinue()
+                            },
+                            contentDescription = stringResource(R.string.chat_asr_tip_confirm),
+                            tint = MaterialTheme.colorScheme.primary,
+                            size = MuseIconSizes.touchTarget,
+                            iconSize = MuseIconSizes.iconSmall,
+                        )
+                    }
+                }
+                // P1 UI: Token 统计独立一行(快捷按钮下方,不再挤占按钮行)
+                if (!isUser && tokenStats != null) {
+                    tokenStats()
+                }
+                // 分支切换器独立一行,避免窄屏被顶出屏幕
+                if (branchCount > 1) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        BranchSelector(
+                            currentIndex = branchIndex,
+                            totalCount = branchCount,
+                            onPrevious = onBranchPrevious,
+                            onNext = onBranchNext,
+                        )
                     }
                 }
             }
-            // 阶段 4: 流式光标(末尾 AI 流式时,在文本下方左对齐显示闪烁竖线)
-            if (showStreamingCursor) {
-                StreamingCursor(
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-            }
-            // 功能2: TTS 语音消息播放器(仅非流式 AI 消息,且当 isSpeaking 时显示)
-            if (!isUser && !isStreaming && isSpeaking) {
-                TtsAudioPlayer(
-                    modifier = Modifier.padding(top = MusePaddings.contentGap),
-                )
-            }
-            // v2.3: debug 模式性能摘要(可选)
-            if (!isStreaming && debugInfo != null) {
-                Text(
-                    text = debugInfo,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-            }
-            // v1.43: 产物卡片列表(代码/文档/HTML/SVG/图片等)
-            if (artifacts.isNotEmpty()) {
-                ArtifactCardList(
-                    artifacts = artifacts,
-                    onArtifactClick = onArtifactClick,
-                    modifier = Modifier.padding(top = MusePaddings.contentGap),
-                )
-            }
-            // v1.133: RAG 引用 chip 列表(点击展开 snippet)
-            if (!isUser && !isStreaming && msg.ragCitations.isNotEmpty()) {
-                RagCitationChips(
-                    citations = msg.ragCitations,
-                    modifier = Modifier.padding(top = MusePaddings.contentGap),
-                )
-            }
-            }   // closes inner else (no taskCard/toolInfo)
-            // v1.55: Agent 工作流计划卡随消息一起滚动,而不是固定在消息列表底部
-            if (agentPlan != null) {
-                PlanCard(plan = agentPlan)
-            }
-                }   // closes AI bubble Surface Column
-            }
-            }       // closes AI bubble Surface
-        }
 
-        // v1.0.53: 用户消息底部快捷按钮 — 复制 + 重试(仅最后一条)
-        if (isUser && msg.content.isNotEmpty() && !isStreaming && !isTranslating) {
-            Row(
-                modifier = Modifier.padding(top = 2.dp, end = MusePaddings.tinyGap),
-                horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                MuseTactileButton(
-                    icon = MuseIcons.copy,
-                    onClick = {
-                        MuseHaptics.light(hapticFeedback)
-                        onCopyMessage(MoodSkinParser.cleanForExport(msg.content))
-                    },
-                    contentDescription = stringResource(R.string.action_copy),
-                    tint = MaterialTheme.colorScheme.outline,
-                    size = MuseIconSizes.touchTarget,
-                    iconSize = MuseIconSizes.iconSmall,
-                )
-                if (isLastUserMessage) {
-                    MuseTactileButton(
-                        icon = MuseIcons.refresh,
-                        onClick = {
-                            MuseHaptics.light(hapticFeedback)
-                            onRegenerate()
-                        },
-                        contentDescription = stringResource(R.string.action_retry),
-                        tint = MaterialTheme.colorScheme.outline,
-                        size = MuseIconSizes.touchTarget,
-                        iconSize = MuseIconSizes.iconSmall,
-                    )
-                }
-            }
-        }
-
-        // v1.138 / v1.0.53: 助手消息底部快捷按钮 — 复制/翻译/分享/重新生成 + 分支切换器
-        // 翻译按钮复用长按菜单的语言子菜单(showActionMenu + showLanguageSubmenu)
-        // 分享按钮用系统 share sheet 分享单条消息内容
-        if (!isUser && msg.content.isNotEmpty() && !isStreaming && !isTranslating) {
-            Row(
-                modifier = Modifier.padding(top = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // 复制
-                MuseTactileButton(
-                    icon = MuseIcons.copy,
-                    onClick = {
-                        onCopyMessage(MoodSkinParser.cleanForExport(msg.content))
-                        MuseHaptics.light(hapticFeedback)
-                    },
-                    contentDescription = stringResource(R.string.action_copy),
-                    tint = MaterialTheme.colorScheme.outline,
-                    size = MuseIconSizes.touchTarget,
-                    iconSize = MuseIconSizes.iconSmall,
-                )
-                // 翻译(直接弹语言子菜单)
-                MuseTactileButton(
-                    icon = MuseIcons.languages,
-                    onClick = {
-                        MuseHaptics.light(hapticFeedback)
-                        // v1.0.88 (R-1): 直接进入语言子菜单 — 此前只设 showActionMenu=true,
-                        // 会先弹精简长按面板,用户得再点"更多"才看到语言列表,
-                        // 表现为"点快捷翻译出现长按菜单"。补 showExtendedMenu=true 跳过精简面板,
-                        // 直达完整菜单的语言子菜单。
-                        actionSurface = MessageActionSurface.Compact
-                        actionSurface = MessageActionSurface.Extended
-                        actionSurface = MessageActionSurface.TranslationLanguages
-                    },
-                    contentDescription = stringResource(R.string.action_translate),
-                    tint = MaterialTheme.colorScheme.outline,
-                    size = MuseIconSizes.touchTarget,
-                    iconSize = MuseIconSizes.iconSmall,
-                )
-                // 分享(系统 share sheet 分享单条消息)
-                MuseTactileButton(
-                    icon = MuseIcons.share,
-                    onClick = {
-                        MuseHaptics.light(hapticFeedback)
-                        scope.launch {
-                            val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, msg.content)
-                            }
-                            ShareIntentHelper.startChooserSafely(context, sendIntent)
-                        }
-                    },
-                    contentDescription = stringResource(R.string.action_share),
-                    tint = MaterialTheme.colorScheme.outline,
-                    size = MuseIconSizes.touchTarget,
-                    iconSize = MuseIconSizes.iconSmall,
-                )
-                // 重新生成(仅最后一条助手消息)
-                if (isLastAssistant) {
-                    MuseTactileButton(
-                        icon = MuseIcons.refresh,
-                        onClick = {
-                            MuseHaptics.light(hapticFeedback)
-                            onRegenerate()
-                        },
-                        contentDescription = stringResource(R.string.chat_regenerate_cd),
-                        tint = MaterialTheme.colorScheme.outline,
-                        size = MuseIconSizes.touchTarget,
-                        iconSize = MuseIconSizes.iconSmall,
-                    )
-                }
-                // B7-04: 继续生成(仅中断的最后一条助手消息)
-                // v2.0.1: 长度截断的回复同样提供"继续生成"入口（不再只靠一行提示文案）。
-                val truncatedMarker = stringResource(R.string.err_reply_truncated)
-                val isInterruptedOrTruncated = msg.content.contains("[已中断]") ||
-                    (truncatedMarker.isNotBlank() && msg.content.contains(truncatedMarker))
-                if (isLastAssistant && isInterruptedOrTruncated && onContinue != null) {
-                    MuseTactileButton(
-                        icon = MuseIcons.play,
-                        onClick = {
-                            MuseHaptics.light(hapticFeedback)
-                            onContinue()
-                        },
-                        contentDescription = stringResource(R.string.chat_asr_tip_confirm),
-                        tint = MaterialTheme.colorScheme.primary,
-                        size = MuseIconSizes.touchTarget,
-                        iconSize = MuseIconSizes.iconSmall,
-                    )
-                }
-            }
-            // P1 UI: Token 统计独立一行(快捷按钮下方,不再挤占按钮行)
-            if (!isUser && tokenStats != null) {
-                tokenStats()
-            }
-            // 分支切换器独立一行,避免窄屏被顶出屏幕
-            if (branchCount > 1) {
+            // 用户消息版本切换器：编辑/重试产生的用户提问版本
+            if (isUser && branchCount > 1) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                    horizontalArrangement = if (isUser == isLtr) Arrangement.End else Arrangement.Start,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     BranchSelector(
@@ -1534,590 +1592,590 @@ internal fun MessageBubble(
                     )
                 }
             }
-        }
 
-        // 用户消息版本切换器：编辑/重试产生的用户提问版本
-        if (isUser && branchCount > 1) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                horizontalArrangement = if (isUser == isLtr) Arrangement.End else Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                BranchSelector(
-                    currentIndex = branchIndex,
-                    totalCount = branchCount,
-                    onPrevious = onBranchPrevious,
-                    onNext = onBranchNext,
-                )
-            }
-        }
-
-        // v1.0.92: 消息批注对话框(写入/查看/删除)
-        if (showAnnotateDialog) {
-            io.zer0.muse.annotation.AnnotationStore.attach(context)
-            var annotateInput by remember { mutableStateOf("") }
-            io.zer0.muse.ui.common.feedback.MuseDialog(
-                onDismissRequest = { showAnnotateDialog = false },
-                title = stringResource(R.string.message_annotate_title),
-                content = {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        val existing = io.zer0.muse.annotation.AnnotationStore.ofMessage(msg.id.toString())
-                        existing.forEach { an ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = an.text,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Text(
-                                    text = stringResource(R.string.skill_delete),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.error,
+            // v1.0.92: 消息批注对话框(写入/查看/删除)
+            if (showAnnotateDialog) {
+                io.zer0.muse.annotation.AnnotationStore.attach(context)
+                var annotateInput by remember { mutableStateOf("") }
+                io.zer0.muse.ui.common.feedback.MuseDialog(
+                    onDismissRequest = { showAnnotateDialog = false },
+                    title = stringResource(R.string.message_annotate_title),
+                    content = {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            val existing = io.zer0.muse.annotation.AnnotationStore.ofMessage(msg.id.toString())
+                            existing.forEach { an ->
+                                Row(
                                     modifier = Modifier
-                                        .clickable { io.zer0.muse.annotation.AnnotationStore.remove(an.id) }
-                                        .padding(horizontal = 4.dp),
-                                )
-                            }
-                        }
-                        io.zer0.muse.ui.common.form.MuseTextField(
-                            value = annotateInput,
-                            onValueChange = { annotateInput = it },
-                            label = { Text(stringResource(R.string.message_annotate_hint)) },
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                    }
-                },
-                confirmText = stringResource(R.string.channel_save),
-                onConfirm = {
-                    io.zer0.muse.annotation.AnnotationStore.add(msg.id.toString(), "", annotateInput)
-                    showAnnotateDialog = false
-                },
-                dismissText = stringResource(R.string.settings_common_cancel),
-                onDismiss = { showAnnotateDialog = false },
-            )
-        }
-
-        // 阶段 4: 长按菜单
-        // v1.0.72: 浮层式 Popup — 定位在消息附近(哪里按哪里弹出,非底部滑入),
-        // 卡片含 引用/复制/选择文本/分享/编辑(仅用户消息)/更多;
-        // "更多"展开完整菜单(委托/分支/翻译/收藏/删除等,原逻辑保留)。
-        if (showActionMenu) {
-            if (!showExtendedMenu) {
-                // ── 消息操作 Popup 卡片(锚定消息气泡) ──
-                // v1.0.74 fix: 此前无 parent 锚点,菜单永远弹在窗口右上角(离手指很远)。
-                // 改为按气泡窗口位置定位:菜单右缘贴气泡右缘,上缘在气泡上方 8dp。
-                // E4 (H8): 定位逻辑收敛到通用 MusePopover(宽度 220dp、间距 8dp);
-                // 锚点未测量完成(Zero)时组件退化为屏幕左上角偏移,与原退化行为一致。
-                MusePopover(
-                    anchorBounds = actionMenuBounds,
-                    gapDp = 8,
-                    onDismiss = {
-                        actionSurface = MessageActionSurface.Hidden
-                        actionSurface = MessageActionSurface.Hidden
-                    },
-                    anchorPointInWindow = actionMenuPointInWindow,
-                ) {
-                    TelegramActionCard(
-                        isUser = isUser,
-                        onQuote = {
-                            actionSurface = MessageActionSurface.Hidden
-                            actionSurface = MessageActionSurface.Hidden
-                            onQuote()
-                        },
-                        onCopy = {
-                            actionSurface = MessageActionSurface.Hidden
-                            actionSurface = MessageActionSurface.Hidden
-                            MuseHaptics.light(hapticFeedback)
-                            onCopyMessage(MoodSkinParser.cleanForExport(msg.content))
-                        },
-                        onSelectText = {
-                            // v1.0.72: "选择文本"= 进入文本选择模式(长按文字激活系统选择手柄)
-                            actionSurface = MessageActionSurface.Hidden
-                            actionSurface = MessageActionSurface.Hidden
-                            textSelectMode = true
-                            MuseToast.show(context.getString(R.string.chat_select_text_hint))
-                        },
-                        onShare = {
-                            actionSurface = MessageActionSurface.Hidden
-                            actionSurface = MessageActionSurface.Hidden
-                            onShareSession()
-                        },
-                        onForward = {
-                            actionSurface = MessageActionSurface.Hidden
-                            actionSurface = MessageActionSurface.Hidden
-                            onForward()
-                        },
-                        onEdit = {
-                            actionSurface = MessageActionSurface.Hidden
-                            actionSurface = MessageActionSurface.Hidden
-                            onEdit()
-                        },
-                        onMore = {
-                            actionSurface = MessageActionSurface.Extended
-                        },
-                    )
-                }
-
-            } else {
-            MuseBottomSheet(
-                onDismissRequest = {
-                    actionSurface = MessageActionSurface.Hidden
-                    actionSurface = MessageActionSurface.Hidden
-                    actionSurface = MessageActionSurface.Hidden
-                },
-                bottomContentSpacing = MusePaddings.contentGap,
-                content = {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        if (showLanguageSubmenu) {
-                            // 翻译语言子菜单(从主菜单"翻译"项触发)
-                            ActionMenuItem(
-                                icon = MuseIcons.arrowDown,
-                                text = stringResource(R.string.action_back),
-                                contentDescription = stringResource(R.string.action_back),
-                                onClick = { actionSurface = MessageActionSurface.Hidden },
-                            )
-                            TranslationLanguages.forEach { lang ->
-                                ActionMenuItem(
-                                    icon = MuseIcons.languages,
-                                    text = lang,
-                                    contentDescription = stringResource(R.string.chat_translate_to_cd, lang),
-                                    onClick = {
-                                        actionSurface = MessageActionSurface.Hidden
-                                        actionSurface = MessageActionSurface.Hidden
-                                        onTranslate(lang)
-                                    },
-                                )
-                            }
-                        } else {
-                            // M-UI2: 助手消息长按菜单严格精简为 引用/委托/分支,
-                            // 用户消息保留原有完整菜单(编辑/翻译/收藏/复制/分享/删除等)。
-                            ActionMenuItem(
-                                icon = MuseIcons.reply,
-                                text = stringResource(R.string.message_action_quote),
-                                contentDescription = stringResource(R.string.message_action_quote),
-                                onClick = {
-                                    actionSurface = MessageActionSurface.Hidden
-                                    onQuote()
-                                },
-                            )
-                            // v1.0.92: 批注 — 对这条消息写/看本地批注(带已有批注数)
-                            val annotCount = io.zer0.muse.annotation.AnnotationStore
-                                .ofMessage(msg.id.toString()).size
-                            ActionMenuItem(
-                                icon = MuseIcons.edit,
-                                text = if (annotCount > 0) {
-                                    stringResource(R.string.message_action_annotate) + " ($annotCount)"
-                                } else {
-                                    stringResource(R.string.message_action_annotate)
-                                },
-                                contentDescription = stringResource(R.string.message_action_annotate),
-                                onClick = {
-                                    actionSurface = MessageActionSurface.Hidden
-                                    showAnnotateDialog = true
-                                },
-                            )
-                            ActionMenuItem(
-                                icon = MuseIcons.users,
-                                text = stringResource(R.string.chat_delegate_action),
-                                contentDescription = stringResource(R.string.chat_delegate_action),
-                                onClick = {
-                                    actionSurface = MessageActionSurface.Hidden
-                                    onDelegate()
-                                },
-                            )
-                            ActionMenuItem(
-                                icon = MuseIcons.gitMerge,
-                                text = stringResource(R.string.chat_fork_action),
-                                contentDescription = stringResource(R.string.chat_fork_action),
-                                onClick = {
-                                    actionSurface = MessageActionSurface.Hidden
-                                    onFork()
-                                },
-                            )
-                            ActionMenuItem(
-                                icon = MuseIcons.square,
-                                text = stringResource(R.string.chat_select_messages),
-                                contentDescription = stringResource(R.string.chat_select_messages),
-                                onClick = {
-                                    actionSurface = MessageActionSurface.Hidden
-                                    onEnterMultiSelect?.invoke()
-                                },
-                            )
-                            // A5: 消息信息弹层(模型/耗时/Token 用量)
-                            ActionMenuItem(
-                                icon = MuseIcons.info,
-                                text = stringResource(R.string.msg_info_title),
-                                contentDescription = stringResource(R.string.msg_info_title),
-                                onClick = {
-                                    actionSurface = MessageActionSurface.Hidden
-                                    actionSurface = MessageActionSurface.Hidden
-                                    showInfoSheet = true
-                                },
-                            )
-                            // E4 (H8): 表情回应(仅 onSetReaction 提供时显示)
-                            if (onSetReaction != null) {
-                                ActionMenuItem(
-                                    icon = MuseIcons.moodSmile,
-                                    text = stringResource(R.string.chat_reaction_title),
-                                    contentDescription = stringResource(R.string.chat_reaction_title),
-                                    onClick = {
-                                        actionSurface = MessageActionSurface.Hidden
-                                        actionSurface = MessageActionSurface.Hidden
-                                        showReactionSheet = true
-                                    },
-                                )
-                            }
-                            if (msg.content.isNotBlank()) {
-                                ActionMenuItem(
-                                    icon = MuseIcons.copy,
-                                    text = stringResource(R.string.action_copy),
-                                    contentDescription = stringResource(R.string.action_copy),
-                                    onClick = {
-                                        actionSurface = MessageActionSurface.Hidden
-                                        MuseHaptics.light(hapticFeedback)
-                                        onCopyMessage(MoodSkinParser.cleanForExport(msg.content))
-                                    },
-                                )
-                            }
-                            if (msg.content.isNotBlank() || msg.reasoning?.isNotBlank() == true) {
-                                ActionMenuItem(
-                                    icon = if (msg.favorite) MuseIcons.star else MuseIcons.star,
-                                    text = if (msg.favorite) stringResource(R.string.chat_favorite_remove) else stringResource(R.string.chat_favorite_add),
-                                    contentDescription = if (msg.favorite) stringResource(R.string.chat_favorite_remove) else stringResource(R.string.chat_favorite_add),
-                                    onClick = {
-                                        actionSurface = MessageActionSurface.Hidden
-                                        MuseHaptics.light(hapticFeedback)
-                                        onToggleFavorite()
-                                    },
-                                )
-                            }
-                            // U-2: AI 消息长按菜单补"朗读/停止朗读"(复用 TTS 开关回调;仅 AI 消息)
-                            if (!isUser && msg.content.isNotBlank()) {
-                                val ttsLabel = if (isSpeaking) {
-                                    stringResource(R.string.chat_tts_stop)
-                                } else {
-                                    stringResource(R.string.chat_tts_play)
-                                }
-                                ActionMenuItem(
-                                    icon = MuseIcons.play,
-                                    text = ttsLabel,
-                                    contentDescription = ttsLabel,
-                                    onClick = {
-                                        actionSurface = MessageActionSurface.Hidden
-                                        onToggleTts()
-                                    },
-                                )
-                            }
-                            // U-16: AI 消息长按菜单补"删除"(单条删除 + 确认框,复用删除对话框;
-                            // ViewModel 删除按消息 id 执行,对 AI 消息同样生效)
-                            if (!isUser && msg.content.isNotBlank()) {
-                                ActionMenuItem(
-                                    icon = MuseIcons.trash,
-                                    text = stringResource(R.string.chat_delete_message),
-                                    contentDescription = stringResource(R.string.chat_delete_message),
-                                    tint = MaterialTheme.colorScheme.error,
-                                    onClick = {
-                                        actionSurface = MessageActionSurface.Hidden
-                                        showDeleteConfirm = true
-                                    },
-                                )
-                            }
-                            if (isUser) {
-                                // C-14: 用户消息只补用户专属项(编辑/翻译/分享/删除);
-                                // 选择消息/收藏/复制已在公共菜单(上方)渲染,不再重复。
-                                ActionMenuItem(
-                                    icon = MuseIcons.edit,
-                                    text = stringResource(R.string.action_edit),
-                                    contentDescription = stringResource(R.string.action_edit),
-                                    onClick = {
-                                        actionSurface = MessageActionSurface.Hidden
-                                        onEdit()
-                                    },
-                                )
-                                if (msg.content.isNotBlank()) {
-                                    ActionMenuItem(
-                                        icon = MuseIcons.languages,
-                                        text = stringResource(R.string.chat_translate_action),
-                                        contentDescription = stringResource(R.string.chat_translate_action),
-                                        onClick = { actionSurface = MessageActionSurface.TranslationLanguages },
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = an.text,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.skill_delete),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier
+                                            .clickable { io.zer0.muse.annotation.AnnotationStore.remove(an.id) }
+                                            .padding(horizontal = 4.dp),
                                     )
                                 }
-                                ActionMenuItem(
-                                    icon = MuseIcons.share,
-                                    text = stringResource(R.string.chat_share_action),
-                                    contentDescription = stringResource(R.string.chat_share_action),
-                                    onClick = {
-                                        actionSurface = MessageActionSurface.Hidden
-                                        onShareSession()
-                                    },
-                                )
-                                // F-2: 跨会话转发 — 与"分享"并列
-                                ActionMenuItem(
-                                    icon = MuseIcons.swapHorizontal,
-                                    text = stringResource(R.string.chat_forward_action),
-                                    contentDescription = stringResource(R.string.chat_forward_action),
-                                    onClick = {
-                                        actionSurface = MessageActionSurface.Hidden
-                                        onForward()
-                                    },
-                                )
-                                ActionMenuItem(
-                                    icon = MuseIcons.trash,
-                                    text = stringResource(R.string.chat_delete_message),
-                                    contentDescription = stringResource(R.string.chat_delete_message),
-                                    tint = MaterialTheme.colorScheme.error,
-                                    onClick = {
-                                        actionSurface = MessageActionSurface.Hidden
-                                        showDeleteConfirm = true
-                                    },
-                                )
                             }
+                            io.zer0.muse.ui.common.form.MuseTextField(
+                                value = annotateInput,
+                                onValueChange = { annotateInput = it },
+                                label = { Text(stringResource(R.string.message_annotate_hint)) },
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
                         }
-                    }
-                },
-            )
-            }
-        }
-
-        // P5-F: 翻译中指示
-        if (isTranslating) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.padding(top = MusePaddings.tinyGap),
-            ) {
-                MuseSpinner(
-                    size = MusePaddings.itemGap,
-                    color = MaterialTheme.colorScheme.secondary,
-                )
-                Text(
-                    stringResource(R.string.chat_translate_in_progress),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
+                    },
+                    confirmText = stringResource(R.string.channel_save),
+                    onConfirm = {
+                        io.zer0.muse.annotation.AnnotationStore.add(msg.id.toString(), "", annotateInput)
+                        showAnnotateDialog = false
+                    },
+                    dismissText = stringResource(R.string.settings_common_cancel),
+                    onDismiss = { showAnnotateDialog = false },
                 )
             }
-        }
 
-        // H11: 翻译保留原文 — 译文气泡下方折叠"查看原文",展开显示源消息内容可对照
-        val sourceContent = translationSourceContent
-        if (sourceContent != null && sourceContent.isNotBlank()) {
-            var showSource by remember { mutableStateOf(false) }
-            Column(modifier = Modifier.padding(top = MusePaddings.tinyGap)) {
-                MuseTactileButton(
-                    icon = if (showSource) MuseIcons.chevronUp else MuseIcons.chevronDown,
-                    onClick = { showSource = !showSource },
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.heightIn(min = MuseIconSizes.touchTarget),
-                )
-                AnimatedVisibility(
-                    visible = showSource,
-                    enter = MuseMotion.expandFadeEnter(),
-                    exit = MuseMotion.expandFadeExit(),
-                ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        shape = MuseShapes.medium,
-                        modifier = Modifier.fillMaxWidth(),
+            // 阶段 4: 长按菜单
+            // v1.0.72: 浮层式 Popup — 定位在消息附近(哪里按哪里弹出,非底部滑入),
+            // 卡片含 引用/复制/选择文本/分享/编辑(仅用户消息)/更多;
+            // "更多"展开完整菜单(委托/分支/翻译/收藏/删除等,原逻辑保留)。
+            if (showActionMenu) {
+                if (!showExtendedMenu) {
+                    // ── 消息操作 Popup 卡片(锚定消息气泡) ──
+                    // v1.0.74 fix: 此前无 parent 锚点,菜单永远弹在窗口右上角(离手指很远)。
+                    // 改为按气泡窗口位置定位:菜单右缘贴气泡右缘,上缘在气泡上方 8dp。
+                    // E4 (H8): 定位逻辑收敛到通用 MusePopover(宽度 220dp、间距 8dp);
+                    // 锚点未测量完成(Zero)时组件退化为屏幕左上角偏移,与原退化行为一致。
+                    MusePopover(
+                        anchorBounds = actionMenuBounds,
+                        gapDp = 8,
+                        onDismiss = {
+                            actionSurface = MessageActionSurface.Hidden
+                            actionSurface = MessageActionSurface.Hidden
+                        },
+                        anchorPointInWindow = actionMenuPointInWindow,
                     ) {
-                        Text(
-                            text = sourceContent,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(MusePaddings.itemGap),
-                        )
-                    }
-                }
-            }
-        }
-
-        // v1.79 (H-B2): 空列表检查移到 LaunchedEffect,避免 composition 期间写状态
-        // L-MB2: mediaPreview 为 null 时跳过,避免多余触发
-        LaunchedEffect(mediaPreview) {
-            if (mediaPreview != null && mediaPreview?.first.isNullOrEmpty()) {
-                mediaPreview = null
-            }
-        }
-        // v1.0.15: 全屏媒体查看器抽取为共享组件(原 v1.60-B 内联实现),供群聊复用
-        mediaPreview?.let { (images, initialIndex) ->
-            FullScreenMediaViewer(
-                images = images,
-                initialIndex = initialIndex,
-                onDismiss = { mediaPreview = null },
-                onSaveImage = { imageUri ->
-                    scope.launch {
-                        resultOf { saveImageToGallery(context, imageUri) }
-                            .onSuccess { path ->
-                                MuseToast.show(
-                                    context.getString(R.string.chat_image_saved_toast, path),
-                                )
-                            }
-                            .onError { msg, _ ->
-                                MuseToast.show(
-                                    context.getString(R.string.chat_image_save_failed_toast, msg),
-                                )
-                            }
-                    }
-                },
-            )
-        }
-        if (showDeleteConfirm) {
-            // U-16: 删除范围选择 — 仅此消息(含其回复) / 连同后续全部消息
-            var deleteWithFollowing by remember { mutableStateOf(false) }
-            MuseDialog(
-                onDismissRequest = { showDeleteConfirm = false },
-                title = stringResource(R.string.chat_delete_message),
-                content = {
-                    Column {
-                        Text(stringResource(R.string.chat_delete_message_confirm))
-                        Spacer(Modifier.height(8.dp))
-                        // U-16: 删除范围选择(仅此条 / 连同后续),点击行切换,高亮选中项
-                        Text(
-                            text = (if (!deleteWithFollowing) "● " else "○ ") + stringResource(R.string.chat_delete_scope_only),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { deleteWithFollowing = false }
-                                .padding(vertical = 4.dp),
-                            color = if (!deleteWithFollowing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Text(
-                            text = (if (deleteWithFollowing) "● " else "○ ") + stringResource(R.string.chat_delete_scope_with_following),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { deleteWithFollowing = true }
-                                .padding(vertical = 4.dp),
-                            color = if (deleteWithFollowing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                },
-                confirmText = stringResource(R.string.action_delete),
-                onConfirm = {
-                    showDeleteConfirm = false
-                    if (deleteWithFollowing) onDeleteWithFollowing() else onDeleteMessage()
-                },
-                destructive = true,
-            )
-        }
-        // E4 (H8): 表情回应 — 已有回应时气泡尾部显示图标 chip(仅图标,语义见 cd)
-        val reaction = msg.reaction
-        val reactionLabel = reaction?.let { reactionLabelRes(it) }?.let { stringResource(it) }
-        val reactionIconVec = reaction?.let { reactionIcon(it) }
-        if (reaction != null && reactionIconVec != null && reactionLabel != null) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(top = MusePaddings.tinyGap),
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                ) {
-                    Icon(
-                        imageVector = reactionIconVec,
-                        contentDescription = reactionLabel,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .padding(MusePaddings.tightGap)
-                            .size(MuseIconSizes.iconSmall),
-                    )
-                }
-            }
-        }
-        // A5: 消息信息弹层(模型/时间/耗时/Token 用量)
-        if (showInfoSheet) {
-            MessageInfoSheet(
-                msg = msg,
-                onDismiss = { showInfoSheet = false },
-            )
-        }
-        // E4 (H8): 表情回应选择面板
-        if (showReactionSheet && onSetReaction != null) {
-            MuseReactionSheet(
-                current = msg.reaction,
-                onSelect = { reactionValue ->
-                    showReactionSheet = false
-                    onSetReaction(reactionValue)
-                },
-                onDismiss = { showReactionSheet = false },
-            )
-        }
-        // P2-13: 桌面端右键上下文菜单(仅物理键盘 + Expanded 窗口下弹出)
-        // 项:复制 / 重新生成(仅末尾 AI 消息)/ 删除 / 分享
-        // 与移动端长按菜单(showActionMenu)功能对齐,但采用桌面右键菜单交互范式
-        if (showDesktopContextMenu) {
-            // 在 @Composable 上下文预提取本地化字符串,remember 块内不能调用 stringResource
-            val copyLabel = stringResource(R.string.desktop_context_copy)
-            val regenerateLabel = stringResource(R.string.desktop_context_regenerate)
-            val shareLabel = stringResource(R.string.desktop_context_share)
-            val deleteLabel = stringResource(R.string.desktop_context_delete)
-            // A5: 消息信息弹层入口(桌面右键菜单)
-            val infoLabel = stringResource(R.string.msg_info_title)
-            val contextMenuItems = remember(
-                msg.id, isUser, isLastAssistant,
-                copyLabel, regenerateLabel, shareLabel, deleteLabel, infoLabel,
-            ) {
-                buildList {
-                    if (msg.content.isNotBlank()) {
-                        add(
-                            ContextMenuItem(
-                                label = copyLabel,
-                                icon = MuseIcons.copy,
-                                onClick = { onCopyMessage(MoodSkinParser.cleanForExport(msg.content)) },
-                            )
-                        )
-                    }
-                    // 仅末尾 AI 消息提供"重新生成"
-                    if (!isUser && isLastAssistant && msg.content.isNotEmpty()) {
-                        add(
-                            ContextMenuItem(
-                                label = regenerateLabel,
-                                icon = MuseIcons.refresh,
-                                onClick = {
-                                    MuseHaptics.light(hapticFeedback)
-                                    onRegenerate()
-                                },
-                            )
-                        )
-                    }
-                    add(
-                        ContextMenuItem(
-                            label = shareLabel,
-                            icon = MuseIcons.share,
-                            onClick = onShareSession,
-                        )
-                    )
-                    // A5: 消息信息弹层(模型/耗时/Token 用量)
-                    add(
-                        ContextMenuItem(
-                            label = infoLabel,
-                            icon = MuseIcons.info,
-                            onClick = {
-                                showDesktopContextMenu = false
-                                showInfoSheet = true
+                        TelegramActionCard(
+                            isUser = isUser,
+                            onQuote = {
+                                actionSurface = MessageActionSurface.Hidden
+                                actionSurface = MessageActionSurface.Hidden
+                                onQuote()
+                            },
+                            onCopy = {
+                                actionSurface = MessageActionSurface.Hidden
+                                actionSurface = MessageActionSurface.Hidden
+                                MuseHaptics.light(hapticFeedback)
+                                onCopyMessage(MoodSkinParser.cleanForExport(msg.content))
+                            },
+                            onSelectText = {
+                                // v1.0.72: "选择文本"= 进入文本选择模式(长按文字激活系统选择手柄)
+                                actionSurface = MessageActionSurface.Hidden
+                                actionSurface = MessageActionSurface.Hidden
+                                textSelectMode = true
+                                MuseToast.show(context.getString(R.string.chat_select_text_hint))
+                            },
+                            onShare = {
+                                actionSurface = MessageActionSurface.Hidden
+                                actionSurface = MessageActionSurface.Hidden
+                                onShareSession()
+                            },
+                            onForward = {
+                                actionSurface = MessageActionSurface.Hidden
+                                actionSurface = MessageActionSurface.Hidden
+                                onForward()
+                            },
+                            onEdit = {
+                                actionSurface = MessageActionSurface.Hidden
+                                actionSurface = MessageActionSurface.Hidden
+                                onEdit()
+                            },
+                            onMore = {
+                                actionSurface = MessageActionSurface.Extended
                             },
                         )
-                    )
-                    add(
-                        ContextMenuItem(
-                            label = deleteLabel,
-                            icon = MuseIcons.trash,
-                            destructive = true,
-                            onClick = { showDeleteConfirm = true },
-                        )
+                    }
+                } else {
+                    MuseBottomSheet(
+                        onDismissRequest = {
+                            actionSurface = MessageActionSurface.Hidden
+                            actionSurface = MessageActionSurface.Hidden
+                            actionSurface = MessageActionSurface.Hidden
+                        },
+                        bottomContentSpacing = MusePaddings.contentGap,
+                        content = {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                if (showLanguageSubmenu) {
+                                    // 翻译语言子菜单(从主菜单"翻译"项触发)
+                                    ActionMenuItem(
+                                        icon = MuseIcons.arrowDown,
+                                        text = stringResource(R.string.action_back),
+                                        contentDescription = stringResource(R.string.action_back),
+                                        onClick = { actionSurface = MessageActionSurface.Hidden },
+                                    )
+                                    TranslationLanguages.forEach { lang ->
+                                        ActionMenuItem(
+                                            icon = MuseIcons.languages,
+                                            text = lang,
+                                            contentDescription = stringResource(R.string.chat_translate_to_cd, lang),
+                                            onClick = {
+                                                actionSurface = MessageActionSurface.Hidden
+                                                actionSurface = MessageActionSurface.Hidden
+                                                onTranslate(lang)
+                                            },
+                                        )
+                                    }
+                                } else {
+                                    // M-UI2: 助手消息长按菜单严格精简为 引用/委托/分支,
+                                    // 用户消息保留原有完整菜单(编辑/翻译/收藏/复制/分享/删除等)。
+                                    ActionMenuItem(
+                                        icon = MuseIcons.reply,
+                                        text = stringResource(R.string.message_action_quote),
+                                        contentDescription = stringResource(R.string.message_action_quote),
+                                        onClick = {
+                                            actionSurface = MessageActionSurface.Hidden
+                                            onQuote()
+                                        },
+                                    )
+                                    // v1.0.92: 批注 — 对这条消息写/看本地批注(带已有批注数)
+                                    val annotCount = io.zer0.muse.annotation.AnnotationStore
+                                        .ofMessage(msg.id.toString()).size
+                                    ActionMenuItem(
+                                        icon = MuseIcons.edit,
+                                        text = if (annotCount > 0) {
+                                            stringResource(R.string.message_action_annotate) + " ($annotCount)"
+                                        } else {
+                                            stringResource(R.string.message_action_annotate)
+                                        },
+                                        contentDescription = stringResource(R.string.message_action_annotate),
+                                        onClick = {
+                                            actionSurface = MessageActionSurface.Hidden
+                                            showAnnotateDialog = true
+                                        },
+                                    )
+                                    ActionMenuItem(
+                                        icon = MuseIcons.users,
+                                        text = stringResource(R.string.chat_delegate_action),
+                                        contentDescription = stringResource(R.string.chat_delegate_action),
+                                        onClick = {
+                                            actionSurface = MessageActionSurface.Hidden
+                                            onDelegate()
+                                        },
+                                    )
+                                    ActionMenuItem(
+                                        icon = MuseIcons.gitMerge,
+                                        text = stringResource(R.string.chat_fork_action),
+                                        contentDescription = stringResource(R.string.chat_fork_action),
+                                        onClick = {
+                                            actionSurface = MessageActionSurface.Hidden
+                                            onFork()
+                                        },
+                                    )
+                                    ActionMenuItem(
+                                        icon = MuseIcons.square,
+                                        text = stringResource(R.string.chat_select_messages),
+                                        contentDescription = stringResource(R.string.chat_select_messages),
+                                        onClick = {
+                                            actionSurface = MessageActionSurface.Hidden
+                                            onEnterMultiSelect?.invoke()
+                                        },
+                                    )
+                                    // A5: 消息信息弹层(模型/耗时/Token 用量)
+                                    ActionMenuItem(
+                                        icon = MuseIcons.info,
+                                        text = stringResource(R.string.msg_info_title),
+                                        contentDescription = stringResource(R.string.msg_info_title),
+                                        onClick = {
+                                            actionSurface = MessageActionSurface.Hidden
+                                            actionSurface = MessageActionSurface.Hidden
+                                            showInfoSheet = true
+                                        },
+                                    )
+                                    // E4 (H8): 表情回应(仅 onSetReaction 提供时显示)
+                                    if (onSetReaction != null) {
+                                        ActionMenuItem(
+                                            icon = MuseIcons.moodSmile,
+                                            text = stringResource(R.string.chat_reaction_title),
+                                            contentDescription = stringResource(R.string.chat_reaction_title),
+                                            onClick = {
+                                                actionSurface = MessageActionSurface.Hidden
+                                                actionSurface = MessageActionSurface.Hidden
+                                                showReactionSheet = true
+                                            },
+                                        )
+                                    }
+                                    if (msg.content.isNotBlank()) {
+                                        ActionMenuItem(
+                                            icon = MuseIcons.copy,
+                                            text = stringResource(R.string.action_copy),
+                                            contentDescription = stringResource(R.string.action_copy),
+                                            onClick = {
+                                                actionSurface = MessageActionSurface.Hidden
+                                                MuseHaptics.light(hapticFeedback)
+                                                onCopyMessage(MoodSkinParser.cleanForExport(msg.content))
+                                            },
+                                        )
+                                    }
+                                    if (msg.content.isNotBlank() || msg.reasoning?.isNotBlank() == true) {
+                                        ActionMenuItem(
+                                            icon = if (msg.favorite) MuseIcons.star else MuseIcons.star,
+                                            text = if (msg.favorite) {
+                                                stringResource(
+                                                    R.string.chat_favorite_remove,
+                                                )
+                                            } else {
+                                                stringResource(R.string.chat_favorite_add)
+                                            },
+                                            contentDescription = if (msg.favorite) {
+                                                stringResource(
+                                                    R.string.chat_favorite_remove,
+                                                )
+                                            } else {
+                                                stringResource(R.string.chat_favorite_add)
+                                            },
+                                            onClick = {
+                                                actionSurface = MessageActionSurface.Hidden
+                                                MuseHaptics.light(hapticFeedback)
+                                                onToggleFavorite()
+                                            },
+                                        )
+                                    }
+                                    // U-2: AI 消息长按菜单补"朗读/停止朗读"(复用 TTS 开关回调;仅 AI 消息)
+                                    if (!isUser && msg.content.isNotBlank()) {
+                                        val ttsLabel = if (isSpeaking) {
+                                            stringResource(R.string.chat_tts_stop)
+                                        } else {
+                                            stringResource(R.string.chat_tts_play)
+                                        }
+                                        ActionMenuItem(
+                                            icon = MuseIcons.play,
+                                            text = ttsLabel,
+                                            contentDescription = ttsLabel,
+                                            onClick = {
+                                                actionSurface = MessageActionSurface.Hidden
+                                                onToggleTts()
+                                            },
+                                        )
+                                    }
+                                    // U-16: AI 消息长按菜单补"删除"(单条删除 + 确认框,复用删除对话框;
+                                    // ViewModel 删除按消息 id 执行,对 AI 消息同样生效)
+                                    if (!isUser && msg.content.isNotBlank()) {
+                                        ActionMenuItem(
+                                            icon = MuseIcons.trash,
+                                            text = stringResource(R.string.chat_delete_message),
+                                            contentDescription = stringResource(R.string.chat_delete_message),
+                                            tint = MaterialTheme.colorScheme.error,
+                                            onClick = {
+                                                actionSurface = MessageActionSurface.Hidden
+                                                showDeleteConfirm = true
+                                            },
+                                        )
+                                    }
+                                    if (isUser) {
+                                        // C-14: 用户消息只补用户专属项(编辑/翻译/分享/删除);
+                                        // 选择消息/收藏/复制已在公共菜单(上方)渲染,不再重复。
+                                        ActionMenuItem(
+                                            icon = MuseIcons.edit,
+                                            text = stringResource(R.string.action_edit),
+                                            contentDescription = stringResource(R.string.action_edit),
+                                            onClick = {
+                                                actionSurface = MessageActionSurface.Hidden
+                                                onEdit()
+                                            },
+                                        )
+                                        if (msg.content.isNotBlank()) {
+                                            ActionMenuItem(
+                                                icon = MuseIcons.languages,
+                                                text = stringResource(R.string.chat_translate_action),
+                                                contentDescription = stringResource(R.string.chat_translate_action),
+                                                onClick = { actionSurface = MessageActionSurface.TranslationLanguages },
+                                            )
+                                        }
+                                        ActionMenuItem(
+                                            icon = MuseIcons.share,
+                                            text = stringResource(R.string.chat_share_action),
+                                            contentDescription = stringResource(R.string.chat_share_action),
+                                            onClick = {
+                                                actionSurface = MessageActionSurface.Hidden
+                                                onShareSession()
+                                            },
+                                        )
+                                        // F-2: 跨会话转发 — 与"分享"并列
+                                        ActionMenuItem(
+                                            icon = MuseIcons.swapHorizontal,
+                                            text = stringResource(R.string.chat_forward_action),
+                                            contentDescription = stringResource(R.string.chat_forward_action),
+                                            onClick = {
+                                                actionSurface = MessageActionSurface.Hidden
+                                                onForward()
+                                            },
+                                        )
+                                        ActionMenuItem(
+                                            icon = MuseIcons.trash,
+                                            text = stringResource(R.string.chat_delete_message),
+                                            contentDescription = stringResource(R.string.chat_delete_message),
+                                            tint = MaterialTheme.colorScheme.error,
+                                            onClick = {
+                                                actionSurface = MessageActionSurface.Hidden
+                                                showDeleteConfirm = true
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        },
                     )
                 }
             }
-            DesktopContextMenu(
-                items = contextMenuItems,
-                onDismiss = { showDesktopContextMenu = false },
-            )
-        }
+
+            // P5-F: 翻译中指示
+            if (isTranslating) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = MusePaddings.tinyGap),
+                ) {
+                    MuseSpinner(
+                        size = MusePaddings.itemGap,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                    Text(
+                        stringResource(R.string.chat_translate_in_progress),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+            }
+
+            // H11: 翻译保留原文 — 译文气泡下方折叠"查看原文",展开显示源消息内容可对照
+            val sourceContent = translationSourceContent
+            if (sourceContent != null && sourceContent.isNotBlank()) {
+                var showSource by remember { mutableStateOf(false) }
+                Column(modifier = Modifier.padding(top = MusePaddings.tinyGap)) {
+                    MuseTactileButton(
+                        icon = if (showSource) MuseIcons.chevronUp else MuseIcons.chevronDown,
+                        onClick = { showSource = !showSource },
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.heightIn(min = MuseIconSizes.touchTarget),
+                    )
+                    AnimatedVisibility(
+                        visible = showSource,
+                        enter = MuseMotion.expandFadeEnter(),
+                        exit = MuseMotion.expandFadeExit(),
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            shape = MuseShapes.medium,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text = sourceContent,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(MusePaddings.itemGap),
+                            )
+                        }
+                    }
+                }
+            }
+
+            // v1.79 (H-B2): 空列表检查移到 LaunchedEffect,避免 composition 期间写状态
+            // L-MB2: mediaPreview 为 null 时跳过,避免多余触发
+            LaunchedEffect(mediaPreview) {
+                if (mediaPreview != null && mediaPreview?.first.isNullOrEmpty()) {
+                    mediaPreview = null
+                }
+            }
+            // v1.0.15: 全屏媒体查看器抽取为共享组件(原 v1.60-B 内联实现),供群聊复用
+            mediaPreview?.let { (images, initialIndex) ->
+                FullScreenMediaViewer(
+                    images = images,
+                    initialIndex = initialIndex,
+                    onDismiss = { mediaPreview = null },
+                    onSaveImage = { imageUri ->
+                        scope.launch {
+                            resultOf { saveImageToGallery(context, imageUri) }
+                                .onSuccess { path ->
+                                    MuseToast.show(
+                                        context.getString(R.string.chat_image_saved_toast, path),
+                                    )
+                                }
+                                .onError { msg, _ ->
+                                    MuseToast.show(
+                                        context.getString(R.string.chat_image_save_failed_toast, msg),
+                                    )
+                                }
+                        }
+                    },
+                )
+            }
+            if (showDeleteConfirm) {
+                // U-16: 删除范围选择 — 仅此消息(含其回复) / 连同后续全部消息
+                var deleteWithFollowing by remember { mutableStateOf(false) }
+                MuseDialog(
+                    onDismissRequest = { showDeleteConfirm = false },
+                    title = stringResource(R.string.chat_delete_message),
+                    content = {
+                        Column {
+                            Text(stringResource(R.string.chat_delete_message_confirm))
+                            Spacer(Modifier.height(8.dp))
+                            // U-16: 删除范围选择(仅此条 / 连同后续),点击行切换,高亮选中项
+                            Text(
+                                text = (if (!deleteWithFollowing) "● " else "○ ") + stringResource(R.string.chat_delete_scope_only),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { deleteWithFollowing = false }
+                                    .padding(vertical = 4.dp),
+                                color = if (!deleteWithFollowing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Text(
+                                text = (if (deleteWithFollowing) "● " else "○ ") + stringResource(R.string.chat_delete_scope_with_following),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { deleteWithFollowing = true }
+                                    .padding(vertical = 4.dp),
+                                color = if (deleteWithFollowing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    },
+                    confirmText = stringResource(R.string.action_delete),
+                    onConfirm = {
+                        showDeleteConfirm = false
+                        if (deleteWithFollowing) onDeleteWithFollowing() else onDeleteMessage()
+                    },
+                    destructive = true,
+                )
+            }
+            // E4 (H8): 表情回应 — 已有回应时气泡尾部显示图标 chip(仅图标,语义见 cd)
+            val reaction = msg.reaction
+            val reactionLabel = reaction?.let { reactionLabelRes(it) }?.let { stringResource(it) }
+            val reactionIconVec = reaction?.let { reactionIcon(it) }
+            if (reaction != null && reactionIconVec != null && reactionLabel != null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = MusePaddings.tinyGap),
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                    ) {
+                        Icon(
+                            imageVector = reactionIconVec,
+                            contentDescription = reactionLabel,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .padding(MusePaddings.tightGap)
+                                .size(MuseIconSizes.iconSmall),
+                        )
+                    }
+                }
+            }
+            // A5: 消息信息弹层(模型/时间/耗时/Token 用量)
+            if (showInfoSheet) {
+                MessageInfoSheet(
+                    msg = msg,
+                    onDismiss = { showInfoSheet = false },
+                )
+            }
+            // E4 (H8): 表情回应选择面板
+            if (showReactionSheet && onSetReaction != null) {
+                MuseReactionSheet(
+                    current = msg.reaction,
+                    onSelect = { reactionValue ->
+                        showReactionSheet = false
+                        onSetReaction(reactionValue)
+                    },
+                    onDismiss = { showReactionSheet = false },
+                )
+            }
+            // P2-13: 桌面端右键上下文菜单(仅物理键盘 + Expanded 窗口下弹出)
+            // 项:复制 / 重新生成(仅末尾 AI 消息)/ 删除 / 分享
+            // 与移动端长按菜单(showActionMenu)功能对齐,但采用桌面右键菜单交互范式
+            if (showDesktopContextMenu) {
+                // 在 @Composable 上下文预提取本地化字符串,remember 块内不能调用 stringResource
+                val copyLabel = stringResource(R.string.desktop_context_copy)
+                val regenerateLabel = stringResource(R.string.desktop_context_regenerate)
+                val shareLabel = stringResource(R.string.desktop_context_share)
+                val deleteLabel = stringResource(R.string.desktop_context_delete)
+                // A5: 消息信息弹层入口(桌面右键菜单)
+                val infoLabel = stringResource(R.string.msg_info_title)
+                val contextMenuItems = remember(
+                    msg.id,
+                    isUser,
+                    isLastAssistant,
+                    copyLabel,
+                    regenerateLabel,
+                    shareLabel,
+                    deleteLabel,
+                    infoLabel,
+                ) {
+                    buildList {
+                        if (msg.content.isNotBlank()) {
+                            add(
+                                ContextMenuItem(
+                                    label = copyLabel,
+                                    icon = MuseIcons.copy,
+                                    onClick = { onCopyMessage(MoodSkinParser.cleanForExport(msg.content)) },
+                                ),
+                            )
+                        }
+                        // 仅末尾 AI 消息提供"重新生成"
+                        if (!isUser && isLastAssistant && msg.content.isNotEmpty()) {
+                            add(
+                                ContextMenuItem(
+                                    label = regenerateLabel,
+                                    icon = MuseIcons.refresh,
+                                    onClick = {
+                                        MuseHaptics.light(hapticFeedback)
+                                        onRegenerate()
+                                    },
+                                ),
+                            )
+                        }
+                        add(
+                            ContextMenuItem(
+                                label = shareLabel,
+                                icon = MuseIcons.share,
+                                onClick = onShareSession,
+                            ),
+                        )
+                        // A5: 消息信息弹层(模型/耗时/Token 用量)
+                        add(
+                            ContextMenuItem(
+                                label = infoLabel,
+                                icon = MuseIcons.info,
+                                onClick = {
+                                    showDesktopContextMenu = false
+                                    showInfoSheet = true
+                                },
+                            ),
+                        )
+                        add(
+                            ContextMenuItem(
+                                label = deleteLabel,
+                                icon = MuseIcons.trash,
+                                destructive = true,
+                                onClick = { showDeleteConfirm = true },
+                            ),
+                        )
+                    }
+                }
+                DesktopContextMenu(
+                    items = contextMenuItems,
+                    onDismiss = { showDesktopContextMenu = false },
+                )
+            }
         } // 闭合 Column
 
         // v1.0.72: 多选模式全尺寸遮罩 — 选择模式下点击消息任意位置(含文字/图片/代码块/引用块,
@@ -2216,13 +2274,7 @@ private fun TelegramActionCard(
 
 /** v1.0.72: 固定配色菜单行(紧凑:小图标底块 + 小行高 + 按压 scale)。 */
 @Composable
-private fun FixedColorActionRow(
-    icon: ImageVector,
-    text: String,
-    textColor: Color,
-    iconBlockColor: Color,
-    onClick: () -> Unit,
-) {
+private fun FixedColorActionRow(icon: ImageVector, text: String, textColor: Color, iconBlockColor: Color, onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by androidx.compose.animation.core.animateFloatAsState(
