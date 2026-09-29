@@ -46,7 +46,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -128,7 +127,6 @@ fun MiniPhoneScreen(
         }
     }
 
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val wallpaperLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -148,16 +146,6 @@ fun MiniPhoneScreen(
         stringResource(R.string.miniphone_tab_discover),
         stringResource(R.string.miniphone_tab_me),
     )
-
-    // 会话：直接从真实会话列表取，按 updatedAt 倒序
-    val conversations = remember(sessions, searchQuery) {
-        sessions
-            .filter { !it.archived }
-            .filter {
-                searchQuery.isBlank() || it.title.contains(searchQuery, ignoreCase = true) || it.lastMessagePreview.contains(searchQuery, ignoreCase = true)
-            }
-            .sortedByDescending { it.updatedAt }
-    }
 
     // 小手机私信空间会话（第一页）
     val miniPhoneConversations = remember(miniPhoneSessions, searchQuery) {

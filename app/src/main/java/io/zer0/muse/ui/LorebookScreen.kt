@@ -304,7 +304,6 @@ private fun LorebookEditPage(initial: LorebookEntity, isNew: Boolean, onBack: ()
 
     // i18n: 预提取字符串资源,避免在 onClick 等非 Composable lambda 内调用 stringResource
     val unnamedText = stringResource(R.string.lorebook_unnamed)
-    val backCd = stringResource(R.string.lorebook_back_cd)
     val saveText = stringResource(R.string.lorebook_save)
     val newTitleText = stringResource(R.string.lorebook_new_title)
     val editTitleText = stringResource(R.string.lorebook_edit_title)

@@ -47,7 +47,6 @@ class CoverGenerator(
         private const val COVER_TEMPLATE_NAME = "cover_generation"
         private const val COVER_SIZE = "1536x640"
         private const val MAX_PROMPT_TOKENS = 300
-        private const val DOWNLOAD_TIMEOUT_MS = 30_000L
         private const val MAX_DOWNLOAD_BYTES = 20L * 1024 * 1024
 
         /** R-UI-06/R-TEST-18: 空 LLM 输出降级为固定绘图指令,便于单元测试。 */

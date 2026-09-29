@@ -86,8 +86,8 @@ import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import io.zer0.muse.ui.theme.pill
 import io.zer0.muse.ui.theme.semiLarge
+import io.zer0.muse.update.UpdateCheckResult
 import io.zer0.muse.update.UpdateNotifier
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -281,14 +281,18 @@ fun SettingsScreen(
         if (!checkingUpdate) {
             checkingUpdate = true
             scope.launch {
-                val beforeJson = runCatching { settings.latestReleaseInfoFlow.first() }.getOrNull()
-                updateNotifier.checkAndNotify(context, forceCheck = true)
-                checkingUpdate = false
-                val latest = runCatching { settings.latestReleaseInfoFlow.first() }.getOrNull()
-                if (latest != null && latest != beforeJson) {
-                    MuseToast.show(context.getString(R.string.update_found_new))
-                } else if (latest == null) {
-                    MuseToast.show(context.getString(R.string.update_already_latest))
+                val result = try {
+                    updateNotifier.checkManually(context)
+                } finally {
+                    checkingUpdate = false
+                }
+                when (result) {
+                    is UpdateCheckResult.NewVersion -> MuseToast.show(context.getString(R.string.update_found_new))
+                    UpdateCheckResult.UpToDate -> MuseToast.show(context.getString(R.string.update_already_latest))
+                    is UpdateCheckResult.Failed -> MuseToast.show(
+                        context.getString(R.string.settings_about_update_check_failed, result.message),
+                    )
+                    UpdateCheckResult.Skipped -> Unit
                 }
             }
         }

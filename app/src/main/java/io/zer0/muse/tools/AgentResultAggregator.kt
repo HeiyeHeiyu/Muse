@@ -226,7 +226,6 @@ object AgentResultAggregator {
      * 先尝试找完全一致的答案;若找不到,检测差异点并降级为 Merge。
      */
     private fun consensus(candidates: List<Candidate>): Aggregation {
-        val normalized = candidates.map { normalizeForVote(it.content) }
         val groups = candidates.groupBy { normalizeForVote(it.content) }
         val majority = groups.maxByOrNull { it.value.size }
 

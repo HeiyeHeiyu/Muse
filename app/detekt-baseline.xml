@@ -2268,7 +2268,6 @@
     <ID>ReturnCount:UIToolsSkill.kt$UIToolsSkill$suspend fun setText(client: AccessibilityClient, nodeId: String, text: String): String</ID>
     <ID>ReturnCount:UiAgentProtocol.kt$UiAgentProtocol$private fun parseDo(match: MatchResult): Action?</ID>
     <ID>ReturnCount:UiAgentRunner.kt$UiAgentRunner$suspend fun run(task: String, maxSteps: Int = DEFAULT_MAX_STEPS, onProgress: (String) -&gt; Unit = {}): RunResult</ID>
-    <ID>ReturnCount:UpdateNotifier.kt$UpdateNotifier$suspend fun checkAndNotify(context: Context, forceCheck: Boolean = false)</ID>
     <ID>ReturnCount:UserActivityProfile.kt$UserActivityProfile$@Synchronized fun getActiveProbability(hour: Int): Float</ID>
     <ID>ReturnCount:UserActivityProfile.kt$UserActivityProfile$@Synchronized fun getNextActiveWindow(fromTime: Long, allowedHourStart: Int = 8, allowedHourEnd: Int = 22): Long</ID>
     <ID>ReturnCount:UserActivityProfile.kt$UserActivityProfile$private fun applyDecayIfNeeded(timestamp: Long)</ID>
@@ -2713,6 +2712,7 @@
     <ID>UnusedParameter:MiniPhoneScreen.kt$momentMessages: List&lt;MomentMessage&gt; = emptyList()</ID>
     <ID>UnusedParameter:MiniPhoneScreen.kt$moments: List&lt;MomentEntity&gt; = emptyList()</ID>
     <ID>UnusedParameter:MiniPhoneScreen.kt$onOpenMessages: () -&gt; Unit</ID>
+    <ID>UnusedParameter:MiniPhoneScreen.kt$sessions: List&lt;SessionEntity&gt; = emptyList()</ID>
     <ID>UnusedParameter:MiniPhoneScreen.kt$wallpaper: String?</ID>
     <ID>UnusedParameter:ModelDiffSheet.kt$chipColor: Color</ID>
     <ID>UnusedParameter:ModelDiffSheet.kt$chipTextColor: Color</ID>
@@ -2761,12 +2761,7 @@
     <ID>UnusedPrivateMember:ThemeSection.kt$@Composable private fun ThemeOptionRow(name: String, isSelected: Boolean, onClick: () -&gt; Unit)</ID>
     <ID>UnusedPrivateMember:ToolRegistry.kt$ToolRegistry$private fun registerBuiltIn( name: String, description: String, parameters: Map&lt;String, String&gt;, required: Set&lt;String&gt;, fn: ToolFn, riskLevel: ToolRiskLevel = ToolRiskLevel.SAFE, parameterTypes: Map&lt;String, String&gt; = emptyMap(), )</ID>
     <ID>UnusedPrivateMember:ToolRegistry.kt$ToolRegistry$private fun registerBuiltInOutcome( name: String, description: String, parameters: Map&lt;String, String&gt;, required: Set&lt;String&gt;, fn: ToolOutcomeFn, riskLevel: ToolRiskLevel = ToolRiskLevel.SAFE, parameterTypes: Map&lt;String, String&gt; = emptyMap(), )</ID>
-    <ID>UnusedPrivateProperty:AgentResultAggregator.kt$AgentResultAggregator$val normalized = candidates.map { normalizeForVote(it.content) }</ID>
-    <ID>UnusedPrivateProperty:ChatListScreen.kt$val scope = rememberCoroutineScope()</ID>
     <ID>UnusedPrivateProperty:ChatMiscCoordinator.kt$ChatMiscCoordinator$private val assistantRepository: AssistantRepository</ID>
-    <ID>UnusedPrivateProperty:ChatScreen.kt$val assistantModelShortName = remember(state.currentAssistant, state.providers) { state.currentAssistant?.modelId?.let { modelId -&gt; state.providers.flatMap { it.models } .firstOrNull { it.id == modelId }?.name ?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: modelId } }</ID>
-    <ID>UnusedPrivateProperty:ChatSettingsPage.kt$val activeProviderId by settings.activeProviderIdFlow.collectAsStateWithLifecycle(initialValue = null)</ID>
-    <ID>UnusedPrivateProperty:ChatSettingsPage.kt$val providers by settings.providersFlow.collectAsStateWithLifecycle(initialValue = emptyList())</ID>
     <ID>UnusedPrivateProperty:ChatViewModel.kt$@OptIn(ExperimentalCoroutinesApi::class) /** * 聊天页 ViewModel — 整个 App 的核心业务中枢。 * * 职责: * - 会话/消息的加载、发送、流式接收、停止、重试、编辑、删除 * - 多模态:文本 + 图片(用户拍照/相册 + AI 生成图)+ 附件(文档 OCR 解析) * - 工具调用:Skill 系统(9 个内置实现 + 用户导入 .skill.json)+ MCP 动态工具 * - 上下文管道:6 步 Transformer 顺序处理(Memory → Time → Lorebook → PromptInjection → Template → ThinkTag/MoodTag → 压缩) * - 系统提示组装:SystemPromptAssembler 把 Assistant 配置 + 用户画像 + 记忆组合成最终 system prompt * - Web 搜索:深思考开关开启时,LLM 自主决定何时调用 web_search/web_fetch * - 深思考:开关切换 ReasoningLevel.HIGH(8000 tokens 预算) * - TTS:流式生成完成后可触发系统 TTS 播报 * - 通知:流式启动/进度/完成/错误/停止处调用 MuseNotificationManager * * 状态管理:单一 [state] StateFlow,UI 通过 collectAsStateWithLifecycle 订阅。 * 协程:所有网络/DB 操作用 viewModelScope,工具调用有 2 分钟超时([TOOL_TIMEOUT_MS])。 */ // i18n 后续提取路线图(整体迁移时统一处理,本处暂缓)— 本 ViewModel 已注入 // appContext(见下方构造函数),后续可用 appContext.getString(R.string.xxx) 或 // ErrorMessage.toLocalizedString(appContext) 替换以下区域的中文字符串: // MuseToast.show / reportError / addError / errors.emit / toast / // fetchModelsError / 各 ChatError.message / 通知文本 / 步骤进度文案 / 导出 markdown 标签等。 // Logger 日志/TAG/LLM 提示词不提取。 // @REFACTOR: 建议拆分的子组件 // - ChatSessionManager: 会话创建/切换/归档逻辑 // - ChatStreamOrchestrator: 流式请求/重连/超时 // - ChatToolDispatcher: ToolCall 路由与执行 // - ChatContextController: 上下文管理与压缩 // - ChatAudioController: TTS/ASR 状态管理 // - ChatErrorHandler: 错误分类与用户提示 /** * v1.131: 剥离 @文档名 标记的正则 — 文件级常量,避免每次 [buildWebSearchQuery] 调用都新建。 * * 用于在 web 搜索前清理 user query 中的 @mention(知识库引用语义), * 防止其污染搜索关键词。 */ private val KNOWLEDGE_MENTION_REGEX = Regex("@[^\\s@]+")</ID>
     <ID>UnusedPrivateProperty:ChatViewModel.kt$ChatViewModel$private val videoGenerationService: io.zer0.ai.video.VideoGenerationService</ID>
     <ID>UnusedPrivateProperty:ChatViewModel.kt$ChatViewModel.Companion$// v1.116 (C1-2): 工具调用循环内 conversationHistory 的工具链部分最大消息条数。 // 超过时丢弃较早的工具调用轮次(保留初始上下文 + 最近工具链)。 private const val MAX_TOOL_CHAIN_MESSAGES = 30</ID>
@@ -2774,35 +2769,22 @@
     <ID>UnusedPrivateProperty:ChatViewModelSessionMismatchTest.kt$ChatViewModelSessionMismatchTest$val stateAfterRollback = viewModel.state.value</ID>
     <ID>UnusedPrivateProperty:ChatViewModelSessionMismatchTest.kt$ChatViewModelSessionMismatchTest$val stateAfterSend = viewModel.state.value</ID>
     <ID>UnusedPrivateProperty:ConversationExporter.kt$ConversationExporter$/** PDF 每页大约保留的行数(用于分页估算,实际以 Y 坐标判断为准)。 */ private const val APPROX_LINES_PER_PAGE = 50</ID>
-    <ID>UnusedPrivateProperty:CoverGenerator.kt$CoverGenerator.Companion$private const val DOWNLOAD_TIMEOUT_MS = 30_000L</ID>
-    <ID>UnusedPrivateProperty:DashScopeAsrClient.kt$DashScopeSession$@Volatile private var closed = false</ID>
     <ID>UnusedPrivateProperty:ExperienceStore.kt$ExperienceStore.Companion$private const val TAG = "ExperienceStore"</ID>
     <ID>UnusedPrivateProperty:GroupChatRepository.kt$GroupChatRepository$private val assistantRepository: AssistantRepository</ID>
     <ID>UnusedPrivateProperty:GroupChatScheduler.kt$GroupChatScheduler.Companion$/** v1.97: 单成员最大调用次数(含决策修复重试),防死循环。 */ private const val MAX_INVOCATIONS_PER_MEMBER = 2</ID>
     <ID>UnusedPrivateProperty:InputBar.kt$/** v1.0.72: 输入岛底部悬浮间距(dp)。 */ private val InputIslandBottomGap = 10.dp</ID>
-    <ID>UnusedPrivateProperty:InputBarExtras.kt$val newH = (h * scale).toInt().coerceAtLeast(1)</ID>
-    <ID>UnusedPrivateProperty:InputBarExtras.kt$val newW = (w * scale).toInt().coerceAtLeast(1)</ID>
-    <ID>UnusedPrivateProperty:JsSandbox.kt$JsSandbox$/** 注入 JS 桥接对象的名称(未使用 addJavascriptInterface,留作扩展)。 */ private const val BRIDGE_NAME = "KtSandbox"</ID>
     <ID>UnusedPrivateProperty:KeyRouletteTest.kt$KeyRouletteTest$val b1 = roulette.pick("provider-B", multiKeys)</ID>
     <ID>UnusedPrivateProperty:LocalAnalyticsTracker.kt$LocalAnalyticsTracker.Companion$private const val TAG = "Analytics"</ID>
-    <ID>UnusedPrivateProperty:LorebookScreen.kt$val backCd = stringResource(R.string.lorebook_back_cd)</ID>
     <ID>UnusedPrivateProperty:MainActivity.kt$val chatPreferences by settings.chatPreferencesFlow.collectAsStateWithLifecycle( initialValue = ChatPreferences(), )</ID>
     <ID>UnusedPrivateProperty:MainActivity.kt$val providers by settings.providersFlow.collectAsStateWithLifecycle(initialValue = emptyList())</ID>
     <ID>UnusedPrivateProperty:MainActivity.kt$val scope = rememberCoroutineScope()</ID>
-    <ID>UnusedPrivateProperty:MediaSettingsPage.kt$val fetchLabel = stringResource(R.string.settings_media_tts_voice_fetch)</ID>
-    <ID>UnusedPrivateProperty:MediaSettingsPage.kt$val fetchingLabel = stringResource(R.string.settings_media_tts_voice_fetching)</ID>
     <ID>UnusedPrivateProperty:MemoryViewModel.kt$MemoryViewModel$/** v1.0.72: 注入 ChatService 用于 LLM 合并重复记忆。 */ private val chatService: io.zer0.ai.ChatService</ID>
-    <ID>UnusedPrivateProperty:MiniPhoneScreen.kt$val context = LocalContext.current</ID>
-    <ID>UnusedPrivateProperty:MiniPhoneScreen.kt$val conversations = remember(sessions, searchQuery) { sessions .filter { !it.archived } .filter { searchQuery.isBlank() || it.title.contains(searchQuery, ignoreCase = true) || it.lastMessagePreview.contains(searchQuery, ignoreCase = true) } .sortedByDescending { it.updatedAt } }</ID>
     <ID>UnusedPrivateProperty:MomentScheduler.kt$MomentScheduler.Companion$private const val TAG_C = "MomentScheduler"</ID>
     <ID>UnusedPrivateProperty:MomentViewModel.kt$MomentViewModel$private val chatService: ChatService?</ID>
     <ID>UnusedPrivateProperty:MuseApp.kt$MuseApp$private val webSearchService: WebSearchService by inject()</ID>
-    <ID>UnusedPrivateProperty:OpenAiRealtimeAsrClient.kt$RealtimeSession$@Volatile private var closed = false</ID>
     <ID>UnusedPrivateProperty:OpenAiWhisperAsrClient.kt$OpenAiWhisperAsrController$private val json = Json { ignoreUnknownKeys = true }</ID>
     <ID>UnusedPrivateProperty:PdfVisionParser.kt$PdfVisionParser$private val context: Context</ID>
     <ID>UnusedPrivateProperty:ProactiveScoreEngine.kt$ProactiveScoreEngine.Companion$private const val MAX_DAILY_MESSAGES = 3</ID>
-    <ID>UnusedPrivateProperty:PromptInjectionScreen.kt$val backCd = stringResource(R.string.prompt_injection_back_cd)</ID>
-    <ID>UnusedPrivateProperty:QuickMessageScreen.kt$val backCd = stringResource(R.string.quick_msg_back_cd)</ID>
     <ID>UnusedPrivateProperty:SessionFileManager.kt$SessionFileManager$private val json = Json { ignoreUnknownKeys = true encodeDefaults = true }</ID>
     <ID>UnusedPrivateProperty:SessionFileManager.kt$SessionFileManager.Companion$private const val TAG = "SessionFileManager"</ID>
     <ID>UnusedPrivateProperty:SessionRepository.kt$SessionRepository.Companion$/** 首条 user 消息自动命名时取内容前缀长度。 */ private const val AUTO_TITLE_LENGTH = 20</ID>

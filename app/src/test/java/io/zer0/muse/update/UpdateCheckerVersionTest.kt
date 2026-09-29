@@ -140,4 +140,32 @@ class UpdateCheckerVersionTest {
         val cached = "v1.0.71"
         assertTrue("存在新版本时应显示 Banner", UpdateChecker.compareVersions(current, cached) < 0)
     }
+
+    @Test
+    fun `manual update result distinguishes new version from current version`() {
+        val release = UpdateChecker.ReleaseInfo(
+            tagName = "v2.4.0",
+            name = "Muse v2.4.0",
+            body = "",
+            htmlUrl = "https://github.com/Zer0Qing/Muse/releases/tag/v2.4.0",
+            publishedAt = 0L,
+            apkAssets = emptyList(),
+        )
+        assertEquals(
+            UpdateCheckResult.NewVersion(release),
+            classifyUpdateResult("2.3.1", io.zer0.common.Result.Success(release)),
+        )
+        assertEquals(
+            UpdateCheckResult.UpToDate,
+            classifyUpdateResult("2.4.0", io.zer0.common.Result.Success(release)),
+        )
+    }
+
+    @Test
+    fun `manual update failure remains failure instead of up to date`() {
+        assertEquals(
+            UpdateCheckResult.Failed("network unavailable"),
+            classifyUpdateResult("2.3.1", io.zer0.common.Result.Error("network unavailable")),
+        )
+    }
 }

@@ -405,8 +405,6 @@ private fun scaleBitmapToMaxSide(src: Bitmap, maxSide: Int): Bitmap {
     val longSide = maxOf(w, h)
     if (longSide <= maxSide) return src
     val scale = maxSide.toFloat() / longSide
-    val newW = (w * scale).toInt().coerceAtLeast(1)
-    val newH = (h * scale).toInt().coerceAtLeast(1)
     val matrix = Matrix().apply { setScale(scale, scale) }
     return Bitmap.createBitmap(src, 0, 0, w, h, matrix, true)
 }

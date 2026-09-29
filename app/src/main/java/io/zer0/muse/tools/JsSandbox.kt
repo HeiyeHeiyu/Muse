@@ -52,9 +52,6 @@ object JsSandbox {
 
     private const val TAG = "JsSandbox"
 
-    /** 注入 JS 桥接对象的名称(未使用 addJavascriptInterface,留作扩展)。 */
-    private const val BRIDGE_NAME = "KtSandbox"
-
     /** 当前执行的插件 id（用于 host.getConfig 查找配置）。 */
     @Volatile private var currentPluginId: String? = null
 

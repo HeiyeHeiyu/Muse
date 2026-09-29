@@ -306,7 +306,6 @@ private fun PromptInjectionEditPage(
 
     // i18n: 预提取字符串资源,避免在 onClick 等非 Composable lambda 内调用 stringResource
     val unnamedText = stringResource(R.string.prompt_injection_unnamed)
-    val backCd = stringResource(R.string.prompt_injection_back_cd)
     val saveText = stringResource(R.string.prompt_injection_save)
     val newTitleText = stringResource(R.string.prompt_injection_new_title)
     val editTitleText = stringResource(R.string.prompt_injection_edit_title)

@@ -288,7 +288,7 @@
         <error line="96" column="40" source="standard:discouraged-comment-location" />
     </file>
     <file name="src/main/java/io/zer0/muse/tools/JsSandbox.kt">
-        <error line="288" column="1" source="standard:max-line-length" />
+        <error line="285" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/tools/PhoneToolsImpl.kt">
         <error line="352" column="1" source="standard:max-line-length" />
@@ -379,10 +379,10 @@
         <error line="1375" column="28" source="standard:function-naming" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/ChatScreen.kt">
-        <error line="1915" column="1" source="standard:max-line-length" />
-        <error line="1957" column="1" source="standard:max-line-length" />
-        <error line="2028" column="1" source="standard:max-line-length" />
-        <error line="2063" column="1" source="standard:max-line-length" />
+        <error line="1905" column="1" source="standard:max-line-length" />
+        <error line="1947" column="1" source="standard:max-line-length" />
+        <error line="2018" column="1" source="standard:max-line-length" />
+        <error line="2053" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/ChatViewModel.kt">
         <error line="3" column="1" source="standard:import-ordering" />
@@ -461,22 +461,22 @@
         <error line="1" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/SettingsScreen.kt">
-        <error line="303" column="1" source="standard:max-line-length" />
-        <error line="311" column="1" source="standard:max-line-length" />
-        <error line="319" column="1" source="standard:max-line-length" />
-        <error line="378" column="1" source="standard:max-line-length" />
-        <error line="386" column="1" source="standard:max-line-length" />
-        <error line="395" column="1" source="standard:max-line-length" />
-        <error line="403" column="1" source="standard:max-line-length" />
-        <error line="480" column="1" source="standard:max-line-length" />
-        <error line="496" column="1" source="standard:max-line-length" />
-        <error line="521" column="1" source="standard:max-line-length" />
-        <error line="529" column="1" source="standard:max-line-length" />
-        <error line="547" column="1" source="standard:max-line-length" />
-        <error line="555" column="1" source="standard:max-line-length" />
-        <error line="563" column="1" source="standard:max-line-length" />
-        <error line="581" column="1" source="standard:max-line-length" />
-        <error line="605" column="1" source="standard:max-line-length" />
+        <error line="307" column="1" source="standard:max-line-length" />
+        <error line="315" column="1" source="standard:max-line-length" />
+        <error line="323" column="1" source="standard:max-line-length" />
+        <error line="382" column="1" source="standard:max-line-length" />
+        <error line="390" column="1" source="standard:max-line-length" />
+        <error line="399" column="1" source="standard:max-line-length" />
+        <error line="407" column="1" source="standard:max-line-length" />
+        <error line="484" column="1" source="standard:max-line-length" />
+        <error line="500" column="1" source="standard:max-line-length" />
+        <error line="525" column="1" source="standard:max-line-length" />
+        <error line="533" column="1" source="standard:max-line-length" />
+        <error line="551" column="1" source="standard:max-line-length" />
+        <error line="559" column="1" source="standard:max-line-length" />
+        <error line="567" column="1" source="standard:max-line-length" />
+        <error line="585" column="1" source="standard:max-line-length" />
+        <error line="609" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/SkillScreen.kt">
         <error line="106" column="29" source="standard:property-naming" />
@@ -573,8 +573,7 @@
         <error line="103" column="89" source="standard:discouraged-comment-location" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/moment/MiniPhoneScreen.kt">
-        <error line="157" column="1" source="standard:max-line-length" />
-        <error line="166" column="1" source="standard:max-line-length" />
+        <error line="154" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/moment/MiniWeatherScreen.kt">
         <error line="442" column="1" source="standard:max-line-length" />
@@ -605,15 +604,15 @@
         <error line="1384" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/settings/ChatSettingsPage.kt">
-        <error line="683" column="41" source="standard:discouraged-comment-location" />
-        <error line="948" column="1" source="standard:max-line-length" />
-        <error line="1297" column="1" source="standard:max-line-length" />
+        <error line="681" column="41" source="standard:discouraged-comment-location" />
+        <error line="946" column="1" source="standard:max-line-length" />
+        <error line="1295" column="1" source="standard:max-line-length" />
+        <error line="1686" column="37" source="standard:discouraged-comment-location" />
+        <error line="1687" column="37" source="standard:discouraged-comment-location" />
         <error line="1688" column="37" source="standard:discouraged-comment-location" />
         <error line="1689" column="37" source="standard:discouraged-comment-location" />
         <error line="1690" column="37" source="standard:discouraged-comment-location" />
         <error line="1691" column="37" source="standard:discouraged-comment-location" />
-        <error line="1692" column="37" source="standard:discouraged-comment-location" />
-        <error line="1693" column="37" source="standard:discouraged-comment-location" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/settings/CloudBackupPage.kt">
         <error line="518" column="41" source="standard:discouraged-comment-location" />
@@ -811,6 +810,6 @@
         <error line="9" column="9" source="standard:function-naming" />
     </file>
     <file name="src/test/java/io/zer0/muse/transformer/TransformerPipelineTest.kt">
-        <error line="451" column="39" source="standard:discouraged-comment-location" />
+        <error line="448" column="39" source="standard:discouraged-comment-location" />
     </file>
 </baseline>

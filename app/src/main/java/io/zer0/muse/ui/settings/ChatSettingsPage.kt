@@ -124,8 +124,6 @@ fun ChatSettingsPage(
     // v1.0.47 P5-3: Token 估算开关(默认关闭,实验性,避免 BPE 性能开销)
     val tokenEstimateEnabled by settings.tokenEstimateEnabledFlow
         .collectAsStateWithLifecycle(initialValue = false)
-    val providers by settings.providersFlow.collectAsStateWithLifecycle(initialValue = emptyList())
-    val activeProviderId by settings.activeProviderIdFlow.collectAsStateWithLifecycle(initialValue = null)
     val customTitlePrompt by settings.customTitlePromptFlow.collectAsStateWithLifecycle(initialValue = null)
     val pasteAsFileThreshold by settings.pasteAsFileThresholdFlow.collectAsStateWithLifecycle(initialValue = 2000)
     var showTitlePromptDialog by remember { mutableStateOf(false) }

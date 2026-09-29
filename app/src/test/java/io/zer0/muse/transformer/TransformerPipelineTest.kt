@@ -7,8 +7,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
 
 /**
  * TransformerPipeline 管道执行器单元测试。
@@ -16,7 +14,6 @@ import org.robolectric.RobolectricTestRunner
  * 测试管道串联、空管道、容错行为,以及三个钩子(execute/visualTransform/onGenerationFinish)
  * 的覆盖与异常重抛语义(H-PIPE1 CancellationException / M-PIPE2 Error)。
  */
-@RunWith(RobolectricTestRunner::class)
 class TransformerPipelineTest {
 
     // A transformer that prepends a fixed string

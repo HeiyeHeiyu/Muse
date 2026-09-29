@@ -821,16 +821,6 @@ fun ChatScreen(
                 .firstOrNull { it.id == state.activeProviderId }?.models
                 ?.firstOrNull { it.id == state.selectedModelId }?.name
         }
-    // Phase 6: 助手模型指示器 — 解析当前助手绑定的模型简称,用于顶部栏 badge
-    val assistantModelShortName =
-        remember(state.currentAssistant, state.providers) {
-            state.currentAssistant?.modelId?.let { modelId ->
-                state.providers.flatMap { it.models }
-                    .firstOrNull { it.id == modelId }?.name
-                    ?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
-                    ?: modelId
-            }
-        }
     val assistantDisplayName = state.currentAssistant?.name?.takeIf { it.isNotBlank() }
     val displayModelName =
         if (state.currentAssistant?.useAssistantName == true) {

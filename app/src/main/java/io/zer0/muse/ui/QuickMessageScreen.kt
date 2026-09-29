@@ -305,7 +305,6 @@ private fun QuickMessageEditPage(
 
     // i18n: 预提取字符串资源,避免在 onClick 等非 Composable lambda 内调用 stringResource
     val unnamedText = stringResource(R.string.quick_msg_unnamed)
-    val backCd = stringResource(R.string.quick_msg_back_cd)
     val saveText = stringResource(R.string.quick_msg_save)
     val newTitleText = stringResource(R.string.quick_msg_new_title)
     val editTitleText = stringResource(R.string.quick_msg_edit_title)

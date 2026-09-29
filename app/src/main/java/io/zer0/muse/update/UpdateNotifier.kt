@@ -12,8 +12,10 @@ import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.notification.MuseNotificationManager
 import io.zer0.muse.notification.MuseNotificationTarget
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import java.io.IOException
 
 /**
  * 应用更新通知器 — 协调 [UpdateChecker] 与 [SettingsRepository]/[MuseNotificationManager]。
@@ -31,6 +33,25 @@ import kotlinx.coroutines.flow.first
  * @param settings 全局配置仓库
  * @param checker GitHub Releases 检查器
  */
+sealed interface UpdateCheckResult {
+    data class NewVersion(val release: UpdateChecker.ReleaseInfo) : UpdateCheckResult
+    data object UpToDate : UpdateCheckResult
+    data class Failed(val message: String) : UpdateCheckResult
+    data object Skipped : UpdateCheckResult
+}
+
+/** 将网络查询结果转换为 UI 可消费的明确状态；纯逻辑便于测试。 */
+internal fun classifyUpdateResult(currentVersion: String, result: io.zer0.common.Result<UpdateChecker.ReleaseInfo>): UpdateCheckResult {
+    val release = result.getOrNull() ?: return UpdateCheckResult.Failed(
+        (result as? io.zer0.common.Result.Error)?.message ?: "unknown",
+    )
+    return if (UpdateChecker.compareVersions(currentVersion, release.tagName) >= 0) {
+        UpdateCheckResult.UpToDate
+    } else {
+        UpdateCheckResult.NewVersion(release)
+    }
+}
+
 class UpdateNotifier(
     private val settings: SettingsRepository,
     private val checker: UpdateChecker,
@@ -42,39 +63,60 @@ class UpdateNotifier(
      * @param context 用于读取 versionName + 发通知
      * @param forceCheck true 时跳过 24 小时间隔检查(用户手动触发时使用)
      */
-    suspend fun checkAndNotify(context: Context, forceCheck: Boolean = false) {
+    suspend fun checkAndNotify(context: Context, forceCheck: Boolean = false): UpdateCheckResult {
         // 用户可在设置中关闭自动检查;手动检查(forceCheck=true)仍允许
         val enabled = settings.updateCheckEnabledFlow.firstSafe() ?: true
-        if (!enabled && !forceCheck) {
+        val allowedByInterval = forceCheck || (enabled && shouldCheck())
+        if (!forceCheck && !enabled) {
             Logger.i(TAG, "update check disabled, skip")
-            return
-        }
-        if (!forceCheck && !shouldCheck()) {
+        } else if (!allowedByInterval) {
             Logger.d(TAG, "update check interval not elapsed, skip")
-            return
         }
+        return if ((!enabled && !forceCheck) || !allowedByInterval) {
+            UpdateCheckResult.Skipped
+        } else {
+            performCheck(context)
+        }
+    }
+
+    /** 两个手动入口共用此方法，统一缓存写入与预期网络/持久化错误映射。 */
+    suspend fun checkManually(context: Context): UpdateCheckResult = try {
+        checkAndNotify(context, forceCheck = true)
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (error: IOException) {
+        Logger.w(TAG, "manual update check failed: ${error.message}", error)
+        UpdateCheckResult.Failed(error.message ?: "network error")
+    }
+
+    private suspend fun performCheck(context: Context): UpdateCheckResult {
         // 记录检查时间(无论是否成功,避免失败时反复重试导致打 GitHub API 频次过高)
         settings.saveLastUpdateCheckTime(System.currentTimeMillis())
-
         val currentVersion = getCurrentVersionName(context)
-        val result = checker.checkLatestRelease()
-        val release = result.getOrNull() ?: run {
-            val errorMsg = (result as? io.zer0.common.Result.Error)?.message ?: "unknown"
-            Logger.w(TAG, "checkLatestRelease failed: $errorMsg")
-            return
+        val outcome = classifyUpdateResult(currentVersion, checker.checkLatestRelease())
+        return when (outcome) {
+            is UpdateCheckResult.Failed -> {
+                Logger.w(TAG, "checkLatestRelease failed: ${outcome.message}")
+                outcome
+            }
+            UpdateCheckResult.Skipped -> outcome
+            UpdateCheckResult.UpToDate -> {
+                // 当前版本 >= 最新版本,清空缓存的 ReleaseInfo(Banner 不再展示)
+                settings.saveLatestReleaseInfo(null)
+                Logger.i(TAG, "already up to date: current=$currentVersion")
+                outcome
+            }
+            is UpdateCheckResult.NewVersion -> {
+                val release = outcome.release
+                Logger.i(TAG, "new version found: current=$currentVersion, latest=${release.tagName}")
+                // 缓存 ReleaseInfo,UI 通过 latestReleaseInfoFlow 渲染 Banner
+                settings.saveLatestReleaseInfo(
+                    AppJson.encodeToString(UpdateChecker.ReleaseInfo.serializer(), release),
+                )
+                notifyNewVersion(context, release)
+                outcome
+            }
         }
-        if (compareVersions(currentVersion, release.tagName) >= 0) {
-            // 当前版本 >= 最新版本,清空缓存的 ReleaseInfo(Banner 不再展示)
-            settings.saveLatestReleaseInfo(null)
-            Logger.i(TAG, "already up to date: current=$currentVersion, latest=${release.tagName}")
-            return
-        }
-        Logger.i(TAG, "new version found: current=$currentVersion, latest=${release.tagName}")
-        // 缓存 ReleaseInfo,UI 通过 latestReleaseInfoFlow 渲染 Banner
-        settings.saveLatestReleaseInfo(
-            AppJson.encodeToString(UpdateChecker.ReleaseInfo.serializer(), release),
-        )
-        notifyNewVersion(context, release)
     }
 
     /**

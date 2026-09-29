@@ -738,8 +738,6 @@ private class RealtimeSession(
 
     private val events = kotlinx.coroutines.channels.Channel<JsonObject>(kotlinx.coroutines.channels.Channel.UNLIMITED)
 
-    @Volatile private var closed = false
-
     /**
      * 任务 1:WebSocket 断线回调(onClosed/onFailure 都会触发)。
      * - code:正常关闭码;[FAILURE_CODE] 表示 onFailure

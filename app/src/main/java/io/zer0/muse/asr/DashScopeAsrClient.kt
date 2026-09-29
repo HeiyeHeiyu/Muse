@@ -760,8 +760,6 @@ internal class DashScopeSession(
 
     private val events = kotlinx.coroutines.channels.Channel<JsonObject>(kotlinx.coroutines.channels.Channel.UNLIMITED)
 
-    @Volatile private var closed = false
-
     /**
      * Phase 3: 断线回调(由 Controller 设置)。
      * - [onFailure]: 连接失败/异常断开;

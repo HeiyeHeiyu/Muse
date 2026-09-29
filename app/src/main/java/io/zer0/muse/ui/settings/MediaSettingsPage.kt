@@ -217,8 +217,6 @@ private fun CloudTtsConfigSection(config: MediaConfig, settings: SettingsReposit
     val scope = rememberCoroutineScope()
     val systemLabel = stringResource(R.string.settings_media_tts_engine_system)
     val savedToast = stringResource(R.string.settings_media_tts_saved)
-    val fetchingLabel = stringResource(R.string.settings_media_tts_voice_fetching)
-    val fetchLabel = stringResource(R.string.settings_media_tts_voice_fetch)
     val fetchFailedLabel = stringResource(R.string.settings_media_tts_voice_fetch_failed)
     val pickLabel = stringResource(R.string.settings_media_tts_voice_pick)
 

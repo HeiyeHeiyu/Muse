@@ -47,7 +47,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -201,8 +200,6 @@ fun ChatListScreen(
         regionName = "list",
         data = { sessions },
     ) {
-        val scope = rememberCoroutineScope()
-
         // v1.69: 文件夹分组 UI — 新建文件夹对话框状态
         var showCreateFolderDialog by remember { mutableStateOf(false) }
         var newFolderName by remember { mutableStateOf("") }

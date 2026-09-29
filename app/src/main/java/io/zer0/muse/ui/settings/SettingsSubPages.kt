@@ -49,7 +49,6 @@ import io.zer0.common.Result
 import io.zer0.common.resultOf
 import io.zer0.muse.BuildConfig
 import io.zer0.muse.R
-import io.zer0.muse.UpdateChecker
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.ui.common.feedback.MuseAlertDialog
@@ -69,6 +68,8 @@ import io.zer0.muse.ui.common.surface.museSafeTopInsetPadding
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
+import io.zer0.muse.update.UpdateCheckResult
+import io.zer0.muse.update.UpdateChecker
 import io.zer0.muse.update.UpdateNotifier
 import io.zer0.muse.util.ShareIntentHelper
 import kotlinx.coroutines.Dispatchers
@@ -605,6 +606,7 @@ fun SettingsAboutPage(
 ) {
     val context = LocalContext.current
     val settings: SettingsRepository = koinInject()
+    val updateNotifier: UpdateNotifier = koinInject()
     val scope = rememberCoroutineScope()
     val updateCheckEnabled by settings.updateCheckEnabledFlow.collectAsStateWithLifecycle(initialValue = true)
     val versionName = remember {
@@ -635,10 +637,9 @@ fun SettingsAboutPage(
         }.getOrNull() ?: 26L
     }
 
-    val updateChecker = remember { UpdateChecker() }
-    // P3-15:更新检查状态
+    // 两个手动更新入口共用同一个 notifier，确保首页 Banner 缓存、通知与检查结果口径一致。
     var checking by remember { mutableStateOf(false) }
-    var newVersion by remember { mutableStateOf<UpdateChecker.Result.NewVersion?>(null) }
+    var newVersion by remember { mutableStateOf<UpdateChecker.ReleaseInfo?>(null) }
     var upToDate by remember { mutableStateOf(false) }
 
     SettingsSubPageScaffold(title = stringResource(R.string.section_about), onBack = onBack) {
@@ -718,14 +719,18 @@ fun SettingsAboutPage(
                     onClick = {
                         checking = true
                         scope.launch {
-                            val result = updateChecker.check(versionName)
-                            checking = false
+                            val result = try {
+                                updateNotifier.checkManually(context)
+                            } finally {
+                                checking = false
+                            }
                             when (result) {
-                                is UpdateChecker.Result.NewVersion -> newVersion = result
-                                is UpdateChecker.Result.UpToDate -> upToDate = true
-                                is UpdateChecker.Result.Error -> MuseToast.show(
+                                is UpdateCheckResult.NewVersion -> newVersion = result.release
+                                UpdateCheckResult.UpToDate -> upToDate = true
+                                is UpdateCheckResult.Failed -> MuseToast.show(
                                     context.getString(R.string.settings_about_update_check_failed, result.message),
                                 )
+                                UpdateCheckResult.Skipped -> Unit
                             }
                         }
                     },
