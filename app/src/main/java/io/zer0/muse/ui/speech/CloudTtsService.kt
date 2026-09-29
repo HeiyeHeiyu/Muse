@@ -239,7 +239,7 @@ class CloudTtsService(
                 "groq" -> synthesizeGroq(text, apiKey, model, voice, endpoint, cloudConfig)
                 "qwen" -> synthesizeQwen(text, apiKey, model, voice, endpoint)
                 "step" -> synthesizeStep(text, apiKey, model, voice, endpoint, cloudConfig)
-                "xai" -> synthesizeXai(text, apiKey, model, voice, endpoint)
+                "xai" -> synthesizeXai(text, apiKey, voice, endpoint)
                 else -> {
                     Logger.w(TAG, "未知 TTS 引擎: $engine")
                     null
@@ -933,7 +933,7 @@ class CloudTtsService(
      * language 按音色名简单推断(含 "zh" → zh-CN,含 "en" → en-US,否则默认 zh-CN)。
      * 若上游接口实际不可用,调用失败后由上层 [synthesizeToFile] 回退系统 TTS。
      */
-    private suspend fun synthesizeXai(text: String, apiKey: String, model: String, voice: String, endpoint: String): ByteArray {
+    private suspend fun synthesizeXai(text: String, apiKey: String, voice: String, endpoint: String): ByteArray {
         val baseUrl = endpoint.ifBlank { XAI_DEFAULT_ENDPOINT }
         val voiceName = voice.ifBlank { XAI_DEFAULT_VOICE }
         val language = when {

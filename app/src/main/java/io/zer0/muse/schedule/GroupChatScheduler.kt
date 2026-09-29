@@ -765,7 +765,6 @@ class GroupChatScheduler(
 
                 val summarizer = summarizerId?.let { id -> assistants.find { it.id == id } }
                     ?: assistants.first()
-                val memberNames = assistants.map { it.name }
                 // v1.0.29: invokeAgentForSummary 内部通过 resolveAssistantModel 解析助手专属模型
 
                 _activeGroupGeneration.value = ActiveGroupGeneration(
@@ -778,7 +777,7 @@ class GroupChatScheduler(
                 // v1.0.29: 前台服务通知由 MuseApp ON_STOP 统一管理
 
                 val recentMessages = groupChatRepository.getRecentMessages(chatId, DEFAULT_CONTEXT_SIZE)
-                val summary = invokeAgentForSummary(chat, summarizer, memberNames, recentMessages)
+                val summary = invokeAgentForSummary(chat, summarizer, recentMessages)
                 if (summary.isNotBlank()) {
                     groupChatRepository.sendMessage(
                         chatId = chatId,
@@ -879,8 +878,7 @@ class GroupChatScheduler(
                 }
 
                 // 2. 触发目标 AI 回复(也是悄悄话)
-                val recentMessages = groupChatRepository.getRecentMessages(chatId, DEFAULT_CONTEXT_SIZE)
-                val messages = buildWhisperMessages(chat.name, assistant, memberNames, recentMessages, text)
+                val messages = buildWhisperMessages(chat.name, assistant, memberNames, text)
                 val temperature = assistant.temperature ?: DEFAULT_TEMPERATURE
                 val maxTokens = assistant.maxTokens ?: DEFAULT_MAX_TOKENS
 
@@ -1049,7 +1047,6 @@ class GroupChatScheduler(
     private suspend fun invokeAgentForSummary(
         chat: GroupChatEntity,
         summarizer: AssistantEntity,
-        memberNames: List<String>,
         recentMessages: List<GroupChatMessageEntity>,
     ): String {
         // v1.0.29: per-assistant 模型解析
@@ -1113,7 +1110,6 @@ class GroupChatScheduler(
         chatName: String,
         assistant: AssistantEntity,
         memberNames: List<String>,
-        recentMessages: List<GroupChatMessageEntity>,
         whisperText: String,
     ): List<UIMessage> {
         val systemContent = buildString {
@@ -1875,7 +1871,7 @@ class GroupChatScheduler(
         val recentMessages = groupChatRepository.getRecentMessages(chatId, contextSize)
 
         val messages = buildDebateMessages(
-            chat.name, chatId, assistant, memberNames, recentMessages, model,
+            chat.name, chatId, assistant, memberNames, recentMessages,
             role, speakerIndex, totalSpeakers, previousReply, isRepair,
         )
 
@@ -1995,7 +1991,6 @@ class GroupChatScheduler(
         assistant: AssistantEntity,
         memberNames: List<String>,
         recentMessages: List<GroupChatMessageEntity>,
-        model: io.zer0.ai.core.Model?,
         role: String,
         speakerIndex: Int,
         totalSpeakers: Int,

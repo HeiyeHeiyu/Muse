@@ -1807,9 +1807,7 @@ fun ChatScreen(
                                         val showDateSeparator =
                                             prevMsg != null &&
                                                 !isSameDay(prevMsg.createdAt, msg.createdAt)
-                                        // v1.100: 用 derivedStateOf 收窄 state 读取范围,避免每次 messages 变化
-                                        // 都重新计算所有可见 item 的 isLast。只有最后一条消息变化时才重组。
-                                        // v1.0.4 (P3-4): isLast 基于 visibleMessages,性能模式下指"已渲染列表的最后一条"
+                                        // 消息项动画、最后一条 assistant 工具与 debug 状态共用可见列表末项判断。
                                         val isLast = msg.id == visibleMessages.lastOrNull()?.id
                                         // 最后一条用户提问：控制 user 消息底部的重roll按钮。
                                         // 即使 AI 报错生成了失败的 assistant 消息，只要这条 user 仍是最后提问，
@@ -2051,8 +2049,6 @@ fun ChatScreen(
                                                     null
                                                 },
                                                 visionAssisted = if (msg.role == MessageRole.USER) msg.id.toString() in state.visionAssistedMessageIds else false,
-                                                // v1.0.53: 最后一条标记 + 分支切换数据
-                                                isLast = isLast,
                                                 isLastUserMessage = isLastUserMessage,
                                                 branchIndex = branchInfo?.selectIndex ?: 0,
                                                 branchCount = branchInfo?.branchCount ?: 1,

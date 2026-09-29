@@ -143,7 +143,7 @@ class HnswVectorIndex(
         for (layer in startLayer downTo 0) {
             val candidates = searchLayer(vector, listOf(cur), layer, efConstruction)
                 .filter { it.second != newIndex } // 排除自己
-            val selected = selectNeighborsHeuristic(vector, candidates, M)
+            val selected = selectNeighborsHeuristic(candidates, M)
             for ((_, neighborIdx) in selected) {
                 if (neighborIdx == newIndex) continue
                 node.connections[layer].add(neighborIdx)
@@ -154,7 +154,7 @@ class HnswVectorIndex(
                 if (neighbor.connections[layer].size > mMax) {
                     val neighborCandidates = neighbor.connections[layer]
                         .map { idx -> distance(neighbor.vector, nodes[idx].vector) to idx }
-                    val pruned = selectNeighborsHeuristic(neighbor.vector, neighborCandidates, mMax)
+                    val pruned = selectNeighborsHeuristic(neighborCandidates, mMax)
                     neighbor.connections[layer].clear()
                     neighbor.connections[layer].addAll(pruned.map { it.second })
                 }
@@ -288,7 +288,7 @@ class HnswVectorIndex(
      * 比 e 到 query 的距离更近,则跳过 e(避免聚集)。
      * 若启发式过滤后不足 m,补满(允许非启发式选入)。
      */
-    private fun selectNeighborsHeuristic(query: FloatArray, candidates: List<Pair<Float, Int>>, m: Int): List<Pair<Float, Int>> {
+    private fun selectNeighborsHeuristic(candidates: List<Pair<Float, Int>>, m: Int): List<Pair<Float, Int>> {
         if (candidates.isEmpty()) return emptyList()
         val sorted = candidates.sortedBy { it.first } // 升序:距离 query 最近的在前
         val result = mutableListOf<Pair<Float, Int>>()

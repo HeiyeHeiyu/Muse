@@ -63,7 +63,7 @@ private fun attemptSettings(ctx: Context, candidates: List<ComponentName>, fallb
 }
 
 /** 检测当前设备厂商并返回对应引导。 */
-fun detectKeepAliveGuide(context: Context): KeepAliveGuide {
+fun detectKeepAliveGuide(): KeepAliveGuide {
     val manufacturer = Build.MANUFACTURER.lowercase()
     val fallbackToDetails: (Context) -> Boolean = { ctx ->
         runCatching {
@@ -238,7 +238,4 @@ fun KeepAliveGuideDialog(onDismiss: () -> Unit, modifier: Modifier = Modifier) {
 
 /** 记住厂商检测结果(进程内只检测一次)。 */
 @Composable
-private fun rememberKeepAliveGuide(): KeepAliveGuide {
-    val context = LocalContext.current
-    return androidx.compose.runtime.remember { detectKeepAliveGuide(context) }
-}
+private fun rememberKeepAliveGuide(): KeepAliveGuide = androidx.compose.runtime.remember { detectKeepAliveGuide() }

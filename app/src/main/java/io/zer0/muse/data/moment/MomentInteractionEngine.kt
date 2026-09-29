@@ -65,7 +65,6 @@ class MomentInteractionEngine(
             runInteraction(
                 moment = moment,
                 author = null, // 用户发布,author 为 null
-                isUserComment = false, // 不是评论场景
                 source = source,
             )
         }
@@ -92,7 +91,6 @@ class MomentInteractionEngine(
             runInteraction(
                 moment = moment,
                 author = author,
-                isUserComment = false,
                 source = "assistant_publish",
             )
         }
@@ -172,12 +170,7 @@ class MomentInteractionEngine(
     // ─────────────────────────────────────────────────────────────────────────
 
     /** 核心互动逻辑:点赞 + 评论(异步,有随机延迟)。 */
-    private suspend fun runInteraction(
-        moment: MomentEntity,
-        author: io.zer0.muse.data.assistant.AssistantEntity?,
-        isUserComment: Boolean,
-        source: String,
-    ) {
+    private suspend fun runInteraction(moment: MomentEntity, author: io.zer0.muse.data.assistant.AssistantEntity?, source: String) {
         // 防重复:同一动态已互动过则跳过
         if (!interactedMomentIds.add(moment.id)) {
             Logger.d(TAG, "动态 $moment.id 已互动过,跳过 [$source]")
@@ -274,9 +267,7 @@ class MomentInteractionEngine(
         val author = resultOf { assistantRepository.getById(authorId) }.getOrNull()
             ?: return null // 作者不存在,无法回复
 
-        // 防死循环:只处理"用户主动评论",助手回复不触发新回复
-        // (由调用方保证 isUserComment=true,此处不重复检查)
-
+        // 防死循环:只处理用户主动评论,助手回复不会重新触发互动管线。
         val images = moment.images().take(4)
         val reply = resultOf {
             generator.generateReply(

@@ -911,7 +911,6 @@ fun GroupChatDetailScreen(
                 onPickPromptTemplate = { showPromptTemplateSheet = true },
                 // v1.0.72: 媒体区参数
                 hasGalleryPermission = hasGalleryPermission,
-                galleryPermission = galleryPermission,
                 onRequestGalleryPermission = { galleryPermissionLauncher.launch(galleryPermission) },
                 onPickGalleryImage = { uri -> loadUriToPending(uri) },
                 onCaptureImage = { startCameraCapture() },

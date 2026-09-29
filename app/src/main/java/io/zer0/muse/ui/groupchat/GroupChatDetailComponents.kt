@@ -1132,7 +1132,6 @@ internal fun GroupChatToolSheet(
     onPickPromptTemplate: () -> Unit,
     // v1.0.72: 媒体区(相机 + 相册)
     hasGalleryPermission: Boolean = false,
-    galleryPermission: String = android.Manifest.permission.READ_MEDIA_IMAGES,
     onRequestGalleryPermission: () -> Unit = {},
     onPickGalleryImage: (Uri) -> Unit = {},
     onCaptureImage: () -> Unit = {},

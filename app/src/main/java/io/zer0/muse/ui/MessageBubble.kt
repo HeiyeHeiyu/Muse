@@ -162,11 +162,8 @@ internal fun MessageBubble(
      * 非 null 时译文气泡下方显示"查看原文"折叠,展开可对照原文。
      */
     translationSourceContent: String? = null,
-    // v1.0.53: 是否为会话最后一条消息(快捷菜单/分支切换用)
-    isLast: Boolean = false,
     /**
-     * 是否为最后一条用户提问。
-     * 与 [isLast] 独立：AI 报错生成失败/空 assistant 消息后，最后一条消息是 assistant，
+     * 是否为最后一条用户提问。AI 报错生成失败/空 assistant 消息后，最后一条消息可能是 assistant，
      * 但这条 user 仍是最后提问，重roll按钮必须继续显示，用户不用删掉重发。
      */
     isLastUserMessage: Boolean = false,
@@ -212,7 +209,7 @@ internal fun MessageBubble(
     onDeleteMessage: () -> Unit = {},
     /** U-16: 删除此消息及其后全部消息(文档 §4「连同后续删除」)。 */
     onDeleteWithFollowing: () -> Unit = {},
-    // v0.29 P0-4: AI 消息底部显示模型名 + token 估算(为 null 时不显示)
+    // v0.29 P0-4: AI 消息底部显示模型名 + token 估算。
     modelName: String? = null,
     // v0.31: 聊天行为偏好(控制 MOOD/思考过程/token/模型名/时间戳显示)
     chatPrefs: io.zer0.muse.data.ChatPreferences = io.zer0.muse.data.ChatPreferences(),
@@ -1555,6 +1552,14 @@ internal fun MessageBubble(
                             iconSize = MuseIconSizes.iconSmall,
                         )
                     }
+                }
+                if (!isUser && chatPrefs.showModelName && !modelName.isNullOrBlank()) {
+                    Text(
+                        text = modelName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                    )
                 }
                 // P1 UI: Token 统计独立一行(快捷按钮下方,不再挤占按钮行)
                 if (!isUser && tokenStats != null) {

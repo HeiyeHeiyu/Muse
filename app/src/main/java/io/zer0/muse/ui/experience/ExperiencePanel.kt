@@ -154,7 +154,6 @@ fun ExperiencePanel(
     // 新增对话框
     if (showAddDialog) {
         AddExperienceDialog(
-            categories = categories,
             onDismiss = { showAddDialog = false },
             onConfirm = { cat, content ->
                 onAdd(cat, content)
@@ -222,7 +221,7 @@ private fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit) 
 }
 
 @Composable
-private fun AddExperienceDialog(categories: List<String>, onDismiss: () -> Unit, onConfirm: (category: String, content: String) -> Unit) {
+private fun AddExperienceDialog(onDismiss: () -> Unit, onConfirm: (category: String, content: String) -> Unit) {
     var category by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
 
