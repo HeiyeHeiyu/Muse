@@ -206,7 +206,8 @@ android {
         abi {
             isEnable = true
             reset()
-            include("arm64-v8a", "armeabi-v7a")
+            // P0 打样：追加 x86_64（本地模拟器验证内置运行时）；发布前评估是否保留
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
             // 日常验证用 -PnoUniversal 跳过 169MB 的 universal 包，只打 ABI 分包
             isUniversalApk = providers.gradleProperty("noUniversal").isPresent.not()
         }
@@ -227,6 +228,26 @@ android {
     }
 
     packaging {
+        // P0 内置运行时：native 库保持解压落盘（extractNativeLibs=true），
+        // 使沙盒可从 nativeLibraryDir 直接 exec 内置 Node 运行时（libmuse_node.so）
+        jniLibs {
+            useLegacyPackaging = true
+            // 内置运行时二进制经 patchelf 重写过段布局，且已在 Termux 侧 strip 过；
+            // 必须跳过 AGP 的 llvm-strip：对 patchelf 产物再 strip 会破坏段/程序头
+            // 对应关系，导致执行时 SIGSEGV（已实测复现）。
+            keepDebugSymbols += listOf(
+                "**/libmuse_node.so",
+                "**/libc++_shared.so",
+                "**/libssl.so",
+                "**/libcrypto.so",
+                "**/libcares.so",
+                "**/libicui18n.so",
+                "**/libicuuc.so",
+                "**/libicudata.so",
+                "**/libsqlite3.so",
+                "**/libz.so",
+            )
+        }
         resources {
             excludes +=
                 listOf(

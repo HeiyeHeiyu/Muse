@@ -46,6 +46,8 @@ class ToolRegistrarBootstrapper(
     connectorToolsRegistrar: ConnectorToolsRegistrar,
     // v2.0.1: 插件市场工具(检索 / 审批安装)
     pluginMarketToolsRegistrar: PluginMarketToolsRegistrar,
+    // v2.x 扩展运行时(P0):内置 Node 沙盒自检(只读)
+    runtimeSelfCheckToolRegistrar: RuntimeSelfCheckToolRegistrar,
 ) {
     init {
         Logger.i(

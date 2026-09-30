@@ -360,6 +360,14 @@ val appModule = module {
         )
     }
 
+    // v2.x 扩展运行时(P0):内置 Node 沙盒自检注册器(runtime_selfcheck,只读)
+    single {
+        io.zer0.muse.tools.RuntimeSelfCheckToolRegistrar(
+            get(),
+            androidContext(),
+        )
+    }
+
     // P3-3: 无障碍 + Shizuku + Root 三通道路由 — UI 自动化能力底座
     // AccessibilityClient: bindService 绑定无障碍服务,提供 UI 操作 AIDL 代理
     single { io.zer0.muse.tools.system.AccessibilityClient(androidContext()) }
@@ -430,6 +438,8 @@ val appModule = module {
             connectorToolsRegistrar = get(),
             // v2.0.1: 插件市场工具(检索 / 审批安装)
             pluginMarketToolsRegistrar = get(),
+            // v2.x 扩展运行时(P0):内置 Node 沙盒自检
+            runtimeSelfCheckToolRegistrar = get(),
         )
     }
 

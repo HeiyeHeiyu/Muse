@@ -649,6 +649,8 @@ class ToolRegistry(
                 "ui_agent",
                 // v2.0: Root-level system tools
                 "settings_get", "settings_put", "am_start", "list_packages", "logcat_tail", "input_inject",
+                // v2.x 扩展运行时(P0):内置 Node 沙盒自检(只读,验证入口)
+                "runtime_selfcheck",
             )
 
         /**

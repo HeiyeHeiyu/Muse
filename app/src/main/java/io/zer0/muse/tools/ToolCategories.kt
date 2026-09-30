@@ -42,6 +42,8 @@ object ToolCategories {
             "clipboard_read",
             // v2.x: 通道状态自查 — 只读安全,提进 STANDARD 恒可见(否则"需要它时恰恰被 GLOBAL 收窄挡住")
             "screen_permission_status",
+            // v2.x 扩展运行时(P0):内置 Node 沙盒自检 — 只读状态自查,恒可见
+            "runtime_selfcheck",
         )
 
     /** 用户可在设置→工具 开关。 */

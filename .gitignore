@@ -69,3 +69,7 @@ docs/assets/readme/preview-*.png
 # CMake 构建产物(终端二期原生构建)
 .cxx/
 **/.cxx/
+
+# P0 内置运行时产物(由 tools/runtime-pack 脚本生成；分发走独立资产渠道,不入库)
+app/src/main/jniLibs/
+app/src/main/assets/muse-runtime-assets.zip
