@@ -280,6 +280,26 @@ class AutomationManager(
      */
     @Suppress("ReturnCount") // Bounded retry loop has explicit success, verification, and channel-failure exits.
     suspend fun tapByTextWithRetry(text: String, exact: Boolean = false, maxSwipes: Int = 0, verifyText: String? = null): Boolean {
+        return tapByTextWithRetryDetailed(text, exact, maxSwipes, verifyText).success
+    }
+
+    /** 语义点击的结构化结果，供工具编排与 UI 审计使用。 */
+    data class TextActionResult(
+        val success: Boolean,
+        val attempts: Int,
+        val matched: Boolean,
+        val verified: Boolean,
+        val matchedLabel: String? = null,
+    )
+
+    /** 与 [tapByTextWithRetry] 相同的动作，但保留观察/验证细节。 */
+    @Suppress("ReturnCount") // Each exit represents a distinct observable action outcome.
+    suspend fun tapByTextWithRetryDetailed(
+        text: String,
+        exact: Boolean = false,
+        maxSwipes: Int = 0,
+        verifyText: String? = null,
+    ): TextActionResult {
         val attempts = maxSwipes.coerceIn(0, 5)
         repeat(attempts + 1) { attempt ->
             val screen = readScreen()
@@ -288,23 +308,30 @@ class AutomationManager(
                 if (exact) label == text else label.contains(text, ignoreCase = true)
             }
             if (node != null && tap(node.centerX, node.centerY)) {
-                if (verifyText.isNullOrBlank()) return true
+                val matchedLabel = node.text ?: node.contentDescription
+                if (verifyText.isNullOrBlank()) {
+                    return TextActionResult(true, attempt + 1, matched = true, verified = true, matchedLabel)
+                }
                 kotlinx.coroutines.delay(350L)
                 val verified = readScreen().nodes.any { n ->
                     val label = n.text ?: n.contentDescription ?: return@any false
                     label.contains(verifyText, ignoreCase = true)
                 }
-                if (verified) return true
+                if (verified) {
+                    return TextActionResult(true, attempt + 1, matched = true, verified = true, matchedLabel)
+                }
             }
             if (attempt < attempts && screen.screenHeight > 0) {
                 val centerX = screen.screenWidth / 2
                 val bottom = (screen.screenHeight * 0.82f).toInt()
                 val top = (screen.screenHeight * 0.28f).toInt()
-                if (!swipe(centerX, bottom, centerX, top, 450L)) return false
+                if (!swipe(centerX, bottom, centerX, top, 450L)) {
+                    return TextActionResult(false, attempt + 1, matched = node != null, verified = false)
+                }
                 kotlinx.coroutines.delay(300L)
             }
         }
-        return false
+        return TextActionResult(false, attempts + 1, matched = false, verified = false)
     }
 
     /**

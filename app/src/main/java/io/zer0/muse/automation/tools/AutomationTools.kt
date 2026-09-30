@@ -2,6 +2,7 @@ package io.zer0.muse.automation.tools
 
 import io.zer0.common.Logger
 import io.zer0.muse.automation.core.AutomationManager
+import io.zer0.muse.tools.ToolOutcome
 import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.tools.ToolRiskLevel
 
@@ -110,7 +111,7 @@ class AutomationTools(
             if (manager.tap(x, y)) "已点击 ($x,$y)" else "点击失败"
         }
 
-        registry.register(
+        registry.registerOutcome(
             ToolRegistry.ToolDef(
                 name = "screen_tap_text",
                 description = "查找屏幕上包含指定文字的控件并点击其中心。" +
@@ -124,13 +125,21 @@ class AutomationTools(
                 riskLevel = ToolRiskLevel.HIGH,
             ),
         ) { args ->
-            val text = args["text"] ?: return@register "错误:缺少 text 参数"
+            val text = args["text"] ?: return@registerOutcome ToolOutcome.error("错误:缺少 text 参数")
             val maxSwipes = args["max_swipes"]?.toIntOrNull()?.coerceIn(0, 5) ?: 0
             val verifyText = args["verify_text"]?.trim()?.takeIf { it.isNotBlank() }
-            if (manager.tapByTextWithRetry(text, maxSwipes = maxSwipes, verifyText = verifyText)) {
-                "已点击包含\"$text\"的控件"
+            val outcome = manager.tapByTextWithRetryDetailed(text, maxSwipes = maxSwipes, verifyText = verifyText)
+            val details = mapOf(
+                "attempts" to outcome.attempts,
+                "matched" to outcome.matched,
+                "verified" to outcome.verified,
+                "matchedLabel" to outcome.matchedLabel,
+                "verifyRequested" to !verifyText.isNullOrBlank(),
+            )
+            if (outcome.success) {
+                ToolOutcome.ok("已点击包含\"$text\"的控件", details)
             } else {
-                "未找到或点击后未验证包含\"$text\"的控件"
+                ToolOutcome.error("未找到或点击后未验证包含\"$text\"的控件", details)
             }
         }
 
