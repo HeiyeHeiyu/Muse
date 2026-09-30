@@ -37,7 +37,9 @@ class AppControlCoreTest {
         label: String = "示例",
         system: Boolean = false,
         self: Boolean = false,
-    ) = InstalledAppInfo(packageName = pkg, label = label, versionName = "1.0", system = system, self = self)
+    ): InstalledAppInfo {
+        return InstalledAppInfo(packageName = pkg, label = label, versionName = "1.0", system = system, self = self)
+    }
 
     // ── 包名校验 / 命令注入防护 ──────────────────────────────
 

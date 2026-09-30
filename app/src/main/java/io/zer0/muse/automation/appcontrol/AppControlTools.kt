@@ -180,6 +180,7 @@ class AppControlTools(
         if (!AppControlCore.isValidPackageName(raw)) return raw
         val label = runCatching {
             val pm = context.packageManager
+
             @Suppress("DEPRECATION")
             val info = pm.getApplicationInfo(raw, 0)
             pm.getApplicationLabel(info).toString().trim()

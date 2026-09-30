@@ -65,8 +65,7 @@ class AndroidAppController(
     }
 
     /** 按包名或用户可见名称定位应用。 */
-    suspend fun findApp(query: String): InstalledAppInfo? =
-        AppControlCore.matchApp(listLaunchableApps(), query)
+    suspend fun findApp(query: String): InstalledAppInfo? = AppControlCore.matchApp(listLaunchableApps(), query)
 
     /** 当前通道可用性（探测失败一律视为不可用，不谎报能力）。 */
     suspend fun channels(): ChannelAvailability = runCatching {

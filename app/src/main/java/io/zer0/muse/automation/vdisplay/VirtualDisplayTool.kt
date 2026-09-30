@@ -1,16 +1,19 @@
 package io.zer0.muse.automation.vdisplay
 
 import android.content.Context
+import io.zer0.muse.automation.core.DeviceCommandPolicy
 import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.tools.ToolRiskLevel
+import kotlinx.coroutines.delay
 import java.io.File
 
 /**
  * v2.2.1 虚拟屏:AI 工具 `virtual_screen`。
  *
  * 把虚拟屏能力注册为工具:ensure(建屏)/ open(屏内开应用)/ shot(截图)/
- * close(销毁)/ status(状态)。虚拟屏内的输入注入走 device_shell 的
- * `input -d <displayId> ...`(命令策略已放行)。
+ * close(销毁)/ status(状态)。输入动作另注册为高风险 `virtual_screen_input`,
+ * 由本类统一构造并校验 `input -d <displayId> ...`，避免 Agent 退回 device_shell
+ * 自己拼接命令。
  */
 class VirtualDisplayTool(
     private val context: Context,
@@ -50,6 +53,31 @@ class VirtualDisplayTool(
                 else -> "错误:未知 action '$action'(ensure/open/shot/close/status)"
             }
         }
+
+        registry.register(
+            ToolRegistry.ToolDef(
+                name = "virtual_screen_input",
+                description = "在后台虚拟屏内执行一次输入动作。先用 virtual_screen shot 确认画面，" +
+                    "再调用 tap/swipe/text/key/wait；动作只作用于指定 display，不切换用户前台。" +
+                    "需要 Shizuku 或 Root，属于高风险跨应用操作，每次执行前需审批。",
+                parameters = mapOf(
+                    "action" to "必填:tap | swipe | text | key | wait",
+                    "display" to "可选:displayId，默认最近一次 ensure 的虚拟屏",
+                    "x" to "tap 的 X 坐标",
+                    "y" to "tap 的 Y 坐标",
+                    "x1" to "swipe 起点 X",
+                    "y1" to "swipe 起点 Y",
+                    "x2" to "swipe 终点 X",
+                    "y2" to "swipe 终点 Y",
+                    "duration_ms" to "swipe 持续毫秒，默认 400",
+                    "text" to "text 输入内容，最多 500 字符",
+                    "key" to "key 按键名或数字，如 BACK/HOME/ENTER/KEYCODE_4",
+                    "ms" to "wait 等待毫秒，50-10000",
+                ),
+                required = setOf("action"),
+                riskLevel = ToolRiskLevel.HIGH,
+            ),
+        ) { args -> handleInput(args) }
     }
 
     private suspend fun handleEnsure(args: Map<String, String>): String {
@@ -110,5 +138,97 @@ class VirtualDisplayTool(
             appendLine("服务端:${if (proxy != null) "在线" else "未运行(首次调用自动启动)"}")
             append("虚拟屏:${if (manager.lastDisplayId >= 0) "displayId=${manager.lastDisplayId}" else "未创建"}")
         }
+    }
+
+    private suspend fun handleInput(args: Map<String, String>): String {
+        val displayId = args["display"]?.toIntOrNull() ?: manager.lastDisplayId
+        if (displayId < 0) {
+            return "错误:虚拟屏未创建，请先执行 virtual_screen action=ensure"
+        }
+        val action = args["action"]?.trim()?.lowercase().orEmpty()
+        val command = VirtualDisplayInputCommand.build(displayId, action, args)
+        return when {
+            command == null -> "错误:输入参数无效(action=$action)"
+            command.waitMs != null -> {
+                delay(command.waitMs)
+                "虚拟屏 $displayId 已等待 ${command.waitMs}ms"
+            }
+            else -> executeInputCommand(displayId, command)
+        }
+    }
+
+    private suspend fun executeInputCommand(displayId: Int, command: VirtualDisplayInputCommand): String {
+        return when (val check = DeviceCommandPolicy.validate(command.shellCommand)) {
+            is DeviceCommandPolicy.Check.Invalid -> "错误:输入命令被策略拒绝:${check.reason}"
+            DeviceCommandPolicy.Check.Valid -> {
+                val result = manager.exec(command.shellCommand)
+                if (result.exitCode == 0) {
+                    "虚拟屏 $displayId ${command.description}成功"
+                } else {
+                    "虚拟屏 $displayId ${command.description}失败(exit=${result.exitCode}):${result.output.take(500)}"
+                }
+            }
+        }
+    }
+}
+
+internal data class VirtualDisplayInputCommand(
+    val shellCommand: String,
+    val description: String,
+    val waitMs: Long? = null,
+) {
+    companion object {
+        private val KEY_REGEX = Regex("^[A-Za-z0-9_]+$")
+
+        fun build(displayId: Int, action: String, args: Map<String, String>): VirtualDisplayInputCommand? {
+            return when (action) {
+                "tap" -> buildTap(displayId, args)
+                "swipe" -> buildSwipe(displayId, args)
+                "text" -> buildText(displayId, args)
+                "key" -> buildKey(displayId, args)
+                "wait" -> buildWait(args)
+                else -> null
+            }
+        }
+
+        private fun buildTap(displayId: Int, args: Map<String, String>): VirtualDisplayInputCommand? {
+            val x = args["x"]?.toIntOrNull()
+            val y = args["y"]?.toIntOrNull()
+            return if (x != null && y != null) command(displayId, "tap $x $y", "点击($x,$y)") else null
+        }
+
+        private fun buildSwipe(displayId: Int, args: Map<String, String>): VirtualDisplayInputCommand? {
+            val x1 = args["x1"]?.toIntOrNull()
+            val y1 = args["y1"]?.toIntOrNull()
+            val x2 = args["x2"]?.toIntOrNull()
+            val y2 = args["y2"]?.toIntOrNull()
+            val duration = args["duration_ms"]?.toLongOrNull()?.coerceIn(50L, 5_000L) ?: 400L
+            return if (listOf(x1, y1, x2, y2).any { it == null }) {
+                null
+            } else {
+                command(displayId, "swipe ${x1!!} ${y1!!} ${x2!!} ${y2!!} $duration", "滑动")
+            }
+        }
+
+        private fun buildText(displayId: Int, args: Map<String, String>): VirtualDisplayInputCommand? {
+            val text = args["text"]?.takeIf { it.isNotBlank() }?.takeIf { it.length <= 500 } ?: return null
+            val unsafe = text.any { it in SHELL_META || it == '\n' || it == '\r' || it == '\\' || it == '"' || it == '\'' }
+            return if (unsafe) null else command(displayId, "text ${text.replace(" ", "%s")}", "输入文本")
+        }
+
+        private fun buildKey(displayId: Int, args: Map<String, String>): VirtualDisplayInputCommand? {
+            val key = args["key"]?.trim()?.uppercase()?.takeIf { KEY_REGEX.matches(it) } ?: return null
+            return command(displayId, "keyevent $key", "按键($key)")
+        }
+
+        private fun buildWait(args: Map<String, String>): VirtualDisplayInputCommand? {
+            val ms = args["ms"]?.toLongOrNull()?.coerceIn(50L, 10_000L) ?: return null
+            return VirtualDisplayInputCommand("", "", waitMs = ms)
+        }
+
+        private fun command(displayId: Int, input: String, description: String) =
+            VirtualDisplayInputCommand("input -d $displayId $input", description)
+
+        private val SHELL_META = setOf(';', '|', '&', '>', '<', '`', '$', '(', ')', '{', '}')
     }
 }
