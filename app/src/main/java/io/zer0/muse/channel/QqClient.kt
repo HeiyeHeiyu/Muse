@@ -110,9 +110,11 @@ internal object QqClient {
  */
 internal object QqMsgIdCache {
 
-    private const val VALID_WINDOW_MS = 60 * 60 * 1000L
+    internal const val VALID_WINDOW_MS = 60 * 60 * 1000L
 
     private data class Entry(val msgId: String, val at: Long)
+
+    data class ReplyContext(val messageId: String, val sequence: Int)
 
     private val entries = java.util.concurrent.ConcurrentHashMap<String, Entry>()
     private val seqs = java.util.concurrent.ConcurrentHashMap<String, AtomicInteger>()
@@ -132,4 +134,11 @@ internal object QqMsgIdCache {
 
     /** 取下一个回复序号(同一 msg_id 的多次回复递增)。 */
     fun nextSeq(target: String): Int = seqs.getOrPut(target) { AtomicInteger(0) }.incrementAndGet()
+
+    /** 自动回复有事件身份时绑定该事件并固定重试序号;null 才使用最近缓存。 */
+    fun replyContext(target: String, sourceEventId: String?): ReplyContext? = if (sourceEventId != null) {
+        sourceEventId.takeIf { it.isNotBlank() }?.let { ReplyContext(it, sequence = 1) }
+    } else {
+        get(target)?.let { ReplyContext(it, nextSeq(target)) }
+    }
 }

@@ -28,6 +28,21 @@ internal interface ChannelSender {
      * 为空时使用 [ChannelConfig.targetId]。
      */
     suspend fun sendText(config: ChannelConfig, text: String, targetOverride: String? = null): Result<Unit>
+
+    /** WeClaw 自动回复可以覆盖全局缓存,保证重试使用原入站事件的令牌。 */
+    @Suppress("UnusedParameter")
+    suspend fun sendText(config: ChannelConfig, text: String, targetOverride: String?, contextTokenOverride: String?): Result<Unit> =
+        sendText(config, text, targetOverride)
+
+    /** QQ 自动回复可绑定入站事件 ID,避免从“最近消息缓存”误取后续消息。 */
+    @Suppress("UnusedParameter")
+    suspend fun sendText(
+        config: ChannelConfig,
+        text: String,
+        targetOverride: String?,
+        contextTokenOverride: String?,
+        sourceEventIdOverride: String?,
+    ): Result<Unit> = sendText(config, text, targetOverride, contextTokenOverride)
 }
 
 /** 平台 access_token 缓存(有效期约 2 小时;提前 5 分钟视为过期)。 */
@@ -147,55 +162,64 @@ internal class QqChannelSender : ChannelSender {
     private val tokenCache = TokenCache()
 
     override suspend fun sendText(config: ChannelConfig, text: String, targetOverride: String?): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            val token = tokenCache.get() ?: run {
-                val info = QqClient.fetchAccessToken(config.appId, config.appSecret).getOrElse { e ->
-                    Logger.w(TAG, "QQ access_token 获取失败: ${e.message}")
-                    return@withContext Result.failure<Unit>(e)
-                }
-                tokenCache.put(info.accessToken, info.expiresInSeconds)
-                info.accessToken
+        sendText(config, text, targetOverride, null, null)
+
+    @Suppress("UnusedParameter")
+    override suspend fun sendText(
+        config: ChannelConfig,
+        text: String,
+        targetOverride: String?,
+        contextTokenOverride: String?,
+        sourceEventIdOverride: String?,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val token = tokenCache.get() ?: run {
+            val info = QqClient.fetchAccessToken(config.appId, config.appSecret).getOrElse { e ->
+                Logger.w(TAG, "QQ access_token 获取失败: ${e.message}")
+                return@withContext Result.failure<Unit>(e)
             }
-            val overrideTarget = targetOverride?.takeIf { it.isNotBlank() }
-            val rawTarget = overrideTarget ?: config.targetId
-            // v2.0.1: 群目标以 "group:" 前缀标记(来自群消息);否则按配置的 targetType 判定。
-            val isGroup = if (overrideTarget != null) {
-                overrideTarget.startsWith("group:")
-            } else {
-                config.targetType == "group"
-            }
-            val target = rawTarget.removePrefix("group:")
-            val url = if (isGroup) {
-                "${QqClient.API_BASE}/v2/groups/$target/messages"
-            } else {
-                "${QqClient.API_BASE}/v2/users/$target/messages"
-            }
-            val body = buildJsonObject {
-                put("content", text)
-                put("msg_type", 0)
-                // v2.0.1: 被动回复 — 来源消息 ID(60 分钟窗)+ 递增序号(相同 msg_id+seq 会被平台去重)。
-                QqMsgIdCache.get(rawTarget)?.let { msgId ->
-                    put("msg_id", msgId)
-                    put("msg_seq", QqMsgIdCache.nextSeq(rawTarget))
-                }
-            }.toString()
-            runCatching {
-                postJson(
-                    url,
-                    body,
-                    mapOf(
-                        "Authorization" to "QQBot $token",
-                        "X-Union-Appid" to config.appId,
-                    ),
-                ).getOrThrow()
-            }.fold(
-                onSuccess = { Result.success(Unit) },
-                onFailure = { e ->
-                    Logger.w(TAG, "QQ 发送失败: ${e.message}")
-                    Result.failure(e)
-                },
-            )
+            tokenCache.put(info.accessToken, info.expiresInSeconds)
+            info.accessToken
         }
+        val overrideTarget = targetOverride?.takeIf { it.isNotBlank() }
+        val rawTarget = overrideTarget ?: config.targetId
+        // v2.0.1: 群目标以 "group:" 前缀标记(来自群消息);否则按配置的 targetType 判定。
+        val isGroup = if (overrideTarget != null) {
+            overrideTarget.startsWith("group:")
+        } else {
+            config.targetType == "group"
+        }
+        val target = rawTarget.removePrefix("group:")
+        val url = if (isGroup) {
+            "${QqClient.API_BASE}/v2/groups/$target/messages"
+        } else {
+            "${QqClient.API_BASE}/v2/users/$target/messages"
+        }
+        val body = buildJsonObject {
+            put("content", text)
+            put("msg_type", 0)
+            // v2.0.1: 被动回复 — 来源消息 ID(60 分钟窗)+ 递增序号(相同 msg_id+seq 会被平台去重)。
+            QqMsgIdCache.replyContext(rawTarget, sourceEventIdOverride)?.let { reply ->
+                put("msg_id", reply.messageId)
+                put("msg_seq", reply.sequence)
+            }
+        }.toString()
+        runCatching {
+            postJson(
+                url,
+                body,
+                mapOf(
+                    "Authorization" to "QQBot $token",
+                    "X-Union-Appid" to config.appId,
+                ),
+            ).getOrThrow()
+        }.fold(
+            onSuccess = { Result.success(Unit) },
+            onFailure = { e ->
+                Logger.w(TAG, "QQ 发送失败: ${e.message}")
+                Result.failure(e)
+            },
+        )
+    }
 
     companion object {
         private const val TAG = "QqSender"
@@ -209,21 +233,30 @@ internal class QqChannelSender : ChannelSender {
  * 回发时优先携带来源消息的 context_token(协议要求)。
  */
 internal class WeClawChannelSender : ChannelSender {
-    override suspend fun sendText(config: ChannelConfig, text: String, targetOverride: String?): Result<Unit> {
+    override suspend fun sendText(config: ChannelConfig, text: String, targetOverride: String?): Result<Unit> =
+        sendText(config, text, targetOverride, null)
+
+    override suspend fun sendText(
+        config: ChannelConfig,
+        text: String,
+        targetOverride: String?,
+        contextTokenOverride: String?,
+    ): Result<Unit> {
         val botToken = config.appSecret.trim()
-        if (botToken.isBlank()) {
-            return Result.failure(IllegalStateException("ClawBot 未绑定(缺少 bot_token,请先扫码绑定)"))
-        }
         val target = targetOverride?.takeIf { it.isNotBlank() } ?: config.targetId
-        if (target.isBlank()) {
-            return Result.failure(IllegalStateException("缺少接收方 ID(ilink_user_id)"))
+        val result = when {
+            botToken.isBlank() ->
+                Result.failure(IllegalStateException("ClawBot 未绑定(缺少 bot_token,请先扫码绑定)"))
+            target.isBlank() ->
+                Result.failure(IllegalStateException("缺少接收方 ID(ilink_user_id)"))
+            else -> WeClawClient.sendMessage(
+                botToken = botToken,
+                toUserId = target,
+                text = text,
+                contextToken = contextTokenOverride ?: WeClawContextCache.get(target),
+            )
         }
-        return WeClawClient.sendMessage(
-            botToken = botToken,
-            toUserId = target,
-            text = text,
-            contextToken = WeClawContextCache.get(target),
-        )
+        return result
     }
 }
 

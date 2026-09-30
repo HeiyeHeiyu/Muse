@@ -37,6 +37,8 @@ object ChannelConversationStore {
         val mediaPath: String = "",
         /** v2.0.1: 视觉降级描述缓存(模型不支持视觉时生成,避免重复分析)。 */
         val mediaDescription: String = "",
+        /** 自动回复派发 ID;重试时用于避免重复追加同一用户/助手轮次。 */
+        val dispatchId: String = "",
     )
 
     /** 单个对话:滚动摘要 + 最近轮次。 */
@@ -45,6 +47,8 @@ object ChannelConversationStore {
         val summary: String = "",
         val turns: List<Turn> = emptyList(),
         val updatedAt: Long = 0L,
+        /** 保留近期派发轮次身份,即使摘要压缩已经从 turns 中移除原始轮次。 */
+        val recentDispatchTurnIds: List<String> = emptyList(),
     )
 
     private const val TAG = "ChannelConversations"
@@ -54,6 +58,7 @@ object ChannelConversationStore {
 
     /** 单对话轮次硬上限(压缩逻辑之上再加一层安全带)。 */
     private const val MAX_TURNS = 200
+    private const val MAX_DISPATCH_TURN_IDS = 1_000
 
     private val _conversations = MutableStateFlow<Map<String, Conversation>>(emptyMap())
     val conversations: StateFlow<Map<String, Conversation>> = _conversations.asStateFlow()
@@ -92,25 +97,41 @@ object ChannelConversationStore {
         // v2.x (B4): 视频/文件落盘路径;默认空保持向后兼容。
         mediaPath: String = "",
     ) {
-        val key = key(channelId, from)
-        val current = _conversations.value[key] ?: Conversation()
-        val turns = (
-            current.turns + Turn(
+        appendTurn(
+            channelId,
+            from,
+            Turn(
                 role = role,
                 text = text,
                 mediaKind = mediaKind,
                 mediaBase64 = mediaBase64,
                 mediaPath = mediaPath,
-            )
-            ).takeLast(MAX_TURNS)
-        val updated = current.copy(turns = turns, updatedAt = System.currentTimeMillis())
+            ),
+        )
+    }
+
+    @Synchronized
+    fun appendTurn(channelId: String, from: String, turn: Turn) {
+        val key = key(channelId, from)
+        val current = _conversations.value[key] ?: Conversation()
+        val dispatchTurnKey = channelDispatchTurnIdentity(turn.dispatchId, turn.role)
+        if (dispatchTurnKey != null && dispatchTurnKey in current.recentDispatchTurnIds) return
+        val turns = (current.turns + turn).takeLast(MAX_TURNS)
+        val dispatchTurnIds = dispatchTurnKey
+            ?.let { (current.recentDispatchTurnIds + it).takeLast(MAX_DISPATCH_TURN_IDS) }
+            ?: current.recentDispatchTurnIds
+        val updated = current.copy(
+            turns = turns,
+            updatedAt = System.currentTimeMillis(),
+            recentDispatchTurnIds = dispatchTurnIds,
+        )
         val map = (_conversations.value + (key to updated))
             .toList()
             .sortedByDescending { (_, conversation) -> conversation.updatedAt }
             .take(MAX_CONVERSATIONS)
             .toMap()
+        check(persist(map)) { "Channel conversation could not persist an appended turn" }
         _conversations.value = map
-        persist(map)
     }
 
     /** 读取对话(不存在时返回 null)。 */
@@ -143,8 +164,9 @@ object ChannelConversationStore {
                     turns = current.turns.drop(drainedTurns.size),
                     updatedAt = System.currentTimeMillis(),
                 )
-            _conversations.value = _conversations.value + (key to updated)
-            persist(_conversations.value)
+            val map = _conversations.value + (key to updated)
+            if (!persist(map)) return false
+            _conversations.value = map
         }
         return applicable
     }
@@ -169,8 +191,7 @@ object ChannelConversationStore {
     @Synchronized
     fun clear(channelId: String, from: String) {
         val map = _conversations.value - key(channelId, from)
-        _conversations.value = map
-        persist(map)
+        if (persist(map)) _conversations.value = map
     }
 
     /** v2.0.1: 写入图片轮次的视觉降级描述缓存(按时间戳定位,最多命中一条)。 */
@@ -184,13 +205,12 @@ object ChannelConversationStore {
             it[index] = it[index].copy(mediaDescription = description)
         }
         val map = _conversations.value + (key to conversation.copy(turns = turns))
-        _conversations.value = map
-        persist(map)
+        if (persist(map)) _conversations.value = map
     }
 
-    private fun persist(items: Map<String, Conversation>) {
-        val target = file ?: return
-        runCatching {
+    private fun persist(items: Map<String, Conversation>): Boolean {
+        val target = file ?: return true
+        return runCatching {
             AtomicFileStore.writeText(
                 target,
                 AppJson.encodeToString(
@@ -198,6 +218,11 @@ object ChannelConversationStore {
                     items,
                 ),
             )
+            true
         }.onFailure { e -> Logger.w(TAG, "对话历史持久化失败: ${e.message}") }
+            .getOrDefault(false)
     }
 }
+
+private fun channelDispatchTurnIdentity(dispatchId: String, role: String): String? =
+    dispatchId.takeIf { it.isNotBlank() }?.let { "$it\u0000$role" }

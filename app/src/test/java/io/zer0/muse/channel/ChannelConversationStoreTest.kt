@@ -122,4 +122,43 @@ class ChannelConversationStoreTest {
         assertFalse(applied)
         assertEquals("", ChannelConversationStore.conversation(channelId, from)!!.summary)
     }
+
+    @Test
+    fun `自动回复重试不会重复追加轮次且压缩后仍保持幂等`() {
+        val channelId = "ch-dispatch-idempotency"
+        val from = "peer-dispatch-idempotency"
+        val dispatchId = "dispatch-1"
+        ChannelConversationStore.clear(channelId, from)
+
+        appendDispatched(channelId, from, "user", "收到的消息", dispatchId)
+        appendDispatched(channelId, from, "assistant", "准备发送的回复", dispatchId)
+        appendDispatched(channelId, from, "user", "重复写入", dispatchId)
+
+        val beforeCompression = ChannelConversationStore.conversation(channelId, from)!!
+        assertEquals(listOf("收到的消息", "准备发送的回复"), beforeCompression.turns.map { it.text })
+        assertTrue(
+            ChannelConversationStore.applyCompression(
+                channelId,
+                from,
+                beforeCompression.summary,
+                beforeCompression.turns,
+                "对话摘要",
+            ),
+        )
+
+        appendDispatched(channelId, from, "user", "收到的消息", dispatchId)
+        appendDispatched(channelId, from, "assistant", "准备发送的回复", dispatchId)
+
+        val afterRetry = ChannelConversationStore.conversation(channelId, from)!!
+        assertEquals("对话摘要", afterRetry.summary)
+        assertTrue(afterRetry.turns.isEmpty())
+    }
+
+    private fun appendDispatched(channelId: String, from: String, role: String, text: String, dispatchId: String) {
+        ChannelConversationStore.appendTurn(
+            channelId,
+            from,
+            ChannelConversationStore.Turn(role = role, text = text, dispatchId = dispatchId),
+        )
+    }
 }

@@ -63,22 +63,32 @@ class ChannelManager(context: Context) {
      *
      * [targetOverride] 供自动回复"回发到消息来源"使用(见 [ChannelSender.sendText])。
      */
-    suspend fun sendText(channelId: String, text: String, targetOverride: String? = null): ChannelSendResult {
+    suspend fun sendText(channelId: String, text: String, targetOverride: String? = null): ChannelSendResult =
+        sendTextWithOptions(channelId, text, ChannelSendOptions(targetOverride = targetOverride))
+
+    internal suspend fun sendTextWithOptions(channelId: String, text: String, options: ChannelSendOptions): ChannelSendResult {
         val config = _channels.value.firstOrNull { it.id == channelId }
-            ?: return ChannelSendResult(false, "渠道不存在: $channelId")
-        if (!config.enabled) {
-            return ChannelSendResult(false, "渠道已停用: ${config.name.ifBlank { channelId }}")
+        val sender = config?.let { senders[it.platform] }
+        val result = when {
+            config == null -> ChannelSendResult(false, "渠道不存在: $channelId")
+            !config.enabled -> ChannelSendResult(false, "渠道已停用: ${config.name.ifBlank { channelId }}")
+            text.isBlank() -> ChannelSendResult(false, "发送内容为空")
+            sender == null -> ChannelSendResult(false, "平台未支持: ${config.platform}")
+            else -> sender.sendText(
+                config,
+                text,
+                options.targetOverride,
+                options.contextTokenOverride,
+                options.sourceEventIdOverride,
+            ).fold(
+                onSuccess = { ChannelSendResult(true, "已发送到 ${config.name.ifBlank { config.platform.name }}") },
+                onFailure = { error ->
+                    Logger.w(TAG, "渠道发送失败: ${error.message}")
+                    ChannelSendResult(false, error.message ?: "发送失败")
+                },
+            )
         }
-        if (text.isBlank()) return ChannelSendResult(false, "发送内容为空")
-        val sender = senders[config.platform]
-            ?: return ChannelSendResult(false, "平台未支持: ${config.platform}")
-        return sender.sendText(config, text, targetOverride).fold(
-            onSuccess = { ChannelSendResult(true, "已发送到 ${config.name.ifBlank { config.platform.name }}") },
-            onFailure = { e ->
-                Logger.w(TAG, "渠道发送失败: ${e.message}")
-                ChannelSendResult(false, e.message ?: "发送失败")
-            },
-        )
+        return result
     }
 
     /**
@@ -104,3 +114,9 @@ class ChannelManager(context: Context) {
         private const val TAG = "ChannelManager"
     }
 }
+
+internal data class ChannelSendOptions(
+    val targetOverride: String? = null,
+    val contextTokenOverride: String? = null,
+    val sourceEventIdOverride: String? = null,
+)

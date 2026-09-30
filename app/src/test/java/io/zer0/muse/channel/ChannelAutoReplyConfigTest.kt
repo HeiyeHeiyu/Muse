@@ -1,7 +1,6 @@
 package io.zer0.muse.channel
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -39,10 +38,12 @@ class ChannelAutoReplyConfigTest {
     }
 
     @Test
-    fun `same sender and text on different accounts are not collapsed together`() {
-        val first = channelAutoReplyDedupKey("QQ", "qq-a", "user", "hello")
-        val second = channelAutoReplyDedupKey("QQ", "qq-b", "user", "hello")
+    fun `qq passive reply binding expires with the platform reply window`() {
+        val now = 1_800_000_000_000L
 
-        assertNotEquals(first, second)
+        assertEquals("message-1", qqReplyEventIdOverride("QQ", "message-1", now - 1_000L, now))
+        assertEquals("", qqReplyEventIdOverride("QQ", "expired", now - QqMsgIdCache.VALID_WINDOW_MS - 1L, now))
+        assertEquals("", qqReplyEventIdOverride("QQ", "", now, now))
+        assertNull(qqReplyEventIdOverride("FEISHU", "event-1", now, now))
     }
 }

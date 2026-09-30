@@ -130,7 +130,6 @@
     <ID>CyclomaticComplexMethod:DocumentParser.kt$DocumentParser$private fun readPptx(uri: Uri, context: Context): String</ID>
     <ID>CyclomaticComplexMethod:EncodingToolsRegistrar.kt$EncodingToolsRegistrar$fun registerAll()</ID>
     <ID>CyclomaticComplexMethod:ErrorMessageMapper.kt$fun ErrorMessage.toLocalizedString(context: Context): String</ID>
-    <ID>CyclomaticComplexMethod:FeishuReceiver.kt$FeishuReceiver$private fun dispatchEvent(json: String)</ID>
     <ID>CyclomaticComplexMethod:FileTools.kt$FileTools$private fun execCreateDownload(args: Map&lt;String, String&gt;, context: Context): String</ID>
     <ID>CyclomaticComplexMethod:FileTools.kt$FileTools$private fun execParseLink(args: Map&lt;String, String&gt;): String</ID>
     <ID>CyclomaticComplexMethod:GreetingHelper.kt$GreetingHelper$fun getMemoryHint(facts: List&lt;FactEntity&gt;, today: LocalDate = LocalDate.now(), res: Resources? = null): String?</ID>
@@ -1038,7 +1037,6 @@
     <ID>LongMethod:BrowserCapsule.kt$@Composable fun BrowserViewerDialog(manager: BrowserManager, onDismiss: () -&gt; Unit)</ID>
     <ID>LongMethod:BubbleSkinSection.kt$@Composable internal fun BubbleSkinSection(fontSizeScale: String, defaultDark: Boolean)</ID>
     <ID>LongMethod:CalendarToolsRegistrar.kt$CalendarToolsRegistrar$fun registerAll()</ID>
-    <ID>LongMethod:ChannelAutoReply.kt$ChannelAutoReply$@Suppress("CyclomaticComplexMethod") private suspend fun runAgent(config: ChannelConfig, from: String): String?</ID>
     <ID>LongMethod:ChannelConversationsScreen.kt$@Composable private fun ConversationCard(from: String, conversation: ChannelConversationStore.Conversation, onReset: () -&gt; Unit)</ID>
     <ID>LongMethod:ChannelSettingsPage.kt$@Composable fun ChannelSettingsScreen(onBack: () -&gt; Unit, onOpenConversations: (String) -&gt; Unit = {})</ID>
     <ID>LongMethod:ChannelSettingsPage.kt$@Composable private fun ChannelEditDialog(initial: ChannelConfig?, onDismiss: () -&gt; Unit, onSave: (ChannelConfig) -&gt; Unit)</ID>
@@ -1310,7 +1308,6 @@
     <ID>LongParameterList:CardGroup.kt$CardGroupScope$( key: Any? = null, onClick: (() -&gt; Unit)? = null, onLongClick: (() -&gt; Unit)? = null, modifier: Modifier = Modifier, supportingContent: (@Composable () -&gt; Unit)? = null, leadingContent: (@Composable () -&gt; Unit)? = null, trailingContent: (@Composable () -&gt; Unit)? = null, headlineContent: @Composable () -&gt; Unit, )</ID>
     <ID>LongParameterList:ChannelAutoReply.kt$ChannelAutoReply$( private val channelManager: ChannelManager, private val chatService: ChatService, private val assistantRepository: AssistantRepository, private val context: Context, private val appScope: CoroutineScope, /** v2.0.1: 用户档案(助手名/用户昵称) — 供系统提示词模板变量渲染。 */ private val settings: SettingsRepository, /** v2.0.1: 工具注册表 — 渠道对话继承助手工具集(排除群聊工具与高风险工具)。 */ private val toolRegistry: ToolRegistry, /** v2.0.1: 视觉辅助 — 模型不支持视觉时把图片转为文字描述(降级路径)。 */ private val visionBridge: VisionBridge, )</ID>
     <ID>LongParameterList:ChannelConversationStore.kt$ChannelConversationStore$( channelId: String, from: String, role: String, text: String, mediaKind: String = "", mediaBase64: String = "", // v2.x (B4): 视频/文件落盘路径;默认空保持向后兼容。 mediaPath: String = "", )</ID>
-    <ID>LongParameterList:ChannelInbox.kt$ChannelInbox$( platform: String, from: String, text: String?, rawPayload: String, mediaKind: String = "", mediaBase64: String = "", // v2.x (B4): 视频/文件落盘路径(非图片媒体);默认空保持向后兼容。 mediaPath: String = "", )</ID>
     <ID>LongParameterList:ChannelSettingsPage.kt$( value: String, onValueChange: (String) -&gt; Unit, label: String, storedSecret: String, visible: Boolean, onToggleVisible: () -&gt; Unit, )</ID>
     <ID>LongParameterList:ChatListScreen.kt$( folders: List&lt;FolderEntity&gt;, sessions: List&lt;SessionEntity&gt;, onSelect: (String) -&gt; Unit, onDelete: (String) -&gt; Unit, onRenameTo: (SessionEntity, String) -&gt; Unit, onTogglePinned: (String) -&gt; Unit, onMoveSessionToFolder: (String, String?) -&gt; Unit, onArchive: (String) -&gt; Unit, onSelectFolder: (FolderEntity) -&gt; Unit, onRenameFolder: (String, String) -&gt; Unit, onDeleteFolder: (String) -&gt; Unit, )</ID>
     <ID>LongParameterList:ChatListScreen.kt$( pinned: List&lt;SessionEntity&gt;, folders: List&lt;FolderEntity&gt;, onSelect: (String) -&gt; Unit, onDelete: (String) -&gt; Unit, onRenameTo: (SessionEntity, String) -&gt; Unit, onTogglePinned: (String) -&gt; Unit, onReorderPinned: (List&lt;String&gt;) -&gt; Unit, onMoveSessionToFolder: (String, String?) -&gt; Unit, onArchive: (String) -&gt; Unit, )</ID>
@@ -1743,7 +1740,6 @@
     <ID>MaxLineLength:WebSearchSection.kt$color = if (p == webSearchConfig.providerName) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface</ID>
     <ID>MaxLineLength:WebSearchSection.kt$context.getString(R.string.settings_web_search_test_success, results.size, results.take(3).joinToString("\n") { " • ${'$'}{it.title}" })</ID>
     <ID>MaxLineLength:WebSearchSection.kt$testResult = context.getString(R.string.settings_web_search_test_failed, e.message ?: context.getString(R.string.settings_web_search_test_failed_unknown))</ID>
-    <ID>MaxLineLength:WebServer.kt$WebServer$if</ID>
     <ID>MaxLineLength:WorldBookViewModel.kt$WorldBookViewModel$_importMessage.value = if (count &gt; 0) context.getString(R.string.worldbook_import_success, count) else context.getString(R.string.worldbook_import_empty)</ID>
     <ID>MayBeConst:SystemPromptAssembler.kt$SystemPromptAssembler.Companion$/** v1.0.51: 平台声明 fallback(模板加载失败时使用)。 */ private val PLATFORM_DECL_FALLBACK = "平台声明:你运行在 Muse 应用内 — 一个 Android 端的 AI 助手应用。你拥有文件读写、联网搜索、设置闹钟、发送短信、打开应用、知识库检索、多 Agent 协作等能力。当用户问及 Muse 应用自身功能时,可以调用 knowledge_search 并传 include_internal=true 查询。"</ID>
     <ID>MayBeConst:SystemPromptAssembler.kt$SystemPromptAssembler.Companion$/** v1.0.51: 记忆使用规则 fallback(模板加载失败时使用)。 */ private val MEMORY_RULES_FALLBACK = "记忆使用规则(内部约束,不向用户展示):\n- 永远不要让用户感觉到记忆系统的存在。不要说\"根据你的长期记忆\"\"我记得你之前说过\"这类话。\n- 思考链(reasoning/thinking 内部推理)中同样禁止出现\"根据记忆\"\"根据长期记忆\"\"根据用户画像\"\"我记得\"等来源标注——记忆中的信息要当作自己已有的知识,直接自然地使用,不标注出处。\n- 记忆可能过时或不准确,当前对话永远优先。信息冲突时以对话为准,不要用旧记忆纠正用户。\n- 自然地运用记忆中的信息,就像是你自己想起来的,而不是从数据库里查到的。"</ID>
@@ -1843,15 +1839,12 @@
     <ID>ReturnCount:BubbleSkinStore.kt$BubbleSkinCatalog$fun parseSkin(raw: String?): BubbleSkin?</ID>
     <ID>ReturnCount:BubbleSkinStore.kt$BubbleSkinCatalog$fun select(customSkins: List&lt;BubbleSkin&gt;, pluginSkins: List&lt;BubbleSkin&gt;, selectedId: String): BubbleSkin?</ID>
     <ID>ReturnCount:CalendarToolsRegistrar.kt$CalendarToolsRegistrar$private fun parseDateTime(input: String): Long?</ID>
-    <ID>ReturnCount:ChannelAutoReply.kt$ChannelAutoReply$private suspend fun handle(inbound: ChannelInbox.Inbound)</ID>
     <ID>ReturnCount:ChannelAutoReply.kt$ChannelAutoReply$private suspend fun maybeCompress(config: ChannelConfig, from: String)</ID>
     <ID>ReturnCount:ChannelAutoReply.kt$ChannelAutoReply$private suspend fun resolveImageContent(config: ChannelConfig, from: String, turn: ChannelConversationStore.Turn): String</ID>
-    <ID>ReturnCount:ChannelManager.kt$ChannelManager$suspend fun sendText(channelId: String, text: String, targetOverride: String? = null): ChannelSendResult</ID>
     <ID>ReturnCount:ChannelMediaCleaner.kt$ChannelMediaCleaner$fun cleanup( dir: File, now: Long = System.currentTimeMillis(), ttlMs: Long = DEFAULT_TTL_MS, maxTotalBytes: Long = DEFAULT_MAX_TOTAL_BYTES, ): Int</ID>
     <ID>ReturnCount:ChannelReplyTool.kt$ChannelReplyTool$suspend fun execute(args: Map&lt;String, String&gt;): String</ID>
     <ID>ReturnCount:ChannelSenders.kt$DingtalkChannelSender$override suspend fun sendText(config: ChannelConfig, text: String, targetOverride: String?): Result&lt;Unit&gt;</ID>
     <ID>ReturnCount:ChannelSenders.kt$TelegramChannelSender$override suspend fun sendText(config: ChannelConfig, text: String, targetOverride: String?): Result&lt;Unit&gt;</ID>
-    <ID>ReturnCount:ChannelSenders.kt$WeClawChannelSender$override suspend fun sendText(config: ChannelConfig, text: String, targetOverride: String?): Result&lt;Unit&gt;</ID>
     <ID>ReturnCount:ChartRenderer.kt$fun isMermaidCodeBlock(lang: String?, code: String): Boolean</ID>
     <ID>ReturnCount:ChatAudioCoordinator.kt$ChatAudioCoordinator$private fun getOrCreateAsrController(): ASRController?</ID>
     <ID>ReturnCount:ChatGenerationController.kt$ChatGenerationController$private fun rehydrateOptimisticPlaceholders(sessionId: String, req: SendRequest)</ID>
@@ -1934,8 +1927,6 @@
     <ID>ReturnCount:ErrorMessages.kt$ErrorMessages$fun resolve(context: Context, message: String): String</ID>
     <ID>ReturnCount:ExperienceStore.kt$ExperienceStore$private fun listExperienceDocuments(dir: File): List&lt;ExperienceDoc&gt;</ID>
     <ID>ReturnCount:ExperienceStore.kt$ExperienceStore$private fun normalizeCategory(raw: String): String?</ID>
-    <ID>ReturnCount:FeishuReceiver.kt$FeishuReceiver$private fun dispatchEvent(json: String)</ID>
-    <ID>ReturnCount:FeishuReceiver.kt$FeishuReceiver$private fun handleDataFrame(frame: FeishuPbbp2.Frame, webSocket: WebSocket)</ID>
     <ID>ReturnCount:FeishuReceiver.kt$FeishuReceiver$private fun mergeData(messageId: String, sum: Int, seq: Int, payload: ByteArray): String?</ID>
     <ID>ReturnCount:FileTools.kt$FileTools$private fun execCreateDownload(args: Map&lt;String, String&gt;, context: Context): String</ID>
     <ID>ReturnCount:FileTools.kt$FileTools$private fun execParseLink(args: Map&lt;String, String&gt;): String</ID>
@@ -2089,7 +2080,6 @@
     <ID>ReturnCount:PromptInjectionTransformer.kt$PromptInjectionTransformer$override suspend fun transform(messages: List&lt;UIMessage&gt;, context: TransformContext): List&lt;UIMessage&gt;</ID>
     <ID>ReturnCount:PromptTemplateLoader.kt$PromptTemplateLoader$private fun loadTemplate(name: String, locale: String?): String?</ID>
     <ID>ReturnCount:QqClient.kt$QqMsgIdCache$fun get(target: String): String?</ID>
-    <ID>ReturnCount:QqReceiver.kt$QqReceiver$private fun handleDispatch(obj: JsonObject)</ID>
     <ID>ReturnCount:QuickNoteToolsImpl.kt$QuickNoteToolsImpl$suspend fun delete(args: Map&lt;String, String&gt;): String</ID>
     <ID>ReturnCount:QuickNoteToolsImpl.kt$QuickNoteToolsImpl$suspend fun get(args: Map&lt;String, String&gt;): String</ID>
     <ID>ReturnCount:QuickNoteToolsImpl.kt$QuickNoteToolsImpl$suspend fun pin(args: Map&lt;String, String&gt;): String</ID>
@@ -2911,7 +2901,6 @@
     <ID>VariableNaming:GreetingHintGenerator.kt$GreetingHintGenerator$/** LLM 生成超时(UI 场景不能久等,失败快速回退)。 */ private val LLM_TIMEOUT_MS = 8000L</ID>
     <ID>VariableNaming:GroupChatMemoryRepository.kt$GroupChatMemoryRepository$private val TAG = "GroupChatMemRepo"</ID>
     <ID>VariableNaming:GroupChatRepository.kt$GroupChatRepository$private val TAG = "GroupChatRepo"</ID>
-    <ID>VariableNaming:HnswVectorIndex.kt$HnswVectorIndex$val W = PriorityQueue&lt;Pair&lt;Float, Int&gt;&gt;(compareByDescending { it.first })</ID>
     <ID>VariableNaming:HookRegistry.kt$HookRegistry$private val TAG = "HookRegistry"</ID>
     <ID>VariableNaming:MarketSigningFixtureTest.kt$MarketSigningFixtureTest$val package_ = (loaded as? PluginPackageLoader.Result.Ok)?.package_</ID>
     <ID>VariableNaming:MomentGenerator.kt$MomentGenerator$private val TAG = "MomentGenerator"</ID>
