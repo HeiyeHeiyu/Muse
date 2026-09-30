@@ -114,19 +114,23 @@ class AutomationTools(
             ToolRegistry.ToolDef(
                 name = "screen_tap_text",
                 description = "查找屏幕上包含指定文字的控件并点击其中心。" +
-                    "比 screen_tap 更方便,不需要自己算坐标。",
+                    "比 screen_tap 更方便,不需要自己算坐标；可在长页面内有限次滚动查找，并可验证点击后的文字。",
                 parameters = mapOf(
                     "text" to "必填,要查找的按钮/文字内容(支持模糊匹配)",
+                    "max_swipes" to "可选,找不到时最多向上滚动次数(0-5,默认 0)",
+                    "verify_text" to "可选,点击后等待出现的文字；用于确认动作真正生效",
                 ),
                 required = setOf("text"),
                 riskLevel = ToolRiskLevel.HIGH,
             ),
         ) { args ->
             val text = args["text"] ?: return@register "错误:缺少 text 参数"
-            if (manager.tapByText(text)) {
+            val maxSwipes = args["max_swipes"]?.toIntOrNull()?.coerceIn(0, 5) ?: 0
+            val verifyText = args["verify_text"]?.trim()?.takeIf { it.isNotBlank() }
+            if (manager.tapByTextWithRetry(text, maxSwipes = maxSwipes, verifyText = verifyText)) {
                 "已点击包含\"$text\"的控件"
             } else {
-                "未找到包含\"$text\"的可点击控件"
+                "未找到或点击后未验证包含\"$text\"的控件"
             }
         }
 

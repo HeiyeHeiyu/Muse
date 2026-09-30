@@ -264,6 +264,41 @@ class AutomationManager(
     }
 
     /**
+     * 语义点击增强版：找不到目标时在当前屏幕有限次上滑，点击后可等待验证文字出现。
+     *
+     * 这是无障碍层最重要的长页面原语；Shell/Root 也能复用，因为 [readScreen] 与 [swipe]
+     * 会按当前可用通道自动降级。默认不滚动，保持旧 [tapByText] 的一次性语义。
+     */
+    @Suppress("ReturnCount") // Bounded retry loop has explicit success, verification, and channel-failure exits.
+    suspend fun tapByTextWithRetry(text: String, exact: Boolean = false, maxSwipes: Int = 0, verifyText: String? = null): Boolean {
+        val attempts = maxSwipes.coerceIn(0, 5)
+        repeat(attempts + 1) { attempt ->
+            val screen = readScreen()
+            val node = screen.nodes.firstOrNull { n ->
+                val label = n.text ?: n.contentDescription ?: return@firstOrNull false
+                if (exact) label == text else label.contains(text, ignoreCase = true)
+            }
+            if (node != null && tap(node.centerX, node.centerY)) {
+                if (verifyText.isNullOrBlank()) return true
+                kotlinx.coroutines.delay(350L)
+                val verified = readScreen().nodes.any { n ->
+                    val label = n.text ?: n.contentDescription ?: return@any false
+                    label.contains(verifyText, ignoreCase = true)
+                }
+                if (verified) return true
+            }
+            if (attempt < attempts && screen.screenHeight > 0) {
+                val centerX = screen.screenWidth / 2
+                val bottom = (screen.screenHeight * 0.82f).toInt()
+                val top = (screen.screenHeight * 0.28f).toInt()
+                if (!swipe(centerX, bottom, centerX, top, 450L)) return false
+                kotlinx.coroutines.delay(300L)
+            }
+        }
+        return false
+    }
+
+    /**
      * Double-tap at (x, y) for selection or special gestures.
      * Uses accessibility dispatchGesture when available, otherwise delegates to shell/root.
      */
