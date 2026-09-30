@@ -8,12 +8,12 @@ import io.zer0.ai.core.Model
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ToolDefinition
 import io.zer0.ai.core.UIMessage
-import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantRepository
+import io.zer0.muse.tools.ToolPermissionResolver
 import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.tools.ToolRiskLevel
 import io.zer0.muse.transformer.TemplateTransformer
@@ -25,9 +25,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * v2.0: 渠道自动回复 — 入站消息闭环(收到 → 跑一轮 → 回发到来源)。
@@ -55,7 +52,7 @@ class ChannelAutoReply(
     private val visionBridge: VisionBridge,
 ) {
     private val mutex = Mutex()
-    private var lastHandled: Triple<String, String, String>? = null
+    private var lastHandled: ChannelAutoReplyDedupKey? = null
     private var lastHandledAt = 0L
 
     /** v2.0.1: 模板渲染器 — 与聊天主链路一致地替换 {{char}}/{{user}} 等变量。 */
@@ -80,11 +77,9 @@ class ChannelAutoReply(
             text
         }
         mutex.withLock {
-            if (isDuplicate(inbound.platform, inbound.from, dedupKey)) return
+            if (isDuplicate(inbound.platform, inbound.sourceChannelId, inbound.from, dedupKey)) return
             channelManager.refresh()
-            val config = channelManager.channels.value.firstOrNull {
-                it.enabled && it.autoReply && it.platform.name == inbound.platform
-            } ?: return
+            val config = selectAutoReplyConfig(channelManager.channels.value, inbound) ?: return
             // v2.0.1: 渠道对话历史 — 入站消息先入库(即使回复失败也保留记录)。
             ChannelConversationStore.append(
                 config.id,
@@ -117,9 +112,9 @@ class ChannelAutoReply(
     }
 
     /** 平台重推去重:同 (platform, from, 文本) 在 [DEDUP_WINDOW_MS] 内只处理一次。 */
-    private fun isDuplicate(platform: String, from: String, text: String): Boolean {
+    private fun isDuplicate(platform: String, channelId: String, from: String, text: String): Boolean {
         val now = System.currentTimeMillis()
-        val key = Triple(platform, from, text)
+        val key = channelAutoReplyDedupKey(platform, channelId, from, text)
         val duplicate = key == lastHandled && now - lastHandledAt < DEDUP_WINDOW_MS
         lastHandled = key
         lastHandledAt = now
@@ -191,6 +186,7 @@ class ChannelAutoReply(
         }
         // v2.0.1: 工具继承 — 与聊天同源的工具集(助手白名单 + 排除群聊/高风险工具)。
         val toolDefs = resolveToolDefinitions(assistant)
+        val offeredToolNames = toolDefs.mapTo(mutableSetOf()) { it.name }
         var finalText: String? = null
         var plainFallback = ""
         var round = 0
@@ -221,7 +217,18 @@ class ChannelAutoReply(
             )
             for (toolCall in toolCalls) {
                 val result = runCatching {
-                    toolRegistry.executeFromJson(toolCall.name, toolCall.arguments)
+                    if (
+                        !mayExecuteChannelToolCall(
+                            toolName = toolCall.name,
+                            offeredToolNames = offeredToolNames,
+                            risk = ToolPermissionResolver.riskLevelFor(toolCall.name),
+                        )
+                    ) {
+                        Logger.w(TAG, "拒绝执行未授权或需审批的渠道工具: ${toolCall.name}")
+                        "工具未授权或需要交互审批，渠道自动回复未执行"
+                    } else {
+                        toolRegistry.executeFromJson(toolCall.name, toolCall.arguments)
+                    }
                 }.getOrElse { e -> "工具执行失败: ${e.message}" }
                 workingMessages += UIMessage(
                     role = MessageRole.TOOL,
@@ -240,25 +247,22 @@ class ChannelAutoReply(
      * 按助手白名单过滤,并排除群聊 channel_* 工具与高风险(HIGH)工具。
      */
     private fun resolveToolDefinitions(assistant: AssistantEntity): List<ToolDefinition> {
-        val configured = parseToolIds(assistant.toolIdsJson)
+        val configured = parseChannelToolAllowlist(assistant.toolIdsJson)
+        if (configured == null) {
+            Logger.w(TAG, "助手工具白名单格式无效，渠道自动回复不暴露工具")
+            return emptyList()
+        }
         return runCatching {
             toolRegistry.listToolsAsToolDefinitions().filter { def ->
                 val selectedByTool = configured.isEmpty() || def.name in configured
                 val notGroupChatTool = !def.name.startsWith("channel_")
-                val notHighRisk = toolRegistry.getToolRiskLevel(def.name) != ToolRiskLevel.HIGH
+                val notHighRisk = ToolPermissionResolver.riskLevelFor(def.name) != ToolRiskLevel.HIGH
                 selectedByTool && notGroupChatTool && notHighRisk
             }
         }.onFailure { e ->
             Logger.w(TAG, "工具集解析失败: ${e.message}")
         }.getOrDefault(emptyList())
     }
-
-    /** v2.0.1: 解析助手工具白名单(toolIdsJson);解析失败返回空集(= 不过滤)。 */
-    private fun parseToolIds(json: String): Set<String> = runCatching {
-        AppJson.parseToJsonElement(json).jsonArray
-            .mapNotNull { it.jsonPrimitive.contentOrNull }
-            .toSet()
-    }.getOrDefault(emptySet())
 
     /**
      * v2.0.1: 视觉降级 — 把图片经视觉模型转为文字描述(结果缓存回 Turn,每张图只分析一次)。
@@ -438,5 +442,25 @@ class ChannelAutoReply(
         /** v2.0.1: 上下文内携带图片的上限 — 原生模型最近 N 张、降级分析最近 N 张。 */
         private const val MAX_NATIVE_VISION_TURNS = 4
         private const val MAX_FALLBACK_VISION_TURNS = 2
+    }
+}
+
+internal data class ChannelAutoReplyDedupKey(
+    val platform: String,
+    val channelId: String,
+    val from: String,
+    val text: String,
+)
+
+internal fun channelAutoReplyDedupKey(platform: String, channelId: String, from: String, text: String): ChannelAutoReplyDedupKey {
+    return ChannelAutoReplyDedupKey(platform, channelId, from, text)
+}
+
+internal fun selectAutoReplyConfig(configs: List<ChannelConfig>, inbound: ChannelInbox.Inbound): ChannelConfig? {
+    return configs.firstOrNull {
+        it.enabled &&
+            it.autoReply &&
+            it.platform.name == inbound.platform &&
+            it.id == inbound.sourceChannelId
     }
 }

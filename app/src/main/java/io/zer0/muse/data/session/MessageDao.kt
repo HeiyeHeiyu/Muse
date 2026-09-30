@@ -118,6 +118,31 @@ interface MessageDao {
     @Query("DELETE FROM messages WHERE sessionId = :sessionId")
     suspend fun deleteBySession(sessionId: String)
 
+    /** 级联删除会话前读取消息 id,供清理落盘的图片 sidecar。 */
+    @Query("SELECT id FROM messages WHERE sessionId = :sessionId")
+    suspend fun getMessageIdsBySessionId(sessionId: String): List<String>
+
+    /** 7 天过期会话级联删除前读取消息 id,供清理图片 sidecar。 */
+    @Query(
+        "SELECT messages.id FROM messages " +
+            "INNER JOIN sessions ON sessions.id = messages.sessionId " +
+            "WHERE sessions.deletedAt IS NOT NULL AND sessions.deletedAt < :cutoff",
+    )
+    suspend fun getMessageIdsForExpiredSessions(cutoff: Long): List<String>
+
+    /** 全量硬删除前读取消息 id,供清理图片 sidecar。 */
+    @Query("SELECT id FROM messages")
+    suspend fun getAllMessageIds(): List<String>
+
+    /** 备份恢复成功后确认仍被消息引用的落盘图片路径。 */
+    @Query(
+        """
+        SELECT imageBase64Json FROM messages
+        WHERE imageBase64Json LIKE '%file://%'
+        """,
+    )
+    suspend fun getMessagesWithPersistedImagePaths(): List<String>
+
     /** v1.48: 按 id 删除单条消息(长按菜单删除误发消息用)。同时清理 FTS 索引。 */
     @Query("DELETE FROM messages WHERE id = :messageId")
     suspend fun deleteById(messageId: String)

@@ -50,8 +50,8 @@ data class ModelCatalogEntry(
     val name: String = "",
     val context: Long? = null,
     val maxOutput: Long? = null,
-    val image: Boolean = false,
-    val reasoning: Boolean = false,
+    val image: Boolean? = null,
+    val reasoning: Boolean? = null,
     /** 工具调用规格 —— 含"方言",替代按 host / 名称前缀猜的那一套。 */
     val toolUse: ToolUseSpec? = null,
     /** 支持的推理档位(如 low/medium/high/xhigh/max);空表示不支持推理档位。 */

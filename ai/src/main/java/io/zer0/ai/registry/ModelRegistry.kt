@@ -4,6 +4,7 @@ import io.zer0.ai.core.KnownModels
 import io.zer0.ai.core.KnownModels.Modality
 import io.zer0.ai.core.Model
 import io.zer0.ai.core.ModelAbility
+import io.zer0.ai.core.ModelCatalogEntry
 import io.zer0.ai.core.ModelContextWindowRegistry
 import io.zer0.ai.core.ModelVerification
 
@@ -517,39 +518,54 @@ object ModelRegistry {
         return current.entryByModelId(modelId)
     }
 
-    /** 把目录条目应用到模型:目录字段优先,缺失字段保留原值。 */
+    private fun resolveCatalogAbilities(model: Model, entry: ModelCatalogEntry): Set<ModelAbility> = buildSet {
+        addAll(model.abilities)
+        // toolUse 缺省仍按现有契约保留工具能力,只有显式 false 才关闭。
+        when (entry.toolUse?.supportsTools) {
+            false -> remove(ModelAbility.TOOL)
+            else -> add(ModelAbility.TOOL)
+        }
+        when (entry.reasoning) {
+            true -> add(ModelAbility.REASONING)
+            false -> remove(ModelAbility.REASONING)
+            null -> Unit
+        }
+    }
+
+    private fun resolveCatalogInputModalities(model: Model, entry: ModelCatalogEntry): Set<String> = when (entry.image) {
+        true -> setOf("text", "image")
+        false -> setOf("text")
+        null -> model.inputModalities
+    }
+
+    private fun resolveCatalogVerification(model: Model, contextWindow: Int?, maxOutputTokens: Int?): ModelVerification {
+        val hasInvalidOutputLimit = contextWindow?.let { window ->
+            window > 0 && maxOutputTokens?.let { limit -> limit > window } == true
+        } == true
+        return if (hasInvalidOutputLimit || model.verification == ModelVerification.SUSPICIOUS) {
+            ModelVerification.SUSPICIOUS
+        } else {
+            ModelVerification.VERIFIED
+        }
+    }
+
+    /** 把已声明的目录字段应用到模型;未声明的视觉/推理字段保留已有解析结果。 */
     private fun applyCatalogEntry(model: Model, entry: io.zer0.ai.core.ModelCatalogEntry): Model {
-        val abilities = buildSet {
-            // v2.1.0 修复(用户反馈:deepseek 系模型 Agent 工具调用全线静默失效):
-            // 目录数百条目中仅极少数声明了 toolUse,而 ToolUseSpec.supportsTools
-            // 反序列化默认 false — 曾把所有"未声明"条目的模型误判为"不支持工具",
-            // 工具定义在发送前被整体丢弃(请求 toolsIn=0)。语义修正:
-            //   - toolUse 缺省(null) = 未声明 ≠ 不支持 → 保留工具能力;
-            //   - 仅显式不支持(supportsTools=false)才抑制(数据侧可逐步补显式声明)。
-            when (entry.toolUse?.supportsTools) {
-                false -> Unit
-                else -> add(ModelAbility.TOOL)
-            }
-            if (entry.reasoning) add(ModelAbility.REASONING)
-        }
-        val input = buildSet {
-            add("text")
-            if (entry.image) add("image")
-        }
+        val contextWindow = entry.context?.toInt() ?: model.contextWindow
+        val maxOutputTokens = entry.maxOutput?.toInt() ?: model.maxOutputTokens
         return model.copy(
-            contextWindow = entry.context?.toInt() ?: model.contextWindow,
-            maxOutputTokens = entry.maxOutput?.toInt() ?: model.maxOutputTokens,
-            abilities = abilities,
-            inputModalities = input,
-            supportsVision = entry.image,
-            verification = ModelVerification.VERIFIED,
+            contextWindow = contextWindow,
+            maxOutputTokens = maxOutputTokens,
+            abilities = resolveCatalogAbilities(model, entry),
+            inputModalities = resolveCatalogInputModalities(model, entry),
+            supportsVision = entry.image ?: model.supportsVision,
+            verification = resolveCatalogVerification(model, contextWindow, maxOutputTokens),
         )
     }
 
     fun enhanceModel(model: Model): Model {
-        // 双轨第 1 轨:模型能力目录(远程可更新)——命中即以它为唯一真相。
-        // 目录未命中时退回既有硬编码规则(第 2 轨),保证行为向后兼容。
-        catalogEntryFor(model.providerId, model.id)?.let { return applyCatalogEntry(model, it) }
+        val catalogEntry = catalogEntryFor(model.providerId, model.id)
+        // 先解析硬编码规格与 KnownModels,让目录未声明的字段有可靠回退值。
 
         val defs = resolveDefinitions(model.id)
         val knownInfo = KnownModels.lookup(model.id)
@@ -662,7 +678,7 @@ object ModelRegistry {
             if (suspicious) ModelVerification.SUSPICIOUS else ModelVerification.VERIFIED
         }
 
-        return model.copy(
+        val resolvedModel = model.copy(
             abilities = newAbilities,
             inputModalities = newInput,
             outputModalities = newOutput,
@@ -693,5 +709,7 @@ object ModelRegistry {
             // v1.0.53: 填充数据可信度标注,供 UI 提示用户
             verification = verification,
         )
+        // 显式目录字段优先;缺失的 image/reasoning 保留上面的既有能力解析结果。
+        return catalogEntry?.let { applyCatalogEntry(resolvedModel, it) } ?: resolvedModel
     }
 }

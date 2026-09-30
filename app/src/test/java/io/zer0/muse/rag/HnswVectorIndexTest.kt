@@ -4,10 +4,13 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.DataOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -75,6 +78,45 @@ class HnswVectorIndexTest {
         }
         val d = sqrt(na) * sqrt(nb)
         return if (d == 0f) 0f else dot / d
+    }
+
+    private data class PersistedNode(
+        val id: String,
+        val vector: FloatArray,
+        val level: Int = 0,
+        val connections: List<List<Int>> = listOf(emptyList()),
+    )
+
+    /** 写入最小合法 HNSW 文件，用于损坏/混维载荷回归测试。 */
+    private fun writePersistedIndex(file: File, nodes: List<PersistedNode>, fingerprint: String = "") {
+        val maxLayer = nodes.maxOfOrNull { it.level } ?: -1
+        DataOutputStream(FileOutputStream(file)).use { out ->
+            out.write("HNSW01".toByteArray(Charsets.US_ASCII))
+            out.writeInt(2)
+            out.writeInt(HnswVectorIndex.DEFAULT_M)
+            out.writeInt(HnswVectorIndex.DEFAULT_EF_CONSTRUCTION)
+            out.writeInt(HnswVectorIndex.DEFAULT_EF_SEARCH)
+            val fingerprintBytes = fingerprint.toByteArray(Charsets.UTF_8)
+            out.writeInt(fingerprintBytes.size)
+            out.write(fingerprintBytes)
+            out.writeInt(maxLayer)
+            out.writeInt(if (nodes.isEmpty()) -1 else 0)
+            out.writeInt(nodes.size)
+            nodes.forEach { node ->
+                val idBytes = node.id.toByteArray(Charsets.UTF_8)
+                out.writeInt(idBytes.size)
+                out.write(idBytes)
+                out.writeInt(node.level)
+                out.writeInt(node.vector.size)
+                node.vector.forEach(out::writeFloat)
+                out.writeInt(node.level + 1)
+                for (layer in 0..node.level) {
+                    val connections = node.connections.getOrElse(layer) { emptyList() }
+                    out.writeInt(connections.size)
+                    connections.forEach(out::writeInt)
+                }
+            }
+        }
     }
 
     // ── add + search 正确性 ──
@@ -147,6 +189,37 @@ class HnswVectorIndexTest {
         assertEquals(1, results.size)
         assertEquals("dup", results[0].id)
         assertEquals(1.0f, results[0].score, 1e-4f)
+    }
+
+    @Test
+    fun `异维向量 add 被拒绝且不破坏现有索引`() {
+        val index = newTestIndex()
+        val original = FloatArray(8) { it.toFloat() + 1f }
+        index.add("original", original)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            index.add("other", FloatArray(9) { 1f })
+        }
+
+        assertEquals(1, index.size)
+        assertEquals("original", index.search(original, k = 1).single().id)
+        assertTrue("异维查询不得命中 HNSW", index.search(FloatArray(9) { 1f }, k = 1).isEmpty())
+    }
+
+    @Test
+    fun `同 id 异维替换在存在其他节点时被拒绝`() {
+        val index = newTestIndex()
+        val first = FloatArray(8) { 1f }
+        val second = FloatArray(8) { 2f }
+        index.add("first", first)
+        index.add("second", second)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            index.add("first", FloatArray(9) { 3f })
+        }
+
+        assertEquals(2, index.size)
+        assertTrue(index.search(first, k = 2).any { it.id == "first" })
     }
 
     @Test
@@ -261,6 +334,90 @@ class HnswVectorIndexTest {
     }
 
     @Test
+    fun `save 覆盖已有文件后只保留最新索引`() {
+        val file = File(tempDir, "replace.bin")
+        val first = newTestIndex().apply { add("old", FloatArray(8) { 1f }) }
+        first.save(file)
+
+        val second = newTestIndex().apply { add("new", FloatArray(8) { 2f }) }
+        second.save(file)
+
+        val loaded = newTestIndex()
+        loaded.load(file)
+        assertEquals(1, loaded.size)
+        assertEquals("new", loaded.search(FloatArray(8) { 2f }, 1).single().id)
+        assertTrue(loaded.search(FloatArray(8) { 1f }, 1).none { it.id == "old" })
+    }
+
+    @Test
+    fun `embedding 指纹不匹配时拒绝加载且保留当前索引`() {
+        val file = File(tempDir, "fingerprint.bin")
+        newTestIndex().apply {
+            add("saved", FloatArray(4) { 1f })
+            save(file, "provider\u0000model-a\u00004")
+        }
+        val target = newTestIndex().apply { add("kept", FloatArray(4) { 2f }) }
+
+        assertThrows(IllegalArgumentException::class.java) {
+            target.load(file, "provider\u0000model-b\u00004")
+        }
+
+        assertEquals(1, target.size)
+        assertEquals("kept", target.search(FloatArray(4) { 2f }, 1).single().id)
+    }
+
+    @Test
+    fun `混维索引加载失败且不覆盖已有索引`() {
+        val file = File(tempDir, "mixed-dimension.bin")
+        writePersistedIndex(
+            file,
+            listOf(
+                PersistedNode("a", FloatArray(4) { 1f }),
+                PersistedNode("b", FloatArray(5) { 2f }),
+            ),
+        )
+        val target = newTestIndex().apply { add("kept", FloatArray(4) { 3f }) }
+
+        assertThrows(IllegalArgumentException::class.java) { target.load(file) }
+
+        assertEquals(1, target.size)
+        assertEquals("kept", target.search(FloatArray(4) { 3f }, 1).single().id)
+    }
+
+    @Test
+    fun `截断索引加载失败且不覆盖已有索引`() {
+        val validFile = File(tempDir, "valid.bin")
+        newTestIndex().apply {
+            add("a", FloatArray(4) { 1f })
+            save(validFile)
+        }
+        val truncatedFile = File(tempDir, "truncated.bin")
+        truncatedFile.writeBytes(validFile.readBytes().dropLast(1).toByteArray())
+        val target = newTestIndex().apply { add("kept", FloatArray(4) { 3f }) }
+
+        assertThrows(Exception::class.java) { target.load(truncatedFile) }
+
+        assertEquals(1, target.size)
+        assertEquals("kept", target.search(FloatArray(4) { 3f }, 1).single().id)
+    }
+
+    @Test
+    fun `删除全部节点后保存并加载为空且可建立新维度`() {
+        val file = File(tempDir, "empty-rebuild.bin")
+        val index = newTestIndex().apply {
+            add("old", FloatArray(4) { 1f })
+            remove("old")
+            save(file)
+        }
+        val loaded = newTestIndex()
+        loaded.load(file)
+        assertEquals(0, loaded.size)
+
+        loaded.add("new", FloatArray(7) { 2f })
+        assertEquals("new", loaded.search(FloatArray(7) { 2f }, 1).single().id)
+    }
+
+    @Test
     fun `load 不存在的文件不抛异常且索引保持空`() {
         val index = newTestIndex()
         val nonexistent = File(tempDir, "does_not_exist.bin")
@@ -270,14 +427,17 @@ class HnswVectorIndexTest {
     }
 
     @Test
-    fun `load magic 不匹配的文件不抛异常`() {
+    fun `load magic 不匹配的文件被拒绝且不覆盖现有索引`() {
         val index = newTestIndex()
+        index.add("kept", FloatArray(4) { 1f })
         val badFile = File(tempDir, "bad_magic.bin")
         // 写入错误的 magic header
         badFile.writeBytes("BADMAG".toByteArray(Charsets.US_ASCII) + ByteArray(20))
-        // 不应抛异常,索引保持空
-        index.load(badFile)
-        assertEquals("magic 不匹配应跳过加载,索引保持空", 0, index.size)
+
+        assertThrows(IllegalArgumentException::class.java) { index.load(badFile) }
+
+        assertEquals("无效 header 不得覆盖现有索引", 1, index.size)
+        assertEquals("kept", index.search(FloatArray(4) { 1f }, 1).single().id)
     }
 
     @Test

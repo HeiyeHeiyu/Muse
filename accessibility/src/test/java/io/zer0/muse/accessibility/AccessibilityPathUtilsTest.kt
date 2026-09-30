@@ -1,6 +1,7 @@
 package io.zer0.muse.accessibility
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -23,5 +24,11 @@ class AccessibilityPathUtilsTest {
     fun escapesTextForSingleLineOutput() {
         val escaped = AccessibilityPathUtils.escapeText("a]b\nc\td\\e")
         assertEquals("a\\]b\\nc\\td\\\\e", escaped)
+    }
+
+    @Test
+    fun passwordNodeTextIsNeverExposedToAutomation() {
+        assertNull(AccessibilityPathUtils.textForModel("user-secret", isPassword = true))
+        assertEquals("Search", AccessibilityPathUtils.textForModel("Search", isPassword = false))
     }
 }

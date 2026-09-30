@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import io.zer0.ai.registry.ModelRegistry as RuntimeModelRegistry
 
 /**
  * [ModelCatalogLoader] 与 [ProviderApiRegistry] 的单测。
@@ -43,7 +44,7 @@ class ModelAbilityCatalogTest {
         val e = catalog.entryOf("anthropic", "claude-fable-5-1")
         assertEquals("Claude Fable 5.1", e!!.name)
         assertEquals(1000000L, e.context)
-        assertTrue(e.image)
+        assertEquals(true, e.image)
         assertEquals("anthropic", e.toolUse?.dialect)
         assertEquals("tool-result", e.toolUse?.toolResultFormat)
         assertEquals(listOf("low", "high", "max"), e.thinkingLevels)
@@ -51,14 +52,70 @@ class ModelAbilityCatalogTest {
     }
 
     @Test
-    fun `omitted fields fall back to safe defaults`() {
+    fun `omitted capability fields remain undeclared`() {
         val e = ModelCatalogLoader.loadOrEmpty(sample).entryOf("deepseek", "deepseek-v4-flash")
         assertEquals("DeepSeek V4 Flash", e!!.name)
-        assertEquals(false, e.image)
-        assertEquals(false, e.reasoning)
+        assertNull(e.image)
+        assertNull(e.reasoning)
         assertNull(e.toolUse)
         assertTrue(e.thinkingLevels.isEmpty())
         assertNull(e.compat)
+    }
+
+    @Test
+    fun `explicit false capability fields survive json decoding`() {
+        val e = ModelCatalogLoader.loadOrEmpty(
+            """{"providers":{"custom":{"text-model":{"image":false,"reasoning":false}}}}""",
+        ).entryOf("custom", "text-model")
+
+        assertEquals(false, e!!.image)
+        assertEquals(false, e.reasoning)
+    }
+
+    @Test
+    fun `catalog omissions preserve registry capabilities while explicit false overrides them`() {
+        RuntimeModelRegistry.installCatalog(
+            ModelCatalog(
+                providers = mapOf(
+                    "openai" to mapOf(
+                        "gpt-5" to ModelCatalogEntry(),
+                        "gpt-5-mini" to ModelCatalogEntry(image = false, reasoning = false),
+                    ),
+                ),
+            ),
+        )
+        try {
+            val inherited = RuntimeModelRegistry.enhanceModel(Model(id = "gpt-5", providerId = "openai"))
+            assertTrue(inherited.supportsVision)
+            assertTrue("image" in inherited.inputModalities)
+            assertTrue(ModelAbility.REASONING in inherited.abilities)
+
+            val explicitFalse = RuntimeModelRegistry.enhanceModel(Model(id = "gpt-5-mini", providerId = "openai"))
+            assertEquals(false, explicitFalse.supportsVision)
+            assertEquals(setOf("text"), explicitFalse.inputModalities)
+            assertTrue(ModelAbility.REASONING !in explicitFalse.abilities)
+        } finally {
+            RuntimeModelRegistry.installCatalog(ModelCatalog())
+        }
+    }
+
+    @Test
+    fun `catalog output limit above context is suspicious`() {
+        RuntimeModelRegistry.installCatalog(
+            ModelCatalog(
+                providers = mapOf(
+                    "custom" to mapOf(
+                        "catalog-model" to ModelCatalogEntry(context = 1_000, maxOutput = 2_000),
+                    ),
+                ),
+            ),
+        )
+        try {
+            val enhanced = RuntimeModelRegistry.enhanceModel(Model(id = "catalog-model", providerId = "custom"))
+            assertEquals(ModelVerification.SUSPICIOUS, enhanced.verification)
+        } finally {
+            RuntimeModelRegistry.installCatalog(ModelCatalog())
+        }
     }
 
     @Test

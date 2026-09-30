@@ -52,4 +52,23 @@ class MessageImageStoreTest {
         val store = MessageImageStore(dir)
         assertEquals(listOf(""), store.toBase64List(listOf("file:///nonexistent/image.bin")))
     }
+
+    @Test
+    fun `restore cleanup removes only preexisting files no longer referenced`() {
+        val dir = Files.createTempDirectory("muse-image-restore-cleanup").toFile()
+        val store = MessageImageStore(dir)
+        val encodedA = Base64.getEncoder().encodeToString(ByteArray(1024) { 3 })
+        val encodedB = Base64.getEncoder().encodeToString(ByteArray(1024) { 4 })
+        val encodedC = Base64.getEncoder().encodeToString(ByteArray(1024) { 5 })
+        val keep = store.toPersistable("keep", listOf(encodedA)).single()
+        val remove = store.toPersistable("remove", listOf(encodedB)).single()
+        val snapshot = store.snapshotStoredFilePaths()
+        val addedAfterSnapshot = store.toPersistable("new", listOf(encodedC)).single()
+
+        store.deleteSnapshotFilesNotReferenced(snapshot, setOf(keep))
+
+        assertTrue(File(keep.removePrefix("file://")).exists())
+        assertTrue(!File(remove.removePrefix("file://")).exists())
+        assertTrue(File(addedAfterSnapshot.removePrefix("file://")).exists())
+    }
 }

@@ -33,6 +33,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from baseline_utils import require_baseline
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 UI_DIR = PROJECT_ROOT / "app" / "src" / "main" / "java" / "io" / "zer0" / "muse" / "ui"
 BASELINE_PATH = PROJECT_ROOT / "ci" / "baseline" / "hardcoded_cjk_baseline.txt"
@@ -178,9 +180,8 @@ def main() -> int:
             for v in vs:
                 print(f"  {file}:{v.line} {v.code}")
 
-    if not args.baseline.exists():
-        print("[hardcoded-cjk] 未找到 baseline,仅报告不拦截。生成: --update-baseline")
-        return 0
+    if not require_baseline(args.baseline, "hardcoded-cjk"):
+        return 2
 
     baseline = load_baseline(args.baseline)
     failures: list[str] = []

@@ -5,6 +5,8 @@ import base64
 import sys
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1] / "script"
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -17,7 +19,11 @@ from resolve_release_version import (
 from validate_release_signing import decode_keystore, normalize_text
 from generate_release_manifest import main as generate_manifest_main
 from validate_release_manifest import validate_manifest
-from validate_release_apks import expand_apks
+from validate_release_apks import (
+    EXPECTED_SIGNING_CERT_SHA256,
+    expand_apks,
+    verify_apk,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -209,6 +215,40 @@ def test_release_apk_glob_expansion_deduplicates_and_filters():
         assert result == [first, second]
 
 
+def test_release_apk_verification_requires_pinned_certificate():
+    with tempfile.TemporaryDirectory() as raw_dir:
+        root = Path(raw_dir)
+        apk = root / "app-release.apk"
+        apk.write_bytes(b"apk")
+        apksigner = root / "apksigner"
+        output = f"Signer #1 certificate SHA-256 digest: {EXPECTED_SIGNING_CERT_SHA256}\n"
+        with patch(
+            "validate_release_apks.subprocess.run",
+            return_value=SimpleNamespace(returncode=0, stdout=output, stderr=""),
+        ) as run:
+            verify_apk(apk, apksigner)
+        assert "--print-certs" in run.call_args.args[0]
+
+
+def test_release_apk_verification_rejects_unexpected_certificate():
+    with tempfile.TemporaryDirectory() as raw_dir:
+        root = Path(raw_dir)
+        apk = root / "app-release.apk"
+        apk.write_bytes(b"apk")
+        apksigner = root / "apksigner"
+        output = "Signer #1 certificate SHA-256 digest: " + ("0" * 64)
+        with patch(
+            "validate_release_apks.subprocess.run",
+            return_value=SimpleNamespace(returncode=0, stdout=output, stderr=""),
+        ):
+            try:
+                verify_apk(apk, apksigner)
+            except RuntimeError as error:
+                assert "证书与发布证书不一致" in str(error)
+            else:
+                raise AssertionError("unexpected release certificate must fail")
+
+
 def test_release_manifest_multi_apk_round_trip_without_pytest_fixtures():
     with tempfile.TemporaryDirectory() as raw_dir:
         root = Path(raw_dir)
@@ -277,5 +317,7 @@ if __name__ == "__main__":
     test_secret_text_removes_bom_and_transport_whitespace()
     test_keystore_base64_decoder_ignores_transport_whitespace()
     test_release_apk_glob_expansion_deduplicates_and_filters()
+    test_release_apk_verification_requires_pinned_certificate()
+    test_release_apk_verification_rejects_unexpected_certificate()
     test_release_manifest_multi_apk_round_trip_without_pytest_fixtures()
     print("test_release_preflight OK")

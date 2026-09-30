@@ -36,10 +36,22 @@ class ChannelStore(private val file: File) {
 
     private suspend fun encrypt(config: ChannelConfig): ChannelConfig = config.copy(
         appSecret = if (config.appSecret.isBlank()) "" else SecureKeyStore.encrypt(config.appSecret),
+        webhookVerificationToken =
+        if (config.webhookVerificationToken.isBlank()) {
+            ""
+        } else {
+            SecureKeyStore.encrypt(config.webhookVerificationToken)
+        },
     )
 
     private suspend fun decrypt(config: ChannelConfig): ChannelConfig = config.copy(
         appSecret = if (config.appSecret.isBlank()) "" else SecureKeyStore.decrypt(config.appSecret),
+        webhookVerificationToken =
+        if (config.webhookVerificationToken.isBlank()) {
+            ""
+        } else {
+            SecureKeyStore.decrypt(config.webhookVerificationToken)
+        },
     )
 
     companion object {

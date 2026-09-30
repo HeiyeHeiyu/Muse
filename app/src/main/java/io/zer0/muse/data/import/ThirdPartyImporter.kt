@@ -124,7 +124,6 @@ object ThirdPartyImporter {
                 settings,
                 assistantRepo,
                 sessionRepo,
-                fallbackProvider = "openai",
             )
         }
 
@@ -213,12 +212,10 @@ object ThirdPartyImporter {
                     settingsJson,
                     settings,
                     assistantRepo,
-                    sessionRepo,
                 )
                 conversationsJson != null -> importConversationsJson(
                     ctx,
                     conversationsJson,
-                    settings,
                     assistantRepo,
                     sessionRepo,
                 )
@@ -255,7 +252,6 @@ object ThirdPartyImporter {
         settings: SettingsRepository,
         assistantRepo: AssistantRepository,
         sessionRepo: SessionRepository,
-        fallbackProvider: String,
     ): ImportResult {
         if (text.isBlank()) {
             return ImportResult(errors = listOf(context.getString(R.string.import_error_unknown_format)))
@@ -266,11 +262,11 @@ object ThirdPartyImporter {
             // ChatGPT: 顶层数组 或 含 conversations 字段
             root is kotlinx.serialization.json.JsonArray ||
                 (root is kotlinx.serialization.json.JsonObject && root.containsKey("conversations")) ->
-                importConversationsJson(context, text, settings, assistantRepo, sessionRepo)
+                importConversationsJson(context, text, assistantRepo, sessionRepo)
             // 既有实现 settings.json(有 providers/assistants)
             root is kotlinx.serialization.json.JsonObject &&
                 (root.containsKey("providers") || root.containsKey("assistants")) ->
-                importRikkaHub(context, text, settings, assistantRepo, sessionRepo)
+                importRikkaHub(context, text, settings, assistantRepo)
             else -> ImportResult(errors = listOf(context.getString(R.string.import_error_unknown_format)))
         }
     }
@@ -283,7 +279,6 @@ object ThirdPartyImporter {
         settingsJson: String,
         settings: SettingsRepository,
         assistantRepo: AssistantRepository,
-        sessionRepo: SessionRepository,
     ): ImportResult {
         val errors = mutableListOf<String>()
         var providersCount = 0
@@ -415,7 +410,6 @@ object ThirdPartyImporter {
     internal suspend fun importChatGPT(
         context: Context,
         conversationsJson: String,
-        settings: SettingsRepository,
         assistantRepo: AssistantRepository,
         sessionRepo: SessionRepository,
     ): ImportResult {
@@ -613,7 +607,6 @@ object ThirdPartyImporter {
     private suspend fun importConversationsJson(
         context: Context,
         text: String,
-        settings: SettingsRepository,
         assistantRepo: AssistantRepository,
         sessionRepo: SessionRepository,
     ): ImportResult {
@@ -623,9 +616,9 @@ object ThirdPartyImporter {
             first != null && first.containsKey("chat_messages") && !first.containsKey("mapping")
         }.getOrDefault(false)
         return if (looksClaude) {
-            importClaude(context, text, settings, assistantRepo, sessionRepo)
+            importClaude(context, text, assistantRepo, sessionRepo)
         } else {
-            importChatGPT(context, text, settings, assistantRepo, sessionRepo)
+            importChatGPT(context, text, assistantRepo, sessionRepo)
         }
     }
 
@@ -653,7 +646,6 @@ object ThirdPartyImporter {
     private suspend fun importClaude(
         context: Context,
         conversationsJson: String,
-        settings: SettingsRepository,
         assistantRepo: AssistantRepository,
         sessionRepo: SessionRepository,
     ): ImportResult {

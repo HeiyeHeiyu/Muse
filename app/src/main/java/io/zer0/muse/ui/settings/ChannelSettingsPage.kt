@@ -374,6 +374,8 @@ private fun ChannelEditDialog(initial: ChannelConfig?, onDismiss: () -> Unit, on
     var name by remember { mutableStateOf(initial?.name.orEmpty()) }
     var appId by remember { mutableStateOf(initial?.appId.orEmpty()) }
     var secretInput by remember { mutableStateOf("") }
+    var webhookEnabled by remember { mutableStateOf(initial?.webhookEnabled ?: false) }
+    var webhookVerificationTokenInput by remember { mutableStateOf("") }
     var targetId by remember { mutableStateOf(initial?.targetId.orEmpty()) }
     var qqType by remember { mutableStateOf(initial?.targetType ?: "group") }
     var robotCode by remember { mutableStateOf(initial?.robotCode.orEmpty()) }
@@ -385,6 +387,7 @@ private fun ChannelEditDialog(initial: ChannelConfig?, onDismiss: () -> Unit, on
     var showBind by remember { mutableStateOf(false) }
     var showTutorial by remember { mutableStateOf(false) }
     var showSecret by remember { mutableStateOf(false) }
+    var showWebhookVerificationToken by remember { mutableStateOf(false) }
     var validating by remember { mutableStateOf(false) }
     var validationResult by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
     // null = 未改动；空字符串 = 明确解除绑定；非空 = 新扫码得到的 token。
@@ -397,6 +400,17 @@ private fun ChannelEditDialog(initial: ChannelConfig?, onDismiss: () -> Unit, on
     val inbox by ChannelInbox.messages.collectAsStateWithLifecycle(initialValue = emptyList())
     val storedSecret = initial?.appSecret.orEmpty()
     val storedSecretForPlatform = if (platform == initial?.platform) storedSecret else ""
+    val storedWebhookVerificationToken =
+        if (
+            platform == initial?.platform &&
+            platform in setOf(ChannelPlatform.FEISHU, ChannelPlatform.QQ)
+        ) {
+            initial.webhookVerificationToken
+        } else {
+            ""
+        }
+    val effectiveWebhookVerificationToken =
+        webhookVerificationTokenInput.trim().ifBlank { storedWebhookVerificationToken }
     val effectiveSecret =
         if (platform == ChannelPlatform.WECLAW) {
             weclawTokenOverride ?: storedSecretForPlatform
@@ -415,6 +429,14 @@ private fun ChannelEditDialog(initial: ChannelConfig?, onDismiss: () -> Unit, on
         when (platform) {
             ChannelPlatform.WECLAW -> effectiveSecret.isNotBlank()
             ChannelPlatform.TELEGRAM -> effectiveSecret.isNotBlank()
+            ChannelPlatform.FEISHU ->
+                appId.isNotBlank() &&
+                    effectiveSecret.isNotBlank() &&
+                    (!webhookEnabled || effectiveWebhookVerificationToken.isNotBlank())
+            ChannelPlatform.QQ ->
+                appId.isNotBlank() &&
+                    effectiveSecret.isNotBlank() &&
+                    (!webhookEnabled || effectiveWebhookVerificationToken.isNotBlank())
             else -> appId.isNotBlank() && effectiveSecret.isNotBlank()
         }
     val validate = {
@@ -471,6 +493,10 @@ private fun ChannelEditDialog(initial: ChannelConfig?, onDismiss: () -> Unit, on
                     value = platform.name,
                     onValueChange = { value ->
                         ChannelPlatform.entries.firstOrNull { it.name == value }?.let {
+                            if (platform != it) {
+                                webhookEnabled = false
+                                webhookVerificationTokenInput = ""
+                            }
                             platform = it
                             validationResult = null
                         }
@@ -595,6 +621,21 @@ private fun ChannelEditDialog(initial: ChannelConfig?, onDismiss: () -> Unit, on
                             visible = showSecret,
                             onToggleVisible = { showSecret = !showSecret },
                         )
+                        WebhookReceiverToggle(
+                            checked = webhookEnabled,
+                            onCheckedChange = { webhookEnabled = it },
+                            hint = stringResource(R.string.channel_webhook_feishu_hint),
+                        )
+                        if (webhookEnabled) {
+                            SecretInputField(
+                                value = webhookVerificationTokenInput,
+                                onValueChange = { webhookVerificationTokenInput = it },
+                                label = stringResource(R.string.channel_webhook_verification_token),
+                                storedSecret = storedWebhookVerificationToken,
+                                visible = showWebhookVerificationToken,
+                                onToggleVisible = { showWebhookVerificationToken = !showWebhookVerificationToken },
+                            )
+                        }
                         PlatformCredentialFooter(
                             hint = stringResource(R.string.channel_feishu_hint),
                             validating = validating,
@@ -675,6 +716,21 @@ private fun ChannelEditDialog(initial: ChannelConfig?, onDismiss: () -> Unit, on
                             visible = showSecret,
                             onToggleVisible = { showSecret = !showSecret },
                         )
+                        WebhookReceiverToggle(
+                            checked = webhookEnabled,
+                            onCheckedChange = { webhookEnabled = it },
+                            hint = stringResource(R.string.channel_webhook_qq_hint),
+                        )
+                        if (webhookEnabled) {
+                            SecretInputField(
+                                value = webhookVerificationTokenInput,
+                                onValueChange = { webhookVerificationTokenInput = it },
+                                label = stringResource(R.string.channel_webhook_verification_token),
+                                storedSecret = storedWebhookVerificationToken,
+                                visible = showWebhookVerificationToken,
+                                onToggleVisible = { showWebhookVerificationToken = !showWebhookVerificationToken },
+                            )
+                        }
                         MuseDropdown(
                             value = qqType,
                             onValueChange = { qqType = it },
@@ -779,6 +835,14 @@ private fun ChannelEditDialog(initial: ChannelConfig?, onDismiss: () -> Unit, on
                     enabled = initial?.enabled ?: true,
                     appId = appId.trim(),
                     appSecret = effectiveSecret.trim(),
+                    webhookEnabled = webhookEnabled &&
+                        (platform == ChannelPlatform.FEISHU || platform == ChannelPlatform.QQ),
+                    webhookVerificationToken =
+                    if (platform == ChannelPlatform.FEISHU || platform == ChannelPlatform.QQ) {
+                        effectiveWebhookVerificationToken
+                    } else {
+                        ""
+                    },
                     targetId = targetId.trim(),
                     targetType = qqType,
                     robotCode = robotCode.trim(),
@@ -974,6 +1038,34 @@ private fun SecretInputField(
         } else {
             PasswordVisualTransformation()
         },
+    )
+}
+
+@Composable
+@Suppress("FunctionNaming")
+private fun WebhookReceiverToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit, hint: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.channel_webhook_receive),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = stringResource(R.string.channel_webhook_receive_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
+        }
+        MuseSwitch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+    Text(
+        text = hint,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
 

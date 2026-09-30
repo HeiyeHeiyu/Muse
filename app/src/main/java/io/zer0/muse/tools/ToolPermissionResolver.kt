@@ -497,6 +497,17 @@ object ToolPermissionResolver {
         "terminal_exec",
         // v2.2.1: Termux 通道能力全开,保留审批
         "termux_exec",
+        // A2: UI 读取会暴露其他 App 内容,坐标/输入操作可触发任意前台行为,全部保留审批。
+        "ui_get_page_info",
+        "ui_click",
+        "ui_long_press",
+        "ui_swipe",
+        "ui_set_text",
+        "ui_screenshot",
+        "ui_back",
+        "ui_home",
+        "ui_global_action",
+        "ui_get_current_app",
         // v2.2.1: GUI Agent 环可连续操作任意 App,保留审批
         "ui_agent",
     )

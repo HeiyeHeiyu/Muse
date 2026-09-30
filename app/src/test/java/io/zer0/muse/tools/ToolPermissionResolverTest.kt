@@ -38,6 +38,16 @@ class ToolPermissionResolverTest {
             "workspace_move",
             "mcp_mgmt_remove",
             "mcp_mgmt_configure",
+            "ui_get_page_info",
+            "ui_click",
+            "ui_long_press",
+            "ui_swipe",
+            "ui_set_text",
+            "ui_screenshot",
+            "ui_back",
+            "ui_home",
+            "ui_global_action",
+            "ui_get_current_app",
         ).forEach { tool ->
             val result = ToolPermissionResolver.resolve(
                 toolName = tool,

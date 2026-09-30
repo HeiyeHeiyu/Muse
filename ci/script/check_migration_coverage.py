@@ -29,6 +29,9 @@ DB_PATH = REPO_ROOT / "app/src/main/java/io/zer0/muse/data/session/MuseDb.kt"
 TEST_MIGRATION = REPO_ROOT / "app/src/test/java/io/zer0/muse/data/session/MuseDbMigrationTest.kt"
 TEST_MANUAL_CHAIN = REPO_ROOT / "app/src/test/java/io/zer0/muse/data/session/MuseDbManualChainMigrationTest.kt"
 FACT_DB_PATH = REPO_ROOT / "memory/src/main/java/io/zer0/memory/fact/FactDb.kt"
+MEMORY_DB_PATH = REPO_ROOT / "memory/src/main/java/io/zer0/memory/summary/MemoryDb.kt"
+MEMORY_DB_BUILDER_PATH = REPO_ROOT / "memory/src/main/java/io/zer0/memory/MemoryModule.kt"
+MEMORY_DB_TEST = REPO_ROOT / "memory/src/test/java/io/zer0/memory/summary/MemoryDbMigrationTest.kt"
 
 STATIC_DECL = re.compile(r"val\s+(MIGRATION_(\d+)_(\d+))\s*=\s*object\s*:\s*Migration")
 DYNAMIC_DECL = re.compile(r"fun\s+(migrate(\d+)To(\d+))\b")
@@ -100,13 +103,21 @@ def fail(msg: str, count: list[int]) -> None:
     print(f"  FAIL: {msg}")
 
 
-def check_extra_db_static_chain(db_path: Path, db_name: str, min_version: int, failures: list[int]) -> None:
-    """对第二个数据库(如 FactDb)做校验 A+B(静态注册一致 + 链完整)。
+def check_extra_db_static_chain(
+    db_path: Path,
+    db_name: str,
+    min_version: int,
+    failures: list[int],
+    registration_path: Path | None = None,
+    test_path: Path | None = None,
+) -> None:
+    """对其他数据库(如 FactDb、MemoryDb)做校验 A+B(静态注册一致 + 链完整)。
 
     从 min_version 起校验链完整性:部分库(如 FactDb v1/v2)是历史遗留版本,
     由业务层兜底(archiveLegacyOrCorruptDatabase)处理,不在迁移链内,故不判为断链。
     """
     print(f"\n===== {db_name} 迁移链校验 =====")
+    initial_failure_count = failures[0]
     if not db_path.is_file():
         fail(f"{db_name}: 未找到 {db_path}", failures)
         return
@@ -118,7 +129,12 @@ def check_extra_db_static_chain(db_path: Path, db_name: str, min_version: int, f
     declared_static = {
         (int(a), int(b)): name for name, a, b in STATIC_DECL.findall(db_text)
     }
-    registered = extract_add_migrations(db_text)
+    registration_file = registration_path or db_path
+    if not registration_file.is_file():
+        fail(f"{db_name}: 未找到 migration builder {registration_file}", failures)
+        return
+    registration_text = registration_file.read_text(encoding="utf-8")
+    registered = extract_add_migrations(registration_text)
     registered_set = set(registered)
     reachable_static = {(f, t) for (f, t) in declared_static if f < current_version}
     print(f"{db_name} version = {current_version}, 注册迁移数 = {len(registered)} (min 版本 {min_version})")
@@ -138,7 +154,23 @@ def check_extra_db_static_chain(db_path: Path, db_name: str, min_version: int, f
         if not (f < t <= current_version):
             fail(f"{db_name} 迁移 {f}->{t} 非法: 需满足 from < to <= {current_version}", failures)
 
-    if not missing_decl and not unregistered and not missing_from:
+    if test_path is not None:
+        if not test_path.is_file():
+            fail(f"{db_name}: 未找到迁移测试 {test_path}", failures)
+        else:
+            test_text = test_path.read_text(encoding="utf-8")
+            tested = {
+                (int(from_version), int(to_version))
+                for from_version, to_version in re.findall(
+                    rf"\b{re.escape(db_name)}\.MIGRATION_(\d+)_(\d+)\b",
+                    test_text,
+                )
+            }
+            for pair in sorted(registered_set & set(declared_static)):
+                if pair not in tested:
+                    fail(f"{db_name} 迁移 {pair} 未被 {test_path.name} 显式引用", failures)
+
+    if failures[0] == initial_failure_count:
         print(f"  PASS: {db_name} 静态迁移链完整(无断链)")
 
 
@@ -239,6 +271,14 @@ def main() -> int:
         fail("MuseDbManualChainMigrationTest 不存在, 静态迁移失去执行覆盖", failures)
 
     check_extra_db_static_chain(FACT_DB_PATH, "FactDb", 3, failures)
+    check_extra_db_static_chain(
+        MEMORY_DB_PATH,
+        "MemoryDb",
+        1,
+        failures,
+        registration_path=MEMORY_DB_BUILDER_PATH,
+        test_path=MEMORY_DB_TEST,
+    )
 
     print()
     if failures[0] == 0:

@@ -21,6 +21,7 @@ internal object WebhookSignatures {
     /** 事件推送验签:校验 hex 签名对 timestamp + body 有效。 */
     fun verifyWebhook(secret: String, timestamp: String, body: String, signatureHex: String): Boolean {
         if (secret.isBlank() || timestamp.isBlank() || signatureHex.isBlank()) return false
+        if (signatureHex.length != 128) return false
         val signature = runCatching {
             ByteArray(signatureHex.length / 2) { i ->
                 signatureHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()

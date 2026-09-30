@@ -57,7 +57,16 @@ class TelegramReceiver(
             }
             offset = updates.nextOffset
             updates.messages.forEach { msg ->
-                ChannelInbox.record("TELEGRAM", msg.chatId.toString(), msg.text, "")
+                ChannelInbox.record(
+                    ChannelInbox.Source(
+                        "TELEGRAM",
+                        msg.chatId.toString(),
+                        config.id,
+                        msg.updateId?.toString().orEmpty(),
+                    ),
+                    msg.text,
+                    "",
+                )
             }
         }
     }

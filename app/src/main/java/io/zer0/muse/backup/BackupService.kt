@@ -19,6 +19,7 @@ import io.zer0.muse.data.stats.AutoBackupLogDao
 import io.zer0.muse.data.stats.AutoBackupLogEntity
 import io.zer0.muse.data.session.SessionEntity
 import io.zer0.muse.data.session.MessageEntity
+import io.zer0.muse.data.session.MessageImageStore
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.lorebook.LorebookEntity
 import io.zer0.muse.data.skill.SkillEntity
@@ -119,6 +120,8 @@ class BackupService(
     private val factStore: io.zer0.memory.fact.FactStore,
     /** P0-10: 分库提供者 — 子助手事实库(facts_<id>.db)的枚举/写入。 */
     private val factDbProvider: io.zer0.memory.fact.FactDbProvider,
+    /** 恢复成功后清理旧消息不再引用的图片 sidecar。 */
+    private val messageImageStore: MessageImageStore,
     /**
      * B-23: 单 JSON 备份体量上限(字节)。
      *
@@ -328,7 +331,7 @@ class BackupService(
                         yield(line)
                     }
                 }
-                val imported = applyNdJsonStreaming(sequenceOf(firstLine) + rest)
+                val imported = applyNdJsonStreamingWithImageCleanup(sequenceOf(firstLine) + rest)
                 warmUpRoomAfterImport()
                 return imported
             }
@@ -903,8 +906,7 @@ class BackupService(
 
             db.withTransaction {
                 // 1. 先清空所有表
-                db.messageDao().deleteAll()
-                db.sessionDao().deleteAll()
+                clearConversationStateForRestore(db)
                 db.assistantDao().deleteAll()
                 db.lorebookDao().deleteAll()
                 db.skillDao().deleteAll()
@@ -1428,6 +1430,14 @@ class BackupService(
         return sessionCount to messageCount
     }
 
+    private suspend fun applyNdJsonStreamingWithImageCleanup(lines: Sequence<String>): Pair<Int, Int> {
+        return restoreAndPruneMessageImages(
+            imageStore = messageImageStore,
+            restore = { applyNdJsonStreaming(lines) },
+            readReferencedPaths = { readReferencedMessageImagePaths() },
+        )
+    }
+
     /**
      * P0-10: 枚举磁盘上已存在的子助手分库文件 facts_<id>.db,返回 assistantId 列表。
      * 不含默认库 facts.db(其数据经 [factDb] 单独导出);-wal/-shm 附属文件一并排除。
@@ -1700,7 +1710,12 @@ class BackupService(
             return false
         }
         // Phase 3 (P1): 字节一致 ≠ 内容可恢复 — 解密后校验 NDJSON 结构/meta/行数
-        val contentError = validateCloudReadBackNdjson(readBack!!, config.backupPassword)
+        val contentError =
+            validateCloudReadBackNdjsonWithPolicy(
+                readBack,
+                config.backupPassword,
+                config.backupPasswordSet,
+            )
         if (contentError != null) {
             Logger.w("BackupService", "云备份读回校验失败(内容): $contentError")
             logCloudBackup(
@@ -1920,6 +1935,10 @@ class BackupService(
      * @return 导入的会话数 + 消息数;null 表示解密/解析失败
      */
     private suspend fun applyCloudBackupData(config: CloudBackupConfig, data: ByteArray): Pair<Int, Int>? {
+        if (shouldRejectPlaintextCloudBackup(data, config.backupPasswordSet, config.backupPassword)) {
+            Logger.w("BackupService", "拒绝明文云备份: 当前设备已配置备份加密")
+            return null
+        }
         val plaintext = if (BackupCrypto.isEncrypted(data)) {
             if (config.backupPassword.isEmpty()) {
                 Logger.w("BackupService", "云端备份已加密但未设置备份密码,无法解密")
@@ -1958,7 +1977,7 @@ class BackupService(
                         yield(line)
                     }
                 }
-                resultOf { applyNdJsonStreaming(sequenceOf(firstLine) + rest) }
+                resultOf { applyNdJsonStreamingWithImageCleanup(sequenceOf(firstLine) + rest) }
                     .onError { _, t -> Logger.w("BackupService", "云端 NDJSON 流式导入失败", t) }
                     .getOrNull()
             }
@@ -2240,6 +2259,7 @@ class BackupService(
             restoreStagingStore.writeRecoveryPoint(currentJournal, preImportSnapshot)
             currentJournal = restoreJournal.advance(currentJournal, RestoreJournal.Phase.VALIDATING)
             currentJournal = restoreJournal.advance(currentJournal, RestoreJournal.Phase.COMMITTING)
+            val imageFilesBeforeRestore = messageImageStore.snapshotStoredFilePaths()
             val result = applyBackupInternal(migrated)
             currentJournal = restoreJournal.advance(
                 currentJournal,
@@ -2264,6 +2284,7 @@ class BackupService(
             )
             restoreJournal.complete(currentJournal)
             restoreStagingStore.cleanup(currentJournal)
+            pruneRestoredMessageImages(imageFilesBeforeRestore)
             result
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             val rolledBack = rollbackAfterRestoreFailure(currentJournal, e)
@@ -2293,6 +2314,7 @@ class BackupService(
             }
             try {
                 Logger.w("BackupService", "恢复失败,回滚到持久化 recovery point: ${originalError.message}", originalError)
+                val imageFilesBeforeRollback = messageImageStore.snapshotStoredFilePaths()
                 var rollbackJournal = restoreJournal.advance(entry, RestoreJournal.Phase.ROLLING_BACK)
                 applyBackupInternal(recovery)
                 sessionRepository.rebuildFtsIndex()
@@ -2309,6 +2331,7 @@ class BackupService(
                 )
                 restoreJournal.complete(rollbackJournal)
                 restoreStagingStore.cleanup(rollbackJournal)
+                pruneRestoredMessageImages(imageFilesBeforeRollback)
                 true
             } catch (rollbackError: Exception) {
                 Logger.e("BackupService", "恢复点回滚失败,保留账本和副本: ${rollbackError.message}", rollbackError)
@@ -2330,6 +2353,7 @@ class BackupService(
         try {
             val recovery = restoreStagingStore.readRecoveryPoint(entry)
                 ?: error("恢复账本存在，但找不到持久化 recovery point")
+            val imageFilesBeforeRollback = messageImageStore.snapshotStoredFilePaths()
             current = restoreJournal.advance(current, RestoreJournal.Phase.ROLLING_BACK)
             applyBackupInternal(recovery)
             sessionRepository.rebuildFtsIndex()
@@ -2346,6 +2370,7 @@ class BackupService(
             )
             restoreJournal.complete(current)
             restoreStagingStore.cleanup(current)
+            pruneRestoredMessageImages(imageFilesBeforeRollback)
             Logger.w("BackupService", "启动恢复检查已回滚未完成恢复: phase=${entry.phase}")
             true
         } catch (error: Exception) {
@@ -2397,8 +2422,7 @@ class BackupService(
     private suspend fun applyBackupInternal(backup: Backup): Pair<Int, Int> {
         // 1. 导入 MuseDb 主表(sessions + messages)
         db.withTransaction {
-            db.messageDao().deleteAll()
-            db.sessionDao().deleteAll()
+            clearConversationStateForRestore(db)
             // v2.x 导入预热:恢复的会话首轮以全量历史构建上下文一次
             backup.sessions.forEach { db.sessionDao().insert(it.copy(warmupPending = true)) }
             backup.messages.forEach { db.messageDao().upsert(it) }
@@ -2516,6 +2540,32 @@ class BackupService(
 
         return backup.sessions.size to backup.messages.size
     }
+
+    private suspend fun pruneRestoredMessageImages(snapshot: Set<String>) {
+        pruneMessageImageSnapshot(messageImageStore, snapshot) { readReferencedMessageImagePaths() }
+    }
+
+    private suspend fun readReferencedMessageImagePaths(): Set<String>? {
+        val referenced = mutableSetOf<String>()
+        val encodedPaths = resultOf { db.messageDao().getMessagesWithPersistedImagePaths() }
+            .onError { message, error -> Logger.w("BackupService", "消息图片路径查询失败，跳过 sidecar 清理: $message", error) }
+            .getOrNull()
+        if (encodedPaths == null) return null
+        var failedToParse = false
+        for (encoded in encodedPaths) {
+            val paths = resultOf {
+                json.decodeFromString(ListSerializer(String.serializer()), encoded)
+            }
+                .onError { message, error -> Logger.w("BackupService", "消息图片路径读取失败，跳过 sidecar 清理: $message", error) }
+                .getOrNull()
+            if (paths == null) {
+                failedToParse = true
+            } else {
+                referenced.addAll(paths)
+            }
+        }
+        return if (failedToParse) null else referenced
+    }
 }
 
 /** NDJSON 导出 type → meta 计数键(导出生成与导入/读回校验共用同一映射)。 */
@@ -2616,4 +2666,16 @@ internal fun validateCloudReadBackNdjson(payload: ByteArray, password: String): 
         if (!hasDataLine) return "read-back has no record lines after meta"
         return null
     }
+}
+
+internal fun validateCloudReadBackNdjsonWithPolicy(payload: ByteArray, password: String, passwordWasSet: Boolean): String? {
+    return if (shouldRejectPlaintextCloudBackup(payload, passwordWasSet, password)) {
+        "plaintext read-back while backup encryption is configured"
+    } else {
+        validateCloudReadBackNdjson(payload, password)
+    }
+}
+
+internal fun shouldRejectPlaintextCloudBackup(payload: ByteArray, passwordWasSet: Boolean, password: String): Boolean {
+    return !BackupCrypto.isEncrypted(payload) && (passwordWasSet || password.isNotBlank())
 }

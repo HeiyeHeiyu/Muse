@@ -5,6 +5,9 @@ import java.io.DataOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.PriorityQueue
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
@@ -12,6 +15,9 @@ import kotlin.concurrent.write
 import kotlin.math.ln
 import kotlin.math.sqrt
 import kotlin.random.Random
+
+internal class HnswEmbeddingFingerprintMismatchException :
+    IllegalArgumentException("HNSW embedding fingerprint does not match the active provider")
 
 /**
  * v1.55: 向量索引统一接口。
@@ -32,11 +38,14 @@ interface VectorIndex {
     /** 当前索引中向量数。 */
     val size: Int
 
+    /** 清空当前索引。 */
+    fun clear()
+
     /** 持久化到文件(覆盖现有内容)。 */
-    fun save(file: File)
+    fun save(file: File, fingerprint: String? = null)
 
     /** 从文件加载(替换当前索引内容)。 */
-    fun load(file: File)
+    fun load(file: File, expectedFingerprint: String? = null)
 }
 
 /**
@@ -94,6 +103,13 @@ class HnswVectorIndex(
         @Volatile var deleted: Boolean = false,
     )
 
+    private data class LoadedState(
+        val nodes: List<Node>,
+        val idToIndex: Map<String, Int>,
+        val maxLayer: Int,
+        val entryPoint: Int,
+    )
+
     private val nodes = mutableListOf<Node>() // 内部 index → Node
     private val idToIndex = HashMap<String, Int>() // 外部 id → 内部 index
 
@@ -102,6 +118,7 @@ class HnswVectorIndex(
     @Volatile private var maxLayer: Int = -1 // 当前最大层级
     private val rng = Random(seed)
     private val lock = ReentrantReadWriteLock()
+    private val saveLock = Any()
 
     /** mL = 1 / ln(M),用于按指数分布生成节点层级(论文公式)。 */
     private val mL: Double = 1.0 / ln(M.toDouble())
@@ -109,69 +126,85 @@ class HnswVectorIndex(
     override val size: Int
         get() = lock.read { idToIndex.size }
 
+    override fun clear() = lock.write {
+        nodes.clear()
+        idToIndex.clear()
+        entryPoint = -1
+        maxLayer = -1
+    }
+
     override fun add(id: String, vector: FloatArray) = lock.write {
-        // 同 id 已存在 → 软删除旧节点(覆盖语义)
+        validateVector(id, vector)
         idToIndex.remove(id)?.let { softDeleteInternal(it) }
 
         val level = randomLevel()
-        val node = Node(
-            id = id,
-            vector = vector.copyOf(),
-            level = level,
-            connections = Array(level + 1) { mutableListOf() },
-        )
+        val node = Node(id, vector.copyOf(), level, Array(level + 1) { mutableListOf() })
         val newIndex = nodes.size
         nodes.add(node)
         idToIndex[id] = newIndex
 
-        // 首个节点 → 设为入口点
         if (entryPoint < 0 || maxLayer < 0) {
             entryPoint = newIndex
             maxLayer = level
             return@write
         }
-
-        // 1. 顶层到 level+1:贪心找最近入口(ef=1)
-        var cur = entryPoint
-        for (layer in maxLayer downTo level + 1) {
-            cur = searchLayer(vector, listOf(cur), layer, ef = 1)
-                .firstOrNull()?.second ?: cur
-        }
-
-        // 2. min(level, maxLayer) → 0:搜索 + 连接
-        val startLayer = minOf(level, maxLayer)
-        for (layer in startLayer downTo 0) {
-            val candidates = searchLayer(vector, listOf(cur), layer, efConstruction)
-                .filter { it.second != newIndex } // 排除自己
-            val selected = selectNeighborsHeuristic(candidates, M)
-            for ((_, neighborIdx) in selected) {
-                if (neighborIdx == newIndex) continue
-                node.connections[layer].add(neighborIdx)
-                val neighbor = nodes[neighborIdx]
-                neighbor.connections[layer].add(newIndex)
-                // 邻居连接数超限 → 剪枝(Mmax0 = 2*M 在层 0,Mmax = M 在其他层)
-                val mMax = if (layer == 0) M * 2 else M
-                if (neighbor.connections[layer].size > mMax) {
-                    val neighborCandidates = neighbor.connections[layer]
-                        .map { idx -> distance(neighbor.vector, nodes[idx].vector) to idx }
-                    val pruned = selectNeighborsHeuristic(neighborCandidates, mMax)
-                    neighbor.connections[layer].clear()
-                    neighbor.connections[layer].addAll(pruned.map { it.second })
-                }
-            }
-            // 下一层起点:用最近的候选
-            cur = candidates.firstOrNull()?.second ?: cur
-        }
-
-        // 3. 若新节点层级 > maxLayer,更新入口点
+        connectNode(node, newIndex, vector)
         if (level > maxLayer) {
             entryPoint = newIndex
             maxLayer = level
         }
     }
 
+    private fun validateVector(id: String, vector: FloatArray) {
+        require(vector.isNotEmpty()) { "HNSW vectors must not be empty" }
+        val expectedDimension = idToIndex.entries
+            .firstOrNull { it.key != id }
+            ?.value
+            ?.let { nodes[it].vector.size }
+        require(expectedDimension == null || vector.size == expectedDimension) {
+            "HNSW vector dimension ${vector.size} does not match active index dimension $expectedDimension"
+        }
+    }
+
+    private fun connectNode(node: Node, newIndex: Int, vector: FloatArray) {
+        var cur = entryPoint
+        for (layer in maxLayer downTo node.level + 1) {
+            cur = searchLayer(vector, listOf(cur), layer, ef = 1)
+                .firstOrNull()?.second ?: cur
+        }
+        for (layer in minOf(node.level, maxLayer) downTo 0) {
+            val candidates = searchLayer(vector, listOf(cur), layer, efConstruction)
+                .filter { it.second != newIndex }
+            val selected = selectNeighborsHeuristic(candidates, M)
+            for ((_, neighborIdx) in selected) {
+                if (neighborIdx == newIndex) continue
+                node.connections[layer].add(neighborIdx)
+                val neighbor = nodes[neighborIdx]
+                neighbor.connections[layer].add(newIndex)
+                pruneNeighborConnections(neighbor, layer)
+            }
+            cur = candidates.firstOrNull()?.second ?: cur
+        }
+    }
+
+    private fun pruneNeighborConnections(neighbor: Node, layer: Int) {
+        val mMax = if (layer == 0) M * 2 else M
+        if (neighbor.connections[layer].size <= mMax) return
+        val candidates = neighbor.connections[layer]
+            .map { idx -> distance(neighbor.vector, nodes[idx].vector) to idx }
+        val pruned = selectNeighborsHeuristic(candidates, mMax)
+        neighbor.connections[layer].clear()
+        neighbor.connections[layer].addAll(pruned.map { it.second })
+    }
+
     override fun search(query: FloatArray, k: Int): List<SearchResult> = lock.read {
-        if (entryPoint < 0 || nodes.isEmpty() || k <= 0) return@read emptyList()
+        if (entryPoint < 0) return@read emptyList()
+        if (nodes.isEmpty()) return@read emptyList()
+        if (k <= 0) return@read emptyList()
+        if (query.isEmpty()) return@read emptyList()
+        val expectedDimension = idToIndex.values.firstOrNull()?.let { nodes[it].vector.size }
+            ?: return@read emptyList()
+        if (query.size != expectedDimension) return@read emptyList()
         // 顶层到 1:贪心 1-NN
         var cur = entryPoint
         for (layer in maxLayer downTo 1) {
@@ -242,8 +275,8 @@ class HnswVectorIndex(
         val visited = HashSet<Int>()
         // candidates: min-heap by distance (smaller = closer = dequeued first)
         val candidates = PriorityQueue<Pair<Float, Int>>(compareBy { it.first })
-        // W: max-heap by distance (larger = farther = polled first when pruning)
-        val W = PriorityQueue<Pair<Float, Int>>(compareByDescending { it.first })
+        // max-heap by distance (larger = farther = polled first when pruning)
+        val best = PriorityQueue<Pair<Float, Int>>(compareByDescending { it.first })
 
         for (ep in entryPoints) {
             if (ep !in nodes.indices) continue
@@ -252,13 +285,13 @@ class HnswVectorIndex(
             if (ep in visited) continue
             val d = distance(query, node.vector)
             candidates.offer(d to ep)
-            W.offer(d to ep)
+            best.offer(d to ep)
             visited.add(ep)
         }
 
         while (candidates.isNotEmpty()) {
             val (cDist, cIdx) = candidates.poll() ?: break
-            val fDist = W.peek()?.first ?: Float.MAX_VALUE
+            val fDist = best.peek()?.first ?: Float.MAX_VALUE
             if (cDist > fDist) break
             val cNode = nodes[cIdx]
             val conns = cNode.connections.getOrNull(layer) ?: continue
@@ -269,16 +302,16 @@ class HnswVectorIndex(
                 val eNode = nodes[e]
                 if (eNode.deleted) continue
                 val eDist = distance(query, eNode.vector)
-                val fDist2 = W.peek()?.first ?: Float.MAX_VALUE
-                if (eDist < fDist2 || W.size < ef) {
+                val fDist2 = best.peek()?.first ?: Float.MAX_VALUE
+                if (eDist < fDist2 || best.size < ef) {
                     candidates.offer(eDist to e)
-                    W.offer(eDist to e)
-                    if (W.size > ef) W.poll()
+                    best.offer(eDist to e)
+                    if (best.size > ef) best.poll()
                 }
             }
         }
 
-        return W.toList().sortedBy { it.first } // 升序:最近的在前
+        return best.toList().sortedBy { it.first } // 升序:最近的在前
     }
 
     /**
@@ -325,14 +358,14 @@ class HnswVectorIndex(
         return Math.floor(-Math.log(safeR) * mL).toInt()
     }
 
-    /** 余弦距离 = 1 - 余弦相似度(范围 [0,2])。 */
+    /** 余弦距离 = 1 - 余弦相似度(范围 [0,2]);维度必须一致,不按前缀误算。 */
     private fun distance(a: FloatArray, b: FloatArray): Float {
-        val n = minOf(a.size, b.size)
-        if (n == 0) return 1f
+        require(a.size == b.size) { "HNSW distance requires equal vector dimensions" }
+        if (a.isEmpty()) return 1f
         var dot = 0f
         var na = 0f
         var nb = 0f
-        for (i in 0 until n) {
+        for (i in a.indices) {
             val av = a[i]
             val bv = b[i]
             dot += av * bv
@@ -344,15 +377,32 @@ class HnswVectorIndex(
         return 1f - dot / denom
     }
 
-    override fun save(file: File) = lock.read {
-        val parent = file.absoluteFile.parentFile
-        // 确保索引目录存在(与旧的直写 save 行为一致)。
-        parent?.mkdirs()
-        // B-41b: 先写临时文件再原子 rename 替换目标,避免直写 truncate 崩溃/中断留下半截索引文件。
-        val tmp = File(parent, "${file.name}.tmp")
-        DataOutputStream(FileOutputStream(tmp)).use { out -> writePayload(out) }
-        if (!tmp.renameTo(file)) {
-            throw java.io.IOException("HNSW save 原子替换失败: ${tmp.name} → ${file.name}")
+    override fun save(file: File, fingerprint: String?) = synchronized(saveLock) {
+        val parent = checkNotNull(file.absoluteFile.parentFile)
+        check(parent.exists() || parent.mkdirs()) { "无法创建 HNSW 索引目录: ${parent.absolutePath}" }
+        // 序列化期间读锁允许检索并行;saveLock 保证临时文件和最终替换串行。
+        val tmp = File(parent, "${file.name}.${java.util.UUID.randomUUID()}.tmp")
+        try {
+            FileOutputStream(tmp).use { fileOutput ->
+                DataOutputStream(fileOutput).use { out ->
+                    lock.read { writePayload(out, fingerprint) }
+                    out.flush()
+                    fileOutput.fd.sync()
+                }
+            }
+            try {
+                Files.move(
+                    tmp.toPath(),
+                    file.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING,
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+            Unit
+        } finally {
+            if (tmp.exists()) tmp.delete()
         }
     }
 
@@ -361,13 +411,17 @@ class HnswVectorIndex(
      *
      * 先收集存活节点并建立老 index → 紧凑 index 映射,再逐节点输出 id/level/向量/各层邻居连接。
      */
-    private fun writePayload(out: DataOutputStream) {
+    private fun writePayload(out: DataOutputStream, fingerprint: String?) {
         // HEADER
         out.write(MAGIC.toByteArray(Charsets.US_ASCII))
         out.writeInt(VERSION)
         out.writeInt(M)
         out.writeInt(efConstruction)
         out.writeInt(efSearch)
+        val fingerprintBytes = fingerprint.orEmpty().toByteArray(Charsets.UTF_8)
+        require(fingerprintBytes.size <= MAX_FINGERPRINT_BYTES) { "HNSW fingerprint is too long" }
+        out.writeInt(fingerprintBytes.size)
+        out.write(fingerprintBytes)
         out.writeInt(maxLayer)
 
         // 收集存活节点 + 建立老 index → 新(紧凑)index 映射
@@ -398,48 +452,106 @@ class HnswVectorIndex(
         }
     }
 
-    override fun load(file: File) = lock.write {
+    override fun load(file: File, expectedFingerprint: String?) = lock.write {
         if (!file.exists()) return@write
         DataInputStream(FileInputStream(file)).use { inp ->
-            // HEADER
-            val magicBuf = ByteArray(MAGIC.length)
-            inp.readFully(magicBuf)
-            if (String(magicBuf, Charsets.US_ASCII) != MAGIC) {
-                return@write // magic 不匹配,跳过加载
+            val loadedState = requireNotNull(readLoadedState(inp, expectedFingerprint)) {
+                "HNSW index header is unsupported or invalid"
             }
-            val version = inp.readInt()
-            if (version != VERSION) {
-                return@write // 版本不兼容,跳过加载
-            }
-            // 读参数(忽略,沿用构造时设定的值)
-            inp.readInt() // M
-            inp.readInt() // efConstruction
-            inp.readInt() // efSearch
-            maxLayer = inp.readInt()
-            entryPoint = inp.readInt()
-            val nodeCount = inp.readInt()
-
-            // 重建 nodes
             nodes.clear()
+            nodes.addAll(loadedState.nodes)
             idToIndex.clear()
-            for (i in 0 until nodeCount) {
-                val idLen = inp.readInt()
-                val idBytes = ByteArray(idLen)
-                inp.readFully(idBytes)
-                val id = String(idBytes, Charsets.UTF_8)
-                val level = inp.readInt()
-                val dim = inp.readInt()
-                val vec = FloatArray(dim)
-                for (j in 0 until dim) vec[j] = inp.readFloat()
-                val layerCount = inp.readInt()
-                val conns = Array(layerCount) { mutableListOf<Int>() }
-                for (layer in 0 until layerCount) {
-                    val cc = inp.readInt()
-                    for (j in 0 until cc) conns[layer].add(inp.readInt())
-                }
-                nodes.add(Node(id, vec, level, conns))
-                idToIndex[id] = i
+            idToIndex.putAll(loadedState.idToIndex)
+            maxLayer = loadedState.maxLayer
+            entryPoint = loadedState.entryPoint
+        }
+    }
+
+    private fun readLoadedState(inp: DataInputStream, expectedFingerprint: String?): LoadedState? {
+        val magicBuf = ByteArray(MAGIC.length)
+        inp.readFully(magicBuf)
+        val magicValid = String(magicBuf, Charsets.US_ASCII) == MAGIC
+        val version = if (magicValid) inp.readInt() else VERSION
+        if (!magicValid || version != VERSION) return null
+        inp.readInt() // M
+        inp.readInt() // efConstruction
+        inp.readInt() // efSearch
+        val fingerprintLength = inp.readInt()
+        require(fingerprintLength in 0..MAX_FINGERPRINT_BYTES) { "HNSW fingerprint length is invalid" }
+        val fingerprintBytes = ByteArray(fingerprintLength)
+        inp.readFully(fingerprintBytes)
+        val loadedFingerprint = String(fingerprintBytes, Charsets.UTF_8)
+        if (expectedFingerprint != null && loadedFingerprint != expectedFingerprint) {
+            throw HnswEmbeddingFingerprintMismatchException()
+        }
+        val maxLayer = inp.readInt()
+        val entryPoint = inp.readInt()
+        val nodeCount = inp.readInt()
+        require(nodeCount >= 0) { "HNSW node count must not be negative" }
+        val (nodes, idToIndex) = readNodes(inp, nodeCount)
+        validateLoadedState(nodes, maxLayer, entryPoint)
+        return LoadedState(nodes, idToIndex, maxLayer, entryPoint)
+    }
+
+    private fun readNodes(inp: DataInputStream, nodeCount: Int): Pair<List<Node>, Map<String, Int>> {
+        val loadedNodes = ArrayList<Node>(nodeCount)
+        val loadedIdToIndex = HashMap<String, Int>(nodeCount)
+        var expectedDimension: Int? = null
+        for (i in 0 until nodeCount) {
+            val idLen = inp.readInt()
+            require(idLen >= 0) { "HNSW node id length must not be negative" }
+            val idBytes = ByteArray(idLen)
+            inp.readFully(idBytes)
+            val id = String(idBytes, Charsets.UTF_8)
+            val level = inp.readInt()
+            require(level >= 0) { "HNSW node level must not be negative" }
+            val dim = inp.readInt()
+            require(dim > 0) { "HNSW vector dimension must be positive" }
+            require(expectedDimension == null || dim == expectedDimension) {
+                "HNSW index contains mixed vector dimensions"
             }
+            expectedDimension = dim
+            val vector = FloatArray(dim) { inp.readFloat() }
+            val layerCount = inp.readInt()
+            require(layerCount == level + 1) { "HNSW node layer count does not match its level" }
+            val connections = readConnections(inp, nodeCount, layerCount)
+            require(loadedIdToIndex.put(id, i) == null) { "HNSW index contains duplicate node ids" }
+            loadedNodes.add(Node(id, vector, level, connections))
+        }
+        return loadedNodes to loadedIdToIndex
+    }
+
+    private fun readConnections(inp: DataInputStream, nodeCount: Int, layerCount: Int): Array<MutableList<Int>> = Array(layerCount) {
+        val connectionCount = inp.readInt()
+        require(connectionCount in 0..nodeCount) { "HNSW connection count is invalid" }
+        MutableList(connectionCount) {
+            val connection = inp.readInt()
+            require(connection in 0 until nodeCount) { "HNSW connection index is invalid" }
+            connection
+        }
+    }
+
+    private fun validateLoadedState(nodes: List<Node>, maxLayer: Int, entryPoint: Int) {
+        nodes.forEachIndexed { nodeIndex, node ->
+            node.connections.forEachIndexed { layer, connections ->
+                connections.forEach { connection ->
+                    require(connection != nodeIndex) { "HNSW node cannot connect to itself" }
+                    require(nodes[connection].level >= layer) {
+                        "HNSW connection targets a node missing the referenced layer"
+                    }
+                }
+            }
+        }
+        if (nodes.isEmpty()) {
+            require(entryPoint == -1 && maxLayer == -1) { "Empty HNSW index has invalid entry point" }
+            return
+        }
+        require(entryPoint in nodes.indices) { "HNSW entry point is invalid" }
+        require(maxLayer == nodes.maxOf { it.level }) {
+            "HNSW maximum layer does not match loaded nodes"
+        }
+        require(nodes[entryPoint].level == maxLayer) {
+            "HNSW entry point does not match the maximum layer"
         }
     }
 
@@ -456,10 +568,12 @@ class HnswVectorIndex(
         /** 默认随机种子(可复现构建过程)。 */
         const val DEFAULT_SEED = 42L
 
+        private const val MAX_FINGERPRINT_BYTES = 4096
+
         /** 持久化文件 magic header(6 字节 ASCII)。 */
         private const val MAGIC = "HNSW01"
 
-        /** 持久化文件版本。 */
-        private const val VERSION = 1
+        /** 持久化文件版本(v2 增加 embedding provider/model/dimension 指纹)。 */
+        private const val VERSION = 2
     }
 }

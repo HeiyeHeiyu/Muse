@@ -11,6 +11,7 @@ import io.zer0.muse.data.knowledge.KnowledgeChunkFtsDao
 import io.zer0.muse.data.knowledge.KnowledgeChunkFtsRow
 import io.zer0.muse.data.knowledge.KnowledgeChunkFtsSelfHealer
 import io.zer0.muse.data.knowledge.KnowledgeDocDao
+import io.zer0.muse.data.knowledge.KnowledgeDocEntity
 import io.zer0.muse.util.TokenEstimator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -112,6 +113,15 @@ class RagService(
     private var vectorIndexLoaded = false
     private val vectorIndexMutex = kotlinx.coroutines.sync.Mutex()
 
+    @Volatile
+    private var vectorIndexFingerprint: String? = null
+
+    @Volatile
+    private var vectorIndexNeedsFullRebuild = false
+
+    @Volatile
+    private var vectorEmbeddingsNeedReindex = false
+
     /** 自首次 add 后累计的待保存计数,达到 [SAVE_INTERVAL] 时触发 [saveVectorIndex]。 */
     private val pendingSaveCount = AtomicInteger(0)
 
@@ -211,24 +221,69 @@ class RagService(
      * 即使 [indexFile] 为 null 或加载失败,也会重建 chunkMetaCache(保证后续 HNSW 检索可用)。
      */
     suspend fun loadVectorIndexIfNeeded() {
+        loadVectorIndexIfNeeded(embeddingService.getProvider(RagConfig()))
+    }
+
+    suspend fun loadVectorIndexIfNeeded(ragConfig: RagConfig) {
+        loadVectorIndexIfNeeded(embeddingService.getProvider(ragConfig))
+    }
+
+    private suspend fun loadVectorIndexIfNeeded(provider: EmbeddingProvider) {
         val vi = vectorIndex ?: return
-        if (vectorIndexLoaded) return
+        val expectedFingerprint = embeddingFingerprint(provider)
+        if (vectorIndexLoaded && vectorIndexFingerprint == expectedFingerprint) return
         vectorIndexMutex.withLock {
-            if (vectorIndexLoaded) return@withLock
-            // B-34: 若存在未持久化的增量(add 计数 > save 计数),先 save 再 load。
-            // load 内部会 nodes.clear() 清空内存索引;addChunksToVectorIndex 不触发 ensureLoad 的情况下,
-            // 若不先落盘,已 add 而未 save 的节点会被 load 一并清掉。
-            if (pendingSaveCount.get() > 0) saveVectorIndex()
+            if (vectorIndexLoaded && vectorIndexFingerprint == expectedFingerprint) return@withLock
+            val previousFingerprint = vectorIndexFingerprint
+            val fingerprintChanged = previousFingerprint != null && previousFingerprint != expectedFingerprint
+            if (fingerprintChanged) vectorEmbeddingsNeedReindex = true
+            preservePendingIndexBeforeLoad(vi, expectedFingerprint)
             val file = indexFile
-            if (file != null && file.exists()) {
-                resultOf { vi.load(file) }
-                    .onSuccess { Logger.i("RagService", "HNSW 索引加载完成:size=${vi.size}") }
-                    .onError { msg, e -> Logger.w("RagService", "HNSW 索引加载失败(将走暴力遍历): $msg", e) }
+            val loadResult = loadIndexFile(vi, file, expectedFingerprint)
+            if (!loadResult.loaded) {
+                vi.clear()
+                pendingSaveCount.set(0)
+                if (file?.exists() == true || fingerprintChanged) {
+                    vectorIndexNeedsFullRebuild = true
+                }
+                if (loadResult.fingerprintMismatch) vectorEmbeddingsNeedReindex = true
+            } else {
+                vectorIndexNeedsFullRebuild = false
             }
+            vectorIndexFingerprint = expectedFingerprint
             // 无论 load 是否成功,都重建 chunkMetaCache(HNSW 检索结果回填需要)
             rebuildChunkMetaCache()
             vectorIndexLoaded = true
         }
+    }
+
+    private suspend fun preservePendingIndexBeforeLoad(vi: VectorIndex, expectedFingerprint: String) {
+        if (pendingSaveCount.get() <= 0) return
+        if (vectorIndexFingerprint == null || vectorIndexFingerprint == expectedFingerprint) {
+            saveVectorIndex(expectedFingerprint)
+        } else {
+            vi.clear()
+            pendingSaveCount.set(0)
+            vectorIndexNeedsFullRebuild = true
+        }
+    }
+
+    private data class IndexLoadResult(val loaded: Boolean, val fingerprintMismatch: Boolean = false)
+
+    private fun loadIndexFile(vi: VectorIndex, file: File?, expectedFingerprint: String): IndexLoadResult {
+        if (file == null || !file.exists()) return IndexLoadResult(loaded = false)
+        var fingerprintMismatch = false
+        val loaded = resultOf {
+            vi.load(file, expectedFingerprint)
+            true
+        }
+            .onSuccess { Logger.i("RagService", "HNSW 索引加载完成:size=${vi.size}") }
+            .onError { msg, error ->
+                fingerprintMismatch = error is HnswEmbeddingFingerprintMismatchException
+                Logger.w("RagService", "HNSW 索引加载失败(将走暴力遍历): $msg", error)
+            }
+            .getOrNull() == true
+        return IndexLoadResult(loaded, fingerprintMismatch)
     }
 
     /**
@@ -250,12 +305,17 @@ class RagService(
      *  - App 退出 / 后台时由调用方主动调用
      *  - [deleteDocIndex] 后由调用方主动调用(可选)
      */
-    suspend fun saveVectorIndex() {
-        val vi = vectorIndex ?: return
-        val file = indexFile ?: return
+    suspend fun saveVectorIndex(fingerprint: String? = vectorIndexFingerprint) {
+        val vi = vectorIndex
+        val file = indexFile
+        if (vi == null || file == null) return
+        if (vectorIndexNeedsFullRebuild || vectorEmbeddingsNeedReindex) {
+            Logger.i("RagService", "Embedding 全库重新索引完成前，暂不持久化部分 HNSW 索引")
+            return
+        }
         resultOf {
             // 同步块内执行 IO(HNSW save 内部用读锁,不阻塞 search)
-            vi.save(file)
+            vi.save(file, fingerprint)
         }.onSuccess {
             pendingSaveCount.set(0)
             lastVectorIndexSaveAt.set(System.currentTimeMillis())
@@ -295,8 +355,13 @@ class RagService(
      * 失败不抛异常(索引更新失败不影响 DB 已写入的 chunk,下次 App 启动会从 DB 重建)。
      * 累计 [SAVE_INTERVAL] 次后触发 [saveVectorIndex] 持久化。
      */
-    private suspend fun addChunksToVectorIndex(entities: List<KnowledgeChunkEntity>, embeddings: List<FloatArray>) {
+    private suspend fun addChunksToVectorIndex(
+        entities: List<KnowledgeChunkEntity>,
+        embeddings: List<FloatArray>,
+        provider: EmbeddingProvider,
+    ) {
         val vi = vectorIndex ?: return
+        loadVectorIndexIfNeeded(provider)
         for ((idx, entity) in entities.withIndex()) {
             val vec = embeddings.getOrNull(idx) ?: continue
             resultOf { vi.add(entity.id, vec) }
@@ -419,6 +484,20 @@ class RagService(
         content: String,
         ragConfig: RagConfig,
         onProgress: (current: Int, total: Int) -> Unit = { _, _ -> },
+    ): Int = indexDocumentInternal(
+        docId,
+        content,
+        ragConfig,
+        allowDimensionChange = false,
+        onProgress = onProgress,
+    )
+
+    private suspend fun indexDocumentInternal(
+        docId: String,
+        content: String,
+        ragConfig: RagConfig,
+        allowDimensionChange: Boolean,
+        onProgress: (current: Int, total: Int) -> Unit,
     ): Int = withContext(Dispatchers.Default) {
         if (content.isBlank()) return@withContext 0
         val perfTimer = Perf.start("rag-index-$docId")
@@ -431,7 +510,10 @@ class RagService(
             chunkByToken = ragConfig.chunkByToken,
         )
         val chunks = chunker.split(content)
-        if (chunks.isEmpty()) return@withContext 0
+        if (chunks.isEmpty()) {
+            if (allowDimensionChange && vectorIndexNeedsFullRebuild) clearDocumentChunks(docId)
+            return@withContext 0
+        }
         Logger.d(
             "RagService",
             "文档 $docId 分块 ${chunks.size} 块(markdownAware=${ragConfig.markdownAware}, chunkByToken=${ragConfig.chunkByToken})",
@@ -440,6 +522,7 @@ class RagService(
 
         // 2. 批量 embedding
         val provider = embeddingService.getProvider(ragConfig)
+        loadVectorIndexIfNeeded(provider)
         val embeddings = mutableListOf<FloatArray>()
         for (i in chunks.indices step embedBatchSize) {
             val batch = chunks.subList(i, minOf(i + embedBatchSize, chunks.size))
@@ -460,16 +543,8 @@ class RagService(
         val newDim = embeddings.firstOrNull()?.size ?: 0
         if (newDim > 0) {
             val existingDim = resultOf { chunkDao.getFirstIndexedEmbeddingDim() }.getOrNull()
-            if (existingDim != null && existingDim > 0 && existingDim != newDim) {
-                Logger.e(
-                    "RagService",
-                    "Embedding 维度不匹配:库中已有 chunk 维度=$existingDim,新文档 $docId 维度=$newDim。" +
-                        "请到知识库管理页点击\"重新索引全部\",用同一 embedding 模型重建索引。",
-                )
-                throw IllegalStateException(
-                    "Embedding dimension mismatch: existing=$existingDim, new=$newDim (doc=$docId). " +
-                        "Run 'reindex all' with the same embedding model.",
-                )
+            if (shouldRejectDimensionChange(existingDim, newDim, allowDimensionChange)) {
+                throwDimensionMismatch(docId, checkNotNull(existingDim), newDim)
             }
         }
 
@@ -481,23 +556,11 @@ class RagService(
 
         // 4. 存储 chunk + embedding(BLOB)
         val now = System.currentTimeMillis()
-        val entities = chunks.mapIndexed { idx, chunk ->
-            KnowledgeChunkEntity(
-                id = "chunk-$docId-$idx",
-                docId = docId,
-                content = chunk.content,
-                embedding = "", // v1.133: 新数据只写 BLOB,JSON 列留空
-                embeddingBlob = VectorSearchService.floatArrayToBlob(embeddings[idx]),
-                chunkIndex = idx,
-                tokenCount = chunker.estimateTokens(chunk.content),
-                metadataJson = encodeMetadata(chunk.metadata),
-                createdAt = now,
-            )
-        }
+        val entities = createChunkEntities(docId, chunks, embeddings, chunker, now)
         chunkDao.insertAll(entities)
 
         // v1.55: 同步加入 HNSW 索引(增量更新)
-        addChunksToVectorIndex(entities, embeddings)
+        addChunksToVectorIndex(entities, embeddings, provider)
 
         // 5. FTS 同步索引(用于混合检索 BM25 路径)
         val ftsRows = entities.map {
@@ -553,6 +616,7 @@ class RagService(
             chunkByToken = ragConfig.chunkByToken,
         )
         val provider = embeddingService.getProvider(ragConfig)
+        loadVectorIndexIfNeeded(provider)
 
         val buffer = StringBuilder()
         val pending = mutableListOf<TextChunker.Chunk>()
@@ -605,7 +669,7 @@ class RagService(
                 )
             }
             chunkDao.insertAll(entities)
-            addChunksToVectorIndex(entities, vectors)
+            addChunksToVectorIndex(entities, vectors, provider)
             val ftsRows = entities.map {
                 KnowledgeChunkFtsRow(chunkId = it.id, docId = it.docId, content = it.content)
             }
@@ -742,6 +806,11 @@ class RagService(
         // v1.0.47: embed 成功 → 清熔断(自愈),下次恢复走正常向量检索
         embeddingFailureUntil = 0L
 
+        if (vectorEmbeddingsNeedReindex) {
+            Logger.w("RagService", "Embedding 模型与已存储向量不一致，等待全库重新索引后再恢复向量检索")
+            return emptyList()
+        }
+
         // v1.133: 混合检索路径
         if (ragConfig.hybridEnabled && hybridSearchService != null) {
             val hybrid = resultOf {
@@ -782,8 +851,8 @@ class RagService(
         // 注意:混合检索失败 fallback 时也会走到这里 — HNSW 比 brute-force 快得多
         val vi = vectorIndex
         if (vi != null && scopeDocIds.isNullOrEmpty() && (metadataFilter == null || metadataFilter.isEmpty())) {
-            ensureVectorIndexLoaded()
-            if (vi.size > 0) {
+            loadVectorIndexIfNeeded(provider)
+            if (!vectorIndexNeedsFullRebuild && vi.size > 0) {
                 val hnswResults = resultOf { vi.search(queryVector, topK) }
                     .onError { msg, e -> Logger.w("RagService", "HNSW 检索失败,降级暴力遍历: $msg", e) }
                     .getOrNull()
@@ -1054,25 +1123,123 @@ class RagService(
         onProgress: (current: Int, total: Int) -> Unit = { _, _ -> },
     ): Map<String, String> {
         if (kbIds.isEmpty()) return emptyMap()
-        val docs = resultOf { docDao.getByKbIds(kbIds) }
+        val visibleDocs = resultOf { docDao.getByKbIds(kbIds) }
             .onError { msg, e -> Logger.e("RagService", "KB 重索引:加载文档失败: $msg", e) }
             .getOrNull() ?: return emptyMap<String, String>().also {
             Logger.w("RagService", "KB 重索引:无文档可处理")
         }
+        val provider = embeddingService.getProvider(ragConfig)
+        loadVectorIndexIfNeeded(provider)
+        val plan = createReindexPlan(kbIds, visibleDocs)
         val failures = mutableMapOf<String, String>()
-        val total = docs.size
+        val total = plan.documents.size
         Logger.i("RagService", "KB 重索引开始:共 $total 篇文档(kbIds=$kbIds)")
-        for ((idx, doc) in docs.withIndex()) {
+        for ((idx, doc) in plan.documents.withIndex()) {
             try {
-                indexDocument(doc.id, doc.content, ragConfig)
+                reindexDocument(doc, ragConfig, plan.allowDimensionChange)
             } catch (e: Throwable) {
                 Logger.w("RagService", "KB 重索引:文档 ${doc.id} 失败: ${e.message}", e)
                 failures[doc.id] = e.message ?: e.javaClass.simpleName
             }
             onProgress(idx + 1, total)
         }
+        if (vectorIndexNeedsFullRebuild && plan.coversAllIndexedDocuments && failures.isEmpty()) {
+            vectorIndexFingerprint = embeddingFingerprint(provider)
+            vectorIndexNeedsFullRebuild = false
+            vectorEmbeddingsNeedReindex = false
+            saveVectorIndex(vectorIndexFingerprint)
+        }
         Logger.i("RagService", "KB 重索引完成:成功 ${total - failures.size}/$total,失败 ${failures.size}")
         return failures
+    }
+
+    private data class ReindexPlan(
+        val documents: List<KnowledgeDocEntity>,
+        val coversAllIndexedDocuments: Boolean,
+        val allowDimensionChange: Boolean,
+    )
+
+    private suspend fun createReindexPlan(kbIds: List<String>, visibleDocs: List<KnowledgeDocEntity>): ReindexPlan {
+        val targetKbIds = kbIds.toSet()
+        val allDocsInTargetKbs = resultOf { docDao.getAll() }
+            .getOrNull()
+            ?.filter { it.kbId in targetKbIds }
+        val indexedChunks = resultOf { chunkDao.getAllWithEmbedding() }.getOrNull()
+        val targetDocIds = allDocsInTargetKbs?.map { it.id }?.toSet()
+        val coversAllIndexedDocuments = indexedChunks != null &&
+            targetDocIds != null &&
+            indexedChunks.all { it.docId in targetDocIds }
+        val documents = if (vectorIndexNeedsFullRebuild && coversAllIndexedDocuments) {
+            allDocsInTargetKbs.orEmpty()
+        } else {
+            visibleDocs
+        }
+        val allowDimensionChange = coversAllIndexedDocuments &&
+            (vectorEmbeddingsNeedReindex || vectorIndexNeedsFullRebuild)
+        return ReindexPlan(documents, coversAllIndexedDocuments, allowDimensionChange)
+    }
+
+    private suspend fun reindexDocument(document: KnowledgeDocEntity, ragConfig: RagConfig, allowDimensionChange: Boolean) {
+        if (document.content.isBlank()) {
+            clearDocumentChunks(document.id)
+        } else {
+            indexDocumentInternal(
+                document.id,
+                document.content,
+                ragConfig,
+                allowDimensionChange = allowDimensionChange,
+                onProgress = { _, _ -> },
+            )
+        }
+    }
+
+    private suspend fun clearDocumentChunks(docId: String) {
+        removeDocChunksFromVectorIndex(docId)
+        chunkDao.deleteByDoc(docId)
+        withFtsSelfHeal { ftsDao.deleteByDoc(docId) }
+        vectorSearch.invalidateCache()
+        invalidateTitlesCache()
+    }
+
+    private fun createChunkEntities(
+        docId: String,
+        chunks: List<TextChunker.Chunk>,
+        embeddings: List<FloatArray>,
+        chunker: TextChunker,
+        createdAt: Long,
+    ): List<KnowledgeChunkEntity> = chunks.mapIndexed { index, chunk ->
+        KnowledgeChunkEntity(
+            id = "chunk-$docId-$index",
+            docId = docId,
+            content = chunk.content,
+            embedding = "",
+            embeddingBlob = VectorSearchService.floatArrayToBlob(embeddings[index]),
+            chunkIndex = index,
+            tokenCount = chunker.estimateTokens(chunk.content),
+            metadataJson = encodeMetadata(chunk.metadata),
+            createdAt = createdAt,
+        )
+    }
+
+    private fun shouldRejectDimensionChange(existingDim: Int?, newDim: Int, allowDimensionChange: Boolean): Boolean {
+        return when {
+            allowDimensionChange -> false
+            existingDim == null -> false
+            existingDim <= 0 -> false
+            else -> existingDim != newDim
+        }
+    }
+
+    private fun throwDimensionMismatch(docId: String, existingDim: Int, newDim: Int): Nothing {
+        Logger.e(
+            "RagService",
+            "Embedding 维度不匹配:库中已有 chunk 维度=$existingDim,新文档 $docId 维度=$newDim。" +
+                "请到知识库管理页点击\"重新索引全部\",用同一 embedding 模型重建索引。",
+        )
+        throw IllegalStateException(
+            "Embedding dimension mismatch: existing=$existingDim, new=$newDim (doc=$docId). " +
+                "Run 'reindex all' with the same embedding model.",
+        )
     }
 
     /**
@@ -1112,6 +1279,9 @@ class RagService(
         }
         return rerankProvider
     }
+
+    private fun embeddingFingerprint(provider: EmbeddingProvider): String =
+        "${provider.id}\u0000${provider.modelName}\u0000${provider.dimension}"
 
     /**
      * v1.133: 解析 @mention 文本为 docId 列表(@mention 定向检索用)。

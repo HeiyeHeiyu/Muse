@@ -267,9 +267,9 @@ open class MuseAccessibilityService : AccessibilityService() {
         counter[0]++
         sb.append('[').append(path).append("] ")
         sb.append("class=").append(node.className ?: "")
-        val text = node.text?.toString()?.takeIf { it.isNotBlank() }
+        val text = AccessibilityPathUtils.textForModel(node.text, node.isPassword)
         if (!text.isNullOrBlank()) sb.append(" text=").append(AccessibilityPathUtils.escapeText(text))
-        val desc = node.contentDescription?.toString()?.takeIf { it.isNotBlank() }
+        val desc = AccessibilityPathUtils.textForModel(node.contentDescription, node.isPassword)
         if (!desc.isNullOrBlank()) sb.append(" desc=").append(AccessibilityPathUtils.escapeText(desc))
         val r = node.rect
         sb.append(" bounds=[").append(r.left).append(',').append(r.top)

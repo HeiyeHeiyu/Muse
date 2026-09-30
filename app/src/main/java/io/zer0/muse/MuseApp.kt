@@ -431,7 +431,7 @@ class MuseApp : Application(), ImageLoaderFactory {
         // (向后兼容,<5000 chunk 的库本就走暴力遍历),索引会在后续 indexDocument 累计
         // SAVE_INTERVAL 个 chunk 后自动重建并保存。fire-and-forget,不阻塞启动。
         appScope.launch {
-            resultOf { ragService.loadVectorIndexIfNeeded() }
+            resultOf { ragService.loadVectorIndexIfNeeded(settings.getRagConfig()) }
                 .onError { msg, t -> Logger.w("MuseApp", "HNSW 索引加载失败: $msg", t) }
         }
         // v1.0.14 P0-1: 订阅 ChatPreferences.hapticFeedback,同步到 MuseHaptics 总开关。

@@ -320,6 +320,11 @@
     <string name="channel_field_name">Nome</string>
     <string name="channel_field_app_id">App ID</string>
     <string name="channel_field_app_secret">App Secret</string>
+    <string name="channel_webhook_receive">Ativar webhooks da plataforma</string>
+    <string name="channel_webhook_receive_desc">Desativado por padrão. Ative somente depois de configurar uma URL de callback externa na plataforma.</string>
+    <string name="channel_webhook_verification_token">Token de verificação</string>
+    <string name="channel_webhook_feishu_hint">Somente para callbacks de eventos do Feishu configurados manualmente. Use o mesmo Verification Token do Feishu. Apenas callbacks sem criptografia são aceitos; deixe Encrypt Key vazio. A conexão longa não precisa disso.</string>
+    <string name="channel_webhook_qq_hint">Somente para callbacks do QQ configurados manualmente. Defina aqui um token aleatório forte e acrescente-o à URL de callback como ?token=... . Também são exigidas uma assinatura Ed25519 e uma marca de tempo recentes, verificadas pelo App Secret acima. A conexão longa não precisa disso.</string>
     <string name="channel_field_target">ID de destino</string>
     <string name="channel_field_qq_type">Tipo de destino QQ</string>
     <string name="channel_type_group">Grupo</string>

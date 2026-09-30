@@ -116,10 +116,6 @@ class ChatGptImportTest {
         val result = ThirdPartyImporter.importChatGPT(
             context = ApplicationProvider.getApplicationContext(),
             conversationsJson = sample,
-            settings = io.zer0.muse.data.SettingsRepository(
-                ApplicationProvider.getApplicationContext(),
-                io.zer0.muse.data.audit.AuditLogger(db.auditLogDao()),
-            ),
             assistantRepo = assistantRepo,
             sessionRepo = sessionRepo,
         )
@@ -157,10 +153,6 @@ class ChatGptImportTest {
         val result = ThirdPartyImporter.importChatGPT(
             context = ApplicationProvider.getApplicationContext(),
             conversationsJson = sample,
-            settings = io.zer0.muse.data.SettingsRepository(
-                ApplicationProvider.getApplicationContext(),
-                io.zer0.muse.data.audit.AuditLogger(db.auditLogDao()),
-            ),
             assistantRepo = assistantRepo,
             sessionRepo = sessionRepo,
         )
@@ -196,10 +188,6 @@ class ChatGptImportTest {
         val result = ThirdPartyImporter.importChatGPT(
             context = ApplicationProvider.getApplicationContext(),
             conversationsJson = sample,
-            settings = io.zer0.muse.data.SettingsRepository(
-                ApplicationProvider.getApplicationContext(),
-                io.zer0.muse.data.audit.AuditLogger(db.auditLogDao()),
-            ),
             assistantRepo = assistantRepo,
             sessionRepo = sessionRepo,
         )

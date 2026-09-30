@@ -30,6 +30,10 @@ data class ChannelConfig(
     val appId: String = "",
     /** 平台应用密钥(飞书 App Secret / QQ AppSecret),存储时加密。 */
     val appSecret: String = "",
+    /** 外部平台回调开关,默认关闭;不影响现有长连接接收。 */
+    val webhookEnabled: Boolean = false,
+    /** Webhook 专用共享密钥(Feishu body token / QQ 回调 URL token),独立于 App Secret 并加密落盘。 */
+    val webhookVerificationToken: String = "",
     /** 发送目标:飞书 chat_id / open_id;QQ group_openid / user_openid。 */
     val targetId: String = "",
     /** QQ 目标类型:"group" 群聊(默认) 或 "c2c" 单聊;飞书按 targetId 类型自动判定。 */

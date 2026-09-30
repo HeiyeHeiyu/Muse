@@ -53,9 +53,26 @@ def test_module_over_cap_fails():
     assert any("common" in e and "模块上限" in e for e in errors)
 
 
-def test_missing_baseline_counts_zero():
-    root, cap = make_env({"app": 4}, 10, {"app": 4})
-    assert check(root, cap) == []
+def test_missing_baseline_fails_closed():
+    root, cap = make_env({}, 10, {"app": 4})
+    errors = check(root, cap)
+    assert any("app" in error and "缺少 detekt baseline" in error for error in errors)
+
+
+def test_baseline_without_current_issues_fails_closed():
+    root, cap = make_env({}, 10, {"app": 4})
+    app_baseline = root / "app" / "detekt-baseline.xml"
+    app_baseline.parent.mkdir(parents=True)
+    app_baseline.write_text(
+        '<?xml version="1.0" ?><SmellBaseline><ManuallySuppressedIssues/></SmellBaseline>',
+        encoding="utf-8",
+    )
+    try:
+        check(root, cap)
+    except ValueError as error:
+        assert "CurrentIssues" in str(error)
+    else:
+        raise AssertionError("baseline without CurrentIssues must fail")
 
 
 if __name__ == "__main__":
@@ -63,7 +80,8 @@ if __name__ == "__main__":
         test_within_cap_passes,
         test_total_over_cap_fails,
         test_module_over_cap_fails,
-        test_missing_baseline_counts_zero,
+        test_missing_baseline_fails_closed,
+        test_baseline_without_current_issues_fails_closed,
     ]
     for t in tests:
         t()

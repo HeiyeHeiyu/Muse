@@ -202,21 +202,27 @@ class SessionRepository(
     /** v2.0: 永久过期清理(7 天前的软删除会话)。 */
     suspend fun purgeOldDeletedSessions() {
         withContext(Dispatchers.IO) {
-            database.withTransaction {
+            val messageIds = database.withTransaction {
                 val cutoff = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000
+                val deletedMessageIds = messageDao.getMessageIdsForExpiredSessions(cutoff)
                 syncFtsClear()
                 sessionDao.permanentlyDeleteOldSessions(cutoff)
+                deletedMessageIds
             }
+            deleteMessageImages(messageIds)
         }
     }
 
     /** v2.0: 清空全部会话(硬删除,替代原 deleteAll 用于数据管理页)。 */
     suspend fun hardDeleteAllSessions() {
         withContext(Dispatchers.IO) {
-            database.withTransaction {
+            val messageIds = database.withTransaction {
+                val deletedMessageIds = messageDao.getAllMessageIds()
                 syncFtsClear()
                 sessionDao.deleteAll()
+                deletedMessageIds
             }
+            deleteMessageImages(messageIds)
             auditLogger?.log(
                 category = "user_action",
                 action = "delete_all_sessions",
@@ -404,10 +410,13 @@ class SessionRepository(
         // Phase 10.3: 先删 FTS 索引(依赖 messages 表子查询,必须在 messages 被级联删之前)
         // H-SESS1: 跨表(FTS + sessions)用事务包裹,保证一致性
         withContext(Dispatchers.IO) {
-            database.withTransaction {
+            val messageIds = database.withTransaction {
+                val deletedMessageIds = messageDao.getMessageIdsBySessionId(id)
                 syncFtsDeleteBySession(id)
                 sessionDao.deleteById(id)
+                deletedMessageIds
             }
+            deleteMessageImages(messageIds)
             // v1.135-A: 清理该会话的视觉辅助缓存 sidecar,避免孤儿文件
             // i18n 示范改造点 1:原硬编码中文 "清理视觉缓存失败: $id" 改为
             // ErrorMessage.StorageError.IO_ERROR + sessionId 作为日志 metadata。
@@ -1184,6 +1193,10 @@ class SessionRepository(
 
     private suspend fun syncFtsDeleteBySession(sessionId: String) {
         if (!MessageFtsRuntime.useFts5) messageFtsDao.deleteFtsBySession(sessionId)
+    }
+
+    private fun deleteMessageImages(messageIds: List<String>) {
+        messageIds.forEach { messageImageStore.deleteByMessageId(it) }
     }
 
     private suspend fun syncFtsDeleteBySessionAndCreatedAt(sessionId: String, fromCreatedAt: Long) {

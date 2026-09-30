@@ -25,6 +25,8 @@ import re
 import sys
 from pathlib import Path
 
+from baseline_utils import require_baseline
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 UI_DIR = PROJECT_ROOT / "app" / "src" / "main" / "java" / "io" / "zer0" / "muse" / "ui"
 BASELINE_PATH = PROJECT_ROOT / "ci" / "baseline" / "icon_content_description_baseline.txt"
@@ -116,9 +118,8 @@ def main() -> int:
             for lineno, text in hits:
                 print(f"  {file}:{lineno} {text}")
 
-    if not args.baseline.exists():
-        print("[icon-cd] 未找到 baseline,仅报告不拦截。生成: --update-baseline")
-        return 0
+    if not require_baseline(args.baseline, "icon-cd"):
+        return 2
 
     baseline = load_baseline(args.baseline)
     failures: list[str] = []

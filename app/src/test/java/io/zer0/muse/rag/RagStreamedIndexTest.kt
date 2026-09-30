@@ -4,12 +4,15 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.zer0.muse.data.knowledge.KnowledgeChunkDao
+import io.zer0.muse.data.knowledge.KnowledgeChunkEntity
 import io.zer0.muse.data.knowledge.KnowledgeChunkFtsDao
 import io.zer0.muse.data.knowledge.KnowledgeDocDao
+import io.zer0.muse.data.knowledge.KnowledgeDocEntity
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -41,6 +44,7 @@ class RagStreamedIndexTest {
         docDao: KnowledgeDocDao,
         ftsDao: KnowledgeChunkFtsDao,
         provider: EmbeddingProvider,
+        indexFile: java.io.File? = null,
     ): RagService {
         val embeddingService = mockk<EmbeddingService>(relaxed = true)
         coEvery { embeddingService.getProvider(any()) } returns provider
@@ -50,7 +54,102 @@ class RagStreamedIndexTest {
             ftsDao = ftsDao,
             docTitleProvider = { emptyMap() },
             embeddingService = embeddingService,
+            indexFile = indexFile,
         )
+    }
+
+    private class FingerprintedEmbeddingProvider(
+        override val dimension: Int = 2,
+        override val modelName: String = "current-model",
+    ) : EmbeddingProvider {
+        override val id = "fake"
+        override val displayName = "Fake Provider"
+
+        override suspend fun embed(texts: List<String>): List<FloatArray> = texts.map { text ->
+            when {
+                text == "query" -> FloatArray(dimension) { if (it == 0) 1f else 0f }
+                text.startsWith("new") -> FloatArray(dimension) { if (it == 0) 0.8f else if (it == 1) 0.6f else 0f }
+                else -> FloatArray(dimension) { if (it == 0) 1f else 0f }
+            }
+        }
+    }
+
+    private class VectorPageReadCounter(var count: Int = 0)
+
+    private data class FingerprintReindexFixture(
+        val tempDir: java.io.File,
+        val service: RagService,
+        val config: RagConfig,
+        val pageReads: VectorPageReadCounter,
+    )
+
+    private fun createFingerprintReindexFixture(
+        provider: FingerprintedEmbeddingProvider = FingerprintedEmbeddingProvider(),
+    ): FingerprintReindexFixture {
+        val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "rag_fingerprint_${System.nanoTime()}")
+        check(tempDir.mkdirs())
+        val documents = listOf(
+            KnowledgeDocEntity("old-doc", "Old", content = "old content", kbId = "default"),
+            KnowledgeDocEntity("new-doc", "New", content = "new content", kbId = "default"),
+            KnowledgeDocEntity("empty-doc", "Empty", content = "", kbId = "default"),
+        )
+        val chunks = mutableListOf(
+            KnowledgeChunkEntity(
+                id = "old-chunk",
+                docId = documents.first().id,
+                content = "old chunk",
+                embeddingBlob = VectorSearchService.floatArrayToBlob(floatArrayOf(1f, 0f)),
+            ),
+            KnowledgeChunkEntity(
+                id = "empty-old-chunk",
+                docId = documents.last().id,
+                content = "stale content",
+                embeddingBlob = VectorSearchService.floatArrayToBlob(floatArrayOf(1f, 0f)),
+            ),
+        )
+        val chunkDao = mockk<KnowledgeChunkDao>(relaxed = true)
+        val docDao = mockk<KnowledgeDocDao>(relaxed = true)
+        val ftsDao = mockk<KnowledgeChunkFtsDao>(relaxed = true)
+        val pageReads = VectorPageReadCounter()
+        coEvery { chunkDao.getFirstIndexedEmbeddingDim() } returns 2
+        coEvery { chunkDao.getAllWithEmbedding() } coAnswers { chunks.toList() }
+        coEvery { chunkDao.getByDoc(any()) } coAnswers { chunks.filter { it.docId == firstArg() } }
+        coEvery { chunkDao.deleteByDoc(any()) } coAnswers {
+            val remaining = chunks.filterNot { it.docId == firstArg<String>() }
+            chunks.clear()
+            chunks.addAll(remaining)
+        }
+        coEvery { chunkDao.insertAll(any()) } coAnswers { chunks.addAll(firstArg<List<KnowledgeChunkEntity>>()) }
+        coEvery { chunkDao.countIndexed() } coAnswers { chunks.size }
+        coEvery { chunkDao.getPageWithEmbedding(any(), any()) } coAnswers {
+            pageReads.count++
+            chunks.toList()
+        }
+        coEvery { docDao.getByKbIds(any()) } returns documents
+        coEvery { docDao.getAll() } returns documents
+        coEvery { docDao.getByIds(any()) } coAnswers {
+            val ids = firstArg<List<String>>().toSet()
+            documents.filter { it.id in ids }
+        }
+
+        val indexFile = java.io.File(tempDir, "hnsw.bin")
+        HnswVectorIndex().apply {
+            add("old-chunk", floatArrayOf(1f, 0f))
+            add("empty-old-chunk", floatArrayOf(1f, 0f))
+            save(indexFile, "fake\u0000old-model\u00002")
+        }
+        val embeddingService = mockk<EmbeddingService>(relaxed = true)
+        coEvery { embeddingService.getProvider(any()) } returns provider
+        val service = RagService(
+            chunkDao = chunkDao,
+            docDao = docDao,
+            ftsDao = ftsDao,
+            docTitleProvider = { mapOf("old-doc" to "Old", "new-doc" to "New") },
+            embeddingService = embeddingService,
+            indexFile = indexFile,
+        )
+        val config = RagConfig(chunkSize = 100, chunkOverlap = 10, markdownAware = false, threshold = 0.1f)
+        return FingerprintReindexFixture(tempDir, service, config, pageReads)
     }
 
     @Test
@@ -178,6 +277,54 @@ class RagStreamedIndexTest {
         }
         coVerify(exactly = 0) { chunkDao.deleteByDoc("doc-dim") }
         coVerify(exactly = 0) { chunkDao.insertAll(any()) }
+    }
+
+    @Test
+    fun `partial reindex after embedding model switch uses full vector search until all KBs rebuild`() = runBlocking {
+        val fixture = createFingerprintReindexFixture()
+        try {
+            fixture.service.indexDocument("new-doc", "new document content", fixture.config)
+            val beforeFullReindex = fixture.service.retrieve("query", 1, 0.1f, fixture.config)
+            assertTrue("指纹失配后不得用旧数据库向量与新模型分数混合", beforeFullReindex.isEmpty())
+            assertEquals("指纹失配期间必须禁用所有向量检索", 0, fixture.pageReads.count)
+            fixture.service.saveVectorIndex()
+            assertThrows(HnswEmbeddingFingerprintMismatchException::class.java) {
+                HnswVectorIndex().load(
+                    java.io.File(fixture.tempDir, "hnsw.bin"),
+                    "fake\u0000current-model\u00002",
+                )
+            }
+
+            val failures = fixture.service.reindexAllInKbs(listOf("default"), fixture.config)
+            assertTrue("全 KB 重建应成功: $failures", failures.isEmpty())
+            fixture.pageReads.count = 0
+            val afterFullReindex = fixture.service.retrieve("query", 3, 0.1f, fixture.config)
+            assertEquals("完整重建后最近邻仍应正确", "chunk-old-doc-0", afterFullReindex.first().chunkId)
+            assertEquals(setOf("chunk-old-doc-0", "chunk-new-doc-0"), afterFullReindex.map { it.chunkId }.toSet())
+            assertEquals("完整重建后的 HNSW 检索不应回退扫描向量表", 0, fixture.pageReads.count)
+        } finally {
+            fixture.tempDir.listFiles()?.forEach { it.delete() }
+            fixture.tempDir.delete()
+        }
+    }
+
+    @Test
+    fun `full reindex can replace every vector after embedding dimension changes`() = runBlocking {
+        val fixture = createFingerprintReindexFixture(
+            provider = FingerprintedEmbeddingProvider(dimension = 3, modelName = "new-dimension-model"),
+        )
+        try {
+            val failures = fixture.service.reindexAllInKbs(listOf("default"), fixture.config)
+
+            assertTrue("全库维度切换重建应成功: $failures", failures.isEmpty())
+            fixture.pageReads.count = 0
+            val results = fixture.service.retrieve("query", 3, 0.1f, fixture.config)
+            assertEquals(setOf("chunk-old-doc-0", "chunk-new-doc-0"), results.map { it.chunkId }.toSet())
+            assertEquals("完成全库维度切换重建后应重新启用 HNSW", 0, fixture.pageReads.count)
+        } finally {
+            fixture.tempDir.listFiles()?.forEach { it.delete() }
+            fixture.tempDir.delete()
+        }
     }
 
     @Test

@@ -82,6 +82,10 @@ interface GenerationCheckpointDao {
     @Query("DELETE FROM generation_checkpoints WHERE sessionId = :sessionId")
     suspend fun deleteBySession(sessionId: String)
 
+    /** 全量替换会话备份前清理旧生成状态,避免恢复后续写旧消息。 */
+    @Query("DELETE FROM generation_checkpoints")
+    suspend fun deleteAll()
+
     @Query(
         "SELECT COUNT(*) FROM messages WHERE sessionId = :sessionId AND role = 'ASSISTANT' AND createdAt > :afterCreatedAt",
     )

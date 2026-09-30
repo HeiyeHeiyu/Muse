@@ -5,7 +5,9 @@ import io.zer0.memory.compile.MemoryCompiler
 import io.zer0.memory.deep.DeepMemoryProcessor
 import io.zer0.memory.fact.FactDb
 import io.zer0.memory.fact.FactStore
+import io.zer0.memory.summary.MEMORY_DB_VERSION
 import io.zer0.memory.summary.MemoryDb
+import io.zer0.memory.summary.MemoryDbDowngradeGuard
 import io.zer0.memory.summary.SessionSummaryManager
 import io.zer0.memory.ticker.MemoryTicker
 import kotlinx.coroutines.CoroutineScope
@@ -28,14 +30,19 @@ val memoryModule: Module = module {
 
     // ── Room 数据库 ──
     single {
-        Room.databaseBuilder(androidContext(), MemoryDb::class.java, "memory.db")
+        val context = androidContext()
+        MemoryDbDowngradeGuard.archiveIfNewer(
+            context = context,
+            databaseName = MEMORY_DB_NAME,
+            currentVersion = MEMORY_DB_VERSION,
+        )
+        Room.databaseBuilder(context, MemoryDb::class.java, MEMORY_DB_NAME)
             // v2: session summary 增加 space_id，只做加法迁移，保留旧数据。
             .addMigrations(
                 io.zer0.memory.summary.MemoryDb.MIGRATION_1_2,
                 io.zer0.memory.summary.MemoryDb.MIGRATION_2_3,
             )
-            // v1.78 (M4): 移除 upgrade 的 destructive migration,避免升级时静默清空用户数据;
-            // 仅保留降级保护(从历史更高版本降到当前 v1 时不崩溃)
+            // 仅允许降级时重建；打开前 guard 已归档更高版本库及 WAL sidecars。
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .build()
     }
@@ -115,3 +122,5 @@ val memoryModule: Module = module {
     // 置顶记忆存储
     single { io.zer0.memory.pin.PinnedMemoryStore(java.io.File(androidContext().filesDir, "pinned_memory")) }
 }
+
+private const val MEMORY_DB_NAME = "memory.db"

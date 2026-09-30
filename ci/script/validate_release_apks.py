@@ -11,10 +11,16 @@ from __future__ import annotations
 import argparse
 import glob
 import os
+import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+EXPECTED_SIGNING_CERT_SHA256 = "e82f4ecde8304b7d78b530336a48e41a42b80c0ebac8af2d2c10448277644ebf"
+CERTIFICATE_SHA256_RE = re.compile(
+    r"Signer #\d+ certificate SHA-256 digest:\s*([0-9a-fA-F]{64})",
+)
 
 
 def resolve_apksigner(explicit: Path | None = None) -> Path:
@@ -43,8 +49,8 @@ def resolve_apksigner(explicit: Path | None = None) -> Path:
 
 
 def verify_apk(apk: Path, apksigner: Path) -> None:
-    """Run apksigner verification and raise with bounded diagnostics on failure."""
-    command = [str(apksigner), "verify", "--verbose", str(apk)]
+    """Verify APK structure and require the established release signing certificate."""
+    command = [str(apksigner), "verify", "--verbose", "--print-certs", str(apk)]
     if apksigner.suffix.lower() == ".bat":
         command = ["cmd", "/c", *command]
     result = subprocess.run(command, capture_output=True, text=True)
@@ -52,6 +58,12 @@ def verify_apk(apk: Path, apksigner: Path) -> None:
         detail = (result.stderr or result.stdout).strip().splitlines()
         safe_detail = detail[-1] if detail else "apksigner returned a non-zero exit code"
         raise RuntimeError(f"APK 签名校验失败: {apk.name}: {safe_detail}")
+    output = f"{result.stdout}\n{result.stderr}"
+    fingerprints = [value.lower() for value in CERTIFICATE_SHA256_RE.findall(output)]
+    if not fingerprints:
+        raise RuntimeError(f"APK 未返回签名证书 SHA-256: {apk.name}")
+    if any(value != EXPECTED_SIGNING_CERT_SHA256 for value in fingerprints):
+        raise RuntimeError(f"APK 签名证书与发布证书不一致: {apk.name}")
 
 
 def expand_apks(patterns: list[str]) -> list[Path]:

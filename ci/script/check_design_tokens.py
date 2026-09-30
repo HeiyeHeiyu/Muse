@@ -30,6 +30,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from baseline_utils import require_baseline
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 UI_DIR = PROJECT_ROOT / "app" / "src" / "main" / "java" / "io" / "zer0" / "muse" / "ui"
@@ -238,10 +240,8 @@ def main() -> int:
                 print(f"  {file}:{v.line} [{v.rule}] {v.message}")
                 print(f"    {v.code}")
 
-    if not args.baseline.exists():
-        # 无 baseline 文件:只报告不失败(首次接入前的过渡态)
-        print("[design-tokens] 未找到 baseline,仅报告不拦截。生成: --update-baseline")
-        return 0
+    if not require_baseline(args.baseline, "design-tokens"):
+        return 2
     # baseline 文件存在即为生效状态(空清单 = 零容忍,任何新增都失败)
     baseline = load_baseline(args.baseline)
 

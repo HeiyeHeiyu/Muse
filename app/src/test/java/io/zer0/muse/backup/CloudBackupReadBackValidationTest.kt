@@ -27,6 +27,14 @@ class CloudBackupReadBackValidationTest {
     }
 
     @Test
+    fun `plaintext downgrade is rejected when backup encryption was configured`() {
+        val plaintext = ndjson(validMeta, validRecord)
+
+        assertNotNull(validateCloudReadBackNdjsonWithPolicy(plaintext, "configured-password", passwordWasSet = false))
+        assertNotNull(validateCloudReadBackNdjsonWithPolicy(plaintext, "", passwordWasSet = true))
+    }
+
+    @Test
     fun `empty payload is rejected`() {
         assertNotNull(validateCloudReadBackNdjson(ByteArray(0), ""))
     }

@@ -9,6 +9,7 @@ import android.graphics.Path
 import android.util.DisplayMetrics
 import android.view.accessibility.AccessibilityNodeInfo
 import io.zer0.common.Logger
+import io.zer0.muse.accessibility.AccessibilityPathUtils
 import io.zer0.muse.automation.core.AutomationExecutor
 import io.zer0.muse.automation.core.PermissionLevel
 import io.zer0.muse.automation.core.ScreenInfo
@@ -167,16 +168,18 @@ class AccessibilityExecutor(
 
     private fun collectNodes(node: AccessibilityNodeInfo, out: MutableList<UiNode>, depth: Int) {
         if (depth > MAX_TREE_DEPTH) return
-        val hasUsefulInfo = !node.text.isNullOrBlank() ||
-            !node.contentDescription.isNullOrBlank() ||
+        val text = AccessibilityPathUtils.textForModel(node.text, node.isPassword)
+        val description = AccessibilityPathUtils.textForModel(node.contentDescription, node.isPassword)
+        val hasUsefulInfo = !text.isNullOrBlank() ||
+            !description.isNullOrBlank() ||
             node.isClickable || node.isEditable
         if (hasUsefulInfo) {
             val rect = android.graphics.Rect()
             node.getBoundsInScreen(rect)
             out.add(
                 UiNode(
-                    text = node.text?.toString(),
-                    contentDescription = node.contentDescription?.toString(),
+                    text = text,
+                    contentDescription = description,
                     className = node.className?.toString(),
                     viewIdResourceName = node.viewIdResourceName,
                     boundsLeft = rect.left,

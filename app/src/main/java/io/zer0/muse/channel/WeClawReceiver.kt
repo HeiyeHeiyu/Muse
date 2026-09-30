@@ -62,9 +62,9 @@ class WeClawReceiver(
                 WeClawContextCache.put(msg.fromUserId, msg.contextToken)
                 val media = msg.media
                 if (media == null) {
-                    ChannelInbox.record("WECLAW", msg.fromUserId, msg.text, "")
+                    ChannelInbox.record(ChannelInbox.Source("WECLAW", msg.fromUserId, config.id), msg.text, "")
                 } else {
-                    handleMediaMessage(msg, media)
+                    handleMediaMessage(msg, media, config.id)
                 }
             }
         }
@@ -75,7 +75,7 @@ class WeClawReceiver(
      * 语音使用服务端转写(parseMessages 已填充);
      * v2.x (B4): 视频/文件下载到私有目录并记录本地路径(文本占位升级为含文件名/路径)。
      */
-    private suspend fun handleMediaMessage(msg: WeClawClient.InboundMsg, media: WeClawClient.MediaRef) {
+    private suspend fun handleMediaMessage(msg: WeClawClient.InboundMsg, media: WeClawClient.MediaRef, channelId: String) {
         val from = msg.fromUserId
         when (media.kind) {
             "image" -> {
@@ -85,25 +85,23 @@ class WeClawReceiver(
                 val base64 = bytes?.let { ChannelMediaUtils.toCompactImageBase64(it) }
                 if (base64 != null) {
                     ChannelInbox.record(
-                        platform = "WECLAW",
-                        from = from,
+                        source = ChannelInbox.Source("WECLAW", from, channelId),
                         text = "[图片]",
                         rawPayload = "",
-                        mediaKind = "image",
-                        mediaBase64 = base64,
+                        media = ChannelInbox.Media(kind = "image", base64 = base64),
                     )
                 } else {
                     Logger.w(TAG, "图片下载或解码失败(from=$from)")
-                    ChannelInbox.record("WECLAW", from, "[图片(未能获取)]", "")
+                    ChannelInbox.record(ChannelInbox.Source("WECLAW", from, channelId), "[图片(未能获取)]", "")
                 }
             }
             "voice" -> {
                 // iLink 语音自带服务端 ASR 转写;无转写时给占位。
-                ChannelInbox.record("WECLAW", from, msg.text.ifBlank { "[语音]" }, "")
+                ChannelInbox.record(ChannelInbox.Source("WECLAW", from, channelId), msg.text.ifBlank { "[语音]" }, "")
             }
             // v2.x (B4): 视频/文件 — 下载 + 落盘 + 记录(含文件名与路径)
-            "video" -> handleBinaryMedia(msg, media, kind = "video", label = "[视频]")
-            else -> handleBinaryMedia(msg, media, kind = "file", label = "[文件]")
+            "video" -> handleBinaryMedia(msg, media, channelId, kind = "video", label = "[视频]")
+            else -> handleBinaryMedia(msg, media, channelId, kind = "file", label = "[文件]")
         }
     }
 
@@ -114,7 +112,13 @@ class WeClawReceiver(
      * [MAX_MEDIA_SAVE_BYTES] 保护在流内生效(超出立即中止并删除半成品)。
      * 失败/超限/超时降级为占位文本(不抛异常,不阻断后续轮询)。
      */
-    private suspend fun handleBinaryMedia(msg: WeClawClient.InboundMsg, media: WeClawClient.MediaRef, kind: String, label: String) {
+    private suspend fun handleBinaryMedia(
+        msg: WeClawClient.InboundMsg,
+        media: WeClawClient.MediaRef,
+        channelId: String,
+        kind: String,
+        label: String,
+    ) {
         val from = msg.fromUserId
         val target = File(
             File(context.filesDir, MEDIA_DIR),
@@ -125,7 +129,12 @@ class WeClawReceiver(
         }
         if (result == null) {
             Logger.w(TAG, "媒体下载超时(kind=$kind, from=$from)")
-            ChannelInbox.record("WECLAW", from, "$label(未能获取)", "", mediaKind = kind)
+            ChannelInbox.record(
+                ChannelInbox.Source("WECLAW", from, channelId),
+                "$label(未能获取)",
+                "",
+                media = ChannelInbox.Media(kind = kind),
+            )
             return
         }
         val written = result.getOrNull()
@@ -134,26 +143,28 @@ class WeClawReceiver(
             if (error is MediaTooLargeException) {
                 Logger.w(TAG, "媒体超出大小上限(kind=$kind, from=$from)")
                 ChannelInbox.record(
-                    "WECLAW",
-                    from,
+                    ChannelInbox.Source("WECLAW", from, channelId),
                     "$label(超出大小上限 ${MAX_MEDIA_SAVE_BYTES / 1024 / 1024}MB,未落盘)",
                     "",
-                    mediaKind = kind,
+                    ChannelInbox.Media(kind = kind),
                 )
             } else {
                 Logger.w(TAG, "媒体下载失败(kind=$kind, from=$from, err=${error?.message})")
-                ChannelInbox.record("WECLAW", from, "$label(未能获取)", "", mediaKind = kind)
+                ChannelInbox.record(
+                    ChannelInbox.Source("WECLAW", from, channelId),
+                    "$label(未能获取)",
+                    "",
+                    media = ChannelInbox.Media(kind = kind),
+                )
             }
             return
         }
         val displayName = media.fileName.ifBlank { target.name }
         ChannelInbox.record(
-            platform = "WECLAW",
-            from = from,
+            source = ChannelInbox.Source("WECLAW", from, channelId),
             text = "$label $displayName",
             rawPayload = "",
-            mediaKind = kind,
-            mediaPath = target.absolutePath,
+            media = ChannelInbox.Media(kind = kind, path = target.absolutePath),
         )
     }
 

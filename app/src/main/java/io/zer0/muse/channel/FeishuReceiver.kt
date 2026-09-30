@@ -10,6 +10,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
@@ -47,6 +48,12 @@ class FeishuReceiver(
 
     /** 分片事件缓冲:message_id → 各分片 payload。 */
     private val pendingFrames = ConcurrentHashMap<String, MutableMap<Int, ByteArray>>()
+
+    private data class InboundEvent(
+        val from: String,
+        val text: String,
+        val eventId: String,
+    )
 
     /** 启动接收循环(幂等;已有循环先停再起)。 */
     fun restart() {
@@ -105,7 +112,7 @@ class FeishuReceiver(
                 }
 
                 override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-                    runCatching { handleFrame(bytes.toByteArray(), webSocket) }
+                    runCatching { handleFrame(bytes.toByteArray(), webSocket, config.id) }
                         .onFailure { e -> Logger.w(TAG, "飞书帧处理失败: ${e.message}") }
                 }
 
@@ -127,28 +134,33 @@ class FeishuReceiver(
     }
 
     /** 帧分派:control(ping/pong)与 data(事件)。 */
-    private fun handleFrame(bytes: ByteArray, webSocket: WebSocket) {
+    private fun handleFrame(bytes: ByteArray, webSocket: WebSocket, channelId: String) {
         val frame = FeishuPbbp2.decode(bytes)
         when (frame.method) {
             FeishuPbbp2.METHOD_CONTROL -> Unit // ping 回显 / pong 配置更新(首版忽略)
-            FeishuPbbp2.METHOD_DATA -> handleDataFrame(frame, webSocket)
+            FeishuPbbp2.METHOD_DATA -> handleDataFrame(frame, webSocket, channelId)
         }
     }
 
     /** 数据帧:分片合并 → 事件分发 → ack 回写。 */
-    private fun handleDataFrame(frame: FeishuPbbp2.Frame, webSocket: WebSocket) {
-        if (frame.header("type") != "event") return
-        val messageId = frame.header("message_id") ?: return
-        val sum = frame.header("sum")?.toIntOrNull() ?: 1
-        val seq = frame.header("seq")?.toIntOrNull() ?: 0
-        val merged = mergeData(messageId, sum, seq, frame.payload) ?: return
-        dispatchEvent(merged)
-        // ack:同帧回写 payload(code=200),附加 biz_rt。
-        val ackFrame = frame.copy(
-            headers = frame.headers + FeishuPbbp2.Header("biz_rt", "0"),
-            payload = "{\"code\":200}".toByteArray(Charsets.UTF_8),
-        )
-        runCatching { webSocket.send(FeishuPbbp2.encode(ackFrame).toByteString()) }
+    private fun handleDataFrame(frame: FeishuPbbp2.Frame, webSocket: WebSocket, channelId: String) {
+        val messageId = frame.header("message_id")
+        val merged = messageId
+            ?.takeIf { frame.header("type") == "event" }
+            ?.let {
+                val sum = frame.header("sum")?.toIntOrNull() ?: 1
+                val seq = frame.header("seq")?.toIntOrNull() ?: 0
+                mergeData(it, sum, seq, frame.payload)
+            }
+        if (messageId != null && merged != null) {
+            dispatchEvent(merged, channelId)
+            // ack:同帧回写 payload(code=200),附加 biz_rt。
+            val ackFrame = frame.copy(
+                headers = frame.headers + FeishuPbbp2.Header("biz_rt", "0"),
+                payload = "{\"code\":200}".toByteArray(Charsets.UTF_8),
+            )
+            runCatching { webSocket.send(FeishuPbbp2.encode(ackFrame).toByteString()) }
+        }
     }
 
     /** 分片合并(按 message_id 缓存,全部到齐后拼接为完整 JSON);未齐返回 null。 */
@@ -170,34 +182,51 @@ class FeishuReceiver(
     }
 
     /** 事件 JSON 派发(仅 im.message.receive_v1)。 */
-    private fun dispatchEvent(json: String) {
-        val obj = runCatching { AppJson.parseToJsonElement(json).jsonObject }.getOrNull() ?: return
-        val header = obj["header"]?.jsonObject ?: return
-        val eventType = header["event_type"]?.jsonPrimitive?.contentOrNull ?: return
-        if (eventType != "im.message.receive_v1") return
-        val event = obj["event"]?.jsonObject ?: return
-        val message = event["message"]?.jsonObject ?: return
-        val sender = event["sender"]?.jsonObject
-        val chatType = message["chat_type"]?.jsonPrimitive?.contentOrNull.orEmpty()
-        val messageType = message["message_type"]?.jsonPrimitive?.contentOrNull.orEmpty()
+    private fun dispatchEvent(json: String, channelId: String) {
+        val event = parseInboundEvent(json)
+        if (event != null) {
+            ChannelInbox.record(
+                ChannelInbox.Source("FEISHU", event.from, channelId, event.eventId),
+                event.text,
+                "",
+            )
+        }
+    }
+
+    private fun parseInboundEvent(json: String): InboundEvent? {
+        val obj = runCatching { AppJson.parseToJsonElement(json).jsonObject }.getOrNull()
+        val header = obj?.get("header")?.jsonObject
+        val event = obj?.get("event")?.jsonObject
+        val message = event?.get("message")?.jsonObject
+        val sender = event?.get("sender")?.jsonObject
+        val eventType = header?.get("event_type")?.jsonPrimitive?.contentOrNull
+        val senderType = sender?.get("sender_type")?.jsonPrimitive?.contentOrNull
+        val chatType = message?.get("chat_type")?.jsonPrimitive?.contentOrNull.orEmpty()
+        val messageType = message?.get("message_type")?.jsonPrimitive?.contentOrNull.orEmpty()
         val openId = sender?.get("sender_id")?.jsonObject
             ?.get("open_id")?.jsonPrimitive?.contentOrNull.orEmpty()
-        val chatId = message["chat_id"]?.jsonPrimitive?.contentOrNull.orEmpty()
-        // v2.0.1: p2p 回给发送人(ou_);群聊回给会话(oc_)。
+        val chatId = message?.get("chat_id")?.jsonPrimitive?.contentOrNull.orEmpty()
         val from = if (chatType == "p2p") openId else chatId
-        if (from.isBlank()) return
-        val text = when (messageType) {
-            "text" -> parseTextContent(
-                message["content"]?.jsonPrimitive?.contentOrNull.orEmpty(),
-            )
-            "image" -> "[图片]"
-            "audio" -> "[语音]"
-            "media" -> "[视频]"
-            "file" -> "[文件]"
-            "post" -> "[富文本]"
-            else -> if (messageType.isBlank()) "" else "[$messageType]"
+        val text = inboundText(message, messageType)
+        val eventId = header?.get("event_id")?.jsonPrimitive?.contentOrNull.orEmpty()
+        val supportedEvent = eventType == "im.message.receive_v1"
+        val userMessage = senderType == null || senderType == "user"
+        val messageReady = from.isNotBlank() && text.isNotBlank()
+        return if (supportedEvent && userMessage && messageReady) {
+            InboundEvent(from, text, eventId)
+        } else {
+            null
         }
-        if (text.isNotBlank()) ChannelInbox.record("FEISHU", from, text, "")
+    }
+
+    private fun inboundText(message: JsonObject?, messageType: String): String = when (messageType) {
+        "text" -> parseTextContent(message?.get("content")?.jsonPrimitive?.contentOrNull.orEmpty())
+        "image" -> "[图片]"
+        "audio" -> "[语音]"
+        "media" -> "[视频]"
+        "file" -> "[文件]"
+        "post" -> "[富文本]"
+        else -> if (messageType.isBlank()) "" else "[$messageType]"
     }
 
     /** 解析 text 消息 content(JSON 字符串;去掉 @ 占位符)。 */

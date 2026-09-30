@@ -64,7 +64,7 @@ class DingtalkReceiver(
                 return
             }
             runCatching {
-                connectOnce(config.appId, config.appSecret, config.dingtalkApiBase)
+                connectOnce(config)
             }.onFailure { e -> Logger.w(TAG, "钉钉 Stream 连接异常: ${e.message}") }
             if (!currentCoroutineContext().isActive) return
             delay(RECONNECT_DELAY_MS)
@@ -72,8 +72,12 @@ class DingtalkReceiver(
     }
 
     /** 建立一次 WebSocket 并挂起至断开。 */
-    private suspend fun connectOnce(clientId: String, clientSecret: String, apiBase: String) {
-        val connection = DingtalkClient.openStreamConnection(clientId, clientSecret, apiBase).getOrElse { e ->
+    private suspend fun connectOnce(config: ChannelConfig) {
+        val connection = DingtalkClient.openStreamConnection(
+            config.appId,
+            config.appSecret,
+            config.dingtalkApiBase,
+        ).getOrElse { e ->
             Logger.w(TAG, "钉钉 Stream 注册失败: ${e.message}")
             return
         }
@@ -83,7 +87,7 @@ class DingtalkReceiver(
             request,
             object : WebSocketListener() {
                 override fun onMessage(webSocket: WebSocket, text: String) {
-                    runCatching { handleFrame(webSocket, text) }
+                    runCatching { handleFrame(webSocket, text, config.id) }
                         .onFailure { e -> Logger.w(TAG, "钉钉帧处理失败: ${e.message}") }
                 }
 
@@ -107,7 +111,7 @@ class DingtalkReceiver(
     }
 
     /** 处理 Stream 推送帧(协议见钉钉开发者文档)。 */
-    private fun handleFrame(webSocket: WebSocket, frame: String) {
+    private fun handleFrame(webSocket: WebSocket, frame: String, channelId: String) {
         val obj = runCatching { AppJson.parseToJsonElement(frame).jsonObject }.getOrNull() ?: return
         val type = obj["type"]?.jsonPrimitive?.contentOrNull.orEmpty()
         val headers = obj["headers"] as? JsonObject
@@ -126,7 +130,7 @@ class DingtalkReceiver(
                 webSocket.cancel()
             }
             type == "CALLBACK" && topic == "/v1.0/im/bot/messages/get" -> {
-                handleRobotMessage(data)
+                handleRobotMessage(data, channelId, messageId)
                 webSocket.send(DingtalkClient.ackFrame(messageId, "{\"response\": null}"))
             }
             else -> {
@@ -139,7 +143,7 @@ class DingtalkReceiver(
     }
 
     /** 解析机器人消息回调并写入收件箱。 */
-    private fun handleRobotMessage(dataJson: String) {
+    private fun handleRobotMessage(dataJson: String, channelId: String, eventId: String) {
         val payload = runCatching { AppJson.parseToJsonElement(dataJson).jsonObject }.getOrNull() ?: return
         // text 字段为对象 {"content": "..."};防御式兼容纯字符串形式
         val content = (payload["text"] as? JsonObject)
@@ -156,7 +160,11 @@ class DingtalkReceiver(
         DingtalkSessionCache.put(listOf(conversationId, senderStaffId), webhook, expireAt)
         // 群聊(conversationType=2)用会话 id,单聊用发送人 id,与发送侧目标语义一致
         val from = if (conversationType == "2") conversationId else senderStaffId
-        ChannelInbox.record("DINGTALK", from, text, dataJson)
+        ChannelInbox.record(
+            ChannelInbox.Source("DINGTALK", from, channelId, eventId),
+            text,
+            dataJson,
+        )
     }
 
     companion object {

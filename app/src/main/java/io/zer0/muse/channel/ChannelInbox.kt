@@ -20,6 +20,19 @@ import java.io.File
  */
 object ChannelInbox {
 
+    data class Media(
+        val kind: String = "",
+        val base64: String = "",
+        val path: String = "",
+    )
+
+    data class Source(
+        val platform: String,
+        val from: String,
+        val channelId: String = "",
+        val eventId: String = "",
+    )
+
     /** 单条入站消息(摘要 + 原始负载,供排查与后续路由使用)。 */
     @Serializable
     data class Inbound(
@@ -42,6 +55,10 @@ object ChannelInbox {
          * 路径记于此,供后续处理/引用。空 = 无本地文件(纯文本或未落盘)。
          */
         val mediaPath: String = "",
+        /** 认证该回调的渠道配置 ID;长连接来源为空并保持旧路由语义。 */
+        val sourceChannelId: String = "",
+        /** 平台事件 ID,用于持久化去重;缺失时为空。 */
+        val sourceEventId: String = "",
     )
 
     private const val TAG = "ChannelInbox"
@@ -52,6 +69,8 @@ object ChannelInbox {
     val messages: StateFlow<List<Inbound>> = _messages.asStateFlow()
 
     private var file: File? = null
+    private var webhookEventDeduplicator: WebhookEventDeduplicator? = null
+    private var webhookEventDeduplicationFailure: Throwable? = null
 
     /**
      * v2.0: 入站消息监听(自动回复等消费方注册)。
@@ -72,19 +91,19 @@ object ChannelInbox {
             }.onSuccess { _messages.value = it.take(MAX_ITEMS) }
                 .onFailure { e -> Logger.w(TAG, "收件箱恢复失败: ${e.message}") }
         }
+        runCatching {
+            WebhookEventDeduplicator(File(context.applicationContext.filesDir, WEBHOOK_EVENT_LEDGER_FILE))
+        }.onSuccess {
+            webhookEventDeduplicator = it
+            webhookEventDeduplicationFailure = null
+        }.onFailure { error ->
+            webhookEventDeduplicationFailure = error
+            Logger.e(TAG, "Webhook 事件去重账本不可用，拒绝处理带事件 ID 的消息", error)
+        }
     }
 
     /** 记录一条入站消息(summary 做 PII 遮蔽与截断)。 */
-    fun record(
-        platform: String,
-        from: String,
-        text: String?,
-        rawPayload: String,
-        mediaKind: String = "",
-        mediaBase64: String = "",
-        // v2.x (B4): 视频/文件落盘路径(非图片媒体);默认空保持向后兼容。
-        mediaPath: String = "",
-    ) {
+    fun record(source: Source, text: String?, rawPayload: String, media: Media = Media()): Boolean {
         val safeSummary = text
             ?.let { t ->
                 runCatching { io.zer0.memory.pii.PiiGuard.scrub(t).cleaned }
@@ -93,34 +112,82 @@ object ChannelInbox {
             ?.take(2000)
             .orEmpty()
         val item = Inbound(
-            platform = platform,
-            from = from,
+            platform = source.platform,
+            from = source.from,
             summary = safeSummary,
             raw = rawPayload.take(MAX_RAW_LENGTH),
-            mediaKind = mediaKind,
-            mediaBase64 = mediaBase64,
-            mediaPath = mediaPath,
+            mediaKind = media.kind,
+            mediaBase64 = media.base64,
+            mediaPath = media.path,
+            sourceChannelId = source.channelId,
+            sourceEventId = source.eventId,
         )
-        val updated = (listOf(item) + _messages.value).take(MAX_ITEMS)
-        _messages.value = updated
-        persist(updated)
-        runCatching { onInbound?.invoke(item) }
-            .onFailure { e -> Logger.w(TAG, "入站监听回调失败: ${e.message}") }
+        return synchronized(this) {
+            if (isEventClaimed(source)) {
+                false
+            } else {
+                val previous = _messages.value
+                val existing = previous.firstOrNull { source.eventId.isNotBlank() && it.matches(source) }
+                val eventToDeliver = existing ?: item
+                if (existing == null) {
+                    val updated = (listOf(item) + previous).take(MAX_ITEMS)
+                    check(persist(updated)) { "Channel inbox could not persist the inbound event" }
+                    _messages.value = updated
+                }
+                val claimed = claimEvent(source)
+                if (claimed) {
+                    runCatching { onInbound?.invoke(eventToDeliver) }
+                        .onFailure { e -> Logger.w(TAG, "入站监听回调失败: ${e.message}") }
+                }
+                claimed
+            }
+        }
+    }
+
+    private fun isEventClaimed(source: Source): Boolean {
+        val canDeduplicate = source.eventId.isNotBlank() && source.channelId.isNotBlank()
+        val deduplicator = webhookEventDeduplicator
+        return when {
+            !canDeduplicate -> false
+            file == null -> hasSeenEvent(source)
+            deduplicator == null ->
+                error("Webhook event deduplication is unavailable: ${webhookEventDeduplicationFailure?.message}")
+            else -> deduplicator.contains(source.platform, source.channelId, source.eventId)
+        }
+    }
+
+    private fun claimEvent(source: Source): Boolean {
+        if (source.eventId.isBlank() || source.channelId.isBlank() || file == null) return true
+        val deduplicator = webhookEventDeduplicator
+            ?: error("Webhook event deduplication is unavailable: ${webhookEventDeduplicationFailure?.message}")
+        return deduplicator.claim(source.platform, source.channelId, source.eventId)
+    }
+
+    private fun hasSeenEvent(source: Source): Boolean = source.eventId.isNotBlank() && _messages.value.any { it.matches(source) }
+
+    private fun Inbound.matches(source: Source): Boolean {
+        return platform == source.platform && sourceChannelId == source.channelId && sourceEventId == source.eventId
     }
 
     /** 清空收件箱。 */
+    @Synchronized
     fun clear() {
         _messages.value = emptyList()
         persist(emptyList())
     }
 
-    private fun persist(items: List<Inbound>) {
-        val target = file ?: return
-        runCatching {
+    private fun persist(items: List<Inbound>): Boolean {
+        val target = file ?: return true
+        return runCatching {
             AtomicFileStore.writeText(
                 target,
                 AppJson.encodeToString(ListSerializer(Inbound.serializer()), items),
             )
-        }.onFailure { e -> Logger.w(TAG, "收件箱持久化失败: ${e.message}") }
+            true
+        }.onFailure { e ->
+            Logger.w(TAG, "收件箱持久化失败: ${e.message}")
+        }.getOrDefault(false)
     }
+
+    private const val WEBHOOK_EVENT_LEDGER_FILE = "channel_webhook_event_ids.json"
 }

@@ -63,10 +63,6 @@ class ChatGptRealDataImportTest {
         val result = ThirdPartyImporter.importChatGPT(
             context = ApplicationProvider.getApplicationContext(),
             conversationsJson = json,
-            settings = io.zer0.muse.data.SettingsRepository(
-                ApplicationProvider.getApplicationContext(),
-                io.zer0.muse.data.audit.AuditLogger(db.auditLogDao()),
-            ),
             assistantRepo = assistantRepo,
             sessionRepo = sessionRepo,
         )

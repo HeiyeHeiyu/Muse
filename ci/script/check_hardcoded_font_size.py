@@ -17,6 +17,8 @@ import re
 import sys
 from pathlib import Path
 
+from baseline_utils import require_baseline
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 UI_DIR = PROJECT_ROOT / "app" / "src" / "main" / "java" / "io" / "zer0" / "muse" / "ui"
 BASELINE_PATH = PROJECT_ROOT / "ci" / "baseline" / "hardcoded_font_size_baseline.txt"
@@ -103,9 +105,8 @@ def main() -> int:
 
     print(f"[font-size] 扫描 ui/ 目录: {total} 处硬编码 fontSize,分布 {len(violations)} 个文件")
 
-    if not args.baseline.exists():
-        print("[font-size] 未找到 baseline,仅报告不拦截。生成: --update-baseline")
-        return 0
+    if not require_baseline(args.baseline, "font-size"):
+        return 2
 
     baseline = load_baseline(args.baseline)
     failures: list[str] = []

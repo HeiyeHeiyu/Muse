@@ -90,10 +90,10 @@
     </file>
     <file name="src/main/java/io/zer0/muse/data/import/ThirdPartyImporter.kt">
         <error line="1" column="9" source="standard:package-name" />
-        <error line="310" column="1" source="standard:max-line-length" />
-        <error line="373" column="1" source="standard:max-line-length" />
-        <error line="836" column="1" source="standard:max-line-length" />
-        <error line="916" column="1" source="standard:max-line-length" />
+        <error line="305" column="1" source="standard:max-line-length" />
+        <error line="368" column="1" source="standard:max-line-length" />
+        <error line="828" column="1" source="standard:max-line-length" />
+        <error line="908" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/data/knowledge/KnowledgeChunkDao.kt">
         <error line="174" column="1" source="standard:max-line-length" />
@@ -181,7 +181,7 @@
         <error line="57" column="1" source="standard:max-line-length" />
         <error line="95" column="1" source="standard:max-line-length" />
         <error line="105" column="1" source="standard:max-line-length" />
-        <error line="335" column="1" source="standard:max-line-length" />
+        <error line="360" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/data/session/MessageEntity.kt">
         <error line="94" column="5" source="standard:discouraged-comment-location" />
@@ -209,7 +209,7 @@
         <error line="64" column="5" source="standard:discouraged-comment-location" />
     </file>
     <file name="src/main/java/io/zer0/muse/data/session/SessionRepository.kt">
-        <error line="755" column="1" source="standard:max-line-length" />
+        <error line="764" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/data/sticker/StickerLibraryRepository.kt">
         <error line="54" column="17" source="standard:property-naming" />

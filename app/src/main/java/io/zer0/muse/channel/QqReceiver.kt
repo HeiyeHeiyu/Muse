@@ -40,6 +40,13 @@ class QqReceiver(
     private val context: Context,
     private val appScope: CoroutineScope,
 ) {
+    private data class FrameContext(
+        val accessToken: String,
+        val channelId: String,
+        val heartbeatInterval: AtomicLong,
+        val lastSeq: AtomicLong,
+    )
+
     private var job: Job? = null
 
     /** 启动接收循环(幂等;已有循环先停再起)。 */
@@ -92,6 +99,7 @@ class QqReceiver(
         val disconnected = CompletableDeferred<Unit>()
         val heartbeatInterval = AtomicLong(DEFAULT_HEARTBEAT_MS)
         val lastSeq = AtomicLong(0L)
+        val frameContext = FrameContext(token.accessToken, config.id, heartbeatInterval, lastSeq)
         val socketRef = AtomicReference<WebSocket?>(null)
         val heartbeatJob = appScope.launch {
             while (isActive) {
@@ -108,7 +116,7 @@ class QqReceiver(
             object : WebSocketListener() {
                 override fun onMessage(webSocket: WebSocket, text: String) {
                     runCatching {
-                        handleFrame(webSocket, text, token.accessToken, heartbeatInterval, lastSeq)
+                        handleFrame(webSocket, text, frameContext)
                     }.onFailure { e -> Logger.w(TAG, "QQ 帧处理失败: ${e.message}") }
                 }
 
@@ -134,19 +142,19 @@ class QqReceiver(
     }
 
     /** 帧状态机(op: 10 Hello / 11 心跳 ACK / 0 事件 / 7 重连 / 9 无效会话)。 */
-    private fun handleFrame(webSocket: WebSocket, text: String, accessToken: String, heartbeatInterval: AtomicLong, lastSeq: AtomicLong) {
+    private fun handleFrame(webSocket: WebSocket, text: String, frameContext: FrameContext) {
         val obj = AppJson.parseToJsonElement(text).jsonObject
         val op = obj["op"]?.jsonPrimitive?.contentOrNull?.toIntOrNull() ?: return
         when (op) {
             10 -> {
                 obj["d"]?.jsonObject?.get("heartbeat_interval")
                     ?.jsonPrimitive?.contentOrNull?.toLongOrNull()
-                    ?.let { interval -> heartbeatInterval.set(interval) }
-                Logger.i(TAG, "QQ Hello(心跳周期 ${heartbeatInterval.get()}ms),发送 Identify")
-                webSocket.send(identifyPayload(accessToken))
+                    ?.let { interval -> frameContext.heartbeatInterval.set(interval) }
+                Logger.i(TAG, "QQ Hello(心跳周期 ${frameContext.heartbeatInterval.get()}ms),发送 Identify")
+                webSocket.send(identifyPayload(frameContext.accessToken))
             }
             11 -> Unit // Heartbeat ACK
-            0 -> handleDispatch(obj)
+            0 -> handleDispatch(obj, frameContext.channelId)
             7 -> {
                 Logger.i(TAG, "QQ Gateway 要求重连")
                 webSocket.close(1000, "reconnect")
@@ -157,40 +165,46 @@ class QqReceiver(
             }
         }
         obj["s"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()?.let { seq ->
-            if (seq > lastSeq.get()) lastSeq.set(seq)
+            if (seq > frameContext.lastSeq.get()) frameContext.lastSeq.set(seq)
         }
     }
 
     /** Dispatch 事件(op=0)。 */
-    private fun handleDispatch(obj: JsonObject) {
-        val eventType = obj["t"]?.jsonPrimitive?.contentOrNull ?: return
-        val d = obj["d"] as? JsonObject ?: return
-        when (eventType) {
-            "C2C_MESSAGE_CREATE" -> {
-                val openid = d["author"]?.jsonObject
-                    ?.get("user_openid")?.jsonPrimitive?.contentOrNull.orEmpty()
-                if (openid.isBlank()) return
-                val msgId = d["id"]?.jsonPrimitive?.contentOrNull.orEmpty()
-                if (msgId.isNotBlank()) QqMsgIdCache.put(openid, msgId)
-                val text = resolveInboundText(d)
-                if (text.isNotBlank()) ChannelInbox.record("QQ", openid, text, "")
+    private fun handleDispatch(obj: JsonObject, channelId: String) {
+        val eventType = obj["t"]?.jsonPrimitive?.contentOrNull
+        val d = obj["d"] as? JsonObject
+        if (eventType != null && d != null) {
+            when (eventType) {
+                "C2C_MESSAGE_CREATE" -> handleC2cMessage(d, channelId)
+                "GROUP_AT_MESSAGE_CREATE" -> handleGroupMessage(d, channelId)
+                "READY" -> {
+                    val username = d["user"]?.jsonObject
+                        ?.get("username")?.jsonPrimitive?.contentOrNull.orEmpty()
+                    Logger.i(TAG, "QQ 已连接($username)")
+                }
             }
-            "GROUP_AT_MESSAGE_CREATE" -> {
-                val groupOpenid = d["group_openid"]?.jsonPrimitive?.contentOrNull.orEmpty()
-                if (groupOpenid.isBlank()) return
-                // v2.0.1: 群目标以 "group:" 前缀标记,发送侧据此路由到群接口。
-                val target = "group:$groupOpenid"
-                val msgId = d["id"]?.jsonPrimitive?.contentOrNull.orEmpty()
-                if (msgId.isNotBlank()) QqMsgIdCache.put(target, msgId)
-                val text = resolveInboundText(d)
-                if (text.isNotBlank()) ChannelInbox.record("QQ", target, text, "")
-            }
-            "READY" -> {
-                val username = d["user"]?.jsonObject
-                    ?.get("username")?.jsonPrimitive?.contentOrNull.orEmpty()
-                Logger.i(TAG, "QQ 已连接($username)")
-            }
-            else -> Unit
+        }
+    }
+
+    private fun handleC2cMessage(data: JsonObject, channelId: String) {
+        val openid = data["author"]?.jsonObject
+            ?.get("user_openid")?.jsonPrimitive?.contentOrNull.orEmpty()
+        val messageId = data["id"]?.jsonPrimitive?.contentOrNull.orEmpty()
+        if (openid.isNotBlank() && messageId.isNotBlank()) QqMsgIdCache.put(openid, messageId)
+        val text = resolveInboundText(data)
+        if (openid.isNotBlank() && text.isNotBlank()) {
+            ChannelInbox.record(ChannelInbox.Source("QQ", openid, channelId, messageId), text, "")
+        }
+    }
+
+    private fun handleGroupMessage(data: JsonObject, channelId: String) {
+        val groupOpenId = data["group_openid"]?.jsonPrimitive?.contentOrNull.orEmpty()
+        val target = "group:$groupOpenId"
+        val messageId = data["id"]?.jsonPrimitive?.contentOrNull.orEmpty()
+        if (groupOpenId.isNotBlank() && messageId.isNotBlank()) QqMsgIdCache.put(target, messageId)
+        val text = resolveInboundText(data)
+        if (groupOpenId.isNotBlank() && text.isNotBlank()) {
+            ChannelInbox.record(ChannelInbox.Source("QQ", target, channelId, messageId), text, "")
         }
     }
 

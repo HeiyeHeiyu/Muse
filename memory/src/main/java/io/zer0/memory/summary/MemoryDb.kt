@@ -5,6 +5,8 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
+internal const val MEMORY_DB_VERSION = 3
+
 /**
  * Memory 模块的 Room 数据库。
  *
@@ -24,7 +26,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CompiledSectionEntity::class,
         ScopedCompiledSectionEntity::class,
     ],
-    version = 3,
+    version = MEMORY_DB_VERSION,
     // v1.78 (H4): 开启 schema 导出,为未来 version 升级编写 Migration 提供基线
     exportSchema = true,
 )

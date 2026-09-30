@@ -147,6 +147,39 @@ class MessageImageStore(
         }
     }
 
+    /** 恢复事务成功前记录候选 sidecar;新写入的文件不纳入旧文件清理。 */
+    fun snapshotStoredFilePaths(): Set<String> {
+        return storageDir.listFiles { file -> file.isFile && file.name.endsWith(".bin") }
+            ?.map { it.absolutePath }
+            ?.toSet()
+            .orEmpty()
+    }
+
+    /** 只删除恢复前已存在且恢复后不再被任何消息引用的图片文件。 */
+    fun deleteSnapshotFilesNotReferenced(snapshot: Set<String>, referencedValues: Set<String>) {
+        val referencedPaths = referencedValues
+            .filter { it.startsWith(FILE_PREFIX) }
+            .map { it.removePrefix(FILE_PREFIX) }
+            .toSet()
+        val root = runCatching { storageDir.canonicalFile }.getOrNull() ?: return
+        snapshot.forEach { path ->
+            runCatching {
+                val candidate = File(path).canonicalFile
+                if (
+                    candidate.parentFile == root &&
+                    candidate.path !in referencedPaths &&
+                    candidate.delete()
+                ) {
+                    synchronized(imageCache) {
+                        imageCache.remove(candidate.path)?.let { imageCacheBytes -= it.length }
+                    }
+                }
+            }.onFailure { error ->
+                Logger.w(TAG, "恢复后清理孤立图片失败: ${error.message}")
+            }
+        }
+    }
+
     /** 剥离 data:image/...;base64, 前缀,返回纯 base64 字符串。 */
     private fun stripDataUriPrefix(value: String): String {
         val commaIdx = value.indexOf(',')

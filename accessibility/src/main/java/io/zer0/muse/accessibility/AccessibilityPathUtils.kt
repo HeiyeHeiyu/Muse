@@ -1,7 +1,7 @@
 package io.zer0.muse.accessibility
 
-/** B8-05: 无障碍路径解析与文本转义纯函数,便于单测。 */
-internal object AccessibilityPathUtils {
+/** 无障碍路径/文本策略纯函数,供 accessibility 与 app 模块共用并便于单测。 */
+object AccessibilityPathUtils {
 
     /**
      * 解析节点路径字符串。
@@ -15,6 +15,10 @@ internal object AccessibilityPathUtils {
         if (indices.first() != 0) return emptyList()
         return indices
     }
+
+    /** 密码字段保留控件元数据用于定位/输入,但绝不把值或描述交给自动化模型。 */
+    fun textForModel(value: CharSequence?, isPassword: Boolean): String? =
+        if (isPassword) null else value?.toString()?.takeIf { it.isNotBlank() }
 
     /** 转义文本中的换行/制表符/反斜杠/方括号,保证单行输出。 */
     fun escapeText(text: String): String = text.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t").replace("]", "\\]")

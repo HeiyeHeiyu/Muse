@@ -21,12 +21,14 @@ DEFAULT_CAP = Path(__file__).resolve().parents[1] / "detekt_debt_cap.json"
 
 
 def count_baseline(baseline_file: Path) -> int:
-    """统计 detekt 基线 CurrentIssues 条数;文件缺失视为 0。"""
-    if not baseline_file.exists():
-        return 0
+    """统计 detekt 基线 CurrentIssues 条数;缺失或结构无效时失败。"""
+    if not baseline_file.is_file():
+        raise FileNotFoundError(f"缺少 detekt baseline: {baseline_file}")
     tree = ET.parse(baseline_file)
     current = tree.getroot().find("CurrentIssues")
-    return len(current) if current is not None else 0
+    if current is None:
+        raise ValueError(f"detekt baseline 缺少 CurrentIssues: {baseline_file}")
+    return len(current)
 
 
 def check(root: Path, cap_file: Path) -> list[str]:
@@ -35,10 +37,14 @@ def check(root: Path, cap_file: Path) -> list[str]:
     total_cap = int(cap["total"])
     module_caps = {k: int(v) for k, v in cap.get("modules", {}).items()}
 
-    actual: dict[str, int] = {}
+    actual: dict[str, int | str] = {}
     total = 0
     for module in sorted(module_caps.keys()):
         baseline = root / module / "detekt-baseline.xml"
+        if not baseline.is_file():
+            actual[module] = "MISSING"
+            errors.append(f"{module}: 缺少 detekt baseline ({baseline})")
+            continue
         n = count_baseline(baseline)
         actual[module] = n
         total += n

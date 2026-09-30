@@ -320,6 +320,11 @@
     <string name="channel_field_name">名前</string>
     <string name="channel_field_app_id">App ID</string>
     <string name="channel_field_app_secret">App Secret</string>
+    <string name="channel_webhook_receive">プラットフォーム Webhook を有効化</string>
+    <string name="channel_webhook_receive_desc">既定では無効です。プラットフォームで外部コールバック URL を設定した場合のみ有効にしてください。</string>
+    <string name="channel_webhook_verification_token">Verification Token</string>
+    <string name="channel_webhook_feishu_hint">手動設定した Feishu イベントコールバック専用です。Feishu と同じ Verification Token を入力してください。暗号化されていないコールバックのみ対応します。Encrypt Key は空欄にしてください。長接続受信には不要です。</string>
+    <string name="channel_webhook_qq_hint">手動設定した QQ コールバック専用です。ここで十分にランダムなトークンを設定し、コールバック URL に ?token=... を追加してください。新しい Ed25519 署名とタイムスタンプも必要で、上記 App Secret で検証します。長接続受信には不要です。</string>
     <string name="channel_field_target">送信先 ID</string>
     <string name="channel_field_qq_type">QQ 送信先タイプ</string>
     <string name="channel_type_group">グループ</string>

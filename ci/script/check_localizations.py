@@ -89,6 +89,11 @@ def find_locale_dirs(res_dir: Path) -> list:
     return locales
 
 
+def normalize_locale_name(name: str) -> str:
+    """Accept either Android resource directory names or plain locale codes."""
+    return name[len(LOCALE_DIR_PREFIX):] if name.startswith(LOCALE_DIR_PREFIX) else name
+
+
 def check_locale(res_dir: Path, verbose: bool = False, strict_locales: set = None) -> int:
     """
     校验所有 locale 的 key 完整性。
@@ -97,6 +102,9 @@ def check_locale(res_dir: Path, verbose: bool = False, strict_locales: set = Non
     """
     default_dir = res_dir / DEFAULT_VALUES_DIR
     baseline = extract_all_keys(default_dir)
+    strict_locale_codes = {
+        normalize_locale_name(locale) for locale in (strict_locales or set())
+    }
 
     if not baseline:
         print(f"ERROR: 基准目录 {default_dir} 无 strings_*.xml 文件", file=sys.stderr)
@@ -129,7 +137,7 @@ def check_locale(res_dir: Path, verbose: bool = False, strict_locales: set = Non
 
         missing_count = len(missing_keys)
         # v1.0.56: strict locale 缺失才累计失败;其他语言缺失仅警告
-        is_strict = strict_locales and locale_name in strict_locales
+        is_strict = normalize_locale_name(locale_name) in strict_locale_codes
         if is_strict:
             total_missing += missing_count
 
@@ -174,7 +182,11 @@ def main():
         help="缺失 key 会导致失败的 locale(逗号分隔,默认: en);其他语言缺失仅警告",
     )
     args = parser.parse_args()
-    strict_locales = set(locale.strip() for locale in args.strict_locales.split(",") if locale.strip())
+    strict_locales = {
+        normalize_locale_name(locale.strip())
+        for locale in args.strict_locales.split(",")
+        if locale.strip()
+    }
 
     res_dir = Path(args.res_dir).resolve()
     if not res_dir.exists():
