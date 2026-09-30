@@ -424,7 +424,7 @@ private fun ShizukuChannelCard(
                     text = stringResource(R.string.shizuku_section_title),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
-                    // LAYOUT-01: 同上，通道标题限 1 行
+                    // LAYOUT-01: 限 1 行（见 PROJECT_GUIDE §5）
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -440,8 +440,7 @@ private fun ShizukuChannelCard(
             // 分步状态展示
             StatusLine(
                 done = installed,
-                text =
-                if (installed) {
+                text = if (installed) {
                     stringResource(R.string.shizuku_apk_installed)
                 } else {
                     stringResource(R.string.shizuku_apk_not_installed)
@@ -449,8 +448,7 @@ private fun ShizukuChannelCard(
             )
             StatusLine(
                 done = available,
-                text =
-                if (available) {
+                text = if (available) {
                     stringResource(R.string.shizuku_service_running)
                 } else {
                     stringResource(R.string.shizuku_service_not_running)
@@ -458,8 +456,7 @@ private fun ShizukuChannelCard(
             )
             StatusLine(
                 done = authorized,
-                text =
-                if (authorized) {
+                text = if (authorized) {
                     stringResource(R.string.shizuku_status_authorized)
                 } else {
                     stringResource(R.string.shizuku_status_unauthorized_long)
@@ -518,7 +515,7 @@ private fun TermuxChannelCard(
                     text = stringResource(R.string.permission_termux_title),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
-                    // LAYOUT-01: 同上，通道标题限 1 行
+                    // LAYOUT-01: 限 1 行（见 PROJECT_GUIDE §5）
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -616,7 +613,7 @@ private fun A11yProviderCard(installed: Boolean, bundled: Boolean, onInstall: ()
                     text = stringResource(R.string.permission_a11y_provider_title),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
-                    // LAYOUT-01: 同上，通道标题限 1 行
+                    // LAYOUT-01: 限 1 行（见 PROJECT_GUIDE §5）
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

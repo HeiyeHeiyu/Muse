@@ -402,6 +402,28 @@ class MuseApp : Application(), ImageLoaderFactory {
             resultOf {
                 hookRegistry.register(io.zer0.muse.worldbook.WorldBookHook(worldBookRepository))
             }.onError { msg, t -> Logger.w("MuseApp", "WorldBookHook 注册失败: $msg", t) }
+            // v2.x Agent 化: 注册设备能力档案 Hook —— 把三层控制通道的真实可用性 +
+            // 操作决策规程注入 system prompt,让模型第一步就选对通道,而不是靠试错。
+            resultOf {
+                if (io.zer0.muse.automation.AutomationInitializer.isInitialized) {
+                    hookRegistry.register(
+                        io.zer0.muse.automation.capability.DeviceCapabilityHook(
+                            automationManager = io.zer0.muse.automation.AutomationInitializer.manager,
+                            // 虚拟屏的权限门与 ShellExecutor 同源:有 Shizuku 或 Root 即可建屏
+                            // (见 VirtualDisplayServerManager.channelState 的同款判定)。
+                            virtualDisplayProbe = {
+                                val st = io.zer0.muse.automation.AutomationInitializer.manager.permissionState.value
+                                st.shellEnabled || st.rootEnabled
+                            },
+                            // 注意:此处在 appScope.launch 内,`this` 是 CoroutineScope,
+                            // 必须显式传 Application context。
+                            nodeRuntimeProbe = {
+                                io.zer0.muse.runtime.MuseRuntime.isReady(applicationContext)
+                            },
+                        ),
+                    )
+                }
+            }.onError { msg, t -> Logger.w("MuseApp", "DeviceCapabilityHook 注册失败: $msg", t) }
         }
         // Phase 8.8: 初始化内置 Skills(缺失则插入;已存在仅刷新定义字段,保留用户启停)
         // P0-11: 不用 upsert(REPLACE)——避免用 seed 的 enabled 覆盖用户关闭的选择。

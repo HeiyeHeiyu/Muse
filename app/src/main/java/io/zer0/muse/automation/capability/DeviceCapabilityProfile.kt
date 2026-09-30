@@ -1,0 +1,145 @@
+package io.zer0.muse.automation.capability
+
+import io.zer0.muse.automation.core.PermissionLevel
+
+/**
+ * 设备能力档案 —— 「这台手机上 Agent 到底能做到什么」的唯一事实来源。
+ *
+ * ## 为什么需要它
+ *
+ * 三层控制通道（无障碍 / Shizuku·adb / Root）各自只覆盖一部分能力，且高度依赖用户
+ * 授权状态。此前模型只能靠试错：先调一次工具、失败了再换一个，既浪费轮次，也容易把
+ * "没有权限"误报成"功能不存在"。
+ *
+ * 档案把可用通道 + 关键能力边界一次性交给模型，让它在第一步就能选出可行方案。
+ *
+ * ## 能力边界（与实现对齐，勿凭印象改）
+ *
+ * - **无障碍**：读控件树 + dispatchGesture 手势注入 + `inputText`/`pressKey`。
+ *   **不能**截屏，**不能**操作系统界面（状态栏/通知栏/关机菜单等 system uid 窗口），
+ *   **不能**安装应用或改系统设置。
+ * - **Shizuku / adb shell**：`input`、`screencap`、`pm`/`am`、`settings`、`content` 等
+ *   shell 命令；可截屏、可操作系统界面、可静默安装。
+ * - **Root**：以上全部 + 直接读写系统分区/数据库。
+ * - **虚拟屏**：把应用启动到独立 display 上，不干扰用户当前前台（多步骤自动化首选）。
+ * - **内置 Node**：数据处理/批处理/脚本/MCP stdio server，不消耗模型 token。
+ *
+ * @property accessibility 无障碍服务是否已连接
+ * @property shizuku 是否已获得 shell 级（Shizuku/adb）授权
+ * @property root 是否已获得 su
+ * @property virtualDisplay 虚拟屏服务端是否可用
+ * @property nodeRuntime 内置 Node 运行时是否就绪
+ * @property sandboxAvailable 预留：应用内沙盒文件执行是否可用
+ * @property details 面向日志/设置页的可读明细（不直接进提示词）
+ */
+data class DeviceCapabilityProfile(
+    val accessibility: Boolean = false,
+    val shizuku: Boolean = false,
+    val root: Boolean = false,
+    val virtualDisplay: Boolean = false,
+    val nodeRuntime: Boolean = false,
+    val sandboxAvailable: Boolean = false,
+    val details: Map<String, String> = emptyMap(),
+) {
+    /** 最高可用层级（无任何通道时为 [PermissionLevel.NONE]）。 */
+    val highestLevel: PermissionLevel
+        get() = when {
+            root -> PermissionLevel.ROOT
+            shizuku -> PermissionLevel.SHELL
+            accessibility -> PermissionLevel.ACCESSIBILITY
+            else -> PermissionLevel.NONE
+        }
+
+    /** 是否存在任何能"操作手机"的通道（Node/虚拟屏单独不算控制通道）。 */
+    val hasControlChannel: Boolean
+        get() = accessibility || shizuku || root
+
+    /** 能否截屏（无障碍层不提供截屏）。 */
+    val canScreenshot: Boolean
+        get() = shizuku || root
+
+    /**
+     * 渲染成给模型看的紧凑档案块。
+     *
+     * 保持短小：进入 system prompt 的每一行都在花用户的钱，只写"影响决策"的事实。
+     */
+    fun renderForModel(): String = buildString {
+        appendLine("## 设备能力档案（当前真实可用性）")
+        appendLine(
+            "- 无障碍(读屏/手势/输入): " +
+                if (accessibility) "可用" else "不可用（未开启 Muse 无障碍服务）",
+        )
+        appendLine(
+            "- Shell 通道(Shizuku/adb: input/screencap/pm/am/settings): " +
+                if (shizuku) "可用" else "不可用（未安装 Shizuku 或未授权）",
+        )
+        appendLine(
+            "- Root(su: 系统分区读写/完整控制): " +
+                if (root) "可用" else "不可用",
+        )
+        appendLine(
+            "- 截屏能力: " +
+                if (canScreenshot) "可用（走 Shell/Root）" else "不可用（需 Shizuku/adb 或 Root）",
+        )
+        appendLine(
+            "- 虚拟屏(把应用启动到独立屏幕,不打扰用户当前界面): " +
+                if (virtualDisplay) "可用" else "不可用",
+        )
+        appendLine(
+            "- 内置 Node 运行时(跑脚本/数据处理/MCP stdio): " +
+                if (nodeRuntime) "可用" else "不可用（运行时未就绪）",
+        )
+        append(
+            "- 当前最高权限层: " + when (highestLevel) {
+                PermissionLevel.ROOT -> "Root"
+                PermissionLevel.SHELL -> "Shell(Shizuku/adb)"
+                PermissionLevel.ACCESSIBILITY -> "无障碍"
+                PermissionLevel.NONE -> "无（只能做应用内操作，无法控制其他应用）"
+            },
+        )
+    }
+
+    /**
+     * 渲染操作决策规程：把"先探测、再选层、后验证"的既定做法写进提示词。
+     *
+     * 这些不是建议而是硬约束（每条都对应一次真实踩坑），因此与能力档案一起注入。
+     */
+    fun renderOperatingGuide(): String = buildString {
+        appendLine("## 操作手机的决策规程")
+        appendLine("1. 动手前先确认能力：上表列出的是**当前**真实可用性；表里写「不可用」的通道不要反复重试，直接换方案或向用户说明缺哪一项权限。")
+        appendLine("2. 按最低够用层级选通道：纯界面交互优先无障碍（不需额外授权、可读控件树）；需要截屏、系统界面、安装应用或改系统设置时必须用 Shell/Root；只读操作不要动 Root。")
+        appendLine("3. 每步都要验证：动作发出后重新读一次屏幕/状态确认结果（文字是否变化、页面是否切换），不要连发多个盲操作。")
+        appendLine("4. 界面失败先看结构再换手段：先用读屏结果定位控件（文本/描述/层级）；找不到再考虑坐标点击；坐标也不稳时改用 Shell/Root 的命令级方案。")
+        appendLine("5. 重复性/长流程优先写成脚本：用内置 Node 完成循环、JSON/正则处理、批量请求，比逐步推理省时省 token；稳定后沉淀为技能。")
+        appendLine("6. 不打扰用户：多步骤或需要前台应用的任务，优先在虚拟屏中完成；必须切换用户前台时先说明。")
+        appendLine("7. 高风险动作（发消息、支付、删除、改系统设置）先说明将要做什么，待用户确认后再执行。")
+        appendLine("8. 缺权限就如实说：说明「需要哪一项」（如 Shizuku/Root/无障碍），不要用模拟结果代替真实执行，也不要谎报成功。")
+    }
+
+    companion object {
+        /**
+         * 从三层授权标志构造（最常用入口）。
+         *
+         * 参数多于 detekt 默认阈值（6）是刻意的：这些标志彼此独立、都要显式给出，
+         * 用默认值会让"忘了传某一层"变成静默的假能力声明。调用方一律具名传参。
+         */
+        @Suppress("LongParameterList")
+        fun fromFlags(
+            accessibility: Boolean,
+            shizuku: Boolean,
+            root: Boolean,
+            virtualDisplay: Boolean = false,
+            nodeRuntime: Boolean = false,
+            sandboxAvailable: Boolean = false,
+            details: Map<String, String> = emptyMap(),
+        ): DeviceCapabilityProfile = DeviceCapabilityProfile(
+            accessibility = accessibility,
+            shizuku = shizuku,
+            root = root,
+            virtualDisplay = virtualDisplay,
+            nodeRuntime = nodeRuntime,
+            sandboxAvailable = sandboxAvailable,
+            details = details,
+        )
+    }
+}
