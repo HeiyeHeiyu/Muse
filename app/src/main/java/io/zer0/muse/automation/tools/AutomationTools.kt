@@ -19,6 +19,7 @@ class AutomationTools(
     private val manager: AutomationManager,
 ) {
     fun register(registry: ToolRegistry) {
+        registerWorkflow(registry)
         // ── 感知类 ──────────────────────────────────────────
 
         registry.register(
@@ -377,6 +378,29 @@ class AutomationTools(
                     }
                 }
             }
+        }
+    }
+
+    private fun registerWorkflow(registry: ToolRegistry) {
+        registry.registerOutcome(
+            ToolRegistry.ToolDef(
+                name = "automation_workflow",
+                description = "执行受控的手机动作工作流。步骤按顺序执行，支持 launch/tap_text/input_text/swipe/" +
+                    "back/home/wait/read；每步失败即停，tap_text 可滚动查找并验证。" +
+                    "不接受任意 shell 命令，需要无障碍或 Shell/Root 通道，每次执行前需审批。",
+                parameters = mapOf(
+                    "steps" to "必填 JSON 数组，最多 20 步；例:[{\"action\":\"launch\",\"packageName\":\"com.android.settings\"}]",
+                ),
+                required = setOf("steps"),
+                riskLevel = ToolRiskLevel.HIGH,
+            ),
+        ) { args ->
+            val json = args["steps"]?.trim()
+                ?: return@registerOutcome ToolOutcome.error("错误:缺少 steps 参数")
+            val steps = AutomationWorkflowParser.parse(json).getOrElse { error ->
+                return@registerOutcome ToolOutcome.error("错误:steps 无效:${error.message}")
+            }
+            AutomationWorkflow(manager).run(steps)
         }
     }
 

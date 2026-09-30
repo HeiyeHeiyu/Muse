@@ -193,6 +193,7 @@ object ToolCategories {
             "ui_agent",
             // 虚拟屏(Shizuku/Root 通道;此前注册了但未登记分类)
             "virtual_screen", "virtual_screen_input",
+            "automation_workflow",
             // UI 自动化(需无障碍权限,高风险)
             "ui_get_page_info",
             "ui_click",
@@ -246,6 +247,7 @@ object ToolCategories {
                 "device_shell", "settings_get", "settings_put", "am_start", "list_packages",
                 "logcat_tail", "input_inject", "network_toggle", "virtual_screen", "virtual_screen_input",
             ).forEach { put(it, setOf(ToolPermission.SHELL_TIER)) }
+            put("automation_workflow", setOf(ToolPermission.ACCESSIBILITY, ToolPermission.SHELL_TIER))
             // 屏幕自动化(无障碍为主,可降级设备通道;screen_pinch 仅支持无障碍)
             listOf(
                 "screen_read", "screen_current_app", "screen_back", "screen_home", "screen_tap",

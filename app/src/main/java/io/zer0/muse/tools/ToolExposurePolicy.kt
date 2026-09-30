@@ -265,6 +265,7 @@ object ToolExposurePolicy {
                     "screen_tap_text", "screen_swipe", "screen_input", "screen_launch_app",
                     "screen_open_notifications", "screen_permission_status", "screen_wait",
                     "screen_pinch", "screen_swipe_path", "virtual_screen", "virtual_screen_input",
+                    "automation_workflow",
                     "ui_agent",
                 ),
             ),
