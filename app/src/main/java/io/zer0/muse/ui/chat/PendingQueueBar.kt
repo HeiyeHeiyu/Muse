@@ -55,15 +55,20 @@ internal fun PendingQueueBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
         ) {
+            // LAYOUT-01: 标题与计数是行首的定宽短标注(剩余宽度归 LazyRow 的 weight),
+            // 不能取宽(会与消息 chip 抢宽度),限 1 行兜底即可防放大字号下逐字换行。
             Text(
                 text = stringResource(R.string.chat_pending_queue_title),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = stringResource(R.string.chat_pending_count, queue.size),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
             )
             LazyRow(
                 modifier = Modifier.weight(1f),

@@ -58,7 +58,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -84,6 +83,7 @@ import io.zer0.muse.schedule.GreetingHintGenerator
 import io.zer0.muse.transformer.InternalMarkupSanitizer
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseActionSheetRow
 import io.zer0.muse.ui.common.form.MuseBottomSheet
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.form.MuseTextField
@@ -1238,10 +1238,14 @@ private fun TaskItem(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                // LAYOUT-01: 尾部元信息槽（时间 + 箭头）按内容宽度排布，这里只限行、不取宽：
+                // 给本行文本加 weight 会让内层 Row 吃掉外层行宽，把左侧标题列挤没。
                 Text(
                     text = formatTime(session.updatedAt),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Icon(
                     imageVector = MuseIcons.arrowRight,
@@ -1289,7 +1293,7 @@ private fun TaskActionSheet(
                 modifier = Modifier.padding(bottom = 8.dp),
             )
             // 置顶 / 取消置顶
-            ActionSheetRow(
+            MuseActionSheetRow(
                 icon = MuseIcons.pin,
                 text = stringResource(
                     if (session.pinned) R.string.chat_list_unpin else R.string.chat_list_pin,
@@ -1300,7 +1304,7 @@ private fun TaskActionSheet(
                 },
             )
             // 重命名
-            ActionSheetRow(
+            MuseActionSheetRow(
                 icon = MuseIcons.edit,
                 text = stringResource(R.string.chat_list_rename),
                 onClick = {
@@ -1309,7 +1313,7 @@ private fun TaskActionSheet(
                 },
             )
             // 归档
-            ActionSheetRow(
+            MuseActionSheetRow(
                 icon = MuseIcons.archive,
                 text = stringResource(R.string.chat_list_archive),
                 onClick = {
@@ -1318,7 +1322,7 @@ private fun TaskActionSheet(
                 },
             )
             // 删除
-            ActionSheetRow(
+            MuseActionSheetRow(
                 icon = MuseIcons.trash,
                 text = stringResource(R.string.action_delete),
                 contentColor = MaterialTheme.colorScheme.error,
@@ -1332,7 +1336,7 @@ private fun TaskActionSheet(
                 Spacer(Modifier.height(8.dp))
                 MuseDivider(startIndent = 0.dp)
                 Spacer(Modifier.height(8.dp))
-                ActionSheetRow(
+                MuseActionSheetRow(
                     icon = MuseIcons.arrowRight,
                     text = stringResource(R.string.chat_list_move_ungrouped),
                     onClick = {
@@ -1342,7 +1346,7 @@ private fun TaskActionSheet(
                 )
                 folders.forEach { folder ->
                     if (folder.id != session.folderId) {
-                        ActionSheetRow(
+                        MuseActionSheetRow(
                             icon = MuseIcons.folder,
                             text = stringResource(R.string.chat_list_move_to, folder.name),
                             onClick = {
@@ -1354,45 +1358,6 @@ private fun TaskActionSheet(
                 }
             }
         }
-    }
-}
-
-/** 底部菜单动作行。 */
-@Composable
-private fun ActionSheetRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    contentColor: Color = MaterialTheme.colorScheme.onSurface,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(MuseShapes.medium)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                role = Role.Button,
-                onClick = onClick,
-            )
-            .padding(horizontal = MusePaddings.screen, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = contentColor,
-            modifier = Modifier.size(22.dp),
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyLarge,
-            color = contentColor,
-        )
     }
 }
 
@@ -1562,10 +1527,13 @@ private fun FolderItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            // LAYOUT-01: 会话计数徽标只限行、不取宽（外层 Row 的标题列已 weight(1f)，
+            // 这里的尾部槽位再取宽会反过来把它挤没）
             Text(
                 text = folder.sessionCount.toString(),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
             )
             Icon(
                 imageVector = MuseIcons.arrowRight,
@@ -1599,7 +1567,7 @@ private fun FolderActionSheet(folder: FolderEntity, onDismiss: () -> Unit, onRen
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
-            ActionSheetRow(
+            MuseActionSheetRow(
                 icon = MuseIcons.edit,
                 text = stringResource(R.string.chat_list_rename),
                 onClick = {
@@ -1607,7 +1575,7 @@ private fun FolderActionSheet(folder: FolderEntity, onDismiss: () -> Unit, onRen
                     onDismiss()
                 },
             )
-            ActionSheetRow(
+            MuseActionSheetRow(
                 icon = MuseIcons.trash,
                 text = stringResource(R.string.action_delete),
                 contentColor = MaterialTheme.colorScheme.error,

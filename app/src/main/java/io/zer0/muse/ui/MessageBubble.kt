@@ -499,10 +499,14 @@ internal fun MessageBubble(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                // LAYOUT-01: 折叠块标题取剩余宽度（右侧仅一个固定宽箭头图标）
                                 Text(
                                     text = "MOOD",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.primary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
                                 )
                                 Icon(
                                     imageVector = if (showMoodExpanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
@@ -653,10 +657,14 @@ internal fun MessageBubble(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
+                                // LAYOUT-01: 折叠块标题取剩余宽度（右侧仅一个固定宽箭头图标）
                                 Text(
                                     text = stringResource(R.string.chat_reflection_title),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.tertiary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
                                 )
                                 Icon(
                                     imageVector = if (showReflectionExpanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
@@ -1618,12 +1626,19 @@ internal fun MessageBubble(
                                     Text(
                                         text = an.text,
                                         style = MaterialTheme.typography.bodySmall,
+                                        // LAYOUT-01: 批注正文已取宽，补 2 行上限：
+                                        // 长批注不再把对话框行撑成竖排，同时保留可读内容
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f),
                                     )
+                                    // LAYOUT-01: 行尾动作标签只限行、不取宽（批注正文已是 weight(1f)）
                                     Text(
                                         text = stringResource(R.string.skill_delete),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.error,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier
                                             .clickable { io.zer0.muse.annotation.AnnotationStore.remove(an.id) }
                                             .padding(horizontal = 4.dp),

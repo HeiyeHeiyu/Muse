@@ -125,6 +125,9 @@ internal fun CrashLogSheet(onDismiss: () -> Unit) {
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
+                // LAYOUT-01: Row 内文本取宽 + 限行，防放大字号下逐字换行
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             // ZIP 打包分享:即使只有 1 条崩溃日志也走 zip 路径,统一带 device_info
             MuseCapsuleButton(

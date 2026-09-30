@@ -158,6 +158,9 @@ private fun ConversationCard(from: String, conversation: ChannelConversationStor
                         text = stringResource(R.string.channel_conversation_reset),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error,
+                        // LAYOUT-01: 右侧动作是定宽短标注(剩余宽度已归左侧联系人名的 weight),限 1 行兜底。
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .clickable(onClick = onReset)
                             .padding(horizontal = 4.dp, vertical = 2.dp),

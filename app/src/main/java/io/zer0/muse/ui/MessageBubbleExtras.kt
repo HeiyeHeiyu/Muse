@@ -351,6 +351,9 @@ private fun ParamSection(rows: List<Pair<String, String>>) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium,
+                    // LAYOUT-01: 参数名固定 84.dp 列宽，补限行以免长键名在窄列里逐字换行
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.width(84.dp),
                 )
                 Text(
@@ -386,12 +389,18 @@ private fun ResultSection(result: String, hasFailed: Boolean) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.SemiBold,
+                // LAYOUT-01: 已取宽的结果标签补限行，剩余宽度极小时不再逐字换行
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
+            // LAYOUT-01: 行尾动作标签只限行、不取宽（左侧"结果"已 weight(1f)，取宽会把它挤到中间）
             Text(
                 text = stringResource(R.string.chat_tool_copy),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
                     .clip(MuseShapes.small)
                     .clickable {
@@ -721,10 +730,12 @@ private fun RagCitationChip(citation: RagCitation, isExpanded: Boolean, onClick:
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
         ) {
+            // LAYOUT-01: 序号标记是行首定量，只限行、不取宽（正文 docTitle 已是取宽项）
             Text(
                 text = "[${citation.index}]",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
             )
             Text(
                 text = citation.docTitle.take(20),

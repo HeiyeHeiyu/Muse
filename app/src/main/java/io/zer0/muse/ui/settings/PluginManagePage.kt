@@ -502,6 +502,9 @@ fun PluginManagePage(onBack: () -> Unit) {
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.weight(1f),
+                            // LAYOUT-01: Row 内文本取宽 + 限行，防放大字号下被右侧刷新/更多按钮挤成一列
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         if (marketRefreshing) {
                             MuseSpinner(
@@ -1267,6 +1270,9 @@ private fun InstalledPluginRow(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f),
+                // LAYOUT-01: 折叠头取宽 + 限行，防被右侧 chevron 图标挤成一列
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Icon(
                 imageVector = if (showDevInfo) {
@@ -1323,6 +1329,9 @@ private fun InstalledPluginRow(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f),
+                    // LAYOUT-01: 同上，折叠头限 1 行
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Icon(
                     imageVector = MuseIcons.chevronUp,
@@ -1363,6 +1372,9 @@ private fun InstalledPluginRow(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f),
+                    // LAYOUT-01: 同上，折叠头限 1 行
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Icon(
                     imageVector = if (showConfig) {
@@ -1423,6 +1435,9 @@ private fun ConfigFieldRow(item: ConfigItem, currentValue: JsonElement?, onChang
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
+                        // LAYOUT-01: 配置字段名取宽 + 限行，防被右侧开关挤成一列
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     MuseSwitch(
                         checked = checked,
@@ -1443,6 +1458,9 @@ private fun ConfigFieldRow(item: ConfigItem, currentValue: JsonElement?, onChang
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
+                        // LAYOUT-01: 同上，配置字段名限 1 行
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     MuseTextField(
                         value = text,
@@ -1481,6 +1499,9 @@ private fun ConfigFieldRow(item: ConfigItem, currentValue: JsonElement?, onChang
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
+                        // LAYOUT-01: 同上，配置字段名限 1 行
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     MuseTextField(
                         value = text,

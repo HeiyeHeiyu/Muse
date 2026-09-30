@@ -30,11 +30,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.zer0.muse.R
+import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseActionSheetRow
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.media.LifecycleAwareWebViewContainer
@@ -82,6 +85,9 @@ internal fun RichContentCard(
     val context = LocalContext.current
     // Phase 2: chart/mermaid 的全屏预览在卡片内完成(本地 assets 脚本可正常加载)
     var showFullscreenPreview by remember { mutableStateOf(false) }
+    // v2.x 统一化: 行内动作收敛为「更多」菜单(防止窄屏文本行被多个按钮挤压)
+    val moreCd = stringResource(R.string.settings_mcp_more)
+    var menuExpanded by remember { mutableStateOf(false) }
     val supportsPreview = richContentSupportsPreview(language)
     val isLocalPreview = language.lowercase().trim() in RICH_LOCAL_PREVIEW_LANGUAGES
     val typeLabel = when (language.lowercase().trim()) {
@@ -108,6 +114,10 @@ internal fun RichContentCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline,
                     modifier = Modifier.weight(1f),
+                    // LAYOUT-01: 语言标签（非正文）限 1 行 —— 右侧两个 48dp 图标按钮在放大字号下
+                    // 会把标签列挤成竖排（线上事故形态）；用户正文在下方单独渲染，不受影响。
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 // Phase 2: 复制源码 — 所有语言可用,不再局限于 HTML/SVG
                 MuseTactileButton(
@@ -118,35 +128,11 @@ internal fun RichContentCard(
                     size = MuseIconSizes.touchTarget,
                     iconSize = MuseIconSizes.iconSmall,
                 )
-                // v1.0.92: 保存为工件 — 提供回传回调时可用(聊天场景)
-                if (onCardAction != null) {
+                if (onCardAction != null || (supportsPreview && showPreviewButton)) {
                     MuseTactileButton(
-                        icon = MuseIcons.bookmark,
-                        onClick = { onCardAction.invoke(CardAction.Save(language, content)) },
-                        contentDescription = stringResource(R.string.card_save_cd),
-                        tint = MaterialTheme.colorScheme.outline,
-                        size = MuseIconSizes.touchTarget,
-                        iconSize = MuseIconSizes.iconSmall,
-                    )
-                }
-                if (supportsPreview && showPreviewButton) {
-                    MuseTactileButton(
-                        icon = MuseIcons.eye,
-                        onClick = {
-                            if (isLocalPreview) {
-                                // chart/mermaid:卡片内全屏 WebView,加载本地 assets 脚本
-                                showFullscreenPreview = true
-                            } else {
-                                // SVG 包装为完整 HTML 后再回调,保证 HtmlPreviewScreen 直接渲染
-                                val fullHtml = if (language.lowercase().trim() == "svg") {
-                                    "<html><body style=\"margin:0;padding:8px;\">$content</body></html>"
-                                } else {
-                                    content
-                                }
-                                onHtmlPreview(fullHtml)
-                            }
-                        },
-                        contentDescription = stringResource(R.string.html_preview_button_cd),
+                        icon = MuseIcons.moreVertical,
+                        onClick = { menuExpanded = true },
+                        contentDescription = moreCd,
                         tint = MaterialTheme.colorScheme.outline,
                         size = MuseIconSizes.touchTarget,
                         iconSize = MuseIconSizes.iconSmall,
@@ -162,6 +148,53 @@ internal fun RichContentCard(
                 else -> Text(content, style = MaterialTheme.typography.bodySmall)
             }
         }
+    }
+
+    if (menuExpanded) {
+        MuseDialog(
+            onDismissRequest = { menuExpanded = false },
+            content = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    if (onCardAction != null) {
+                        MuseActionSheetRow(
+                            icon = MuseIcons.bookmark,
+                            text = stringResource(R.string.card_save_cd),
+                            onClick = {
+                                menuExpanded = false
+                                onCardAction.invoke(CardAction.Save(language, content))
+                            },
+                        )
+                    }
+                    if (supportsPreview && showPreviewButton) {
+                        MuseActionSheetRow(
+                            icon = MuseIcons.eye,
+                            text = stringResource(R.string.html_preview_button_cd),
+                            onClick = {
+                                menuExpanded = false
+                                if (isLocalPreview) {
+                                    // chart/mermaid:卡片内全屏 WebView,加载本地 assets 脚本
+                                    showFullscreenPreview = true
+                                } else {
+                                    // SVG 包装为完整 HTML 后再回调,保证 HtmlPreviewScreen 直接渲染
+                                    val fullHtml = if (language.lowercase().trim() == "svg") {
+                                        "<html><body style=\"margin:0;padding:8px;\">$content</body></html>"
+                                    } else {
+                                        content
+                                    }
+                                    onHtmlPreview(fullHtml)
+                                }
+                            },
+                        )
+                    }
+                }
+            },
+            confirmText = stringResource(R.string.common_close),
+            onConfirm = { menuExpanded = false },
+            onDismiss = { menuExpanded = false },
+        )
     }
 
     // Phase 2: chart/mermaid 全屏预览对话框(与卡片渲染同一份 HTML)
@@ -242,6 +275,9 @@ private fun RichContentFullscreenPreview(title: String, html: String, onDismiss:
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.weight(1f),
+                        // LAYOUT-01: 全屏预览对话框标题（非正文）限 1 行 —— 右侧关闭按钮会挤压标题列
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     MuseTactileButton(
                         icon = MuseIcons.x,

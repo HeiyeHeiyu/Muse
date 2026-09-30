@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.theme.MuseIconSizes
@@ -56,6 +57,10 @@ fun MuseSelectionSheet(
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
+                    // LAYOUT-01: 共享组件标题取宽 + 限行（保留最多 2 行，不激进截断），
+                    // 防放大字号下被右侧关闭按钮挤成一列
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 IconButton(
                     onClick = onDismissRequest,

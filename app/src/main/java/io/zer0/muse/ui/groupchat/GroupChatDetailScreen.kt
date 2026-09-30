@@ -1517,12 +1517,17 @@ fun GroupChatDetailScreen(
                                             text = doc.title,
                                             style = MaterialTheme.typography.bodyLarge,
                                             fontWeight = FontWeight.Medium,
+                                            // LAYOUT-01: 文档标题取剩余宽度 + 限 2 行,防止被右侧字数与删除按钮挤成一列。
                                             modifier = Modifier.weight(1f),
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
                                         )
                                         Text(
                                             text = stringResource(R.string.groupchat_context_doc_chars, doc.content.length),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.outline,
+                                            // LAYOUT-01: 字数标注限 1 行,不参与取宽。
+                                            maxLines = 1,
                                         )
                                         MuseTactileButton(
                                             icon = MuseIcons.x,
@@ -1611,7 +1616,10 @@ fun GroupChatDetailScreen(
                                             text = assistant.name,
                                             style = MaterialTheme.typography.bodyLarge,
                                             fontWeight = FontWeight.Medium,
+                                            // LAYOUT-01: 成员名取剩余宽度 + 限行,防止被「已设置/未设置」状态与编辑按钮挤成一列。
                                             modifier = Modifier.weight(1f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
                                         )
                                         if (!isEditing) {
                                             Text(

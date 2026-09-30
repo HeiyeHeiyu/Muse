@@ -1744,12 +1744,19 @@ internal fun EditGroupChatDialog(
                     Text(
                         text = stringResource(R.string.groupchat_mode_auto_rounds),
                         style = MaterialTheme.typography.bodyMedium,
+                        // LAYOUT-01: 设置项名称取剩余宽度 + 限行,右侧只保留档位数值,
+                        // 防止放大字号/窄窗口下名称被数值挤成一列。
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = "$autoMaxRounds",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium,
+                        // LAYOUT-01: 数值列限 1 行。
+                        maxLines = 1,
                     )
                 }
                 MuseSlider(

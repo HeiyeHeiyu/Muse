@@ -220,12 +220,17 @@ internal fun SubagentFloatingWindow(
                             text = stringResource(R.string.subagent_task_list_title),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
+                            // LAYOUT-01: 标题取剩余宽度 + 限行(浮窗固定 280.dp,放大字号时剩余宽度很小)。
                             modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = stringResource(R.string.subagent_task_list_count, activeCount + recentlyDone.size),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            // LAYOUT-01: 计数徽章限 1 行,不参与取宽。
+                            maxLines = 1,
                         )
                         Icon(
                             imageVector = MuseIcons.chevronDown,

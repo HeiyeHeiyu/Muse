@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.zer0.memory.pin.PinnedMemoryStore
 import io.zer0.muse.ui.common.form.MuseTactileButton
@@ -63,6 +64,10 @@ fun PinnedMemorySection(pinnedEntries: List<PinnedMemoryStore.PinnedEntry>, onRe
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.weight(1f),
                                 color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                // LAYOUT-01: Row 内文本取宽 + 限行，防放大字号下逐字换行
+                                // (右侧是定宽删除按钮，记忆正文留 2 行可读内容)
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
                             )
                             MuseTactileButton(
                                 icon = MuseIcons.trash,

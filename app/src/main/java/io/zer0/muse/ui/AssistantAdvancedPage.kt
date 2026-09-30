@@ -370,6 +370,9 @@ private fun RegexRuleEditDialog(
                         text = stringResource(R.string.assistant_detail_regex_visual_only),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f),
+                        // LAYOUT-01: Row 内文本取宽 + 限行，防放大字号下逐字换行
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     MuseSwitch(checked = visualOnly, onCheckedChange = { visualOnly = it })
                 }
@@ -382,6 +385,9 @@ private fun RegexRuleEditDialog(
                         text = stringResource(R.string.assistant_detail_regex_enabled),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f),
+                        // LAYOUT-01: 同上，开关行标签限 1 行
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     MuseSwitch(checked = enabled, onCheckedChange = { enabled = it })
                 }

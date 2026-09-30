@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.common.Logger
@@ -929,15 +930,19 @@ fun AgentSettingsPage(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
+                        // LAYOUT-01: 滑块两端刻度标注是定宽短文本(两端对齐交给 SpaceBetween),
+                        // 不取宽,仅限 1 行防止放大字号下逐字换行。
                         Text(
                             stringResource(R.string.settings_agent_offset_off_label),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.outline,
+                            maxLines = 1,
                         )
                         Text(
                             intervalLabel(maxOffset),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.outline,
+                            maxLines = 1,
                         )
                     }
                 }
@@ -989,15 +994,18 @@ fun AgentSettingsPage(
                         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
+                        // LAYOUT-01: 同上,温度滑块两端刻度标注限 1 行。
                         Text(
                             stringResource(R.string.settings_agent_temperature_stable),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.outline,
+                            maxLines = 1,
                         )
                         Text(
                             stringResource(R.string.settings_agent_temperature_creative),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.outline,
+                            maxLines = 1,
                         )
                     }
                 }
@@ -1062,7 +1070,11 @@ fun AgentSettingsPage(
                                         style = MaterialTheme.typography.bodyLarge,
                                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                         color = MaterialTheme.colorScheme.onSurface,
+                                        // LAYOUT-01: 模型名取剩余宽度 + 限行(模型 id 可能很长),
+                                        // 防止被右侧勾选图标挤成一列。
                                         modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
                                     if (isSelected) {
                                         Icon(
@@ -1151,7 +1163,10 @@ private fun ModelPickerDialog(
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = if (isCleared) FontWeight.SemiBold else FontWeight.Normal,
                         color = MaterialTheme.colorScheme.onSurface,
+                        // LAYOUT-01: 「清除绑定」项取剩余宽度 + 限行,防止被右侧勾选图标挤成一列。
                         modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     if (isCleared) {
                         Icon(
@@ -1194,7 +1209,10 @@ private fun ModelPickerDialog(
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                     color = MaterialTheme.colorScheme.onSurface,
+                                    // LAYOUT-01: 同上方模型列表,取剩余宽度 + 限行。
                                     modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                                 if (isSelected) {
                                     Icon(

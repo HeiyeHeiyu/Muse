@@ -75,7 +75,13 @@ fun ExperiencePanel(
                 onBack = onBack,
                 actions = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.experience_enabled), style = MaterialTheme.typography.labelSmall)
+                        // LAYOUT-01: 顶栏里的紧凑「标签 + 开关」组,行宽由内容决定 —— 取宽会撑满顶栏,
+                        // 故只限 1 行兜底,避免放大字号下被开关挤成逐字换行。
+                        Text(
+                            text = stringResource(R.string.experience_enabled),
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                        )
                         MuseSwitch(checked = enabled, onCheckedChange = onToggleEnabled)
                     }
                 },

@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.zer0.ai.image.ImageGenParams
 import io.zer0.ai.image.ImageModelCatalog
@@ -139,6 +140,9 @@ internal fun ImageGenParamsPanel(params: ImageGenParams, onParamsChange: (ImageG
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
+                // LAYOUT-01: Row 内文本取宽 + 限行，防放大字号下逐字换行
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             model?.let {
                 Text(

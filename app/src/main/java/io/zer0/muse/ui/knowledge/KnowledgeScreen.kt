@@ -972,6 +972,9 @@ fun KnowledgeScreen(
                                 text = stringResource(R.string.knowledge_import_target_default),
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.weight(1f),
+                                // LAYOUT-01: Row 内文本取宽 + 限行，防放大字号下逐字换行
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                             Icon(MuseIcons.folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         }
@@ -1000,6 +1003,9 @@ fun KnowledgeScreen(
                                     text = kb.name,
                                     style = MaterialTheme.typography.bodyMedium,
                                     modifier = Modifier.weight(1f),
+                                    // LAYOUT-01: 同上，知识库名限 1 行
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                                 Icon(MuseIcons.folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             }

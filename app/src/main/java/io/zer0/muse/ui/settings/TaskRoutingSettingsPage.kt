@@ -326,6 +326,9 @@ private fun MainModelPickerDialog(
                                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                     color = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.weight(1f),
+                                    // LAYOUT-01: Row 内文本取宽 + 限行，防放大字号下被右侧勾选图标挤成一列
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                                 if (isSelected) {
                                     Icon(

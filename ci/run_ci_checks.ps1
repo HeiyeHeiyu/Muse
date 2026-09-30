@@ -53,7 +53,9 @@ switch ($Lane) {
             # CMP-11 / I18N-02 / A11Y-03 护栏脚本的单测
             'ci/test/test_component_convergence.py',
             'ci/test/test_translation_residue.py',
-            'ci/test/test_font_scale_clipping.py'
+            'ci/test/test_font_scale_clipping.py',
+            # LAYOUT-01 护栏脚本的单测
+            'ci/test/test_row_text_width.py'
         ) | ForEach-Object {
             Invoke-Checked $python @($_)
         }
@@ -98,6 +100,8 @@ switch ($Lane) {
         Invoke-LaneScript 'check_icon_content_description.py' @('android_jvm', 'android_resources', 'android_full')
         Invoke-LaneScript 'check_touch_target.py' @('android_jvm', 'android_resources', 'android_full')
         Invoke-LaneScript 'check_horizontal_inset.py' @('android_jvm', 'android_resources', 'android_full')
+        # LAYOUT-01: Row 内文本未取宽(逐字换行/文本列塌陷) — 纯词法扫描 ui/ 下的 .kt
+        Invoke-LaneScript 'check_row_text_width.py' @('android_jvm', 'android_resources', 'android_full')
     }
     'static' {
         Invoke-Checked $gradle (@(

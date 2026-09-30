@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
@@ -121,12 +122,18 @@ private fun InfoRow(label: String, value: String, tag: String? = null) {
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // LAYOUT-01: 标签取剩余宽度还不够 —— 剩余宽度极小时中文仍会逐字换行撑高整行,故一并限行。
             modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
+            // LAYOUT-01: 值列限制为单行,防止长值反向把标签挤成一列。
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         if (tag != null) {
             Spacer(Modifier.width(6.dp))

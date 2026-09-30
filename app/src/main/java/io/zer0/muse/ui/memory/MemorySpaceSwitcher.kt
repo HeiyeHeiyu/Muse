@@ -23,11 +23,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.memory.space.MemorySpaceEntity
 import io.zer0.memory.space.MemorySpaceWithCount
 import io.zer0.muse.R
+import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseActionSheetRow
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseChip
 import io.zer0.muse.ui.common.form.MuseFormDialog
@@ -168,6 +172,9 @@ fun MemorySpaceManageScreen(onBack: () -> Unit, viewModel: MemorySpaceViewModel 
                         style = MaterialTheme.typography.bodyMedium,
                         color = MuseActionColors.neutralContent,
                         modifier = Modifier.weight(1f),
+                        // LAYOUT-01: Row 内文本取宽 + 限行，防放大字号下逐字换行
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     MuseCapsuleButton(
                         text = stringResource(R.string.common_confirm),
@@ -201,6 +208,7 @@ fun MemorySpaceManageScreen(onBack: () -> Unit, viewModel: MemorySpaceViewModel 
     }
 }
 
+@Suppress("LongMethod", "FunctionNaming")
 @Composable
 private fun SpaceRow(
     space: MemorySpaceWithCount,
@@ -209,6 +217,9 @@ private fun SpaceRow(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
 ) {
+    // v2.x 统一化: 行内动作收敛为「更多」菜单(防止窄屏文本列被多个按钮挤压)
+    val moreCd = stringResource(R.string.settings_mcp_more)
+    var menuExpanded by remember { mutableStateOf(false) }
     Surface(
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -230,29 +241,62 @@ private fun SpaceRow(
                 )
             }
             MuseTactileButton(
-                icon = MuseIcons.edit,
-                onClick = onRename,
-                contentDescription = stringResource(R.string.memory_space_rename),
+                icon = MuseIcons.moreVertical,
+                onClick = { menuExpanded = true },
+                contentDescription = moreCd,
             )
-            MuseTactileButton(
-                icon = MuseIcons.arrowUp,
-                onClick = onMoveUp,
-                contentDescription = "上移",
-            )
-            MuseTactileButton(
-                icon = MuseIcons.arrowDown,
-                onClick = onMoveDown,
-                contentDescription = "下移",
-            )
-            if (space.id != MemorySpaceEntity.DEFAULT_SPACE_ID) {
-                MuseTactileButton(
-                    icon = MuseIcons.trash,
-                    onClick = onDelete,
-                    contentDescription = stringResource(R.string.memory_space_delete),
-                    tint = MaterialTheme.colorScheme.error,
-                )
-            }
         }
+    }
+
+    if (menuExpanded) {
+        MuseDialog(
+            onDismissRequest = { menuExpanded = false },
+            content = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    MuseActionSheetRow(
+                        icon = MuseIcons.edit,
+                        text = stringResource(R.string.memory_space_rename),
+                        onClick = {
+                            menuExpanded = false
+                            onRename()
+                        },
+                    )
+                    MuseActionSheetRow(
+                        icon = MuseIcons.arrowUp,
+                        text = stringResource(R.string.prompt_template_manager_move_up),
+                        onClick = {
+                            menuExpanded = false
+                            onMoveUp()
+                        },
+                    )
+                    MuseActionSheetRow(
+                        icon = MuseIcons.arrowDown,
+                        text = stringResource(R.string.prompt_template_manager_move_down),
+                        onClick = {
+                            menuExpanded = false
+                            onMoveDown()
+                        },
+                    )
+                    if (space.id != MemorySpaceEntity.DEFAULT_SPACE_ID) {
+                        MuseActionSheetRow(
+                            icon = MuseIcons.trash,
+                            text = stringResource(R.string.memory_space_delete),
+                            contentColor = MaterialTheme.colorScheme.error,
+                            onClick = {
+                                menuExpanded = false
+                                onDelete()
+                            },
+                        )
+                    }
+                }
+            },
+            confirmText = stringResource(R.string.common_close),
+            onConfirm = { menuExpanded = false },
+            onDismiss = { menuExpanded = false },
+        )
     }
 }
 

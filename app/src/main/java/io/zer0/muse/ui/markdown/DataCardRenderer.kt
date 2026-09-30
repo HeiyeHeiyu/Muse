@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.form.MuseTactileButton
@@ -64,6 +65,9 @@ fun DataCardRenderer(card: DataCard, onDownload: ((DataCard) -> Unit)? = null) {
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
+                    // LAYOUT-01: 卡片标题（非正文）限 1 行 —— 右侧下载按钮在放大字号下会挤压标题列
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 if (onDownload != null) {
                     MuseTactileButton(

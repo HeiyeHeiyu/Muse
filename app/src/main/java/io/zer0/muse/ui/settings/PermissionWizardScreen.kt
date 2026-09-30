@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -365,6 +366,9 @@ private fun ChannelCard(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
+                    // LAYOUT-01: Row 内标题取宽 + 限行，防放大字号下被右侧状态图标挤成一列
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Icon(
                     imageVector = if (enabled) MuseIcons.circleCheck else MuseIcons.alertTriangle,
@@ -420,6 +424,9 @@ private fun ShizukuChannelCard(
                     text = stringResource(R.string.shizuku_section_title),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
+                    // LAYOUT-01: 同上，通道标题限 1 行
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 val ready = installed && available && authorized
                 Icon(
@@ -511,6 +518,9 @@ private fun TermuxChannelCard(
                     text = stringResource(R.string.permission_termux_title),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
+                    // LAYOUT-01: 同上，通道标题限 1 行
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 val ready = installed && permitted && probeOk == true
                 Icon(
@@ -606,6 +616,9 @@ private fun A11yProviderCard(installed: Boolean, bundled: Boolean, onInstall: ()
                     text = stringResource(R.string.permission_a11y_provider_title),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
+                    // LAYOUT-01: 同上，通道标题限 1 行
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 // 可选增强:未安装时用中性色,避免与"未授权的必需通道"混淆
                 Icon(

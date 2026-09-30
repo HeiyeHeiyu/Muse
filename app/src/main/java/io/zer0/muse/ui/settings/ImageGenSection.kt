@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.ai.core.Model
@@ -300,6 +301,9 @@ private fun ModelGridCard(model: Model, selected: Boolean, onClick: () -> Unit) 
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f),
+                // LAYOUT-01: Row 内文本取宽 + 限行，防放大字号下被右侧选中图标挤成一列
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             if (selected) {
                 Icon(

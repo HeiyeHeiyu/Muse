@@ -351,17 +351,23 @@ fun QuickNotesScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    // LAYOUT-01: 标题取剩余宽度 + 限行(仅取宽时剩余宽度仍可能极小),
+                    // 计数是定宽短标注,限 1 行即可。
                     Text(
                         text = stringResource(R.string.quick_notes_history),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.SemiBold,
                         ),
                         color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = stringResource(R.string.quick_notes_count, state.notes.size),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.outline,
+                        maxLines = 1,
                     )
                 }
                 Spacer(Modifier.height(MusePaddings.contentGap))
@@ -749,10 +755,15 @@ private fun QuickNoteInputCard(value: String, onValueChange: (String) -> Unit, o
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // LAYOUT-01: 提示文案取剩余宽度 —— 否则窄窗口下发送按钮会被长文案挤掉;
+                // 同时限 1 行,防止放大字号下提示逐字换行撑高整行。
                 Text(
                     text = stringResource(R.string.quick_notes_tag_hint),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 SendButton(
                     enabled = value.trim().isNotBlank(),

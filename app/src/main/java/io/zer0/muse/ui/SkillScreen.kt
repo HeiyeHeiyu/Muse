@@ -652,15 +652,19 @@ private fun rememberSkillUseCases(): Map<String, String> = mapOf(
 @Composable
 private fun DetailLine(label: String, value: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
+        // LAYOUT-01: 行首固定标签前缀只限行、不取宽（剩余宽度留给右侧取值）
         Text(
             text = "$label: ",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.outline,
+            maxLines = 1,
         )
+        // LAYOUT-01: 取值是主文本，取剩余宽度；内容可能较长（如实现说明），保留多行换行能力
         Text(
             text = value,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
         )
     }
 }

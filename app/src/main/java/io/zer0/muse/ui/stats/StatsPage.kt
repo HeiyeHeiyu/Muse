@@ -1191,10 +1191,14 @@ private fun TopModelsCard(modelCounts: List<StatsViewModel.ModelUsage>, modifier
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
+                        // LAYOUT-01: 「查看全部/收起」是行尾紧凑动作组(行宽由内容决定,取宽会撑开整行),
+                        // 故只限 1 行兜底,防止放大字号下被 chevron 挤成逐字换行。
                         Text(
                             text = stringResource(if (expanded) R.string.stats_collapse else R.string.stats_view_all),
                             style = MaterialTheme.typography.labelMedium,
                             color = onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Icon(
                             imageVector = if (expanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
@@ -1226,11 +1230,13 @@ private fun TopModelsCard(modelCounts: List<StatsViewModel.ModelUsage>, modifier
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 modifier = Modifier.weight(1f),
                             ) {
+                                // LAYOUT-01: 排名徽章是纯装饰短文本(剩余宽度归右侧模型名的 weight),限 1 行。
                                 Text(
                                     text = "#${idx + 1}",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = if (isTop) onSurface else outline,
                                     fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
                                 )
                                 Text(
                                     text = usage.modelName,

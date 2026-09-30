@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.common.resultOf
@@ -54,6 +55,7 @@ import io.zer0.muse.mcp.McpTransportType
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseActionSheetRow
 import io.zer0.muse.ui.common.form.MuseAnchoredMenu
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseSwitch
@@ -122,7 +124,11 @@ internal fun McpSection() {
                     text = stringResource(R.string.settings_mcp_risk_note_title),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Medium,
+                    // LAYOUT-01: 折叠标题取剩余宽度 + 限行(仅取宽时剩余宽度仍可能极小,
+                    // 中文会逐字换行撑高整行),防止被右侧 chevron 图标挤成一列。
                     modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Icon(
                     imageVector = if (riskNoteExpanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
@@ -375,7 +381,7 @@ private fun McpServerRow(
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
                         if (oauthSupported) {
-                            McpActionRow(stringResource(R.string.settings_mcp_oauth_authorize)) {
+                            MuseActionSheetRow(text = stringResource(R.string.settings_mcp_oauth_authorize)) {
                                 menuExpanded = false
                                 resultOf { mcpRegistry.startOAuthFlow(server.id) }
                                     .onSuccess { url ->
@@ -393,7 +399,7 @@ private fun McpServerRow(
                                         MuseToast.show(context.getString(R.string.settings_mcp_failed, t?.message))
                                     }
                             }
-                            McpActionRow(stringResource(R.string.settings_mcp_oauth_revoke)) {
+                            MuseActionSheetRow(text = stringResource(R.string.settings_mcp_oauth_revoke)) {
                                 menuExpanded = false
                                 scope.launch {
                                     resultOf { mcpRegistry.revokeOAuth(server.id) }
@@ -406,14 +412,26 @@ private fun McpServerRow(
                                 }
                             }
                         }
-                        McpActionRow(stringResource(R.string.settings_mcp_browse_resources)) {
+                        MuseActionSheetRow(text = stringResource(R.string.settings_mcp_browse_resources)) {
                             menuExpanded = false
                             showResources = true
                         }
-                        McpActionRow(stringResource(R.string.settings_mcp_browse_prompts)) {
+                        MuseActionSheetRow(text = stringResource(R.string.settings_mcp_browse_prompts)) {
                             menuExpanded = false
                             showPrompts = true
                         }
+                        MuseActionSheetRow(text = stringResource(R.string.settings_mcp_reconnect)) {
+                            menuExpanded = false
+                            onReconnect()
+                        }
+                        MuseActionSheetRow(
+                            text = stringResource(R.string.settings_common_delete),
+                            contentColor = MaterialTheme.colorScheme.error,
+                            onClick = {
+                                menuExpanded = false
+                                onDelete()
+                            },
+                        )
                     }
                 },
                 confirmText = stringResource(R.string.common_close),
@@ -421,17 +439,6 @@ private fun McpServerRow(
                 onDismiss = { menuExpanded = false },
             )
         }
-        MuseTactileButton(
-            icon = MuseIcons.edit,
-            onClick = onReconnect,
-            contentDescription = stringResource(R.string.settings_mcp_reconnect),
-        )
-        MuseTactileButton(
-            icon = MuseIcons.trash,
-            onClick = onDelete,
-            contentDescription = stringResource(R.string.settings_common_delete),
-            tint = MaterialTheme.colorScheme.error,
-        )
     }
 
     if (showResources) {
@@ -644,10 +651,14 @@ private fun McpServerAddDialog(onDismiss: () -> Unit, onAdd: suspend (McpServerC
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
+                    // LAYOUT-01: 「高级」折叠头取剩余宽度 + 限行,防止被右侧 chevron 图标挤成一列。
                     Text(
                         text = stringResource(R.string.settings_common_advanced),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     Icon(
                         imageVector = if (showAdvanced) MuseIcons.chevronUp else MuseIcons.chevronDown,
@@ -1191,27 +1202,4 @@ private fun JsonElement.toDisplayText(): String {
     val type = (obj["type"] as? JsonPrimitive)?.content
     val text = (obj["text"] as? JsonPrimitive)?.content
     return if (type == "text" && text != null) text else toString()
-}
-
-/**
- * v1.134 P0-7: MCP 操作菜单行 — 用于 MuseDialog 内部的可点击行。
- *
- * 替代 Material3 DropdownMenuItem,视觉风格与 MuseDropdown 选项行一致:
- * 全宽 + 左对齐文本 + 适度 padding,点击触发回调。
- */
-@Composable
-private fun McpActionRow(label: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(role = androidx.compose.ui.semantics.Role.Button) { onClick() }
-            .padding(vertical = MusePaddings.inputPadding, horizontal = MusePaddings.iconPadding),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-    }
 }

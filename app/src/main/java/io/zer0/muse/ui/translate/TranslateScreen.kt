@@ -510,7 +510,11 @@ private fun LanguagePickerDialog(
                                 MaterialTheme.colorScheme.onSurface
                             },
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            // LAYOUT-01: 选项名取剩余宽度 + 限行(语言名可能较长),
+                            // 防止被右侧勾选图标挤成一列。
                             modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         if (isSelected) {
                             Spacer(Modifier.width(8.dp))
@@ -569,16 +573,21 @@ private fun SourceInputCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                // LAYOUT-01: 标题取剩余宽度 + 限行,字数标注是定宽短文本,限 1 行。
                 Text(
                     text = stringResource(R.string.translate_page_source_language),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = "${text.length}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline,
+                    maxLines = 1,
                 )
             }
 

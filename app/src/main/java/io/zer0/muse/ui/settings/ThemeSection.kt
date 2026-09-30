@@ -47,6 +47,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.ColorUtils
@@ -59,6 +60,7 @@ import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseActionSheetRow
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseCapsuleTab
 import io.zer0.muse.ui.common.form.MuseSlider
@@ -661,6 +663,9 @@ private fun ThemeOptionRow(name: String, isSelected: Boolean, onClick: () -> Uni
                 MaterialTheme.colorScheme.onSurface
             },
             modifier = Modifier.weight(1f),
+            // LAYOUT-01: Row 内文本取宽 + 限行，防放大字号下被右侧选中图标挤成一列
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         if (isSelected) {
             Icon(
@@ -1023,6 +1028,9 @@ private fun CustomThemeItemRow(
 ) {
     val scheme = remember(theme, isDark) { theme.generateColorScheme(isDark) }
     val unnamedLabel = stringResource(R.string.settings_theme_custom_unnamed)
+    // v2.x 统一化: 行内动作收敛为「更多」菜单(防止窄屏文本列被多个按钮挤压)
+    val moreCd = stringResource(R.string.settings_mcp_more)
+    var menuExpanded by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier
@@ -1091,27 +1099,53 @@ private fun CustomThemeItemRow(
             },
             modifier = Modifier.weight(1f),
         )
-        // 导出 / 编辑 / 删除按钮
         MuseTactileButton(
-            icon = MuseIcons.share,
-            onClick = onExport,
-            contentDescription = stringResource(R.string.settings_theme_custom_export),
+            icon = MuseIcons.moreVertical,
+            onClick = { menuExpanded = true },
+            contentDescription = moreCd,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             iconSize = MuseIconSizes.iconMedium,
         )
-        MuseTactileButton(
-            icon = MuseIcons.edit,
-            onClick = onEdit,
-            contentDescription = stringResource(R.string.settings_theme_custom_edit),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            iconSize = MuseIconSizes.iconMedium,
-        )
-        MuseTactileButton(
-            icon = MuseIcons.trash,
-            onClick = onDelete,
-            contentDescription = stringResource(R.string.settings_theme_custom_delete),
-            tint = MaterialTheme.colorScheme.error,
-            iconSize = MuseIconSizes.iconMedium,
+    }
+
+    if (menuExpanded) {
+        MuseDialog(
+            onDismissRequest = { menuExpanded = false },
+            content = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    MuseActionSheetRow(
+                        icon = MuseIcons.share,
+                        text = stringResource(R.string.settings_theme_custom_export),
+                        onClick = {
+                            menuExpanded = false
+                            onExport()
+                        },
+                    )
+                    MuseActionSheetRow(
+                        icon = MuseIcons.edit,
+                        text = stringResource(R.string.settings_theme_custom_edit),
+                        onClick = {
+                            menuExpanded = false
+                            onEdit()
+                        },
+                    )
+                    MuseActionSheetRow(
+                        icon = MuseIcons.trash,
+                        text = stringResource(R.string.settings_theme_custom_delete),
+                        contentColor = MaterialTheme.colorScheme.error,
+                        onClick = {
+                            menuExpanded = false
+                            onDelete()
+                        },
+                    )
+                }
+            },
+            confirmText = stringResource(R.string.common_close),
+            onConfirm = { menuExpanded = false },
+            onDismiss = { menuExpanded = false },
         )
     }
 }
@@ -1302,6 +1336,9 @@ private fun ColorPickerRow(color: Color, onColorChange: (Color) -> Unit) {
                         text = stringResource(R.string.settings_theme_custom_color_h),
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.width(16.dp),
+                        // LAYOUT-01: 定宽 16.dp 刻度标注限 1 行，放大字号下不再折成两行被裁
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     MuseSlider(
                         value = hue,
@@ -1317,6 +1354,9 @@ private fun ColorPickerRow(color: Color, onColorChange: (Color) -> Unit) {
                         text = stringResource(R.string.settings_theme_custom_color_s),
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.width(16.dp),
+                        // LAYOUT-01: 同上，刻度标注限 1 行
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     MuseSlider(
                         value = saturation,
@@ -1332,6 +1372,9 @@ private fun ColorPickerRow(color: Color, onColorChange: (Color) -> Unit) {
                         text = stringResource(R.string.settings_theme_custom_color_l),
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.width(16.dp),
+                        // LAYOUT-01: 同上，刻度标注限 1 行
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     MuseSlider(
                         value = lightness,

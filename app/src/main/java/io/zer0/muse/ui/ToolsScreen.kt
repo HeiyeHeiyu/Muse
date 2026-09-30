@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
@@ -306,6 +307,9 @@ private fun ToolDetailDialog(tool: ToolRegistry.ToolDef, onDismiss: () -> Unit) 
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.weight(1f),
+                        // LAYOUT-01: Row 内文本取宽 + 限行，防放大字号下逐字换行
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     RiskBadge(level = tool.riskLevel)
                 }

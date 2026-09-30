@@ -27,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,7 +44,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.R
 import io.zer0.muse.data.assistant.AssistantEntity
+import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseActionSheetRow
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.media.AssistantAvatar
@@ -719,6 +722,9 @@ internal fun ChatSelectionBar(
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // v2.x 统一化: 行内动作收敛为「更多」菜单(防止窄屏文本列被多个按钮挤压)
+    val moreCd = stringResource(R.string.settings_mcp_more)
+    var menuExpanded by remember { mutableStateOf(false) }
     Surface(
         shape = MuseShapes.medium,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
@@ -741,35 +747,66 @@ internal fun ChatSelectionBar(
                 modifier = Modifier.weight(1f),
             )
             MuseCapsuleButton(
-                text = stringResource(R.string.groupchat_select_all),
-                onClick = onSelectAll,
-                variant = IosCapsuleButtonVariant.Text,
-                fillWidth = false,
-            )
-            MuseCapsuleButton(
                 text = stringResource(R.string.action_copy),
                 onClick = onCopy,
                 variant = IosCapsuleButtonVariant.Text,
                 fillWidth = false,
             )
             MuseCapsuleButton(
-                text = stringResource(R.string.action_delete),
-                onClick = onDelete,
-                variant = IosCapsuleButtonVariant.Text,
-                fillWidth = false,
-            )
-            MuseCapsuleButton(
-                text = stringResource(R.string.action_share),
-                onClick = onExport,
-                variant = IosCapsuleButtonVariant.Text,
-                fillWidth = false,
-            )
-            MuseCapsuleButton(
-                text = stringResource(R.string.action_close),
-                onClick = onExit,
+                text = moreCd,
+                onClick = { menuExpanded = true },
                 variant = IosCapsuleButtonVariant.Text,
                 fillWidth = false,
             )
         }
+    }
+
+    if (menuExpanded) {
+        MuseDialog(
+            onDismissRequest = { menuExpanded = false },
+            content = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    MuseActionSheetRow(
+                        icon = MuseIcons.check,
+                        text = stringResource(R.string.groupchat_select_all),
+                        onClick = {
+                            menuExpanded = false
+                            onSelectAll()
+                        },
+                    )
+                    MuseActionSheetRow(
+                        icon = MuseIcons.share,
+                        text = stringResource(R.string.action_share),
+                        onClick = {
+                            menuExpanded = false
+                            onExport()
+                        },
+                    )
+                    MuseActionSheetRow(
+                        icon = MuseIcons.trash,
+                        text = stringResource(R.string.action_delete),
+                        contentColor = MaterialTheme.colorScheme.error,
+                        onClick = {
+                            menuExpanded = false
+                            onDelete()
+                        },
+                    )
+                    MuseActionSheetRow(
+                        icon = MuseIcons.x,
+                        text = stringResource(R.string.action_close),
+                        onClick = {
+                            menuExpanded = false
+                            onExit()
+                        },
+                    )
+                }
+            },
+            confirmText = stringResource(R.string.common_close),
+            onConfirm = { menuExpanded = false },
+            onDismiss = { menuExpanded = false },
+        )
     }
 }

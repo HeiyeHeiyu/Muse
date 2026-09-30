@@ -496,11 +496,15 @@ private fun GroupHeader(groupName: String, modelCount: Int, isCollapsed: Boolean
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            // LAYOUT-01: 分组名取剩余宽度（右侧仅一个固定宽折叠箭头），长组名不再逐字换行
             Text(
                 text = stringResource(R.string.model_switch_group_count, groupName, modelCount),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
             Icon(
                 imageVector = if (isCollapsed) {

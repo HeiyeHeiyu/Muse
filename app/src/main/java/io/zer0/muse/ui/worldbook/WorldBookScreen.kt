@@ -42,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseActionSheetRow
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseDropdown
 import io.zer0.muse.ui.common.form.MuseFloatingButton
@@ -220,6 +221,9 @@ private fun WorldBookCard(entry: WorldBookEntryEntity, onEdit: () -> Unit, onDel
     val deleteCd = stringResource(R.string.worldbook_delete_cd)
     val alwaysActiveText = stringResource(R.string.worldbook_badge_always_active)
     val stateDesc = if (entry.enabled) enabledStateText else disabledStateText
+    // v2.x 统一化: 行内动作收敛为「更多」菜单(防止窄屏文本列被多个按钮挤压)
+    val moreCd = stringResource(R.string.settings_mcp_more)
+    var menuExpanded by remember { mutableStateOf(false) }
 
     MuseSurface(
         modifier = Modifier.fillMaxWidth(),
@@ -297,20 +301,46 @@ private fun WorldBookCard(entry: WorldBookEntryEntity, onEdit: () -> Unit, onDel
                 modifier = Modifier.semantics { stateDescription = stateDesc },
             )
             MuseTactileButton(
-                icon = MuseIcons.edit,
-                onClick = onEdit,
-                contentDescription = editCd,
-                size = MuseIconSizes.touchTarget,
-                iconSize = 18.dp,
-            )
-            MuseTactileButton(
-                icon = MuseIcons.trash,
-                onClick = onDelete,
-                contentDescription = deleteCd,
+                icon = MuseIcons.moreVertical,
+                onClick = { menuExpanded = true },
+                contentDescription = moreCd,
                 size = MuseIconSizes.touchTarget,
                 iconSize = 18.dp,
             )
         }
+    }
+
+    if (menuExpanded) {
+        MuseDialog(
+            onDismissRequest = { menuExpanded = false },
+            content = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    MuseActionSheetRow(
+                        icon = MuseIcons.edit,
+                        text = editCd,
+                        onClick = {
+                            menuExpanded = false
+                            onEdit()
+                        },
+                    )
+                    MuseActionSheetRow(
+                        icon = MuseIcons.trash,
+                        text = deleteCd,
+                        contentColor = MaterialTheme.colorScheme.error,
+                        onClick = {
+                            menuExpanded = false
+                            onDelete()
+                        },
+                    )
+                }
+            },
+            confirmText = stringResource(R.string.common_close),
+            onConfirm = { menuExpanded = false },
+            onDismiss = { menuExpanded = false },
+        )
     }
 }
 

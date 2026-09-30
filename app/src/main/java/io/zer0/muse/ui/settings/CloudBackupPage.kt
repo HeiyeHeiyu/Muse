@@ -27,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.common.resultOf
@@ -502,12 +503,17 @@ fun CloudBackupPage(onBack: () -> Unit) {
                                 text = stringResource(R.string.cloud_backup_interval_label),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface,
+                                // LAYOUT-01: 标签取剩余宽度 + 限行(仅取宽时剩余宽度仍可能极小)。
                                 modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                             Text(
                                 text = "${sliderValue.toInt()} 天",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary,
+                                // LAYOUT-01: 天数数值列限 1 行,不反向挤占标签。
+                                maxLines = 1,
                             )
                         }
                         Spacer(Modifier.height(MusePaddings.contentGap))

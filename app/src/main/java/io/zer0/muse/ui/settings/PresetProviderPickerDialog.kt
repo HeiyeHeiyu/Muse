@@ -321,15 +321,19 @@ private fun PresetItem(preset: ProviderConfig, onClick: () -> Unit) {
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
+                    // LAYOUT-01: 副标题行中间是纯装饰分隔符、末尾是模型数徽章 —— 两者都不取宽
+                    // (剩余宽度已归左侧域名文本的 weight(fill = false)),限 1 行防逐字换行。
                     Text(
                         text = "·",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline,
+                        maxLines = 1,
                     )
                     Text(
                         text = stringResource(R.string.settings_preset_model_count, preset.models.size),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
                     )
                 }
             }

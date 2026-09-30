@@ -136,10 +136,12 @@ private fun TranslateHistoryItemCard(item: TranslateViewModel.TranslateHistoryIt
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
+                        // LAYOUT-01: 卡片内语言胶囊是行内短文本(行宽由内容决定,不取宽),限 1 行防逐字换行。
                         Text(
                             text = item.sourceLanguage,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
                         )
                         Icon(
                             imageVector = MuseIcons.swapHorizontal,
@@ -159,10 +161,12 @@ private fun TranslateHistoryItemCard(item: TranslateViewModel.TranslateHistoryIt
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
                 ) {
+                    // LAYOUT-01: 时间标注是行尾定宽短文本,限 1 行,防止被收藏按钮挤成一列。
                     Text(
                         text = timeText,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.outline,
+                        maxLines = 1,
                     )
                     MuseTactileButton(
                         icon = if (item.favorite) MuseIcons.star else MuseIcons.star,
@@ -205,11 +209,13 @@ private fun HistoryTextLine(label: String, text: String) {
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
     ) {
+        // LAYOUT-01: 「原文/译文」标签是行首定宽短词(剩余宽度归正文的 weight),限 1 行。
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.outline,
             modifier = Modifier.padding(top = 2.dp),
+            maxLines = 1,
         )
         Text(
             text = text,

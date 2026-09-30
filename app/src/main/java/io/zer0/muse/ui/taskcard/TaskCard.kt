@@ -628,6 +628,10 @@ private fun TaskStepRow(step: TaskStep, onRetry: () -> Unit) {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
                         modifier = Modifier.weight(1f),
+                        // LAYOUT-01: Row 内文本取宽 + 限行，防放大字号下逐字换行；
+                        // 折叠态本就是预览(限 2 行)，展开态保留完整结果不截断
+                        maxLines = if (isResultExpanded) Int.MAX_VALUE else 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     if (showExpand) {
                         Text(

@@ -335,6 +335,9 @@ fun MemoryScreen(onBack: () -> Unit = {}, onOpenSettings: () -> Unit = {}, viewM
                         text = stringResource(R.string.memory_center_filter_advanced),
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.onSurface,
+                        // LAYOUT-01: 已取宽的折叠标题补限行，剩余宽度极小时不再逐字换行
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
                     Icon(
@@ -487,16 +490,23 @@ private fun MemoryOverviewCard(
     ) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // LAYOUT-01: 数字徽标只限行、不取宽（本行已有 Spacer(weight(1f))，
+                // 再给数字加 weight 会与它平分空间、把右侧过滤入口挤走）
                 Text(
                     text = factCount.toString(),
                     style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.SemiBold),
                     color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
                 )
+                // LAYOUT-01: 说明文字取剩余宽度 — 与行尾 Spacer(weight(1f)) 分摊剩余空间，
+                // 视觉上仍紧贴数字、过滤入口仍在最右；放大字号下不再逐字换行
                 Text(
                     text = stringResource(R.string.memory_center_fact_count),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(start = 6.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(start = 6.dp),
                 )
                 Spacer(Modifier.weight(1f))
                 Surface(
@@ -786,9 +796,13 @@ private fun LazyListScope.memoryFactsItems(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // LAYOUT-01: 分区标题取剩余宽度（右侧仅一个固定宽新增按钮），长标题不再逐字换行
             Text(
                 text = stringResource(R.string.memory_center_library_title),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
             MuseTactileButton(
                 icon = MuseIcons.plus,
@@ -960,7 +974,15 @@ private fun MemoryFactRow(
                         .weight(1f)
                         .clickable(enabled = canExpand) { toggleExpand() },
                 )
-                if (item.pinnedAt != null) Text("•", color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp))
+                // LAYOUT-01: 纯装饰分隔符 — 只限行，保证永不被压成多行
+                if (item.pinnedAt != null) {
+                    Text(
+                        "•",
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
             }
             bodyText?.let {
                 Text(
@@ -1098,6 +1120,9 @@ private fun MemoryFilterRow(label: String, selected: Boolean, onClick: () -> Uni
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                // LAYOUT-01: 筛选项名已取宽，补限行以免剩余宽度极小时逐字换行
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
             if (selected) {

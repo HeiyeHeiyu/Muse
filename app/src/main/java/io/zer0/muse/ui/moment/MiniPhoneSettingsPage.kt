@@ -27,6 +27,7 @@ import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
+import io.zer0.muse.ui.common.form.MuseActionSheetRow
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseSwitch
 import io.zer0.muse.ui.common.form.MuseTactileButton
@@ -177,6 +178,9 @@ private fun MiniPhoneAppSettingRow(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
 ) {
+    // v2.x 统一化: 行内动作收敛为「更多」菜单(防止窄屏文本列被多个按钮挤压)
+    val moreCd = stringResource(R.string.settings_mcp_more)
+    var menuExpanded by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -202,21 +206,48 @@ private fun MiniPhoneAppSettingRow(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
             )
         }
-        MuseTactileButton(
-            icon = MuseIcons.chevronUp,
-            onClick = onMoveUp,
-            contentDescription = "上移",
-            enabled = canMoveUp,
-        )
-        MuseTactileButton(
-            icon = MuseIcons.chevronDown,
-            onClick = onMoveDown,
-            contentDescription = "下移",
-            enabled = canMoveDown,
-        )
         MuseSwitch(
             checked = visible,
             onCheckedChange = onVisibleChange,
+        )
+        MuseTactileButton(
+            icon = MuseIcons.moreVertical,
+            onClick = { menuExpanded = true },
+            contentDescription = moreCd,
+        )
+    }
+
+    if (menuExpanded) {
+        MuseDialog(
+            onDismissRequest = { menuExpanded = false },
+            content = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    MuseActionSheetRow(
+                        icon = MuseIcons.chevronUp,
+                        text = stringResource(R.string.prompt_template_manager_move_up),
+                        enabled = canMoveUp,
+                        onClick = {
+                            menuExpanded = false
+                            onMoveUp()
+                        },
+                    )
+                    MuseActionSheetRow(
+                        icon = MuseIcons.chevronDown,
+                        text = stringResource(R.string.prompt_template_manager_move_down),
+                        enabled = canMoveDown,
+                        onClick = {
+                            menuExpanded = false
+                            onMoveDown()
+                        },
+                    )
+                }
+            },
+            confirmText = stringResource(R.string.common_close),
+            onConfirm = { menuExpanded = false },
+            onDismiss = { menuExpanded = false },
         )
     }
 }

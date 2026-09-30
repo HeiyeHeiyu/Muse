@@ -2480,6 +2480,11 @@ fun ChatScreen(
                                                 color = MaterialTheme.colorScheme.onErrorContainer,
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 modifier = Modifier.weight(1f),
+                                                // LAYOUT-01: Row 内文本取宽 + 限行，防放大字号下逐字换行
+                                                // (右侧重试/关闭按钮是定宽项，报错文案已由 Surface 的
+                                                // contentDescription 提供完整语义，视觉上留 2 行)
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis,
                                             )
                                             // 重试:基于上一条 user 消息重新生成 assistant 回复
                                             // M-S11: 仅网络/未知类错误显示重试按钮(API_KEY/RATE_LIMIT 重试无意义)

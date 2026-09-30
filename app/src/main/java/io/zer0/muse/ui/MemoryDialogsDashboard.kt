@@ -421,6 +421,9 @@ internal fun MemoryDashboardCard(state: MemoryUiState) {
                                 },
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.outline,
+                                // LAYOUT-01: 已取宽的标签补限行，剩余宽度极小时不再逐字换行
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),
                             )
                             Icon(
@@ -593,16 +596,23 @@ internal fun DashboardMetricRow(label: String, value: String, valueColor: Color 
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
+        // LAYOUT-01: 指标名取剩余宽度（数值仍固定靠右），放大字号下不再逐字换行
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
         )
+        // LAYOUT-01: 指标值靠右固定（SpaceBetween），只限行、不取宽
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium,
             color = valueColor,
             fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -618,12 +628,17 @@ internal fun HealthStepRow(stepKey: String, health: io.zer0.memory.ticker.Memory
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            // LAYOUT-01: 步骤名取剩余宽度（状态文案固定靠右），放大字号下不再逐字换行
             Text(
                 text = stepKey,
                 style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
+            // LAYOUT-01: 状态文案靠右固定（SpaceBetween），只限行、不取宽
             Text(
                 text = if (health.failCount > 0) {
                     stringResource(
@@ -635,6 +650,8 @@ internal fun HealthStepRow(stepKey: String, health: io.zer0.memory.ticker.Memory
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = if (health.failCount > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         val lastSuccessAt = health.lastSuccessAt

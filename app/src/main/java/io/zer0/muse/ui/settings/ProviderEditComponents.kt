@@ -735,10 +735,14 @@ internal fun ConfigTab(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
+                        // LAYOUT-01: 「高级」折叠头取剩余宽度 + 限行,防止被右侧 chevron 图标挤成一列。
                         Text(
                             text = stringResource(R.string.settings_common_advanced),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Icon(
                             imageVector = if (showAdvanced) MuseIcons.chevronUp else MuseIcons.chevronDown,

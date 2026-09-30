@@ -571,15 +571,21 @@ private fun InfoLine(label: String, value: String) {
             .padding(vertical = MusePaddings.tightGap),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
+        // LAYOUT-01: 键是固定短词,限 1 行;值可能是很长的 target(工具名/路径/ID),
+        // 取剩余宽度并限 3 行,既保留多行可读性,也不会在放大字号下被压成一列。
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
         )
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f, fill = false),
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }

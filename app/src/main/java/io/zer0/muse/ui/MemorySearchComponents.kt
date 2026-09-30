@@ -44,7 +44,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.R
+import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseActionSheetRow
 import io.zer0.muse.ui.common.form.MuseAnchoredMenu
 import io.zer0.muse.ui.common.form.MuseCapsuleButton
 import io.zer0.muse.ui.common.form.MuseChip
@@ -458,16 +460,22 @@ internal fun CategorySectionHeader(title: String, count: Int) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
+        // LAYOUT-01: 分组标题取剩余宽度（计数仍固定靠右），放大字号下不再逐字换行
         Text(
             text = title,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
         )
+        // LAYOUT-01: 计数是行尾定量，只限行、不取宽（取宽会把它从右缘推到行中间）
         Text(
             text = count.toString(),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.outline,
+            maxLines = 1,
         )
     }
 }
@@ -850,8 +858,12 @@ internal fun MemoryRowTrailing(
     onEdit: ((MemoryItem) -> Unit)?,
     onSetImportance: ((MemoryItem) -> Unit)?,
 ) {
+    // v2.x 统一化: ≥2 个行内动作时收敛为「更多」菜单(防止窄屏文本列被多个按钮挤压)
+    val moreCd = stringResource(R.string.settings_mcp_more)
+    var menuExpanded by remember { mutableStateOf(false) }
+    val hasMultipleActions = listOfNotNull(onSetImportance, onEdit, onDelete).size >= 2
     Row(verticalAlignment = Alignment.CenterVertically) {
-        if (onSetImportance != null) {
+        if (!hasMultipleActions && onSetImportance != null) {
             MuseTactileButton(
                 icon = MuseIcons.star,
                 onClick = { onSetImportance(item) },
@@ -864,7 +876,7 @@ internal fun MemoryRowTrailing(
                 iconSize = 20.dp,
             )
         }
-        if (onEdit != null) {
+        if (!hasMultipleActions && onEdit != null) {
             MuseTactileButton(
                 icon = MuseIcons.edit,
                 onClick = { onEdit(item) },
@@ -873,7 +885,7 @@ internal fun MemoryRowTrailing(
                 iconSize = 20.dp,
             )
         }
-        if (onDelete != null) {
+        if (!hasMultipleActions && onDelete != null) {
             MuseTactileButton(
                 icon = MuseIcons.trash,
                 onClick = { onDelete(item) },
@@ -882,6 +894,67 @@ internal fun MemoryRowTrailing(
                 iconSize = 20.dp,
             )
         }
+        if (hasMultipleActions) {
+            MuseTactileButton(
+                icon = MuseIcons.moreVertical,
+                onClick = { menuExpanded = true },
+                contentDescription = moreCd,
+                tint = MaterialTheme.colorScheme.outline,
+                iconSize = 20.dp,
+            )
+        }
+    }
+
+    if (menuExpanded) {
+        MuseDialog(
+            onDismissRequest = { menuExpanded = false },
+            content = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    if (onSetImportance != null) {
+                        MuseActionSheetRow(
+                            icon = MuseIcons.star,
+                            text = stringResource(R.string.memory_sync_set_importance_cd),
+                            contentColor = when (item.importance) {
+                                2 -> MaterialTheme.colorScheme.error
+                                1 -> MaterialTheme.colorScheme.tertiary
+                                else -> MaterialTheme.colorScheme.outline
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                onSetImportance(item)
+                            },
+                        )
+                    }
+                    if (onEdit != null) {
+                        MuseActionSheetRow(
+                            icon = MuseIcons.edit,
+                            text = stringResource(R.string.memory_screen_edit_cd),
+                            onClick = {
+                                menuExpanded = false
+                                onEdit(item)
+                            },
+                        )
+                    }
+                    if (onDelete != null) {
+                        MuseActionSheetRow(
+                            icon = MuseIcons.trash,
+                            text = stringResource(R.string.memory_screen_delete_cd),
+                            contentColor = MaterialTheme.colorScheme.error,
+                            onClick = {
+                                menuExpanded = false
+                                onDelete(item)
+                            },
+                        )
+                    }
+                }
+            },
+            confirmText = stringResource(R.string.common_close),
+            onConfirm = { menuExpanded = false },
+            onDismiss = { menuExpanded = false },
+        )
     }
 }
 
@@ -957,10 +1030,14 @@ internal fun ErrorTraceBox(trace: String, onRetry: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            // LAYOUT-01: 错误标题取剩余宽度（右侧仅一个固定宽复制按钮）
             Text(
                 text = stringResource(R.string.memory_screen_load_failed),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.error,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
             MuseTactileButton(
                 icon = MuseIcons.copy,

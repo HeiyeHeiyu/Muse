@@ -418,10 +418,14 @@ private fun FavoriteCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
+                    // LAYOUT-01: 尾部元信息槽（时间 + 收藏按钮）按内容宽度排布，只限行不取宽，
+                    // 否则内层 Row 会吃掉外层行宽、把左侧角色/模型标签挤成竖排。
                     Text(
                         text = dateFormat.format(Date(message.createdAt)),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.outline,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                     MuseTactileButton(
                         icon = MuseIcons.star,
