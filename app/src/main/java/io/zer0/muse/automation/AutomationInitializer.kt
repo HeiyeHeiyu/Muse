@@ -76,7 +76,12 @@ object AutomationInitializer {
             }
 
             // 注册 UI 自动化工具集
-            val tools = AutomationTools(mgr)
+            val workflowJournal = runCatching {
+                org.koin.java.KoinJavaComponent.get<io.zer0.muse.tools.WorkflowJournal>(
+                    io.zer0.muse.tools.WorkflowJournal::class.java,
+                )
+            }.getOrNull()
+            val tools = AutomationTools(mgr, workflowJournal)
             tools.register(toolRegistry)
 
             // 注册 Root 级别工具(分层执行:Shizuku 优先、Root 兜底,注册本身无副作用)

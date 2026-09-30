@@ -5,6 +5,8 @@ import io.zer0.muse.automation.core.AutomationManager
 import io.zer0.muse.tools.ToolOutcome
 import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.tools.ToolRiskLevel
+import io.zer0.muse.tools.WorkflowJournal
+import java.util.UUID
 
 /**
  * UI 自动化工具集 —— 把 [AutomationManager] 的能力注册为 AI 可调用的工具。
@@ -17,6 +19,7 @@ import io.zer0.muse.tools.ToolRiskLevel
  */
 class AutomationTools(
     private val manager: AutomationManager,
+    private val workflowJournal: WorkflowJournal? = null,
 ) {
     fun register(registry: ToolRegistry) {
         registerWorkflow(registry)
@@ -390,6 +393,7 @@ class AutomationTools(
                     "不接受任意 shell 命令，需要无障碍或 Shell/Root 通道，每次执行前需审批。",
                 parameters = mapOf(
                     "steps" to "必填 JSON 数组，最多 20 步；例:[{\"action\":\"launch\",\"packageName\":\"com.android.settings\"}]",
+                    "run_id" to "可选。恢复之前中断的工作流；首次运行留空会生成新的 runId",
                 ),
                 required = setOf("steps"),
                 riskLevel = ToolRiskLevel.HIGH,
@@ -400,7 +404,8 @@ class AutomationTools(
             val steps = AutomationWorkflowParser.parse(json).getOrElse { error ->
                 return@registerOutcome ToolOutcome.error("错误:steps 无效:${error.message}")
             }
-            AutomationWorkflow(manager).run(steps)
+            val runId = args["run_id"]?.trim().takeIf { !it.isNullOrBlank() } ?: "automation-${UUID.randomUUID()}"
+            AutomationWorkflow(manager, workflowJournal).run(steps, runId)
         }
     }
 

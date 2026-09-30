@@ -4,6 +4,7 @@ import io.zer0.common.AppJson
 import io.zer0.muse.automation.appcontrol.AppControlCore
 import io.zer0.muse.automation.core.AutomationManager
 import io.zer0.muse.tools.ToolOutcome
+import io.zer0.muse.tools.WorkflowJournal
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -16,12 +17,31 @@ import kotlinx.serialization.builtins.ListSerializer
  */
 class AutomationWorkflow(
     private val manager: AutomationManager,
+    private val journal: WorkflowJournal? = null,
 ) {
-    suspend fun run(steps: List<AutomationWorkflowStep>): ToolOutcome {
+    suspend fun run(steps: List<AutomationWorkflowStep>, runId: String): ToolOutcome {
         val results = mutableListOf<AutomationWorkflowStepResult>()
+        val expectedKeys = steps.mapIndexed { index, step ->
+            val prompt = AppJson.encodeToString(AutomationWorkflowStep.serializer(), step)
+            index to (journal?.computeKey(prompt, "automation_workflow:$index") ?: "$index:${step.action}")
+        }.toMap()
+        val resume = journal?.resume(runId, expectedKeys)
+        val resumeFrom = resume?.resumeFromSeq ?: 0
         for ((index, step) in steps.withIndex()) {
-            val result = executeStep(index, step)
+            val cached = resume?.cached?.get(index)
+            val cachedResult = cached
+                ?.takeIf { index < resumeFrom && it.status == "done" }
+                ?.let { runCatching { AppJson.decodeFromString(AutomationWorkflowStepResult.serializer(), it.result) }.getOrNull() }
+            val result = cachedResult?.copy(message = "已从工作流断点恢复") ?: executeStep(index, step)
             results += result
+            journal?.record(
+                runId = runId,
+                nodeSeq = index,
+                key = expectedKeys[index].orEmpty(),
+                result = AppJson.encodeToString(AutomationWorkflowStepResult.serializer(), result),
+                status = if (result.success) "done" else "failed",
+                nodeKind = WorkflowJournal.NODE_KIND_TOOL_ONLY,
+            )
             if (!result.success) break
         }
         val completed = results.count { it.success }
@@ -35,9 +55,15 @@ class AutomationWorkflow(
             }
         }
         return if (success) {
-            ToolOutcome.ok(content, mapOf("completed" to completed, "total" to steps.size, "steps" to results))
+            ToolOutcome.ok(
+                content,
+                mapOf("runId" to runId, "resumeFrom" to resumeFrom, "completed" to completed, "total" to steps.size, "steps" to results),
+            )
         } else {
-            ToolOutcome.error(content, mapOf("completed" to completed, "total" to steps.size, "steps" to results))
+            ToolOutcome.error(
+                content,
+                mapOf("runId" to runId, "resumeFrom" to resumeFrom, "completed" to completed, "total" to steps.size, "steps" to results),
+            )
         }
     }
 
