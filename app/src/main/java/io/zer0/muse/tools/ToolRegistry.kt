@@ -135,6 +135,11 @@ class ToolRegistry(
             CodeExecutionTool.executeFromArgs(args, context)
         }
 
+        // P1-C: Node 脚本执行(内置 Node 运行时,完整能力;高风险同 execute_javascript)
+        register(NodeScriptTool.toolDef()) { args ->
+            NodeScriptTool.executeFromArgs(args, context)
+        }
+
         // P2-6: 浏览器自动化工具集(navigate/click/type/extract/scroll_bottom/get_html)
         // 与 Koin 注册的 BrowserManager 单例共享同一实例(由 AppToolModule 注入),
         // 保证 AI 工具操作与 UI 状态胶囊实时同步。
@@ -609,6 +614,8 @@ class ToolRegistry(
                 "subagent_task",
                 // JS 沙盒工具(WebView evaluateJavascript,CodeExecutionTool 实现)
                 "execute_javascript",
+                // P1-C: Node 脚本执行(内置 Node 运行时)
+                "execute_node_script",
                 // P2-6: 浏览器自动化工具(BrowserAutomationTool 实现,headless WebView)
                 "browser_navigate", "browser_click", "browser_type",
                 "browser_extract", "browser_scroll_bottom", "browser_get_html",

@@ -10,3 +10,9 @@ target_link_options(pty PRIVATE "-Wl,-z,max-page-size=16384" "-Wl,-z,common-page
 
 find_library(log-lib log)
 target_link_libraries(pty ${log-lib})
+
+# P1-B: exec 垫片(LD_PRELOAD;拦截 execve/execvp/execvpe 做名称映射与 shebang 解析)
+add_library(muse_exec SHARED muse_exec.c)
+target_link_options(muse_exec PRIVATE "-Wl,-z,max-page-size=16384" "-Wl,-z,common-page-size=16384")
+find_library(dl-lib dl)
+target_link_libraries(muse_exec ${dl-lib})

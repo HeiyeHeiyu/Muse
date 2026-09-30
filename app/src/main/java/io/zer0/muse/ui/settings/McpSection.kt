@@ -307,7 +307,11 @@ private fun McpServerRow(
                 },
             )
             Text(
-                text = "${server.transportType.name} · ${server.url.take(50)}${if (server.url.length > 50) "..." else ""}",
+                text = if (server.transportType == McpTransportType.STDIO) {
+                    "${server.transportType.name} · ${server.command.take(50)}${if (server.command.length > 50) "..." else ""}"
+                } else {
+                    "${server.transportType.name} · ${server.url.take(50)}${if (server.url.length > 50) "..." else ""}"
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,
             )
@@ -451,6 +455,7 @@ private fun McpServerRow(
 private fun McpServerAddDialog(onDismiss: () -> Unit, onAdd: suspend (McpServerConfig) -> Unit) {
     var name by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
+    var command by remember { mutableStateOf("") }
     var transportType by remember {
         mutableStateOf(McpTransportType.STREAMABLE_HTTP)
     }
@@ -514,6 +519,11 @@ private fun McpServerAddDialog(onDismiss: () -> Unit, onAdd: suspend (McpServerC
                                         template.displayName
                                     }
                                     url = ""
+                                    command = if (template.transportType == McpTransportType.STDIO) {
+                                        template.commandPlaceholder
+                                    } else {
+                                        ""
+                                    }
                                     authToken = ""
                                     headersText = template.defaultHeaders.entries.joinToString("\n") {
                                         "${it.key}: ${it.value}"
@@ -549,12 +559,26 @@ private fun McpServerAddDialog(onDismiss: () -> Unit, onAdd: suspend (McpServerC
                     onValueChange = { name = it },
                     placeholder = stringResource(R.string.settings_mcp_display_name_placeholder),
                 )
-                SettingField(
-                    label = "URL",
-                    value = url,
-                    onValueChange = { url = it },
-                    placeholder = selectedTemplate.urlPlaceholder,
-                )
+                if (transportType == McpTransportType.STDIO) {
+                    SettingField(
+                        label = stringResource(R.string.settings_mcp_stdio_command),
+                        value = command,
+                        onValueChange = { command = it },
+                        placeholder = stringResource(R.string.settings_mcp_stdio_command_placeholder),
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_mcp_stdio_command_help),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    SettingField(
+                        label = "URL",
+                        value = url,
+                        onValueChange = { url = it },
+                        placeholder = selectedTemplate.urlPlaceholder,
+                    )
+                }
                 Text(stringResource(R.string.settings_mcp_transport_type), style = MaterialTheme.typography.labelMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     MuseCapsuleButton(
@@ -566,6 +590,12 @@ private fun McpServerAddDialog(onDismiss: () -> Unit, onAdd: suspend (McpServerC
                     MuseCapsuleButton(
                         text = "StreamableHTTP",
                         onClick = { transportType = McpTransportType.STREAMABLE_HTTP },
+                        variant = IosCapsuleButtonVariant.Text,
+                        fillWidth = false,
+                    )
+                    MuseCapsuleButton(
+                        text = "STDIO",
+                        onClick = { transportType = McpTransportType.STDIO },
                         variant = IosCapsuleButtonVariant.Text,
                         fillWidth = false,
                     )
@@ -687,7 +717,9 @@ private fun McpServerAddDialog(onDismiss: () -> Unit, onAdd: suspend (McpServerC
         },
         confirmText = stringResource(R.string.settings_common_add),
         onConfirm = {
-            if (url.isBlank()) {
+            if (transportType == McpTransportType.STDIO && command.isBlank()) {
+                addError = context.getString(R.string.settings_mcp_stdio_command_required)
+            } else if (transportType != McpTransportType.STDIO && url.isBlank()) {
                 addError = context.getString(R.string.settings_mcp_failed, "URL 不能为空")
             } else if (feishuAutoRefresh && (feishuAppId.isBlank() || feishuAppSecret.isBlank())) {
                 addError = context.getString(R.string.settings_mcp_failed, "飞书模板需要填写 App ID 和 App Secret")
@@ -697,6 +729,7 @@ private fun McpServerAddDialog(onDismiss: () -> Unit, onAdd: suspend (McpServerC
                     name = name.ifBlank { selectedTemplate.displayName },
                     transportType = transportType,
                     url = url.trim(),
+                    command = command.trim(),
                     authToken = authToken.trim(),
                     headers = parseHeaders(headersText),
                     autoReconnect = autoReconnect,

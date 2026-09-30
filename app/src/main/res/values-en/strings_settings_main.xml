@@ -258,7 +258,11 @@
     <string name="settings_mcp_display_name">Display Name</string>
     <string name="settings_mcp_display_name_placeholder">e.g. GitHub MCP</string>
     <string name="settings_mcp_transport_type">Transport Type</string>
-    <string name="settings_mcp_stdio_hint">Android does not support stdio transport; only SSE / StreamableHTTP are supported. Use the built-in ToolRegistry for local tools.</string>
+    <string name="settings_mcp_stdio_hint">Supports local STDIO (built-in Node runtime) and remote SSE / StreamableHTTP connections.</string>
+    <string name="settings_mcp_stdio_command">Command</string>
+    <string name="settings_mcp_stdio_command_placeholder">npx -y @modelcontextprotocol/server-filesystem /sdcard/Documents</string>
+    <string name="settings_mcp_stdio_command_help">Starts a local MCP server inside the built-in Node runtime; supports node / npm / npx commands. First run downloads dependencies.</string>
+    <string name="settings_mcp_stdio_command_required">Please enter a start command</string>
     <string name="settings_mcp_bearer_token">Bearer Token (optional)</string>
     <string name="settings_mcp_custom_headers">Custom Headers (key:value per line)</string>
     <string name="settings_mcp_auto_reconnect">Auto Reconnect (exponential backoff)</string>

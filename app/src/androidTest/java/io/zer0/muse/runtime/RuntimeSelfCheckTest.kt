@@ -123,4 +123,27 @@ class RuntimeSelfCheckTest {
             assertTrue("输出异常: ${r.stdout}", r.stdout.startsWith("v24"))
         }
     }
+
+    @Test
+    fun t10_shimNameResolutionAndShebang() {
+        runBlocking {
+            // P1-B 冒烟：sh 内按名字调 node/npm（名称映射）+ shebang 脚本直接执行（npx .bin 场景）
+            MuseRuntime.ensureData(ctx).getOrThrow()
+
+            val r1 = MuseRuntime.exec(ctx, listOf("/system/bin/sh", "-c", "node -v"), timeoutMs = 20_000)
+            assertEquals("stderr=${r1.stderr}", 0, r1.exitCode)
+            assertTrue("输出: ${r1.stdout}", r1.stdout.startsWith("v24"))
+
+            val r2 = MuseRuntime.exec(ctx, listOf("/system/bin/sh", "-c", "npm -v"), timeoutMs = 60_000)
+            assertEquals("stderr=${r2.stderr}", 0, r2.exitCode)
+            assertTrue("输出: ${r2.stdout}", r2.stdout.contains("11."))
+
+            val script = java.io.File(MuseRuntime.binDir(ctx), "hello-tool")
+            script.writeText("#!/usr/bin/env node\nconsole.log('shebang-ok', 6*7);\n")
+            script.setExecutable(true, false)
+            val r3 = MuseRuntime.exec(ctx, listOf("/system/bin/sh", "-c", script.absolutePath), timeoutMs = 20_000)
+            assertEquals("stderr=${r3.stderr}", 0, r3.exitCode)
+            assertTrue("输出: ${r3.stdout}", r3.stdout.contains("shebang-ok 42"))
+        }
+    }
 }

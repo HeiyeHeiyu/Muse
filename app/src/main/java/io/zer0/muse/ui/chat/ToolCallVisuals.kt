@@ -85,6 +85,7 @@ internal object ToolCallVisuals {
         // 代码 / 终端
         "execute_code" to MuseIcons.code,
         "execute_javascript" to MuseIcons.braces,
+        "execute_node_script" to MuseIcons.terminal,
         "execute_shell" to MuseIcons.terminal,
         "run_command" to MuseIcons.terminal,
         "json_pretty" to MuseIcons.braces,
@@ -319,6 +320,7 @@ internal object ToolCallVisuals {
         "workspace_write" to R.string.tool_summary_workspace_write,
         "execute_code" to R.string.tool_summary_execute_code,
         "execute_javascript" to R.string.tool_summary_execute_javascript,
+        "execute_node_script" to R.string.tool_summary_execute_javascript,
         "execute_shell" to R.string.tool_summary_execute_shell,
         "run_command" to R.string.tool_summary_run_command,
         "open_url" to R.string.tool_summary_open_url,
@@ -572,6 +574,7 @@ internal object ToolCallVisuals {
         "list_files" to R.string.tool_label_list_files,
         "execute_code" to R.string.tool_label_execute_code,
         "execute_javascript" to R.string.tool_label_execute_javascript,
+        "execute_node_script" to R.string.tool_label_execute_javascript,
         "execute_shell" to R.string.tool_label_execute_shell,
         "open_url" to R.string.tool_label_open_url,
         "generate_image" to R.string.tool_label_generate_image,

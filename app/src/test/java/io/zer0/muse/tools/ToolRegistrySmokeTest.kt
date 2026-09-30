@@ -216,6 +216,7 @@ class ToolRegistrySmokeTest {
          */
         val SELF_REGISTERED_IN_TOOL_REGISTRY: List<String> = listOf(
             "execute_javascript",
+            "execute_node_script",
             "browser_navigate",
             "browser_click",
             "browser_type",
@@ -279,6 +280,8 @@ class ToolRegistrySmokeTest {
             "update_card_data",
             // JS 沙盒(WebView)
             "execute_javascript",
+            // P1-C: Node 脚本(内置运行时,Robolectric 下不执行)
+            "execute_node_script",
             // 浏览器(headless WebView)
             "browser_navigate", "browser_click", "browser_type", "browser_extract",
             "browser_scroll_bottom", "browser_get_html", "browser_snapshot",
@@ -311,6 +314,8 @@ class ToolRegistrySmokeTest {
             "device_shell",
             // v2.x 终端一期:应用沙盒终端命令
             "terminal_exec",
+            // v2.x 扩展运行时:内置 Node 沙盒自检(只读;依赖运行时,Robolectric 下不执行)
+            "runtime_selfcheck",
             // v2.2.1: Termux 通道(完整 Linux 环境命令;运行时注册,Robolectric 下不执行)
             "termux_exec",
             // v2.2.1: GUI Agent 环(视觉驱动多步操作;运行时由初始器注册,Robolectric 下不执行)

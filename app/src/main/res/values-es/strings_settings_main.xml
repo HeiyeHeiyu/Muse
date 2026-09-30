@@ -258,7 +258,11 @@
     <string name="settings_mcp_display_name">Nombre para mostrar</string>
     <string name="settings_mcp_display_name_placeholder">p.ej.</string>
     <string name="settings_mcp_transport_type">Tipo de transporte</string>
-    <string name="settings_mcp_stdio_hint">Android no admite el transporte estándar;</string>
+    <string name="settings_mcp_stdio_hint">Compatible con STDIO local (runtime Node integrado) y conexiones remotas SSE / StreamableHTTP.</string>
+    <string name="settings_mcp_stdio_command">Comando</string>
+    <string name="settings_mcp_stdio_command_placeholder">npx -y @modelcontextprotocol/server-filesystem /sdcard/Documents</string>
+    <string name="settings_mcp_stdio_command_help">Inicia un servidor MCP local en el runtime Node integrado; admite comandos node / npm / npx. La primera ejecución descarga dependencias.</string>
+    <string name="settings_mcp_stdio_command_required">Introduce un comando de inicio</string>
     <string name="settings_mcp_bearer_token">Token al portador (opcional)</string>
     <string name="settings_mcp_custom_headers">Encabezados personalizados (clave: valor por línea)</string>
     <string name="settings_mcp_auto_reconnect">Reconexión automática (retroceso exponencial)</string>

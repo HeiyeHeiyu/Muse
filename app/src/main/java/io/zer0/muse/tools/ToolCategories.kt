@@ -156,6 +156,7 @@ object ToolCategories {
     val GLOBAL: Set<String> =
         setOf(
             "execute_javascript",
+            "execute_node_script",
             "execute_shell",
             "workspace_write",
             "workspace_list",

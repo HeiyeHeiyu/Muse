@@ -28,8 +28,10 @@ object Pty {
     /**
      * 创建伪终端子进程。
      * @return 主端 fd(>=0);失败 -1。子进程 pid 写入 pidArray[0]。
+     * @param extraPath P1-B: 追加到 PATH 首位的目录(运行时 bin);空串=不追加。
+     * @param preloadLib P1-B: LD_PRELOAD 的 exec 垫片路径;空串=不设置。
      */
-    external fun createSubprocess(execPath: String, cwd: String, pidArray: IntArray): Int
+    external fun createSubprocess(execPath: String, cwd: String, pidArray: IntArray, extraPath: String, preloadLib: String): Int
 
     /** 阻塞等待子进程退出,返回退出码(信号终止 128+signo;失败 -1)。 */
     external fun waitFor(pid: Int): Int

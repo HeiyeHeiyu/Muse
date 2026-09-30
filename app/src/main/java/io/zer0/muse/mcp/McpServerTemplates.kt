@@ -13,6 +13,8 @@ data class McpServerTemplate(
     val transportType: McpTransportType,
     val urlPlaceholder: String,
     val defaultHeaders: Map<String, String> = emptyMap(),
+    /** STDIO 模板的默认命令（transportType == STDIO 时使用）。 */
+    val commandPlaceholder: String = "",
 )
 
 /**
@@ -33,6 +35,31 @@ object McpServerTemplates {
     )
 
     val all: List<McpServerTemplate> = listOf(
+        // P1-A: 本地 MCP（内置 Node 运行时，stdio 传输；首次运行需联网下载依赖包）
+        McpServerTemplate(
+            id = "local_filesystem",
+            displayName = "本地文件系统",
+            summary = "本地 MCP：让 AI 读写手机上的文件夹（内置运行时）",
+            transportType = McpTransportType.STDIO,
+            urlPlaceholder = "",
+            commandPlaceholder = "npx -y @modelcontextprotocol/server-filesystem /sdcard/Documents",
+        ),
+        McpServerTemplate(
+            id = "local_memory",
+            displayName = "记忆知识图",
+            summary = "本地 MCP：知识图谱式长期记忆（内置运行时）",
+            transportType = McpTransportType.STDIO,
+            urlPlaceholder = "",
+            commandPlaceholder = "npx -y @modelcontextprotocol/server-memory",
+        ),
+        McpServerTemplate(
+            id = "local_sequential_thinking",
+            displayName = "顺序思考",
+            summary = "本地 MCP：分步推理辅助（内置运行时）",
+            transportType = McpTransportType.STDIO,
+            urlPlaceholder = "",
+            commandPlaceholder = "npx -y @modelcontextprotocol/server-sequential-thinking",
+        ),
         McpServerTemplate(
             id = "feishu_remote",
             displayName = "飞书知识库",

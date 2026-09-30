@@ -249,7 +249,7 @@ object ToolExposurePolicy {
                 keywords = setOf("终端", "命令行", "shell", "root", "adb", "系统命令"),
                 toolNames =
                 setOf(
-                    "execute_shell", "execute_javascript",
+                    "execute_shell", "execute_javascript", "execute_node_script",
                     "settings_get", "settings_put", "am_start", "list_packages",
                     "logcat_tail", "input_inject", "network_toggle",
                     "device_shell", "terminal_exec", "termux_exec",

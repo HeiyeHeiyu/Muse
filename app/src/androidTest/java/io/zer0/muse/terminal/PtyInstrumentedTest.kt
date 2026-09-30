@@ -21,7 +21,7 @@ class PtyInstrumentedTest {
         assertTrue("libpty.so 应加载成功(Pty.available),loadError=${Pty.loadError}", Pty.available)
         val cwd = InstrumentationRegistry.getInstrumentation().targetContext.filesDir.absolutePath
         val pidArray = IntArray(1)
-        val fd = Pty.createSubprocess("/system/bin/sh", cwd, pidArray)
+        val fd = Pty.createSubprocess("/system/bin/sh", cwd, pidArray, "", "")
         assertTrue("forkpty 应返回有效 fd,实际 $fd", fd >= 0)
         assertTrue("子进程 pid 应有效,实际 ${pidArray[0]}", pidArray[0] > 0)
 
@@ -68,7 +68,7 @@ class PtyInstrumentedTest {
         if (!Pty.available) return
         val cwd = InstrumentationRegistry.getInstrumentation().targetContext.filesDir.absolutePath
         val pidArray = IntArray(1)
-        val fd = Pty.createSubprocess("/system/bin/sh", cwd, pidArray)
+        val fd = Pty.createSubprocess("/system/bin/sh", cwd, pidArray, "", "")
         assertTrue(fd >= 0)
         Pty.setWindowSize(fd, 40, 120)
         Pty.setWindowSize(fd, 0, 0) // 非法值应被忽略而非崩溃

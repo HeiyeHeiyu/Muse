@@ -24,6 +24,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -198,6 +199,8 @@ class McpClient(
     private val client: OkHttpClient = McpClient.defaultClient,
     /** Phase 10.4: SettingsRepository 注入(OAuth 启用时用于 token 持久化;null 走静态 token)。 */
     private val settings: io.zer0.muse.data.SettingsRepository? = null,
+    /** P1-A: 应用上下文（stdio 传输解析内置运行时路径用；其他传输可为 null）。 */
+    private val appContext: android.content.Context? = null,
 ) : AutoCloseable {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -210,6 +213,10 @@ class McpClient(
     /** 当前 SSE 连接(用于 close 时取消)。 */
     @Volatile
     private var eventSource: EventSource? = null
+
+    /** P1-A: stdio 传输(本地子进程)。 */
+    @Volatile
+    private var stdioTransport: McpStdioTransport? = null
 
     /** SSE 传输模式下的 POST endpoint(server 通过 endpoint 事件告知)。 */
     @Volatile
@@ -353,7 +360,12 @@ class McpClient(
         streamableSessionId = null
         negotiatedProtocolVersion = PROTOCOL_VERSION
         streamableSessionInvalidated = false
-        Logger.d(TAG, "[${config.name}] 连接中 transport=${config.transportType} url=${config.url}")
+        val endpointDesc = if (config.transportType == McpTransportType.STDIO) {
+            "command=${config.command}"
+        } else {
+            "url=${config.url}"
+        }
+        Logger.d(TAG, "[${config.name}] 连接中 transport=${config.transportType} $endpointDesc")
 
         // Phase 10.4: OAuth 模式下先校验 token
         if (oauthEnabled && !ensureValidToken()) {
@@ -370,6 +382,7 @@ class McpClient(
         val connected = when (config.transportType) {
             McpTransportType.SSE -> connectSse()
             McpTransportType.STREAMABLE_HTTP -> connectStreamableHttp()
+            McpTransportType.STDIO -> connectStdio()
         }
 
         if (connected) {
@@ -950,6 +963,56 @@ class McpClient(
     // ── JSON-RPC 请求 ─────────────────────────────────────────────────────────
 
     /** 发送 initialize 请求 + initialized 通知,完成握手。 */
+    /**
+     * P1-A: stdio 传输连接 — 启动本地 MCP server 子进程并完成 initialize 握手。
+     */
+    private suspend fun connectStdio(): Boolean {
+        val ctx = appContext ?: run {
+            Logger.w(TAG, "[${config.name}] stdio 连接缺少应用上下文")
+            return false
+        }
+        stdioTransport?.stop()
+        val transport = McpStdioTransport(
+            config = config,
+            context = ctx,
+            scope = scope,
+            onMessage = { json -> handleStdioMessage(json) },
+            onExit = { code -> handleStdioExit(code) },
+        )
+        return if (transport.start()) {
+            stdioTransport = transport
+            sendInitialize()
+        } else {
+            false
+        }
+    }
+
+    /**
+     * P1-A: stdio 消息分流。
+     *  - 有 id 且有 method → server→client 请求（回包走 sendResponse）
+     *  - 有 id → 请求响应（投递到 pendingRequests）
+     *  - 无 id → 通知（走 [handleNotification]）
+     */
+    private fun handleStdioMessage(json: JsonObject) {
+        val id = (json["id"] as? JsonPrimitive)?.contentOrNull?.toLongOrNull()
+        val method = (json["method"] as? JsonPrimitive)?.contentOrNull
+        when {
+            id != null && method != null -> handleServerRequest(id, method)
+            id != null -> pendingRequests[id]?.trySend(json)
+            method != null -> {
+                val params = json["params"] as? JsonObject ?: JsonObject(emptyMap())
+                handleNotification(method, params)
+            }
+        }
+    }
+
+    /** P1-A: stdio 进程退出 — 非主动关闭时走重连。 */
+    private fun handleStdioExit(code: Int) {
+        Logger.w(TAG, "[${config.name}] stdio 进程退出: code=$code")
+        stdioTransport = null
+        if (!closed) scheduleReconnect()
+    }
+
     private suspend fun sendInitialize(): Boolean {
         val id = idCounter.getAndIncrement()
         val request = buildJsonObject {
@@ -1295,6 +1358,7 @@ class McpClient(
         when (config.transportType) {
             McpTransportType.STREAMABLE_HTTP -> postStreamableRequest(jsonStr)
             McpTransportType.SSE -> postSseRequest(jsonStr)
+            McpTransportType.STDIO -> stdioTransport?.send(jsonStr)
         }
     }
 
@@ -1329,6 +1393,22 @@ class McpClient(
                     pendingRequests.remove(id)
                 }
             }
+            McpTransportType.STDIO -> {
+                // P1-A: 注册 pending channel -> 写 stdin -> 等 stdout 行响应
+                val channel = Channel<JsonObject>(Channel.CONFLATED)
+                pendingRequests[id] = channel
+                try {
+                    withTimeoutOrNull(timeoutMs) {
+                        if (stdioTransport?.send(jsonStr) == true) {
+                            channel.receiveCatching().getOrNull()
+                        } else {
+                            null
+                        }
+                    }
+                } finally {
+                    pendingRequests.remove(id)
+                }
+            }
         }
 
         if (
@@ -1356,6 +1436,7 @@ class McpClient(
         when (config.transportType) {
             McpTransportType.STREAMABLE_HTTP -> postStreamableRequest(jsonStr)
             McpTransportType.SSE -> postSseRequest(jsonStr)
+            McpTransportType.STDIO -> stdioTransport?.send(jsonStr)
         }
     }
 
@@ -1397,6 +1478,8 @@ class McpClient(
     override fun close() {
         closed = true
         _state.value = McpConnectionState.DISCONNECTED
+        stdioTransport?.stop()
+        stdioTransport = null
         eventSource?.cancel()
         eventSource = null
         scope.cancel()

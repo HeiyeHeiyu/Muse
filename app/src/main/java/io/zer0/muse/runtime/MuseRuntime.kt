@@ -85,7 +85,10 @@ object MuseRuntime {
             val rt = runtimeDir(ctx)
             val mark = File(rt, MARK_FILE)
             val installed = runCatching { mark.readText().trim() }.getOrNull()
-            if (installed == RUNTIME_DATA_VERSION && npmCli(ctx).isFile) return@runCatching
+            if (installed == RUNTIME_DATA_VERSION && npmCli(ctx).isFile) {
+                setupBinLinks(ctx)
+                return@runCatching
+            }
 
             Logger.i(TAG, "解压运行时数据 ($installed -> $RUNTIME_DATA_VERSION)")
             npmDir(ctx).deleteRecursively()
@@ -110,8 +113,36 @@ object MuseRuntime {
                 }
             }
             mark.writeText(RUNTIME_DATA_VERSION)
+            setupBinLinks(ctx)
             Logger.i(TAG, "运行时数据解压完成")
         }.onFailure { Logger.w(TAG, "运行时数据解压失败: ${it.message}", it) }
+    }
+
+    /**
+     * P1-B: 准备运行时 bin 入口（symlink: node / npm / npx）。
+     *
+     * 供终端与子进程的 PATH 查找使用。npm/npx 目标为 JS 文件（先补可执行位，
+     * 让 shell 的查找判定通过）；实际执行由 exec 垫片按 shebang 重写为 node。
+     */
+    private fun setupBinLinks(ctx: Context) {
+        val bin = binDir(ctx).apply { mkdirs() }
+        val npmBin = File(npmDir(ctx), "bin")
+        listOf("npm-cli.js", "npx-cli.js").forEach { name ->
+            File(npmBin, name).takeIf { it.isFile }?.setExecutable(true, false)
+        }
+
+        fun relink(name: String, target: File) {
+            if (!target.isFile) return
+            val link = File(bin, name)
+            // lstat 存在（含断链）先删后建，保证指向最新目标
+            runCatching { android.system.Os.lstat(link.absolutePath) }
+                .onSuccess { runCatching { link.delete() } }
+            runCatching { android.system.Os.symlink(target.absolutePath, link.absolutePath) }
+                .onFailure { Logger.w(TAG, "bin symlink 创建失败($name): ${it.message}") }
+        }
+        relink("node", nodeBinary(ctx))
+        relink("npm", File(npmBin, "npm-cli.js"))
+        relink("npx", File(npmBin, "npx-cli.js"))
     }
 
     // ── 子进程环境 ───────────────────────────────────────────────
@@ -134,6 +165,13 @@ object MuseRuntime {
             put("LD_LIBRARY_PATH", nativeLibDir(ctx).absolutePath)
             put("SHELL", "/system/bin/sh")
             put("TERM", "xterm-256color")
+            // P1-B: exec 垫片（名称映射 + shebang 解析；文件缺失时自动跳过）
+            File(nativeLibDir(ctx), "libmuse_exec.so").takeIf { it.isFile }?.let {
+                put("LD_PRELOAD", it.absolutePath)
+            }
+            put("MUSE_NODE_BIN", nodeBinary(ctx).absolutePath)
+            put("MUSE_NPM_CLI", npmCli(ctx).absolutePath)
+            put("MUSE_NPX_CLI", File(npmDir(ctx), "bin/npx-cli.js").absolutePath)
             putAll(extra)
         }
     }

@@ -323,7 +323,11 @@
     <string name="settings_mcp_display_name">显示名</string>
     <string name="settings_mcp_display_name_placeholder">如 GitHub MCP</string>
     <string name="settings_mcp_transport_type">传输类型</string>
-    <string name="settings_mcp_stdio_hint">Android 不支持 stdio 传输,仅支持 SSE / StreamableHTTP。本地工具请用内置 ToolRegistry。</string>
+    <string name="settings_mcp_stdio_hint">支持本地 STDIO（应用内置 Node 运行时）与远程 SSE / StreamableHTTP 连接。</string>
+    <string name="settings_mcp_stdio_command">命令</string>
+    <string name="settings_mcp_stdio_command_placeholder">npx -y @modelcontextprotocol/server-filesystem /sdcard/Documents</string>
+    <string name="settings_mcp_stdio_command_help">在内置 Node 运行时中启动本地 MCP server；支持 node / npm / npx 命令，首次运行需联网下载依赖。</string>
+    <string name="settings_mcp_stdio_command_required">请填写启动命令</string>
     <string name="settings_mcp_bearer_token">Bearer Token(可选)</string>
     <string name="settings_mcp_custom_headers">自定义请求头(每行 key:value)</string>
     <string name="settings_mcp_auto_reconnect">自动重连(指数退避)</string>

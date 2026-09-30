@@ -15,17 +15,13 @@ import kotlinx.serialization.Serializable
  *   响应可以是单个 JSON 或 SSE 流(取决于 server 是否需要流式推送)。
  *   适用于新版 MCP server(2025-03-26 之后)。
  *
- * Phase 11.1.1 平台限制说明(不做 stdio 实现):
- *  MCP 规范定义了第三种传输 stdio(子进程 stdin/stdout 通信),但 **Android 沙箱
- *  不支持此传输**:
- *   1. SELinux + seccomp 限制 exec 任意二进制(仅 /system/bin 极少数命令可启动)
- *   2. APK 内 .so 只能 System.loadLibrary 加载,不能作为独立进程启动
- *   3. Android 8+ 严格限制后台进程,长驻 stdio MCP server 子进程会被系统杀死
- *  Android 平台限制同样决定了传输枚举只保留 SSE + StreamableHTTP。
- *  若需本地工具,建议用 app 内嵌 ToolRegistry(P5-H / P8.8 LocalTools)替代。
+ * - [STDIO]: 本地子进程传输（P1-A）。
+ *   在应用内置 Node 运行时（MuseRuntime）中启动本地 MCP server（命令支持
+ *   node / npm / npx），通过 stdin/stdout 行分隔 JSON-RPC 通信。
+ *   （历史背景：曾因 Android W^X 限制判定不可行，已由内置运行时方案解决。）
  */
 @Serializable
-enum class McpTransportType { SSE, STREAMABLE_HTTP }
+enum class McpTransportType { SSE, STREAMABLE_HTTP, STDIO }
 
 /**
  * Phase 9.5 (M3): MCP server 连接状态。
@@ -159,7 +155,7 @@ data class McpTokenInfo(
  *
  * @param id 唯一 id(用于 Room 持久化 + ToolRegistry 工具名前缀)
  * @param name 显示名(用户可读,如 "GitHub MCP")
- * @param transportType 传输类型 SSE / STREAMABLE_HTTP
+ * @param transportType 传输类型 SSE / STREAMABLE_HTTP / STDIO
  * @param url 端点 URL:
  *   - SSE: SSE endpoint(如 https://server/sse),client 从此 URL 接收事件,
  *          POST endpoint 从 SSE 事件里的 endpoint 字段动态获取
@@ -179,6 +175,8 @@ data class McpServerConfig(
     val name: String,
     val transportType: McpTransportType = McpTransportType.STREAMABLE_HTTP,
     val url: String = "",
+    /** P1-A: stdio 传输的启动命令（如 "npx -y @modelcontextprotocol/server-filesystem /sdcard"）。 */
+    val command: String = "",
     val headers: Map<String, String> = emptyMap(),
     val authToken: String = "",
     val enabled: Boolean = true,
@@ -253,6 +251,8 @@ data class McpServerConfig(
      * 地址若全为 loopback 则放行;其余经 SsrfGuard 收敛判定。
      */
     fun isSsrfBlocked(): Boolean {
+        // P1-A: stdio 无网络端点,不存在 SSRF 面
+        if (transportType == McpTransportType.STDIO) return false
         val uri = runCatching { java.net.URI(url) }.getOrNull()
             ?: return true // 无法解析 → 保守拒绝
         if (uri.scheme?.lowercase() !in setOf("http", "https")) return true

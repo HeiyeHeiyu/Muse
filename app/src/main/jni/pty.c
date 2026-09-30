@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pty.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <termios.h>
@@ -34,12 +35,17 @@
 JNIEXPORT jint JNICALL
 Java_io_zer0_muse_terminal_Pty_createSubprocess(
         JNIEnv *env, jobject thiz,
-        jstring execPath, jstring cwd, jintArray pidArray) {
+        jstring execPath, jstring cwd, jintArray pidArray,
+        jstring extraPath, jstring preloadLib) {
     const char *exec_c = (*env)->GetStringUTFChars(env, execPath, NULL);
     const char *cwd_c = (*env)->GetStringUTFChars(env, cwd, NULL);
+    const char *extra_c = extraPath ? (*env)->GetStringUTFChars(env, extraPath, NULL) : NULL;
+    const char *preload_c = preloadLib ? (*env)->GetStringUTFChars(env, preloadLib, NULL) : NULL;
     if (exec_c == NULL || cwd_c == NULL) {
         if (exec_c) (*env)->ReleaseStringUTFChars(env, execPath, exec_c);
         if (cwd_c) (*env)->ReleaseStringUTFChars(env, cwd, cwd_c);
+        if (extra_c) (*env)->ReleaseStringUTFChars(env, extraPath, extra_c);
+        if (preload_c) (*env)->ReleaseStringUTFChars(env, preloadLib, preload_c);
         return -1;
     }
 
@@ -57,7 +63,17 @@ Java_io_zer0_muse_terminal_Pty_createSubprocess(
         /* 子进程:仅做最小 syscall,随后 exec。*/
         setenv("TERM", "xterm-256color", 1);
         setenv("HOME", cwd_c, 1);
-        setenv("PATH", "/system/bin:/system/xbin", 1);
+        /* P1-B: 终端 PATH 追加运行时 bin;注入 exec 垫片(名称映射 + shebang 解析)。*/
+        if (extra_c != NULL && extra_c[0] != '\0') {
+            char pathbuf[4096];
+            snprintf(pathbuf, sizeof(pathbuf), "%s:/system/bin:/system/xbin", extra_c);
+            setenv("PATH", pathbuf, 1);
+        } else {
+            setenv("PATH", "/system/bin:/system/xbin", 1);
+        }
+        if (preload_c != NULL && preload_c[0] != '\0') {
+            setenv("LD_PRELOAD", preload_c, 1);
+        }
         if (cwd_c[0] != '\0') {
             if (chdir(cwd_c) != 0) {
                 chdir("/");
@@ -72,6 +88,8 @@ Java_io_zer0_muse_terminal_Pty_createSubprocess(
     (*env)->SetIntArrayRegion(env, pidArray, 0, 1, &pidVal);
     (*env)->ReleaseStringUTFChars(env, execPath, exec_c);
     (*env)->ReleaseStringUTFChars(env, cwd, cwd_c);
+    if (extra_c) (*env)->ReleaseStringUTFChars(env, extraPath, extra_c);
+    if (preload_c) (*env)->ReleaseStringUTFChars(env, preloadLib, preload_c);
     LOGI("pty created: pid=%d master=%d", (int) pid, master);
     return master;
 }

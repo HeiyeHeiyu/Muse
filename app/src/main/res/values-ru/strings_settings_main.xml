@@ -258,7 +258,11 @@
     <string name="settings_mcp_display_name">Отображаемое имя</string>
     <string name="settings_mcp_display_name_placeholder">например</string>
     <string name="settings_mcp_transport_type">Тип транспорта</string>
-    <string name="settings_mcp_stdio_hint">Android не поддерживает транспорт stdio;</string>
+    <string name="settings_mcp_stdio_hint">Поддерживается локальный STDIO (встроенный Node) и удалённые подключения SSE / StreamableHTTP.</string>
+    <string name="settings_mcp_stdio_command">Команда</string>
+    <string name="settings_mcp_stdio_command_placeholder">npx -y @modelcontextprotocol/server-filesystem /sdcard/Documents</string>
+    <string name="settings_mcp_stdio_command_help">Запускает локальный MCP-сервер во встроенном Node-рантайме; поддерживаются команды node / npm / npx. При первом запуске зависимости загружаются из сети.</string>
+    <string name="settings_mcp_stdio_command_required">Введите команду запуска</string>
     <string name="settings_mcp_bearer_token">Токен на предъявителя (необязательно)</string>
     <string name="settings_mcp_custom_headers">Пользовательские заголовки (ключ:значение в строке)</string>
     <string name="settings_mcp_auto_reconnect">Автоматическое переподключение (экспоненциальное отключение)</string>

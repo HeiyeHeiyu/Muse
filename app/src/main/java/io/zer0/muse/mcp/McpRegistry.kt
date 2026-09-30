@@ -389,7 +389,7 @@ class McpRegistry(
             return
         }
         // Phase 10.4: 传入 settings,使 McpClient 支持 OAuth token 持久化
-        val client = McpClient(config, settings = settings)
+        val client = McpClient(config, settings = settings, appContext = context)
         // init collector 与 startAll 可能同时发现同一个 server,用 putIfAbsent 防止双 client
         // 并行握手、重复注册同名 MCP 工具和重复重连。
         if (clients.putIfAbsent(config.id, client) != null) {
@@ -806,24 +806,30 @@ class McpRegistry(
                 "当前没有配置 MCP 服务器。"
             } else {
                 current.joinToString("\\n") { cfg ->
-                    "${cfg.id} | ${cfg.name} | ${cfg.transportType.name} | ${if (cfg.enabled) "enabled" else "disabled"} | ${_serversState.value[cfg.id] ?: McpConnectionState.DISCONNECTED} | ${cfg.url}"
+                    val endpoint = if (cfg.transportType == McpTransportType.STDIO) cfg.command else cfg.url
+                    val state = _serversState.value[cfg.id] ?: McpConnectionState.DISCONNECTED
+                    val enabledText = if (cfg.enabled) "enabled" else "disabled"
+                    "${cfg.id} | ${cfg.name} | ${cfg.transportType.name} | $enabledText | $state | $endpoint"
                 }
             }
         }
         toolRegistry.register(
             def(
                 "mcp_mgmt_configure",
-                "创建或更新远程 MCP 服务器配置，并自动连接、握手、发现工具。Android 仅支持 SSE 或 Streamable HTTP，不支持 stdio。",
+                "创建或更新 MCP 服务器配置（远程 SSE / Streamable HTTP，或本地 STDIO），并自动连接、握手、发现工具。" +
+                    "STDIO 模式在内置 Node 运行时中执行 command（支持 node / npm / npx 命令），例如 " +
+                    "npx -y @modelcontextprotocol/server-filesystem /sdcard/Documents。",
                 mapOf(
                     "id" to "稳定唯一 ID，可省略",
                     "name" to "服务器显示名",
-                    "url" to "SSE 或 Streamable HTTP endpoint，必须是 http/https URL",
-                    "transport" to "SSE 或 STREAMABLE_HTTP，默认 STREAMABLE_HTTP",
+                    "transport" to "SSE / STREAMABLE_HTTP / STDIO，默认 STREAMABLE_HTTP",
+                    "url" to "网络传输的 endpoint（http/https）；STDIO 模式不需要",
+                    "command" to "STDIO 模式的启动命令（node / npm / npx），例如 npx -y @modelcontextprotocol/server-memory",
                     "auth_token" to "可选 Bearer token，会加密保存",
                     "headers_json" to "可选 JSON 对象，例如 {\"X-API-Key\":\"...\"}",
                     "enabled" to "可选 true/false，默认 true",
                 ),
-                setOf("name", "url"),
+                setOf("name"),
                 io.zer0.muse.tools.ToolRiskLevel.HIGH,
             ),
         ) { args -> configureFromTool(args) }
@@ -870,9 +876,24 @@ class McpRegistry(
     private suspend fun configureFromTool(args: Map<String, String>): String {
         val name = args["name"].orEmpty().trim()
         val url = args["url"].orEmpty().trim()
-        if (name.isBlank() || url.isBlank()) return "name 和 url 都不能为空。"
-        val parsedUrl = runCatching { java.net.URI(url) }.getOrNull()
-        if (parsedUrl == null || parsedUrl.scheme !in setOf("http", "https") || parsedUrl.host.isNullOrBlank()) return "MCP url 必须是合法的 http/https 地址；Android 不支持 stdio。"
+        val command = args["command"].orEmpty().trim()
+        val transport = when (args["transport"].orEmpty().trim().uppercase()) {
+            "SSE" -> McpTransportType.SSE
+            "STDIO" -> McpTransportType.STDIO
+            "", "STREAMABLE_HTTP", "STREAMABLEHTTP", "HTTP" -> McpTransportType.STREAMABLE_HTTP
+            else -> return "transport 只能是 SSE / STREAMABLE_HTTP / STDIO。"
+        }
+        // P1-A: stdio 用 command 校验;网络传输走 url 校验
+        if (transport == McpTransportType.STDIO) {
+            if (name.isBlank() || command.isBlank()) return "stdio 模式下 name 和 command 都不能为空。"
+        } else {
+            if (name.isBlank() || url.isBlank()) return "name 和 url 都不能为空。"
+            val parsedUrl = runCatching { java.net.URI(url) }.getOrNull()
+            val badUrl = parsedUrl == null ||
+                parsedUrl.scheme !in setOf("http", "https") ||
+                parsedUrl.host.isNullOrBlank()
+            if (badUrl) return "MCP url 必须是合法的 http/https 地址。"
+        }
         val id = args["id"].orEmpty().trim().ifBlank {
             name.lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_')
                 .ifBlank { "mcp_${System.currentTimeMillis()}" }
@@ -881,23 +902,31 @@ class McpRegistry(
         if (!SERVER_ID_REGEX.matches(id)) {
             return "id 只能含字母、数字、下划线和连字符(最长 64 字符)。"
         }
-        val transport = when (args["transport"].orEmpty().trim().uppercase()) {
-            "SSE" -> McpTransportType.SSE
-            "", "STREAMABLE_HTTP", "STREAMABLEHTTP", "HTTP" -> McpTransportType.STREAMABLE_HTTP
-            else -> return "transport 只能是 SSE 或 STREAMABLE_HTTP。"
-        }
         val headers = args["headers_json"].orEmpty().trim().let { raw ->
             if (raw.isBlank()) {
                 emptyMap()
             } else {
                 runCatching {
-                    val obj = io.zer0.common.AppJson.parseToJsonElement(raw) as? kotlinx.serialization.json.JsonObject ?: return "headers_json 必须是 JSON 对象。"
+                    val parsedRaw = io.zer0.common.AppJson.parseToJsonElement(raw)
+                    val obj = parsedRaw as? kotlinx.serialization.json.JsonObject
+                        ?: return "headers_json 必须是 JSON 对象。"
                     obj.mapValues { (_, value) -> value.toString().trim('"') }
                 }.getOrElse { return "headers_json 不是合法 JSON：${it.message ?: "格式错误"}" }
             }
         }
         val enabled = args["enabled"].orEmpty().trim().lowercase().let { it != "false" && it != "0" }
-        return upsertServer(McpServerConfig(id, name, transport, url, headers, args["auth_token"].orEmpty().trim(), enabled = enabled))
+        return upsertServer(
+            McpServerConfig(
+                id = id,
+                name = name,
+                transportType = transport,
+                url = url,
+                command = command,
+                headers = headers,
+                authToken = args["auth_token"].orEmpty().trim(),
+                enabled = enabled,
+            ),
+        )
     }
 
     /** 持久化 server 列表到 DataStore。 */

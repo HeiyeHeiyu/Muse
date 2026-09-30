@@ -1,0 +1,3 @@
+# P1: 保护 shell 脚本在 Windows checkout 时保持 LF
+# （core.autocrlf=true 会把 .sh 转换为 CRLF，导致 WSL/bash 下无法执行）
+*.sh text eol=lf

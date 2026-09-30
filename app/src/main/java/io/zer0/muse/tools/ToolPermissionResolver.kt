@@ -334,6 +334,7 @@ object ToolPermissionResolver {
         // v1.0.52 P2-1: subagent_run 同步阻塞式独立子 agent,可调用多个工具,潜在副作用大
         "subagent_run" to ToolRiskLevel.HIGH,
         "execute_javascript" to ToolRiskLevel.HIGH,
+        "execute_node_script" to ToolRiskLevel.HIGH,
         "workspace_write" to ToolRiskLevel.HIGH,
         "workspace_delete" to ToolRiskLevel.HIGH,
         "workspace_mkdir" to ToolRiskLevel.HIGH,
@@ -481,6 +482,7 @@ object ToolPermissionResolver {
         "add_contact",
         "add_calendar_event",
         "execute_javascript",
+        "execute_node_script",
         "workspace_delete",
         "workspace_write",
         "workspace_move",

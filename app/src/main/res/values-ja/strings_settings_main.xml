@@ -258,7 +258,11 @@
     <string name="settings_mcp_display_name">表示名</string>
     <string name="settings_mcp_display_name_placeholder">例えば</string>
     <string name="settings_mcp_transport_type">輸送タイプ</string>
-    <string name="settings_mcp_stdio_hint">Android は stdio トランスポートをサポートしていません。</string>
+    <string name="settings_mcp_stdio_hint">ローカル STDIO（内蔵 Node ランタイム）とリモート SSE / StreamableHTTP 接続に対応。</string>
+    <string name="settings_mcp_stdio_command">コマンド</string>
+    <string name="settings_mcp_stdio_command_placeholder">npx -y @modelcontextprotocol/server-filesystem /sdcard/Documents</string>
+    <string name="settings_mcp_stdio_command_help">内蔵 Node ランタイムでローカル MCP サーバーを起動します。node / npm / npx コマンドに対応。初回実行時は依存パッケージをダウンロードします。</string>
+    <string name="settings_mcp_stdio_command_required">起動コマンドを入力してください</string>
     <string name="settings_mcp_bearer_token">無記名トークン (オプション)</string>
     <string name="settings_mcp_custom_headers">カスタムヘッダー (行ごとのキー:値)</string>
     <string name="settings_mcp_auto_reconnect">自動再接続 (指数関数的バックオフ)</string>

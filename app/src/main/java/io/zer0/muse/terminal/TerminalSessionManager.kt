@@ -115,7 +115,15 @@ class TerminalSessionManager(private val appContext: Context) {
         val workDir = File(appContext.filesDir, "workspace").apply { mkdirs() }
         val pidArray = IntArray(1)
         val fd = runCatching {
-            Pty.createSubprocess(SHELL_PATH, workDir.absolutePath, pidArray)
+            // P1-B: 终端 PATH 追加运行时 bin，并注入 exec 垫片(名称映射 + shebang；运行时未就绪时为空串跳过)
+            val (extraPath, preloadLib) = runtimeInjection(appContext)
+            Pty.createSubprocess(
+                SHELL_PATH,
+                workDir.absolutePath,
+                pidArray,
+                extraPath = extraPath,
+                preloadLib = preloadLib,
+            )
         }.getOrElse {
             Logger.w(TAG, "PTY 引擎启动失败: ${it.message}")
             -1
@@ -150,7 +158,10 @@ class TerminalSessionManager(private val appContext: Context) {
                 .apply {
                     environment()["TERM"] = "xterm-256color"
                     environment()["HOME"] = workDir.absolutePath
-                    environment()["PATH"] = "/system/bin:/system/xbin:$workDir/bin"
+                    val (extraPath, preloadLib) = runtimeInjection(appContext)
+                    val pathPrefix = if (extraPath.isNotEmpty()) "$extraPath:" else ""
+                    environment()["PATH"] = "$pathPrefix/system/bin:/system/xbin:$workDir/bin"
+                    if (preloadLib.isNotEmpty()) environment()["LD_PRELOAD"] = preloadLib
                 }
                 .start()
         }
@@ -203,6 +214,15 @@ class TerminalSessionManager(private val appContext: Context) {
         private const val SHELL_PATH = "/system/bin/sh"
         private const val SIGNAL_SIGINT = 2
         private const val SIGNAL_SIGKILL = 9
+
+        /** P1-B: 终端运行时注入 — extraPath=运行时 bin, preloadLib=exec 垫片;未就绪时为空串。 */
+        private fun runtimeInjection(appContext: Context): Pair<String, String> {
+            val bin = File(appContext.filesDir, "muse-runtime/bin")
+            val shim = File(appContext.applicationInfo.nativeLibraryDir, "libmuse_exec.so")
+            val extraPath = if (bin.isDirectory) bin.absolutePath else ""
+            val preloadLib = if (shim.isFile) shim.absolutePath else ""
+            return extraPath to preloadLib
+        }
     }
 }
 
