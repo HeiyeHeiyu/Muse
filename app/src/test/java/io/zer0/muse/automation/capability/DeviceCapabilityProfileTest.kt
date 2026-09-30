@@ -129,15 +129,20 @@ class DeviceCapabilityProfileTest {
     fun `operating guide covers channel selection verification and escalation`() {
         val guide = DeviceCapabilityProfile().renderOperatingGuide()
         // 先探测再动手
-        assertTrue(guide.contains("动手前先确认能力"))
+        assertTrue(guide, guide.contains("动手前先确认能力"))
         // 按最低够用层级选通道（避免一上来就动 Root）
-        assertTrue(guide.contains("按最低够用层级选通道"))
+        assertTrue(guide, guide.contains("按最低够用层级选通道"))
+        // 应用层工具无需自动化授权 → 必须写进规程，否则模型会绕过最省事的一层
+        assertTrue(guide, guide.contains("app_list"))
+        assertTrue(guide, guide.contains("app_launch"))
+        assertTrue(guide, guide.contains("app_settings"))
+        assertTrue(guide, guide.contains("app_force_stop"))
         // 每步验证
-        assertTrue(guide.contains("每步都要验证"))
+        assertTrue(guide, guide.contains("每步都要验证"))
         // 重复流程写脚本
-        assertTrue(guide.contains("优先写成脚本"))
+        assertTrue(guide, guide.contains("优先写成脚本"))
         // 缺权限如实说
-        assertTrue(guide.contains("缺权限就如实说"))
+        assertTrue(guide, guide.contains("缺权限就如实说"))
     }
 
     // ── Hook 行为边界 ──────────────────────────────────────────

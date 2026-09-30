@@ -404,4 +404,23 @@
     <string name="skill_update_reserved_rejected">수정 거부: id \'%1$s\'는 내장 예약 스킬로 수정할 수 없습니다.</string>
     <string name="skill_update_validate_failed">업데이트 검증 실패: %1$s</string>
     <string name="skill_updated">스킬이 업데이트됨: %1$s(id=%2$s)</string>
+
+    <!-- 应用控制（app_* 工具）：结果回给模型，措辞需自解释 -->
+    <string name="app_control_need_app_arg">앱 이름 또는 패키지 이름을 입력하세요.</string>
+    <string name="app_control_launch_action">실행</string>
+    <string name="app_control_settings_action">설정 열기</string>
+    <string name="app_control_force_stop_action">강제 종료</string>
+    <string name="app_control_clear_data_action">데이터 삭제</string>
+    <string name="app_control_uninstall_action">제거</string>
+    <string name="app_control_ok">완료: %1$s %2$s (경로: %3$s)</string>
+    <string name="app_control_unavailable">%1$s %2$s 할 수 없습니다: %3$s</string>
+    <string name="app_control_failed">%1$s %2$s 실패: %3$s</string>
+    <string name="app_control_reason_invalid_name">앱 이름 또는 패키지 이름이 올바르지 않습니다</string>
+    <string name="app_control_reason_not_found">앱을 찾을 수 없습니다. app_list 로 이름과 패키지 이름을 확인하세요</string>
+    <string name="app_control_reason_need_elevated">이 작업에는 Shizuku/adb 또는 Root 권한이 필요하지만 이 기기에서는 사용할 수 없습니다. 다른 방법을 쓰거나 설정에서 허용하세요</string>
+    <string name="app_control_reason_system_app">시스템 앱에는 이 작업이 허용되지 않습니다</string>
+    <string name="app_control_reason_self">Muse 자체에는 이 작업이 허용되지 않습니다</string>
+    <string name="app_control_via_app">앱 권한</string>
+    <string name="app_control_via_shell">Shizuku/adb</string>
+    <string name="app_control_via_root">Root</string>
 </resources>

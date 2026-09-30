@@ -404,4 +404,23 @@
     <string name="skill_update_reserved_rejected">Modificación rechazada: id \'%1$s\' es una skill reservada integrada y no se puede modificar.</string>
     <string name="skill_update_validate_failed">La validación de la actualización ha fallado: %1$s</string>
     <string name="skill_updated">Skill actualizada: %1$s (id=%2$s)</string>
+
+    <!-- 应用控制（app_* 工具）：结果回给模型，措辞需自解释 -->
+    <string name="app_control_need_app_arg">Proporciona un nombre de aplicacion o de paquete.</string>
+    <string name="app_control_launch_action">abrir</string>
+    <string name="app_control_settings_action">abrir los ajustes de</string>
+    <string name="app_control_force_stop_action">forzar la detencion de</string>
+    <string name="app_control_clear_data_action">borrar los datos de</string>
+    <string name="app_control_uninstall_action">desinstalar</string>
+    <string name="app_control_ok">Hecho: %1$s %2$s (via %3$s)</string>
+    <string name="app_control_unavailable">No se puede %1$s %2$s: %3$s</string>
+    <string name="app_control_failed">Fallo al %1$s %2$s: %3$s</string>
+    <string name="app_control_reason_invalid_name">nombre de aplicacion o de paquete no valido</string>
+    <string name="app_control_reason_not_found">aplicacion no encontrada; usa app_list para consultar su nombre y su paquete</string>
+    <string name="app_control_reason_need_elevated">esta accion requiere acceso Shizuku/adb o Root, que no esta disponible en este dispositivo; usa otra via o concedelo en los ajustes</string>
+    <string name="app_control_reason_system_app">esta accion no esta permitida en aplicaciones del sistema</string>
+    <string name="app_control_reason_self">esta accion no esta permitida sobre Muse</string>
+    <string name="app_control_via_app">permiso de la app</string>
+    <string name="app_control_via_shell">Shizuku/adb</string>
+    <string name="app_control_via_root">Root</string>
 </resources>

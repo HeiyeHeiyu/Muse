@@ -404,4 +404,23 @@
     <string name="skill_update_reserved_rejected">Изменение отклонено: id \'%1$s\' — это встроенный зарезервированный скилл, его нельзя изменить.</string>
     <string name="skill_update_validate_failed">Не удалось пройти проверку обновления: %1$s</string>
     <string name="skill_updated">Скилл обновлён: %1$s(id=%2$s)</string>
+
+    <!-- 应用控制（app_* 工具）：结果回给模型，措辞需自解释 -->
+    <string name="app_control_need_app_arg">Укажите название приложения или имя пакета.</string>
+    <string name="app_control_launch_action">запустить</string>
+    <string name="app_control_settings_action">открыть настройки</string>
+    <string name="app_control_force_stop_action">принудительно остановить</string>
+    <string name="app_control_clear_data_action">очистить данные</string>
+    <string name="app_control_uninstall_action">удалить</string>
+    <string name="app_control_ok">Готово: %1$s %2$s (канал: %3$s)</string>
+    <string name="app_control_unavailable">Не удалось %1$s %2$s: %3$s</string>
+    <string name="app_control_failed">Ошибка %1$s %2$s: %3$s</string>
+    <string name="app_control_reason_invalid_name">некорректное название приложения или имя пакета</string>
+    <string name="app_control_reason_not_found">приложение не найдено; используйте app_list, чтобы узнать имя и пакет</string>
+    <string name="app_control_reason_need_elevated">для этого действия нужен доступ Shizuku/adb или Root, которого нет на устройстве; используйте другой способ или выдайте доступ в настройках</string>
+    <string name="app_control_reason_system_app">это действие запрещено для системных приложений</string>
+    <string name="app_control_reason_self">это действие запрещено для самого Muse</string>
+    <string name="app_control_via_app">разрешение приложения</string>
+    <string name="app_control_via_shell">Shizuku/adb</string>
+    <string name="app_control_via_root">Root</string>
 </resources>

@@ -107,7 +107,10 @@ data class DeviceCapabilityProfile(
     fun renderOperatingGuide(): String = buildString {
         appendLine("## 操作手机的决策规程")
         appendLine("1. 动手前先确认能力：上表列出的是**当前**真实可用性；表里写「不可用」的通道不要反复重试，直接换方案或向用户说明缺哪一项权限。")
-        appendLine("2. 按最低够用层级选通道：纯界面交互优先无障碍（不需额外授权、可读控件树）；需要截屏、系统界面、安装应用或改系统设置时必须用 Shell/Root；只读操作不要动 Root。")
+        appendLine("2. 按最低够用层级选通道：")
+        appendLine("   - 应用层（**不需要任何自动化授权**，永远先试这一层）：`app_list` 查名称与包名、`app_launch` 启动应用、`app_settings` 打开某个应用的系统设置页（可让用户自己改权限/清数据）。")
+        appendLine("   - 界面交互：优先无障碍（可读控件树、可注入手势），比坐标盲点可靠。")
+        appendLine("   - 需要截屏、系统界面、安装应用、改系统设置或强停/清数据/卸载时，才用 Shell/Root（`app_force_stop`/`app_clear_data`/`app_uninstall`/`device_shell`）。")
         appendLine("3. 每步都要验证：动作发出后重新读一次屏幕/状态确认结果（文字是否变化、页面是否切换），不要连发多个盲操作。")
         appendLine("4. 界面失败先看结构再换手段：先用读屏结果定位控件（文本/描述/层级）；找不到再考虑坐标点击；坐标也不稳时改用 Shell/Root 的命令级方案。")
         appendLine("5. 重复性/长流程优先写成脚本：用内置 Node 完成循环、JSON/正则处理、批量请求，比逐步推理省时省 token；稳定后沉淀为技能。")

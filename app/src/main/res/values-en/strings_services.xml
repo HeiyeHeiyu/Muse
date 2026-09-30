@@ -413,4 +413,24 @@
     <string name="skill_update_reserved_rejected">Modification rejected: id \'%1$s\' is a built-in reserved skill and cannot be modified.</string>
     <string name="skill_update_validate_failed">Update validation failed: %1$s</string>
     <string name="skill_updated">Skill updated: %1$s (id=%2$s)</string>
+
+    <!-- App control (app_* tools) — results are read by the model, so wording must be self-explanatory:
+         when an action is impossible, say which capability is missing. -->
+    <string name="app_control_need_app_arg">Please provide an app name or package name.</string>
+    <string name="app_control_launch_action">launch</string>
+    <string name="app_control_settings_action">open settings for</string>
+    <string name="app_control_force_stop_action">force stop</string>
+    <string name="app_control_clear_data_action">clear data of</string>
+    <string name="app_control_uninstall_action">uninstall</string>
+    <string name="app_control_ok">Done: %1$s %2$s (via %3$s)</string>
+    <string name="app_control_unavailable">Cannot %1$s %2$s: %3$s</string>
+    <string name="app_control_failed">Failed to %1$s %2$s: %3$s</string>
+    <string name="app_control_reason_invalid_name">invalid app name or package name</string>
+    <string name="app_control_reason_not_found">app not found — use app_list to look up its name and package name</string>
+    <string name="app_control_reason_need_elevated">this action needs Shizuku/adb or Root access, which is not available on this device; use another approach or grant it in settings</string>
+    <string name="app_control_reason_system_app">this action is not allowed on system apps</string>
+    <string name="app_control_reason_self">this action is not allowed on Muse itself</string>
+    <string name="app_control_via_app">app permission</string>
+    <string name="app_control_via_shell">Shizuku/adb</string>
+    <string name="app_control_via_root">Root</string>
 </resources>

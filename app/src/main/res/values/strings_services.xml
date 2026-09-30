@@ -414,4 +414,23 @@
     <string name="webserver_auth_failed">密码错误</string>
     <string name="webserver_pin_error">PIN 错误</string>
     <string name="webserver_missing_session_id">缺少会话 id</string>
+
+    <!-- 应用控制（app_* 工具）—— 工具把结果回给模型，措辞需自解释：做不到时说明缺哪一项能力 -->
+    <string name="app_control_need_app_arg">请提供应用名或包名。</string>
+    <string name="app_control_launch_action">启动</string>
+    <string name="app_control_settings_action">打开设置页</string>
+    <string name="app_control_force_stop_action">强行停止</string>
+    <string name="app_control_clear_data_action">清空数据</string>
+    <string name="app_control_uninstall_action">卸载</string>
+    <string name="app_control_ok">已%1$s %2$s（通道：%3$s）</string>
+    <string name="app_control_unavailable">无法%1$s %2$s：%3$s</string>
+    <string name="app_control_failed">%1$s %2$s 失败：%3$s</string>
+    <string name="app_control_reason_invalid_name">应用名或包名不合法</string>
+    <string name="app_control_reason_not_found">未找到该应用，可先用 app_list 查询名称与包名</string>
+    <string name="app_control_reason_need_elevated">该操作需要 Shizuku/adb 或 Root 权限，当前设备不具备，请改用其他方式或在设置中授权</string>
+    <string name="app_control_reason_system_app">系统应用不允许执行该操作</string>
+    <string name="app_control_reason_self">不允许对 Muse 自身执行该操作</string>
+    <string name="app_control_via_app">应用权限</string>
+    <string name="app_control_via_shell">Shizuku/adb</string>
+    <string name="app_control_via_root">Root</string>
 </resources>

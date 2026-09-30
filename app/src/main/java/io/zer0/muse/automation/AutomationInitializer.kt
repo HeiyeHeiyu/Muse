@@ -111,6 +111,18 @@ object AutomationInitializer {
                 Logger.w(TAG, "VirtualDisplay tool registration failed: ${e.message}")
             }
 
+            // v2.x Agent 化: 应用控制工具集(app_list/launch/settings/force_stop/clear_data/uninstall)。
+            // "列出/启动/打开设置页"只需应用自身权限(无自动化授权也能用),破坏性动作统一走
+            // execTiered(Shizuku 优先、Root 兜底);缺通道时如实回报需要哪一项能力。
+            try {
+                io.zer0.muse.automation.appcontrol.AppControlTools(
+                    context = appContext,
+                    controller = io.zer0.muse.automation.appcontrol.AndroidAppController(appContext, mgr),
+                ).register(toolRegistry)
+            } catch (e: Exception) {
+                Logger.w(TAG, "AppControl tools registration failed: ${e.message}")
+            }
+
             // 异步刷新权限状态(不阻塞 App 启动)
             @Suppress("DEPRECATION")
             kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
