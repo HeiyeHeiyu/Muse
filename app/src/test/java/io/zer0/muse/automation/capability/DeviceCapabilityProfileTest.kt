@@ -1,5 +1,6 @@
 package io.zer0.muse.automation.capability
 
+import android.os.Build
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -75,12 +76,12 @@ class DeviceCapabilityProfileTest {
     }
 
     @Test
-    fun `accessibility alone cannot screenshot`() {
+    fun `accessibility screenshot follows Android API capability`() {
         val profile = DeviceCapabilityProfile.fromFlags(accessibility = true, shizuku = false, root = false)
         assertEquals(PermissionLevel.ACCESSIBILITY, profile.highestLevel)
         assertTrue(profile.hasControlChannel)
-        // 无障碍层没有截屏能力——这是选通道时的关键判据
-        assertFalse(profile.canScreenshot)
+        assertEquals(Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE, profile.accessibilityScreenshot)
+        assertEquals(profile.accessibilityScreenshot, profile.canScreenshot)
     }
 
     @Test

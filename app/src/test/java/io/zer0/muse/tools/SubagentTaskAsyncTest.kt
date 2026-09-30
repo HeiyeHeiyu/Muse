@@ -73,7 +73,10 @@ class SubagentTaskAsyncTest {
 
             releaseChild.complete(Unit)
             withTimeout(15_000) {
-                while (deferredStore.getTask(taskId)?.status != DeferredResultStore.TaskStatus.RESOLVED) {
+                while (
+                    deferredStore.getTask(taskId)?.status != DeferredResultStore.TaskStatus.RESOLVED ||
+                    SubagentTool.getTask(taskId)?.status != "completed"
+                ) {
                     delay(10)
                 }
             }

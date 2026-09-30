@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Path
+import android.os.Build
 import android.util.DisplayMetrics
 import android.view.accessibility.AccessibilityNodeInfo
 import io.zer0.common.Logger
@@ -14,7 +15,10 @@ import io.zer0.muse.automation.core.AutomationExecutor
 import io.zer0.muse.automation.core.PermissionLevel
 import io.zer0.muse.automation.core.ScreenInfo
 import io.zer0.muse.automation.core.UiNode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import java.io.File
 import kotlin.coroutines.resume
 
 /**
@@ -39,11 +43,24 @@ class AccessibilityExecutor(
 
     // ── 屏幕读取 ──────────────────────────────────────────────
 
+    @Suppress("ReturnCount", "TooGenericExceptionCaught") // Screenshot is a best-effort platform boundary.
     override suspend fun screenshot(): ByteArray? {
-        // 无障碍层截屏需要 MediaProjection,这里交给 Shell 执行器做 screencap
-        // 返回 null 让 ActionDispatcher 降级到 Shell 层
-        Logger.d(TAG, "accessibility screenshot delegated to shell")
-        return null
+        // Android 14+ 的 AccessibilityService.takeScreenshot 不需要 MediaProjection、Shizuku 或 Root。
+        // 低版本仍返回 null,由 AutomationManager 继续尝试 Shell/Root。
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return null
+        val svc = service ?: return null
+        return withContext(Dispatchers.IO) {
+            val file = File(context.cacheDir, "a11y-shot-${System.nanoTime()}.jpg")
+            try {
+                if (!svc.takeScreenshot(file.absolutePath, "JPEG")) return@withContext null
+                file.takeIf { it.isFile }?.readBytes()
+            } catch (error: Exception) {
+                Logger.w(TAG, "accessibility screenshot failed: ${error.message}")
+                null
+            } finally {
+                runCatching { file.delete() }
+            }
+        }
     }
 
     override suspend fun readScreen(): ScreenInfo {

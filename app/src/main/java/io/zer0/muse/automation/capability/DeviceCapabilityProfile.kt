@@ -1,5 +1,6 @@
 package io.zer0.muse.automation.capability
 
+import android.os.Build
 import io.zer0.muse.automation.core.PermissionLevel
 
 /**
@@ -54,9 +55,13 @@ data class DeviceCapabilityProfile(
     val hasControlChannel: Boolean
         get() = accessibility || shizuku || root
 
-    /** 能否截屏（无障碍层不提供截屏）。 */
+    /** Android 14+ 无障碍服务可直接调用 AccessibilityService.takeScreenshot。 */
+    val accessibilityScreenshot: Boolean
+        get() = accessibility && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+
+    /** 能否截屏（Shell/Root 或 Android 14+ 无障碍均可）。 */
     val canScreenshot: Boolean
-        get() = shizuku || root
+        get() = shizuku || root || accessibilityScreenshot
 
     /**
      * 渲染成给模型看的紧凑档案块。
@@ -79,7 +84,15 @@ data class DeviceCapabilityProfile(
         )
         appendLine(
             "- 截屏能力: " +
-                if (canScreenshot) "可用（走 Shell/Root）" else "不可用（需 Shizuku/adb 或 Root）",
+                if (canScreenshot) {
+                    if (accessibilityScreenshot && !shizuku && !root) {
+                        "可用（走 Android 14+ 无障碍截图）"
+                    } else {
+                        "可用（走 Shell/Root）"
+                    }
+                } else {
+                    "不可用（需 Android 14+ 无障碍、Shizuku/adb 或 Root）"
+                },
         )
         appendLine(
             "- 虚拟屏(把应用启动到独立屏幕,不打扰用户当前界面): " +
