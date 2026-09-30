@@ -105,7 +105,7 @@ object AutomationInitializer {
                     io.zer0.muse.automation.vdisplay.VirtualDisplayServerManager(appContext, mgr)
                 val vdClient =
                     io.zer0.muse.automation.vdisplay.VirtualDisplayClient(appContext, vdManager)
-                io.zer0.muse.automation.vdisplay.VirtualDisplayTool(appContext, vdClient, vdManager)
+                io.zer0.muse.automation.vdisplay.VirtualDisplayTool(appContext, vdClient, vdManager, mgr)
                     .register(toolRegistry)
             } catch (e: Exception) {
                 Logger.w(TAG, "VirtualDisplay tool registration failed: ${e.message}")

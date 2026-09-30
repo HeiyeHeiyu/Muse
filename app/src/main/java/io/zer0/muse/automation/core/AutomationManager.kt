@@ -154,6 +154,15 @@ class AutomationManager(
         )
     }
 
+    /** 读取后台虚拟屏的控件树；仅 Shell/Root 能力可以访问指定 display。 */
+    suspend fun readScreenOnDisplay(displayId: Int): ScreenInfo? = mutex.withLock {
+        when {
+            shell.isAvailable() -> shell.readScreenOnDisplay(displayId)
+            root.isAvailable() -> root.readScreenOnDisplay(displayId)
+            else -> null
+        }
+    }
+
     /** 当前前台包名。 */
     suspend fun currentPackage(): String? = mutex.withLock {
         accessibility.currentPackage() ?: if (shell.isAvailable()) shell.currentPackage() else root.currentPackage()

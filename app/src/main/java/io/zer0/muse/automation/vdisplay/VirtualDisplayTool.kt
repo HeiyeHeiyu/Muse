@@ -1,6 +1,7 @@
 package io.zer0.muse.automation.vdisplay
 
 import android.content.Context
+import io.zer0.muse.automation.core.AutomationManager
 import io.zer0.muse.automation.core.DeviceCommandPolicy
 import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.tools.ToolRiskLevel
@@ -10,7 +11,7 @@ import java.io.File
 /**
  * v2.2.1 虚拟屏:AI 工具 `virtual_screen`。
  *
- * 把虚拟屏能力注册为工具:ensure(建屏)/ open(屏内开应用)/ shot(截图)/
+ * 把虚拟屏能力注册为工具:ensure(建屏)/ open(屏内开应用)/ read(控件树)/ shot(截图)/
  * close(销毁)/ status(状态)。输入动作另注册为高风险 `virtual_screen_input`,
  * 由本类统一构造并校验 `input -d <displayId> ...`，避免 Agent 退回 device_shell
  * 自己拼接命令。
@@ -19,6 +20,7 @@ class VirtualDisplayTool(
     private val context: Context,
     private val client: VirtualDisplayClient,
     private val manager: VirtualDisplayServerManager,
+    private val automationManager: AutomationManager,
 ) {
     fun register(registry: ToolRegistry) {
         registry.register(
@@ -32,7 +34,7 @@ class VirtualDisplayTool(
                     "`input -d <displayId> tap/swipe/keyevent ...`。需要 Shizuku 或 Root 权限通道(设置→权限向导)。",
                 parameters =
                 mapOf(
-                    "action" to "必填:ensure | open | shot | close | status",
+                    "action" to "必填:ensure | open | read | shot | close | status",
                     "package" to "open 时的应用包名(如 com.android.settings)",
                     "width" to "可选:虚拟屏宽度(默认 720)",
                     "height" to "可选:虚拟屏高度(默认 1280)",
@@ -46,11 +48,12 @@ class VirtualDisplayTool(
             when (val action = args["action"]?.trim()?.lowercase()) {
                 "ensure" -> handleEnsure(args)
                 "open" -> handleOpen(args)
+                "read" -> handleRead(args)
                 "shot" -> handleShot(args)
                 "close" -> handleClose(args)
                 "status" -> handleStatus()
-                null, "" -> "错误:缺少 action 参数(ensure/open/shot/close/status)"
-                else -> "错误:未知 action '$action'(ensure/open/shot/close/status)"
+                null, "" -> "错误:缺少 action 参数(ensure/open/read/shot/close/status)"
+                else -> "错误:未知 action '$action'(ensure/open/read/shot/close/status)"
             }
         }
 
@@ -123,6 +126,22 @@ class VirtualDisplayTool(
             file.writeBytes(bytes)
             "截图已保存:${file.absolutePath}(${bytes.size / 1024}KB,displayId=$displayId)"
         }.getOrElse { "截图保存失败:${it.message}" }
+    }
+
+    private suspend fun handleRead(args: Map<String, String>): String {
+        val displayId = args["display"]?.toIntOrNull() ?: manager.lastDisplayId
+        val info = automationManager.readScreenOnDisplay(displayId)
+            ?: return "读取失败:虚拟屏语义读屏需要 Shizuku 或 Root 通道"
+        return buildString {
+            appendLine(info.toSummary(50))
+            if (info.nodes.isNotEmpty()) {
+                appendLine("---")
+                appendLine("可交互控件:")
+                info.nodes.filter { it.isClickable || it.isEditable }.take(20).forEachIndexed { index, node ->
+                    appendLine("[$index] ${node.toShortString()}")
+                }
+            }
+        }
     }
 
     private suspend fun handleClose(args: Map<String, String>): String {

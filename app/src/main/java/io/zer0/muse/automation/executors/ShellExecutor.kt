@@ -93,6 +93,36 @@ open class ShellExecutor(
         )
     }
 
+    /**
+     * 读取指定 display 的控件树，供虚拟屏 Agent 使用。
+     *
+     * Android 的 uiautomator dump 在支持多 display 的系统上可通过
+     * `--display-id` 选择后台屏幕；失败时返回空树而不是把主屏误报给 Agent。
+     */
+    @Suppress("TooGenericExceptionCaught") // Shell/uiautomator failures must degrade to an unavailable display tree.
+    suspend fun readScreenOnDisplay(displayId: Int): ScreenInfo = withContext(Dispatchers.IO) {
+        if (displayId < 0) return@withContext ScreenInfo(source = "shell-display(invalid)")
+        val dumpPath = "/sdcard/muse_window_dump_${System.currentTimeMillis()}_$displayId.xml"
+        try {
+            val dump = exec("uiautomator dump --display-id $displayId --compressed $dumpPath")
+            if (!dump.isSuccess) {
+                return@withContext ScreenInfo(source = "shell-display($displayId,unavailable)")
+            }
+            val xml = exec("cat $dumpPath").getOrDefault("")
+            ScreenInfo(
+                nodes = parseUiAutomatorXml(xml),
+                screenWidth = context.resources.displayMetrics.widthPixels,
+                screenHeight = context.resources.displayMetrics.heightPixels,
+                source = "shell-display:$displayId",
+            )
+        } catch (error: Exception) {
+            Logger.w(TAG, "uiautomator display dump failed($displayId): ${error.message}")
+            ScreenInfo(source = "shell-display($displayId,error)")
+        } finally {
+            exec("rm $dumpPath")
+        }
+    }
+
     override suspend fun currentPackage(): String? = withContext(Dispatchers.IO) {
         val result = exec("dumpsys window | grep mCurrentFocus")
         result.getOrNull()?.let { output ->
