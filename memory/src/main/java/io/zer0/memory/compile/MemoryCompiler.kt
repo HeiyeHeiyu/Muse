@@ -6,6 +6,7 @@ import io.zer0.ai.core.Model
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.memory.fact.FactStore
+import io.zer0.memory.fact.FactDbProvider
 import io.zer0.memory.format.RollingSummaryFormat
 import io.zer0.memory.llm.MemoryLlmClient
 import io.zer0.memory.prompt.CompilePrompts
@@ -55,6 +56,8 @@ class MemoryCompiler(
     /** v3: scoped 编译产物；null 时保留旧测试/兼容路径。 */
     private val scopedSectionDao: io.zer0.memory.summary.ScopedCompiledSectionDao? = null,
     private val compileContext: MemoryCompileContext = MemoryCompileContext(),
+    /** Resolve assistant-local facts and tombstones for scoped compile targets. */
+    private val factDbProvider: FactDbProvider? = null,
 ) {
 
     /** 四块 section key。 */
@@ -140,9 +143,13 @@ class MemoryCompiler(
         scopedSectionDao?.clearAll(now) ?: sectionDao.clearAll(now)
     }
 
-    private suspend fun clearStoredByKey(key: String, now: String) {
-        scopedSectionDao?.clearByKey(key, currentScope(), currentSpaceId(), now)
-            ?: sectionDao.clearByKey(key, now)
+    private suspend fun clearStoredByKey(key: String, now: String, target: MemoryCompileTarget? = null) {
+        scopedSectionDao?.clearByKey(
+            key,
+            target?.normalizedScope ?: currentScope(),
+            target?.normalizedSpaceId ?: currentSpaceId(),
+            now,
+        ) ?: sectionDao.clearByKey(key, now)
     }
 
     private suspend fun upsertStored(
@@ -215,8 +222,39 @@ class MemoryCompiler(
      */
     internal fun filterTombstonedLines(text: String, tombstones: List<String>): String = FactStore.filterTombstonedLines(text, tombstones)
 
-    /** S-04: 从 [FactStore] 加载墓碑列表(未注入时返回空列表)。 */
-    private suspend fun loadTombstones(): List<String> = runCatching { factStore?.getTombstones() }.getOrNull() ?: emptyList()
+    /** Resolve the FactStore belonging to the explicit compile scope, preserving per-assistant isolation. */
+    private fun factStoreFor(target: MemoryCompileTarget): FactStore? {
+        val assistantId = target.assistantId?.takeIf { it.isNotBlank() }
+            ?: target.normalizedScope.takeIf { it != "main" }
+            ?: "default"
+        return if (assistantId == "default") {
+            factStore ?: factDbProvider?.getFactStore("default")
+        } else {
+            factDbProvider?.getFactStore(assistantId) ?: factStore
+        }
+    }
+
+    private suspend fun effectiveTarget(
+        target: MemoryCompileTarget? = null,
+        assistantId: String? = null,
+        scope: String? = null,
+        spaceId: String? = null,
+    ): MemoryCompileTarget {
+        val resolvedScope = (scope ?: target?.scope ?: currentScope()).ifBlank { "main" }
+        val resolvedSpace = (spaceId ?: target?.spaceId ?: currentSpaceId()).ifBlank { "default" }
+        val resolvedAssistant = target?.assistantId?.takeIf { it.isNotBlank() }
+            ?: assistantId?.takeIf { it.isNotBlank() }
+            ?: resolvedScope.takeIf { it != "main" }
+            ?: "default"
+        return MemoryCompileTarget(resolvedAssistant, resolvedScope, resolvedSpace)
+    }
+
+    /** Tombstones are read from the assistant database and exact (scope, space) pair being compiled. */
+    private suspend fun loadTombstones(target: MemoryCompileTarget? = null): List<String> {
+        val resolved = effectiveTarget(target)
+        return runCatching { factStoreFor(resolved)?.getTombstones(resolved.normalizedScope, resolved.normalizedSpaceId) }
+            .getOrNull() ?: emptyList()
+    }
 
     /**
      * S-04: 立即从已编译的各注入段剔除命中墓碑的内容。
@@ -228,16 +266,17 @@ class MemoryCompiler(
      * LONGTERM 同样注入 system prompt(week 由 daily 文件零 LLM 装配、longterm
      * 由 fold 产生,均不过滤墓碑),用户删除的隐私会持续残留。
      */
-    suspend fun purgeTombstonedFacts(): Boolean = withContext(Dispatchers.IO) {
-        val tombstones = loadTombstones()
+    suspend fun purgeTombstonedFacts(target: MemoryCompileTarget? = null): Boolean = withContext(Dispatchers.IO) {
+        val resolvedTarget = effectiveTarget(target)
+        val tombstones = loadTombstones(resolvedTarget)
         if (tombstones.isEmpty()) return@withContext false
         var removedAny = false
         for (section in Section.ALL) {
-            val current = readSection(section)
+            val current = readSection(section, resolvedTarget)
             val filtered = filterTombstonedLines(current, tombstones)
             if (filtered != current) {
                 // 指纹置 null,保证下次编译重新合并(而非 SKIPPED)
-                updateStoredContent(section.key, filtered, null, Instant.now().toString())
+                updateStoredContent(section.key, filtered, null, Instant.now().toString(), resolvedTarget)
                 val removedCount = countRemovedLines(current, filtered)
                 Logger.i("MemoryCompiler", "purgeTombstonedFacts: ${section.key} 剔除 $removedCount 行")
                 removedAny = true
@@ -255,14 +294,15 @@ class MemoryCompiler(
     /** 读取四块拼装后的 memory.md(注入 system prompt 用)。
      *  审查修复 (2.0 A-05): 注入读路径统一按墓碑过滤 — 兜底任何未及时 purge 的段,
      *  已删内容不会泄漏进 system prompt(双通道匹配见 FactStore.filterTombstonedLines)。 */
-    suspend fun readCompiledMemoryMarkdown(locale: String = "zh-CN", scope: String? = null, spaceId: String? = null): String =
-        withContext(Dispatchers.IO) {
-            val tombstones = loadTombstones()
-            val read: suspend (Section) -> String = if (scope != null && spaceId != null) {
-                { section -> readSection(section, scope, spaceId) }
-            } else {
-                { section -> readSection(section) }
-            }
+    suspend fun readCompiledMemoryMarkdown(
+        locale: String = "zh-CN",
+        scope: String? = null,
+        spaceId: String? = null,
+        target: MemoryCompileTarget? = null,
+    ): String = withContext(Dispatchers.IO) {
+            val resolvedTarget = effectiveTarget(target, scope = scope, spaceId = spaceId)
+            val tombstones = loadTombstones(resolvedTarget)
+            val read: suspend (Section) -> String = { section -> readSection(section, resolvedTarget) }
             val facts = CompiledMemoryState.normalizeSectionBody(
                 filterTombstonedLines(read(Section.FACTS), tombstones),
             )
@@ -316,7 +356,7 @@ class MemoryCompiler(
 
         // 指纹: sessions 的 (id, updated_at) 拼接 md5
         // S-04: 墓碑并入指纹 — 用户删除事实后指纹变化,强制重编剔除已删内容
-        val tombstones = loadTombstones()
+        val tombstones = loadTombstones(effectiveTarget(target, assistantId))
         val fpKeys = sessions.joinToString("\n") { "${it.sessionId}:${it.updatedAt}" } +
             "\nT:" + tombstones.joinToString("|")
         val fp = fingerprint(fpKeys)
@@ -338,7 +378,11 @@ class MemoryCompiler(
         val currentFacts = readSection(Section.FACTS, target ?: MemoryCompileTarget(assistantId = assistantId)).trim()
         val input = if (currentFacts.isNotBlank()) {
             val isZh = locale.startsWith("zh")
-            val factsLabel = if (isZh) "## 已记录的重要事实(供参考,不要在 today 里重复)" else "## Already Recorded Facts (for reference, do not repeat in today)"
+            val factsLabel = if (isZh) {
+                "## 已记录的重要事实(供参考,不要在 today 里重复)"
+            } else {
+                "## Already Recorded Facts (for reference, do not repeat in today)"
+            }
             "$factsLabel\n\n$currentFacts\n\n---\n\n$sessionInput"
         } else {
             sessionInput
@@ -417,7 +461,7 @@ class MemoryCompiler(
                     return@withContext Result.COMPILED
                 }
                 // B-09: 兜底路径同样过滤墓碑 — 已删内容不得进入 daily → week → longterm 注入链
-                val tombstones = loadTombstones()
+                val tombstones = loadTombstones(effectiveTarget(target, assistantId))
                 sessions.joinToString("\n\n---\n\n") { filterTombstonedLines(it.summary, tombstones) }
             }
         }
@@ -540,7 +584,7 @@ class MemoryCompiler(
             return@withContext Result.SKIPPED
         }
 
-        val tombstones = loadTombstones()
+        val tombstones = loadTombstones(effectiveTarget(target, assistantId))
         val input = sessions.joinToString("\n\n---\n\n") { filterTombstonedLines(it.summary, tombstones) }
         val result = resultOf {
             llmClient.callText(
@@ -681,6 +725,8 @@ class MemoryCompiler(
         target: MemoryCompileTarget? = null,
     ): Result = withContext(Dispatchers.IO) {
         val assistantId = target?.assistantId ?: mainAssistantId
+        val resolvedTarget = effectiveTarget(target, assistantId)
+        val store = factStoreFor(resolvedTarget)
         val now = Instant.now()
         // L4: 这里用绝对时间 now-30d 而非逻辑日对齐(与 compileWeek 不同)。
         // 原因: compileFacts 是 30 天的滑动窗口,窗口长(30 天),跨日边界归属偏差
@@ -692,7 +738,7 @@ class MemoryCompiler(
         // 从每个摘要提取 facts 段
         // v0.32: 同时按 (updatedAt 年龄 + config) 计算分数,过滤掉低于 compileThreshold 的 session
         // S-04: 墓碑过滤 — 已删事实从旧产物/摘要候选/LLM 输出三路剔除,防"复活"
-        val tombstones = loadTombstones()
+        val tombstones = loadTombstones(resolvedTarget)
         val rawPrevFacts = readSection(Section.FACTS, target ?: MemoryCompileTarget(assistantId = assistantId)).trim()
         val prevFacts = filterTombstonedLines(rawPrevFacts, tombstones)
         if (prevFacts != rawPrevFacts) {
@@ -761,15 +807,15 @@ class MemoryCompiler(
         }
         // S-04: LLM 输出再过滤一遍(防 LLM 复述已删事实)
         val filteredResult = filterTombstonedLines(normalized, tombstones)
-        updateStoredContent(Section.FACTS.key, filteredResult, null, Instant.now().toString())
+        updateStoredContent(Section.FACTS.key, filteredResult, null, Instant.now().toString(), resolvedTarget)
         // D3-P2: 候选吸收 + 确定性投影 — LLM 产物先作为候选补录进表(防摘要孤儿丢失),
         // 随后 FACTS 段由 facts 表投影覆盖(编辑/删除即刻一致)。
-        factStore?.let { store ->
-            val scope = target?.normalizedScope ?: currentScope()
-            val spaceId = target?.normalizedSpaceId ?: currentSpaceId()
-            resultOf { absorbFactLines(filteredResult, scope, spaceId, tombstones) }
-            resultOf { store.getByScopeAndSpace(scope, spaceId) }
-                .onSuccess { resultOf { reconcileFactsSectionWithStore(it, target) } }
+        store?.let { scopedStore ->
+            val scope = resolvedTarget.normalizedScope
+            val spaceId = resolvedTarget.normalizedSpaceId
+            resultOf { absorbFactLines(filteredResult, scope, spaceId, tombstones, scopedStore) }
+            resultOf { scopedStore.getByScopeAndSpace(scope, spaceId) }
+                .onSuccess { resultOf { reconcileFactsSectionWithStore(it, resolvedTarget) } }
                 .onError { msg, t -> Logger.w("MemoryCompiler", "compileFacts 投影失败(保留 LLM 产物): ${t?.message ?: msg}") }
         }
         Result.COMPILED
@@ -789,32 +835,42 @@ class MemoryCompiler(
      */
     suspend fun reconcileFactsSectionWithStore(facts: List<io.zer0.memory.fact.FactStore.Fact>, target: MemoryCompileTarget? = null): Int =
         withContext(Dispatchers.IO) {
-            val tombstones = loadTombstones()
-            val scope = target?.normalizedScope ?: currentScope()
-            val spaceId = target?.normalizedSpaceId ?: currentSpaceId()
-            val store = factStore
+            val resolvedTarget = effectiveTarget(target)
+            val tombstones = loadTombstones(resolvedTarget)
+            val scope = resolvedTarget.normalizedScope
+            val spaceId = resolvedTarget.normalizedSpaceId
+            val store = factStoreFor(resolvedTarget)
 
             // 1) 吸收段孤儿(factStore 可用时;墓碑命中行跳过,防"删除复活")
             if (store != null) {
-                val currentForAbsorb = target?.let { readSection(Section.FACTS, it) } ?: readSection(Section.FACTS)
+                val currentForAbsorb = readSection(Section.FACTS, resolvedTarget)
                 if (currentForAbsorb.isNotBlank()) {
-                    absorbFactLines(currentForAbsorb, scope, spaceId, tombstones)
+                    absorbFactLines(currentForAbsorb, scope, spaceId, tombstones, store)
                 }
             }
 
             // 2) 投影(factStore 可用时重查最新表;否则退回传入快照,兼容无 store 场景)
             val source = if (store != null) {
-                resultOf { store.getByScopeAndSpace(scope, spaceId) }.getOrNull() ?: facts
+                resultOf { store.getByScopeAndSpace(scope, spaceId) }.getOrNull() ?: return@withContext 0
             } else {
                 facts
             }
-            if (source.isEmpty()) return@withContext 0
+            val current = readSection(Section.FACTS, resolvedTarget)
+            if (source.isEmpty()) {
+                if (current.isBlank()) return@withContext 0
+                clearStoredByKey(Section.FACTS.key, Instant.now().toString(), resolvedTarget)
+                Logger.i("MemoryCompiler", "FACTS 段已清空: 事实表为空(scope=$scope, space=$spaceId)")
+                return@withContext 1
+            }
             val projected = FactsSectionProjector.project(
                 source.filter { filterTombstonedLines(it.fact, tombstones).isNotBlank() },
             )
-            if (projected.isBlank()) return@withContext 0
-
-            val current = target?.let { readSection(Section.FACTS, it) } ?: readSection(Section.FACTS)
+            if (projected.isBlank()) {
+                if (current.isBlank()) return@withContext 0
+                clearStoredByKey(Section.FACTS.key, Instant.now().toString(), target)
+                Logger.i("MemoryCompiler", "FACTS 段已清空: 全部事实被墓碑过滤(scope=$scope, space=$spaceId)")
+                return@withContext 1
+            }
             if (projected.trim() == current.trim()) return@withContext 0
             // 用 @Insert(REPLACE) 而非 updateContent(UPSERT 语法在部分测试 SQLite 版本报错);
             // REPLACE 对无外键的 compiled_sections 语义一致(冲突时删除重建)。
@@ -823,7 +879,7 @@ class MemoryCompiler(
                 content = projected,
                 fingerprint = null,
                 now = Instant.now().toString(),
-                target = target,
+                target = resolvedTarget,
             )
             Logger.i("MemoryCompiler", "FACTS 段确定性投影: ${projected.lines().size} 条 / ${projected.length} 字符")
             1
@@ -839,8 +895,14 @@ class MemoryCompiler(
      *
      * @return 实际吸收条数
      */
-    private suspend fun absorbFactLines(text: String, scope: String, spaceId: String, tombstones: List<String>): Int {
-        val store = factStore ?: return 0
+    private suspend fun absorbFactLines(
+        text: String,
+        scope: String,
+        spaceId: String,
+        tombstones: List<String>,
+        store: FactStore?,
+    ): Int {
+        store ?: return 0
         val existing = resultOf { store.getByScopeAndSpace(scope, spaceId) }
             .getOrNull()?.map { normalizeLine(it.fact) }?.toSet() ?: return 0
         var absorbed = 0

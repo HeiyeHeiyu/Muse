@@ -48,10 +48,53 @@ class ToolPermissionResolverTest {
             "ui_home",
             "ui_global_action",
             "ui_get_current_app",
+            "ui_agent",
+            "automation_workflow",
+            "virtual_screen",
+            "virtual_screen_input",
+            "screen_tap",
+            "screen_tap_text",
+            "screen_swipe",
+            "screen_pinch",
+            "screen_swipe_path",
+            "screen_input",
+            "screen_launch_app",
+            "app_force_stop",
+            "app_clear_data",
+            "app_uninstall",
+            "settings_get",
+            "settings_put",
+            "network_toggle",
+            "am_start",
+            "list_packages",
+            "logcat_tail",
+            "input_inject",
         ).forEach { tool ->
             val result = ToolPermissionResolver.resolve(
                 toolName = tool,
                 risk = ToolRiskLevel.HIGH,
+                mode = SessionPermissionMode.TRUSTED,
+                perToolPolicy = null,
+            )
+            assertEquals("TRUSTED 下 $tool 应仍要求审批", ToolApprovalState.Pending, result)
+        }
+    }
+
+    @Test
+    fun agentToolsRemainApprovedInTrustedModeThroughTheCentralRiskResolver() {
+        listOf(
+            "automation_workflow", "virtual_screen", "virtual_screen_input",
+            "screen_read", "screen_current_app", "screen_tap", "screen_tap_text",
+            "screen_swipe", "screen_pinch", "screen_swipe_path", "screen_input", "screen_launch_app",
+            "app_force_stop", "app_clear_data", "app_uninstall",
+            "settings_get", "settings_put", "network_toggle", "am_start",
+            "list_packages", "logcat_tail", "input_inject",
+        ).forEach { tool ->
+            val risk = ToolPermissionResolver.riskLevelFor(tool)
+            assertEquals("$tool must resolve to HIGH", ToolRiskLevel.HIGH, risk)
+            val result = ToolPermissionResolver.resolve(
+                toolName = tool,
+                risk = risk,
                 mode = SessionPermissionMode.TRUSTED,
                 perToolPolicy = null,
             )

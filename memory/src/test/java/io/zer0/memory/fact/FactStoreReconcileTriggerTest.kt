@@ -146,6 +146,23 @@ class FactStoreReconcileTriggerTest {
     }
 
     @Test
+    fun deleteTriggersReconcileWithDeletedFactScope() = runBlocking {
+        val hook = RecordingHook()
+        val store = storeWithHook(hook)
+        val id = store.add(FactStore.Fact(fact = "需要忘记的事实"), scope = "assistant-a", spaceId = "work")
+        hook.awaitCalls(1)
+        delay(250)
+
+        assertTrue(store.delete(id))
+        hook.awaitCalls(2)
+        delay(250)
+
+        assertEquals("assistant-a", hook.calls[1].scope)
+        assertEquals("work", hook.calls[1].spaceId)
+        assertEquals(listOf("需要忘记的事实"), hook.calls[1].facts)
+    }
+
+    @Test
     fun `hook writing back into store does not recurse`() = runBlocking {
         val calls = AtomicInteger(0)
         var store: FactStore? = null

@@ -2,6 +2,8 @@ package io.zer0.muse.automation.tools
 
 import io.zer0.common.Logger
 import io.zer0.muse.automation.core.AutomationManager
+import io.zer0.muse.automation.vdisplay.VirtualDisplayClient
+import io.zer0.muse.automation.vdisplay.VirtualDisplayServerManager
 import io.zer0.muse.tools.ToolOutcome
 import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.tools.ToolRiskLevel
@@ -20,6 +22,9 @@ import java.util.UUID
 class AutomationTools(
     private val manager: AutomationManager,
     private val workflowJournal: WorkflowJournal? = null,
+    private val virtualDisplayClient: VirtualDisplayClient? = null,
+    private val virtualDisplayManager: VirtualDisplayServerManager? = null,
+    private val nodeScriptExecutor: (suspend (String, Long) -> io.zer0.muse.tools.script.SkillEngineResult)? = null,
 ) {
     fun register(registry: ToolRegistry) {
         registerWorkflow(registry)
@@ -34,7 +39,7 @@ class AutomationTools(
                     "query" to "可选,只返回包含该关键词的控件",
                 ),
                 required = emptySet(),
-                riskLevel = ToolRiskLevel.NORMAL,
+                riskLevel = ToolRiskLevel.HIGH,
             ),
         ) { args ->
             val info = manager.readScreen()
@@ -66,7 +71,7 @@ class AutomationTools(
                 name = "screen_current_app",
                 description = "查询当前前台运行的应用包名和界面名。",
                 parameters = emptyMap(),
-                riskLevel = ToolRiskLevel.NORMAL,
+                riskLevel = ToolRiskLevel.HIGH,
             ),
         ) { _ ->
             val info = manager.readScreen()
@@ -388,12 +393,17 @@ class AutomationTools(
         registry.registerOutcome(
             ToolRegistry.ToolDef(
                 name = "automation_workflow",
-                description = "执行受控的手机动作工作流。步骤按顺序执行，支持 launch/tap_text/input_text/swipe/" +
-                    "back/home/wait/read；每步失败即停，tap_text 可滚动查找并验证。" +
-                    "不接受任意 shell 命令，需要无障碍或 Shell/Root 通道，每次执行前需审批。",
+                description = "执行可恢复的受控手机工作流，按序运行前台语义动作与 virtual_* 虚拟屏动作；" +
+                    "支持 launch/tap_text/input_text/swipe/back/home/wait/read、虚拟屏操作，以及 node_script 执行应用沙盒内 Node 脚本。" +
+                    "node_script 可访问应用沙盒文件、网络和子进程；脚本结果使用 Keystore 加密保存于恢复日志。每步失败即停，执行前需审批。",
                 parameters = mapOf(
-                    "steps" to "必填 JSON 数组，最多 20 步；例:[{\"action\":\"launch\",\"packageName\":\"com.android.settings\"}]",
+                    "steps" to "必填 JSON 数组，最多 20 步；支持 " +
+                        "virtual_ensure/virtual_launch/virtual_tap/virtual_tap_text/virtual_swipe/" +
+                        "virtual_text/virtual_key/virtual_wait/virtual_read/virtual_close；" +
+                        "virtual_tap_text 支持 text/exact/maxSwipes/verifyText，在虚拟屏内有界滚动并验证点击；" +
+                        "node_script 步骤使用 code/timeoutMs (1-300 秒)，失败按未知副作用处理",
                     "run_id" to "可选。恢复之前中断的工作流；首次运行留空会生成新的 runId",
+                    "retry_unknown" to "可选。某步骤崩溃时结果可能未知；仅在确认后设 true 才重试该动作",
                 ),
                 required = setOf("steps"),
                 riskLevel = ToolRiskLevel.HIGH,
@@ -405,7 +415,14 @@ class AutomationTools(
                 return@registerOutcome ToolOutcome.error("错误:steps 无效:${error.message}")
             }
             val runId = args["run_id"]?.trim().takeIf { !it.isNullOrBlank() } ?: "automation-${UUID.randomUUID()}"
-            AutomationWorkflow(manager, workflowJournal).run(steps, runId)
+            val retryUnknown = args["retry_unknown"]?.equals("true", ignoreCase = true) == true
+            AutomationWorkflow(
+                manager,
+                workflowJournal,
+                virtualDisplayClient,
+                virtualDisplayManager,
+                nodeScriptExecutor,
+            ).run(steps, runId, retryUnknown)
         }
     }
 

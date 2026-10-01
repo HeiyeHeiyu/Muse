@@ -145,6 +145,8 @@
     <string name="asr_error_connection_exception">接続エラー</string>
     <string name="asr_error_mic_init_failed">マイクの初期化に失敗しました。権限または録音デバイスを確認してください</string>
     <string name="asr_error_recording_start_failed">録音の開始に失敗しました</string>
+
+    <string name="asr_error_recording_read_failed">マイクの読み取りに失敗しました（エラーコード：%1$d）</string>
     <string name="asr_reconnecting_message">接続が切断されました。再接続中…(%1$d/%2$d 回目)</string>
     <string name="asr_reconnect_exhausted">音声接続が切断されました。自動再接続は 3 回失敗しました。認識済みの内容は保持されています。ネットワークを確認して、録音をやり直してください。</string>
 

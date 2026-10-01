@@ -1512,7 +1512,14 @@ fun AssistantMemoryPage(assistantId: String, onBack: () -> Unit) {
                                         onConfirm = {
                                             showDeleteConfirm = false
                                             scope.launch {
-                                                runCatching { memoryStore.delete(fact.id) }
+                                                runCatching {
+                                                    memoryStore.delete(
+                                                        id = fact.id,
+                                                        assistantId = if (memoryScope == "main") "default" else memoryScope,
+                                                        scope = memoryScope,
+                                                        spaceId = spaceId,
+                                                    )
+                                                }
                                                 refreshKey++
                                             }
                                         },

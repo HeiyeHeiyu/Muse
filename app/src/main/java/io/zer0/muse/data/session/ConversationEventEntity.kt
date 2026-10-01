@@ -57,10 +57,13 @@ interface ConversationEventDao {
     suspend fun insert(event: ConversationEventEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertAll(events: List<ConversationEventEntity>)
+    suspend fun insertAll(events: List<ConversationEventEntity>): List<Long>
 
     @Query("SELECT COALESCE(MAX(eventSeq), 0) + 1 FROM conversation_events WHERE sessionId = :sessionId")
     suspend fun nextEventSeq(sessionId: String): Long
+
+    @Query("SELECT * FROM conversation_events WHERE eventId = :eventId LIMIT 1")
+    suspend fun getByEventId(eventId: String): ConversationEventEntity?
 
     @Query("SELECT * FROM conversation_events WHERE turnId = :turnId ORDER BY eventSeq ASC")
     suspend fun getByTurn(turnId: String): List<ConversationEventEntity>

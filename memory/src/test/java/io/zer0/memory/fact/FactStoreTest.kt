@@ -559,6 +559,7 @@ class FactStoreTest {
         try {
             val id = storeWithTombstones.add(FactStore.Fact(fact = "用户对青霉素过敏"))
             storeWithTombstones.delete(id)
+            assertFalse("new scoped tombstones must not be appended to the legacy global file", tombstoneFile.exists())
 
             val tombstones = storeWithTombstones.getTombstones()
             assertEquals("删除后应记录墓碑", 1, tombstones.size)
@@ -619,6 +620,113 @@ class FactStoreTest {
         } finally {
             tombstoneFile.delete()
         }
+    }
+
+    @Test
+    fun `deletion tombstones are isolated by assistant database scope and space`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val otherDb = Room.inMemoryDatabaseBuilder(context, FactDb::class.java)
+            .allowMainThreadQueries()
+            .build()
+        val legacyFile = java.io.File(context.cacheDir, "legacy-tombstones-${System.nanoTime()}.json")
+        legacyFile.writeText("[\"same preference\"]")
+        val otherStore = FactStore(
+            otherDb.factDao(),
+            otherDb,
+            tombstoneFile = legacyFile,
+            assistantId = "assistant-b",
+        )
+        try {
+            val deletedId = store.add(
+                FactStore.Fact(fact = "same preference"),
+                scope = "main",
+                spaceId = "work",
+            )
+            store.add(FactStore.Fact(fact = "same preference"), scope = "main", spaceId = "personal")
+            store.add(FactStore.Fact(fact = "same preference"), scope = "assistant-a", spaceId = "work")
+            otherStore.add(FactStore.Fact(fact = "same preference"), scope = "main", spaceId = "work")
+
+            assertFalse("wrong assistant ownership must refuse delete", store.delete(deletedId, "assistant-b", "main", "work"))
+            assertFalse("wrong scope/space must refuse delete", store.delete(deletedId, "default", "main", "personal"))
+            assertNotNull(store.getById(deletedId))
+            assertTrue(store.delete(deletedId, "default", "main", "work"))
+
+            assertEquals(listOf("same preference"), store.getTombstones("main", "work"))
+            assertTrue(store.getTombstones("main", "personal").isEmpty())
+            assertTrue(store.getTombstones("assistant-a", "work").isEmpty())
+            assertTrue("an active duplicate is exempt from an old shared text tombstone", otherStore.getTombstones("main", "work").isEmpty())
+            assertEquals("legacy tombstone still filters stale compiled text when no active exact fact exists",
+                listOf("same preference"), otherStore.getTombstones("assistant-a", "work"))
+        } finally {
+            legacyFile.delete()
+            otherDb.close()
+        }
+    }
+
+    @Test
+    fun `expired duplicate rows do not mask deletion tombstones`() = runTest {
+        val text = "expired preference"
+        val expiredAt = Instant.now().minus(1, ChronoUnit.DAYS).toString()
+        val originalId = store.add(FactStore.Fact(fact = text, expiresAt = expiredAt))
+        assertTrue(store.delete(originalId, "default", "main", "default"))
+
+        store.add(FactStore.Fact(fact = text, expiresAt = expiredAt))
+
+        assertEquals(listOf(text), store.getTombstones("main", "default"))
+    }
+
+    @Test
+    fun `tombstone insert failure leaves fact FTS and graph edges untouched`() = runTest {
+        val id = store.add(FactStore.Fact(fact = "must remain if tombstone fails"))
+        db.memoryLinkDao().insert(
+            io.zer0.memory.ai.MemoryLinkEntity(
+                sourceFactId = id,
+                targetFactId = id + 100,
+                sourceTitle = "source",
+                targetTitle = "target",
+                createdAt = Instant.now().toString(),
+            ),
+        )
+        assertEquals(1, dao.countFts())
+        assertEquals(1, db.memoryLinkDao().listByFactId(id).size)
+        db.openHelper.writableDatabase.execSQL(
+            "CREATE TRIGGER fail_fact_tombstone BEFORE INSERT ON fact_deletion_tombstones " +
+                "BEGIN SELECT RAISE(ABORT, 'forced tombstone write failure'); END",
+        )
+
+        val result = runCatching { store.delete(id, "default", "main", "default") }
+
+        assertTrue("delete must fail when its durable tombstone cannot be committed", result.isFailure)
+        assertNotNull("Room transaction rollback must preserve the source fact", store.getById(id))
+        assertEquals("FTS must remain intact", 1, dao.countFts())
+        assertEquals("graph edges must remain intact", 1, db.memoryLinkDao().listByFactId(id).size)
+        assertTrue("rollback must not leave a tombstone", store.getTombstones("main", "default").isEmpty())
+    }
+
+    @Test
+    fun `fact row failure rolls back tombstone and prior FTS deletion`() = runTest {
+        val id = store.add(FactStore.Fact(fact = "transaction should roll back all artifacts"))
+        db.memoryLinkDao().insert(
+            io.zer0.memory.ai.MemoryLinkEntity(
+                sourceFactId = id,
+                targetFactId = id + 200,
+                sourceTitle = "source",
+                targetTitle = "target",
+                createdAt = Instant.now().toString(),
+            ),
+        )
+        db.openHelper.writableDatabase.execSQL(
+            "CREATE TRIGGER fail_fact_delete BEFORE DELETE ON facts " +
+                "BEGIN SELECT RAISE(ABORT, 'forced fact row delete failure'); END",
+        )
+
+        val result = runCatching { store.delete(id, "default", "main", "default") }
+
+        assertTrue("fact delete trigger must fail the operation", result.isFailure)
+        assertNotNull("fact row must roll back", store.getById(id))
+        assertEquals("FTS delete must roll back", 1, dao.countFts())
+        assertEquals("graph edge delete must roll back", 1, db.memoryLinkDao().listByFactId(id).size)
+        assertTrue("inserted tombstone must roll back", store.getTombstones("main", "default").isEmpty())
     }
 
     @Test

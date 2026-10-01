@@ -13,8 +13,12 @@ package io.zer0.muse.vdproto;
 
 interface IVirtualDisplayService {
 
-    // 确保虚拟屏存在(同尺寸复用;尺寸变化时重建)。返回 displayId;失败返回 -1。
+    // 确保兼容虚拟屏存在(同尺寸复用;尺寸变化时只重建此兼容屏)。返回 displayId;失败返回 -1。
     int ensureDisplay(int width, int height, int dpi);
+
+    // 创建独立 display，不复用/替换兼容屏或其他独立屏；调用方必须在任务结束时 destroyDisplay。
+    // active display 数达到服务端上限或创建失败时返回 -1。
+    int createDisplay(int width, int height, int dpi);
 
     // 在指定虚拟屏里启动应用(服务端以 shell 身份解析 launcher 活动并 am start --display)。
     // 成功返回 true。

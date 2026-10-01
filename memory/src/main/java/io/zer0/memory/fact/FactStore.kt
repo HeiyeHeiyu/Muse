@@ -41,12 +41,10 @@ class FactStore(
     private val dao: FactDao,
     private val db: FactDb,
     /**
-     * 审计修复 (S-04): 删除墓碑文件路径(JSON 字符串数组)。
-     *
-     * 背景: 注入链路读 compiled_sections(由 MemoryCompiler.compileFacts 从 30 天会话摘要
-     * LLM 编译),而记忆页"删除事实"只删 facts 表 — 已删事实会从摘要中"复活"并继续注入。
-     * 删除时把事实原文记录为墓碑,compileFacts/compileToday 按墓碑过滤输入与输出,
-     * 已删事实不再复活。为 null 时墓碑禁用(测试环境或未注入时降级)。
+     * Pre-v15 legacy tombstone file. New deletions are stored transactionally in
+     * [FactTombstoneEntity] in this assistant's database, partitioned by scope and space.
+     * This optional file is read-only compatibility data because historical entries lack
+     * assistant/scope/space ownership. A null file disables only legacy fallback, not Room tombstones.
      */
     private val tombstoneFile: File? = null,
     /**
@@ -73,6 +71,10 @@ class FactStore(
      * hook 内部再次写库会被递归防护忽略,由每日对账兜底。
      */
     private val reconcileHook: FactReconcileHook? = null,
+    /** Owner of this per-assistant FactDb; guards explicit delete ownership. */
+    val assistantId: String = "default",
+    /** Only the default store owns clearing the legacy shared JSON file on a full reset. */
+    private val clearLegacyTombstonesOnReset: Boolean = false,
 ) {
 
     private val json = Json {
@@ -82,9 +84,6 @@ class FactStore(
 
     /** v6: 是否已经做过 FTS 索引一致性检查(避免每次搜索都重复 COUNT)。 */
     private var ftsConsistencyChecked = false
-
-    /** S-04: 墓碑缓存(null = 未加载)。 */
-    private var tombstoneCache: List<String>? = null
 
     /** 元事实数据(业务层结构,与 Entity 分离)。 */
     data class Fact(
@@ -1199,24 +1198,50 @@ class FactStore(
     /** 总数。 */
     suspend fun size(): Int = withContext(Dispatchers.IO) { dao.count() }
 
-    /** 删除单条。返回是否删除成功。 */
-    suspend fun delete(id: Long): Boolean = withContext(Dispatchers.IO) {
-        val target = dao.getById(id)
-        dao.deleteFts(id)
-        val removed = dao.deleteById(id) > 0
-        if (removed) {
-            // 审计修复 (C-07): 同步清理指向该事实的 memory_links 孤儿边 —
-            // memory_links 建表时刻意不加外键级联（避免级联性能损耗，见 FactDb.MIGRATION_9_10），
-            // 事实删除后须在应用层删除以 source/target 指向该 id 的边，避免知识图谱脏边。
-            db.memoryLinkDao().deleteByFactId(id)
-            if (target != null) {
-                // 审计修复 (S-04): 记录删除墓碑 — 已删事实不得从会话摘要重新编译时"复活"。
-                // 规范化后去重存储,只增不删(除非 clearAll)。
-                recordTombstone(target.fact)
+    /** Compatibility path: derive scope/space from the row inside the transaction; assistant identity comes from this store. */
+    suspend fun delete(id: Long): Boolean = deleteInternal(id, expectedAssistantId = assistantId)
+
+    /** Delete only when all caller-provided ownership dimensions match the selected store and row. */
+    suspend fun delete(id: Long, assistantId: String, scope: String, spaceId: String): Boolean =
+        deleteInternal(id, assistantId, scope, spaceId)
+
+    private suspend fun deleteInternal(
+        id: Long,
+        expectedAssistantId: String,
+        expectedScope: String? = null,
+        expectedSpaceId: String? = null,
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (normalizeAssistantId(expectedAssistantId) != normalizeAssistantId(assistantId)) return@withContext false
+        val deleted = db.withTransaction {
+            val target = dao.getById(id) ?: return@withTransaction null
+            if (expectedScope != null && target.scope != expectedScope) return@withTransaction null
+            if (expectedSpaceId != null && target.spaceId != expectedSpaceId) return@withTransaction null
+            val normalized = normalizeTombstone(target.fact)
+            // Keep deletion state atomic: if the durable marker cannot be written, the source row and
+            // its derived indexes remain untouched when Room rolls this transaction back.
+            if (normalized.isNotBlank()) {
+                db.factTombstoneDao().insertIfAbsent(
+                    FactTombstoneEntity(
+                        normalizedFact = normalized,
+                        scope = target.scope,
+                        spaceId = target.spaceId,
+                        deletedAt = Instant.now().toString(),
+                    ),
+                )
+                db.factTombstoneDao().trimScopeToLimit(target.scope, target.spaceId, TOMBSTONE_MAX_ENTRIES)
             }
+            dao.deleteFts(id)
+            val removed = dao.deleteById(id) > 0
+            if (!removed) error("Fact disappeared during transactional delete (id=$id)")
+            // memory_links deliberately has no FK cascade; remove both source/target edges atomically.
+            db.memoryLinkDao().deleteByFactId(id)
+            target.toDomainFact()
         }
-        removed
+        if (deleted != null) scheduleReconcile(listOf(deleted), deleted.scope, deleted.spaceId)
+        deleted != null
     }
+
+    private fun normalizeAssistantId(id: String): String = id.trim().ifBlank { "default" }
 
     /**
      * P2: 更新单条 Fact 内容(用于记忆页 UI 编辑 Fact 层)。
@@ -1323,11 +1348,14 @@ class FactStore(
 
     /** 清空所有。 */
     suspend fun clearAll(): Unit = withContext(Dispatchers.IO) {
-        dao.clearFts()
-        dao.deleteAll()
-        // S-04: 用户主动重置全部记忆时,墓碑一并清空(不再需要过滤)。
-        tombstoneFile?.let { runCatching { it.delete() } }
-        tombstoneCache = null
+        db.withTransaction {
+            dao.clearFts()
+            dao.deleteAll()
+            db.factTombstoneDao().deleteAll()
+        }
+        if (clearLegacyTombstonesOnReset) {
+            synchronized(tombstoneLock) { tombstoneFile?.let { runCatching { it.delete() } } }
+        }
     }
 
     /**
@@ -1432,78 +1460,51 @@ class FactStore(
     // ─── S-04: 删除墓碑(防已删事实从摘要复活) ───
 
     /**
-     * B-26: 墓碑读-改-写进程级互斥 — 主 FactStore 与 per-assistant FactStore
-     * (FactDbProvider.getFactStore) 共享同一墓碑文件,仅实例内加锁仍会并发覆盖;
-     * companion 级锁对所有实例生效,并发删除两条不同事实不再互相丢失墓碑。
+     * Legacy pre-v15 JSON tombstone read lock. New deletion markers are transactional Room rows
+     * and are isolated by this FactStore's assistant database, scope, and space.
      */
     private val tombstoneLock = TOMBSTONE_LOCK
 
-    /** 全部删除墓碑(规范化文本)。墓碑文件不存在/解析失败时返回空列表。 */
+    /** 所有本库墓碑；主要供兼容调用，编译/注入应使用带 scope 和 space 的重载。 */
     suspend fun getTombstones(): List<String> = withContext(Dispatchers.IO) {
-        loadTombstones()
+        (db.factTombstoneDao().getAllNormalizedFacts() + loadLegacyTombstones()).distinct()
     }
 
-    private fun loadTombstones(): List<String> {
-        tombstoneCache?.let { return it }
+    /** 只返回当前 assistant 数据库、scope 和 space 的删除标记。 */
+    suspend fun getTombstones(scope: String, spaceId: String): List<String> = withContext(Dispatchers.IO) {
+        val currentFacts = dao.getByScopeAndSpace(scope, spaceId)
+            .map { it.toDomainFact() }
+            .filterNot { it.isExpired() }
+            .map { comparableTombstone(it.fact) }
+            .toSet()
+        val scoped = db.factTombstoneDao().getNormalizedFacts(scope, spaceId)
+            .filterNot { comparableTombstone(it) in currentFacts }
+        // Pre-v15 installs have an unscoped shared JSON list. Keep those legacy markers fail-closed,
+        // except where an exact active fact in this assistant/scope/space proves it was re-added.
+        val legacy = loadLegacyTombstones()
+            .filterNot { comparableTombstone(it) in currentFacts }
+        (scoped + legacy).distinct()
+    }
+
+    private fun loadLegacyTombstones(): List<String> {
         val file = tombstoneFile ?: return emptyList()
-        if (!file.exists()) return emptyList()
-        val list = synchronized(tombstoneLock) {
-            val loaded = runCatching {
+        return synchronized(tombstoneLock) {
+            if (!file.exists()) return@synchronized emptyList()
+            runCatching {
                 json.decodeFromString(ListSerializer(String.serializer()), file.readText())
             }.getOrElse {
                 Logger.w("FactStore", "readTombstones failed: ${it.message}")
                 emptyList()
             }
-            tombstoneCache = loaded
-            loaded
-        }
-        return list
-    }
-
-    private fun recordTombstone(content: String) {
-        val file = tombstoneFile ?: return
-        val normalized = normalizeTombstone(content)
-        if (normalized.isBlank()) return
-        // B-26: 读-改-写整体持锁,并发删除互不覆盖(锁为进程级,见 tombstoneLock 说明)
-        synchronized(tombstoneLock) {
-            val current = tombstoneCache?.takeIf { it.isNotEmpty() }
-                ?: runCatching {
-                    if (file.exists()) {
-                        json.decodeFromString(ListSerializer(String.serializer()), file.readText())
-                    } else {
-                        emptyList()
-                    }
-                }.getOrElse {
-                    Logger.w("FactStore", "readTombstones failed: ${it.message}")
-                    emptyList()
-                }
-            if (current.contains(normalized)) return // 幂等:相同事实只记一次
-            // B-10: 上限裁剪 — 墓碑只增不删会长期膨胀(且每轮 compile 全量加载扫描);
-            // 超过上限时丢弃最旧条目(头部,按删除时间序),文件体积与过滤开销有界。
-            val capped = (current + normalized).takeLast(TOMBSTONE_MAX_ENTRIES)
-            writeTombstonesLocked(capped)
-            tombstoneCache = capped
-        }
-    }
-
-    /** 调用方必须已持有 [tombstoneLock]。 */
-    private fun writeTombstonesLocked(list: List<String>) {
-        val file = tombstoneFile ?: return
-        file.parentFile?.mkdirs()
-        val encoded = json.encodeToString(ListSerializer(String.serializer()), list)
-        // 临时文件 + rename 原子替换,避免进程被杀留下半截 JSON
-        val tmp = File(file.parentFile, file.name + ".tmp")
-        runCatching {
-            tmp.writeText(encoded)
-            if (!tmp.renameTo(file)) file.writeText(encoded)
-        }.onFailure { e ->
-            // 墓碑写入失败不阻断删除流程;下次编译时该事实可能复活,但删除本身已生效
-            Logger.w("FactStore", "writeTombstones failed: ${e.message}")
         }
     }
 
     /** 规范化: 去首尾空白 + 压缩连续空白,保证跨措辞微差仍可匹配。 */
     private fun normalizeTombstone(text: String): String = text.trim().replace(WHITESPACE_RE, " ")
+
+    /** Exact comparison used to detect a legitimate re-add without applying substring deletion semantics. */
+    private fun comparableTombstone(text: String): String =
+        normalizeTombstone(text).replace(PUNCT_RE, "")
 
     companion object {
         /** D6 第 2 期: “多断言实体”默认阈值 —— 同实体 ≥3 条不同断言才值得提示整合。 */

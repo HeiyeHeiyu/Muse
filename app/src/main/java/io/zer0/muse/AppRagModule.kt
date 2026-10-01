@@ -107,37 +107,29 @@ val appRagModule = module {
             hybridSearchService = get(),
             rerankProvider = get(),
             onnxRerankProvider = get(),
-            // v1.103: 向量检索无结果时的关键词兜底;v1.133: snippet 改取首个 chunk(替代 content.take(500))
+            // Keyword fallback shares the vector path's document scope, internal-document exclusion,
+            // metadata filter, and stable chunk identity so citations remain navigable.
             keywordSearchFallback = { query, topK ->
-                val docDao = get<io.zer0.muse.data.knowledge.KnowledgeDocDao>()
-                val chunkDao = get<io.zer0.muse.data.knowledge.KnowledgeChunkDao>()
-                docDao.search(query).first().take(topK).map { doc ->
-                    val firstChunkContent = resultOf {
-                        chunkDao.getByDoc(doc.id).firstOrNull()?.content ?: ""
-                    }.getOrNull() ?: ""
-                    doc.title to (firstChunkContent.ifBlank { doc.content.take(500) })
-                }
+                io.zer0.muse.rag.KnowledgeKeywordFallback.search(
+                    query = query,
+                    topK = topK,
+                    scopeDocIds = null,
+                    metadataFilter = null,
+                    docDao = get(),
+                    chunkDao = get(),
+                    ftsDao = get<io.zer0.muse.data.session.MuseDb>().knowledgeChunkFtsDao(),
+                )
             },
-            // 作用域检索的关键词兜底必须沿用 docIds，不能在向量失败后扩大到全库。
-            scopedKeywordSearchFallback = { query, topK, docIds ->
-                val docDao = get<io.zer0.muse.data.knowledge.KnowledgeDocDao>()
-                val chunkDao = get<io.zer0.muse.data.knowledge.KnowledgeChunkDao>()
-                val docs = if (docIds == null) {
-                    docDao.search(query).first()
-                } else {
-                    docDao.getByIds(docIds).filter { doc ->
-                        !doc.isInternal && (
-                            doc.title.contains(query, ignoreCase = true) ||
-                                doc.content.contains(query, ignoreCase = true)
-                            )
-                    }
-                }
-                docs.take(topK).map { doc ->
-                    val firstChunkContent = resultOf {
-                        chunkDao.getByDoc(doc.id).firstOrNull()?.content ?: ""
-                    }.getOrNull() ?: ""
-                    doc.title to (firstChunkContent.ifBlank { doc.content.take(500) })
-                }
+            scopedKeywordSearchFallback = { query, topK, docIds, metadataFilter ->
+                io.zer0.muse.rag.KnowledgeKeywordFallback.search(
+                    query = query,
+                    topK = topK,
+                    scopeDocIds = docIds,
+                    metadataFilter = metadataFilter,
+                    docDao = get(),
+                    chunkDao = get(),
+                    ftsDao = get<io.zer0.muse.data.session.MuseDb>().knowledgeChunkFtsDao(),
+                )
             },
             // v1.0.12: HNSW 索引持久化文件路径 — 启用 RAG 向量索引落盘
             // 文件位置:filesDir/rag/hnsw_index.bin;App 重启后 MuseApp.onCreate 异步加载,

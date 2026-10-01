@@ -51,6 +51,9 @@ internal class StreamRunState(
 
     // Phase A: prepareHistory
     var streamStartedAt: Long = 0L
+
+    /** 持久化发送请求的 outbox；首个 generation checkpoint 成功后才删除。 */
+    var outboxId: String? = null
     var sessionTitle: String = ""
     var experiments: ExperimentsConfig = ExperimentsConfig()
     var assistant: AssistantEntity? = null

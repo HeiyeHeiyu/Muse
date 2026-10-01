@@ -20,6 +20,8 @@ internal data class SendRequest(
     val assistantMessageId: Uuid,
     // v1.0.15: outbox 记录 id(持久化发送队列,进程被杀后恢复用)
     val outboxId: String,
+    /** 入队前的持久化结果；新发送请求必须先落 outbox 再允许消费端启动生成。 */
+    val outboxReady: kotlinx.coroutines.Deferred<Boolean>? = null,
     /** 当前请求的自动任务路由;不写入会话永久模型覆盖,避免路由结果粘住后续消息。 */
     val taskRouteSelection: io.zer0.muse.data.SettingsRepository.TaskRouteSelection? = null,
 )

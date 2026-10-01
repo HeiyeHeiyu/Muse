@@ -72,6 +72,10 @@ interface KnowledgeDocDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(doc: KnowledgeDocEntity)
 
+    /** Mark a document as unindexed after an interrupted replacement. */
+    @Query("UPDATE knowledge_docs SET chunk_count = 0, embedding_model = '' WHERE id = :id")
+    suspend fun clearIndexStatus(id: String)
+
     @Query("DELETE FROM knowledge_docs WHERE id = :id")
     suspend fun delete(id: String)
 

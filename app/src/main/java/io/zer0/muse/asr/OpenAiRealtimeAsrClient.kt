@@ -122,6 +122,8 @@ class OpenAiRealtimeAsrController(
     private val isDisposed = AtomicBoolean(false)
 
     override fun start(onTranscriptChange: ((String) -> Unit)?) {
+        // dispose 后必须保持终态；否则 scope 已取消但 start 仍会把 state 改成 Connecting，造成 UI 永久假连接。
+        if (isDisposed.get()) return
         if (_state.value.status == ASRStatus.Listening) {
             Logger.w(TAG, "已在录音,忽略重复 start")
             return
@@ -288,11 +290,7 @@ class OpenAiRealtimeAsrController(
         if (isDisposed.get()) return
         if (reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
             Logger.w(TAG, "重连超过 $MAX_RECONNECT_ATTEMPTS 次,放弃,切 Error 状态")
-            _state.update {
-                it.copy(status = ASRStatus.Error, errorMessage = "网络异常,请检查网络后重试")
-            }
-            cleanupConnection()
-            releaseAudioRecord()
+            failAsr("网络异常,请检查网络后重试")
             return
         }
         val delayMs = minOf(MAX_RECONNECT_DELAY_MS, 1000L * (1L shl reconnectAttempt))
@@ -414,36 +412,48 @@ class OpenAiRealtimeAsrController(
         // 任务 1:Reconnecting 状态下继续循环(保持录音),但把帧缓冲到 [audioBuffer] 而不是发送
         recordJob = scope.launch(Dispatchers.IO) {
             val chunk = ByteArray(AUDIO_CHUNK_BYTES)
-            while (isActive) {
-                val currentStatus = _state.value.status
-                // Listening/Reconnecting 之外的状态退出循环(Idle/Error/Stopping/Connecting 过渡态)
-                if (currentStatus != ASRStatus.Listening && currentStatus != ASRStatus.Reconnecting) {
-                    break
-                }
-                val read = record.read(chunk, 0, chunk.size)
-                if (read > 0) {
-                    // 1. 计算 RMS 振幅 → 更新 state.amplitudes
-                    val amp = AudioAmplitude.calculateRmsAmplitude(chunk, read)
-                    _state.update { it.copy(amplitudes = it.amplitudes.appendAmplitude(amp)) }
-
-                    // 2. 本地 VAD(若启用):静音超阈值主动触发 stop
-                    if (vadDetector?.processFrame(chunk, read, amp) == true) {
-                        Logger.d(TAG, "本地 VAD 触发,主动停止")
-                        scope.launch { stop() }
+            try {
+                while (isActive) {
+                    val currentStatus = _state.value.status
+                    // Listening/Reconnecting 之外的状态退出循环(Idle/Error/Stopping/Connecting 过渡态)
+                    if (currentStatus != ASRStatus.Listening && currentStatus != ASRStatus.Reconnecting) {
                         break
                     }
+                    val read = record.read(chunk, 0, chunk.size)
+                    if (read > 0) {
+                        // 1. 计算 RMS 振幅 → 更新 state.amplitudes
+                        val amp = AudioAmplitude.calculateRmsAmplitude(chunk, read)
+                        _state.update { it.copy(amplitudes = it.amplitudes.appendAmplitude(amp)) }
 
-                    // 3. 任务 1:Reconnecting 期间缓冲音频帧,Listening 期间正常发送
-                    if (currentStatus == ASRStatus.Reconnecting) {
-                        bufferAudioFrame(chunk, read)
-                    } else {
-                        sendAudioFrame(chunk, read)
+                        // 2. 本地 VAD(若启用):静音超阈值主动触发 stop
+                        if (vadDetector?.processFrame(chunk, read, amp) == true) {
+                            Logger.d(TAG, "本地 VAD 触发,主动停止")
+                            scope.launch { stop() }
+                            break
+                        }
+
+                        // 3. 任务 1:Reconnecting 期间缓冲音频帧,Listening 期间正常发送
+                        if (currentStatus == ASRStatus.Reconnecting) {
+                            bufferAudioFrame(chunk, read)
+                        } else {
+                            sendAudioFrame(chunk, read)
+                        }
+                    } else if (read == 0) {
+                        delay(10L)
+                    } else if (read < 0) {
+                        Logger.w(TAG, "AudioRecord.read 错误: $read")
+                        if (shouldReportAsrCaptureFailure(_state.value.status, coroutineContext[Job]?.isActive == true)) {
+                            failAsr("AudioRecord 读取错误: $read")
+                        }
+                        break
                     }
-                } else if (read == 0) {
-                    delay(10L)
-                } else if (read < 0) {
-                    Logger.w(TAG, "AudioRecord.read 错误: $read")
-                    break
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (shouldReportAsrCaptureFailure(_state.value.status, coroutineContext[Job]?.isActive == true)) {
+                    Logger.w(TAG, "录音循环异常: ${error.message}", error)
+                    failAsr(error.message ?: "AudioRecord read failed")
                 }
             }
         }
@@ -482,6 +492,7 @@ class OpenAiRealtimeAsrController(
 
     /** 处理 WebSocket 事件(在 Main 线程执行)。 */
     private fun handleEvent(event: JsonObject) {
+        if (isDisposed.get() || (_state.value.status == ASRStatus.Error || _state.value.status == ASRStatus.Idle)) return
         val eventType = event.optString("type")
         when (eventType) {
             "conversation.item.input_audio_transcription.delta" -> {
@@ -498,7 +509,7 @@ class OpenAiRealtimeAsrController(
                 // 句子完成:把累积的 delta(或 completed 事件的 text)入 completedTranscripts,清空 delta
                 val text = event.optString("text").ifBlank { currentDeltaText }
                 if (text.isNotEmpty()) {
-                    completedTranscripts.append(text)
+                    completedTranscripts.append(text).append(" ")
                 }
                 currentDeltaText = ""
                 val full = buildTranscript()
@@ -509,7 +520,7 @@ class OpenAiRealtimeAsrController(
                 val errObj = event.optObject("error")
                 val msg = errObj?.optString("message") ?: event.toString()
                 Logger.w(TAG, "Realtime ASR 错误: $msg")
-                _state.update { it.copy(status = ASRStatus.Error, errorMessage = msg) }
+                failAsr(msg)
             }
             "session.created", "session.updated" -> {
                 // 已在 establishConnection 处理或不需处理,忽略
@@ -539,8 +550,9 @@ class OpenAiRealtimeAsrController(
             audioRecord?.stop()
         } catch (_: Throwable) { /* 已停止或未初始化 */ }
         recordJob?.cancel()
-        audioRecord?.release()
+        val recorder = audioRecord
         audioRecord = null
+        runCatching { recorder?.release() }
 
         // 发 input_audio_buffer.commit,触发服务端 VAD 收尾(回 transcription.completed)
         val ws = webSocket
@@ -581,6 +593,15 @@ class OpenAiRealtimeAsrController(
         }
     }
 
+    /** Enter a terminal error state and release both network and microphone resources. */
+    private fun failAsr(message: String) {
+        if (isDisposed.get()) return
+        cancelReconnect()
+        _state.update { it.withAsrFailure(message) }
+        cleanupConnection()
+        releaseAudioRecord()
+    }
+
     /** 关闭 WebSocket 并清理会话引用。 */
     private fun cleanupConnection() {
         webSocket?.close(1000, "session ended")
@@ -595,6 +616,7 @@ class OpenAiRealtimeAsrController(
      */
     private fun releaseAudioRecord() {
         recordJob?.cancel()
+        recordJob = null
         try {
             audioRecord?.stop()
         } catch (_: Throwable) { /* 已停止或未初始化 */ }

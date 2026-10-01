@@ -6,6 +6,8 @@ import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.R
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -113,6 +115,8 @@ class ToolRegistry(
     private val outcomeTools = ConcurrentHashMap<String, ToolOutcomeFn>()
     private val jsonTools = ConcurrentHashMap<String, JsonToolFn>()
     private val toolDefs = ConcurrentHashMap<String, ToolDef>()
+    /** A full device task must not interleave with another screen/device action from another session. */
+    private val deviceInteractionMutex = Mutex()
     private val _revision = MutableStateFlow(0L)
 
     /** 动态工具注册/注销版本，供工具页和请求组装器订阅刷新。 */
@@ -343,7 +347,23 @@ class ToolRegistry(
         cancellationToken: () -> Boolean = { false },
     ): ToolOutcome = executeInternal(name, args, executionContext, cancellationToken)
 
+    private suspend fun <T> withDeviceInteractionLock(name: String, block: suspend () -> T): T =
+        if (requiresDeviceInteractionLock(name)) {
+            deviceInteractionMutex.withLock { block() }
+        } else {
+            block()
+        }
+
     private suspend fun executeInternal(
+        name: String,
+        args: Map<String, String>,
+        executionContext: ToolExecutionContext?,
+        cancellationToken: () -> Boolean,
+    ): ToolOutcome = withDeviceInteractionLock(name) {
+        executeInternalUnlocked(name, args, executionContext, cancellationToken)
+    }
+
+    private suspend fun executeInternalUnlocked(
         name: String,
         args: Map<String, String>,
         executionContext: ToolExecutionContext?,
@@ -438,7 +458,7 @@ class ToolRegistry(
             }.getOrNull() ?: return context.getString(R.string.tool_param_parse_failed, argumentsJson)
 
         jsonTools[name]?.let { fn ->
-            val outcome = executeJson(name, obj, fn)
+            val outcome = withDeviceInteractionLock(name) { executeJson(name, obj, fn) }
             val content =
                 outcome.content.ifBlank {
                     context.getString(R.string.tool_exec_empty_result, name)
@@ -576,6 +596,27 @@ class ToolRegistry(
     /** TTS 朗读实现(挂起直到初始化完成并加入队列)。 */
 
     companion object {
+        /**
+         * Tools that observe or mutate the shared foreground device UI. They are serialized across
+         * sessions so screenshot -> decision -> action loops and durable workflows cannot interleave.
+         */
+        internal fun requiresDeviceInteractionLock(name: String): Boolean =
+            name in DEVICE_INTERACTION_TOOL_NAMES || name.startsWith("screen_") || name.startsWith("ui_")
+
+        internal val DEVICE_INTERACTION_TOOL_NAMES = setOf(
+            "ui_agent", "automation_workflow", "device_shell",
+            "screen_read", "screen_current_app", "screen_back", "screen_home", "screen_tap", "screen_tap_text",
+            "screen_swipe", "screen_pinch", "screen_swipe_path", "screen_input", "screen_launch_app",
+            "screen_open_notifications", "screen_wait",
+            "virtual_screen", "virtual_screen_input",
+            "ui_get_page_info", "ui_click", "ui_long_press", "ui_swipe", "ui_set_text", "ui_screenshot",
+            "ui_back", "ui_home", "ui_global_action", "ui_get_current_app",
+            "input_inject", "am_start", "network_toggle", "settings_put",
+            "app_launch", "app_settings", "app_force_stop", "app_clear_data", "app_uninstall",
+            "open_app", "open_system_setting", "share_text", "send_sms", "send_email", "add_contact",
+            "set_alarm", "set_timer", "toggle_wifi", "toggle_bluetooth", "open_url", "make_phone_call", "open_maps",
+        )
+
         // v1.95: 所有内置 tool id 列表(与 init 块注册的工具一一对应)
         // 供 AssistantRepository.ensureDefaultExists 静态读取,无需 ToolRegistry 实例
         val BUILT_IN_TOOL_IDS: List<String> =

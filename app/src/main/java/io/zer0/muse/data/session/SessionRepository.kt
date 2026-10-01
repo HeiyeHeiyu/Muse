@@ -835,10 +835,15 @@ class SessionRepository(
                 t,
             )
         }
-        updateSessionPreview(sessionId, message)
-        // v1.107 冗余: 维护 sessions.messageCount(避免列表页 COUNT)
-        resultOf { sessionDao.incrementMessageCount(sessionId, 1) }
-            .onError { _, t -> Logger.w(TAG, "incrementMessageCount failed: ${t?.message ?: ""}") }
+        if (existing == null) {
+            updateSessionPreview(sessionId, message)
+        }
+        // v1.107 冗余: 仅新消息递增 messageCount；恢复/重试同一 messageId 的 upsert
+        // 不能重复计数，否则 outbox 恢复会让会话计数逐次膨胀。
+        if (existing == null) {
+            resultOf { sessionDao.incrementMessageCount(sessionId, 1) }
+                .onError { _, t -> Logger.w(TAG, "incrementMessageCount failed: ${t?.message ?: ""}") }
+        }
         return entity.id
     }
 
@@ -856,9 +861,12 @@ class SessionRepository(
         database.withTransaction {
             val session = sessionDao.getById(event.sessionId)
             if (session == null || session.deletedAt != null) return@withTransaction false
-            val eventSeq = database.conversationEventDao().nextEventSeq(event.sessionId)
-            val entity = event.toEntity(eventSeq, Uuid.random().toString())
-            database.conversationEventDao().insert(entity) != -1L
+            val eventDao = database.conversationEventDao()
+            val eventId = event.deterministicEventId()
+            if (eventDao.getByEventId(eventId) != null) return@withTransaction true
+            val eventSeq = eventDao.nextEventSeq(event.sessionId)
+            val entity = event.toEntity(eventSeq, eventId)
+            eventDao.insert(entity) != -1L
         }
     }
 
@@ -930,6 +938,41 @@ class SessionRepository(
             }
         }
     }
+
+    /**
+     * 首个检查点提交时原子消费发送 outbox。
+     * 崩溃只能看到“二者都存在”或“检查点存在且 outbox 已移除”，不会在检查点写入后留下可重放 outbox。
+     */
+    suspend fun upsertGenerationCheckpointAndDeleteOutbox(
+        sessionId: String,
+        userMessageId: String,
+        assistantMessageId: String,
+        content: String,
+        createdAt: Long,
+        outboxId: String,
+    ) {
+        withDatabaseRecovery("upsertGenerationCheckpointAndDeleteOutbox") {
+            withContext(Dispatchers.IO) {
+                database.withTransaction {
+                    database.messageOutboxDao().deleteById(outboxId)
+                    database.generationCheckpointDao().upsert(
+                        GenerationCheckpointEntity(
+                            assistantMessageId = assistantMessageId,
+                            sessionId = sessionId,
+                            userMessageId = userMessageId,
+                            content = content,
+                            createdAt = createdAt,
+                            updatedAt = System.currentTimeMillis(),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    /** 是否已有生成检查点；启动恢复时用于阻止 checkpoint + outbox 双重投递。 */
+    suspend fun hasGenerationCheckpointForUserMessage(userMessageId: String): Boolean =
+        withContext(Dispatchers.IO) { database.generationCheckpointDao().countByUserMessageId(userMessageId) > 0 }
 
     /** 生成正常结束后删除检查点。 */
     suspend fun deleteGenerationCheckpoint(assistantMessageId: String) {

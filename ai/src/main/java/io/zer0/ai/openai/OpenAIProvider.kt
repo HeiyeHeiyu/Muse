@@ -558,7 +558,16 @@ class OpenAIProvider(
                                 markKeyFailed(hardBlock = true)
                             }
                             // L-OAI17: 错误事件携带 throwable,便于上层据此区分错误类型
-                            trySend(ChatStreamEvent.Error(msg, OpenAIHttpException(code, msg)))
+                            trySend(
+                                ChatStreamEvent.Error(
+                                    msg,
+                                    OpenAIHttpException(
+                                        code,
+                                        msg,
+                                        response.header("Retry-After")?.toIntOrNull(),
+                                    ),
+                                ),
+                            )
                             close()
                             return
                         }
@@ -941,7 +950,7 @@ class OpenAIProvider(
                         Logger.w("OpenAIProvider", "completeText 400 完整响应体: $errText")
                     }
                     // L-OAI11: 用自定义异常替代字符串前缀判断
-                    throw OpenAIHttpException(code, msg)
+                    throw OpenAIHttpException(code, msg, response.header("Retry-After")?.toIntOrNull())
                 }
                 // M-OAI6: body 可能为 null(虽然 OkHttp 实际几乎不为 null,但类型上 Nullable),统一做空安全
                 val raw = resp.body?.string()
@@ -1991,7 +2000,16 @@ class OpenAIProvider(
                             if (code == 401 || code == 403) {
                                 markKeyFailed(hardBlock = true)
                             }
-                            trySend(ChatStreamEvent.Error(msg, OpenAIHttpException(code, msg)))
+                            trySend(
+                                ChatStreamEvent.Error(
+                                    msg,
+                                    OpenAIHttpException(
+                                        code,
+                                        msg,
+                                        response.header("Retry-After")?.toIntOrNull(),
+                                    ),
+                                ),
+                            )
                             close()
                             return
                         }
@@ -2284,7 +2302,7 @@ class OpenAIProvider(
                     val errText = ProviderHttpSupport.readBodySafely(resp)
                     val msg = parseErrorMessage(code, errText)
                     Logger.w("OpenAIProvider", "completeTextResponses HTTP $code: $msg")
-                    throw OpenAIHttpException(code, msg)
+                    throw OpenAIHttpException(code, msg, response.header("Retry-After")?.toIntOrNull())
                 }
                 val raw = resp.body?.string()
                     ?: throw ErrorCode.INVALID_RESPONSE.toProviderException("empty_body", resp.code)
@@ -2640,11 +2658,15 @@ class OpenAIProvider(
  * v1.0.27 Phase 5-A: 改为继承 [ProviderException],让消费端可通过
  * `(throwable as? ProviderException)?.providerError` 拿到类型化错误。
  */
-internal class OpenAIHttpException(val code: Int, message: String) : ProviderException(
+internal class OpenAIHttpException(
+    val code: Int,
+    message: String,
+    retryAfterSec: Int? = null,
+) : ProviderException(
     providerError = when (code) {
         401, 403 -> ProviderError.AuthError(httpCode = code, displayMessage = message)
-        400, 422, 404 -> ProviderError.InvalidRequest(httpCode = code, displayMessage = message)
-        429 -> ProviderError.RateLimit(httpCode = code, displayMessage = message)
+        400, 413, 422, 404 -> ProviderError.InvalidRequest(httpCode = code, displayMessage = message)
+        429 -> ProviderError.RateLimit(httpCode = code, retryAfterSec = retryAfterSec, displayMessage = message)
         in 500..599 -> ProviderError.ServerError(httpCode = code, displayMessage = message)
         else -> ProviderError.Unknown(httpCode = code, displayMessage = message)
     },

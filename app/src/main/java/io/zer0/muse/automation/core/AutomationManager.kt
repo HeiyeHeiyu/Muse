@@ -126,9 +126,13 @@ class AutomationManager(
         }
     }
 
-    /** 截屏:优先已授权的 Shizuku Shell，再降级 Root(无障碍不支持截屏)。 */
+    /** 截屏:优先已授权的 Shell/Root;API 34+ 最后降级到无障碍截图。 */
     suspend fun screenshot(): ByteArray? = mutex.withLock {
-        shell.screenshot() ?: root.screenshot()
+        firstNonEmptyScreenshot(
+            { shell.screenshot() },
+            { root.screenshot() },
+            { accessibility.screenshot() },
+        )
     }
 
     /** 读屏:优先无障碍(控件树最完整),降级 Shell(uiautomator dump)。 */
@@ -265,10 +269,7 @@ class AutomationManager(
     suspend fun tapByText(text: String, exact: Boolean = false): Boolean {
         // readScreen/tap 各自负责锁；这里不能再包一层 Mutex，否则会发生不可重入死锁。
         val screen = readScreen()
-        val node = screen.nodes.firstOrNull { n ->
-            val label = n.text ?: n.contentDescription ?: return@firstOrNull false
-            if (exact) label == text else label.contains(text, ignoreCase = true)
-        } ?: return false
+        val node = screen.findBestTextNode(text, exact) ?: return false
         return tap(node.centerX, node.centerY)
     }
 
@@ -303,12 +304,14 @@ class AutomationManager(
         val attempts = maxSwipes.coerceIn(0, 5)
         repeat(attempts + 1) { attempt ->
             val screen = readScreen()
-            val node = screen.nodes.firstOrNull { n ->
-                val label = n.text ?: n.contentDescription ?: return@firstOrNull false
-                if (exact) label == text else label.contains(text, ignoreCase = true)
-            }
-            if (node != null && tap(node.centerX, node.centerY)) {
+            val node = screen.findBestTextNode(text, exact)
+            if (node != null) {
                 val matchedLabel = node.text ?: node.contentDescription
+                // Once a tap is attempted, a false channel result cannot prove that no input
+                // reached the device. Never scroll/retry and risk replaying the side effect.
+                if (!tap(node.centerX, node.centerY)) {
+                    return TextActionResult(false, attempt + 1, matched = true, verified = false, matchedLabel)
+                }
                 if (verifyText.isNullOrBlank()) {
                     return TextActionResult(true, attempt + 1, matched = true, verified = true, matchedLabel)
                 }
@@ -317,21 +320,53 @@ class AutomationManager(
                     val label = n.text ?: n.contentDescription ?: return@any false
                     label.contains(verifyText, ignoreCase = true)
                 }
-                if (verified) {
-                    return TextActionResult(true, attempt + 1, matched = true, verified = true, matchedLabel)
-                }
+                return TextActionResult(verified, attempt + 1, matched = true, verified = verified, matchedLabel)
             }
             if (attempt < attempts && screen.screenHeight > 0) {
                 val centerX = screen.screenWidth / 2
                 val bottom = (screen.screenHeight * 0.82f).toInt()
                 val top = (screen.screenHeight * 0.28f).toInt()
                 if (!swipe(centerX, bottom, centerX, top, 450L)) {
-                    return TextActionResult(false, attempt + 1, matched = node != null, verified = false)
+                    return TextActionResult(false, attempt + 1, matched = false, verified = false)
                 }
                 kotlinx.coroutines.delay(300L)
             }
         }
         return TextActionResult(false, attempts + 1, matched = false, verified = false)
+    }
+
+    /** Stable resource-id semantic click with bounded scrolling and optional post-click verification. */
+    suspend fun tapByViewIdWithRetryDetailed(
+        viewId: String,
+        maxSwipes: Int = 0,
+        verifyText: String? = null,
+    ): TextActionResult {
+        val attempts = maxSwipes.coerceIn(0, 5)
+        repeat(attempts + 1) { attempt ->
+            val screen = readScreen()
+            val node = screen.findBestViewIdNode(viewId)
+            if (node != null) {
+                val label = node.viewIdResourceName ?: node.text ?: node.contentDescription
+                if (!tap(node.centerX, node.centerY)) {
+                    return TextActionResult(false, attempt + 1, matched = true, verified = false, label)
+                }
+                if (verifyText.isNullOrBlank()) return TextActionResult(true, attempt + 1, true, true, label)
+                kotlinx.coroutines.delay(350L)
+                val verified = readScreen().nodes.any { candidate ->
+                    val text = candidate.text ?: candidate.contentDescription ?: return@any false
+                    text.contains(verifyText, ignoreCase = true)
+                }
+                return TextActionResult(verified, attempt + 1, true, verified, label)
+            }
+            if (attempt < attempts && screen.screenHeight > 0) {
+                val centerX = screen.screenWidth / 2
+                if (!swipe(centerX, (screen.screenHeight * 0.82f).toInt(), centerX, (screen.screenHeight * 0.28f).toInt(), 450L)) {
+                    return TextActionResult(false, attempt + 1, matched = false, verified = false)
+                }
+                kotlinx.coroutines.delay(300L)
+            }
+        }
+        return TextActionResult(false, attempts + 1, false, false)
     }
 
     /**
@@ -410,4 +445,20 @@ class AutomationManager(
     companion object {
         private const val TAG = "AutomationMgr"
     }
+}
+
+
+/** Try screenshot channels in priority order, treating empty or failed captures as unavailable. */
+internal suspend fun firstNonEmptyScreenshot(vararg sources: suspend () -> ByteArray?): ByteArray? {
+    for (source in sources) {
+        val image = try {
+            source()
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
+        if (image != null && image.isNotEmpty()) return image
+    }
+    return null
 }

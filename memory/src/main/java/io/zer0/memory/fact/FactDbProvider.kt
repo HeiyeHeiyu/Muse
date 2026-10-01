@@ -38,10 +38,9 @@ class FactDbProvider(
         return storeCache.computeIfAbsent(key) {
             // v1.0.27 P0-1.3: FactStore 现在需要 FactDb 实例以支持 addBatch 事务
             val db = getFactDb(key)
-            // 审查修复 (2.0 A-06): 传入用户级墓碑文件 — 此前 per-assistant FactStore 的
-            // tombstoneFile 为 null,DeepMemoryProcessor/autoSave 经此删除的事实不落墓碑,
-            // 已删内容会在下次编译时"复活"。共享同一墓碑文件(与主 FactStore 一致),
-            // 并发写由 FactStore 进程级墓碑锁串行化。
+            // v15: new deletion tombstones are stored atomically in this assistant's FactDb.
+            // Keep the old shared JSON file read-only as a fail-closed upgrade fallback; active
+            // facts in this exact scope/space exempt legacy text markers from suppressing re-added duplicates.
             // v12: 透传 LLM 去重判定器。
             // v13 (T4-1): 修订记录 DAO 从 db 直接取(不注入,避免 Koin 循环依赖:
             //   FactDbProvider → FactRevisionDao → FactDb → FactDbProvider)。
@@ -51,6 +50,8 @@ class FactDbProvider(
                 java.io.File(context.filesDir, "fact_tombstones.json"),
                 dedupJudge,
                 db.factRevisionDao(),
+                assistantId = key,
+                clearLegacyTombstonesOnReset = key == "default",
             )
         }
     }

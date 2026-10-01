@@ -69,6 +69,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.security.MessageDigest
 import org.koin.compose.koinInject
 
 /**
@@ -200,6 +201,7 @@ fun KnowledgeBaseManagePage(
                     importProgress = context.getString(R.string.knowledge_chunking)
                     var previewContent = ""
                     var seenChars = 0
+                    val contentDigest = MessageDigest.getInstance("SHA-256")
                     val textFlow = flow {
                         context.contentResolver.openInputStream(uri)?.use { input ->
                             val reader = input.bufferedReader()
@@ -211,8 +213,10 @@ fun KnowledgeBaseManagePage(
                                     val take = minOf(CONTENT_CHAR_LIMIT - seenChars, n)
                                     previewContent += String(buf, 0, take)
                                 }
+                                val piece = String(buf, 0, n)
+                                contentDigest.update(piece.toByteArray(Charsets.UTF_8))
                                 seenChars += n
-                                emit(String(buf, 0, n))
+                                emit(piece)
                             }
                         }
                     }.flowOn(Dispatchers.IO)
@@ -228,6 +232,8 @@ fun KnowledgeBaseManagePage(
                         (docDao.getById(docId) ?: return@launch).copy(
                             content = previewContent,
                             chunkCount = streamedChunkCount,
+                            embeddingModel = RagConfig.embeddingModelKey(ragCfg),
+                            contentHash = contentDigest.digest().joinToString("") { "%02x".format(it) },
                             updatedAt = System.currentTimeMillis(),
                         ),
                     )
@@ -280,6 +286,8 @@ fun KnowledgeBaseManagePage(
                     docDao.upsert(
                         (docDao.getById(docId) ?: return@launch).copy(
                             chunkCount = chunkCount,
+                            embeddingModel = RagConfig.embeddingModelKey(ragConfig),
+                            contentHash = RagService.computeContentHash(content),
                             updatedAt = System.currentTimeMillis(),
                         ),
                     )
@@ -987,6 +995,7 @@ private suspend fun importZipTextEntry(
     val preview = StringBuilder()
     var seenChars = 0L
     var truncated = false
+    val contentDigest = MessageDigest.getInstance("SHA-256")
     val textFlow = flow {
         val reader = zis.reader(Charsets.UTF_8)
         val buf = CharArray(64 * 1024)
@@ -1000,8 +1009,10 @@ private suspend fun importZipTextEntry(
                     val take = minOf((CONTENT_CHAR_LIMIT - seenChars).toInt(), n)
                     preview.append(buf, 0, take)
                 }
+                val piece = String(buf, 0, n)
+                contentDigest.update(piece.toByteArray(Charsets.UTF_8))
                 seenChars += n
-                emit(String(buf, 0, n))
+                emit(piece)
                 if (seenChars >= ZipImportPolicy.MAX_TEXT_CHARS) {
                     truncated = true
                     done = true
@@ -1031,6 +1042,8 @@ private suspend fun importZipTextEntry(
         (deps.docDao.getById(docId) ?: error("doc missing: $docId")).copy(
             content = preview.toString(),
             chunkCount = chunks,
+            embeddingModel = RagConfig.embeddingModelKey(deps.settings.getRagConfig()),
+            contentHash = contentDigest.digest().joinToString("") { "%02x".format(it) },
             updatedAt = System.currentTimeMillis(),
         ),
     )
@@ -1109,6 +1122,8 @@ private suspend fun importZipParsedEntry(
         deps.docDao.upsert(
             (deps.docDao.getById(docId) ?: error("doc missing: $docId")).copy(
                 chunkCount = chunks,
+                embeddingModel = RagConfig.embeddingModelKey(ragCfg),
+                contentHash = RagService.computeContentHash(content),
                 updatedAt = System.currentTimeMillis(),
             ),
         )

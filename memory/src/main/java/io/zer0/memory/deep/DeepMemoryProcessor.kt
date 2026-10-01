@@ -173,7 +173,8 @@ class DeepMemoryProcessor(
         // 审查修复 (2.0 A-11): 墓碑过滤 — 用户删除的事实不得从 dirty session 摘要
         // 重新抽回 facts 表(S-04 墓碑此前只作用于 compileFacts/compileToday,
         // deepMemory 的输入摘要与 LLM 输出均未过滤,已删内容会"复活")。
-        val tombstones = resultOf { factStore.getTombstones() }.getOrNull() ?: emptyList()
+        val memoryScope = if (summary.assistantId.isBlank() || summary.assistantId == "default") "main" else summary.assistantId
+        val tombstones = resultOf { factStore.getTombstones(memoryScope, summary.spaceId) }.getOrNull() ?: emptyList()
         val effectiveSummary = FactStore.filterTombstonedLines(summaryText, tombstones)
         val effectiveSnapshot = FactStore.filterTombstonedLines(prevSnapshot, tombstones)
 
@@ -223,7 +224,7 @@ class DeepMemoryProcessor(
                 // B-19: scope 口径与 autoSave 对齐 — 主助手("default"/空)归 "main",
                 // 子助手用 assistantId。此前 addBatch 不传 scope 恒落 "main",
                 // 子助手会话的深层事实串进主助手记忆(查询漏一半数据)。
-                val scope = if (summary.assistantId.isBlank() || summary.assistantId == "default") "main" else summary.assistantId
+                val scope = memoryScope
                 // A-11: LLM 抽取输出按墓碑过滤 — 命中墓碑的事实直接丢弃,不再写回 facts 表
                 val filteredFacts = if (tombstones.isEmpty()) {
                     guardedFacts

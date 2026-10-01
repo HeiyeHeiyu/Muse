@@ -55,6 +55,21 @@ data class ConversationEventDraft(
     /** 将事件正文中的敏感键替换为固定占位符，事件表不保存凭据。 */
     fun redactedPayload(): String = ConversationEventSanitizer.redact(payloadJson)
 
+    /** Stable id for retry-safe event append; excludes createdAt so a retried logical event deduplicates. */
+    fun deterministicEventId(): String = sha256(
+        listOf(
+            sessionId,
+            turnId,
+            type.name,
+            streamId.orEmpty(),
+            sequenceInStream.toString(),
+            generationSerial.toString(),
+            provider.orEmpty(),
+            modelId.orEmpty(),
+            redactedPayload(),
+        ).joinToString("\u001f"),
+    )
+
     fun toEntity(eventSeq: Long, eventId: String): ConversationEventEntity {
         val payload = redactedPayload()
         return ConversationEventEntity(

@@ -382,16 +382,17 @@ class VisionBridge(
      *
      * @throws VisionAnalysisException 视觉未启用/未配置/模型不支持视觉/调用失败时抛出
      */
-    suspend fun askWithImage(prompt: String, imageBase64: String, timeoutMs: Long = ANALYSIS_TIMEOUT_MS): String {
+    suspend fun askWithImage(
+        prompt: String,
+        imageBase64: String,
+        timeoutMs: Long = ANALYSIS_TIMEOUT_MS,
+        systemPrompt: String? = null,
+    ): String {
         val (visionModel, visionProvider) = resolveVisionModelStrict()
-        val userMessage = UIMessage(
-            role = MessageRole.USER,
-            content = prompt,
-            imageBase64List = listOf(imageBase64),
-        )
+        val messages = buildVisionMessages(prompt, imageBase64, systemPrompt)
         return withTimeout(timeoutMs) {
             retryOnNetworkError(maxRetries = MAX_RETRIES, initialDelayMs = INITIAL_RETRY_DELAY_MS) {
-                callVisionModel(userMessage, visionModel, visionProvider)
+                callVisionModel(messages, visionModel, visionProvider)
             }
         }.trim()
     }
@@ -667,10 +668,13 @@ class VisionBridge(
     /**
      * v1.0.2 (P3): 调用视觉模型,优先 completeText,不支持时降级 streamChat。
      */
-    private suspend fun callVisionModel(userMessage: UIMessage, visionModel: Model, visionProvider: ProviderConfig): String {
+    private suspend fun callVisionModel(userMessage: UIMessage, visionModel: Model, visionProvider: ProviderConfig): String =
+        callVisionModel(listOf(userMessage), visionModel, visionProvider)
+
+    private suspend fun callVisionModel(messages: List<UIMessage>, visionModel: Model, visionProvider: ProviderConfig): String {
         return try {
             val completion = chatService.completeText(
-                messages = listOf(userMessage),
+                messages = messages,
                 model = visionModel,
                 providerConfig = visionProvider,
                 tools = null,
@@ -681,18 +685,21 @@ class VisionBridge(
             )
         } catch (e: UnsupportedOperationException) {
             Logger.w(TAG, "completeText 不支持,降级 streamChat: ${e.message}")
-            collectStreamText(userMessage, visionModel, visionProvider)
+            collectStreamText(messages, visionModel, visionProvider)
         }
     }
 
     /**
      * v1.0.2 (P3): 通过 streamChat 收集完整响应文本(降级路径)。
      */
-    private suspend fun collectStreamText(userMessage: UIMessage, visionModel: Model, visionProvider: ProviderConfig): String {
+    private suspend fun collectStreamText(userMessage: UIMessage, visionModel: Model, visionProvider: ProviderConfig): String =
+        collectStreamText(listOf(userMessage), visionModel, visionProvider)
+
+    private suspend fun collectStreamText(messages: List<UIMessage>, visionModel: Model, visionProvider: ProviderConfig): String {
         val builder = StringBuilder()
         val reasoningBuilder = StringBuilder()
         chatService.streamChat(
-            messages = listOf(userMessage),
+            messages = messages,
             model = visionModel,
             providerConfig = visionProvider,
             tools = null,
@@ -889,4 +896,19 @@ data class VisionProgress(
 ) {
     val isActive: Boolean get() = !idle && total > 0
     val ratio: Float get() = if (total > 0) index.toFloat() / total else 0f
+}
+
+
+/** Keep durable model instructions in a system role, separate from screen/user-controlled content. */
+internal fun buildVisionMessages(prompt: String, imageBase64: String, systemPrompt: String?): List<UIMessage> = buildList {
+    systemPrompt?.trim()?.takeIf { it.isNotEmpty() }?.let { instruction ->
+        add(UIMessage(role = MessageRole.SYSTEM, content = instruction))
+    }
+    add(
+        UIMessage(
+            role = MessageRole.USER,
+            content = prompt,
+            imageBase64List = listOf(imageBase64),
+        ),
+    )
 }

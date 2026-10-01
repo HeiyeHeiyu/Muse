@@ -337,9 +337,13 @@ fun KnowledgeScreen(
                 var indexError: Throwable? = null
                 var indexErrorMsg: String? = null
                 val indexResult = resultOf {
-                    ragService.indexDocument(docId, truncatedContent, ragConfig) { current, total ->
-                        importProgress = context.getString(R.string.knowledge_generating_vector, current, total)
-                    }
+                    ragService.indexDocumentStreamed(
+                        docId = docId,
+                        textPieces = kotlinx.coroutines.flow.flow {
+                            content.chunked(io.zer0.muse.rag.RagService.STREAM_WINDOW_CHARS).forEach { emit(it) }
+                        },
+                        ragConfig = ragConfig,
+                    )
                 }.onError { msg, t ->
                     indexErrorMsg = msg
                     indexError = t
@@ -352,6 +356,9 @@ fun KnowledgeScreen(
                         (dao.getById(docId) ?: return@launch).copy(
                             chunkCount = chunkCount,
                             embeddingModel = modelName,
+                            // Hash the complete extracted text, not the DB preview, so reindexing can
+                            // distinguish truncated content instead of silently treating it as canonical.
+                            contentHash = io.zer0.muse.rag.RagService.computeContentHash(content),
                             updatedAt = System.currentTimeMillis(),
                         ),
                     )
@@ -510,7 +517,20 @@ fun KnowledgeScreen(
                     doc.content,
                     "covers/${item.fileName}",
                 )
-                dao.upsert(doc.copy(content = newContent, updatedAt = System.currentTimeMillis()))
+                val sourceWasComplete = doc.contentHash.isNotBlank() &&
+                    doc.contentHash == io.zer0.muse.rag.RagService.computeContentHash(doc.content)
+                dao.upsert(
+                    doc.copy(
+                        content = newContent,
+                        // Do not turn a preview into a false claim that it contains the full source.
+                        contentHash = if (sourceWasComplete) {
+                            io.zer0.muse.rag.RagService.computeContentHash(newContent)
+                        } else {
+                            doc.contentHash
+                        },
+                        updatedAt = System.currentTimeMillis(),
+                    ),
+                )
                 MuseToast.show(context.getString(R.string.cover_applied))
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
@@ -840,7 +860,14 @@ fun KnowledgeScreen(
                 saving = true
                 scope.launch {
                     val newContent = draft
-                    dao.upsert(doc.copy(content = newContent, updatedAt = System.currentTimeMillis()))
+                    dao.upsert(
+                        doc.copy(
+                            content = newContent,
+                            // Saving the editor makes this text the new authoritative document content.
+                            contentHash = io.zer0.muse.rag.RagService.computeContentHash(newContent),
+                            updatedAt = System.currentTimeMillis(),
+                        ),
+                    )
                     try {
                         val ragConfig = try {
                             settings.getRagConfig()

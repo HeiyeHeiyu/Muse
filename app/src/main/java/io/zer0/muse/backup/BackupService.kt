@@ -122,6 +122,8 @@ class BackupService(
     private val factDbProvider: io.zer0.memory.fact.FactDbProvider,
     /** 恢复成功后清理旧消息不再引用的图片 sidecar。 */
     private val messageImageStore: MessageImageStore,
+    /** 恢复后使 RagService 的派生 HNSW 状态失效；null 兼容测试/旧装配。 */
+    private val ragIndexInvalidator: (suspend () -> Unit)? = null,
     /**
      * B-23: 单 JSON 备份体量上限(字节)。
      *
@@ -139,6 +141,11 @@ class BackupService(
 
     /** F-27: 自动备份恢复的互斥锁,防止并发恢复/备份互相踩库文件。 */
     private val autoRestoreLock = Any()
+
+    private suspend fun invalidateRagAfterRestore() {
+        resultOf { ragIndexInvalidator?.invoke() }
+            .onError { msg, _ -> Logger.w("BackupService", "恢复后 HNSW 索引失效处理失败: $msg") }
+    }
 
     /**
      * 备份数据结构。
@@ -1422,6 +1429,7 @@ class BackupService(
         // (消息数恰好相同)会跳过 rebuild,搜索索引停留在导入前。导入完成显式重建。
         resultOf { sessionRepository.rebuildFtsIndex() }
             .onError { msg, t -> Logger.w("BackupService", "导入后 FTS 重建失败: ${t?.message ?: msg}") }
+        invalidateRagAfterRestore()
 
         // v4: 恢复文件型存储(白名单内,单个失败不阻塞)
         if (fileStoreBuf.isNotEmpty()) writeFileStores(fileStoreBuf)
@@ -1863,6 +1871,7 @@ class BackupService(
                 .onError { msg, t -> Logger.w("BackupService", "恢复后消息 FTS 重建失败: $msg", t) }
             resultOf { factStore.rebuildFtsIndex() }
                 .onError { msg, t -> Logger.w("BackupService", "恢复后事实 FTS 重建失败: $msg", t) }
+            invalidateRagAfterRestore()
 
             val sessions = db.sessionDao().observeAll().first()
             val messageCount = sessions.sumOf { session ->
@@ -2277,6 +2286,7 @@ class BackupService(
                 Logger.w("BackupService", "恢复后 FTS 重建失败，保留恢复账本: ${error.message}", error)
                 throw error
             }
+            invalidateRagAfterRestore()
             currentJournal = restoreJournal.advance(
                 currentJournal,
                 RestoreJournal.Phase.REBUILDING,
@@ -2318,6 +2328,7 @@ class BackupService(
                 var rollbackJournal = restoreJournal.advance(entry, RestoreJournal.Phase.ROLLING_BACK)
                 applyBackupInternal(recovery)
                 sessionRepository.rebuildFtsIndex()
+                invalidateRagAfterRestore()
                 rollbackJournal = restoreJournal.advance(
                     rollbackJournal,
                     RestoreJournal.Phase.ROLLING_BACK,
@@ -2357,6 +2368,7 @@ class BackupService(
             current = restoreJournal.advance(current, RestoreJournal.Phase.ROLLING_BACK)
             applyBackupInternal(recovery)
             sessionRepository.rebuildFtsIndex()
+            invalidateRagAfterRestore()
             current = restoreJournal.advance(
                 current,
                 RestoreJournal.Phase.REBUILDING,
@@ -2486,7 +2498,12 @@ class BackupService(
             // P0-10: 此前缺失的实体
             backup.quickNotes.forEach { db.quickNoteDao().upsert(it) }
             backup.worldBookEntries.forEach { db.worldBookDao().upsert(it) }
-            if (backup.conversationEvents.isNotEmpty()) db.conversationEventDao().insertAll(backup.conversationEvents)
+            if (backup.conversationEvents.isNotEmpty()) {
+                val insertedEventIds = db.conversationEventDao().insertAll(backup.conversationEvents)
+                check(insertedEventIds.all { it != -1L }) {
+                    "备份 conversation_events 存在 eventId/主键冲突，拒绝静默丢失事件"
+                }
+            }
             backup.conversationTurns.forEach { db.conversationTurnDao().upsert(it) }
             if (backup.messageParts.isNotEmpty()) db.messagePartDao().upsertAll(backup.messageParts)
             backup.messageOutboxes.forEach { db.messageOutboxDao().upsert(it) }

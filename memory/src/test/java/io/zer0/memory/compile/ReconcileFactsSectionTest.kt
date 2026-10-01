@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import io.zer0.ai.core.Model
 import io.zer0.memory.fact.FactDb
+import io.zer0.memory.fact.FactDbProvider
 import io.zer0.memory.fact.FactStore
 import io.zer0.memory.llm.MemoryLlmClient
 import io.zer0.memory.summary.CompiledSectionDao
@@ -83,6 +84,29 @@ class ReconcileFactsSectionTest {
     }
 
     @Test
+    fun emptyFactStoreClearsExistingFactsSection() = runTest {
+        sectionDao.upsert(
+            CompiledSectionEntity(
+                sectionKey = MemoryCompiler.Section.FACTS.key,
+                content = "已经删除的事实",
+                fingerprint = "old",
+                updatedAt = java.time.Instant.now().toString(),
+            ),
+        )
+
+        val noStoreCompiler = MemoryCompiler(
+            sectionDao = sectionDao,
+            llmClient = NoopLlm(),
+            fileWriter = null,
+            factStore = null,
+        )
+        val changed = noStoreCompiler.reconcileFactsSectionWithStore(emptyList())
+
+        assertEquals("空事实表应清空旧 FACTS 段", 1, changed)
+        assertEquals("", noStoreCompiler.readSection(MemoryCompiler.Section.FACTS))
+    }
+
+    @Test
     fun `scoped compiled sections do not leak between spaces`() = runTest {
         val scopedDao = memoryDb.scopedCompiledSectionDao()
         scopedDao.upsert(
@@ -106,6 +130,53 @@ class ReconcileFactsSectionTest {
 
         assertEquals("work-only", scopedCompiler.readSection(MemoryCompiler.Section.FACTS))
         assertEquals("", scopedCompiler.readSection(MemoryCompiler.Section.TODAY))
+    }
+
+    @Test
+    fun `assistant scoped tombstone prevents stale compiled fact resurrection`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val assistantId = "tombstone-test-${System.nanoTime()}"
+        val databaseName = "facts_$assistantId.db"
+        context.deleteDatabase(databaseName)
+        val provider = FactDbProvider(context)
+        try {
+            val childStore = provider.getFactStore(assistantId)
+            val deletedId = childStore.add(
+                FactStore.Fact(fact = "deleted child-only preference"),
+                scope = assistantId,
+                spaceId = "work",
+            )
+            assertTrue(childStore.delete(deletedId, assistantId, assistantId, "work"))
+
+            val target = MemoryCompileTarget(assistantId = assistantId, scope = assistantId, spaceId = "work")
+            memoryDb.scopedCompiledSectionDao().upsert(
+                ScopedCompiledSectionEntity(
+                    sectionKey = MemoryCompiler.Section.FACTS.key,
+                    scope = assistantId,
+                    spaceId = "work",
+                    content = "deleted child-only preference",
+                    updatedAt = java.time.Instant.now().toString(),
+                ),
+            )
+            val providerCompiler = MemoryCompiler(
+                sectionDao = sectionDao,
+                llmClient = NoopLlm(),
+                fileWriter = null,
+                factStore = factStore,
+                scopedSectionDao = memoryDb.scopedCompiledSectionDao(),
+                factDbProvider = provider,
+            )
+
+            val changed = providerCompiler.reconcileFactsSectionWithStore(emptyList(), target)
+
+            assertEquals(1, changed)
+            assertEquals("", providerCompiler.readSection(MemoryCompiler.Section.FACTS, target))
+            assertTrue(childStore.getByScopeAndSpace(assistantId, "work").isEmpty())
+            assertTrue("deleted child facts must not be absorbed into the default store", factStore.getByScopeAndSpace("main", "work").isEmpty())
+        } finally {
+            provider.release(assistantId)
+            context.deleteDatabase(databaseName)
+        }
     }
 
     @Test

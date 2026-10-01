@@ -34,6 +34,7 @@ import io.zer0.muse.util.ErrorMessages
 import io.zer0.muse.util.TokenEstimator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
@@ -64,6 +65,7 @@ internal class ChatGenerationController(
     private val onCancelPendingApprovals: (String?) -> Unit,
     private val executionRegistry: SessionExecutionRegistry? = null,
 ) {
+    private val shadowEventSequencer = ConversationShadowEventSequencer()
     // B-1: 会话删除写抑制集 — 删除会话消息时登记,令该会话全部在途流式落盘
     // (persistCurrentAssistant / persistInterruptedAssistant / 收尾 upsertMessage)
     // 跳过,防止删除后"复活"。新流式 launchStream 启动时清除,允许删除后重新生成。
@@ -303,8 +305,8 @@ internal class ChatGenerationController(
         val assistantMsg = UIMessage(role = MessageRole.ASSISTANT, content = "", createdAt = userMsg.createdAt + 1)
         // v1.0.15: 异步写入 outbox(保证"刚点击发送就退出"时消息不丢失)
         val outboxId = Uuid.random().toString()
-        val outboxInsertJob =
-            accessor.coroutineScope.launch(Dispatchers.IO) {
+        val outboxReady =
+            accessor.coroutineScope.async(Dispatchers.IO) {
                 withContext(NonCancellable) {
                     resultOf {
                         deps.sessionRepository.insertOutbox(
@@ -318,7 +320,7 @@ internal class ChatGenerationController(
                                 createdAt = System.currentTimeMillis(),
                             ),
                         )
-                    }.onError { _, t -> Logger.w("ChatVM", "outbox 写入失败,进程被杀可能丢失此消息", t) }
+                    }.onError { _, t -> Logger.w("ChatVM", "outbox 写入失败,本次发送将被阻止", t) }.isSuccess
                 }
             }
         deps.stateStore.messages.value = deps.stateStore.messages.value + userMsg + assistantMsg
@@ -350,14 +352,17 @@ internal class ChatGenerationController(
                     userMessage = userMsg,
                     assistantMessageId = assistantMsg.id,
                     outboxId = outboxId,
+                    outboxReady = outboxReady,
                     taskRouteSelection = routed,
                 ),
             )
         if (sendResult.isFailure) {
             // 队列已满,回滚乐观更新 + 删除 outbox(消息未入队,outbox 无用)
             accessor.coroutineScope.launch(Dispatchers.IO) {
-                outboxInsertJob.join()
-                resultOf { deps.sessionRepository.deleteOutbox(outboxId) }
+                val persisted = runCatching { outboxReady.await() }.getOrDefault(false)
+                if (persisted) {
+                    resultOf { deps.sessionRepository.deleteOutbox(outboxId) }
+                }
             }
             accessor.update {
                 val filtered =
@@ -386,6 +391,17 @@ internal class ChatGenerationController(
     @Suppress("TooGenericExceptionCaught")
     suspend fun consumeSendRequest(req: SendRequest) {
         deps.generationState.outboxRecoveryQueuedIds.remove(req.outboxId)
+        // 新请求必须先确认 outbox 已落盘；否则 launchStream 后立即删除 outbox 会留下不可恢复窗口。
+        if (req.outboxReady != null && !req.outboxReady.await()) {
+            rollbackOptimisticSend(req)
+            accessor.update { it.copy(isStreaming = false, isWaitingFirstToken = false) }
+            deps.addError(
+                ChatErrorType.UNKNOWN,
+                deps.appContext.getString(R.string.err_chat_msg_save_failed, "outbox persistence failed"),
+                true,
+            )
+            return
+        }
         val state = accessor.snapshot
         val currentSid =
             if (state.isAgentMode) {
@@ -456,6 +472,8 @@ internal class ChatGenerationController(
         val delegated = deps.maybeAutoRoute(req.text, req.assistantMessageId, currentSid)
         if (delegated) {
             restoreSelectionForSession(currentSid)
+            // delegated 路径由委派执行器接管，不会经过本地 generation checkpoint。
+            resultOf { deps.sessionRepository.deleteOutbox(req.outboxId) }
         } else {
             launchStream(
                 assistantId = req.assistantMessageId,
@@ -463,9 +481,10 @@ internal class ChatGenerationController(
                 isNewBranch = false,
                 continueFrom = null,
                 taskRouteSelection = req.taskRouteSelection,
+                outboxId = req.outboxId,
             )
         }
-        resultOf { deps.sessionRepository.deleteOutbox(req.outboxId) }
+        // 非 delegated 路径由首个 generation checkpoint 成功后删除 outbox，保留启动前的恢复窗口。
     }
 
     /**
@@ -829,12 +848,15 @@ internal class ChatGenerationController(
     @Suppress("TooGenericExceptionCaught")
     suspend fun recordConversationShadow(event: ConversationEventDraft) {
         if (!ConversationRebuildFlagStore.current.shadowEventsEnabled) return
-        try {
-            deps.conversationService.record(event)
-        } catch (ce: kotlinx.coroutines.CancellationException) {
-            throw ce
-        } catch (e: Exception) {
-            Logger.w("ChatVM", "conversation shadow event failed: ${event.type}", e)
+        val key = listOf(event.sessionId, event.turnId, event.generationSerial.toString()).joinToString("\u001f")
+        shadowEventSequencer.enqueue(key) {
+            try {
+                deps.conversationService.record(event)
+            } catch (ce: kotlinx.coroutines.CancellationException) {
+                throw ce
+            } catch (e: Exception) {
+                Logger.w("ChatVM", "conversation shadow event failed: ${event.type}", e)
+            }
         }
     }
 
@@ -916,6 +938,7 @@ internal class ChatGenerationController(
         isNewBranch: Boolean = false,
         continueFrom: UIMessage? = null,
         taskRouteSelection: io.zer0.muse.data.SettingsRepository.TaskRouteSelection? = null,
+        outboxId: String? = null,
     ) {
         // v1.94: 每次启动流式生成前清空工具调用历史(InputBar 动态胶囊计数归零)
         accessor.update { it.copy(toolCallHistory = emptyList()) }
@@ -930,6 +953,7 @@ internal class ChatGenerationController(
         val generationSerial = ++deps.generationState.streamGenerationSerial
         // 先创建流状态，再把同一 generationId 交给调度器；活跃状态、LLM、工具和审批因此共享代际身份。
         val state = StreamRunState(sessionId = sessionId, assistantId = assistantId, isNewBranch = isNewBranch)
+        state.outboxId = outboxId
         chatGenerationManager.launchGeneration(
             sessionId = sessionId,
             assistantId = assistantId.toString(),

@@ -2325,6 +2325,17 @@ class ChatViewModel(
                 val alreadySaved =
                     resultOf { sessionRepository.messageExists(req.sessionId, req.userMessageId) }
                         .getOrNull() ?: false
+                // 若 checkpoint 已存在，说明生成已经真正启动过；不要把残留 outbox 再次投递，
+                // 否则会与 checkpoint 恢复路径并行生成同一条 assistant 回复。
+                val checkpointExists =
+                    resultOf { sessionRepository.hasGenerationCheckpointForUserMessage(req.userMessageId) }
+                        .getOrNull() ?: false
+                if (checkpointExists) {
+                    Logger.i("ChatVM", "outbox ${req.id} 已有 generation checkpoint，跳过重复恢复")
+                    resultOf { sessionRepository.deleteOutbox(req.id) }
+                        .onError { msg, _ -> Logger.w("ChatVM", "清理 checkpoint 对应 outbox 失败: $msg") }
+                    continue
+                }
                 val images =
                     runCatching {
                         idListJson.decodeFromString<List<String>>(req.imageBase64Json)
@@ -4343,15 +4354,16 @@ class ChatViewModel(
                     }
 
                     // B5-01: 每轮开始写入生成检查点,确保流式产出有持久化兜底
-                    runCatching {
-                        sessionRepository.upsertGenerationCheckpoint(
-                            sessionId = sessionId,
-                            userMessageId = checkpointUserMessageId,
-                            assistantMessageId = params.currentAssistantId.toString(),
-                            content = unmaskPii(params.builder.toString()),
-                            createdAt = checkpointCreatedAt,
-                        )
-                    }.onFailure { Logger.w("ChatVM", "generation checkpoint 写入失败: ${it.message}") }
+                    persistCheckpointAndReleaseOutbox(
+                        state = state,
+                        sessionId = sessionId,
+                        userMessageId = checkpointUserMessageId,
+                        assistantMessageId = params.currentAssistantId.toString(),
+                        content = unmaskPii(params.builder.toString()),
+                        createdAt = checkpointCreatedAt,
+                        // 删除 outbox 只发生在 helper 确认 checkpoint 成功之后。
+                    )
+
                     // C-12: 本轮模型选择 — 仅"工具轮"(上一轮结果含 toolCalls → round>1)用 toolModel,
                     // 首轮(可能直接出最终回复、需视觉读图)与后续最终回复一律使用主模型,
                     // 避免工具启用并配置 toolModel 后所有轮次被降级成纯文本路由。
@@ -4583,15 +4595,14 @@ class ChatViewModel(
                         // B-1: 会话已删除则跳过周期性落盘与检查点,防止删后"复活"。
                         if (!generationController.isSessionWritesSuppressed(sessionId)) {
                             persistCurrentAssistant(sessionId, params.currentAssistantId, persistMsg)
-                            runCatching {
-                                sessionRepository.upsertGenerationCheckpoint(
-                                    sessionId = sessionId,
-                                    userMessageId = checkpointUserMessageId,
-                                    assistantMessageId = params.currentAssistantId.toString(),
-                                    content = unmaskPii(params.builder.toString()),
-                                    createdAt = checkpointCreatedAt,
-                                )
-                            }.onFailure { Logger.w("ChatVM", "generation checkpoint 更新失败: ${it.message}") }
+                            persistCheckpointAndReleaseOutbox(
+                                state = state,
+                                sessionId = sessionId,
+                                userMessageId = checkpointUserMessageId,
+                                assistantMessageId = params.currentAssistantId.toString(),
+                                content = unmaskPii(params.builder.toString()),
+                                createdAt = checkpointCreatedAt,
+                            )
                         }
                     }
 
@@ -6784,4 +6795,37 @@ class ChatViewModel(
 
     /** QuickMessage: 删除。 */
     fun deleteQuickMessage(id: String) = miscCoordinator.deleteQuickMessage(id)
+    private suspend fun persistCheckpointAndReleaseOutbox(
+        state: StreamRunState,
+        sessionId: String,
+        userMessageId: String,
+        assistantMessageId: String,
+        content: String,
+        createdAt: Long,
+    ) {
+        val pendingOutboxId = state.outboxId
+        val checkpointPersisted = resultOf {
+            if (pendingOutboxId != null) {
+                sessionRepository.upsertGenerationCheckpointAndDeleteOutbox(
+                    sessionId = sessionId,
+                    userMessageId = userMessageId,
+                    assistantMessageId = assistantMessageId,
+                    content = content,
+                    createdAt = createdAt,
+                    outboxId = pendingOutboxId,
+                )
+            } else {
+                sessionRepository.upsertGenerationCheckpoint(
+                    sessionId = sessionId,
+                    userMessageId = userMessageId,
+                    assistantMessageId = assistantMessageId,
+                    content = content,
+                    createdAt = createdAt,
+                )
+            }
+        }.onError { msg, _ -> Logger.w("ChatVM", "generation checkpoint 写入失败: $msg") }.isSuccess
+        if (checkpointPersisted && pendingOutboxId != null) {
+            state.outboxId = null
+        }
+    }
 }

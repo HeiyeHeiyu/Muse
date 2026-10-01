@@ -755,7 +755,14 @@ class MemoryViewModel(
                 // 与 ChatService 注入 system prompt 同源,反映 AI 真正"看到"的记忆。
                 // P2-33: 同样按当前 scope/space 读取,避免展示主助手编译段。
                 val compiledMarkdown = withContext(Dispatchers.IO) {
-                    resultOf { memoryTicker.readCompiledMemoryMarkdown(locale = "zh-CN", scope = sectionScope, spaceId = spaceId) }
+                    resultOf {
+                        memoryTicker.readCompiledMemoryMarkdown(
+                            locale = "zh-CN",
+                            scope = sectionScope,
+                            spaceId = spaceId,
+                            assistantId = if (sectionScope == "main") "default" else sectionScope,
+                        )
+                    }
                         .onError { msg, t -> Logger.w("MemoryViewModel", "readCompiledMemoryMarkdown 失败: $msg", t) }
                         .getOrNull() ?: ""
                 }
@@ -958,12 +965,21 @@ class MemoryViewModel(
                 if (id != null) {
                     // v1.78 (H6): 包装 suspend 调用必须用 resultOf,避免吞 CancellationException
                     // P0-4: 按 factId 定位实际所在 store("全部"视图下子助手事实也能删)
-                    resultOf { storeForFact(id, scope).delete(id) }
+                    val requestedScope = scope?.takeIf { it.isNotBlank() } ?: _selectedScope.value ?: "main"
+                    val requestedAssistantId = if (requestedScope == "main") "default" else requestedScope
+                    val requestedSpaceId = _selectedSpaceId.value.ifBlank { "default" }
+                    val store = storeForFact(id, scope)
+                    resultOf { store.delete(id, requestedAssistantId, requestedScope, requestedSpaceId) }
                         .onError { msg, t -> MuseToast.show(getApplication<Application>().getString(R.string.memory_delete_failed, msg)) }
                         .onSuccess { deleted ->
                             if (deleted) {
                                 // S-04: 剔除编译产物中已删事实,防止"删除后仍注入/从摘要复活"
-                                resultOf { memoryCompiler.purgeTombstonedFacts() }
+                                val target = io.zer0.memory.compile.MemoryCompileTarget(
+                                    assistantId = requestedAssistantId,
+                                    scope = requestedScope,
+                                    spaceId = requestedSpaceId,
+                                )
+                                resultOf { memoryCompiler.purgeTombstonedFacts(target) }
                                     .onError { msg, t -> Logger.w("MemoryVM", "purgeTombstonedFacts 失败: $msg", t) }
                             }
                         }

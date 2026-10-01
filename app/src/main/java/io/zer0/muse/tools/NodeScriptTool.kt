@@ -30,6 +30,7 @@ object NodeScriptTool {
 
     private const val DEFAULT_TIMEOUT_MS = 30_000L
     private const val MAX_TIMEOUT_MS = 300_000L
+    const val MAX_SCRIPT_CHARS = 128_000
 
     fun toolDef() = ToolRegistry.ToolDef(
         name = TOOL_NAME,
@@ -48,18 +49,42 @@ object NodeScriptTool {
     suspend fun execute(context: Context, args: Map<String, String>): String {
         val code = args["code"].orEmpty()
         if (code.isBlank()) return errorJson("参数 code 缺失或为空")
+        if (code.length > MAX_SCRIPT_CHARS) return errorJson("脚本超过最大长度($MAX_SCRIPT_CHARS 字符)")
         val timeoutMs = args["timeout_ms"]?.toLongOrNull()?.coerceIn(1L, MAX_TIMEOUT_MS) ?: DEFAULT_TIMEOUT_MS
-        return when (
-            val result = ProcessSkillEngine(context).eval(
-                script = code,
-                timeoutMs = timeoutMs,
-                scopeKey = "builtin-node-script",
-                pluginConfigJson = null,
-            )
-        ) {
+        return formatResultJson(evaluate(context, code, timeoutMs))
+    }
+
+    /** Shared execution path for the direct script tool and durable phone-agent workflows. */
+    suspend fun evaluate(context: Context, code: String, timeoutMs: Long = DEFAULT_TIMEOUT_MS): SkillEngineResult {
+        if (code.isBlank()) return SkillEngineResult.Error("参数 code 缺失或为空")
+        if (code.length > MAX_SCRIPT_CHARS) return SkillEngineResult.Error("脚本超过最大长度($MAX_SCRIPT_CHARS 字符)")
+        return ProcessSkillEngine(context).eval(
+            script = code,
+            timeoutMs = timeoutMs.coerceIn(1L, MAX_TIMEOUT_MS),
+            scopeKey = "builtin-node-script",
+            pluginConfigJson = null,
+        )
+    }
+
+    fun formatResultJson(result: SkillEngineResult, maxChars: Int = Int.MAX_VALUE): String {
+        val complete = when (result) {
             is SkillEngineResult.Success -> resultJson(result.valueJson, result.consoleLogs, null)
             is SkillEngineResult.Error -> errorJson(result.message, result.consoleLogs)
         }
+        if (complete.length <= maxChars) return complete
+
+        // Keep a valid outer JSON envelope and explicitly mark that the result field is only a preview.
+        val previewLimit = ((maxChars - 1_024).coerceAtLeast(0)) / 6
+        val preview = when (result) {
+            is SkillEngineResult.Success -> result.valueJson.take(previewLimit)
+            is SkillEngineResult.Error -> result.message.take(previewLimit)
+        }
+        val note = "Output truncated from ${complete.length} characters; result/error is a preview."
+        return buildJsonObject {
+            put("result", preview)
+            put("logs", buildJsonArray { add(JsonPrimitive(note)) })
+            put("error", if (result is SkillEngineResult.Error) JsonPrimitive(note) else JsonNull)
+        }.toString()
     }
 
     /** 同步桥接（适配 ToolRegistry 的 `(Map<String,String>) -> String` 签名）。 */

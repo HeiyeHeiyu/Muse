@@ -1,7 +1,11 @@
 package io.zer0.muse.automation.vdisplay
 
 import android.content.Context
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 /**
@@ -14,7 +18,7 @@ class VirtualDisplayClient(
     private val context: Context,
     private val manager: VirtualDisplayServerManager,
 ) {
-    data class DisplayHandle(val displayId: Int, val width: Int, val height: Int)
+    data class DisplayHandle(val displayId: Int, val width: Int, val height: Int, val dpi: Int = DEFAULT_DPI)
 
     /** 确保服务端 + 虚拟屏就绪(同尺寸复用);失败携带可读原因。 */
     suspend fun ensureDisplay(width: Int = DEFAULT_WIDTH, height: Int = DEFAULT_HEIGHT, dpi: Int = DEFAULT_DPI): Result<DisplayHandle> =
@@ -32,7 +36,33 @@ class VirtualDisplayClient(
                 )
             }
             manager.lastDisplayId = id
-            Result.success(DisplayHandle(id, width, height))
+            Result.success(DisplayHandle(id, width, height, dpi))
+        }
+
+    /** 创建本次调用独占的虚拟屏，不复用 `ensureDisplay` 的兼容屏；调用方负责 finally 销毁。 */
+    suspend fun createDisplay(width: Int = DEFAULT_WIDTH, height: Int = DEFAULT_HEIGHT, dpi: Int = DEFAULT_DPI): Result<DisplayHandle> =
+        withContext(Dispatchers.IO) {
+            val proxy = manager.ensureStarted().getOrElse { return@withContext Result.failure(it) }
+            val id = try {
+                // Once the remote side effect starts, do not let cancellation hide the allocated displayId.
+                withContext(NonCancellable) { proxy.createDisplay(width, height, dpi) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (e: Exception) {
+                -1
+            }
+            if (id < 0) {
+                return@withContext Result.failure(
+                    IllegalStateException("独立虚拟屏创建失败(服务端容量已满或详见 /data/local/tmp/muse-vd-server.log)"),
+                )
+            }
+            try {
+                currentCoroutineContext().ensureActive()
+            } catch (cancelled: CancellationException) {
+                withContext(NonCancellable) { runCatching { proxy.destroyDisplay(id) } }
+                throw cancelled
+            }
+            Result.success(DisplayHandle(id, width, height, dpi))
         }
 
     /** 抓取一帧(JPEG 字节);失败返回 null。 */

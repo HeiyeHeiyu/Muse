@@ -111,6 +111,8 @@
     <string name="asr_error_connection_exception">连接异常</string>
     <string name="asr_error_mic_init_failed">麦克风初始化失败,请检查权限或录音设备</string>
     <string name="asr_error_recording_start_failed">录音启动失败</string>
+
+    <string name="asr_error_recording_read_failed">麦克风读取失败（错误码：%1$d）</string>
     <string name="asr_reconnecting_message">连接中断,正在重连…(第 %1$d/%2$d 次)</string>
     <string name="asr_reconnect_exhausted">语音连接中断,自动重连 3 次仍未恢复。已识别的内容已保留,请检查网络后重新开始录音。</string>
 

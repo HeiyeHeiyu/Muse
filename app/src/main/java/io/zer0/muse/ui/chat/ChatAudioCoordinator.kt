@@ -35,6 +35,8 @@ class ChatAudioCoordinator(
     private var asrController: ASRController? = null
     private var asrControllerConfig: AsrConfig? = null
     private var asrStateJob: Job? = null
+    // Monotonic session guard: late callbacks from a disposed/replaced controller must not mutate current UI/input.
+    private var asrGeneration: Long = 0L
 
     /** v1.91: 录音前输入框文本快照(用于结果拼接与取消时恢复)。 */
     private var asrBaseText = ""
@@ -77,6 +79,7 @@ class ChatAudioCoordinator(
         if (!supportsStreaming || cfg.apiKey.isBlank()) {
             // Provider 切回系统识别或清空 API Key 时,旧 Controller 不能继续占用麦克风/网络。
             if (asrController != null || asrStateJob != null) {
+                asrGeneration++
                 asrStateJob?.cancel()
                 asrStateJob = null
                 asrController?.dispose()
@@ -99,6 +102,7 @@ class ChatAudioCoordinator(
         }
         val existing = asrController
         if (existing != null && asrControllerConfig == cfg) return existing
+        asrGeneration++
         asrStateJob?.cancel()
         existing?.dispose()
         val controller = AsrClientFactory.createController(cfg, context) ?: return null
@@ -106,7 +110,9 @@ class ChatAudioCoordinator(
         asrControllerConfig = cfg
         asrStateJob = accessor.coroutineScope.launch {
             controller.state.collect { state ->
-                accessor.update { it.copy(asrState = state) }
+                if (controller === asrController) {
+                    accessor.update { it.copy(asrState = state) }
+                }
             }
         }
         return controller
@@ -118,7 +124,9 @@ class ChatAudioCoordinator(
         if (controller.state.value.isRecording) return
         asrBaseText = accessor.snapshot.input
         lastAsrTranscript = ""
+        val generation = ++asrGeneration
         controller.start { transcript ->
+            if (generation != asrGeneration || controller !== asrController) return@start
             accessor.update { state ->
                 val current = state.input
                 val base = if (lastAsrTranscript.isNotEmpty() && current.endsWith(lastAsrTranscript)) {
@@ -146,12 +154,28 @@ class ChatAudioCoordinator(
     fun startVoiceConversationListening(onTranscript: (String) -> Unit) {
         val controller = getOrCreateAsrController() ?: return
         if (controller.state.value.isRecording) return
-        controller.start(onTranscript)
+        lastAsrTranscript = ""
+        val generation = ++asrGeneration
+        controller.start { transcript ->
+            if (generation != asrGeneration || controller !== asrController) return@start
+            onTranscript(transcript)
+        }
     }
 
     /** 语音对话模式专用:停止录音,等待最后一段结果返回后切回 Idle。 */
     fun stopVoiceConversationListening() {
         asrController?.stop()
+    }
+
+    /** 退出/中断语音对话：丢弃最后收尾回调，避免停止后迟到 transcript 复活到 UI。 */
+    fun cancelVoiceConversationListening() {
+        asrGeneration++
+        asrStateJob?.cancel()
+        asrStateJob = null
+        asrController?.dispose()
+        asrController = null
+        asrControllerConfig = null
+        accessor.update { it.copy(asrState = ASRState()) }
     }
 
     /** v1.91: 停止流式录音,等待最后结果。 */
@@ -163,6 +187,7 @@ class ChatAudioCoordinator(
     fun cancelStreamingAsr() {
         // 取消不能走 stop():stop 会 flush 最后一段音频,其异步回调可能在用户上滑取消后
         // 又把识别文字写回输入框。直接释放当前 Controller,下一次录音按配置重建。
+        asrGeneration++
         asrStateJob?.cancel()
         asrStateJob = null
         asrController?.dispose()
@@ -183,6 +208,7 @@ class ChatAudioCoordinator(
 
     /** v1.91: 释放 ASR Controller(会话切换/ViewModel 销毁时)。 */
     fun disposeAsr() {
+        asrGeneration++
         asrStateJob?.cancel()
         asrStateJob = null
         asrController?.dispose()

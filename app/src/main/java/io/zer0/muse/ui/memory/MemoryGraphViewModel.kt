@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.zer0.memory.ai.MemoryLinkDao
 import io.zer0.memory.fact.FactStore
+import io.zer0.memory.fact.FactDbProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +24,7 @@ class MemoryGraphViewModel(
     application: Application,
     private val factStore: FactStore,
     private val memoryLinkDao: MemoryLinkDao,
+    private val factDbProvider: FactDbProvider? = null,
 ) : AndroidViewModel(application) {
 
     data class GraphState(
@@ -33,6 +35,14 @@ class MemoryGraphViewModel(
         val error: String? = null,
     )
 
+    private fun storeForScope(scope: String?): FactStore =
+        if (scope.isNullOrBlank() || scope == "main") factStore
+        else factDbProvider?.getFactStore(scope) ?: factStore
+
+    private fun linksForScope(scope: String?): MemoryLinkDao =
+        if (scope.isNullOrBlank() || scope == "main") memoryLinkDao
+        else factDbProvider?.getFactDb(scope)?.memoryLinkDao() ?: memoryLinkDao
+
     private val _state = MutableStateFlow(GraphState(isLoading = true))
     val state: StateFlow<GraphState> = _state.asStateFlow()
 
@@ -40,11 +50,13 @@ class MemoryGraphViewModel(
         _state.value = _state.value.copy(isLoading = true, error = null)
         viewModelScope.launch {
             try {
+                val scopedStore = storeForScope(scope)
+                val scopedLinks = linksForScope(scope)
                 val facts = withContext(Dispatchers.IO) {
-                    if (scope == null) factStore.getBySpace(spaceId) else factStore.getByScopeAndSpace(scope, spaceId)
+                    if (scope == null) scopedStore.getBySpace(spaceId) else scopedStore.getByScopeAndSpace(scope, spaceId)
                 }
                 val links = withContext(Dispatchers.IO) {
-                    if (scope == null) memoryLinkDao.listBySpace(spaceId) else memoryLinkDao.listBySpaceAndScope(spaceId, scope)
+                    if (scope == null) scopedLinks.listBySpace(spaceId) else scopedLinks.listBySpaceAndScope(spaceId, scope)
                 }
                 val factIdsInLinks = links.flatMapTo(mutableSetOf()) { setOf(it.sourceFactId, it.targetFactId) }
                 // 普通事实也必须可见；关系/重要度/置顶只用于排序优先级。
@@ -89,8 +101,12 @@ class MemoryGraphViewModel(
     fun deleteNode(factId: Long, scope: String?, spaceId: String) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                memoryLinkDao.deleteByFactId(factId)
-                factStore.delete(factId)
+                val store = storeForScope(scope)
+                if (scope == null) {
+                    store.delete(factId)
+                } else {
+                    store.delete(factId, store.assistantId, scope, spaceId)
+                }
             }
             load(scope, spaceId)
         }
@@ -98,7 +114,7 @@ class MemoryGraphViewModel(
 
     fun editNode(factId: Long, newContent: String, scope: String?, spaceId: String) {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { factStore.update(factId, newContent, scope) }
+            withContext(Dispatchers.IO) { storeForScope(scope).update(factId, newContent, scope) }
             load(scope, spaceId)
         }
     }
@@ -118,7 +134,7 @@ class MemoryGraphViewModel(
     // ── 阶段 3: 关系操作 ──
     fun deleteEdge(edgeId: Long, scope: String?, spaceId: String) {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { memoryLinkDao.deleteById(edgeId) }
+            withContext(Dispatchers.IO) { linksForScope(scope).deleteById(edgeId) }
             load(scope, spaceId)
         }
     }

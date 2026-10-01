@@ -60,6 +60,68 @@ import kotlin.uuid.Uuid
 internal const val TOOL_TIMEOUT_MS = 120_000L
 
 /**
+ * The generic 2-minute deadline is too short for bounded phone agents: each visual decision has
+ * its own 60-second timeout, and workflows may intentionally contain several bounded Node steps.
+ * Derive a deadline from the declared bounds so the outer runner does not cancel valid work early.
+ */
+internal object ToolExecutionTimeoutPolicy {
+    private const val UI_AGENT_VISION_TIMEOUT_MS = 60_000L
+    private const val UI_AGENT_STEP_OVERHEAD_MS = 5_000L
+    private const val UI_AGENT_SETUP_OVERHEAD_MS = 10_000L
+    private const val WORKFLOW_STEP_OVERHEAD_MS = 10_000L
+    private const val WORKFLOW_SETUP_OVERHEAD_MS = 20_000L
+    private const val DEFAULT_NODE_SCRIPT_TIMEOUT_MS = 30_000L
+    private const val MAX_NODE_SCRIPT_TIMEOUT_MS = 300_000L
+    private const val MAX_WORKFLOW_STEPS = 20
+
+    fun forTool(toolName: String, argumentsJson: String, baseTimeoutMs: Long): Long {
+        val args = runCatching { AppJson.parseToJsonElement(argumentsJson) as? JsonObject }.getOrNull()
+            ?: return baseTimeoutMs
+        val derived = when (toolName) {
+            "ui_agent" -> {
+                val steps = args.intOrNull("max_steps")?.coerceIn(3, 30) ?: 15
+                UI_AGENT_SETUP_OVERHEAD_MS + steps * (UI_AGENT_VISION_TIMEOUT_MS + UI_AGENT_STEP_OVERHEAD_MS)
+            }
+            "automation_workflow" -> workflowTimeout(args) ?: return baseTimeoutMs
+            else -> return baseTimeoutMs
+        }
+        return maxOf(baseTimeoutMs, derived)
+    }
+
+    private fun workflowTimeout(args: JsonObject): Long? {
+        val steps = when (val value = args["steps"]) {
+            is kotlinx.serialization.json.JsonArray -> value
+            is JsonPrimitive -> runCatching {
+                AppJson.parseToJsonElement(value.content) as? kotlinx.serialization.json.JsonArray
+            }.getOrNull()
+            else -> null
+        } ?: return null
+        if (steps.isEmpty()) return null
+        var total = WORKFLOW_SETUP_OVERHEAD_MS
+        steps.take(MAX_WORKFLOW_STEPS).forEach { element ->
+            val step = element as? JsonObject ?: return@forEach
+            val action = step.stringOrNull("action")?.trim()?.lowercase().orEmpty()
+            val stepTimeout = when (action) {
+                "node_script" -> (step.longOrNull("timeoutMs") ?: DEFAULT_NODE_SCRIPT_TIMEOUT_MS)
+                    .coerceIn(1_000L, MAX_NODE_SCRIPT_TIMEOUT_MS) + WORKFLOW_STEP_OVERHEAD_MS
+                "wait", "virtual_wait" -> (step.longOrNull("durationMs") ?: 400L)
+                    .coerceIn(50L, 10_000L) + WORKFLOW_STEP_OVERHEAD_MS
+                else -> WORKFLOW_STEP_OVERHEAD_MS
+            }
+            total += stepTimeout
+        }
+        return total
+    }
+
+    private fun JsonObject.stringOrNull(name: String): String? =
+        runCatching { this[name]?.jsonPrimitive?.contentOrNull }.getOrNull()
+
+    private fun JsonObject.intOrNull(name: String): Int? = stringOrNull(name)?.toIntOrNull()
+
+    private fun JsonObject.longOrNull(name: String): Long? = stringOrNull(name)?.toLongOrNull()
+}
+
+/**
  * 单个工具结果送入 LLM 上下文的最大字符数,防止超长结果撑爆上下文。
  *
  * v1.x: 从 8K 提升到 32K,同时引入 [TOOL_RESULT_PREVIEW_CHARS] 预览机制:
@@ -1671,6 +1733,8 @@ class ToolOrchestrator(
                 effectiveArguments
             }
 
+        val effectiveToolTimeoutMs = ToolExecutionTimeoutPolicy.forTool(tc.name, subagentSessionFix, toolTimeoutMs)
+
         // 执行工具:skill 走 SkillExecutor(挂起、可取消),本地工具走 ToolRegistry
         // P2-18: 阻塞型工具(内部 runBlocking 桥接 WebView/文件 IO)无法被协程取消,
         // 必须走专用线程池 + future.cancel(true),否则外层超时形同虚设(假超时)。
@@ -1681,7 +1745,7 @@ class ToolOrchestrator(
                 "Error: tool '${tc.name}' is not exposed in this turn"
             } else if (route is ToolRouteSnapshot.Route.Skill || (route == null && skill != null)) {
                 val skillToExecute = (route as? ToolRouteSnapshot.Route.Skill)?.skill ?: skill!!
-                withTimeoutOrNull(toolTimeoutMs) {
+                withTimeoutOrNull(effectiveToolTimeoutMs) {
                     skillExecutor.execute(
                         skill = skillToExecute,
                         argumentsJson = effectiveArguments,
@@ -1697,7 +1761,7 @@ class ToolOrchestrator(
                     )
                 }
             } else {
-                executeBlockingToolWithHardTimeout(toolTimeoutMs, tc.id) {
+                executeBlockingToolWithHardTimeout(effectiveToolTimeoutMs, tc.id) {
                     // 阻塞型工具在专用线程执行;顶层 suspend 的 executeFromJson 用 runBlocking
                     // 桥接为阻塞调用(与工具内部 runBlocking 同线程,中断可传递),超时可被真正中断
                     kotlinx.coroutines.runBlocking {
@@ -1737,7 +1801,7 @@ class ToolOrchestrator(
         val timedOut = rawToolResultOrNull == null
         val rawToolResult =
             rawToolResultOrNull
-                ?: "[超时] 工具 ${tc.name} ${toolTimeoutMs / 1000} 秒未响应,已终止"
+                ?: "[超时] 工具 ${tc.name} ${effectiveToolTimeoutMs / 1000} 秒未响应,已终止"
         // 某些只产生外部副作用的工具可能返回空字符串。无论副作用是否已经成功,
         // 都必须给 UI 和下一轮模型一个明确的终态文本,避免卡片看起来像仍在等待。
         val toolResult = normalizeToolResult(tc.name, rawToolResult)

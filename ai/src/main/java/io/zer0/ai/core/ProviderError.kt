@@ -21,7 +21,7 @@ import java.io.IOException
  *  - [RateLimit]: 429 / RESOURCE_EXHAUSTED,可重试;优先用 Retry-After 头
  *  - [ServerError]: 5xx(含 Anthropic 529 overloaded),可重试
  *  - [AuthError]: 401 / 403,不可重试(凭证问题)
- *  - [InvalidRequest]: 400 / 422 / 404,不可重试(请求本身有问题,重试无意义)
+ *  - [InvalidRequest]: 400 / 413 / 422 / 404,不可重试(请求本身有问题,重试无意义)
  *  - [Cancelled]: 协程或 AbortSignal 取消,不可重试
  *  - [Unknown]: 未识别的错误,默认不可重试(避免无限重试未知问题)
  */
@@ -116,7 +116,7 @@ sealed class ProviderError {
          * 优先级:
          *  1. throwable 是 IOException → [Network]
          *  2. code == 401 / 403 → [AuthError]
-         *  3. code == 400 / 422 / 404 → [InvalidRequest]
+         *  3. code == 400 / 413 / 422 / 404 → [InvalidRequest]
          *  4. code == 429 → [RateLimit](解析 Retry-After 头)
          *  5. code in 500..599 → [ServerError]
          *  6. code == null 且 throwable != null → [Network] 或 [Unknown]
@@ -143,7 +143,7 @@ sealed class ProviderError {
                         httpCode = code,
                         displayMessage = buildDisplayMessage(code, body, "auth"),
                     )
-                    code == 400 || code == 422 || code == 404 -> InvalidRequest(
+                    code == 400 || code == 413 || code == 422 || code == 404 -> InvalidRequest(
                         httpCode = code,
                         displayMessage = buildDisplayMessage(code, body, "invalid request"),
                     )

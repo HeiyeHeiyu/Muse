@@ -20,7 +20,7 @@ import org.koin.core.context.GlobalContext
  *  - 周期 24 小时(每日 1 次,符合 AutoBackupHelper 类注释约定)
  *  - 不使用 setExpedited:备份非紧急
  *  - 不要求网络约束:本地操作,无需网络
- *  - 返回 Result.success():失败已记录到 auto_backup_log 表,无需 WorkManager 重试
+ *  - 备份失败返回 Result.retry(),让 WorkManager 对临时 I/O/数据库故障退避重试；成功后再清理旧备份
  *
  * Koin 拿依赖:WorkManager 默认跑在主进程,Worker 启动时 MuseApp.onCreate 已执行,
  * Koin 已初始化。若处于 Safe Mode(startKoin 失败),GlobalContext 为空,
@@ -49,11 +49,14 @@ class AutoBackupWorker(
             Logger.w(TAG, "AutoBackupHelper 解析失败,跳过本次 Worker 执行")
             return Result.success()
         }
-        resultOf {
-            val ok = helper.backupNow()
-            if (ok) helper.trimOldBackups()
-        }.onError { msg, t -> Logger.w(TAG, "backupNow failed: ${t?.message ?: msg}") }
-        // 不论内部是否成功,都返回 success:失败已记录到 auto_backup_log 表
+        val ok = resultOf { helper.backupNow() }
+            .onError { msg, t -> Logger.w(TAG, "backupNow failed: ${t?.message ?: msg}") }
+            .getOrNull() ?: false
+        if (!ok) {
+            // 日志已记录失败原因，但 WorkManager 仍需对临时 I/O/数据库故障退避重试。
+            return Result.retry()
+        }
+        helper.trimOldBackups()
         return Result.success()
     }
 

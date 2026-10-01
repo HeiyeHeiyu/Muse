@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -30,6 +32,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * 阶跃星辰 Step-Audio 流式 ASR Controller。
@@ -61,11 +64,13 @@ class StepAsrController(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val _state = MutableStateFlow(ASRState(isAvailable = config.apiKey.isNotBlank()))
+    private val isDisposed = AtomicBoolean(false)
     override val state: StateFlow<ASRState> = _state.asStateFlow()
 
     private var audioRecord: AudioRecord? = null
     private var recordJob: Job? = null
     private var flushJob: Job? = null
+    private val flushMutex = Mutex()
     private var onTranscriptChange: ((String) -> Unit)? = null
 
     // PCM 缓冲区(bufferLock 同步拷贝与重置)
@@ -87,7 +92,7 @@ class StepAsrController(
         .build()
 
     override fun start(onTranscriptChange: ((String) -> Unit)?) {
-        if (_state.value.isRecording) return
+        if (isDisposed.get() || _state.value.isRecording) return
         this.onTranscriptChange = onTranscriptChange
         totalTranscript.clear()
         synchronized(bufferLock) {
@@ -146,7 +151,9 @@ class StepAsrController(
                         delay(10L)
                     } else if (read < 0) {
                         Logger.w(TAG, "AudioRecord.read 错误: $read")
-                        setError("AudioRecord 读取错误: $read")
+                        if (shouldReportAsrCaptureFailure(_state.value.status, coroutineContext[Job]?.isActive == true)) {
+                            setError("AudioRecord 读取错误: $read")
+                        }
                         break
                     }
                 }
@@ -154,7 +161,9 @@ class StepAsrController(
                 throw e
             } catch (e: Exception) {
                 Logger.w(TAG, "录音失败: ${e.message}")
-                setError(e.message ?: "录音失败")
+                if (shouldReportAsrCaptureFailure(_state.value.status, coroutineContext[Job]?.isActive == true)) {
+                    setError(e.message ?: "录音失败")
+                }
             } finally {
                 releaseRecorder()
             }
@@ -168,12 +177,14 @@ class StepAsrController(
     private fun triggerFlush() {
         if (flushJob?.isActive == true) return
         flushJob = scope.launch(Dispatchers.IO) {
-            resultOf { flushSegment() }
-                .onError { message, throwable ->
-                    val error = throwable?.message ?: message
-                    Logger.w(TAG, "分段 flush 失败: $error")
-                    setError("语音识别分段失败: $error")
-                }
+            flushMutex.withLock {
+                resultOf { flushSegment() }
+                    .onError { message, throwable ->
+                        val error = throwable?.message ?: message
+                        Logger.w(TAG, "分段 flush 失败: $error")
+                        setError("语音识别分段失败: $error")
+                    }
+            }
         }
     }
 
@@ -253,6 +264,7 @@ class StepAsrController(
             .post(multipart)
             .build()
         var lastError: String? = null
+        var retryableResponse = true
         // F-34: 断线重连 — 网络/5xx/429 失败按指数退避补发同一段音频,上限 RECONNECT_MAX_ATTEMPTS。
         for (attempt in 0 until AsrConstants.RECONNECT_MAX_ATTEMPTS) {
             try {
@@ -261,7 +273,8 @@ class StepAsrController(
                         lastError = "识别服务 HTTP ${resp.code}: ${resp.message}"
                         Logger.w(TAG, "Step ASR HTTP ${resp.code}: ${resp.message}")
                         // 4xx(尤其 401/403/413)重试没有意义;5xx/429 留给下一次短重试。
-                        if (resp.code !in 500..599 && resp.code != 429) {
+                        if (!isRetryableAsrHttpStatus(resp.code)) {
+                            retryableResponse = false
                             return@use null
                         }
                         null
@@ -270,6 +283,7 @@ class StepAsrController(
                     }
                 }
                 if (!result.isNullOrBlank()) return@withContext result
+                if (!retryableResponse) break
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: java.io.IOException) {
@@ -314,19 +328,20 @@ class StepAsrController(
         scope.launch(Dispatchers.IO) {
             try {
                 flushJob?.join()
-                flushSegment()
+                flushMutex.withLock { flushSegment() }
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Logger.w(TAG, "最终 flush 失败: ${e.message}")
                 setError(e.message ?: "Step ASR 最终 flush 失败")
             } finally {
-                _state.update { it.copy(status = ASRStatus.Idle, amplitudes = emptyList()) }
+                _state.update { it.afterAsrStop() }
             }
         }
     }
 
     override fun dispose() {
+        if (!isDisposed.compareAndSet(false, true)) return
         recordJob?.cancel()
         flushJob?.cancel()
         releaseRecorder()
@@ -337,6 +352,8 @@ class StepAsrController(
     }
 
     private fun setError(message: String) {
+        recordJob?.cancel()
+        releaseRecorder()
         _state.update { it.copy(status = ASRStatus.Error, errorMessage = message) }
     }
 

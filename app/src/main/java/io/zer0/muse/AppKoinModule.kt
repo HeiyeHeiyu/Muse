@@ -635,6 +635,7 @@ val appModule = module {
     single {
         io.zer0.muse.tools.WorkflowJournal(
             journalDir = java.io.File(androidContext().filesDir, "workflow_journals").apply { mkdirs() },
+            resultCipher = io.zer0.muse.data.SecureKeyStore,
         )
     }
     // v1.202: 异步委派任务结果回灌(非阻塞委派核心基础设施,主 agent 立即返回 taskId)

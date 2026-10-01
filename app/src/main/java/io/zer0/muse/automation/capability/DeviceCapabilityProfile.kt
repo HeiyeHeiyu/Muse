@@ -127,7 +127,7 @@ data class DeviceCapabilityProfile(
         appendLine("3. 每步都要验证：动作发出后重新读一次屏幕/状态确认结果（文字是否变化、页面是否切换），不要连发多个盲操作。")
         appendLine("4. 界面失败先看结构再换手段：先用读屏结果定位控件（文本/描述/层级）；找不到再考虑坐标点击；坐标也不稳时改用 Shell/Root 的命令级方案。")
         appendLine("5. 重复性/长流程优先写成脚本：用内置 Node 完成循环、JSON/正则处理、批量请求，比逐步推理省时省 token；稳定后沉淀为技能。")
-        appendLine("6. 不打扰用户：多步骤或需要前台应用的任务，优先在虚拟屏中完成；必须切换用户前台时先说明。")
+        appendLine("6. 不打扰用户：调用 `ui_agent` 时优先用 display=auto 并提供 package_name；它会尝试创建本次专属虚拟屏，Shell/Root 或 App 不支持时明确降级到前台。display=virtual 仅在能力档案显示虚拟屏可用时指定；不要假设兼容虚拟屏与 Agent 独立屏是同一块屏。")
         appendLine("7. 高风险动作（发消息、支付、删除、改系统设置）先说明将要做什么，待用户确认后再执行。")
         appendLine("8. 缺权限就如实说：说明「需要哪一项」（如 Shizuku/Root/无障碍），不要用模拟结果代替真实执行，也不要谎报成功。")
     }

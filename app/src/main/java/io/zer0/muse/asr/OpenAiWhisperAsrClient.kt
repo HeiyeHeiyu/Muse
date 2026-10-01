@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -30,6 +32,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * 通用 OpenAI Whisper 兼容 ASR Controller(与本项目 [StepAsrController] 架构一致)。
@@ -78,17 +81,20 @@ class OpenAiWhisperAsrController(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val _state = MutableStateFlow(ASRState(isAvailable = config.apiKey.isNotBlank()))
+    private val isDisposed = AtomicBoolean(false)
     override val state: StateFlow<ASRState> = _state.asStateFlow()
 
     private var audioRecord: AudioRecord? = null
     private var recordJob: Job? = null
     private var flushJob: Job? = null
+    private val flushMutex = Mutex()
     private var onTranscriptChange: ((String) -> Unit)? = null
 
     // PCM 缓冲区(bufferLock 同步拷贝与重置)
     private val pcmBuffer = ByteArrayOutputStream()
     private val bufferLock = Any()
     private var totalTranscript = StringBuilder()
+    private var consecutiveFlushFailures = 0
 
     // 分段阈值:30 秒或 6MB 先到先触发
     private val segmentDurationMs = SEGMENT_DURATION_MS
@@ -99,7 +105,7 @@ class OpenAiWhisperAsrController(
     private var vadDetector: VadDetector? = null
 
     override fun start(onTranscriptChange: ((String) -> Unit)?) {
-        if (_state.value.isRecording) return
+        if (isDisposed.get() || _state.value.isRecording) return
         if (config.apiKey.isBlank()) {
             Logger.w(TAG, "OpenAI Whisper ASR 未配置 apiKey")
             _state.update { it.copy(status = ASRStatus.Error, errorMessage = "未配置 apiKey") }
@@ -112,6 +118,7 @@ class OpenAiWhisperAsrController(
             segmentStartElapsedMs = SystemClock.elapsedRealtime()
         }
         flushJob = null
+        consecutiveFlushFailures = 0
         // VAD 初始化(仅在 config.vadEnabled 时启用)
         vadDetector = if (config.vadEnabled) {
             VadDetector(
@@ -174,7 +181,9 @@ class OpenAiWhisperAsrController(
                         delay(10L)
                     } else if (read < 0) {
                         Logger.w(TAG, "AudioRecord.read 错误: $read")
-                        setError("AudioRecord 读取错误: $read")
+                        if (shouldReportAsrCaptureFailure(_state.value.status, coroutineContext[Job]?.isActive == true)) {
+                            setError("AudioRecord 读取错误: $read")
+                        }
                         break
                     }
                 }
@@ -182,7 +191,9 @@ class OpenAiWhisperAsrController(
                 throw e
             } catch (e: Exception) {
                 Logger.w(TAG, "录音失败: ${e.message}")
-                setError(e.message ?: "录音失败")
+                if (shouldReportAsrCaptureFailure(_state.value.status, coroutineContext[Job]?.isActive == true)) {
+                    setError(e.message ?: "录音失败")
+                }
             } finally {
                 releaseRecorder()
             }
@@ -196,12 +207,14 @@ class OpenAiWhisperAsrController(
     private fun triggerFlush() {
         if (flushJob?.isActive == true) return
         flushJob = scope.launch(Dispatchers.IO) {
-            resultOf { flushSegment() }
-                .onError { message, throwable ->
-                    val error = throwable?.message ?: message
-                    Logger.w(TAG, "分段 flush 失败: $error")
-                    setError("语音识别分段失败: $error")
-                }
+            flushMutex.withLock {
+                resultOf { flushSegment() }
+                    .onError { message, throwable ->
+                        val error = throwable?.message ?: message
+                        Logger.w(TAG, "分段 flush 失败: $error")
+                        setError("语音识别分段失败: $error")
+                    }
+            }
         }
     }
 
@@ -227,10 +240,29 @@ class OpenAiWhisperAsrController(
         val wavBytes = PcmWavConverter.toWav(pcmCopy, config.sampleRate, channels = 1, bitsPerSample = 16)
         val text = recognizeSegment(wavBytes)
         if (!text.isNullOrBlank()) {
+            consecutiveFlushFailures = 0
             totalTranscript.append(text).append(" ")
             val transcript = totalTranscript.toString().trim()
             _state.update { it.copy(transcript = transcript, errorMessage = null) }
             onTranscriptChange?.invoke(transcript)
+        } else {
+            consecutiveFlushFailures++
+            if (consecutiveFlushFailures < MAX_CONSECUTIVE_FLUSH_FAILURES) {
+                prependToBuffer(pcmCopy)
+                Logger.w(TAG, "识别失败,回写 ${pcmCopy.size} 字节待下次重试(连续失败 $consecutiveFlushFailures)")
+            } else {
+                Logger.w(TAG, "连续识别失败 $consecutiveFlushFailures 次,丢弃该段 ${pcmCopy.size} 字节")
+                consecutiveFlushFailures = 0
+            }
+        }
+    }
+
+    private fun prependToBuffer(pcm: ByteArray) {
+        synchronized(bufferLock) {
+            val current = pcmBuffer.toByteArray()
+            pcmBuffer.reset()
+            pcmBuffer.write(pcm)
+            pcmBuffer.write(current)
         }
     }
 
@@ -266,6 +298,7 @@ class OpenAiWhisperAsrController(
             .post(multipart)
             .build()
         var lastError: String? = null
+        var retryableResponse = true
         // F-34: 断线重连 — 网络/5xx/429 失败按指数退避补发同一段音频,上限 RECONNECT_MAX_ATTEMPTS。
         for (attempt in 0 until AsrConstants.RECONNECT_MAX_ATTEMPTS) {
             try {
@@ -273,7 +306,8 @@ class OpenAiWhisperAsrController(
                     if (!resp.isSuccessful) {
                         lastError = "识别服务 HTTP ${resp.code}: ${resp.message}"
                         Logger.w(TAG, "Whisper ASR HTTP ${resp.code}: ${resp.message}")
-                        if (resp.code !in 500..599 && resp.code != 429) {
+                        if (!isRetryableAsrHttpStatus(resp.code)) {
+                            retryableResponse = false
                             return@use null
                         }
                         null
@@ -282,6 +316,7 @@ class OpenAiWhisperAsrController(
                     }
                 }
                 if (!result.isNullOrBlank()) return@withContext result
+                if (!retryableResponse) break
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: java.io.IOException) {
@@ -332,19 +367,20 @@ class OpenAiWhisperAsrController(
         scope.launch(Dispatchers.IO) {
             try {
                 flushJob?.join()
-                flushSegment()
+                flushMutex.withLock { flushSegment() }
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Logger.w(TAG, "最终 flush 失败: ${e.message}")
                 setError(e.message ?: "Whisper ASR 最终 flush 失败")
             } finally {
-                _state.update { it.copy(status = ASRStatus.Idle, amplitudes = emptyList()) }
+                _state.update { it.afterAsrStop() }
             }
         }
     }
 
     override fun dispose() {
+        if (!isDisposed.compareAndSet(false, true)) return
         recordJob?.cancel()
         flushJob?.cancel()
         releaseRecorder()
@@ -357,6 +393,8 @@ class OpenAiWhisperAsrController(
     }
 
     private fun setError(message: String) {
+        recordJob?.cancel()
+        releaseRecorder()
         _state.update { it.copy(status = ASRStatus.Error, errorMessage = message) }
     }
 
@@ -382,5 +420,6 @@ class OpenAiWhisperAsrController(
 
         /** VAD 触发 flush 的最短段字节数:避免过短段(500ms = 16000 bytes)。 */
         private const val MIN_VAD_FLUSH_BYTES = 16000
+        private const val MAX_CONSECUTIVE_FLUSH_FAILURES = 3
     }
 }

@@ -145,6 +145,8 @@
     <string name="asr_error_connection_exception">연결 오류</string>
     <string name="asr_error_mic_init_failed">마이크 초기화에 실패했습니다. 권한 또는 녹음 장치를 확인하세요</string>
     <string name="asr_error_recording_start_failed">녹음 시작에 실패했습니다</string>
+
+    <string name="asr_error_recording_read_failed">마이크 읽기 실패(오류 코드: %1$d)</string>
     <string name="asr_reconnecting_message">연결이 끊어졌습니다. 재연결 중…(%1$d/%2$d회)</string>
     <string name="asr_reconnect_exhausted">음성 연결이 끊어졌습니다. 자동 재연결이 3회 실패했습니다. 인식된 내용은 보존되었습니다. 네트워크를 확인하고 녹음을 다시 시작하세요.</string>
 

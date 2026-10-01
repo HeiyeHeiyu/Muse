@@ -12,6 +12,8 @@ import android.os.Looper;
 import io.zer0.muse.vdproto.IVirtualDisplayService;
 
 import java.io.ByteArrayOutputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * v2.2.1 虚拟屏:服务端实现。
@@ -29,15 +31,11 @@ public final class ServerService extends IVirtualDisplayService.Stub {
     private static final long PUBLISH_INTERVAL_MS = 5_000L;
     private static final long SCREENSHOT_TIMEOUT_MS = 1_000L;
     private static final int MAX_JPEG_BYTES = 900_000;
+    private static final int MAX_ACTIVE_DISPLAYS = 3;
 
     private final DisplayManager displayManager;
-
-    private VirtualDisplay virtualDisplay;
-    private ImageReader imageReader;
-    private int displayId = -1;
-    private int screenWidth;
-    private int screenHeight;
-    private int screenDpi;
+    private final Map<Integer, DisplayState> displays = new HashMap<>();
+    private int compatibleDisplayId = -1;
 
     private volatile long lastActiveAt = System.currentTimeMillis();
 
@@ -48,38 +46,84 @@ public final class ServerService extends IVirtualDisplayService.Stub {
     // ── IVirtualDisplayService 契约 ─────────────────────────────────────────
 
     @Override
-    public int ensureDisplay(int width, int height, int dpi) {
+    public synchronized int ensureDisplay(int width, int height, int dpi) {
         touch();
         int w = align16(width);
         int h = align16(height);
-        if (virtualDisplay != null && displayId >= 0
-                && w == screenWidth && h == screenHeight && dpi == screenDpi) {
-            return displayId;
+        DisplayState current = displays.get(compatibleDisplayId);
+        if (current != null && w == current.width && h == current.height && dpi == current.dpi) {
+            return current.id;
         }
-        destroyLocked();
-        try {
-            imageReader = ImageReader.newInstance(w, h, PixelFormat.RGBA_8888, 3);
-            int flags = computeFlags();
-            virtualDisplay = displayManager.createVirtualDisplay(
-                    "muse-vd", w, h, dpi, imageReader.getSurface(), flags);
-            displayId = virtualDisplay.getDisplay().getDisplayId();
-            screenWidth = w;
-            screenHeight = h;
-            screenDpi = dpi;
-            applyImePolicy(displayId);
-            Main.log("ensureDisplay " + w + "x" + h + " dpi=" + dpi + " -> id=" + displayId);
-            return displayId;
-        } catch (Throwable t) {
-            Main.log("ensureDisplay failed: " + t);
-            destroyLocked();
+        if (compatibleDisplayId >= 0) {
+            destroyDisplayLocked(compatibleDisplayId);
+        }
+        DisplayState created = createDisplayLocked(w, h, dpi, "muse-vd-compat");
+        if (created == null) return -1;
+        compatibleDisplayId = created.id;
+        Main.log("ensureDisplay " + w + "x" + h + " dpi=" + dpi + " -> id=" + created.id);
+        return created.id;
+    }
+
+    @Override
+    public synchronized int createDisplay(int width, int height, int dpi) {
+        touch();
+        int w = align16(width);
+        int h = align16(height);
+        if (displays.size() >= MAX_ACTIVE_DISPLAYS) {
+            Main.log("createDisplay rejected: active display limit " + MAX_ACTIVE_DISPLAYS);
             return -1;
+        }
+        DisplayState created = createDisplayLocked(w, h, dpi, "muse-vd-agent");
+        if (created == null) return -1;
+        Main.log("createDisplay " + w + "x" + h + " dpi=" + dpi + " -> id=" + created.id);
+        return created.id;
+    }
+
+    private DisplayState createDisplayLocked(int width, int height, int dpi, String name) {
+        if (width < 320 || width > 1920 || height < 320 || height > 2560 || dpi < 120 || dpi > 640) {
+            Main.log("create display rejected: invalid metrics " + width + "x" + height + " dpi=" + dpi);
+            return null;
+        }
+        if (displays.size() >= MAX_ACTIVE_DISPLAYS) {
+            Main.log("create display rejected: active display limit " + MAX_ACTIVE_DISPLAYS);
+            return null;
+        }
+        ImageReader reader = null;
+        VirtualDisplay virtualDisplay = null;
+        try {
+            reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3);
+            virtualDisplay = displayManager.createVirtualDisplay(
+                    name, width, height, dpi, reader.getSurface(), computeFlags());
+            if (virtualDisplay == null || virtualDisplay.getDisplay() == null) {
+                if (virtualDisplay != null) virtualDisplay.release();
+                reader.close();
+                return null;
+            }
+            int id = virtualDisplay.getDisplay().getDisplayId();
+            DisplayState state = new DisplayState(id, width, height, dpi, virtualDisplay, reader);
+            displays.put(id, state);
+            applyImePolicy(id);
+            return state;
+        } catch (Throwable t) {
+            Main.log("create display failed: " + t);
+            try {
+                if (virtualDisplay != null) virtualDisplay.release();
+            } catch (Throwable ignored) {
+                // Preserve the original creation failure.
+            }
+            try {
+                if (reader != null) reader.close();
+            } catch (Throwable ignored) {
+                // Preserve the original creation failure.
+            }
+            return null;
         }
     }
 
     @Override
-    public boolean launchApp(String packageName, int id) {
+    public synchronized boolean launchApp(String packageName, int id) {
         touch();
-        if (packageName == null || id < 0 || !packageName.matches("[a-zA-Z][a-zA-Z0-9_.]*")) {
+        if (packageName == null || !displays.containsKey(id) || !packageName.matches("[a-zA-Z][a-zA-Z0-9_.]*")) {
             return false;
         }
         try {
@@ -108,24 +152,28 @@ public final class ServerService extends IVirtualDisplayService.Stub {
     }
 
     @Override
-    public void destroyDisplay(int id) {
+    public synchronized void destroyDisplay(int id) {
         touch();
-        if (id == displayId) {
-            destroyLocked();
-        }
+        destroyDisplayLocked(id);
+    }
+
+    private void destroyDisplayLocked(int id) {
+        DisplayState state = displays.remove(id);
+        if (state == null) return;
+        if (compatibleDisplayId == id) compatibleDisplayId = -1;
+        state.release();
     }
 
     @Override
-    public byte[] requestScreenshot(int id) {
+    public synchronized byte[] requestScreenshot(int id) {
         touch();
-        if (imageReader == null || virtualDisplay == null || id != displayId) {
-            return null;
-        }
+        DisplayState state = displays.get(id);
+        if (state == null) return null;
         Image image = null;
         try {
             long deadline = System.currentTimeMillis() + SCREENSHOT_TIMEOUT_MS;
             while (image == null && System.currentTimeMillis() < deadline) {
-                image = imageReader.acquireLatestImage();
+                image = state.imageReader.acquireLatestImage();
                 if (image == null) {
                     Thread.sleep(20L);
                 }
@@ -189,24 +237,35 @@ public final class ServerService extends IVirtualDisplayService.Stub {
         lastActiveAt = System.currentTimeMillis();
     }
 
-    private void destroyLocked() {
-        try {
-            if (virtualDisplay != null) {
+    private static final class DisplayState {
+        final int id;
+        final int width;
+        final int height;
+        final int dpi;
+        final VirtualDisplay virtualDisplay;
+        final ImageReader imageReader;
+
+        DisplayState(int id, int width, int height, int dpi, VirtualDisplay virtualDisplay, ImageReader imageReader) {
+            this.id = id;
+            this.width = width;
+            this.height = height;
+            this.dpi = dpi;
+            this.virtualDisplay = virtualDisplay;
+            this.imageReader = imageReader;
+        }
+
+        void release() {
+            try {
                 virtualDisplay.release();
+            } catch (Throwable ignored) {
+                // Resource release is best-effort; server exit remains a final fallback.
             }
-        } catch (Throwable ignored) {
-            // 释放失败不阻断,后续重建或进程退出兜底
-        }
-        virtualDisplay = null;
-        try {
-            if (imageReader != null) {
+            try {
                 imageReader.close();
+            } catch (Throwable ignored) {
+                // Resource release is best-effort; server exit remains a final fallback.
             }
-        } catch (Throwable ignored) {
-            // 同上
         }
-        imageReader = null;
-        displayId = -1;
     }
 
     // ── 内部工具 ────────────────────────────────────────────────────────────

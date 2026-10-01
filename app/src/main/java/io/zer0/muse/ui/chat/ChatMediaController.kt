@@ -127,7 +127,7 @@ internal class ChatMediaController(
     fun stopVoiceConversation() {
         voiceState.job?.cancel()
         voiceState.job = null
-        audioCoordinator.stopVoiceConversationListening()
+        audioCoordinator.cancelVoiceConversationListening()
         ttsManager.stop()
         voiceState.state.value = VoiceConversationState.IDLE
         voiceState.transcript.value = ""
@@ -138,7 +138,7 @@ internal class ChatMediaController(
     fun interruptVoiceConversation() {
         val current = voiceState.state.value
         if (current == VoiceConversationState.IDLE) return
-        audioCoordinator.stopVoiceConversationListening()
+        audioCoordinator.cancelVoiceConversationListening()
         ttsManager.stop()
         // THINKING 状态下 AI 仍在生成,需停止生成避免后续 isStreaming 回调误触发 TTS
         if (current == VoiceConversationState.THINKING && accessor.snapshot.isStreaming) {

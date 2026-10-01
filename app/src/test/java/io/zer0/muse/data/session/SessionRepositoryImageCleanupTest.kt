@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -65,6 +66,114 @@ class SessionRepositoryImageCleanupTest {
         database.close()
         imageDirectory.deleteRecursively()
         MessageFtsRuntime.useFts5 = previousFtsMode
+    }
+
+    @Test
+    fun detectsCheckpointForOutboxUserMessageToPreventDuplicateRecovery() = runTest {
+        val now = System.currentTimeMillis()
+        val userMessageId = UUID.randomUUID().toString()
+        database.sessionDao().insert(SessionEntity(id = sessionId, title = "checkpoint lookup", createdAt = now, updatedAt = now))
+        database.generationCheckpointDao().upsert(
+            GenerationCheckpointEntity(
+                assistantMessageId = UUID.randomUUID().toString(),
+                sessionId = sessionId,
+                userMessageId = userMessageId,
+                content = "partial",
+                createdAt = now,
+                updatedAt = now,
+            ),
+        )
+
+        assertTrue(repository.hasGenerationCheckpointForUserMessage(userMessageId))
+        assertFalse(repository.hasGenerationCheckpointForUserMessage(UUID.randomUUID().toString()))
+    }
+
+    @Test
+    fun checkpointAndOutboxConsumptionCommitAtomically() = runTest {
+        val now = System.currentTimeMillis()
+        val assistantMessageId = UUID.randomUUID().toString()
+        val userMessageId = UUID.randomUUID().toString()
+        val outboxId = UUID.randomUUID().toString()
+        database.sessionDao().insert(SessionEntity(id = sessionId, title = "checkpoint", createdAt = now, updatedAt = now))
+        repository.insertOutbox(
+            MessageOutboxEntity(
+                id = outboxId,
+                sessionId = sessionId,
+                text = "hello",
+                userMessageId = userMessageId,
+                assistantMessageId = assistantMessageId,
+                createdAt = now,
+            ),
+        )
+
+        repository.upsertGenerationCheckpointAndDeleteOutbox(
+            sessionId = sessionId,
+            userMessageId = userMessageId,
+            assistantMessageId = assistantMessageId,
+            content = "partial",
+            createdAt = now,
+            outboxId = outboxId,
+        )
+
+        assertTrue(repository.getPendingOutbox(sessionId).isEmpty())
+        val checkpoint = database.generationCheckpointDao().getAllPending().single()
+        assertEquals(assistantMessageId, checkpoint.assistantMessageId)
+        assertEquals("partial", checkpoint.content)
+    }
+
+    @Test
+    fun checkpointFailureRollsBackOutboxDeletion() = runTest {
+        val now = System.currentTimeMillis()
+        val outboxId = UUID.randomUUID().toString()
+        val userMessageId = UUID.randomUUID().toString()
+        val assistantMessageId = UUID.randomUUID().toString()
+        database.sessionDao().insert(SessionEntity(id = sessionId, title = "checkpoint rollback", createdAt = now, updatedAt = now))
+        repository.insertOutbox(
+            MessageOutboxEntity(
+                id = outboxId,
+                sessionId = sessionId,
+                text = "hello",
+                userMessageId = userMessageId,
+                assistantMessageId = assistantMessageId,
+                createdAt = now,
+            ),
+        )
+
+        val result = runCatching {
+            repository.upsertGenerationCheckpointAndDeleteOutbox(
+                sessionId = "missing-session",
+                userMessageId = userMessageId,
+                assistantMessageId = assistantMessageId,
+                content = "partial",
+                createdAt = now,
+                outboxId = outboxId,
+            )
+        }
+
+        assertTrue(result.isFailure)
+        assertEquals(1, repository.getPendingOutbox(sessionId).size)
+        assertTrue(database.generationCheckpointDao().getAllPending().isEmpty())
+    }
+
+    @Test
+    fun retryingAppendWithSameMessageIdDoesNotInflateSessionMessageCount() = runTest {
+        val now = System.currentTimeMillis()
+        database.sessionDao().insert(SessionEntity(id = sessionId, title = "idempotent append", createdAt = now, updatedAt = now))
+        val message = io.zer0.ai.core.UIMessage(
+            role = io.zer0.ai.core.MessageRole.USER,
+            content = "retry me",
+            createdAt = now,
+        )
+
+        repository.appendMessage(sessionId, message)
+        val afterFirst = database.sessionDao().getById(sessionId)!!
+        repository.appendMessage(sessionId, message)
+        val afterRetry = database.sessionDao().getById(sessionId)!!
+
+        assertEquals(1, afterRetry.messageCount)
+        assertEquals(afterFirst.lastMessagePreview, afterRetry.lastMessagePreview)
+        assertEquals(afterFirst.updatedAt, afterRetry.updatedAt)
+        assertEquals(1, database.messageDao().countBySession(sessionId))
     }
 
     @Test

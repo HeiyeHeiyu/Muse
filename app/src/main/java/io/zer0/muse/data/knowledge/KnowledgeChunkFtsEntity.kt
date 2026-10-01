@@ -92,6 +92,10 @@ interface KnowledgeChunkFtsDao {
     )
     suspend fun searchBm25(query: String, limit: Int): List<KnowledgeChunkFtsHit>
 
+    /** Search wrapper with the same missing-table self-healing as writes. */
+    suspend fun searchBm25Safe(query: String, limit: Int): List<KnowledgeChunkFtsHit> =
+        withFtsSelfHeal { searchBm25(query, limit) }
+
     private suspend fun <T> withFtsSelfHeal(block: suspend () -> T): T {
         try {
             return block()

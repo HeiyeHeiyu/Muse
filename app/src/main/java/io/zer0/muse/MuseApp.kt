@@ -301,8 +301,19 @@ class MuseApp : Application(), ImageLoaderFactory {
         // 防止入站视频/文件长期累积撑爆私有目录(30 天 TTL + 512MB LRU)。
         appScope.launch {
             resultOf {
+                // Attach stores before cleanup so media still referenced by inbox/conversation history is protected.
+                io.zer0.muse.channel.ChannelInbox.attach(this@MuseApp)
+                io.zer0.muse.channel.ChannelConversationStore.attach(this@MuseApp)
+                val protectedMedia = buildSet {
+                    io.zer0.muse.channel.ChannelInbox.journal.snapshot()
+                        .mapNotNullTo(this) { it.mediaPath.takeIf(String::isNotBlank) }
+                    io.zer0.muse.channel.ChannelConversationStore.conversations.value.values
+                        .flatMap { it.turns }
+                        .mapNotNullTo(this) { it.mediaPath.takeIf(String::isNotBlank) }
+                }
                 io.zer0.muse.channel.ChannelMediaCleaner.cleanup(
                     java.io.File(filesDir, "channel_media"),
+                    protectedPaths = protectedMedia,
                 )
             }.onError { msg, t -> Logger.w("MuseApp", "channel_media 清理失败: $msg", t) }
         }

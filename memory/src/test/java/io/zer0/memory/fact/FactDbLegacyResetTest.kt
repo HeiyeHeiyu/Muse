@@ -66,8 +66,8 @@ class FactDbLegacyResetTest {
     }
 
     @Test
-    fun `v14 database survives reopen without archive and keeps facts`() {
-        val name = "facts_test_v14_reopen.db"
+    fun `current database survives reopen without archive and keeps facts`() {
+        val name = "facts_test_current_reopen.db"
         // 第一次打开并写入一条事实(模拟正常使用)
         val db1 = FactDb.create(context, name)
         db1.openHelper.writableDatabase.execSQL(
@@ -76,9 +76,9 @@ class FactDbLegacyResetTest {
         assertEquals(1, countFacts(name))
         db1.close()
 
-        // 再次打开(模拟 App 重启):守卫写死 13 的历史缺陷会把 v14 真库归档重建 → 事实清零
+        // 再次打开(模拟 App 重启):当前版本真库不得被版本守卫误归档重建。
         val db2 = FactDb.create(context, name)
-        assertEquals("v14 库重开不得被归档清空", 1, countFacts(name))
+        assertEquals("当前版本库重开不得被归档清空", 1, countFacts(name))
         assertFalse(
             File(context.getDatabasePath(name).parentFile, "$name.pre-destructive.bak").exists(),
         )
@@ -88,9 +88,9 @@ class FactDbLegacyResetTest {
 
     @Test
     fun `newer version database is archived`() {
-        val name = "facts_test_v15.db"
+        val name = "facts_test_v${FACT_DB_VERSION + 1}.db"
         val db = FactDb.create(context, name)
-        db.openHelper.writableDatabase.version = 15
+        db.openHelper.writableDatabase.version = FACT_DB_VERSION + 1
         db.close()
 
         FactDb.create(context, name)

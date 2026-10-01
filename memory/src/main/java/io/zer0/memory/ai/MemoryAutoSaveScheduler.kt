@@ -96,11 +96,13 @@ class MemoryAutoSaveScheduler(
 
     /**
      * v12 (T2-3): 计算历史消息指纹 — 取最后 [MAX_HISTORY_MESSAGES] 条消息的
-     * (id + content) 哈希。id 相同且内容相同 → 同一段历史,幂等跳过。
+     * (id + 与实际发给 LLM 的截断长度一致的 content) 哈希。id 相同且内容相同 → 同一段历史,幂等跳过。
      */
     internal fun fingerprintHistory(history: List<UIMessage>): String {
         val window = history.takeLast(MAX_HISTORY_MESSAGES)
-        val joined = window.joinToString("\n") { "${it.role}:${it.id}:${it.content.take(200)}" }
+        // Must match buildHistoryText's MAX_MESSAGE_CHARS; hashing only 200 chars
+        // would skip re-analysis when a fact changes later in a long message.
+        val joined = window.joinToString("\n") { "${it.role}:${it.id}:${it.content.take(MAX_MESSAGE_CHARS)}" }
         return java.security.MessageDigest.getInstance("MD5")
             .digest(joined.toByteArray())
             .joinToString("") { "%02x".format(it) }
@@ -140,7 +142,8 @@ class MemoryAutoSaveScheduler(
         if (history.isEmpty()) return
         // v12 (T2-3): 幂等指纹 — 同一会话同一段历史已成功处理过则跳过,
         // 防止同内容重复调 LLM 提取(与 DeepMemory 双写同一内容的场景)。
-        val fpKey = sessionId
+        // 会话 id 可能在导入/多助手场景复用，幂等键必须包含记忆隔离维度。
+        val fpKey = listOf(assistantId, scope, spaceId, sessionId).joinToString("|")
         val fp = fingerprintHistory(history)
         val alreadyProcessed = synchronized(processedFingerprints) {
             processedFingerprints[fpKey] == fp
@@ -153,8 +156,9 @@ class MemoryAutoSaveScheduler(
             analysisSemaphore.withPermit {
                 resultOf {
                     runAutoSave(sessionId, history, assistantId, spaceId, scope, model, locale)
+                        ?: error("memory extraction returned no parsed analysis")
                 }.onSuccess { result ->
-                    // v12 (T2-3): 成功处理后记录指纹,同内容不再重复提取
+                    // v12 (T2-3): 只有解析并落库成功才记录指纹；LLM 空响应/JSON 解析失败必须补跑。
                     synchronized(processedFingerprints) { processedFingerprints[fpKey] = fp }
                     Logger.i(
                         "MemoryAutoSaveScheduler",
@@ -174,7 +178,9 @@ class MemoryAutoSaveScheduler(
                         analysisSemaphore.withPermit {
                             resultOf {
                                 runAutoSave(sessionId, history, assistantId, spaceId, scope, model, locale)
+                                    ?: error("memory extraction retry returned no parsed analysis")
                             }.onSuccess { retryResult ->
+                                synchronized(processedFingerprints) { processedFingerprints[fpKey] = fp }
                                 Logger.i(
                                     "MemoryAutoSaveScheduler",
                                     "autoSave 补跑成功(session=${sessionId.take(8)}…): " +
@@ -208,7 +214,7 @@ class MemoryAutoSaveScheduler(
         scope: String,
         model: Model?,
         locale: String,
-    ): AnalysisResult = withContext(Dispatchers.IO) {
+    ): AnalysisResult? = withContext(Dispatchers.IO) {
         val factStore = factDbProvider.getFactStore(assistantId)
         val linkDao = factDbProvider.getFactDb(assistantId).memoryLinkDao()
 
@@ -224,10 +230,10 @@ class MemoryAutoSaveScheduler(
 
         // 2. 调 LLM 提取
         val analysis = extractEntities(history, existingPreview, model, locale)
-            ?: return@withContext AnalysisResult()
+            ?: return@withContext null
 
         // 3. 落库
-        applyAnalysis(analysis, factStore, linkDao, sessionId, spaceId, scope)
+        applyAnalysis(analysis, factStore, linkDao, sessionId, spaceId, scope, assistantId)
     }
 
     /**
@@ -328,6 +334,7 @@ class MemoryAutoSaveScheduler(
         sessionId: String,
         spaceId: String,
         scope: String,
+        assistantId: String = factStore.assistantId,
     ): AnalysisResult = withContext(Dispatchers.IO) {
         var extracted = 0
         var updated = 0
@@ -392,8 +399,7 @@ class MemoryAutoSaveScheduler(
                 factStore.add(mergedFact, scope, spaceId)
                 // 删除源事实(并清理关联的 links)
                 sources.forEach { src ->
-                    linkDao.deleteByFactId(src.id)
-                    factStore.delete(src.id)
+                    factStore.delete(src.id, assistantId, scope, spaceId)
                 }
                 merged++
             }

@@ -3,11 +3,19 @@ package io.zer0.muse.ui.chat
 import android.content.Context
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import io.zer0.muse.asr.AsrConfig
+import io.zer0.muse.asr.ASRController
+import io.zer0.muse.asr.ASRState
+import io.zer0.muse.asr.ASRStatus
+import io.zer0.muse.asr.AsrClientFactory
 import io.zer0.muse.asr.AsrProviderType
 import io.zer0.muse.data.SettingsRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import io.zer0.muse.ui.ChatUiState
 import io.zer0.muse.ui.speech.TtsManager
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -33,6 +41,41 @@ class ChatAudioCoordinatorVoiceTest {
             settings = mockk<SettingsRepository>(relaxed = true),
             context = mockk<Context>(relaxed = true),
         )
+    }
+
+
+    @Test
+    fun `canceling voice listening resets ASR state and ignores late controller emissions`() {
+        val initial = ChatUiState(
+            asrConfig = AsrConfig(provider = AsrProviderType.STEP, apiKey = "test-key"),
+        )
+        val accessor = InMemoryChatStateAccessor(initial)
+        val controller = mockk<ASRController>(relaxed = true)
+        val controllerState = MutableStateFlow(
+            ASRState(status = ASRStatus.Listening, isAvailable = true),
+        )
+        every { controller.state } returns controllerState
+        mockkObject(AsrClientFactory)
+        every { AsrClientFactory.createController(any(), any()) } returns controller
+        try {
+            val coordinator = ChatAudioCoordinator(
+                accessor = accessor,
+                ttsManager = mockk<TtsManager>(relaxed = true),
+                settings = mockk<SettingsRepository>(relaxed = true),
+                context = mockk<Context>(relaxed = true),
+            )
+
+            coordinator.startVoiceConversationListening {}
+            assertEquals(ASRStatus.Listening, accessor.snapshot.asrState.status)
+
+            coordinator.cancelVoiceConversationListening()
+            assertEquals(ASRState(), accessor.snapshot.asrState)
+
+            controllerState.value = ASRState(status = ASRStatus.Error, errorMessage = "late event")
+            assertEquals(ASRState(), accessor.snapshot.asrState)
+        } finally {
+            unmockkObject(AsrClientFactory)
+        }
     }
 
     @Test

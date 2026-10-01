@@ -72,6 +72,9 @@ interface GenerationCheckpointDao {
     @Query("DELETE FROM generation_checkpoints WHERE sessionId = :sessionId AND createdAt = :createdAt")
     suspend fun deleteBySessionAndCreatedAt(sessionId: String, createdAt: Long)
 
+    @Query("SELECT COUNT(*) FROM generation_checkpoints WHERE userMessageId = :userMessageId")
+    suspend fun countByUserMessageId(userMessageId: String): Int
+
     @Query("SELECT * FROM generation_checkpoints ORDER BY createdAt ASC")
     suspend fun getAllPending(): List<GenerationCheckpointEntity>
 

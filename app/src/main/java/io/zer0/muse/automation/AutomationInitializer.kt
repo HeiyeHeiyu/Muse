@@ -81,7 +81,17 @@ object AutomationInitializer {
                     io.zer0.muse.tools.WorkflowJournal::class.java,
                 )
             }.getOrNull()
-            val tools = AutomationTools(mgr, workflowJournal)
+            val virtualDisplayManager = runCatching {
+                io.zer0.muse.automation.vdisplay.VirtualDisplayServerManager(appContext, mgr)
+            }.onFailure { Logger.w(TAG, "VirtualDisplay manager init failed: ${it.message}") }
+                .getOrNull()
+            val virtualDisplayClient = virtualDisplayManager?.let { manager ->
+                io.zer0.muse.automation.vdisplay.VirtualDisplayClient(appContext, manager)
+            }
+            val nodeScriptExecutor: suspend (String, Long) -> io.zer0.muse.tools.script.SkillEngineResult = { code, timeoutMs ->
+                io.zer0.muse.tools.NodeScriptTool.evaluate(appContext, code, timeoutMs)
+            }
+            val tools = AutomationTools(mgr, workflowJournal, virtualDisplayClient, virtualDisplayManager, nodeScriptExecutor)
             tools.register(toolRegistry)
 
             // 注册 Root 级别工具(分层执行:Shizuku 优先、Root 兜底,注册本身无副作用)
@@ -98,22 +108,24 @@ object AutomationInitializer {
                         io.zer0.muse.vision.VisionBridge::class.java,
                     )
                 io.zer0.muse.automation.agent.UiAgentTool(
-                    io.zer0.muse.automation.agent.UiAgentRunner(mgr, visionBridge),
+                    io.zer0.muse.automation.agent.UiAgentRunner(mgr, visionBridge, virtualDisplayClient, virtualDisplayManager),
                 ).register(toolRegistry)
             } catch (e: Exception) {
                 Logger.w(TAG, "UiAgent tool registration failed: ${e.message}")
             }
 
             // v2.2.1: 虚拟屏工具(后台隐藏屏;Shizuku 或 Root 通道,注册本身无副作用)
-            try {
-                val vdManager =
-                    io.zer0.muse.automation.vdisplay.VirtualDisplayServerManager(appContext, mgr)
-                val vdClient =
-                    io.zer0.muse.automation.vdisplay.VirtualDisplayClient(appContext, vdManager)
-                io.zer0.muse.automation.vdisplay.VirtualDisplayTool(appContext, vdClient, vdManager, mgr)
-                    .register(toolRegistry)
-            } catch (e: Exception) {
-                Logger.w(TAG, "VirtualDisplay tool registration failed: ${e.message}")
+            if (virtualDisplayManager != null && virtualDisplayClient != null) {
+                try {
+                    io.zer0.muse.automation.vdisplay.VirtualDisplayTool(
+                        appContext,
+                        virtualDisplayClient,
+                        virtualDisplayManager,
+                        mgr,
+                    ).register(toolRegistry)
+                } catch (e: Exception) {
+                    Logger.w(TAG, "VirtualDisplay tool registration failed: ${e.message}")
+                }
             }
 
             // v2.x Agent 化: 应用控制工具集(app_list/launch/settings/force_stop/clear_data/uninstall)。

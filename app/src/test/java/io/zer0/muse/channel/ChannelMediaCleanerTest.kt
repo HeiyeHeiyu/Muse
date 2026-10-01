@@ -105,6 +105,22 @@ class ChannelMediaCleanerTest {
     }
 
     @Test
+    fun protectedReferencedMediaIsNeverSelectedEvenWhenExpired() {
+        val files = listOf(
+            meta("referenced.bin", ageMs = 90 * day, size = 999),
+            meta("orphan.bin", ageMs = 90 * day, size = 999),
+        )
+
+        val deleted = ChannelMediaCleaner.selectForDeletion(
+            files,
+            now = now,
+            protectedPaths = setOf("referenced.bin"),
+        )
+
+        assertEquals(listOf("orphan.bin"), deleted)
+    }
+
+    @Test
     fun keepsEverythingWhenUnderBothLimits() {
         val files = listOf(
             meta("x.bin", ageMs = 1 * day, size = 10),

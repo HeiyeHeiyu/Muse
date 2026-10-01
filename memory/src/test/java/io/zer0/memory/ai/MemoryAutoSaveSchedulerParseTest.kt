@@ -1,7 +1,9 @@
 package io.zer0.memory.ai
 
 import androidx.test.core.app.ApplicationProvider
+import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.Model
+import io.zer0.ai.core.UIMessage
 import io.zer0.memory.fact.FactDbProvider
 import io.zer0.memory.llm.MemoryLlmClient
 import kotlinx.coroutines.CoroutineScope
@@ -15,6 +17,23 @@ import org.robolectric.RobolectricTestRunner
 /** 回归测试：LLM 显式返回 null 不应让整份 auto-save 分析结果失效。 */
 @RunWith(RobolectricTestRunner::class)
 class MemoryAutoSaveSchedulerParseTest {
+
+    @Test
+    fun `fingerprint includes the full LLM input window instead of only the first 200 chars`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val scheduler = MemoryAutoSaveScheduler(
+            factDbProvider = FactDbProvider(context),
+            llmClient = object : MemoryLlmClient {
+                override suspend fun callText(systemPrompt: String, userContent: String, model: Model?, temperature: Float, maxTokens: Int, timeoutMs: Long): String = "{}"
+            },
+            scope = CoroutineScope(Dispatchers.Unconfined),
+        )
+        val prefix = "x".repeat(250)
+        val first = UIMessage(role = MessageRole.USER, content = prefix + "A")
+        val second = UIMessage(role = MessageRole.USER, content = prefix + "B")
+
+        assertEquals(false, scheduler.fingerprintHistory(listOf(first)) == scheduler.fingerprintHistory(listOf(second)))
+    }
 
     @Test
     fun `explicit null optional object fields are coerced to defaults`() {

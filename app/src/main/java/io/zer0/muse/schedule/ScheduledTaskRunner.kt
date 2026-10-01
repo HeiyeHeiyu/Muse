@@ -367,8 +367,7 @@ class ScheduledTaskRunner(
             computeNextRun(task, now)
         }
         resultOf {
-            dao.recordExecutionAndScheduleNext(execution, task.id, nextRun, now)
-            dao.updateRetryCount(task.id, newRetryCount)
+            dao.recordExecutionAndScheduleNext(execution, task.id, nextRun, now, newRetryCount)
         }.onError { msg, t -> Logger.w(TAG, "Record execution+scheduleNext failed: ${t?.message ?: msg}") }
     }
 

@@ -76,7 +76,7 @@ val memoryModule: Module = module {
     // v6: 记忆编译产物同时输出到文件系统(memory.md + daily/)
     // 审查修复 (2.0 C-03): 移除下方重复注册(同 key 单例,后者恒覆盖前者,属死装配)
     single { io.zer0.memory.compile.MemoryFileWriter(androidContext().filesDir) }
-    // S-04: MemoryCompiler 透传 FactStore(删除墓碑过滤);FactStore 落盘 filesDir/fact_tombstones.json
+    // S-04/v15: MemoryCompiler resolves per-assistant FactStore tombstones; the shared JSON file is legacy read-only.
     // v12: 注入 LLM 去重判定器(由 app 模块提供实现,默认 Noop 不调 LLM)
     single {
         MemoryCompiler(
@@ -85,6 +85,7 @@ val memoryModule: Module = module {
             fileWriter = get(),
             factStore = get(),
             scopedSectionDao = get(),
+            factDbProvider = get(),
             compileContext = io.zer0.memory.compile.MemoryCompileContext(),
         )
     } // legacy sectionDao + llmClient + fileWriter + factStore + scoped DAO
@@ -95,6 +96,8 @@ val memoryModule: Module = module {
             java.io.File(androidContext().filesDir, "fact_tombstones.json"),
             get<io.zer0.memory.fact.FactDedupJudge>(),
             get(),
+            assistantId = "default",
+            clearLegacyTombstonesOnReset = true,
         )
     }
     single { DeepMemoryProcessor(get<io.zer0.memory.fact.FactDbProvider>(), get()) } // factDbProvider + llmClient

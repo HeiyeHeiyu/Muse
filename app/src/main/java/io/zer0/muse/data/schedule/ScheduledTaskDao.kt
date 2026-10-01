@@ -140,7 +140,13 @@ interface ScheduledTaskDao {
     suspend fun listChainCandidates(excludeId: String): List<TaskIdName>
 
     @Transaction
-    suspend fun recordExecutionAndScheduleNext(execution: ScheduledTaskExecutionEntity, taskId: String, nextRunAt: Long, lastRunAt: Long) {
+    suspend fun recordExecutionAndScheduleNext(
+        execution: ScheduledTaskExecutionEntity,
+        taskId: String,
+        nextRunAt: Long,
+        lastRunAt: Long,
+        retryCount: Int,
+    ) {
         insertExecution(execution)
         if (nextRunAt > 0) {
             updateRunState(taskId, nextRunAt, lastRunAt)
@@ -148,5 +154,6 @@ interface ScheduledTaskDao {
             // 无下次执行时间(once / 非法 cron),禁用任务避免每分钟重复触发
             setEnabled(taskId, false, lastRunAt)
         }
+        updateRetryCount(taskId, retryCount)
     }
 }

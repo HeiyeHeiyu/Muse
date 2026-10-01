@@ -51,7 +51,14 @@ object DeleteMemoryTool {
             return "Error: the matched memory belongs to another memory space and cannot be deleted here."
         }
 
-        val removed = factStore.delete(target.id)
+        val assistantId = executionContext.assistantId?.takeIf { it.isNotBlank() }
+            ?: if (executionContext.scope == "main") "default" else executionContext.scope
+        val removed = factStore.delete(
+            id = target.id,
+            assistantId = assistantId,
+            scope = executionContext.scope,
+            spaceId = executionContext.spaceId,
+        )
         return if (removed) {
             "Deleted from long-term memory: \"${target.fact}\" (id: ${target.id})."
         } else {

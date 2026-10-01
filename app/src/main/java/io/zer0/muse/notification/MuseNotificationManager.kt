@@ -471,9 +471,11 @@ class MuseNotificationManager(private val context: Context) {
     /** 取消所有 muse 发出的通知。 */
     fun cancelAll() {
         nm.cancel(NOTIF_ID_CHAT_COMPLETED)
+        nm.cancel(NOTIF_ID_CHAT_PENDING_APPROVAL)
         nm.cancel(NOTIF_ID_LIVE_UPDATE)
         nm.cancel(NOTIF_ID_WEB_SERVER)
         nm.cancel(NOTIF_ID_PROACTIVE_MESSAGE)
+        nm.cancel(NOTIF_ID_AUTO_BACKUP)
     }
 
     /** 构建带受控深链目标的 MainActivity PendingIntent。 */
@@ -505,7 +507,9 @@ class MuseNotificationManager(private val context: Context) {
         private const val LIVE_PROGRESS_MIN_INTERVAL_MS = 900L
         private const val NOTIF_ID_WEB_SERVER = 1003
         private const val NOTIF_ID_PROACTIVE_MESSAGE = 1004
-        private const val NOTIF_ID_AUTO_BACKUP = 1005
+
+        // Keep auto-backup separate from the pending-approval notification.
+        private const val NOTIF_ID_AUTO_BACKUP = 1006
 
         // 问题6.4: 主动消息唯一通知 ID 的基址,与上面固定 ID 错开。
         // 最终 ID = BASE or (seq & 0x0FFF),范围 [0x10000000, 0x10000FFF],不会与固定 ID(1001~1004)冲突。

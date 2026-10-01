@@ -34,6 +34,7 @@ import java.time.format.DateTimeFormatter
  *   用于写入时精确查重与跨写法合并(解决同名重复记忆)。历史数据为 NULL,
  *   由反思任务在整理时回填。
  * v13 schema: 新增 fact_revisions 表(关键记忆修订记录),支持审计与回滚。
+ * v15 schema: 新增按 scope+space 隔离的持久化事实删除墓碑,与事实删除事务原子提交。
  *
  * FTS4 选型说明:
  *  - 部分国产 ROM(如 OPPO Android 16)的 SQLite 未编译 FTS5 模块,
@@ -45,14 +46,14 @@ import java.time.format.DateTimeFormatter
 /**
  * 当前 facts 库 schema 版本。
  *
- * 必须与 [FactDb] 的 @Database 版本、迁移链末端(当前 MIGRATION_13_14)三者一致;
+ * 必须与 [FactDb] 的 @Database 版本、迁移链末端(当前 MIGRATION_14_15)三者一致;
  * 版本守卫 [FactDb.archiveUnknownVersionDatabase] 也引用本常量。
  * 历史缺陷正是守卫写死旧值(13)导致 v14 真库被误判为"未知高版本"反复归档清空。
  */
-internal const val FACT_DB_VERSION = 14
+internal const val FACT_DB_VERSION = 15
 
 @Database(
-    entities = [FactEntity::class, FactFtsEntity::class, MemorySpaceEntity::class, MemoryLinkEntity::class, FactRevisionEntity::class],
+    entities = [FactEntity::class, FactFtsEntity::class, MemorySpaceEntity::class, MemoryLinkEntity::class, FactRevisionEntity::class, FactTombstoneEntity::class],
     version = FACT_DB_VERSION,
     // v1.78 (H4): 开启 schema 导出,未来 v4+ 升级时编写 Migration 替代 destructive
     // 历史 v1→v2→v3 的 destructive migration 已无法补救,从 v3 开始留基线
@@ -63,6 +64,9 @@ abstract class FactDb : RoomDatabase() {
 
     /** v13 (T4-1): 事实修订记录 DAO。 */
     abstract fun factRevisionDao(): FactRevisionDao
+
+    /** Durable, scope/space-local deletion markers. */
+    abstract fun factTombstoneDao(): FactTombstoneDao
 
     abstract fun memorySpaceDao(): io.zer0.memory.space.MemorySpaceDao
 
@@ -307,6 +311,23 @@ abstract class FactDb : RoomDatabase() {
                 }
             }
 
+        /** v14→v15: durable tombstones; unlike the legacy shared text file these are scope/space-local. */
+        val MIGRATION_14_15 =
+            object : Migration(14, 15) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS fact_deletion_tombstones " +
+                            "(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, normalized_fact TEXT NOT NULL, " +
+                            "scope TEXT NOT NULL, space_id TEXT NOT NULL, deleted_at TEXT NOT NULL)",
+                    )
+                    db.execSQL(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                            "index_fact_deletion_tombstones_scope_space_id_normalized_fact " +
+                            "ON fact_deletion_tombstones (scope, space_id, normalized_fact)",
+                    )
+                }
+            }
+
         /**
          * R-DB-03: 归档早期 v1/v2 或损坏的 facts 数据库。
          * 归档为 <name>.bak 后由 Room 重建空库,避免打开时崩溃。
@@ -489,7 +510,7 @@ abstract class FactDb : RoomDatabase() {
                 .addMigrations(
                     MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
                     MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-                    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14,
+                    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
                 )
                 .addCallback(
                     object : Callback() {

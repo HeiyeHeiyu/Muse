@@ -145,6 +145,8 @@
     <string name="asr_error_connection_exception">Erro de conexão</string>
     <string name="asr_error_mic_init_failed">Falha ao inicializar o microfone. Verifique as permissões ou o dispositivo de gravação</string>
     <string name="asr_error_recording_start_failed">Falha ao iniciar a gravação</string>
+
+    <string name="asr_error_recording_read_failed">Falha ao ler o microfone (código de erro: %1$d)</string>
     <string name="asr_reconnecting_message">Conexão perdida, reconectando… (tentativa %1$d/%2$d)</string>
     <string name="asr_reconnect_exhausted">A conexão de voz foi perdida. A reconexão automática falhou após 3 tentativas. O conteúdo reconhecido foi preservado. Verifique a rede e reinicie a gravação.</string>
 

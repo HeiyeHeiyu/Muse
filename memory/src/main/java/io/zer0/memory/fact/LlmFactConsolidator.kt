@@ -53,7 +53,7 @@ class LlmFactConsolidator(
                 // 其它成员相似时会触发第二重合并/删除,与我们的删除叠加成"双删清空";
                 // 反序后 update 时重复项已不在,不会再误合并。
                 group.filter { it.id != keeper.id }.forEach { other ->
-                    resultOf { store.delete(other.id) }
+                    resultOf { store.delete(other.id, store.assistantId, scope, spaceId) }
                         .onError { msg, t -> Logger.w(TAG, "删除重复记忆失败: ${t?.message ?: msg}") }
                 }
                 val updated = resultOf { store.update(keeper.id, mergedText, scope) }

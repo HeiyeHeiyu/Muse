@@ -12,6 +12,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.jsonObject
@@ -21,6 +23,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.security.MessageDigest
 import java.security.SecureRandom
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 /**
@@ -68,6 +71,9 @@ object OAuthManager {
     /** P2-11: providerId → OAuthConfig 缓存,供 [refreshTokenIfNeeded] 查询 tokenUrl/clientId 等。 */
     private val providerConfigs = mutableMapOf<String, OAuthConfig>()
 
+    /** Prevent concurrent refresh-token rotation for the same provider. */
+    private val refreshLocks = ConcurrentHashMap<String, Mutex>()
+
     /** token 即将过期的提前刷新窗口(秒),避免边界时间窗内的 401。 */
     private const val REFRESH_BUFFER_SECONDS = 60L
 
@@ -81,6 +87,7 @@ object OAuthManager {
          * - Device Flow:携带 [userCode] + [verificationUri],UI 应弹窗显示给用户。
          * - Auth Code Flow:[userCode] 为空,UI 应提示「浏览器已打开,请完成授权」。
          */
+        @Suppress("ktlint:standard:class-naming")
         data class AWAITING_USER(val userCode: String = "", val verificationUri: String = "") : State()
 
         /** Device Flow 正在轮询 token 端点。 */
@@ -108,6 +115,7 @@ object OAuthManager {
 
     /** 当前进行中的 Auth Code Flow(用于 [completeAuthorizationCodeFlow] 完成回调)。 */
     private val pendingAuthCodeFlow = MutableStateFlow<PendingAuthCode?>(null)
+    private val authCodeFlowLock = Any()
 
     /** Auth Code Flow 内部上下文(state + code_verifier + 完成信号)。 */
     private data class PendingAuthCode(
@@ -187,7 +195,7 @@ object OAuthManager {
                 httpClient.newCall(request).execute().use { resp ->
                     if (!resp.isSuccessful) {
                         val body = resp.body?.string().orEmpty()
-                        error("device_code 请求失败: HTTP ${resp.code}, body=${body.take(200)}")
+                        error("device_code 请求失败: HTTP ${resp.code}${oauthErrorField(body)}")
                     }
                     io.zer0.common.AppJson.decodeFromString(
                         DeviceCodeResponse.serializer(),
@@ -296,12 +304,26 @@ object OAuthManager {
         if (providerId.isNotBlank()) {
             synchronized(providerConfigs) { providerConfigs[providerId] = config }
         }
-        // 1. 生成 PKCE 对 + state
-        val codeVerifier = generateCodeVerifier()
+        // 1. 生成 PKCE 对 + state；同一进程只允许一个浏览器授权回调等待者。
+        val pending = synchronized(authCodeFlowLock) {
+            if (pendingAuthCodeFlow.value != null) {
+                null
+            } else {
+                val codeVerifier = generateCodeVerifier()
+                val state = generateRandomString(32)
+                PendingAuthCode(state, codeVerifier, CompletableDeferred<String>()).also {
+                    pendingAuthCodeFlow.value = it
+                }
+            }
+        } ?: run {
+            val msg = "已有 OAuth 授权流程正在等待回调"
+            _stateFlow.value = State.ERROR(msg)
+            return Result.failure(IllegalStateException(msg))
+        }
+        val codeVerifier = pending.codeVerifier
         val codeChallenge = computeCodeChallenge(codeVerifier)
-        val state = generateRandomString(32)
-        val deferred = CompletableDeferred<String>()
-        pendingAuthCodeFlow.value = PendingAuthCode(state, codeVerifier, deferred)
+        val state = pending.state
+        val deferred = pending.deferred
 
         // 2. 构造 authorizeUrl
         val authUrl = buildAuthorizationUrl(config, codeChallenge, state)
@@ -311,7 +333,7 @@ object OAuthManager {
         runCatching { activity.startActivity(intent) }.onFailure {
             val msg = "无法打开浏览器: ${it.message ?: "未知"}"
             _stateFlow.value = State.ERROR(msg)
-            pendingAuthCodeFlow.value = null
+            clearPendingAuthCodeFlow(pending)
             return Result.failure(it)
         }
 
@@ -320,7 +342,7 @@ object OAuthManager {
         val code = try {
             deferred.await()
         } catch (e: Exception) {
-            pendingAuthCodeFlow.value = null
+            clearPendingAuthCodeFlow(pending)
             _stateFlow.value = State.ERROR(e.message ?: "授权回调被取消")
             return Result.failure(e)
         }
@@ -328,7 +350,7 @@ object OAuthManager {
         // 5. 用 code + code_verifier 换 access_token
         _stateFlow.value = State.POLLING
         val tokenResp = exchangeCodeForToken(config, code, codeVerifier)
-        pendingAuthCodeFlow.value = null
+        clearPendingAuthCodeFlow(pending)
         if (tokenResp == null || tokenResp.access_token.isBlank()) {
             val msg = "OAuth token 交换失败"
             _stateFlow.value = State.ERROR(msg)
@@ -365,6 +387,12 @@ object OAuthManager {
             return false
         }
         return pending.deferred.complete(code)
+    }
+
+    private fun clearPendingAuthCodeFlow(expected: PendingAuthCode) {
+        synchronized(authCodeFlowLock) {
+            if (pendingAuthCodeFlow.value === expected) pendingAuthCodeFlow.value = null
+        }
     }
 
     /** 取消当前进行中的 OAuth 流程(用户主动取消 / 页面退出时调用)。 */
@@ -424,11 +452,16 @@ object OAuthManager {
      * @return 成功时 Result.success(有效的 access_token);失败时 Result.failure(异常)
      */
     suspend fun refreshTokenIfNeeded(providerId: String, config: OAuthConfig? = null): Result<String> {
-        val store = secureStore ?: run {
-            return Result.failure(IllegalStateException("SecureCredentialStore 未初始化"))
-        }
         if (providerId.isBlank()) {
             return Result.failure(IllegalArgumentException("providerId 为空"))
+        }
+        val lock = refreshLocks.computeIfAbsent(providerId) { Mutex() }
+        return lock.withLock { refreshTokenIfNeededLocked(providerId, config) }
+    }
+
+    private suspend fun refreshTokenIfNeededLocked(providerId: String, config: OAuthConfig? = null): Result<String> {
+        val store = secureStore ?: run {
+            return Result.failure(IllegalStateException("SecureCredentialStore 未初始化"))
         }
         val bundle = store.getOAuthToken(providerId)
             ?: return Result.failure(IllegalStateException("无已存储的 OAuth token"))

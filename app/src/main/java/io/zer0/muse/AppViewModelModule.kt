@@ -57,6 +57,7 @@ val appViewModelModule = module {
             application = androidContext() as Application,
             factStore = get(),
             memoryLinkDao = get(),
+            factDbProvider = get(),
         )
     }
 

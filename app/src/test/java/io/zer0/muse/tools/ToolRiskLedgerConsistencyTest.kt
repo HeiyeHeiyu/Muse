@@ -3,6 +3,13 @@ package io.zer0.muse.tools
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import io.mockk.mockk
+import io.zer0.muse.automation.appcontrol.AndroidAppController
+import io.zer0.muse.automation.appcontrol.AppControlTools
+import io.zer0.muse.automation.core.AutomationManager
+import io.zer0.muse.automation.tools.AutomationTools
+import io.zer0.muse.automation.vdisplay.VirtualDisplayClient
+import io.zer0.muse.automation.vdisplay.VirtualDisplayServerManager
+import io.zer0.muse.automation.vdisplay.VirtualDisplayTool
 import io.zer0.muse.tools.defaultTool.UIToolsRegistrar
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -87,6 +94,17 @@ class ToolRiskLedgerConsistencyTest {
             "UIToolsRegistrar" to { c, r ->
                 UIToolsRegistrar(r, mockk(relaxed = true), c)
             },
+            "AutomationTools" to { _, r -> AutomationTools(mockk(relaxed = true)).register(r) },
+            "AppControlTools" to { c, r -> AppControlTools(c, mockk<AndroidAppController>(relaxed = true)).register(r) },
+            "RootToolsRegistrar" to { c, r -> RootToolsRegistrar(r, mockk<AutomationManager>(relaxed = true), c) },
+            "VirtualDisplayTool" to { c, r ->
+                VirtualDisplayTool(
+                    c,
+                    mockk<VirtualDisplayClient>(relaxed = true),
+                    mockk<VirtualDisplayServerManager>(relaxed = true),
+                    mockk<AutomationManager>(relaxed = true),
+                ).register(r)
+            },
             "PdfVisionToolsRegistrar" to { c, r ->
                 PdfVisionToolsRegistrar(r, mockk(relaxed = true), c, c.filesDir)
             },
@@ -133,6 +151,12 @@ class ToolRiskLedgerConsistencyTest {
             "send_email", "open_url", "open_maps",
             "toggle_wifi", "toggle_bluetooth", "toggle_flashlight",
             "set_brightness", "set_volume", "set_alarm", "set_timer",
+            "automation_workflow", "virtual_screen", "virtual_screen_input",
+            "screen_read", "screen_current_app", "screen_tap", "screen_tap_text",
+            "screen_swipe", "screen_pinch", "screen_swipe_path", "screen_input", "screen_launch_app",
+            "app_force_stop", "app_clear_data", "app_uninstall",
+            "settings_get", "settings_put", "network_toggle", "am_start",
+            "list_packages", "logcat_tail", "input_inject",
             "workspace_write", "workspace_delete", "workspace_mkdir", "workspace_move",
             "pin_memory", "unpin_memory", "make_phone_call",
         )

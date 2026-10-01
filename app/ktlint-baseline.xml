@@ -17,7 +17,7 @@
         <error line="1" column="1" source="standard:filename" />
     </file>
     <file name="src/main/java/io/zer0/muse/auth/OAuthManager.kt">
-        <error line="84" column="20" source="standard:class-naming" />
+        <error line="91" column="20" source="standard:class-naming" />
     </file>
     <file name="src/main/java/io/zer0/muse/auth/SecureCredentialStore.kt">
         <error line="221" column="30" source="standard:discouraged-comment-location" />
@@ -385,15 +385,15 @@
         <error line="3669" column="1" source="standard:max-line-length" />
         <error line="3700" column="1" source="standard:max-line-length" />
         <error line="4316" column="1" source="standard:max-line-length" />
-        <error line="4690" column="1" source="standard:max-line-length" />
-        <error line="4767" column="1" source="standard:max-line-length" />
-        <error line="4796" column="1" source="standard:max-line-length" />
-        <error line="4847" column="1" source="standard:max-line-length" />
-        <error line="4888" column="1" source="standard:max-line-length" />
-        <error line="5201" column="1" source="standard:max-line-length" />
-        <error line="5277" column="1" source="standard:max-line-length" />
-        <error line="5459" column="1" source="standard:max-line-length" />
-        <error line="5735" column="1" source="standard:max-line-length" />
+        <error line="4691" column="1" source="standard:max-line-length" />
+        <error line="4768" column="1" source="standard:max-line-length" />
+        <error line="4797" column="1" source="standard:max-line-length" />
+        <error line="4848" column="1" source="standard:max-line-length" />
+        <error line="4889" column="1" source="standard:max-line-length" />
+        <error line="5202" column="1" source="standard:max-line-length" />
+        <error line="5278" column="1" source="standard:max-line-length" />
+        <error line="5460" column="1" source="standard:max-line-length" />
+        <error line="5736" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/DebugScreen.kt">
         <error line="181" column="33" source="standard:discouraged-comment-location" />

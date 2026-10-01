@@ -113,6 +113,8 @@ class DashScopeAsrController(
     private val isDisposed = AtomicBoolean(false)
 
     override fun start(onTranscriptChange: ((String) -> Unit)?) {
+        // dispose 后必须保持终态；否则 scope 已取消但 start 仍会把 state 改成 Connecting，造成 UI 永久假连接。
+        if (isDisposed.get()) return
         // 仅在 Listening 态拒绝重复 start;Connecting/Stopping 过渡态允许新 start 接续
         if (_state.value.status == ASRStatus.Listening) {
             Logger.w(TAG, "已在录音,忽略重复 start")
@@ -281,33 +283,45 @@ class DashScopeAsrController(
         // Phase 3: Reconnecting 期间继续录音,音频帧先入缓冲,重连成功后补发
         recordJob = scope.launch(Dispatchers.IO) {
             val chunk = ByteArray(AUDIO_CHUNK_BYTES)
-            while (isActive && _state.value.isRecording) {
-                val read = record.read(chunk, 0, chunk.size)
-                if (read > 0) {
-                    // 1. 计算 RMS 振幅 → 更新 state.amplitudes(归一化 0-1f)
-                    val amp = AudioAmplitude.calculateRmsAmplitude(chunk, read)
-                    _state.update { it.copy(amplitudes = it.amplitudes.appendAmplitude(amp)) }
+            try {
+                while (isActive && _state.value.isRecording) {
+                    val read = record.read(chunk, 0, chunk.size)
+                    if (read > 0) {
+                        // 1. 计算 RMS 振幅 → 更新 state.amplitudes(归一化 0-1f)
+                        val amp = AudioAmplitude.calculateRmsAmplitude(chunk, read)
+                        _state.update { it.copy(amplitudes = it.amplitudes.appendAmplitude(amp)) }
 
-                    // 2. 本地 VAD(若启用):静音超阈值主动触发 stop
-                    //    DashScope 服务端已自带 VAD(sentence_end 自动断句),本地 VAD 仅用于自动停止录音
-                    if (vadDetector?.processFrame(chunk, read, amp) == true) {
-                        Logger.d(TAG, "本地 VAD 触发,主动停止")
-                        scope.launch { stop() }
+                        // 2. 本地 VAD(若启用):静音超阈值主动触发 stop
+                        //    DashScope 服务端已自带 VAD(sentence_end 自动断句),本地 VAD 仅用于自动停止录音
+                        if (vadDetector?.processFrame(chunk, read, amp) == true) {
+                            Logger.d(TAG, "本地 VAD 触发,主动停止")
+                            scope.launch { stop() }
+                            break
+                        }
+
+                        // 3. Listening 期间正常发送;其余过渡态(Reconnecting / 重连建立中)先缓冲,
+                        //    避免在 run-task/task-started 握手完成前把 PCM 发到新 WebSocket
+                        if (_state.value.status == ASRStatus.Listening) {
+                            sendAudioFrame(chunk, read)
+                        } else {
+                            bufferAudioFrame(chunk, read)
+                        }
+                    } else if (read == 0) {
+                        delay(10L)
+                    } else if (read < 0) {
+                        Logger.w(TAG, "AudioRecord.read 错误: $read")
+                        if (shouldReportAsrCaptureFailure(_state.value.status, coroutineContext[Job]?.isActive == true)) {
+                            failAsr(appContext.getString(R.string.asr_error_recording_read_failed, read))
+                        }
                         break
                     }
-
-                    // 3. Listening 期间正常发送;其余过渡态(Reconnecting / 重连建立中)先缓冲,
-                    //    避免在 run-task/task-started 握手完成前把 PCM 发到新 WebSocket
-                    if (_state.value.status == ASRStatus.Listening) {
-                        sendAudioFrame(chunk, read)
-                    } else {
-                        bufferAudioFrame(chunk, read)
-                    }
-                } else if (read == 0) {
-                    delay(10L)
-                } else if (read < 0) {
-                    Logger.w(TAG, "AudioRecord.read 错误: $read")
-                    break
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (shouldReportAsrCaptureFailure(_state.value.status, coroutineContext[Job]?.isActive == true)) {
+                    Logger.w(TAG, "录音循环异常: ${error.message}", error)
+                    failAsr(error.message ?: appContext.getString(R.string.asr_error_recording_start_failed))
                 }
             }
         }
@@ -343,6 +357,7 @@ class DashScopeAsrController(
 
     /** 处理 WebSocket 事件(在 Main 线程执行)。 */
     private fun handleEvent(event: JsonObject) {
+        if (isDisposed.get() || (_state.value.status == ASRStatus.Error || _state.value.status == ASRStatus.Idle)) return
         val eventType = event.optString("event")
         when (eventType) {
             "result-generated" -> {
@@ -353,7 +368,7 @@ class DashScopeAsrController(
                 if (text.isNotEmpty()) {
                     if (isFinal) {
                         // 句子结束:累积到 completedTranscripts,清除对应的中间结果
-                        completedTranscripts.append(text)
+                        completedTranscripts.append(text).append(" ")
                         partialTranscripts.remove(sentenceId)
                     } else {
                         // 中间结果:按 sentence_id 替换(同一句的中间结果会反复更新)
@@ -368,16 +383,19 @@ class DashScopeAsrController(
             "task-finished" -> {
                 Logger.d(TAG, "收到 task-finished,识别完成")
                 val full = buildTranscript()
-                _state.update { it.copy(status = ASRStatus.Idle, transcript = full) }
+                _state.update { it.copy(status = ASRStatus.Idle, transcript = full, amplitudes = emptyList()) }
                 onTranscriptChange?.invoke(full)
+                cancelReconnect()
+                clearAudioBuffer()
                 cleanupConnection()
+                releaseAudioRecord()
             }
             "task-failed" -> {
                 val errMsg = (event["header"] as? JsonObject)?.let {
                     (it["error_message"] as? JsonPrimitive)?.content
                 } ?: event.toString()
                 Logger.w(TAG, "DashScope ASR 任务失败: $errMsg")
-                _state.update { it.copy(status = ASRStatus.Error, errorMessage = errMsg) }
+                failAsr(errMsg)
             }
             "task-started" -> {
                 // 已在 connectAndRecord 的 waitForEvent 处理,此处忽略
@@ -542,6 +560,16 @@ class DashScopeAsrController(
         }
     }
 
+    /** Enter a terminal error state and release both network and microphone resources. */
+    private fun failAsr(message: String) {
+        if (isDisposed.get()) return
+        cancelReconnect()
+        clearAudioBuffer()
+        _state.update { it.withAsrFailure(message) }
+        cleanupConnection()
+        releaseAudioRecord()
+    }
+
     /** 清空重连音频缓冲(start/stop/dispose 时调用)。 */
     private fun clearAudioBuffer() {
         synchronized(audioBufferLock) {
@@ -563,8 +591,9 @@ class DashScopeAsrController(
         try {
             audioRecord?.stop()
         } catch (_: Throwable) { /* 已停止或未初始化 */ }
-        audioRecord?.release()
+        val recorder = audioRecord
         audioRecord = null
+        runCatching { recorder?.release() }
     }
 
     override fun stop() {

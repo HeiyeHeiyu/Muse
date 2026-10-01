@@ -42,7 +42,7 @@ class VirtualDisplayTool(
                     "display" to "可选:指定 displayId(默认最近一次 ensure 的)",
                 ),
                 required = setOf("action"),
-                riskLevel = ToolRiskLevel.NORMAL,
+                riskLevel = ToolRiskLevel.HIGH,
             ),
         ) { args ->
             when (val action = args["action"]?.trim()?.lowercase()) {

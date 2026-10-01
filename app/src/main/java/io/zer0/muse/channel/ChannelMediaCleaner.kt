@@ -51,11 +51,15 @@ object ChannelMediaCleaner {
         now: Long,
         ttlMs: Long = DEFAULT_TTL_MS,
         maxTotalBytes: Long = DEFAULT_MAX_TOTAL_BYTES,
+        protectedPaths: Set<String> = emptySet(),
     ): List<String> {
         if (files.isEmpty()) return emptyList()
         val toDelete = LinkedHashSet<String>()
         val remaining = ArrayList<FileMeta>(files.size)
         for (file in files) {
+            if (file.path in protectedPaths) {
+                continue
+            }
             if (now - file.lastModified > ttlMs) {
                 toDelete.add(file.path)
             } else {
@@ -84,12 +88,13 @@ object ChannelMediaCleaner {
         now: Long = System.currentTimeMillis(),
         ttlMs: Long = DEFAULT_TTL_MS,
         maxTotalBytes: Long = DEFAULT_MAX_TOTAL_BYTES,
+        protectedPaths: Set<String> = emptySet(),
     ): Int {
         if (!dir.isDirectory) return 0
         val metas = dir.listFiles { f -> f.isFile }?.map {
             FileMeta(it.absolutePath, it.lastModified(), it.length())
         } ?: return 0
-        val victims = selectForDeletion(metas, now, ttlMs, maxTotalBytes)
+        val victims = selectForDeletion(metas, now, ttlMs, maxTotalBytes, protectedPaths)
         var deleted = 0
         for (path in victims) {
             runCatching { if (File(path).delete()) deleted++ }

@@ -144,6 +144,8 @@ class DeviceCapabilityProfileTest {
         assertTrue(guide, guide.contains("优先写成脚本"))
         // 缺权限如实说
         assertTrue(guide, guide.contains("缺权限就如实说"))
+        assertTrue(guide, guide.contains("display=auto"))
+        assertTrue(guide, guide.contains("本次专属虚拟屏"))
     }
 
     // ── Hook 行为边界 ──────────────────────────────────────────

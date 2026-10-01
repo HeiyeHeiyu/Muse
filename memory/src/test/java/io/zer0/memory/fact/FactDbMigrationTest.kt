@@ -155,6 +155,7 @@ class FactDbMigrationTest {
                 FactDb.MIGRATION_11_12,
                 FactDb.MIGRATION_12_13,
                 FactDb.MIGRATION_13_14,
+                FactDb.MIGRATION_14_15,
             )
             .allowMainThreadQueries()
             .build()
@@ -225,6 +226,7 @@ class FactDbMigrationTest {
                 FactDb.MIGRATION_11_12,
                 FactDb.MIGRATION_12_13,
                 FactDb.MIGRATION_13_14,
+                FactDb.MIGRATION_14_15,
             )
             .allowMainThreadQueries()
             .build()
@@ -381,6 +383,7 @@ class FactDbMigrationTest {
                 FactDb.MIGRATION_11_12,
                 FactDb.MIGRATION_12_13,
                 FactDb.MIGRATION_13_14,
+                FactDb.MIGRATION_14_15,
             )
             .allowMainThreadQueries()
             .build()
@@ -545,6 +548,7 @@ class FactDbMigrationTest {
             .addMigrations(
                 FactDb.MIGRATION_12_13,
                 FactDb.MIGRATION_13_14,
+                FactDb.MIGRATION_14_15,
             )
             .allowMainThreadQueries()
             .build()
@@ -617,6 +621,7 @@ class FactDbMigrationTest {
                 FactDb.MIGRATION_6_7, FactDb.MIGRATION_7_8, FactDb.MIGRATION_8_9,
                 FactDb.MIGRATION_9_10, FactDb.MIGRATION_10_11, FactDb.MIGRATION_11_12, FactDb.MIGRATION_12_13,
                 FactDb.MIGRATION_13_14,
+                FactDb.MIGRATION_14_15,
             )
             .allowMainThreadQueries()
             .build()
@@ -651,6 +656,17 @@ class FactDbMigrationTest {
             assertEquals(1.0f, cursor.getFloat(3), 0.001f)
             assertEquals("inferred", cursor.getString(4))
             assertEquals("main", cursor.getString(5))
+        }
+
+        db.openHelper.writableDatabase.query(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='fact_deletion_tombstones'",
+        ).use { cursor ->
+            assertTrue("deletion tombstone table must be created by migration 14→15", cursor.moveToFirst())
+        }
+        db.openHelper.writableDatabase.query(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name='index_fact_deletion_tombstones_scope_space_id_normalized_fact'",
+        ).use { cursor ->
+            assertTrue("tombstones must be unique per scope/space/fact", cursor.moveToFirst())
         }
 
         db.close()
