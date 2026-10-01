@@ -12,6 +12,7 @@ import io.zer0.muse.data.knowledge.KnowledgeChunkFtsRow
 import io.zer0.muse.data.knowledge.KnowledgeChunkFtsSelfHealer
 import io.zer0.muse.data.knowledge.KnowledgeDocDao
 import io.zer0.muse.data.knowledge.KnowledgeDocEntity
+import io.zer0.muse.data.session.MessageFtsManager
 import io.zer0.muse.util.TokenEstimator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -657,7 +658,11 @@ class RagService(
 
             // 5. FTS 同步索引(用于混合检索 BM25 路径)
             val ftsRows = entities.map {
-                KnowledgeChunkFtsRow(chunkId = it.id, docId = it.docId, content = it.content)
+                KnowledgeChunkFtsRow(
+                    chunkId = it.id,
+                    docId = it.docId,
+                    content = MessageFtsManager.toNgram(it.content),
+                )
             }
             resultOf { withFtsSelfHeal { ftsDao.insertAll(ftsRows) } }
                 .onError { msg, e -> Logger.w("RagService", "FTS 同步失败(不影响向量检索): $msg", e) }
@@ -807,7 +812,11 @@ class RagService(
             chunkDao.insertAll(entities)
             addChunksToVectorIndex(entities, vectors, provider)
             val ftsRows = entities.map {
-                KnowledgeChunkFtsRow(chunkId = it.id, docId = it.docId, content = it.content)
+                KnowledgeChunkFtsRow(
+                    chunkId = it.id,
+                    docId = it.docId,
+                    content = MessageFtsManager.toNgram(it.content),
+                )
             }
             resultOf { withFtsSelfHeal { ftsDao.insertAll(ftsRows) } }
                 .onError { msg, e -> Logger.w("RagService", "FTS 同步失败(不影响向量检索): $msg", e) }

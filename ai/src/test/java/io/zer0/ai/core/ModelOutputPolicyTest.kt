@@ -83,4 +83,24 @@ class ModelOutputPolicyTest {
         assertEquals(8_192, ModelOutputPolicy.resolve(0, model(maxOutputTokens = 8_192)))
         assertEquals(8_192, ModelOutputPolicy.resolve(-1, model(maxOutputTokens = 8_192)))
     }
+
+    @Test
+    fun `input token estimate includes reasoning tool calls and images`() {
+        val message = UIMessage(
+            role = MessageRole.USER,
+            content = "你".repeat(10) + "a".repeat(40),
+            reasoning = "r".repeat(20),
+            toolCalls = listOf(ToolCall("call-1", "search", "{\"q\":\"Muse\"}")),
+            imageBase64List = listOf("image"),
+        )
+        val tool = ToolDefinition(
+            name = "search",
+            description = "search the web",
+            parametersJsonSchema = """{"type":"object","properties":{"q":{"type":"string"}}}""",
+        )
+
+        val estimate = ModelOutputPolicy.estimateInputTokens(listOf(message), listOf(tool))
+
+        assertTrue("image and auxiliary payloads must affect the estimate", estimate >= 1_025)
+    }
 }

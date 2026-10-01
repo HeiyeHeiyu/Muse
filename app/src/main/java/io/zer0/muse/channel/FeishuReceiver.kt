@@ -128,9 +128,10 @@ class FeishuReceiver(
             },
         )
         socketRef.set(socket)
-        disconnected.await()
-        pingJob.cancel()
-        socket.cancel()
+        awaitChannelSocketTermination(disconnected) {
+            pingJob.cancel()
+            socket.cancel()
+        }
     }
 
     /** 帧分派:control(ping/pong)与 data(事件)。 */

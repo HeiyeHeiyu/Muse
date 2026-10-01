@@ -518,12 +518,17 @@ object ModelRegistry {
         return current.entryByModelId(modelId)
     }
 
+    /** 查询当前生效目录中的模型条目,供能力预检边界复用同一真源。 */
+    fun catalogEntryOf(modelId: String, providerId: String? = null): ModelCatalogEntry? =
+        catalogEntryFor(providerId.orEmpty(), modelId)
+
     private fun resolveCatalogAbilities(model: Model, entry: ModelCatalogEntry): Set<ModelAbility> = buildSet {
         addAll(model.abilities)
         // toolUse 缺省仍按现有契约保留工具能力,只有显式 false 才关闭。
         when (entry.toolUse?.supportsTools) {
             false -> remove(ModelAbility.TOOL)
-            else -> add(ModelAbility.TOOL)
+            true -> add(ModelAbility.TOOL)
+            null -> Unit
         }
         when (entry.reasoning) {
             true -> add(ModelAbility.REASONING)

@@ -87,4 +87,34 @@ class KnowledgeKeywordFallbackTest {
         assertEquals(2, results.single().chunkIndex)
         assertEquals("chunk content", results.single().snippet)
     }
+
+    @Test
+    fun `indexed fallback uses the normalized Chinese FTS query`() = runBlocking {
+        val docs = mockk<KnowledgeDocDao>()
+        val chunks = mockk<KnowledgeChunkDao>()
+        val fts = mockk<KnowledgeChunkFtsDao>()
+        val chunk = KnowledgeChunkEntity(
+            id = "chunk-cn",
+            docId = "doc-cn",
+            content = "知识库内容",
+        )
+
+        coEvery { fts.searchBm25Safe("\"知识\" \"识库\"", any()) } returns listOf(
+            KnowledgeChunkFtsHit("chunk-cn", -1.0),
+        )
+        coEvery { chunks.getByIds(listOf("chunk-cn")) } returns listOf(chunk)
+        coEvery { docs.getByIds(listOf("doc-cn")) } returns listOf(
+            KnowledgeDocEntity(id = "doc-cn", title = "中文文档"),
+        )
+
+        val results = KnowledgeKeywordFallback.search(
+            query = "知识库",
+            topK = 5,
+            scopeDocIds = null,
+            metadataFilter = null,
+            daos = KnowledgeKeywordFallback.SearchDaos(docDao = docs, chunkDao = chunks, ftsDao = fts),
+        )
+
+        assertEquals("chunk-cn", results.single().chunkId)
+    }
 }

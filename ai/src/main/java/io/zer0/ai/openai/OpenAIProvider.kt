@@ -25,6 +25,7 @@ import io.zer0.ai.core.ToolCall
 import io.zer0.ai.core.ToolCallSanitizer
 import io.zer0.ai.core.ToolDefinition
 import io.zer0.ai.core.UIMessage
+import io.zer0.ai.core.malformedStreamFrameError
 import io.zer0.ai.core.toProviderException
 import io.zer0.ai.ollama.OllamaVisionInferrer
 import io.zer0.ai.registry.ModelRegistry
@@ -586,7 +587,17 @@ class OpenAIProvider(
                         // B3-05: Custom 供应商流式响应路径(如 $.choices[0].delta.content)
                         val customStreamPath = customConfig?.streamResponsePath?.takeIf { it.isNotBlank() }
                         if (customStreamPath != null) {
-                            val element = resultOf { AppJson.parseToJsonElement(data) }.getOrNull() ?: return
+                            var parseError: Throwable? = null
+                            val element = resultOf { AppJson.parseToJsonElement(data) }
+                                .onError { _, throwable -> parseError = throwable }
+                                .getOrNull()
+                            if (element == null) {
+                                val error = malformedStreamFrameError("OpenAI", data, parseError)
+                                Logger.w("OpenAIProvider", error.message, parseError)
+                                trySend(error)
+                                close()
+                                return
+                            }
                             val text = extractTextFromElement(
                                 ProviderTemplateEngine.extractByPath(element, customStreamPath),
                             )
@@ -599,7 +610,8 @@ class OpenAIProvider(
                                 contentCharsSent.addAndGet(text.length)
                                 trySend(ChatStreamEvent.ContentDelta(text))
                             }
-                            val standardChunk = resultOf { AppJson.decodeFromString<OpenAIStreamChunk>(data) }.getOrNull()
+                            val standardChunk = resultOf { AppJson.decodeFromString<OpenAIStreamChunk>(data) }
+                                .getOrNull()
                             val finish = standardChunk?.choices?.firstOrNull()?.finishReason
                             if (!finish.isNullOrBlank() && !pendingFallback.get()) {
                                 emitDoneWithStreamGuard(finish)
@@ -607,9 +619,17 @@ class OpenAIProvider(
                             return
                         }
                         // M-OAI3: 改用 resultOf(会重抛 CancellationException),替代 runCatching(会吞 CancellationException)
+                        var parseError: Throwable? = null
                         val chunk = resultOf {
                             AppJson.decodeFromString<OpenAIStreamChunk>(data)
-                        }.getOrNull() ?: return
+                        }.onError { _, throwable -> parseError = throwable }.getOrNull()
+                        if (chunk == null) {
+                            val error = malformedStreamFrameError("OpenAI", data, parseError)
+                            Logger.w("OpenAIProvider", error.message, parseError)
+                            trySend(error)
+                            close()
+                            return
+                        }
 
                         // A5: stream_options.include_usage 时末 chunk 仅带 usage(choices 为空数组),
                         // 必须在 choices 早退前解析,否则 usage chunk 被静默丢弃
@@ -2042,9 +2062,17 @@ class OpenAIProvider(
                             return
                         }
 
+                        var parseError: Throwable? = null
                         val event = resultOf {
                             AppJson.decodeFromString<ResponsesStreamEvent>(data)
-                        }.getOrNull() ?: return
+                        }.onError { _, throwable -> parseError = throwable }.getOrNull()
+                        if (event == null) {
+                            val error = malformedStreamFrameError("OpenAI Responses", data, parseError)
+                            Logger.w("OpenAIProvider", error.message, parseError)
+                            trySend(error)
+                            close()
+                            return
+                        }
 
                         if (firstDeltaAt == 0L && (event.delta != null || event.text != null)) {
                             firstDeltaAt = System.currentTimeMillis()

@@ -147,5 +147,5 @@ val appRagModule = module {
     // v1.133: KnowledgeBaseDao 单独注册(多知识库管理页用)
     single { get<io.zer0.muse.data.session.MuseDb>().knowledgeBaseDao() }
     // v1.0.47 P7-2: 会话级附件索引服务
-    single { io.zer0.muse.rag.SessionAttachmentService(get(), get()) }
+    single { io.zer0.muse.rag.SessionAttachmentService(get(), get(), get()) }
 }

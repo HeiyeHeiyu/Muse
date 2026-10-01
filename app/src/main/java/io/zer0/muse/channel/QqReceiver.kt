@@ -136,9 +136,10 @@ class QqReceiver(
             },
         )
         socketRef.set(socket)
-        disconnected.await()
-        heartbeatJob.cancel()
-        socket.cancel()
+        awaitChannelSocketTermination(disconnected) {
+            heartbeatJob.cancel()
+            socket.cancel()
+        }
     }
 
     /** 帧状态机(op: 10 Hello / 11 心跳 ACK / 0 事件 / 7 重连 / 9 无效会话)。 */

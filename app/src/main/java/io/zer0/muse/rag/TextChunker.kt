@@ -209,6 +209,7 @@ class TextChunker(
         val current = StringBuilder()
         var currentHeader: String? = null
         var currentTypes = mutableListOf<PieceType>()
+        val plainChunkLimit = targetSize.coerceAtLeast(1) * 2
 
         fun flush() {
             if (current.isNotBlank()) {
@@ -221,6 +222,21 @@ class TextChunker(
                 current.clear()
                 currentTypes.clear()
             }
+        }
+
+        fun appendTextPiece(content: String, header: String?) {
+            val pieceLen = measureSize(content)
+            val currentLen = measureSize(current.toString())
+            if (current.isNotEmpty() && currentLen + 1 + pieceLen > targetSize) {
+                flush()
+                // overlap:从当前块尾部取 overlap 单位
+                val tail = current.toString().takeLast(overlap.coerceAtLeast(0))
+                if (tail.isNotBlank()) current.append(tail).append("\n")
+            }
+            if (current.isEmpty()) currentHeader = header
+            if (current.isNotEmpty()) current.append("\n")
+            current.append(content)
+            currentTypes.add(PieceType.TEXT)
         }
 
         for (piece in pieces) {
@@ -236,20 +252,39 @@ class TextChunker(
                 continue
             }
 
-            val currentLen = measureSize(current.toString())
-            if (current.isNotEmpty() && currentLen + 1 + pieceLen > targetSize) {
-                flush()
-                // overlap:从当前块尾部取 overlap 单位
-                val tail = current.toString().takeLast(overlap.coerceAtLeast(0))
-                if (tail.isNotBlank()) current.append(tail).append("\n")
+            // 无结构的超长纯文本不能以一个巨块进入 embedding。
+            // 代码块/表格仍由上面的结构语义分支整体保留。
+            val fragments = if (pieceLen > plainChunkLimit) {
+                splitOversizedPlainText(piece.content)
+            } else {
+                listOf(piece.content)
             }
-            if (current.isEmpty()) currentHeader = piece.header
-            if (current.isNotEmpty()) current.append("\n")
-            current.append(piece.content)
-            currentTypes.add(piece.type)
+            fragments.forEach { fragment -> appendTextPiece(fragment, piece.header) }
         }
         flush()
         return chunks
+    }
+
+    /** 把无结构的超长纯文本拆成可合并的目标大小片段,重叠由 [mergeMarkdownPieces] 统一处理。 */
+    private fun splitOversizedPlainText(text: String): List<String> {
+        val boundedTarget = targetSize.coerceAtLeast(1)
+        if (!chunkByToken) return text.chunked(boundedTarget)
+
+        val result = mutableListOf<String>()
+        var start = 0
+        while (start < text.length) {
+            var end = minOf(
+                text.length,
+                start + estimateTokensToChars(boundedTarget).coerceAtLeast(1),
+            )
+            while (end > start + 1 && estimateTokens(text.substring(start, end)) > boundedTarget) {
+                end--
+            }
+            if (end <= start) end = minOf(start + 1, text.length)
+            result += text.substring(start, end)
+            start = end
+        }
+        return result
     }
 
     private enum class PieceType { HEADER, TEXT, CODE, TABLE }

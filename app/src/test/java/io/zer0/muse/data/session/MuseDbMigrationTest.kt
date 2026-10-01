@@ -663,6 +663,65 @@ class MuseDbMigrationTest {
         }
     }
 
+    @Test
+    fun migrate106To107_rebuildsKnowledgeFtsWithChineseNgrams() {
+        val dbFile = context.getDatabasePath("muse_knowledge_fts_106.db").apply {
+            parentFile?.mkdirs()
+            if (exists()) delete()
+        }
+        val factory = FrameworkSQLiteOpenHelperFactory()
+        val helper = factory.create(
+            androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(106) {
+                    override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                        db.execSQL(
+                            "CREATE TABLE knowledge_chunks (" +
+                                "id TEXT NOT NULL PRIMARY KEY, " +
+                                "doc_id TEXT NOT NULL, " +
+                                "content TEXT NOT NULL)",
+                        )
+                        db.execSQL(
+                            "CREATE VIRTUAL TABLE knowledge_chunks_fts " +
+                                "USING fts4(chunkId, doc_id, text_content)",
+                        )
+                        db.execSQL(
+                            "INSERT INTO knowledge_chunks(id, doc_id, content) " +
+                                "VALUES ('chunk-1', 'doc-1', '知识库检索')",
+                        )
+                        db.execSQL(
+                            "INSERT INTO knowledge_chunks_fts(chunkId, doc_id, text_content) " +
+                                "VALUES ('chunk-1', 'doc-1', '知识库检索')",
+                        )
+                    }
+
+                    override fun onUpgrade(
+                        db: androidx.sqlite.db.SupportSQLiteDatabase,
+                        oldVersion: Int,
+                        newVersion: Int,
+                    ) = Unit
+                })
+                .build(),
+        )
+        try {
+            val db = helper.writableDatabase
+            MuseDb.MIGRATION_106_107.migrate(db)
+
+            db.query(
+                """
+                SELECT chunkId FROM knowledge_chunks_fts
+                WHERE text_content MATCH '"知识" "识库"'
+                """.trimIndent(),
+            ).use { cursor ->
+                assertTrue("迁移后中文 ngram 应可被 FTS 命中", cursor.moveToFirst())
+                assertEquals("chunk-1", cursor.getString(0))
+            }
+        } finally {
+            helper.close()
+            dbFile.delete()
+        }
+    }
+
     /**
      * 审查修复 (2.0 B-27): 早期迁移链加入 Robolectric 覆盖 — schemas/ 目录实际存在
      * 22..88 的全部快照,此前 availableSchemaVersions 返回空导致 22..54 起点零覆盖

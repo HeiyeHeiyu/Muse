@@ -55,6 +55,14 @@ import kotlin.uuid.Uuid
  * 跨职责的附属任务取消(图片/翻译)、待审批清理、addError/generateImage 经回调注入,
  * 不反向依赖 ChatViewModel。
  */
+internal fun composeSystemPromptMessages(
+    staticPrompt: String,
+    dynamicPrompt: String,
+): List<UIMessage> = listOfNotNull(
+    staticPrompt.takeIf { it.isNotBlank() }?.let { UIMessage(role = MessageRole.SYSTEM, content = it) },
+    dynamicPrompt.takeIf { it.isNotBlank() }?.let { UIMessage(role = MessageRole.SYSTEM, content = it) },
+)
+
 @Suppress("LongParameterList", "TooManyFunctions", "LargeClass")
 internal class ChatGenerationController(
     private val deps: GenerationDeps,
@@ -735,14 +743,15 @@ internal class ChatGenerationController(
                         }
                     }
                 }
-            systemMessages =
-                if (combinedSystemPrompt.isBlank()) {
-                    emptyList()
+            val dynamicSystemPrompt =
+                if (staticSnapshot.isNotBlank() && combinedSystemPrompt.startsWith(staticSnapshot)) {
+                    combinedSystemPrompt
+                        .removePrefix(staticSnapshot)
+                        .removePrefix("\n\n---\n\n")
                 } else {
-                    listOf(
-                        UIMessage(role = MessageRole.SYSTEM, content = combinedSystemPrompt),
-                    )
+                    combinedSystemPrompt
                 }
+            systemMessages = composeSystemPromptMessages(staticSnapshot, dynamicSystemPrompt)
             deps.systemPromptCache.cachedSystemPrompt = combinedSystemPrompt
             updateContextTokenCount()
 

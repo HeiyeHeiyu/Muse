@@ -49,26 +49,40 @@ data class ModelCapabilitySnapshot(
  */
 object ModelCapabilityQuery {
 
-    fun snapshot(modelId: String, compat: ProviderCompat? = null, providerSupportsNonStreaming: Boolean? = null): ModelCapabilitySnapshot {
+    fun snapshot(
+        modelId: String,
+        compat: ProviderCompat? = null,
+        providerSupportsNonStreaming: Boolean? = null,
+        providerId: String? = null,
+    ): ModelCapabilitySnapshot {
         val definitions = ModelRegistry.resolveDefinitions(modelId)
-        val known = definitions.isNotEmpty()
+        val catalogEntry = ModelRegistry.catalogEntryOf(modelId, providerId)
+        val registryKnown = definitions.isNotEmpty()
+        val known = registryKnown || catalogEntry != null
         val abilities = definitions.flatMap { it.abilities }.toSet()
         val inputModalities = definitions.flatMap { it.inputModalities }.toSet()
+        val visionInput = when (catalogEntry?.image) {
+            true -> CapabilitySupport.SUPPORTED
+            false -> CapabilitySupport.UNSUPPORTED
+            null -> triState(registryKnown, "image" in inputModalities)
+        }
+        val toolCalling = when (catalogEntry?.toolUse?.supportsTools) {
+            true -> CapabilitySupport.SUPPORTED
+            false -> CapabilitySupport.UNSUPPORTED
+            null -> triState(registryKnown, ModelAbility.TOOL in abilities)
+        }
+        val reasoning = when (catalogEntry?.reasoning) {
+            true -> CapabilitySupport.SUPPORTED
+            false -> CapabilitySupport.UNSUPPORTED
+            null -> triState(registryKnown, ModelAbility.REASONING in abilities)
+        }
         return ModelCapabilitySnapshot(
             modelId = modelId,
             known = known,
-            textInput = when {
-                !known -> CapabilitySupport.UNKNOWN
-                "text" in inputModalities -> CapabilitySupport.SUPPORTED
-                else -> CapabilitySupport.UNSUPPORTED
-            },
-            visionInput = when {
-                !known -> CapabilitySupport.UNKNOWN
-                "image" in inputModalities -> CapabilitySupport.SUPPORTED
-                else -> CapabilitySupport.UNSUPPORTED
-            },
-            toolCalling = triState(known, ModelAbility.TOOL in abilities),
-            reasoning = triState(known, ModelAbility.REASONING in abilities),
+            textInput = if (known) CapabilitySupport.SUPPORTED else CapabilitySupport.UNKNOWN,
+            visionInput = visionInput,
+            toolCalling = toolCalling,
+            reasoning = reasoning,
             streaming = if (compat != null) CapabilitySupport.SUPPORTED else CapabilitySupport.UNKNOWN,
             nonStreaming = when (providerSupportsNonStreaming) {
                 true -> CapabilitySupport.SUPPORTED

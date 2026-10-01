@@ -54,11 +54,11 @@ class AgentToolsRegistrar(
 
     fun registerAll() {
         // Phase 1C：置顶记忆
-        toolRegistry.register(PinMemoryTool.toolDef()) { args ->
-            PinMemoryTool.execute(args, pinnedMemoryStore)
+        toolRegistry.registerWithContext(PinMemoryTool.toolDef()) { args, executionContext ->
+            PinMemoryTool.execute(args, pinnedMemoryStore, executionContext.assistantId)
         }
-        toolRegistry.register(UnpinMemoryTool.toolDef()) { args ->
-            UnpinMemoryTool.execute(args, pinnedMemoryStore)
+        toolRegistry.registerWithContext(UnpinMemoryTool.toolDef()) { args, executionContext ->
+            UnpinMemoryTool.execute(args, pinnedMemoryStore, executionContext.assistantId)
         }
 
         // Phase 3B：经验工具

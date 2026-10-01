@@ -55,7 +55,12 @@ object KnowledgeKeywordFallback {
         filter: VectorSearchService.MetadataFilter?,
         daos: SearchDaos,
     ): List<KeywordFallbackResult> {
-        val hits = resultOf { daos.ftsDao.searchBm25Safe(query, (topK * 3).coerceAtLeast(topK)) }
+        val hits = resultOf {
+            daos.ftsDao.searchBm25Safe(
+                HybridSearchService.buildFtsQuery(query),
+                (topK * 3).coerceAtLeast(topK),
+            )
+        }
             .getOrNull()
             .orEmpty()
         val chunks = if (hits.isEmpty()) {

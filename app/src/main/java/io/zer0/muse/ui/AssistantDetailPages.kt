@@ -1413,15 +1413,17 @@ fun AssistantMemoryPage(assistantId: String, onBack: () -> Unit) {
         if (assistant == null || assistant.id.isBlank() || assistant.id == "default") "main" else assistant.id
     val memoryStore: FactStore =
         if (memoryScope == "main") koinInject<FactStore>() else factDbProvider.getFactStore(assistant!!.id)
-    // Pinned memories are a separate global store; show them explicitly so they are not mistaken
-    // for assistant-scoped facts or for an empty global FactStore.
+    // Pinned memories use the same assistant scope as the prompt injector.
     val pinnedMemoryStore: PinnedMemoryStore = koinInject()
+    val includeGlobalPinned = assistant?.useGlobalMemory == true || assistantId == "default"
     val pinnedMemories by produceState(
         initialValue = emptyList<PinnedMemoryStore.PinnedEntry>(),
         refreshKey,
+        assistantId,
+        includeGlobalPinned,
     ) {
         value =
-            resultOf { pinnedMemoryStore.getAll() }
+            resultOf { pinnedMemoryStore.getForAssistant(assistantId, includeGlobal = includeGlobalPinned) }
                 .onError { message, error -> Logger.w("AssistantMemoryPage", "读取置顶记忆失败: $message", error) }
                 .getOrNull()
                 .orEmpty()

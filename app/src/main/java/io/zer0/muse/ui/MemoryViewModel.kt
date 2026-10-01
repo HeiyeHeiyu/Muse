@@ -1059,8 +1059,9 @@ class MemoryViewModel(
      * 若 setPinned 失败则回滚已成功的 add,避免 UI 与注入不一致。
      */
     private suspend fun pinFact(id: Long, content: String, scope: String? = null) {
+        val pinnedAssistantId = scope?.takeIf { it.isNotBlank() && it != "main" } ?: "default"
         // 先写 PinnedMemoryStore(add 成功)再 setPinned
-        val addResult = resultOf { pinnedMemoryStore.add(content) }
+        val addResult = resultOf { pinnedMemoryStore.add(content, assistantId = pinnedAssistantId) }
             .onError { msg, t -> Logger.w("MemoryViewModel", "PinnedMemoryStore.add 失败: $msg", t) }
         if (addResult.isError) {
             // add 失败,未写入任一来源,直接提示,不清后置状态
@@ -1071,7 +1072,13 @@ class MemoryViewModel(
             .onError { msg, t -> Logger.w("MemoryViewModel", "toggleFactPinned.setPinned 失败: $msg", t) }
         if (setResult.isError) {
             // 回滚已成功的 add,保持两边一致
-            resultOf { pinnedMemoryStore.removeByContent(content) }
+            resultOf {
+                pinnedMemoryStore.removeByContentFlexibleForAssistant(
+                    content = content,
+                    assistantId = pinnedAssistantId,
+                    includeGlobal = false,
+                )
+            }
                 .onError { m2, t2 -> Logger.w("MemoryViewModel", "PinnedMemoryStore 置顶回滚失败: $m2", t2) }
             MuseToast.show(getApplication<Application>().getString(R.string.memory_pin_failed))
         }
@@ -1083,7 +1090,14 @@ class MemoryViewModel(
      * 覆盖置顶内容被改写的残留;若 setPinned 失败不变更注入侧,两边仍一致。
      */
     private suspend fun unpinFact(id: Long, content: String, scope: String? = null) {
-        val removeResult = resultOf { pinnedMemoryStore.removeByContentFlexible(content) }
+        val pinnedAssistantId = scope?.takeIf { it.isNotBlank() && it != "main" } ?: "default"
+        val removeResult = resultOf {
+            pinnedMemoryStore.removeByContentFlexibleForAssistant(
+                content = content,
+                assistantId = pinnedAssistantId,
+                includeGlobal = pinnedAssistantId == "default",
+            )
+        }
             .onError { msg, t -> Logger.w("MemoryViewModel", "PinnedMemoryStore.removeByContentFlexible 失败: $msg", t) }
         if (removeResult.isError) {
             MuseToast.show(getApplication<Application>().getString(R.string.memory_unpin_failed))

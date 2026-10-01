@@ -15,6 +15,32 @@ package io.zer0.ai.core
 object ModelOutputPolicy {
 
     /**
+     * 估算将要发送给 Provider 的输入 token 数。
+     *
+     * 这是预算保护用的保守估算,不是计费口径:中文按字符计,ASCII 按约 4 字符/token,
+     * 每张图片预留约 1000 token,并纳入推理/工具调用与工具 schema。
+     */
+    fun estimateInputTokens(messages: List<UIMessage>, tools: List<ToolDefinition>? = null): Int {
+        var total = 0L
+        for (message in messages) {
+            total += MESSAGE_OVERHEAD_TOKENS
+            total += estimateTextTokens(message.content)
+            total += estimateTextTokens(message.reasoning.orEmpty())
+            total += message.imageBase64List.size * IMAGE_TOKEN_RESERVE
+            message.toolCalls.orEmpty().forEach { call ->
+                total += estimateTextTokens(call.name)
+                total += estimateTextTokens(call.arguments)
+            }
+        }
+        tools.orEmpty().forEach { tool ->
+            total += estimateTextTokens(tool.name)
+            total += estimateTextTokens(tool.description)
+            total += estimateTextTokens(tool.parametersJsonSchema)
+        }
+        return total.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    }
+
+    /**
      * 根据输入 token 数给输出预留空间；未知上下文窗口时不做猜测。
      *
      * 这是请求预算的第二道边界：模型 maxOutputTokens 是能力上限，
@@ -68,4 +94,26 @@ object ModelOutputPolicy {
         }
         return requested > modelLimit
     }
+
+    private fun estimateTextTokens(text: String): Int {
+        if (text.isBlank()) return 0
+        var cjk = 0
+        var other = 0
+        text.forEach { ch ->
+            if (isCjk(ch)) cjk++ else other++
+        }
+        return cjk + ((other + ASCII_CHARS_PER_TOKEN - 1) / ASCII_CHARS_PER_TOKEN)
+    }
+
+    private fun isCjk(ch: Char): Boolean {
+        val code = ch.code
+        return code in 0x4E00..0x9FFF ||
+            code in 0x3400..0x4DBF ||
+            code in 0x3040..0x30FF ||
+            code in 0xAC00..0xD7AF
+    }
+
+    private const val ASCII_CHARS_PER_TOKEN = 4
+    private const val MESSAGE_OVERHEAD_TOKENS = 4
+    private const val IMAGE_TOKEN_RESERVE = 1_000
 }

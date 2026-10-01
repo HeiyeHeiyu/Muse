@@ -3,6 +3,7 @@ package io.zer0.muse.rag
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.data.knowledge.KnowledgeChunkFtsDao
+import io.zer0.muse.data.session.MessageFtsManager
 
 /**
  * v1.133: 混合检索服务 — BM25(FTS4) + 向量余弦 RRF 融合。
@@ -206,30 +207,23 @@ class HybridSearchService(
          * 长查询(>10 词)用 OR 避免空命中。
          */
         fun buildFtsQuery(query: String): String {
-            // 转义 FTS4 特殊字符
-            val cleaned = query.replace(Regex("[\"*]"), " ")
-            // 中英文混合切分(中文按字符,英文按空格)
-            val tokens = mutableListOf<String>()
-            val current = StringBuilder()
-            for (ch in cleaned) {
-                if (ch.isLetterOrDigit()) {
-                    current.append(ch)
-                } else {
-                    if (current.isNotEmpty()) {
-                        tokens.add(current.toString())
-                        current.clear()
-                    }
-                }
+            val filtered = MessageFtsManager.toNgram(query)
+                .split(' ')
+                .filter { it.length >= 2 }
+                .distinct()
+                .take(10)
+            if (filtered.isEmpty()) {
+                return "\"${query.take(50).replace("\"", " ")}\"" // fallback 短语
             }
-            if (current.isNotEmpty()) tokens.add(current.toString())
-
-            val filtered = tokens.filter { it.length >= 2 }.distinct().take(10)
-            if (filtered.isEmpty()) return "\"${query.take(50)}\"" // fallback 短语
-            // 多 token 用空格分隔(FTS4 默认 AND);若 token 太多降级为 OR
-            return if (filtered.size <= 5) {
-                filtered.joinToString(" ")
+            // 中文 ngram 需要按 token 边界引用;英文/数字保留裸词以兼容既有 FTS4 语法。
+            val rendered = filtered.map { token ->
+                if (token.any { it.code > 127 }) "\"$token\"" else token
+            }
+            // 多 token 用空格分隔(FTS4 默认 AND);若 token 太多降级为 OR。
+            return if (rendered.size <= 5) {
+                rendered.joinToString(" ")
             } else {
-                filtered.joinToString(" OR ")
+                rendered.joinToString(" OR ")
             }
         }
     }

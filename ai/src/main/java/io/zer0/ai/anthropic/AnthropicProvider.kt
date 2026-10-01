@@ -18,6 +18,7 @@ import io.zer0.ai.core.ToolCall
 import io.zer0.ai.core.ToolDefinition
 import io.zer0.ai.core.UIMessage
 import io.zer0.ai.core.UsageTokens
+import io.zer0.ai.core.malformedStreamFrameError
 import io.zer0.ai.core.toProviderException
 import io.zer0.common.AppJson
 import io.zer0.common.ErrorCode
@@ -48,6 +49,13 @@ import okhttp3.sse.EventSourceListener
 import okhttp3.sse.EventSources
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+
+/** Returns the last system block that is stable when the final block is dynamic. */
+internal fun anthropicCacheBreakpointIndex(systemBlockCount: Int): Int? = when {
+    systemBlockCount <= 0 -> null
+    systemBlockCount == 1 -> 0
+    else -> systemBlockCount - 2
+}
 
 /**
  * Anthropic Claude Provider。
@@ -225,9 +233,18 @@ class AnthropicProvider(
                 override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
                     if (data.isBlank()) return
                     // L-ANT1: 用 resultOf 替代 runCatching,正确传播 CancellationException
+                    var parseError: Throwable? = null
                     val chunk = resultOf {
                         AppJson.decodeFromString<AnthropicStreamEvent>(data)
-                    }.getOrNull() ?: return
+                    }.onError { _, throwable -> parseError = throwable }.getOrNull()
+                    if (chunk == null) {
+                        val error = malformedStreamFrameError("Anthropic", data, parseError)
+                        Logger.w("AnthropicProvider", error.message, parseError)
+                        trySend(error)
+                        finished.set(true)
+                        close()
+                        return
+                    }
 
                     when (chunk.type) {
                         // L-ANT1: message_start 解析 usage — A5: 存输入 usage,message_delta 时合并输出发 UsageDelta
@@ -577,13 +594,16 @@ class AnthropicProvider(
         } else {
             null
         }
+        val cacheBreakpoint = if (cacheControl != null) {
+            anthropicCacheBreakpointIndex(systemParts.size)
+        } else {
+            null
+        }
 
-        val system = systemParts.takeIf { it.isNotEmpty() }?.let {
-            listOf(
-                AnthropicSystemBlock(
-                    text = it.joinToString("\n\n"),
-                    cache_control = cacheControl,
-                ),
+        val system = systemParts.takeIf { it.isNotEmpty() }?.mapIndexed { index, text ->
+            AnthropicSystemBlock(
+                text = text,
+                cache_control = cacheControl?.takeIf { index == cacheBreakpoint },
             )
         }
 

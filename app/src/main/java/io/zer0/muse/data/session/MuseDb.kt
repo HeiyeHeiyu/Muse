@@ -169,7 +169,7 @@ import java.io.File
         MessagePartEntity::class,
         SessionBranchHeadEntity::class,
     ],
-    version = 106,
+    version = 107,
     exportSchema = true,
 )
 @TypeConverters(QuickNoteConverters::class)
@@ -264,8 +264,7 @@ abstract class MuseDb : RoomDatabase() {
             synchronized(FTS_CREATE_LOCK) {
                 val db = INSTANCE?.openHelper?.writableDatabase
                     ?: error("MuseDb not initialized")
-                dropKnowledgeFtsTables(db)
-                createKnowledgeChunkFtsTable(db)
+                rebuildKnowledgeChunkFtsTable(db)
                 knowledgeFtsBroken = false
                 io.zer0.common.Logger.i("MuseDb", "knowledge_chunks_fts 已重建")
             }
@@ -287,6 +286,35 @@ abstract class MuseDb : RoomDatabase() {
                 "CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_chunks_fts " +
                     "USING fts4(chunkId, doc_id, text_content)",
             )
+        }
+
+        /**
+         * 重建知识库 FTS4 并按 [MessageFtsManager] 回填 ngram。
+         *
+         * FTS4 默认 tokenizer 会把连续中文当成一个 token,直接写原文会让中文
+         * 子串检索失效;重建必须与新增索引写入使用同一规范化文本。
+         */
+        private fun rebuildKnowledgeChunkFtsTable(db: SupportSQLiteDatabase) {
+            db.beginTransaction()
+            try {
+                dropKnowledgeFtsTables(db)
+                createKnowledgeChunkFtsTable(db)
+                val insert = db.compileStatement(
+                    "INSERT INTO knowledge_chunks_fts(chunkId, doc_id, text_content) VALUES (?, ?, ?)",
+                )
+                db.query("SELECT id, doc_id, content FROM knowledge_chunks").use { cursor ->
+                    while (cursor.moveToNext()) {
+                        insert.clearBindings()
+                        insert.bindString(1, cursor.getString(0))
+                        insert.bindString(2, cursor.getString(1))
+                        insert.bindString(3, MessageFtsManager.toNgram(cursor.getString(2)))
+                        insert.executeInsert()
+                    }
+                }
+                db.setTransactionSuccessful()
+            } finally {
+                db.endTransaction()
+            }
         }
 
         /** R-DB-05: 探测当前 SQLite 是否支持 FTS5(temp 表探针)。 */
@@ -969,6 +997,13 @@ abstract class MuseDb : RoomDatabase() {
                 ).use { statement ->
                     statement.executeUpdateDelete()
                 }
+            }
+        }
+
+        /** v106→v107: 统一知识库 FTS4 的中文 ngram 索引格式并回填既有分块。 */
+        val MIGRATION_106_107 = object : Migration(106, 107) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                rebuildKnowledgeChunkFtsTable(db)
             }
         }
 
@@ -2931,6 +2966,7 @@ abstract class MuseDb : RoomDatabase() {
                         MIGRATION_103_104,
                         MIGRATION_104_105,
                         MIGRATION_105_106,
+                        MIGRATION_106_107,
                     )
                     // 启用外键约束(artifacts 表的 ON DELETE CASCADE 依赖此设置)
                     // onOpen 不在 onCreate 事务内,可以执行此类命令;onCreate 内禁止 PRAGMA

@@ -24,15 +24,15 @@ object PinMemoryTool {
         riskLevel = ToolRiskLevel.HIGH,
     )
 
-    suspend fun execute(args: Map<String, String>, store: PinnedMemoryStore): String {
+    suspend fun execute(args: Map<String, String>, store: PinnedMemoryStore, assistantId: String? = null): String {
         val content = args["content"]?.trim()
             ?: return "Error: content parameter is required."
         if (content.isEmpty()) return "Error: content cannot be empty."
-        val id = store.add(content)
+        val id = store.add(content, assistantId = assistantId)
         return if (id.isEmpty()) {
             "Error: failed to pin content."
         } else {
-            "Pinned successfully (id: ${id.take(8)}...). The information will remain visible in all future conversations."
+            "Pinned successfully (id: ${id.take(8)}...). The information will remain visible in future conversations with this assistant."
         }
     }
 }

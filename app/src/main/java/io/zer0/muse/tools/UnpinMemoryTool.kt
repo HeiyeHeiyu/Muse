@@ -23,22 +23,38 @@ object UnpinMemoryTool {
         riskLevel = ToolRiskLevel.HIGH,
     )
 
-    suspend fun execute(args: Map<String, String>, store: PinnedMemoryStore): String {
+    suspend fun execute(args: Map<String, String>, store: PinnedMemoryStore, assistantId: String? = null): String {
         val keyword = args["keyword"]?.trim()
         val id = args["id"]?.trim()
         if (keyword.isNullOrEmpty() && id.isNullOrEmpty()) {
             return "Error: provide either 'keyword' or 'id' to identify the memory to unpin."
         }
+        val scopedAssistantId = assistantId?.takeIf { it.isNotBlank() }
+        val includeGlobal = scopedAssistantId == "default"
         val removed = if (!id.isNullOrEmpty()) {
             // 尝试精确前缀匹配
-            val all = store.getAll()
+            val all = if (scopedAssistantId == null) {
+                store.getAll()
+            } else {
+                store.getForAssistant(scopedAssistantId, includeGlobal)
+            }
             val target = all.firstOrNull { it.id.startsWith(id) }
-            if (target != null) store.removeById(target.id) else false
+            if (target == null) {
+                false
+            } else if (scopedAssistantId == null) {
+                store.removeById(target.id)
+            } else {
+                store.removeByIdForAssistant(target.id, scopedAssistantId, includeGlobal)
+            }
         } else {
             // v1.131: keyword 此处非空(上面已 guard),用 requireNotNull 替代 !! 让契约更显式,
             // 误用会抛 IllegalArgumentException 而非 NPE,定位更清晰。
             requireNotNull(keyword) { "keyword must be non-null when id is empty" }
-            store.removeByKeyword(keyword)
+            if (scopedAssistantId == null) {
+                store.removeByKeyword(keyword)
+            } else {
+                store.removeByContentFlexibleForAssistant(keyword, scopedAssistantId, includeGlobal)
+            }
         }
         return if (removed) "Unpinned successfully." else "No matching pinned memory found."
     }

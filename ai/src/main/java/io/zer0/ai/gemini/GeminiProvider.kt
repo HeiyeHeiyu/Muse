@@ -17,6 +17,7 @@ import io.zer0.ai.core.ReasoningLevel
 import io.zer0.ai.core.ToolCall
 import io.zer0.ai.core.ToolDefinition
 import io.zer0.ai.core.UIMessage
+import io.zer0.ai.core.malformedStreamFrameError
 import io.zer0.ai.core.toProviderException
 import io.zer0.common.AppJson
 import io.zer0.common.ErrorCode
@@ -279,10 +280,17 @@ class GeminiProvider(
                 override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
                     if (myGen != generation.get()) return // H-GEM1: 旧流回调,忽略
                     if (data.isBlank()) return
-                    // L-GEM1: 用 resultOf 替代 runCatching,正确传播 CancellationException
-                    val chunk = resultOf {
-                        AppJson.decodeFromString<GeminiResponse>(data)
-                    }.getOrNull() ?: return
+                    val parsedFrame = decodeGeminiStreamFrame(data)
+                    val chunk = parsedFrame.getOrNull()
+                    if (chunk == null) {
+                        val cause = (parsedFrame as? io.zer0.common.Result.Error)?.throwable
+                        val error = malformedStreamFrameError("Gemini", data, cause)
+                        Logger.w(TAG, error.message, cause)
+                        trySend(error)
+                        finished.set(true)
+                        close()
+                        return
+                    }
 
                     // H-GEM4: promptFeedback 提示级安全拦截
                     chunk.promptFeedback?.blockReason?.takeIf { it.isNotBlank() }?.let { reason ->
@@ -341,31 +349,13 @@ class GeminiProvider(
                             )
                         }
                     }
-                    if (candidate.finishReason != null) {
-                        val reason = candidate.finishReason
-                        // M-GEM4: 安全相关 finishReason 发 Error 而非 Done
-                        if (reason in SAFETY_FINISH_REASONS) {
-                            finished.set(true)
-                            trySend(ChatStreamEvent.Error(ErrorCode.PERMISSION_DENIED.toMessage("safety", reason ?: "")))
-                            close()
-                        } else {
-                            finished.set(true)
-                            // B-42: emptyContentButFinished — 流在 finishReason 到来前从未发出任何 answer
-                            //   content(只有 reasoning/thinking 而无实质回答)即结束。这与 OpenAI 的条件 B
-                            //   guard 对齐:不作为正常 Done,而是发 StreamInterrupted 触发上层已有的非流式回退链,
-                            //   避免只拿到一段无意义的思考或空回复。
-                            if (!hasEmittedContent.get()) {
-                                Logger.w(
-                                    TAG,
-                                    "B-42: Gemini 流式 emptyContentButFinished(仅 reasoning 无 content, finishReason=$reason),发 StreamInterrupted 触发非流式回退",
-                                )
-                                trySend(ChatStreamEvent.StreamInterrupted(ErrorCode.STREAM_INTERRUPTED.toMessage("gemini")))
-                            } else {
-                                trySend(ChatStreamEvent.Done(reason))
-                            }
-                            close()
-                        }
-                    }
+                    handleGeminiFinish(
+                        reason = candidate.finishReason,
+                        hasEmittedContent = hasEmittedContent,
+                        finished = finished,
+                        emit = { event -> trySend(event) },
+                        close = { close() },
+                    )
                 }
 
                 override fun onClosed(eventSource: EventSource) {
@@ -576,7 +566,7 @@ class GeminiProvider(
         } catch (t: Throwable) {
             if (request.abortSignal.aborted) {
                 Logger.d(TAG, "completeText aborted by user")
-            } else if (t is RuntimeException && (t.message?.startsWith("Gemini") == true || t.message?.contains("HTTP") == true || t.message?.contains("Gemini 安全过滤") == true || t.message?.contains("Vertex AI") == true)) {
+            } else if (isKnownGeminiError(t)) {
                 // 已记录的 HTTP/业务错误,不重复 log
             } else {
                 Logger.e(TAG, "completeText 异常", t)
@@ -1178,6 +1168,44 @@ class GeminiProvider(
     private data class GeminiFileMetadata(
         val name: String,
     )
+
+    private fun decodeGeminiStreamFrame(data: String): io.zer0.common.Result<GeminiResponse> = resultOf {
+        AppJson.decodeFromString<GeminiResponse>(data)
+    }
+
+    private fun isKnownGeminiError(throwable: Throwable): Boolean {
+        val runtime = throwable as? RuntimeException ?: return false
+        val message = runtime.message.orEmpty()
+        return listOf("Gemini", "HTTP", "Gemini 安全过滤", "Vertex AI").any(message::contains)
+    }
+
+    private fun handleGeminiFinish(
+        reason: String?,
+        hasEmittedContent: AtomicBoolean,
+        finished: AtomicBoolean,
+        emit: (ChatStreamEvent) -> Unit,
+        close: () -> Unit,
+    ) {
+        if (reason == null) return
+        if (reason in SAFETY_FINISH_REASONS) {
+            finished.set(true)
+            emit(ChatStreamEvent.Error(ErrorCode.PERMISSION_DENIED.toMessage("safety", reason)))
+            close()
+            return
+        }
+        finished.set(true)
+        if (!hasEmittedContent.get()) {
+            Logger.w(
+                TAG,
+                "B-42: Gemini 流式 emptyContentButFinished(仅 reasoning 无 content," +
+                    " finishReason=$reason),发 StreamInterrupted 触发非流式回退",
+            )
+            emit(ChatStreamEvent.StreamInterrupted(ErrorCode.STREAM_INTERRUPTED.toMessage("gemini")))
+        } else {
+            emit(ChatStreamEvent.Done(reason))
+        }
+        close()
+    }
 
     private companion object {
         const val TAG = "GeminiProvider"

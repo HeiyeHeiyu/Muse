@@ -891,10 +891,10 @@ class ChatStreamCoordinator(
                         // longMemoryCompression 模式下 threshold=10,keep_recent 必须小于 threshold。
                         "compress_threshold" to if (experiments.longMemoryCompression) 10 else 20,
                         "compress_keep_recent" to if (experiments.longMemoryCompression) 8 else 15,
-                        // v2.3.2: 字符预算(与预热同一口径:窗口的 60%)—— 长消息会话不能只靠条数判断
-                        // (20 条长消息可能早已超窗口);中文约 1 字符 ≈ 1 token,故用字符数当预算单位
+                        // v2.3.2: token 预算(与预热同一口径:窗口的 60%)——长消息会话不能只靠条数判断。
+                        // TokenEstimator 还会计入 reasoning/toolCalls/图片,避免预算单位混用。
                         "compress_char_budget" to
-                            WarmupHistory.compressCharBudgetFor(accessor.snapshot.contextMaxTokens),
+                            WarmupHistory.compressTokenBudgetFor(accessor.snapshot.contextMaxTokens),
                     ),
                 )
             // v2.3.2: 原「流式 Compaction UI」整块删除 —— 复核确认 CompactionState 有 3 处写入、

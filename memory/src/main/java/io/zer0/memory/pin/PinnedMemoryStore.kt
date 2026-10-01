@@ -67,6 +67,8 @@ class PinnedMemoryStore(
         val content: String,
         val createdAt: String,
         val updatedAt: String,
+        /** null 表示旧版/显式全局置顶;非 null 表示助手私有置顶。 */
+        val assistantId: String? = null,
     )
 
     /** 加载全部置顶记忆（JSON 与 Markdown 合并，较新者优先）。 */
@@ -75,15 +77,16 @@ class PinnedMemoryStore(
     }
 
     /** 添加一条置顶记忆。相同内容去重。返回 entry id。 */
-    suspend fun add(content: String): String = withContext(Dispatchers.IO) {
+    suspend fun add(content: String, assistantId: String? = null): String = withContext(Dispatchers.IO) {
         writeLock.withLock {
             val trimmed = content.trim()
             if (trimmed.isEmpty()) return@withLock ""
+            val scopedAssistantId = assistantId?.trim()?.takeIf { it.isNotEmpty() }
             val existing = loadEntries()
             // 去重
-            if (existing.any { it.content == trimmed }) {
+            if (existing.any { it.content == trimmed && it.assistantId == scopedAssistantId }) {
                 Logger.d(TAG, "pinned memory dedup: already exists")
-                return@withLock existing.first { it.content == trimmed }.id
+                return@withLock existing.first { it.content == trimmed && it.assistantId == scopedAssistantId }.id
             }
             val now = Instant.now().toString()
             val entry = PinnedEntry(
@@ -91,6 +94,7 @@ class PinnedMemoryStore(
                 content = trimmed,
                 createdAt = now,
                 updatedAt = now,
+                assistantId = scopedAssistantId,
             )
             writeBoth(existing + entry)
             Logger.d(TAG, "pinned memory added: ${entry.id}")
@@ -174,9 +178,65 @@ class PinnedMemoryStore(
 
     /** 生成注入 system prompt 的文本（所有置顶记忆拼接）。 */
     suspend fun renderForPrompt(): String = withContext(Dispatchers.IO) {
-        val entries = loadEntries()
-        if (entries.isEmpty()) return@withContext ""
-        buildString {
+        renderEntries(loadEntries())
+    }
+
+    /** 生成指定助手可见的置顶记忆;旧条目只有在显式允许全局时才返回。 */
+    suspend fun renderForAssistant(assistantId: String, includeGlobal: Boolean): String = withContext(Dispatchers.IO) {
+        renderEntries(getForAssistant(assistantId, includeGlobal))
+    }
+
+    /** 查询指定助手可见的置顶记忆。 */
+    suspend fun getForAssistant(assistantId: String, includeGlobal: Boolean): List<PinnedEntry> = withContext(Dispatchers.IO) {
+        val normalized = assistantId.trim()
+        loadEntries().filter { entry ->
+            entry.assistantId == normalized || (includeGlobal && entry.assistantId == null)
+        }
+    }
+
+    /** 在助手 scope 内按内容取消置顶,避免同名记忆误删其他助手的数据。 */
+    suspend fun removeByIdForAssistant(
+        id: String,
+        assistantId: String,
+        includeGlobal: Boolean,
+    ): Boolean = withContext(Dispatchers.IO) {
+        writeLock.withLock {
+            val existing = loadEntries()
+            val target = existing.firstOrNull { entry ->
+                entry.id == id &&
+                    (entry.assistantId == assistantId || (includeGlobal && entry.assistantId == null))
+            } ?: return@withLock false
+            writeBoth(existing.filter { it.id != target.id })
+            Logger.d(TAG, "pinned memory removed for assistant: ${target.id}")
+            true
+        }
+    }
+
+    /** 在助手 scope 内按内容取消置顶,避免同名记忆误删其他助手的数据。 */
+    suspend fun removeByContentFlexibleForAssistant(
+        content: String,
+        assistantId: String,
+        includeGlobal: Boolean,
+    ): Boolean = withContext(Dispatchers.IO) {
+        writeLock.withLock {
+            val trimmed = content.trim()
+            val existing = loadEntries()
+            val target = existing.firstOrNull { entry ->
+                entry.assistantId == assistantId ||
+                    (includeGlobal && entry.assistantId == null)
+            }?.takeIf { entry ->
+                entry.content.trim() == trimmed || entry.content.contains(trimmed, ignoreCase = true)
+            }
+            if (target == null) return@withLock false
+            writeBoth(existing.filter { it.id != target.id })
+            Logger.d(TAG, "pinned memory removed for assistant: ${target.id}")
+            true
+        }
+    }
+
+    private fun renderEntries(entries: List<PinnedEntry>): String {
+        if (entries.isEmpty()) return ""
+        return buildString {
             appendLine("## Pinned Memories (用户要求始终记住的内容)")
             for (e in entries) {
                 appendLine("- ${e.content}")
@@ -259,14 +319,26 @@ class PinnedMemoryStore(
         for (line in lines) {
             val trimmed = line.trim()
             val bullet = Regex("^[-*+]\\s+(.+)$").find(trimmed)
-            val meta = Regex("^<!--\\s*id: ([^|]+)\\| created: ([^|]+)(?:\\| updated: ([^|]+))?\\s*-->$").find(trimmed)
+            val meta =
+                Regex(
+                    "^<!--\\s*id: ([^|]+)\\| created: ([^|]+)(?:\\| updated: ([^|]+))?" +
+                        "(?:\\| assistant: ([^|]*))?\\s*-->$",
+                ).find(trimmed)
             when {
                 bullet != null -> {
                     pendingContent?.let { content ->
                         val metaId = pendingMeta["id"] ?: UUID.randomUUID().toString()
                         val created = pendingMeta["created"] ?: Instant.now().toString()
                         val updated = pendingMeta["updated"] ?: created
-                        entries.add(PinnedEntry(metaId, content, created, updated))
+                        entries.add(
+                            PinnedEntry(
+                                id = metaId,
+                                content = content,
+                                createdAt = created,
+                                updatedAt = updated,
+                                assistantId = pendingMeta["assistant"]?.takeIf { it.isNotBlank() },
+                            ),
+                        )
                     }
                     pendingContent = bullet.groupValues[1].trim()
                     pendingMeta = emptyMap()
@@ -277,6 +349,7 @@ class PinnedMemoryStore(
                         "id" to meta.groupValues[1].trim(),
                         "created" to meta.groupValues[2].trim(),
                         "updated" to updatedValue,
+                        "assistant" to meta.groupValues.getOrNull(4).orEmpty().trim(),
                     )
                 }
             }
@@ -285,7 +358,15 @@ class PinnedMemoryStore(
             val metaId = pendingMeta["id"] ?: UUID.randomUUID().toString()
             val created = pendingMeta["created"] ?: Instant.now().toString()
             val updated = pendingMeta["updated"] ?: created
-            entries.add(PinnedEntry(metaId, content, created, updated))
+            entries.add(
+                PinnedEntry(
+                    id = metaId,
+                    content = content,
+                    createdAt = created,
+                    updatedAt = updated,
+                    assistantId = pendingMeta["assistant"]?.takeIf { it.isNotBlank() },
+                ),
+            )
         }
         return entries
     }
@@ -303,7 +384,10 @@ class PinnedMemoryStore(
             appendLine()
             for (e in entries) {
                 appendLine("- ${e.content}")
-                appendLine("  <!-- id: ${e.id} | created: ${e.createdAt} | updated: ${e.updatedAt} -->")
+                appendLine(
+                    "  <!-- id: ${e.id} | created: ${e.createdAt} | updated: ${e.updatedAt} " +
+                        "| assistant: ${e.assistantId.orEmpty()} -->",
+                )
                 appendLine()
             }
         }

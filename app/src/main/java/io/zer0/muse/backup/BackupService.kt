@@ -1507,6 +1507,18 @@ class BackupService(
             .onFailure { Logger.w("BackupService", "导入后 Room 重开失败", it) }
     }
     companion object {
+        /** v4: 纳入备份的文件型存储(相对 filesDir)。 */
+        internal val backupFileStorePaths = listOf(
+            "channel_configs.json",
+            "connector_configs.json",
+            "annotations.json",
+            "channel_inbox.json",
+            "plugin_configs.json",
+            "plugin_registry.json",
+            "pinned_memory/pinned-memory.json",
+            "pinned_memory/pinned.md",
+        )
+
         /** P0-10: 默认事实库文件名(facts.db)。 */
         internal const val FACT_DB_FILE_NAME = "facts.db"
 
@@ -2065,19 +2077,9 @@ class BackupService(
         val groupChatMemories: List<GroupChatMemoryEntity>,
     )
 
-    /** v4: 纳入备份的文件型存储(相对 filesDir)。 */
-    private val backupFileStores = listOf(
-        "channel_configs.json",
-        "connector_configs.json",
-        "annotations.json",
-        "channel_inbox.json",
-        "plugin_configs.json",
-        "plugin_registry.json",
-    )
-
     /** v4: 读取文件型存储快照(缺失/失败跳过)。 */
     private suspend fun readFileStores(): Map<String, String> = withContext(Dispatchers.IO) {
-        backupFileStores.mapNotNull { name ->
+        backupFileStorePaths.mapNotNull { name ->
             val f = File(context.filesDir, name)
             if (f.isFile) runCatching { name to f.readText() }.getOrNull() else null
         }.toMap()
@@ -2086,9 +2088,11 @@ class BackupService(
     /** v4: 恢复文件型存储(白名单内逐个写回,单个失败不阻塞其余)。 */
     private suspend fun writeFileStores(stores: Map<String, String>) = withContext(Dispatchers.IO) {
         stores.forEach { (name, content) ->
-            if (name !in backupFileStores) return@forEach
+            if (name !in backupFileStorePaths) return@forEach
             runCatching {
-                io.zer0.muse.data.AtomicFileStore.writeText(File(context.filesDir, name), content)
+                val target = File(context.filesDir, name)
+                target.parentFile?.mkdirs()
+                io.zer0.muse.data.AtomicFileStore.writeText(target, content)
             }.onFailure { e ->
                 Logger.w("BackupService", "文件存储恢复失败 $name: ${e.message}")
             }

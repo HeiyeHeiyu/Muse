@@ -175,6 +175,24 @@ class TextChunkerTest {
         assertTrue("有标题边界时应产生多个 chunk,实际 ${result.size} 块", result.size > 1)
     }
 
+    @Test
+    fun `markdownAware structureless oversized plain text is bounded`() {
+        val targetSize = 100
+        val text = "纯段落长文本".repeat(1_000)
+
+        val result = TextChunker(
+            targetSize = targetSize,
+            overlap = 10,
+            markdownAware = true,
+        ).split(text)
+
+        assertTrue("无结构长文本应拆成多个 chunk,实际 ${result.size}", result.size > 1)
+        assertTrue(
+            "普通文本 chunk 不应超过保底上限",
+            result.filter { it.metadata["type"] == null }.all { it.content.length <= targetSize * 2 },
+        )
+    }
+
     // ── v1.133: chunkByToken 模式测试 ──
 
     @Test

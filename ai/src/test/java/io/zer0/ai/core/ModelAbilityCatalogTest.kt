@@ -100,6 +100,28 @@ class ModelAbilityCatalogTest {
     }
 
     @Test
+    fun `catalog tool omission keeps an unknown model unknown`() {
+        RuntimeModelRegistry.installCatalog(
+            ModelCatalog(
+                providers = mapOf(
+                    "custom" to mapOf(
+                        "catalog-model" to ModelCatalogEntry(),
+                    ),
+                ),
+            ),
+        )
+        try {
+            val enhanced = RuntimeModelRegistry.enhanceModel(
+                Model(id = "catalog-model", providerId = "custom"),
+            )
+
+            assertTrue(enhanced.abilities.isEmpty())
+        } finally {
+            RuntimeModelRegistry.installCatalog(ModelCatalog())
+        }
+    }
+
+    @Test
     fun `catalog output limit above context is suspicious`() {
         RuntimeModelRegistry.installCatalog(
             ModelCatalog(

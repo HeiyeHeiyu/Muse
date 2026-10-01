@@ -1,6 +1,7 @@
 package io.zer0.muse.rag
 
 import io.zer0.common.Logger
+import io.zer0.muse.data.knowledge.KnowledgeDocDao
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -38,6 +39,7 @@ import java.util.concurrent.ConcurrentHashMap
 class SessionAttachmentService(
     private val ragService: RagService,
     private val settingsRepository: io.zer0.muse.data.SettingsRepository,
+    private val docDao: KnowledgeDocDao,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -91,6 +93,9 @@ class SessionAttachmentService(
                 updateAttachment(attachmentId, sessionId) {
                     it.copy(status = SessionAttachmentStatus.EMBEDDING)
                 }
+                // RAG 检索的安全回填以 knowledge_docs 为元数据真源;
+                // 只写 chunk 会在 applyIsInternal 阶段被 fail-closed 丢弃。
+                docDao.upsert(attachment.toKnowledgeDoc(content))
                 val chunkCount = ragService.indexDocument(
                     docId = docId,
                     content = content,
@@ -114,6 +119,14 @@ class SessionAttachmentService(
                             embeddedChunks = chunkCount,
                         )
                     }
+                    docDao.upsert(
+                        attachment.toKnowledgeDoc(
+                            content = content,
+                            chunkCount = chunkCount,
+                            embeddingModel = RagConfig.embeddingModelKey(config),
+                            contentHash = RagService.computeContentHash(content),
+                        ),
+                    )
                     Logger.i(TAG, "会话附件索引完成 | sessionId=$sessionId | name=$name | chunks=$chunkCount")
                 }
             } catch (e: Throwable) {
@@ -142,7 +155,10 @@ class SessionAttachmentService(
                 if (attachment.status == SessionAttachmentStatus.READY ||
                     attachment.status == SessionAttachmentStatus.EMBEDDING
                 ) {
-                    runCatching { ragService.deleteDocIndex(attachment.docId) }
+                    runCatching {
+                        ragService.deleteDocIndex(attachment.docId)
+                        docDao.delete(attachment.docId)
+                    }
                         .onFailure { Logger.w(TAG, "删除附件索引失败 | docId=${attachment.docId}", it) }
                 }
             }

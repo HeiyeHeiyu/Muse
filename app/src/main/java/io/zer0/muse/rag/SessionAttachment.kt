@@ -1,5 +1,7 @@
 package io.zer0.muse.rag
 
+import io.zer0.muse.data.knowledge.KnowledgeDocEntity
+
 /**
  * v1.0.47 P7-2: 会话级附件索引状态。
  *
@@ -27,7 +29,7 @@ enum class SessionAttachmentStatus {
  * 与全局知识库(KnowledgeBase)的区别:
  *  - 生命周期绑定会话:会话结束时可选保留或清理([DROPPED])
  *  - docId 前缀 "session-{sessionId}-":与全局 KB 文档区分,避免污染全局检索
- *  - 不写入 KnowledgeDoc 表,仅写入 KnowledgeChunk 表(共享 chunk 基础设施)
+ *  - 同步写入 KnowledgeDoc 元数据行与 KnowledgeChunk 分块,保证检索安全回填
  *
  * @property id 附件记录 ID(唯一)
  * @property sessionId 所属会话 ID
@@ -73,3 +75,19 @@ data class SessionAttachment(
         }
     }
 }
+
+/** 将会话附件映射为 RAG 元数据行,使检索结果能通过文档安全回填。 */
+internal fun SessionAttachment.toKnowledgeDoc(
+    content: String,
+    chunkCount: Int = 0,
+    embeddingModel: String = "",
+    contentHash: String = "",
+): KnowledgeDocEntity = KnowledgeDocEntity(
+    id = docId,
+    title = name,
+    content = content,
+    fileType = "session_attachment",
+    chunkCount = chunkCount,
+    embeddingModel = embeddingModel,
+    contentHash = contentHash,
+)

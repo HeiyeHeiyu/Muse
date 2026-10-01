@@ -247,12 +247,20 @@ class ChatService(
         val enhancedModel = ModelRegistry.enhanceModel(resolvedModel)
         // 未声明能力的自定义/中转模型不能当成“不支持工具”;交给 Provider 能力矩阵判断。
         val effectiveTools = tools.takeIf { shouldSendTools(enhancedModel, config, it) }
-        val effectiveMaxTokens = ModelOutputPolicy.resolve(maxTokens, enhancedModel)
-        if (ModelOutputPolicy.wasClamped(maxTokens, enhancedModel)) {
+        val estimatedInputTokens = ModelOutputPolicy.estimateInputTokens(messages, effectiveTools)
+        val regularMaxTokens = ModelOutputPolicy.resolve(maxTokens, enhancedModel)
+        val effectiveMaxTokens = ModelOutputPolicy.resolveForContext(
+            requestedMaxTokens = maxTokens,
+            model = enhancedModel,
+            inputTokens = estimatedInputTokens,
+        )
+        if (effectiveMaxTokens != regularMaxTokens || ModelOutputPolicy.wasClamped(maxTokens, enhancedModel)) {
             Logger.w(
                 "ChatService",
                 "输出预算已按模型能力收紧: provider=${config.id}, model=${enhancedModel.id}, " +
-                    "requested=$maxTokens, modelLimit=${enhancedModel.maxOutputTokens}, effective=$effectiveMaxTokens",
+                    "requested=$maxTokens, inputTokens≈$estimatedInputTokens, " +
+                    "modelLimit=${enhancedModel.maxOutputTokens}, contextWindow=${enhancedModel.contextWindow}, " +
+                    "effective=$effectiveMaxTokens",
             )
         }
         val provider = ProviderRegistry.create(config)

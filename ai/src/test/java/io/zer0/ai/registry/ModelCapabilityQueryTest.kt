@@ -1,5 +1,7 @@
 package io.zer0.ai.registry
 
+import io.zer0.ai.core.ModelCatalog
+import io.zer0.ai.core.ModelCatalogEntry
 import io.zer0.ai.core.ProviderCompat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -63,5 +65,61 @@ class ModelCapabilityQueryTest {
         // compat 缺省时结构化输出 UNKNOWN,不猜测
         val noCompat = ModelCapabilityQuery.snapshot(modelId = "gpt-4o")
         assertEquals(CapabilitySupport.UNKNOWN, noCompat.structuredOutput)
+    }
+
+    @Test
+    fun `installed catalog overrides hardcoded capability at query boundary`() {
+        ModelRegistry.installCatalog(
+            ModelCatalog(
+                providers = mapOf(
+                    "openai" to mapOf(
+                        "gpt-4o" to ModelCatalogEntry(
+                            image = false,
+                            reasoning = false,
+                            toolUse = io.zer0.ai.core.ToolUseSpec(supportsTools = false),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        try {
+            val snapshot = ModelCapabilityQuery.snapshot(
+                modelId = "gpt-4o",
+                providerId = "openai",
+            )
+
+            assertTrue(snapshot.known)
+            assertEquals(CapabilitySupport.UNSUPPORTED, snapshot.visionInput)
+            assertEquals(CapabilitySupport.UNSUPPORTED, snapshot.toolCalling)
+            assertEquals(CapabilitySupport.UNSUPPORTED, snapshot.reasoning)
+        } finally {
+            ModelRegistry.installCatalog(ModelCatalog())
+        }
+    }
+
+    @Test
+    fun `catalog omission stays unknown for an otherwise unknown model`() {
+        ModelRegistry.installCatalog(
+            ModelCatalog(
+                providers = mapOf(
+                    "custom" to mapOf(
+                        "relay-model" to ModelCatalogEntry(),
+                    ),
+                ),
+            ),
+        )
+        try {
+            val snapshot = ModelCapabilityQuery.snapshot(
+                modelId = "relay-model",
+                providerId = "custom",
+            )
+
+            assertTrue(snapshot.known)
+            assertEquals(CapabilitySupport.UNKNOWN, snapshot.visionInput)
+            assertEquals(CapabilitySupport.UNKNOWN, snapshot.toolCalling)
+            assertEquals(CapabilitySupport.UNKNOWN, snapshot.reasoning)
+        } finally {
+            ModelRegistry.installCatalog(ModelCatalog())
+        }
     }
 }

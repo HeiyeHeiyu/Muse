@@ -21,17 +21,17 @@ class RagSearchTest {
 
     @Test
     fun `buildFtsQuery strips punctuation and keeps alnum tokens`() {
-        assertEquals("Muse 记忆 rag", HybridSearchService.buildFtsQuery("Muse 记忆, rag!"))
+        assertEquals("muse \"记忆\" rag", HybridSearchService.buildFtsQuery("Muse 记忆, rag!"))
     }
 
     @Test
     fun `buildFtsQuery filters single-char tokens`() {
-        assertEquals("记忆 系统", HybridSearchService.buildFtsQuery("记 忆 系 统 记忆 系统"))
+        assertEquals("\"记忆\" \"系统\"", HybridSearchService.buildFtsQuery("记 忆 系 统 记忆 系统"))
     }
 
     @Test
     fun `buildFtsQuery dedups tokens`() {
-        assertEquals("搜索 召回", HybridSearchService.buildFtsQuery("搜索 搜索 召回"))
+        assertEquals("\"搜索\" \"召回\"", HybridSearchService.buildFtsQuery("搜索 搜索 召回"))
     }
 
     @Test
@@ -50,6 +50,11 @@ class RagSearchTest {
     @Test
     fun `buildFtsQuery blank query falls back to quoted phrase`() {
         assertEquals("\"。。。\"", HybridSearchService.buildFtsQuery("。。。"))
+    }
+
+    @Test
+    fun `buildFtsQuery expands Chinese text into the same ngrams used by the index`() {
+        assertEquals("\"知识\" \"识库\"", HybridSearchService.buildFtsQuery("知识库"))
     }
 
     // ── RRF 融合 ────────────────────────────────────────────────────────────

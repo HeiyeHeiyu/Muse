@@ -204,7 +204,10 @@ class VisionBridge(
      *    (用户可在视觉设置页手动纳入,注册表不越权覆盖用户配置)。
      */
     fun supportsVision(model: Model): Boolean {
-        val snapshot = io.zer0.ai.registry.ModelCapabilityQuery.snapshot(model.id)
+        val snapshot = io.zer0.ai.registry.ModelCapabilityQuery.snapshot(
+            modelId = model.id,
+            providerId = model.providerId,
+        )
         return when (snapshot.visionInput) {
             io.zer0.ai.registry.CapabilitySupport.SUPPORTED -> true
             io.zer0.ai.registry.CapabilitySupport.UNSUPPORTED -> false
