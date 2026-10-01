@@ -6,11 +6,11 @@ import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.R
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -115,6 +115,7 @@ class ToolRegistry(
     private val outcomeTools = ConcurrentHashMap<String, ToolOutcomeFn>()
     private val jsonTools = ConcurrentHashMap<String, JsonToolFn>()
     private val toolDefs = ConcurrentHashMap<String, ToolDef>()
+
     /** A full device task must not interleave with another screen/device action from another session. */
     private val deviceInteractionMutex = Mutex()
     private val _revision = MutableStateFlow(0L)
@@ -347,12 +348,11 @@ class ToolRegistry(
         cancellationToken: () -> Boolean = { false },
     ): ToolOutcome = executeInternal(name, args, executionContext, cancellationToken)
 
-    private suspend fun <T> withDeviceInteractionLock(name: String, block: suspend () -> T): T =
-        if (requiresDeviceInteractionLock(name)) {
-            deviceInteractionMutex.withLock { block() }
-        } else {
-            block()
-        }
+    private suspend fun <T> withDeviceInteractionLock(name: String, block: suspend () -> T): T = if (requiresDeviceInteractionLock(name)) {
+        deviceInteractionMutex.withLock { block() }
+    } else {
+        block()
+    }
 
     private suspend fun executeInternal(
         name: String,

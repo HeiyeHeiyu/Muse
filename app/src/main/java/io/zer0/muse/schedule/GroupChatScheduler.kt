@@ -16,6 +16,7 @@ import io.zer0.muse.R
 import io.zer0.muse.data.AgentTeam
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantEntity
+import io.zer0.muse.data.assistant.AssistantMemoryAccessPolicy
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.groupchat.GroupChatEntity
 import io.zer0.muse.data.groupchat.GroupChatGenerationLedgerEntity
@@ -2015,10 +2016,25 @@ class GroupChatScheduler(
             // v1.0.53: 注入长期记忆(用户画像)和群聊记忆(agent 过往发言)
             // 修复"群聊记忆和其他地方记忆不互通"问题
             systemPromptAssembler?.let { assembler ->
-                val longTermMemory = assembler.buildLongTermMemorySection()
-                if (longTermMemory.isNotBlank()) {
-                    appendLine()
-                    appendLine(longTermMemory)
+                if (
+                    AssistantMemoryAccessPolicy.canInjectAssistantFacts(
+                        assistantId = assistant.id,
+                        useGlobalMemory = assistant.useGlobalMemory,
+                        memoryEnabled = assistant.memoryEnabled && settings.isMemoryEnabled(),
+                        forSubagent = false,
+                        ignoreMemory = false,
+                    )
+                ) {
+                    val longTermMemory =
+                        assembler.buildLongTermMemorySection(
+                            assistantId = assistant.id,
+                            scope = if (assistant.id == "default") "main" else assistant.id,
+                            spaceId = settings.currentSpaceIdFlow.first().ifBlank { "default" },
+                        )
+                    if (longTermMemory.isNotBlank()) {
+                        appendLine()
+                        appendLine(longTermMemory)
+                    }
                 }
                 val groupChatMemory = assembler.buildGroupChatMemorySection(assistant.id, chatId)
                 if (groupChatMemory.isNotBlank()) {
@@ -2989,10 +3005,25 @@ class GroupChatScheduler(
             // v1.0.53: 注入长期记忆(用户画像)和群聊记忆(agent 过往发言)
             // 修复"群聊记忆和其他地方记忆不互通"问题
             systemPromptAssembler?.let { assembler ->
-                val longTermMemory = assembler.buildLongTermMemorySection()
-                if (longTermMemory.isNotBlank()) {
-                    appendLine()
-                    appendLine(longTermMemory)
+                if (
+                    AssistantMemoryAccessPolicy.canInjectAssistantFacts(
+                        assistantId = assistant.id,
+                        useGlobalMemory = assistant.useGlobalMemory,
+                        memoryEnabled = assistant.memoryEnabled && settings.isMemoryEnabled(),
+                        forSubagent = false,
+                        ignoreMemory = false,
+                    )
+                ) {
+                    val longTermMemory =
+                        assembler.buildLongTermMemorySection(
+                            assistantId = assistant.id,
+                            scope = if (assistant.id == "default") "main" else assistant.id,
+                            spaceId = settings.currentSpaceIdFlow.first().ifBlank { "default" },
+                        )
+                    if (longTermMemory.isNotBlank()) {
+                        appendLine()
+                        appendLine(longTermMemory)
+                    }
                 }
                 val groupChatMemory = assembler.buildGroupChatMemorySection(assistant.id, chatId)
                 if (groupChatMemory.isNotBlank()) {

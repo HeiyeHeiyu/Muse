@@ -27,7 +27,10 @@ class CoreToolsRegistrar(
         toolRegistry.register(
             ToolRegistry.ToolDef(
                 name = "get_current_time",
-                description = "获取当前时间。可指定时区(如 Asia/Shanghai、UTC),自动标注夏令时状态。",
+                description =
+                "获取当前时间。可指定时区(如 Asia/Shanghai、UTC),自动标注夏令时状态。" +
+                    "系统提示已包含本轮时间及最近两条用户消息的时间锚点；普通当前时间或消息间隔问题请直接引用，" +
+                    "只有用户要求其他时区或明确要求重新取时才调用。",
                 parameters = mapOf(
                     "timezone" to "可选,IANA 时区(如 Asia/Shanghai、UTC),默认 Asia/Shanghai",
                     "format" to "可选,自定义格式(SimpleDateFormat 语法),默认 yyyy-MM-dd HH:mm:ss z",

@@ -5,16 +5,16 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
-import io.zer0.muse.asr.AsrConfig
 import io.zer0.muse.asr.ASRController
 import io.zer0.muse.asr.ASRState
 import io.zer0.muse.asr.ASRStatus
 import io.zer0.muse.asr.AsrClientFactory
+import io.zer0.muse.asr.AsrConfig
 import io.zer0.muse.asr.AsrProviderType
 import io.zer0.muse.data.SettingsRepository
-import kotlinx.coroutines.flow.MutableStateFlow
 import io.zer0.muse.ui.ChatUiState
 import io.zer0.muse.ui.speech.TtsManager
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -42,7 +42,6 @@ class ChatAudioCoordinatorVoiceTest {
             context = mockk<Context>(relaxed = true),
         )
     }
-
 
     @Test
     fun `canceling voice listening resets ASR state and ignores late controller emissions`() {

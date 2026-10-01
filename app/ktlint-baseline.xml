@@ -1,23 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <baseline version="1.0">
-    <file name="src/main/java/io/zer0/muse/AppInfraModule.kt">
-        <error line="82" column="36" source="standard:discouraged-comment-location" />
-    </file>
     <file name="src/main/java/io/zer0/muse/AppKoinModule.kt">
         <error line="187" column="1" source="standard:max-line-length" />
         <error line="214" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/asr/DashScopeAsrClient.kt">
-        <error line="458" column="20" source="standard:discouraged-comment-location" />
+        <error line="476" column="20" source="standard:discouraged-comment-location" />
     </file>
     <file name="src/main/java/io/zer0/muse/asr/OpenAiRealtimeAsrClient.kt">
         <error line="1" column="1" source="standard:filename" />
     </file>
     <file name="src/main/java/io/zer0/muse/asr/OpenAiWhisperAsrClient.kt">
         <error line="1" column="1" source="standard:filename" />
-    </file>
-    <file name="src/main/java/io/zer0/muse/auth/OAuthManager.kt">
-        <error line="91" column="20" source="standard:class-naming" />
     </file>
     <file name="src/main/java/io/zer0/muse/auth/SecureCredentialStore.kt">
         <error line="221" column="30" source="standard:discouraged-comment-location" />
@@ -62,8 +56,8 @@
         <error line="52" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/data/assistant/PresetCharacters.kt">
-        <error line="190" column="1" source="standard:max-line-length" />
-        <error line="356" column="1" source="standard:max-line-length" />
+        <error line="191" column="1" source="standard:max-line-length" />
+        <error line="357" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/data/diary/DiaryGenerator.kt">
         <error line="26" column="17" source="standard:property-naming" />
@@ -189,12 +183,12 @@
     <file name="src/main/java/io/zer0/muse/data/session/MuseDb.kt">
         <error line="253" column="21" source="standard:property-naming" />
         <error line="715" column="1" source="standard:max-line-length" />
-        <error line="1525" column="1" source="standard:max-line-length" />
-        <error line="1786" column="1" source="standard:max-line-length" />
-        <error line="1794" column="1" source="standard:max-line-length" />
-        <error line="2212" column="1" source="standard:max-line-length" />
-        <error line="2649" column="1" source="standard:max-line-length" />
-        <error line="2662" column="1" source="standard:max-line-length" />
+        <error line="1542" column="1" source="standard:max-line-length" />
+        <error line="1803" column="1" source="standard:max-line-length" />
+        <error line="1811" column="1" source="standard:max-line-length" />
+        <error line="2229" column="1" source="standard:max-line-length" />
+        <error line="2666" column="1" source="standard:max-line-length" />
+        <error line="2679" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/data/session/SessionBranchHeadEntity.kt">
         <error line="43" column="1" source="standard:max-line-length" />
@@ -344,10 +338,10 @@
         <error line="136" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/tools/ToolOrchestrator.kt">
-        <error line="677" column="1" source="standard:max-line-length" />
+        <error line="738" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/tools/ToolRegistry.kt">
-        <error line="76" column="46" source="standard:discouraged-comment-location" />
+        <error line="78" column="46" source="standard:discouraged-comment-location" />
     </file>
     <file name="src/main/java/io/zer0/muse/tools/WeakToolUseDetector.kt">
         <error line="28" column="43" source="standard:discouraged-comment-location" />
@@ -358,13 +352,13 @@
         <error line="133" column="13" source="standard:discouraged-comment-location" />
     </file>
     <file name="src/main/java/io/zer0/muse/transformer/SystemPromptAssembler.kt">
-        <error line="347" column="1" source="standard:max-line-length" />
-        <error line="1303" column="1" source="standard:max-line-length" />
-        <error line="1306" column="1" source="standard:max-line-length" />
+        <error line="654" column="1" source="standard:max-line-length" />
+        <error line="1337" column="1" source="standard:max-line-length" />
+        <error line="1340" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/AssistantDetailPages.kt">
-        <error line="358" column="74" source="standard:discouraged-comment-location" />
-        <error line="1375" column="28" source="standard:function-naming" />
+        <error line="362" column="74" source="standard:discouraged-comment-location" />
+        <error line="1379" column="28" source="standard:function-naming" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/ChatScreen.kt">
         <error line="1903" column="1" source="standard:max-line-length" />
@@ -374,26 +368,26 @@
     </file>
     <file name="src/main/java/io/zer0/muse/ui/ChatViewModel.kt">
         <error line="3" column="1" source="standard:import-ordering" />
-        <error line="543" column="5" source="standard:discouraged-comment-location" />
-        <error line="578" column="5" source="standard:discouraged-comment-location" />
-        <error line="643" column="5" source="standard:discouraged-comment-location" />
-        <error line="646" column="5" source="standard:discouraged-comment-location" />
-        <error line="1422" column="27" source="standard:property-naming" />
-        <error line="1424" column="27" source="standard:property-naming" />
-        <error line="1686" column="1" source="standard:max-line-length" />
-        <error line="2964" column="56" source="standard:discouraged-comment-location" />
-        <error line="3669" column="1" source="standard:max-line-length" />
-        <error line="3700" column="1" source="standard:max-line-length" />
-        <error line="4316" column="1" source="standard:max-line-length" />
-        <error line="4691" column="1" source="standard:max-line-length" />
-        <error line="4768" column="1" source="standard:max-line-length" />
-        <error line="4797" column="1" source="standard:max-line-length" />
-        <error line="4848" column="1" source="standard:max-line-length" />
-        <error line="4889" column="1" source="standard:max-line-length" />
-        <error line="5202" column="1" source="standard:max-line-length" />
-        <error line="5278" column="1" source="standard:max-line-length" />
-        <error line="5460" column="1" source="standard:max-line-length" />
-        <error line="5736" column="1" source="standard:max-line-length" />
+        <error line="544" column="5" source="standard:discouraged-comment-location" />
+        <error line="579" column="5" source="standard:discouraged-comment-location" />
+        <error line="644" column="5" source="standard:discouraged-comment-location" />
+        <error line="647" column="5" source="standard:discouraged-comment-location" />
+        <error line="1423" column="27" source="standard:property-naming" />
+        <error line="1425" column="27" source="standard:property-naming" />
+        <error line="1687" column="1" source="standard:max-line-length" />
+        <error line="2976" column="56" source="standard:discouraged-comment-location" />
+        <error line="3681" column="1" source="standard:max-line-length" />
+        <error line="3712" column="1" source="standard:max-line-length" />
+        <error line="4332" column="1" source="standard:max-line-length" />
+        <error line="4706" column="1" source="standard:max-line-length" />
+        <error line="4783" column="1" source="standard:max-line-length" />
+        <error line="4812" column="1" source="standard:max-line-length" />
+        <error line="4863" column="1" source="standard:max-line-length" />
+        <error line="4904" column="1" source="standard:max-line-length" />
+        <error line="5223" column="1" source="standard:max-line-length" />
+        <error line="5299" column="1" source="standard:max-line-length" />
+        <error line="5481" column="1" source="standard:max-line-length" />
+        <error line="5757" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/DebugScreen.kt">
         <error line="181" column="33" source="standard:discouraged-comment-location" />
@@ -432,13 +426,13 @@
     <file name="src/main/java/io/zer0/muse/ui/MemoryViewModel.kt">
         <error line="340" column="17" source="standard:property-naming" />
         <error line="343" column="17" source="standard:property-naming" />
-        <error line="806" column="1" source="standard:max-line-length" />
-        <error line="807" column="1" source="standard:max-line-length" />
-        <error line="808" column="1" source="standard:max-line-length" />
-        <error line="809" column="1" source="standard:max-line-length" />
-        <error line="875" column="1" source="standard:max-line-length" />
-        <error line="878" column="1" source="standard:max-line-length" />
-        <error line="1173" column="1" source="standard:max-line-length" />
+        <error line="813" column="1" source="standard:max-line-length" />
+        <error line="814" column="1" source="standard:max-line-length" />
+        <error line="815" column="1" source="standard:max-line-length" />
+        <error line="816" column="1" source="standard:max-line-length" />
+        <error line="882" column="1" source="standard:max-line-length" />
+        <error line="885" column="1" source="standard:max-line-length" />
+        <error line="1189" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/MessageBubble.kt">
         <error line="1036" column="107" source="standard:discouraged-comment-location" />
@@ -539,13 +533,6 @@
     <file name="src/main/java/io/zer0/muse/ui/groupchat/GroupChatViewModel.kt">
         <error line="1018" column="1" source="standard:max-line-length" />
     </file>
-    <file name="src/main/java/io/zer0/muse/ui/knowledge/KnowledgeScreen.kt">
-        <error line="209" column="21" source="standard:property-naming" />
-        <error line="275" column="37" source="standard:property-naming" />
-        <error line="1455" column="73" source="standard:discouraged-comment-location" />
-        <error line="1498" column="90" source="standard:discouraged-comment-location" />
-        <error line="1511" column="24" source="standard:discouraged-comment-location" />
-    </file>
     <file name="src/main/java/io/zer0/muse/ui/markdown/DataCardParser.kt">
         <error line="20" column="23" source="standard:discouraged-comment-location" />
     </file>
@@ -616,7 +603,7 @@
     <file name="src/main/java/io/zer0/muse/ui/settings/ProviderEditPage.kt">
         <error line="1" column="1" source="standard:max-line-length" />
         <error line="254" column="29" source="standard:property-naming" />
-        <error line="400" column="1" source="standard:max-line-length" />
+        <error line="402" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/ui/settings/ProviderModelsComponents.kt">
         <error line="1" column="1" source="standard:max-line-length" />
@@ -733,9 +720,9 @@
         <error line="68" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/muse/vision/VisionBridge.kt">
-        <error line="425" column="1" source="standard:max-line-length" />
-        <error line="524" column="1" source="standard:max-line-length" />
-        <error line="800" column="49" source="standard:discouraged-comment-location" />
+        <error line="426" column="1" source="standard:max-line-length" />
+        <error line="525" column="1" source="standard:max-line-length" />
+        <error line="807" column="49" source="standard:discouraged-comment-location" />
     </file>
     <file name="src/main/java/io/zer0/muse/vision/VisionImagePreprocessor.kt">
         <error line="42" column="19" source="standard:property-naming" />

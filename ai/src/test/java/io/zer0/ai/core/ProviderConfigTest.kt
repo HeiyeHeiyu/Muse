@@ -118,6 +118,28 @@ class ProviderConfigTest {
     }
 
     @Test
+    fun `should normalize NewAPI host-only URL to v1`() {
+        val cfg = ProviderConfig(
+            id = "user-relay-2",
+            displayName = "NewAPI relay",
+            type = ProviderType.OPENAI,
+            baseUrl = "https://newapi.0z.hk/",
+        )
+        assertEquals("https://newapi.0z.hk/v1", cfg.resolvedBaseUrl())
+    }
+
+    @Test
+    fun `should not append v1 twice to NewAPI URL`() {
+        val cfg = ProviderConfig(
+            id = "preset_newapi",
+            displayName = "NewAPI",
+            type = ProviderType.OPENAI,
+            baseUrl = "https://newapi.0z.hk/v1/",
+        )
+        assertEquals("https://newapi.0z.hk/v1", cfg.resolvedBaseUrl())
+    }
+
+    @Test
     fun `should preserve SiliconFlow v1 baseUrl`() {
         val cfg = ProviderConfig(
             id = "siliconflow",

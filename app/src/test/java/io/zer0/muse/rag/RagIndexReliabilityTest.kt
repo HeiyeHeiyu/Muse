@@ -21,8 +21,7 @@ class RagIndexReliabilityTest {
         override val dimension = 2
         override val modelName = "fixed-model"
 
-        override suspend fun embed(texts: List<String>): List<FloatArray> =
-            texts.map { floatArrayOf(1f, 0f) }
+        override suspend fun embed(texts: List<String>): List<FloatArray> = texts.map { floatArrayOf(1f, 0f) }
     }
 
     private fun config() = RagConfig(

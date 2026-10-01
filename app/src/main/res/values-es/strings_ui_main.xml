@@ -67,7 +67,7 @@
     <string name="assistant_detail_enable_memory">Habilitar memoria</string>
     <string name="assistant_detail_enable_memory_desc">Cuando está apagado, este asistente no inyectará memoria a largo plazo</string>
     <string name="assistant_detail_use_global_memory">Usar memoria global</string>
-    <string name="assistant_detail_use_global_memory_desc">Cuando está apagado, utiliza un grupo de memoria independiente (experimental)</string>
+    <string name="assistant_detail_use_global_memory_desc">Al activarlo, este asistente también usa el perfil compartido, los recuerdos fijados y las experiencias. Sus hechos y chats recientes propios siguen disponibles. Está desactivado por defecto en asistentes nuevos.</string>
     <string name="assistant_detail_recent_chats_reference">Referencia de chat reciente</string>
     <string name="assistant_detail_recent_chats_reference_desc">Inyecte resúmenes de chats recientes como contexto en el mensaje</string>
     <string name="assistant_detail_time_reminder">Recordatorio de tiempo</string>
@@ -76,10 +76,16 @@
     <string name="assistant_detail_add_memory">Agregar memoria</string>
     <string name="assistant_detail_add_memory_desc">Ingrese manualmente hechos/conocimientos para referencia de IA</string>
     <string name="assistant_detail_saved_memory_count">Memorias guardadas (%1$d)</string>
+    <string name="assistant_detail_global_pinned_count">Memorias globales fijadas (%1$d)</string>
+    <string name="assistant_detail_global_pinned_enabled">La memoria global está activada; estas entradas se incluyen para este asistente.</string>
+    <string name="assistant_detail_global_pinned_disabled">Solo lectura. La memoria global está desactivada y estas entradas no se incluyen para este asistente.</string>
+    <string name="assistant_detail_saved_memory_interaction_hint">Toca para expandir · Mantén pulsado para editar</string>
     <string name="assistant_detail_no_memory">Aún no hay recuerdos</string>
     <string name="assistant_detail_delete_cd">Borrar</string>
     <string name="assistant_detail_delete_memory">Eliminar memoria</string>
     <string name="assistant_detail_add_memory_dialog_title">Agregar memoria</string>
+    <string name="assistant_detail_memory_edit_missing">Esta memoria ya no existe o el contenido no es válido</string>
+    <string name="assistant_detail_edit_memory_dialog_title">Editar memoria</string>
     <string name="assistant_detail_input_fact">Introduzca hecho/conocimiento</string>
     <string name="assistant_detail_save">Ahorrar</string>
     <string name="assistant_detail_cancel">Cancelar</string>

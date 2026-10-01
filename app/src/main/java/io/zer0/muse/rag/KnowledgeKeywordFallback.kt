@@ -2,8 +2,11 @@ package io.zer0.muse.rag
 
 import io.zer0.common.resultOf
 import io.zer0.muse.data.knowledge.KnowledgeChunkDao
+import io.zer0.muse.data.knowledge.KnowledgeChunkEntity
 import io.zer0.muse.data.knowledge.KnowledgeChunkFtsDao
+import io.zer0.muse.data.knowledge.KnowledgeChunkFtsHit
 import io.zer0.muse.data.knowledge.KnowledgeDocDao
+import io.zer0.muse.data.knowledge.KnowledgeDocEntity
 import kotlinx.coroutines.flow.first
 
 /** A keyword-retrieved chunk with enough identity to produce a real citation. */
@@ -21,39 +24,73 @@ data class KeywordFallbackResult(
 
 /** Keeps FTS and LIKE fallback behavior aligned with vector scope and metadata filters. */
 object KnowledgeKeywordFallback {
+    data class SearchDaos(
+        val docDao: KnowledgeDocDao,
+        val chunkDao: KnowledgeChunkDao,
+        val ftsDao: KnowledgeChunkFtsDao,
+    )
+
     suspend fun search(
         query: String,
         topK: Int,
         scopeDocIds: List<String>?,
         metadataFilter: VectorSearchService.MetadataFilter?,
-        docDao: KnowledgeDocDao,
-        chunkDao: KnowledgeChunkDao,
-        ftsDao: KnowledgeChunkFtsDao,
+        daos: SearchDaos,
     ): List<KeywordFallbackResult> {
-        if (query.isBlank() || topK <= 0) return emptyList()
+        if (query.isBlank() || topK <= 0 || scopeDocIds?.isEmpty() == true) return emptyList()
         val allowedIds = scopeDocIds?.toSet()
-        if (allowedIds != null && allowedIds.isEmpty()) return emptyList()
         val filter = metadataFilter?.takeUnless { it.isEmpty() }
+        val indexedResults = searchIndexedChunks(query, topK, allowedIds, filter, daos)
+        return if (indexedResults.isNotEmpty()) {
+            indexedResults
+        } else {
+            searchDocuments(query, topK, allowedIds, filter, daos)
+        }
+    }
 
-        val hits = resultOf { ftsDao.searchBm25Safe(query, (topK * 3).coerceAtLeast(topK)) }
-            .getOrNull().orEmpty()
-        val chunks = if (hits.isEmpty()) emptyList() else {
-            resultOf { chunkDao.getByIds(hits.map { it.chunkId }.distinct()) }.getOrNull().orEmpty()
+    private suspend fun searchIndexedChunks(
+        query: String,
+        topK: Int,
+        allowedIds: Set<String>?,
+        filter: VectorSearchService.MetadataFilter?,
+        daos: SearchDaos,
+    ): List<KeywordFallbackResult> {
+        val hits = resultOf { daos.ftsDao.searchBm25Safe(query, (topK * 3).coerceAtLeast(topK)) }
+            .getOrNull()
+            .orEmpty()
+        val chunks = if (hits.isEmpty()) {
+            emptyList()
+        } else {
+            resultOf { daos.chunkDao.getByIds(hits.map { it.chunkId }.distinct()) }
+                .getOrNull()
+                .orEmpty()
         }
         val chunkById = chunks.associateBy { it.id }
-        val docs = if (chunks.isEmpty()) emptyList() else {
-            resultOf { docDao.getByIds(chunks.map { it.docId }.distinct()) }.getOrNull().orEmpty()
+        val docs = if (chunks.isEmpty()) {
+            emptyList()
+        } else {
+            resultOf { daos.docDao.getByIds(chunks.map { it.docId }.distinct()) }
+                .getOrNull()
+                .orEmpty()
         }
         val docById = docs.asSequence()
             .filter { !it.isInternal && (allowedIds == null || it.id in allowedIds) }
             .associateBy { it.id }
 
-        val ftsResults = hits.mapNotNull { hit ->
-            val chunk = chunkById[hit.chunkId] ?: return@mapNotNull null
-            val doc = docById[chunk.docId] ?: return@mapNotNull null
-            if (filter != null && !filter.matches(doc.id, doc.title, chunk.metadataJson, chunk.createdAt)) {
-                return@mapNotNull null
-            }
+        return hits.mapNotNull { hit ->
+            resultForFtsHit(hit, chunkById, docById, filter)
+        }.distinctBy { it.chunkId }.take(topK)
+    }
+
+    private fun resultForFtsHit(
+        hit: KnowledgeChunkFtsHit,
+        chunksById: Map<String, KnowledgeChunkEntity>,
+        docsById: Map<String, KnowledgeDocEntity>,
+        filter: VectorSearchService.MetadataFilter?,
+    ): KeywordFallbackResult? = chunksById[hit.chunkId]?.let { chunk ->
+        docsById[chunk.docId]?.takeIf { doc ->
+            filter == null || filter.matches(doc.id, doc.title, chunk.metadataJson, chunk.createdAt)
+        }?.let { doc ->
             KeywordFallbackResult(
                 docId = doc.id,
                 docTitle = doc.title,
@@ -64,23 +101,42 @@ object KnowledgeKeywordFallback {
                 metadataJson = chunk.metadataJson,
                 createdAt = chunk.createdAt,
             )
-        }.distinctBy { it.chunkId }.take(topK)
-        if (ftsResults.isNotEmpty()) return ftsResults
+        }
+    }
 
+    private suspend fun searchDocuments(
+        query: String,
+        topK: Int,
+        allowedIds: Set<String>?,
+        filter: VectorSearchService.MetadataFilter?,
+        daos: SearchDaos,
+    ): List<KeywordFallbackResult> {
         val fallbackDocs = resultOf {
-            if (allowedIds == null) docDao.search(query).first() else docDao.getByIds(allowedIds.toList())
+            if (allowedIds == null) daos.docDao.search(query).first() else daos.docDao.getByIds(allowedIds.toList())
         }.getOrNull().orEmpty()
         val publicDocs = fallbackDocs.asSequence()
             .filter { !it.isInternal && (allowedIds == null || it.id in allowedIds) }
             .take(topK)
             .toList()
+        val results = mutableListOf<KeywordFallbackResult>()
+        for (doc in publicDocs) {
+            resultForDocument(doc, filter, daos.chunkDao)?.let(results::add)
+        }
+        return results
+    }
 
-        return publicDocs.mapNotNull { doc ->
-            val docChunks = resultOf { chunkDao.getByDoc(doc.id) }.getOrNull().orEmpty()
-            val matchingChunk = docChunks.firstOrNull { chunk ->
-                filter == null || filter.matches(doc.id, doc.title, chunk.metadataJson, chunk.createdAt)
-            }
-            if (filter != null && matchingChunk == null) return@mapNotNull null
+    private suspend fun resultForDocument(
+        doc: KnowledgeDocEntity,
+        filter: VectorSearchService.MetadataFilter?,
+        chunkDao: KnowledgeChunkDao,
+    ): KeywordFallbackResult? {
+        val docChunks = resultOf { chunkDao.getByDoc(doc.id) }.getOrNull().orEmpty()
+        val matchingChunk = docChunks.firstOrNull { chunk ->
+            filter == null || filter.matches(doc.id, doc.title, chunk.metadataJson, chunk.createdAt)
+        }
+        return if (filter != null && matchingChunk == null) {
+            null
+        } else {
             KeywordFallbackResult(
                 docId = doc.id,
                 docTitle = doc.title,

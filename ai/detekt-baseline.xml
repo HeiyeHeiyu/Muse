@@ -165,7 +165,6 @@
     <ID>ReturnCount:OpenAIProvider.kt$OpenAIProvider$private fun mergeCustomBody(body: String): String</ID>
     <ID>ReturnCount:OpenAIProvider.kt$OpenAIProvider.&lt;no name provided&gt;$override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String)</ID>
     <ID>ReturnCount:OpenAIProvider.kt$OpenAIProvider.&lt;no name provided&gt;$override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?)</ID>
-    <ID>ReturnCount:ProviderError.kt$ProviderError.Companion$fun from(code: Int?, body: String, retryAfterSec: Int? = null, throwable: Throwable? = null): ProviderError</ID>
     <ID>ReturnCount:ProviderHttpSupport.kt$ProviderHttpSupport$protected fun warnIfBaseUrlLooksInternal(baseUrl: String)</ID>
     <ID>ReturnCount:ProviderPayloadNormalizer.kt$ProviderPayloadNormalizer$private fun stripOrphanToolMessages(messages: List&lt;UIMessage&gt;): List&lt;UIMessage&gt;</ID>
     <ID>ReturnCount:ProviderPromptPatches.kt$ProviderPromptPatches$private fun isDeepSeekReasoningModel(model: Model, baseUrl: String, thinkingFormat: ThinkingFormat?): Boolean</ID>

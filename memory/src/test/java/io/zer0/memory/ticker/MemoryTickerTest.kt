@@ -1,15 +1,19 @@
 package io.zer0.memory.ticker
 
+import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import io.zer0.ai.core.Model
 import io.zer0.memory.compile.MemoryCompiler
 import io.zer0.memory.deep.DeepMemoryProcessor
 import io.zer0.memory.fact.FactDbProvider
+import io.zer0.memory.fact.FactStore
 import io.zer0.memory.llm.MemoryLlmClient
 import io.zer0.memory.summary.CompiledSectionDao
 import io.zer0.memory.summary.CompiledSectionEntity
 import io.zer0.memory.summary.DailyStateDao
 import io.zer0.memory.summary.DailyStateEntity
+import io.zer0.memory.summary.MemoryDb
+import io.zer0.memory.summary.ScopedCompiledSectionEntity
 import io.zer0.memory.summary.SessionSummaryDao
 import io.zer0.memory.summary.SessionSummaryEntity
 import io.zer0.memory.summary.SessionSummaryManager
@@ -24,6 +28,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -323,6 +328,62 @@ class MemoryTickerTest {
 
         ticker.stop()
         advanceUntilIdle()
+    }
+
+    @Test
+    fun `compiled memory uses the assistant-specific tombstones when scope is explicit`() = runTest(testDispatcher) {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val assistantId = "ticker-scope-${System.nanoTime()}"
+        val childStore = factDbProvider.getFactStore(assistantId)
+        val fact = "deleted child-only preference"
+        val factId = childStore.add(FactStore.Fact(fact = fact), scope = assistantId, spaceId = "work")
+        assertTrue(childStore.delete(factId, assistantId, assistantId, "work"))
+
+        val scopedMemoryDb = Room.inMemoryDatabaseBuilder(context, MemoryDb::class.java)
+            .allowMainThreadQueries()
+            .build()
+        try {
+            scopedMemoryDb.scopedCompiledSectionDao().upsert(
+                ScopedCompiledSectionEntity(
+                    sectionKey = MemoryCompiler.Section.FACTS.key,
+                    scope = assistantId,
+                    spaceId = "work",
+                    content = fact,
+                    updatedAt = java.time.Instant.now().toString(),
+                ),
+            )
+            val scopedCompiler = MemoryCompiler(
+                sectionDao = fakeCompiledDao,
+                llmClient = fakeLlm,
+                fileWriter = null,
+                factStore = null,
+                scopedSectionDao = scopedMemoryDb.scopedCompiledSectionDao(),
+                factDbProvider = factDbProvider,
+            )
+            val ticker = MemoryTicker(
+                summaryManager = summaryManager,
+                compiler = scopedCompiler,
+                deepProcessor = deepProcessor,
+                dailyStateDao = fakeDailyDao,
+                getResetAt = { null },
+                isMemoryEnabled = { true },
+                scope = this,
+                runtimeContext = MemoryRuntimeContext(
+                    getConfig = { MemoryConfig() },
+                    getCurrentAssistantId = { "default" },
+                    getCurrentSpaceId = { "default" },
+                ),
+                factStore = factDbProvider.getFactStore("default"),
+            )
+
+            val compiled = ticker.readCompiledMemoryMarkdown(scope = assistantId, spaceId = "work")
+
+            assertFalse("a child assistant's tombstone must filter its own compiled facts", compiled.contains(fact))
+        } finally {
+            scopedMemoryDb.close()
+            factDbProvider.release(assistantId)
+            context.deleteDatabase("facts_$assistantId.db")
+        }
     }
 
     // ──────────────────────────────────────────────

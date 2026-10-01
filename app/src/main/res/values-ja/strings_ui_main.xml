@@ -67,7 +67,7 @@
     <string name="assistant_detail_enable_memory">メモリを有効にする</string>
     <string name="assistant_detail_enable_memory_desc">オフの場合、このアシスタントは長期記憶を注入しません</string>
     <string name="assistant_detail_use_global_memory">グローバルメモリを使用する</string>
-    <string name="assistant_detail_use_global_memory_desc">オフの場合、独立したメモリ プールを使用します (実験的)</string>
+    <string name="assistant_detail_use_global_memory_desc">オンにすると共有プロフィール、固定メモリ、共有経験も参照します。助手自身の事実と最近の会話はどちらの設定でも利用できます。新しい助手ではオフが初期設定です。</string>
     <string name="assistant_detail_recent_chats_reference">最近のチャットのリファレンス</string>
     <string name="assistant_detail_recent_chats_reference_desc">最近のチャットの概要をコンテキストとしてプロンプトに挿入します</string>
     <string name="assistant_detail_time_reminder">タイムリマインダー</string>
@@ -76,10 +76,16 @@
     <string name="assistant_detail_add_memory">メモリを追加する</string>
     <string name="assistant_detail_add_memory_desc">AI 参照用の事実/知識を手動で入力</string>
     <string name="assistant_detail_saved_memory_count">保存された思い出 (%1$d)</string>
+    <string name="assistant_detail_global_pinned_count">グローバル固定メモリ (%1$d)</string>
+    <string name="assistant_detail_global_pinned_enabled">グローバルメモリが有効なため、この助手にこれらの項目が注入されます。</string>
+    <string name="assistant_detail_global_pinned_disabled">閲覧のみ。グローバルメモリが無効のため、この助手には注入されません。</string>
+    <string name="assistant_detail_saved_memory_interaction_hint">タップで全文を表示 · 長押しで編集</string>
     <string name="assistant_detail_no_memory">まだ思い出はありません</string>
     <string name="assistant_detail_delete_cd">消去</string>
     <string name="assistant_detail_delete_memory">メモリの削除</string>
     <string name="assistant_detail_add_memory_dialog_title">メモリを追加する</string>
+    <string name="assistant_detail_memory_edit_missing">このメモリは存在しないか、内容が無効です</string>
+    <string name="assistant_detail_edit_memory_dialog_title">メモリを編集</string>
     <string name="assistant_detail_input_fact">事実/知識を入力してください</string>
     <string name="assistant_detail_save">保存</string>
     <string name="assistant_detail_cancel">キャンセル</string>

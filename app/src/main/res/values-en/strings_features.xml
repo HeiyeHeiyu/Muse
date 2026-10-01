@@ -313,6 +313,14 @@
 
     <!-- ===== ui/knowledge ===== -->
     <string name="knowledge_title">Knowledge base</string>
+    <string name="knowledge_folder_browser_hint">Folders from ZIP imports are shown by relative path. Enter a new path when moving a document to create folders.</string>
+    <string name="knowledge_move_to_folder">Move to folder</string>
+    <string name="knowledge_move_folder_title">Move document</string>
+    <string name="knowledge_move_folder_hint">Enter a folder path, for example Projects/Contracts. Leave empty for the KB root.</string>
+    <string name="knowledge_move_saving">Moving…</string>
+    <string name="knowledge_move_success">Document moved to folder</string>
+    <string name="knowledge_move_failed">Could not move document: %1$s</string>
+    <string name="knowledge_folder_item_files">%1$d files</string>
     <string name="knowledge_back">Back</string>
     <string name="knowledge_sort">Sort</string>
     <string name="knowledge_import">Import</string>

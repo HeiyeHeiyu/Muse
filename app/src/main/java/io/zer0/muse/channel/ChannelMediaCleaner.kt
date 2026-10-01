@@ -93,7 +93,7 @@ object ChannelMediaCleaner {
         if (!dir.isDirectory) return 0
         val metas = dir.listFiles { f -> f.isFile }?.map {
             FileMeta(it.absolutePath, it.lastModified(), it.length())
-        } ?: return 0
+        }.orEmpty()
         val victims = selectForDeletion(metas, now, ttlMs, maxTotalBytes, protectedPaths)
         var deleted = 0
         for (path in victims) {

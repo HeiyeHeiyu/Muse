@@ -286,6 +286,14 @@
 
     <!-- ===== ui/knowledge ===== -->
     <string name="knowledge_title">base de conocimientos</string>
+    <string name="knowledge_folder_browser_hint">Las carpetas importadas desde ZIP se muestran por ruta relativa. Escribe una ruta nueva al mover un documento para crear carpetas.</string>
+    <string name="knowledge_move_to_folder">Mover a carpeta</string>
+    <string name="knowledge_move_folder_title">Mover documento</string>
+    <string name="knowledge_move_folder_hint">Escribe una ruta, por ejemplo Proyectos/Contratos. Déjala vacía para la raíz.</string>
+    <string name="knowledge_move_saving">Moviendo…</string>
+    <string name="knowledge_move_success">Documento movido a la carpeta</string>
+    <string name="knowledge_move_failed">No se pudo mover el documento: %1$s</string>
+    <string name="knowledge_folder_item_files">%1$d archivos</string>
     <string name="knowledge_back">Atrás</string>
     <string name="knowledge_sort">Clasificar</string>
     <string name="knowledge_import">Importar</string>

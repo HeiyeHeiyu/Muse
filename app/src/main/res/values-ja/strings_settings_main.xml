@@ -64,6 +64,7 @@
     <string name="settings_provider_test_error_timeout">接続がタイムアウトしました</string>
     <string name="settings_provider_test_error_unknown_host">サーバーにアクセスできません</string>
     <string name="settings_provider_test_error_failed">接続に失敗しました: %1$s</string>
+    <string name="settings_provider_test_error_html">サーバーが API JSON ではなく Web ページを返しました。NewAPI 互換 API では通常、ベース URL に /v1 が必要です。API パスとリバースプロキシを確認してください。</string>
     <!-- v1.133: batch provider health check ("Test All" button in list header + per-row status) -->
     <string name="settings_provider_test_all">すべてをテストする</string>
     <string name="settings_provider_test_all_in_progress">テスト%1$d/%2$d</string>

@@ -68,6 +68,7 @@ import io.zer0.muse.tools.StreamRoundResult
 import io.zer0.muse.tools.ToolLoopParams
 import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.tools.ToolExposurePolicy
+import io.zer0.muse.tools.ToolRoundPresentationPolicy
 import io.zer0.muse.tools.ToolRiskLevel
 import io.zer0.muse.chat.PendingToolCallStore
 import io.zer0.muse.data.chat.ConversationTree
@@ -2715,7 +2716,7 @@ class ChatViewModel(
             _state.value.currentAssistant
                 ?: assistantRepository.getById("default")
         val memoryEnabled = assistant?.memoryEnabled ?: true
-        val useGlobalMemory = assistant?.useGlobalMemory ?: true
+        val useGlobalMemory = assistant?.useGlobalMemory ?: false
         val timeReminderEnabled = assistant?.enableTimeReminder ?: true
         val effectiveMemoryEnabled = memoryEnabled && settings.isMemoryEnabled()
         // v1.0.72: 本会话不参考记忆标志
@@ -4297,6 +4298,10 @@ class ChatViewModel(
             object : ToolLoopHost {
                 override suspend fun streamRound(params: StreamRoundParams): StreamRoundResult {
                     val round = params.round
+                    // Client-side tools necessarily use a follow-up provider request so the model can
+                    // incorporate the tool result. Keep that continuation in the same visible turn by
+                    // suppressing repeated reasoning/MOOD metadata after round one.
+                    val exposeRoundThinking = ToolRoundPresentationPolicy.exposeReasoning(round)
                     // A-14: 每轮开始把当前轮占位消息 id 同步回 state — 中断恢复(catch 块)依赖
                     // state.currentAssistantId 定位"本轮生成消息",此前只在 runToolLoop 收尾更新,
                     // 多轮工具循环中段被取消时指向旧轮次,导致 [已中断] 落错消息。
@@ -4795,7 +4800,7 @@ class ChatViewModel(
                                                 Perf.log("chat-first-token", firstTokenTime - streamStartedAt)
                                                 _state.update { it.copy(isWaitingFirstToken = false) }
                                             }
-                                            params.reasoningBuilder.append(event.delta)
+                                            if (exposeRoundThinking) params.reasoningBuilder.append(event.delta)
                                             if (!event.signature.isNullOrBlank()) thinkingSignature = event.signature
                                             if (!event.encryptedContent.isNullOrBlank()) thinkingEncryptedContent = event.encryptedContent
                                             val now = System.currentTimeMillis()
@@ -5155,7 +5160,7 @@ class ChatViewModel(
                     updateAssistant(
                         params.currentAssistantId,
                         unmaskPii(params.builder.toString()),
-                        unmaskPii(params.reasoningBuilder.toString()).ifBlank { null },
+                        if (exposeRoundThinking) unmaskPii(params.reasoningBuilder.toString()).ifBlank { null } else null,
                         imageAccumulator.toList(),
                         isStreaming = false,
                     )
@@ -5170,10 +5175,13 @@ class ChatViewModel(
                                 id = params.currentAssistantId,
                                 role = MessageRole.ASSISTANT,
                                 content = finalizedAssistant?.content ?: unmaskPii(params.builder.toString()),
-                                // 保留 reasoning:用户需要看到思考过程,不能只显示首字
-                                reasoning = finalizedAssistant?.reasoning ?: unmaskPii(params.reasoningBuilder.toString()).ifBlank { null },
-                                mood = finalizedAssistant?.mood,
-                                reflection = finalizedAssistant?.reflection,
+                                reasoning = if (exposeRoundThinking) {
+                                    finalizedAssistant?.reasoning ?: unmaskPii(params.reasoningBuilder.toString()).ifBlank { null }
+                                } else {
+                                    null
+                                },
+                                mood = finalizedAssistant?.mood.takeIf { exposeRoundThinking },
+                                reflection = finalizedAssistant?.reflection.takeIf { exposeRoundThinking },
                                 thinkingSignature = finalizedAssistant?.thinkingSignature ?: thinkingSignature,
                                 thinkingEncryptedContent = finalizedAssistant?.thinkingEncryptedContent ?: thinkingEncryptedContent,
                                 imageBase64List = finalizedAssistant?.imageBase64List ?: emptyList(),
@@ -5208,6 +5216,9 @@ class ChatViewModel(
                                 )
                             val withCitations =
                                 finalAssistant.copy(
+                                    reasoning = if (exposeRoundThinking) finalAssistant.reasoning else null,
+                                    mood = if (exposeRoundThinking) finalAssistant.mood else null,
+                                    reflection = if (exposeRoundThinking) finalAssistant.reflection else null,
                                     citationUrls = (finalAssistant.citationUrls + citationUrls).distinct(),
                                     ragCitations = if (pendingRagCitations.isNotEmpty()) pendingRagCitations else finalAssistant.ragCitations,
                                 )

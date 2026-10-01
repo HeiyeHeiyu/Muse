@@ -33,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -52,6 +53,7 @@ import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.data.knowledge.KnowledgeDocDao
 import io.zer0.muse.data.knowledge.KnowledgeDocEntity
+import io.zer0.muse.rag.KnowledgeFolderBrowser
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
@@ -105,7 +107,7 @@ fun KnowledgeScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    var searchQuery by remember { mutableStateOf("") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     // v1.0.74 fix (前端审计 6.5): 搜索 300ms 防抖 — 原 remember(searchQuery) 每敲一个字符
     // 都重启 Room Flow 查询,输入卡顿。用 snapshotFlow+debounce 驱动实际查询词。
     var debouncedQuery by remember { mutableStateOf("") }
@@ -177,8 +179,12 @@ fun KnowledgeScreen(
     var fileSizeWarning by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     // F-31: 导入目标知识库(空串 = 默认知识库)。先选目标 KB,再选文件。
-    var importTargetKbId by remember { mutableStateOf("") }
-    var showImportTargetDialog by remember { mutableStateOf(false) }
+    var importTargetKbId by rememberSaveable { mutableStateOf("") }
+    var importTargetFolderPath by rememberSaveable { mutableStateOf("") }
+    var browsingKbId by rememberSaveable { mutableStateOf<String?>(null) }
+    var currentFolderPath by rememberSaveable { mutableStateOf("") }
+    var moveFolderTarget by remember { mutableStateOf<KnowledgeDocEntity?>(null) }
+    var showImportTargetDialog by rememberSaveable { mutableStateOf(false) }
     val kbs by kbDao.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
 
     // F-33: embedding 模型切换检测 — 当前配置 key 与"最近一次索引所用 key"不一致时提示重新索引
@@ -191,6 +197,8 @@ fun KnowledgeScreen(
     // v1.54: 支持导入 txt/md/pdf/docx/epub/图片(OCR),导入后自动分块+生成 embedding 向量索引
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
+        val targetKbId = importTargetKbId.ifBlank { "default" }
+        val targetFolderPath = importTargetFolderPath
         // v1.67-B: 保存 Job 引用以便取消
         importJob = scope.launch {
             importing = true
@@ -206,16 +214,16 @@ fun KnowledgeScreen(
                     } ?: uri.lastPathSegment?.substringAfterLast('/')?.substringAfterLast('%')
                 } ?: "doc-$now"
                 // v1.0.47 P7-3: 文件大小检查 — 超限弹出友好提示,不继续导入
-                val MAX_FILE_SIZE_BYTES = 50L * 1024 * 1024 // 50MB
+                val maxFileSizeBytes = 50L * 1024 * 1024 // 50MB
                 val fileSize = withContext(Dispatchers.IO) {
                     context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                         val idx = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
                         if (idx >= 0 && cursor.moveToFirst()) cursor.getLong(idx) else -1L
                     } ?: -1L
                 }
-                if (fileSize > MAX_FILE_SIZE_BYTES) {
+                if (fileSize > maxFileSizeBytes) {
                     importing = false
-                    fileSizeWarning = formatFileSize(fileSize) to formatFileSize(MAX_FILE_SIZE_BYTES)
+                    fileSizeWarning = formatFileSize(fileSize) to formatFileSize(maxFileSizeBytes)
                     return@launch
                 }
                 val lowerName = fileName.lowercase()
@@ -272,7 +280,7 @@ fun KnowledgeScreen(
                         withContext(Dispatchers.IO) {
                             context.contentResolver.openInputStream(uri)?.use { input ->
                                 // v1.114: 限制读取 10MB,防止超大文件 OOM
-                                val MAX_READ_BYTES = 10L * 1024 * 1024
+                                val maxReadBytes = 10L * 1024 * 1024
                                 val sb = StringBuilder()
                                 val buffer = CharArray(8192)
                                 var total = 0L
@@ -281,8 +289,8 @@ fun KnowledgeScreen(
                                         val read = reader.read(buffer)
                                         if (read <= 0) break
                                         total += read
-                                        if (total > MAX_READ_BYTES) {
-                                            error("文件过大,超过 ${MAX_READ_BYTES / 1024 / 1024}MB 限制")
+                                        if (total > maxReadBytes) {
+                                            error("文件过大,超过 ${maxReadBytes / 1024 / 1024}MB 限制")
                                         }
                                         sb.append(buffer, 0, read)
                                     }
@@ -326,8 +334,8 @@ fun KnowledgeScreen(
                         createdAt = now,
                         updatedAt = now,
                         // F-31: 写入导入时选定的目标知识库(空串 → 默认知识库)
-                        kbId = importTargetKbId.ifBlank { "default" },
-                    ),
+                        kbId = targetKbId,
+                    ).let { KnowledgeFolderBrowser.withFolderPath(it, targetFolderPath) },
                 )
                 // v1.54: 自动分块 + 生成 embedding 向量索引
                 importProgress = context.getString(R.string.knowledge_chunking)
@@ -364,6 +372,8 @@ fun KnowledgeScreen(
                     )
                     // F-33: 记录本次索引用到的 embedding 配置,供切换检测
                     scope.launch { settings.saveLastEmbeddingModelKey(io.zer0.muse.rag.RagConfig.embeddingModelKey(ragConfig)) }
+                    browsingKbId = targetKbId
+                    currentFolderPath = targetFolderPath
                     MuseToast.show(context.getString(R.string.knowledge_imported_indexed, fileName, chunkCount))
                 } else {
                     // v1.103: 索引失败时显示具体原因,引导用户去 RAG 设置检查配置
@@ -392,6 +402,7 @@ fun KnowledgeScreen(
                 importing = false
                 importProgress = ""
                 importJob = null
+                importTargetFolderPath = ""
             }
         }
     }
@@ -546,7 +557,14 @@ fun KnowledgeScreen(
         topBar = {
             MuseTopBar(
                 title = stringResource(R.string.knowledge_title),
-                onBack = onBack,
+                onBack = {
+                    when {
+                        searchQuery.isNotBlank() -> searchQuery = ""
+                        currentFolderPath.isNotBlank() -> currentFolderPath = KnowledgeFolderBrowser.parent(currentFolderPath)
+                        browsingKbId != null -> browsingKbId = null
+                        else -> onBack()
+                    }
+                },
                 largeTitle = true,
                 actions = {
                     // v1.66: 排序切换入口(动作弹窗)
@@ -573,7 +591,19 @@ fun KnowledgeScreen(
             MuseFloatingButton(
                 icon = MuseIcons.plus,
                 // F-31: 先选目标知识库,再选文件(向本知识库添加文档)
-                onClick = { if (!importing) showImportTargetDialog = true },
+                onClick = {
+                    if (!importing) {
+                        importTargetKbId = browsingKbId ?: "default"
+                        importTargetFolderPath =
+                            KnowledgeFolderBrowser.importFolderPath(
+                                targetKbId = importTargetKbId,
+                                browsingKbId = browsingKbId,
+                                currentFolderPath = currentFolderPath,
+                                searchQuery = searchQuery,
+                            )
+                        showImportTargetDialog = true
+                    }
+                },
                 contentDescription = stringResource(R.string.knowledge_import),
             )
         },
@@ -731,43 +761,114 @@ fun KnowledgeScreen(
                                     .filterNot { it.isInternal }
                                     .sortedWith(sortMode.comparator)
                             }
-                            if (visibleDocs.isEmpty()) {
-                                MuseEmptyState(
-                                    icon = if (searchQuery.isNotBlank()) MuseIcons.fileText else MuseIcons.bookOpen,
-                                    title = if (searchQuery.isNotBlank()) {
-                                        stringResource(
-                                            R.string.knowledge_no_match_title,
-                                        )
-                                    } else {
-                                        stringResource(R.string.knowledge_empty_title)
-                                    },
-                                    subtitle = if (searchQuery.isNotBlank()) {
-                                        stringResource(
-                                            R.string.knowledge_no_match_subtitle,
-                                        )
-                                    } else {
-                                        stringResource(R.string.knowledge_empty_subtitle)
-                                    },
+                            val searching = searchQuery.isNotBlank()
+                            val selectedKb = browsingKbId
+                            val kbDocs = remember(visibleDocs, selectedKb) {
+                                if (selectedKb == null) emptyList() else visibleDocs.filter { it.kbId == selectedKb }
+                            }
+                            val childFolders = remember(kbDocs, currentFolderPath, searching) {
+                                if (selectedKb == null || searching) {
+                                    emptyList()
+                                } else {
+                                    KnowledgeFolderBrowser.childFolders(kbDocs, currentFolderPath)
+                                }
+                            }
+                            val folderFiles = remember(kbDocs, currentFolderPath, visibleDocs, searching) {
+                                if (searching) {
+                                    visibleDocs
+                                } else {
+                                    KnowledgeFolderBrowser.documentsInFolder(kbDocs, currentFolderPath)
+                                        .sortedWith(sortMode.comparator)
+                                }
+                            }
+                            when {
+                                searching && visibleDocs.isEmpty() -> MuseEmptyState(
+                                    icon = MuseIcons.fileText,
+                                    title = stringResource(R.string.knowledge_no_match_title),
+                                    subtitle = stringResource(R.string.knowledge_no_match_subtitle),
                                 )
-                            } else {
-                                LazyColumn(
-                                    verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
-                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 80.dp),
-                                ) {
-                                    items(visibleDocs, key = { it.id }) { doc ->
-                                        // v2.x: 动效补齐 — 文档卡入场(令牌 animateItem)
-                                        Box(museAnimateItem()) {
-                                            DocCard(
-                                                doc = doc,
-                                                highlight = searchQuery.takeIf { it.isNotBlank() },
-                                                onClick = { detailTarget = doc },
-                                                onDelete = {
-                                                    scope.launch {
-                                                        ragService.deleteDocument(doc.id)
-                                                    }
-                                                    MuseToast.show(context.getString(R.string.knowledge_deleted))
-                                                },
-                                            )
+                                !searching && selectedKb == null -> {
+                                    if (kbs.isEmpty()) {
+                                        MuseEmptyState(
+                                            icon = MuseIcons.bookOpen,
+                                            title = stringResource(R.string.knowledge_empty_title),
+                                            subtitle = stringResource(R.string.knowledge_empty_subtitle),
+                                        )
+                                    } else {
+                                        LazyColumn(
+                                            verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
+                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 80.dp),
+                                        ) {
+                                            items(kbs, key = { it.id }) { kb ->
+                                                Box(museAnimateItem()) {
+                                                    KnowledgeFolderCard(
+                                                        title = kb.name,
+                                                        detail = stringResource(R.string.kb_manage_doc_count, kb.docCount),
+                                                        onClick = {
+                                                            browsingKbId = kb.id
+                                                            currentFolderPath = ""
+                                                        },
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                !searching && childFolders.isEmpty() && folderFiles.isEmpty() -> MuseEmptyState(
+                                    icon = MuseIcons.folder,
+                                    title = stringResource(R.string.knowledge_empty_title),
+                                    subtitle = stringResource(R.string.knowledge_empty_subtitle),
+                                )
+                                else -> {
+                                    LazyColumn(
+                                        verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
+                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 80.dp),
+                                    ) {
+                                        if (!searching && selectedKb != null) {
+                                            item(key = "folder-path") {
+                                                val kbName = kbs.firstOrNull { it.id == selectedKb }?.name ?: selectedKb
+                                                val displayPath = listOf(kbName, currentFolderPath)
+                                                    .filter { it.isNotBlank() }
+                                                    .joinToString(" / ")
+                                                Text(
+                                                    displayPath,
+                                                    modifier = Modifier.padding(vertical = MusePaddings.tightGap),
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                            item(key = "folder-help") {
+                                                Text(
+                                                    text = stringResource(R.string.knowledge_folder_browser_hint),
+                                                    modifier = Modifier.padding(vertical = MusePaddings.tightGap),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                )
+                                            }
+                                            items(childFolders, key = { "folder:${it.path}" }) { folder ->
+                                                Box(museAnimateItem()) {
+                                                    KnowledgeFolderCard(
+                                                        title = folder.name,
+                                                        detail = stringResource(R.string.knowledge_folder_item_files, folder.documentCount),
+                                                        onClick = { currentFolderPath = folder.path },
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        items(folderFiles, key = { it.id }) { doc ->
+                                            Box(museAnimateItem()) {
+                                                DocCard(
+                                                    doc = doc,
+                                                    highlight = searchQuery.takeIf { it.isNotBlank() },
+                                                    onClick = { detailTarget = doc },
+                                                    onDelete = {
+                                                        scope.launch {
+                                                            ragService.deleteDocument(doc.id)
+                                                        }
+                                                        MuseToast.show(context.getString(R.string.knowledge_deleted))
+                                                    },
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -790,6 +891,68 @@ fun KnowledgeScreen(
             // F-32: 重命名 / 编辑正文入口
             onRename = { renameTarget = doc },
             onEditContent = { editContentTarget = doc },
+            onMoveToFolder = {
+                detailTarget = null
+                moveFolderTarget = doc
+            },
+        )
+    }
+
+    moveFolderTarget?.let { doc ->
+        var destination by remember(doc.id) { mutableStateOf(KnowledgeFolderBrowser.folderPath(doc)) }
+        var moveInProgress by remember(doc.id) { mutableStateOf(false) }
+        MuseDialog(
+            onDismissRequest = { if (!moveInProgress) moveFolderTarget = null },
+            title = stringResource(R.string.knowledge_move_folder_title),
+            content = {
+                Column(verticalArrangement = Arrangement.spacedBy(MusePaddings.tightGap)) {
+                    SettingField(
+                        label = stringResource(R.string.knowledge_move_to_folder),
+                        value = destination,
+                        onValueChange = { destination = it },
+                    )
+                    Text(
+                        text = stringResource(R.string.knowledge_move_folder_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmText = stringResource(
+                if (moveInProgress) R.string.knowledge_move_saving else R.string.action_save,
+            ),
+            confirmEnabled = !moveInProgress,
+            onConfirm = {
+                val targetPath = KnowledgeFolderBrowser.normalize(destination)
+                if (!moveInProgress) {
+                    moveInProgress = true
+                    scope.launch {
+                        resultOf {
+                            dao.upsert(
+                                KnowledgeFolderBrowser.withFolderPath(doc, targetPath)
+                                    .copy(updatedAt = System.currentTimeMillis()),
+                            )
+                        }.onSuccess {
+                            browsingKbId = doc.kbId
+                            currentFolderPath = targetPath
+                            refreshKey++
+                            moveFolderTarget = null
+                            MuseToast.show(context.getString(R.string.knowledge_move_success))
+                        }.onError { message, error ->
+                            moveInProgress = false
+                            Logger.w("KnowledgeScreen", "移动文档到文件夹失败: $message", error)
+                            MuseToast.show(
+                                context.getString(
+                                    R.string.knowledge_move_failed,
+                                    message.take(80).ifBlank { context.getString(R.string.common_load_failed) },
+                                ),
+                            )
+                        }
+                    }
+                }
+            },
+            dismissText = if (moveInProgress) null else stringResource(R.string.common_cancel),
+            onDismiss = { if (!moveInProgress) moveFolderTarget = null },
         )
     }
 
@@ -980,6 +1143,13 @@ fun KnowledgeScreen(
                     Surface(
                         onClick = {
                             importTargetKbId = "default"
+                            importTargetFolderPath =
+                                KnowledgeFolderBrowser.importFolderPath(
+                                    targetKbId = importTargetKbId,
+                                    browsingKbId = browsingKbId,
+                                    currentFolderPath = currentFolderPath,
+                                    searchQuery = searchQuery,
+                                )
                             showImportTargetDialog = false
                             importLauncher.launch("*/*")
                         },
@@ -1011,6 +1181,13 @@ fun KnowledgeScreen(
                         Surface(
                             onClick = {
                                 importTargetKbId = kb.id
+                                importTargetFolderPath =
+                                    KnowledgeFolderBrowser.importFolderPath(
+                                        targetKbId = importTargetKbId,
+                                        browsingKbId = browsingKbId,
+                                        currentFolderPath = currentFolderPath,
+                                        searchQuery = searchQuery,
+                                    )
                                 showImportTargetDialog = false
                                 importLauncher.launch("*/*")
                             },
@@ -1043,6 +1220,13 @@ fun KnowledgeScreen(
             confirmText = stringResource(R.string.knowledge_import_target_confirm),
             onConfirm = {
                 importTargetKbId = importTargetKbId.ifBlank { "default" }
+                importTargetFolderPath =
+                    KnowledgeFolderBrowser.importFolderPath(
+                        targetKbId = importTargetKbId,
+                        browsingKbId = browsingKbId,
+                        currentFolderPath = currentFolderPath,
+                        searchQuery = searchQuery,
+                    )
                 showImportTargetDialog = false
                 importLauncher.launch("*/*")
             },
@@ -1124,6 +1308,51 @@ fun KnowledgeScreen(
             dismissText = stringResource(R.string.common_cancel),
             onDismiss = { showSortMenu = false },
         )
+    }
+}
+
+@Composable
+private fun KnowledgeFolderCard(title: String, detail: String, onClick: () -> Unit) {
+    Surface(
+        shape = MuseShapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shadowElevation = MuseElevation.card,
+        tonalElevation = 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(MusePaddings.cardInner),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
+        ) {
+            Icon(
+                imageVector = MuseIcons.folder,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp),
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Icon(
+                imageVector = MuseIcons.chevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(MuseIconSizes.iconSmall),
+            )
+        }
     }
 }
 
@@ -1247,6 +1476,7 @@ private fun DocDetailDialog(
     // F-32: 文档重命名 / 正文编辑入口(仅文本型文档提供正文编辑)
     onRename: () -> Unit = {},
     onEditContent: () -> Unit = {},
+    onMoveToFolder: () -> Unit = {},
 ) {
     // v1.0.53: 封面区解析需要 context(filesDir/covers)
     val context = LocalContext.current
@@ -1331,6 +1561,13 @@ private fun DocDetailDialog(
                         )
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                MuseCapsuleButton(
+                    text = stringResource(R.string.knowledge_move_to_folder),
+                    onClick = onMoveToFolder,
+                    variant = IosCapsuleButtonVariant.Secondary,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Spacer(Modifier.height(10.dp))
 
                 Text(
@@ -1479,7 +1716,7 @@ private fun PdfMetadataCard(metadata: Map<String, String>) {
                 )
                 Spacer(Modifier.size(6.dp))
                 Text(
-                    text = stringResource(R.string.knowledge_doc_info), // 前端修复 (i18n-7)
+                    text = stringResource(R.string.knowledge_doc_info),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -1522,7 +1759,7 @@ private fun PdfOutlineCard(outline: List<String>) {
                 )
                 Spacer(Modifier.size(6.dp))
                 Text(
-                    text = stringResource(R.string.knowledge_doc_outline, outline.size), // 前端修复 (i18n-7)
+                    text = stringResource(R.string.knowledge_doc_outline, outline.size),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -1535,7 +1772,7 @@ private fun PdfOutlineCard(outline: List<String>) {
                         )
                     } else {
                         stringResource(R.string.action_expand)
-                    }, // 前端修复 (i18n-7)
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                 )

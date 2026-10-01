@@ -336,37 +336,43 @@ class AutomationManager(
     }
 
     /** Stable resource-id semantic click with bounded scrolling and optional post-click verification. */
-    suspend fun tapByViewIdWithRetryDetailed(
-        viewId: String,
-        maxSwipes: Int = 0,
-        verifyText: String? = null,
-    ): TextActionResult {
+    suspend fun tapByViewIdWithRetryDetailed(viewId: String, maxSwipes: Int = 0, verifyText: String? = null): TextActionResult {
         val attempts = maxSwipes.coerceIn(0, 5)
-        repeat(attempts + 1) { attempt ->
+        var terminalResult: TextActionResult? = null
+        for (attempt in 0..attempts) {
             val screen = readScreen()
             val node = screen.findBestViewIdNode(viewId)
             if (node != null) {
-                val label = node.viewIdResourceName ?: node.text ?: node.contentDescription
-                if (!tap(node.centerX, node.centerY)) {
-                    return TextActionResult(false, attempt + 1, matched = true, verified = false, label)
+                terminalResult = tapViewIdNode(node, attempt + 1, verifyText)
+                break
+            }
+            if (attempt < attempts && screen.screenHeight > 0) {
+                val centerX = screen.screenWidth / 2
+                if (!swipe(centerX, (screen.screenHeight * 0.82f).toInt(), centerX, (screen.screenHeight * 0.28f).toInt(), 450L)) {
+                    terminalResult = TextActionResult(false, attempt + 1, matched = false, verified = false)
+                    break
                 }
-                if (verifyText.isNullOrBlank()) return TextActionResult(true, attempt + 1, true, true, label)
+                kotlinx.coroutines.delay(300L)
+            }
+        }
+        return terminalResult ?: TextActionResult(false, attempts + 1, false, false)
+    }
+
+    private suspend fun tapViewIdNode(node: UiNode, attempt: Int, verifyText: String?): TextActionResult {
+        val label = node.viewIdResourceName ?: node.text ?: node.contentDescription
+        return when {
+            !tap(node.centerX, node.centerY) ->
+                TextActionResult(false, attempt, matched = true, verified = false, label)
+            verifyText.isNullOrBlank() -> TextActionResult(true, attempt, matched = true, verified = true, label)
+            else -> {
                 kotlinx.coroutines.delay(350L)
                 val verified = readScreen().nodes.any { candidate ->
                     val text = candidate.text ?: candidate.contentDescription ?: return@any false
                     text.contains(verifyText, ignoreCase = true)
                 }
-                return TextActionResult(verified, attempt + 1, true, verified, label)
-            }
-            if (attempt < attempts && screen.screenHeight > 0) {
-                val centerX = screen.screenWidth / 2
-                if (!swipe(centerX, (screen.screenHeight * 0.82f).toInt(), centerX, (screen.screenHeight * 0.28f).toInt(), 450L)) {
-                    return TextActionResult(false, attempt + 1, matched = false, verified = false)
-                }
-                kotlinx.coroutines.delay(300L)
+                TextActionResult(verified, attempt, matched = true, verified = verified, label)
             }
         }
-        return TextActionResult(false, attempts + 1, false, false)
     }
 
     /**
@@ -446,7 +452,6 @@ class AutomationManager(
         private const val TAG = "AutomationMgr"
     }
 }
-
 
 /** Try screenshot channels in priority order, treating empty or failed captures as unavailable. */
 internal suspend fun firstNonEmptyScreenshot(vararg sources: suspend () -> ByteArray?): ByteArray? {

@@ -63,9 +63,9 @@
         <error line="468" column="1" source="standard:max-line-length" />
         <error line="710" column="1" source="standard:max-line-length" />
         <error line="984" column="1" source="standard:max-line-length" />
-        <error line="2093" column="1" source="standard:max-line-length" />
-        <error line="2098" column="1" source="standard:max-line-length" />
-        <error line="2322" column="1" source="standard:max-line-length" />
+        <error line="2111" column="1" source="standard:max-line-length" />
+        <error line="2116" column="1" source="standard:max-line-length" />
+        <error line="2340" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/test/java/io/zer0/ai/decorator/RateLimitDecoratorTest.kt">
         <error line="97" column="40" source="standard:discouraged-comment-location" />

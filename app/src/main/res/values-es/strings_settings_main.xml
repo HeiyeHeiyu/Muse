@@ -64,6 +64,7 @@
     <string name="settings_provider_test_error_timeout">Se agotó el tiempo de conexión</string>
     <string name="settings_provider_test_error_unknown_host">No puede alcanzar el servidor</string>
     <string name="settings_provider_test_error_failed">Error de conexión: %1$s</string>
+    <string name="settings_provider_test_error_html">El servidor devolvió una página web en vez de JSON de la API. Las API compatibles con NewAPI suelen requerir /v1 en la URL base; comprueba la ruta y el proxy inverso.</string>
     <!-- v1.133: batch provider health check ("Test All" button in list header + per-row status) -->
     <string name="settings_provider_test_all">Probar todo</string>
     <string name="settings_provider_test_all_in_progress">Probando %1$d/%2$d</string>

@@ -1,20 +1,20 @@
 package io.zer0.muse.automation.tools
 
-import io.zer0.common.AppJson
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.zer0.common.AppJson
 import io.zer0.muse.automation.core.AutomationManager
 import io.zer0.muse.automation.core.ScreenInfo
 import io.zer0.muse.automation.core.UiNode
 import io.zer0.muse.automation.executors.ShellExecutor
-import io.zer0.muse.data.SecureKeyCipher
 import io.zer0.muse.automation.vdisplay.VirtualDisplayClient
 import io.zer0.muse.automation.vdisplay.VirtualDisplayServerManager
+import io.zer0.muse.data.SecureKeyCipher
+import io.zer0.muse.tools.NodeScriptTool
 import io.zer0.muse.tools.WorkflowJournal
 import io.zer0.muse.tools.script.SkillEngineResult
-import io.zer0.muse.tools.NodeScriptTool
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancelAndJoin
@@ -144,7 +144,16 @@ class AutomationWorkflowResumeTest {
             val manager = mockk<AutomationManager>()
             coEvery { manager.readScreenOnDisplay(42) } returnsMany listOf(
                 ScreenInfo(
-                    nodes = listOf(UiNode(text = "Delete account", boundsLeft = 80, boundsTop = 160, boundsRight = 120, boundsBottom = 240, isClickable = true)),
+                    nodes = listOf(
+                        UiNode(
+                            text = "Delete account",
+                            boundsLeft = 80,
+                            boundsTop = 160,
+                            boundsRight = 120,
+                            boundsBottom = 240,
+                            isClickable = true,
+                        ),
+                    ),
                     screenWidth = 720,
                     screenHeight = 1280,
                 ),
@@ -275,9 +284,15 @@ class AutomationWorkflowResumeTest {
                 "automation_workflow:0",
             )
             writerJournal.recordRequired(
-                "node-script-corrupt-run", 0, key,
-                AppJson.encodeToString(AutomationWorkflowStepResult.serializer(), AutomationWorkflowStepResult(0, "node_script", true, "secret-output")),
-                "done", WorkflowJournal.NODE_KIND_SENSITIVE_TOOL,
+                "node-script-corrupt-run",
+                0,
+                key,
+                AppJson.encodeToString(
+                    AutomationWorkflowStepResult.serializer(),
+                    AutomationWorkflowStepResult(0, "node_script", true, "secret-output"),
+                ),
+                "done",
+                WorkflowJournal.NODE_KIND_SENSITIVE_TOOL,
             )
             val readerJournal = WorkflowJournal(directory, TestWorkflowResultCipher(rejectDecrypt = true))
             var calls = 0
@@ -407,9 +422,9 @@ class AutomationWorkflowResumeTest {
         }
     }
 
-
     private class TestWorkflowResultCipher(private val rejectDecrypt: Boolean = false) : SecureKeyCipher {
-        override suspend fun encrypt(plain: String): String = "test_enc:" + java.util.Base64.getEncoder().encodeToString(plain.toByteArray())
+        override suspend fun encrypt(plain: String): String =
+            "test_enc:" + java.util.Base64.getEncoder().encodeToString(plain.toByteArray())
 
         override suspend fun decrypt(stored: String): String = decryptOrNull(stored).orEmpty()
 

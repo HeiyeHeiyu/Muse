@@ -1503,8 +1503,7 @@ class FactStore(
     private fun normalizeTombstone(text: String): String = text.trim().replace(WHITESPACE_RE, " ")
 
     /** Exact comparison used to detect a legitimate re-add without applying substring deletion semantics. */
-    private fun comparableTombstone(text: String): String =
-        normalizeTombstone(text).replace(PUNCT_RE, "")
+    private fun comparableTombstone(text: String): String = normalizeTombstone(text).replace(PUNCT_RE, "")
 
     companion object {
         /** D6 第 2 期: “多断言实体”默认阈值 —— 同实体 ≥3 条不同断言才值得提示整合。 */

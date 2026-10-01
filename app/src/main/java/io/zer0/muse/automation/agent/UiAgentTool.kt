@@ -15,7 +15,8 @@ class UiAgentTool(private val runner: UiAgentRunner) {
                 name = "ui_agent",
                 description = "GUI Agent 环:用视觉模型看着屏幕,一步步操作手机完成跨 App 的多步任务" +
                     "(如\"打开微信给张三发消息\")。内部自动循环:截图→视觉决策→点击/滑动/输入,默认最多 15 步。" +
-                    "display=auto(默认) 在有 package_name 且独立虚拟屏可用时优先隔离执行,否则降级到前台无障碍;display=foreground 强制当前主屏;display=virtual 强制独立屏并要求 Shizuku/Root。" +
+                    "display=auto(默认) 在有 package_name 且独立虚拟屏可用时优先隔离执行,否则降级到前台无障碍;" +
+                    "display=foreground 强制当前主屏;display=virtual 强制独立屏并要求 Shizuku/Root。" +
                     "需要视觉辅助已配置(设置→视觉辅助)。每步会截取当前执行界面并发送到所选视觉模型分析，截图可能包含聊天或账号等敏感信息；仅在用户明确授权的任务范围内调用。" +
                     "单步操作请直接用 screen_* 工具,多步流程再用本工具。",
                 parameters = mapOf(

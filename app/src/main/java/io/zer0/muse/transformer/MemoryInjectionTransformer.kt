@@ -39,7 +39,7 @@ class MemoryInjectionTransformer(
      * v8: 注入 FactStore 用于按 scope 拉取该作用域的事实列表。
      *
      * 设为可选(默认 null)以保持向后兼容:
-     *  - null:仅注入全局 compiledMarkdown(回退到 v7 之前的行为)
+     *  - null:仅注入当前助手/作用域的 compiledMarkdown(回退到 v7 之前的行为)
      *  - 非 null:在 compiledMarkdown 之上附加按 scope 过滤的事实段 + 标注
      *
      * ChatViewModel 若要启用 scope 过滤,需在构造时显式传入 factStore
@@ -61,6 +61,9 @@ class MemoryInjectionTransformer(
         val explicitSpaceId = (context.extra("current_space") as? String)
             ?.takeIf { it.isNotBlank() }
         val spaceId = explicitSpaceId ?: "default"
+        val assistantId =
+            (context.extra("assistant_id") as? String)?.takeIf { it.isNotBlank() }
+                ?: if (scope == "main") "default" else scope
 
         // v8: 按 scope 拉取事实列表(失败时记录日志并降级为空列表,不阻塞注入流程)
         // factStore 为 null 时跳过该段(向后兼容,ChatViewModel 未传 factStore 时仅注入全局 compiledMarkdown)
@@ -76,7 +79,11 @@ class MemoryInjectionTransformer(
         // 用 resultOf 替代 runCatching:resultOf 会重抛 CancellationException,
         // 避免协程取消被吞掉导致任务无法正常终止；scope/space 始终显式传递。
         val memoryMd = resultOf {
-            memoryTicker.readCompiledMemoryMarkdown(scope = scope, spaceId = spaceId)
+            memoryTicker.readCompiledMemoryMarkdown(
+                scope = scope,
+                spaceId = spaceId,
+                assistantId = assistantId,
+            )
         }
             .onError { msg, t -> Logger.w("MemoryInjectionTransformer", "readCompiledMemoryMarkdown 失败: $msg", t) }
             .getOrNull() ?: ""
@@ -100,12 +107,11 @@ class MemoryInjectionTransformer(
             "## 当前作用域事实($scope 共 ${facts.size} 条)\n$items\n\n"
         }
 
-        // v8: 全局 compiledMarkdown(由 MemoryTicker 编译,不按 scope 隔离)作为补充上下文
-        // 该段保留原有行为,与 buildLongTermMemorySection 路径保持一致
+        // 编译记忆按 assistant/scope/space 路由，与上方事实表使用同一助手身份。
         val compiledSection = if (memoryMd.isBlank()) {
             ""
         } else {
-            "## 全局编译记忆\n$memoryMd"
+            "## 当前作用域编译记忆\n$memoryMd"
         }
 
         val body = (factsSection + compiledSection).trim()

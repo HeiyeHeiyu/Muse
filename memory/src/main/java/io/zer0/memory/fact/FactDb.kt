@@ -53,7 +53,14 @@ import java.time.format.DateTimeFormatter
 internal const val FACT_DB_VERSION = 15
 
 @Database(
-    entities = [FactEntity::class, FactFtsEntity::class, MemorySpaceEntity::class, MemoryLinkEntity::class, FactRevisionEntity::class, FactTombstoneEntity::class],
+    entities = [
+        FactEntity::class,
+        FactFtsEntity::class,
+        MemorySpaceEntity::class,
+        MemoryLinkEntity::class,
+        FactRevisionEntity::class,
+        FactTombstoneEntity::class,
+    ],
     version = FACT_DB_VERSION,
     // v1.78 (H4): 开启 schema 导出,未来 v4+ 升级时编写 Migration 替代 destructive
     // 历史 v1→v2→v3 的 destructive migration 已无法补救,从 v3 开始留基线

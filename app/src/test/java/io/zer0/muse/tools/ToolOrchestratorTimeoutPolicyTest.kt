@@ -18,7 +18,14 @@ class ToolOrchestratorTimeoutPolicyTest {
 
     @Test
     fun `automation workflow deadline sums per-step waits and node-script limits`() {
-        val arguments = """{"steps":[{"action":"tap_text"},{"action":"node_script","timeoutMs":180000},{"action":"virtual_wait","durationMs":8000}]}"""
+        val arguments =
+            """
+            {"steps":[
+                {"action":"tap_text"},
+                {"action":"node_script","timeoutMs":180000},
+                {"action":"virtual_wait","durationMs":8000}
+            ]}
+            """.trimIndent()
 
         assertEquals(238_000L, ToolExecutionTimeoutPolicy.forTool("automation_workflow", arguments, TOOL_TIMEOUT_MS))
     }

@@ -35,6 +35,7 @@ class ChatAudioCoordinator(
     private var asrController: ASRController? = null
     private var asrControllerConfig: AsrConfig? = null
     private var asrStateJob: Job? = null
+
     // Monotonic session guard: late callbacks from a disposed/replaced controller must not mutate current UI/input.
     private var asrGeneration: Long = 0L
 

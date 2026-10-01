@@ -53,7 +53,8 @@ data class AssistantEntity(
 
     // ── 记忆 ──
     @ColumnInfo(defaultValue = "1") val memoryEnabled: Boolean = true,
-    @ColumnInfo(defaultValue = "1") val useGlobalMemory: Boolean = true,
+    // Keep the SQL default aligned with the existing Room schema; Room inserts use this safer Kotlin default.
+    @ColumnInfo(defaultValue = "1") val useGlobalMemory: Boolean = false,
     @ColumnInfo(defaultValue = "1") val enableRecentChatsReference: Boolean = true,
 
     // ── 提醒 ──

@@ -5,8 +5,8 @@ package io.zer0.memory.compile
 import io.zer0.ai.core.Model
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
-import io.zer0.memory.fact.FactStore
 import io.zer0.memory.fact.FactDbProvider
+import io.zer0.memory.fact.FactStore
 import io.zer0.memory.format.RollingSummaryFormat
 import io.zer0.memory.llm.MemoryLlmClient
 import io.zer0.memory.prompt.CompilePrompts
@@ -300,26 +300,26 @@ class MemoryCompiler(
         spaceId: String? = null,
         target: MemoryCompileTarget? = null,
     ): String = withContext(Dispatchers.IO) {
-            val resolvedTarget = effectiveTarget(target, scope = scope, spaceId = spaceId)
-            val tombstones = loadTombstones(resolvedTarget)
-            val read: suspend (Section) -> String = { section -> readSection(section, resolvedTarget) }
-            val facts = CompiledMemoryState.normalizeSectionBody(
-                filterTombstonedLines(read(Section.FACTS), tombstones),
-            )
-            val today = CompiledMemoryState.normalizeSectionBody(
-                filterTombstonedLines(read(Section.TODAY), tombstones),
-            )
-            val week = CompiledMemoryState.normalizeSectionBody(
-                filterTombstonedLines(read(Section.WEEK), tombstones),
-            )
-            val longterm = CompiledMemoryState.normalizeSectionBody(
-                filterTombstonedLines(read(Section.LONGTERM), tombstones),
-            )
-            val md = assembleCompiledMarkdown(facts, today, week, longterm, locale)
-            // v6: 同时输出到文件系统,便于调试和备份
-            fileWriter?.writeMemoryMd(md, locale)
-            md
-        }
+        val resolvedTarget = effectiveTarget(target, scope = scope, spaceId = spaceId)
+        val tombstones = loadTombstones(resolvedTarget)
+        val read: suspend (Section) -> String = { section -> readSection(section, resolvedTarget) }
+        val facts = CompiledMemoryState.normalizeSectionBody(
+            filterTombstonedLines(read(Section.FACTS), tombstones),
+        )
+        val today = CompiledMemoryState.normalizeSectionBody(
+            filterTombstonedLines(read(Section.TODAY), tombstones),
+        )
+        val week = CompiledMemoryState.normalizeSectionBody(
+            filterTombstonedLines(read(Section.WEEK), tombstones),
+        )
+        val longterm = CompiledMemoryState.normalizeSectionBody(
+            filterTombstonedLines(read(Section.LONGTERM), tombstones),
+        )
+        val md = assembleCompiledMarkdown(facts, today, week, longterm, locale)
+        // v6: 同时输出到文件系统,便于调试和备份
+        fileWriter?.writeMemoryMd(md, locale)
+        md
+    }
 
     /**
      * 编译 today: 当天 sessions → today.md。
@@ -895,13 +895,7 @@ class MemoryCompiler(
      *
      * @return 实际吸收条数
      */
-    private suspend fun absorbFactLines(
-        text: String,
-        scope: String,
-        spaceId: String,
-        tombstones: List<String>,
-        store: FactStore?,
-    ): Int {
+    private suspend fun absorbFactLines(text: String, scope: String, spaceId: String, tombstones: List<String>, store: FactStore?): Int {
         store ?: return 0
         val existing = resultOf { store.getByScopeAndSpace(scope, spaceId) }
             .getOrNull()?.map { normalizeLine(it.fact) }?.toSet() ?: return 0

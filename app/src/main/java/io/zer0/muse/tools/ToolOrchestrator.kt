@@ -82,10 +82,10 @@ internal object ToolExecutionTimeoutPolicy {
                 val steps = args.intOrNull("max_steps")?.coerceIn(3, 30) ?: 15
                 UI_AGENT_SETUP_OVERHEAD_MS + steps * (UI_AGENT_VISION_TIMEOUT_MS + UI_AGENT_STEP_OVERHEAD_MS)
             }
-            "automation_workflow" -> workflowTimeout(args) ?: return baseTimeoutMs
-            else -> return baseTimeoutMs
+            "automation_workflow" -> workflowTimeout(args)
+            else -> null
         }
-        return maxOf(baseTimeoutMs, derived)
+        return derived?.let { maxOf(baseTimeoutMs, it) } ?: baseTimeoutMs
     }
 
     private fun workflowTimeout(args: JsonObject): Long? {
@@ -95,8 +95,7 @@ internal object ToolExecutionTimeoutPolicy {
                 AppJson.parseToJsonElement(value.content) as? kotlinx.serialization.json.JsonArray
             }.getOrNull()
             else -> null
-        } ?: return null
-        if (steps.isEmpty()) return null
+        }?.takeIf { it.isNotEmpty() } ?: return null
         var total = WORKFLOW_SETUP_OVERHEAD_MS
         steps.take(MAX_WORKFLOW_STEPS).forEach { element ->
             val step = element as? JsonObject ?: return@forEach
@@ -113,8 +112,7 @@ internal object ToolExecutionTimeoutPolicy {
         return total
     }
 
-    private fun JsonObject.stringOrNull(name: String): String? =
-        runCatching { this[name]?.jsonPrimitive?.contentOrNull }.getOrNull()
+    private fun JsonObject.stringOrNull(name: String): String? = runCatching { this[name]?.jsonPrimitive?.contentOrNull }.getOrNull()
 
     private fun JsonObject.intOrNull(name: String): Int? = stringOrNull(name)?.toIntOrNull()
 
@@ -736,7 +734,8 @@ class ToolOrchestrator(
                 if (params.experiments.debugMode) {
                     Logger.d(
                         "ToolOrchestrator",
-                        "tool-chain truncated | round=$round | size ${params.baseHistorySize + toolChainSize} → ${conversationHistory.size}",
+                        "tool-chain truncated | round=$round | " +
+                            "size ${params.baseHistorySize + toolChainSize} → ${conversationHistory.size}",
                     )
                 }
             }

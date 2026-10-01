@@ -8,6 +8,7 @@ import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantEntity
+import io.zer0.muse.data.assistant.AssistantMemoryAccessPolicy
 import io.zer0.muse.data.chat.rewrite.ConversationEventDraft
 import io.zer0.muse.data.chat.rewrite.ConversationEventType
 import io.zer0.muse.data.chat.rewrite.ConversationRebuildFlagStore
@@ -23,6 +24,7 @@ import io.zer0.muse.session.ExecutionKind
 import io.zer0.muse.session.ExecutionState
 import io.zer0.muse.session.SessionExecutionRegistry
 import io.zer0.muse.session.TurnPhase
+import io.zer0.muse.transformer.UserMessageTimeContext
 import io.zer0.muse.ui.ChatErrorType
 import io.zer0.muse.ui.ChatStreamPhase
 import io.zer0.muse.ui.buildSendText
@@ -66,6 +68,7 @@ internal class ChatGenerationController(
     private val executionRegistry: SessionExecutionRegistry? = null,
 ) {
     private val shadowEventSequencer = ConversationShadowEventSequencer()
+
     // B-1: 会话删除写抑制集 — 删除会话消息时登记,令该会话全部在途流式落盘
     // (persistCurrentAssistant / persistInterruptedAssistant / 收尾 upsertMessage)
     // 跳过,防止删除后"复活"。新流式 launchStream 启动时清除,允许删除后重新生成。
@@ -634,10 +637,11 @@ internal class ChatGenerationController(
     @Suppress("LongMethod", "CyclomaticComplexMethod", "NestedBlockDepth")
     suspend fun buildSystemPromptForStream(state: StreamRunState) {
         with(state) {
-            // useGlobalMemory 是助手级开关;关闭时不能继续把全局画像/长期记忆注入当前对话。
+            // 共享上下文开关只控制全局画像/置顶/经验；助手自己的 facts 与近期会话保持独立。
             val memoryEnabled = assistant?.memoryEnabled ?: true
-            val useGlobalMemory = assistant?.useGlobalMemory ?: true
+            val useGlobalMemory = assistant?.useGlobalMemory ?: false
             val timeReminderEnabled = assistant?.enableTimeReminder ?: true
+            val assistantId = assistant?.id?.takeIf { it.isNotBlank() }
             val effectiveMemoryEnabled = memoryEnabled && deps.settings.isMemoryEnabled()
             // v1.0.72: 本会话不参考记忆标志
             val effSid =
@@ -649,7 +653,17 @@ internal class ChatGenerationController(
             val sessionIgnoreMem =
                 accessor.snapshot.sessions
                     .firstOrNull { it.id == effSid }?.ignoreMemory ?: false
-            val memoryScope = assistant?.id?.takeIf { it.isNotBlank() && it != "default" } ?: "main"
+            val relevantMemoryAssistantId =
+                assistantId?.takeIf {
+                    AssistantMemoryAccessPolicy.canInjectAssistantFacts(
+                        assistantId = it,
+                        useGlobalMemory = useGlobalMemory,
+                        memoryEnabled = effectiveMemoryEnabled,
+                        forSubagent = false,
+                        ignoreMemory = sessionIgnoreMem,
+                    )
+                }
+            val memoryScope = assistantId?.takeIf { it != "default" } ?: "main"
             val memorySpaceId = deps.settings.currentSpaceIdFlow.firstOrNull().orEmpty().ifBlank { "default" }
             // 复用静态 system prompt 快照,只追加动态"当前时间"。作用域/空间也属于快照身份,
             // 否则切换 Assistant 或 Space 后会复用上一份记忆 prompt。
@@ -678,6 +692,7 @@ internal class ChatGenerationController(
                     rebuilt
                 }
             val dynamicSection = if (timeReminderEnabled) deps.systemPromptAssembler.buildDynamicSection() else ""
+            val userMessageTimeContext = UserMessageTimeContext.build(rawHistory)
             // v2.x: 表情包使用指南(动态读取;库为空/开关关闭时为空串)
             val stickerGuide = resultOf { deps.systemPromptAssembler.buildStickerGuideSection() }.getOrNull().orEmpty()
             val combinedSystemPrompt =
@@ -687,12 +702,16 @@ internal class ChatGenerationController(
                         if (isNotEmpty()) append("\n\n---\n\n")
                         append(dynamicSection)
                     }
+                    if (userMessageTimeContext.isNotBlank()) {
+                        if (isNotEmpty()) append("\n\n---\n\n")
+                        append(userMessageTimeContext)
+                    }
                     if (stickerGuide.isNotBlank()) {
                         if (isNotEmpty()) append("\n\n---\n\n")
                         append(stickerGuide)
                     }
                     // 相关记忆检索(仅当记忆开启且非子助手;检索失败静默跳过)。
-                    if (memoryEnabled && !sessionIgnoreMem) {
+                    if (relevantMemoryAssistantId != null) {
                         // buildSystemPrompt 在 applyTransformers 之前执行,此时 transformedMessages
                         // 仍为空;使用本轮已准备好的 rawHistory,否则相关记忆永远不会注入。
                         val lastUserInput = rawHistory.lastOrNull { it.role == MessageRole.USER }?.content
@@ -704,7 +723,7 @@ internal class ChatGenerationController(
                                         store = null,
                                         scope = memoryScope,
                                         spaceId = memorySpaceId,
-                                        assistantId = assistant?.id,
+                                        assistantId = relevantMemoryAssistantId,
                                     )
                                 }
                                     .onError { msg, _ -> Logger.w("ChatVM", "buildRelevantMemorySection 失败: $msg") }

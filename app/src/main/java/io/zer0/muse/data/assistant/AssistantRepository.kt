@@ -132,6 +132,8 @@ class AssistantRepository(
                 reasoningLevel = ReasoningLevel.OFF.name,
                 skillIdsJson = serializeStringList(allSkillIds),
                 toolIdsJson = serializeStringList(allToolIds),
+                // The built-in default assistant intentionally opts into the user's global memory pool.
+                useGlobalMemory = true,
             ),
         )
         // v1.97: 老用户 prompt 迁移 — 检测 default 助手是否还在用旧版 prompt,

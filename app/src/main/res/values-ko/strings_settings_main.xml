@@ -64,6 +64,7 @@
     <string name="settings_provider_test_error_timeout">연결 시간이 초과되었습니다.</string>
     <string name="settings_provider_test_error_unknown_host">서버에 연결할 수 없습니다</string>
     <string name="settings_provider_test_error_failed">연결 실패: %1$s</string>
+    <string name="settings_provider_test_error_html">서버가 API JSON 대신 웹 페이지를 반환했습니다. NewAPI 호환 API는 보통 기본 URL에 /v1이 필요합니다. API 경로와 리버스 프록시를 확인하세요.</string>
     <!-- v1.133: batch provider health check ("Test All" button in list header + per-row status) -->
     <string name="settings_provider_test_all">모두 테스트</string>
     <string name="settings_provider_test_all_in_progress">%1$d/%2$d 테스트 중</string>

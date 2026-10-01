@@ -395,6 +395,8 @@ internal fun ProviderEditPage(
                 isFetchingModels = false
                 val msg = lastError?.message ?: context.getString(R.string.settings_provider_unknown_error)
                 fetchError = when {
+                    msg.contains("HTML page instead of OpenAI-compatible JSON", ignoreCase = true) ->
+                        context.getString(R.string.settings_provider_test_error_html)
                     msg.contains("404") -> context.getString(R.string.settings_provider_404_error)
                     msg.contains("401") || msg.contains("403") -> context.getString(R.string.settings_provider_auth_error)
                     msg.contains("Unable to resolve") || msg.contains("UnknownHost") -> context.getString(R.string.settings_provider_unable_to_resolve)
@@ -457,6 +459,8 @@ internal fun ProviderEditPage(
                     // 错误分级(按 task spec 短消息展示)
                     val msg = (r as Result.Error).throwable?.message.orEmpty()
                     val classified = when {
+                        msg.contains("HTML page instead of OpenAI-compatible JSON", ignoreCase = true) ->
+                            context.getString(R.string.settings_provider_test_error_html)
                         msg.contains("401") || msg.contains("403") ->
                             context.getString(R.string.settings_provider_test_error_auth)
                         msg.contains("404") ->

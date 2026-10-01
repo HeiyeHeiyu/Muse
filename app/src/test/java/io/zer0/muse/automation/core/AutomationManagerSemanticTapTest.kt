@@ -52,9 +52,18 @@ class AutomationManagerSemanticTapTest {
         val attempts = mutableListOf<String>()
 
         val image = firstNonEmptyScreenshot(
-            { attempts += "shell"; null },
-            { attempts += "root"; byteArrayOf() },
-            { attempts += "accessibility"; byteArrayOf(1, 2, 3) },
+            {
+                attempts += "shell"
+                null
+            },
+            {
+                attempts += "root"
+                byteArrayOf()
+            },
+            {
+                attempts += "accessibility"
+                byteArrayOf(1, 2, 3)
+            },
         )
 
         assertArrayEquals(byteArrayOf(1, 2, 3), image)
@@ -66,8 +75,14 @@ class AutomationManagerSemanticTapTest {
         val attempts = mutableListOf<String>()
 
         val image = firstNonEmptyScreenshot(
-            { attempts += "shell"; byteArrayOf(9) },
-            { attempts += "root"; byteArrayOf(2) },
+            {
+                attempts += "shell"
+                byteArrayOf(9)
+            },
+            {
+                attempts += "root"
+                byteArrayOf(2)
+            },
         )
 
         assertArrayEquals(byteArrayOf(9), image)

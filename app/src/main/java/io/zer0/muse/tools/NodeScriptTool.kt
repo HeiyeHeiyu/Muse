@@ -48,22 +48,27 @@ object NodeScriptTool {
 
     suspend fun execute(context: Context, args: Map<String, String>): String {
         val code = args["code"].orEmpty()
-        if (code.isBlank()) return errorJson("参数 code 缺失或为空")
-        if (code.length > MAX_SCRIPT_CHARS) return errorJson("脚本超过最大长度($MAX_SCRIPT_CHARS 字符)")
         val timeoutMs = args["timeout_ms"]?.toLongOrNull()?.coerceIn(1L, MAX_TIMEOUT_MS) ?: DEFAULT_TIMEOUT_MS
-        return formatResultJson(evaluate(context, code, timeoutMs))
+        return when {
+            code.isBlank() -> errorJson("参数 code 缺失或为空")
+            code.length > MAX_SCRIPT_CHARS -> errorJson("脚本超过最大长度($MAX_SCRIPT_CHARS 字符)")
+            else -> formatResultJson(evaluate(context, code, timeoutMs))
+        }
     }
 
     /** Shared execution path for the direct script tool and durable phone-agent workflows. */
     suspend fun evaluate(context: Context, code: String, timeoutMs: Long = DEFAULT_TIMEOUT_MS): SkillEngineResult {
-        if (code.isBlank()) return SkillEngineResult.Error("参数 code 缺失或为空")
-        if (code.length > MAX_SCRIPT_CHARS) return SkillEngineResult.Error("脚本超过最大长度($MAX_SCRIPT_CHARS 字符)")
-        return ProcessSkillEngine(context).eval(
-            script = code,
-            timeoutMs = timeoutMs.coerceIn(1L, MAX_TIMEOUT_MS),
-            scopeKey = "builtin-node-script",
-            pluginConfigJson = null,
-        )
+        return when {
+            code.isBlank() -> SkillEngineResult.Error("参数 code 缺失或为空")
+            code.length > MAX_SCRIPT_CHARS -> SkillEngineResult.Error("脚本超过最大长度($MAX_SCRIPT_CHARS 字符)")
+            else ->
+                ProcessSkillEngine(context).eval(
+                    script = code,
+                    timeoutMs = timeoutMs.coerceIn(1L, MAX_TIMEOUT_MS),
+                    scopeKey = "builtin-node-script",
+                    pluginConfigJson = null,
+                )
+        }
     }
 
     fun formatResultJson(result: SkillEngineResult, maxChars: Int = Int.MAX_VALUE): String {

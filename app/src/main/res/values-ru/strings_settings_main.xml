@@ -64,6 +64,7 @@
     <string name="settings_provider_test_error_timeout">Время подключения истекло</string>
     <string name="settings_provider_test_error_unknown_host">Невозможно получить доступ к серверу</string>
     <string name="settings_provider_test_error_failed">Соединение не удалось: %1$s</string>
+    <string name="settings_provider_test_error_html">Сервер вернул веб-страницу вместо JSON API. Для совместимых с NewAPI API обычно требуется /v1 в базовом URL; проверьте путь API и обратный прокси.</string>
     <!-- v1.133: batch provider health check ("Test All" button in list header + per-row status) -->
     <string name="settings_provider_test_all">Проверить все</string>
     <string name="settings_provider_test_all_in_progress">Тестирование %1$d/%2$d</string>

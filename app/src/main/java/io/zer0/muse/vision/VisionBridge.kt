@@ -898,7 +898,6 @@ data class VisionProgress(
     val ratio: Float get() = if (total > 0) index.toFloat() / total else 0f
 }
 
-
 /** Keep durable model instructions in a system role, separate from screen/user-controlled content. */
 internal fun buildVisionMessages(prompt: String, imageBase64: String, systemPrompt: String?): List<UIMessage> = buildList {
     systemPrompt?.trim()?.takeIf { it.isNotEmpty() }?.let { instruction ->

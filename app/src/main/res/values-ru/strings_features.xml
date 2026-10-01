@@ -286,6 +286,14 @@
 
     <!-- ===== ui/knowledge ===== -->
     <string name="knowledge_title">База знаний</string>
+    <string name="knowledge_folder_browser_hint">Папки из ZIP отображаются по относительному пути. При перемещении документа можно указать новый путь и создать папки.</string>
+    <string name="knowledge_move_to_folder">Переместить в папку</string>
+    <string name="knowledge_move_folder_title">Переместить документ</string>
+    <string name="knowledge_move_folder_hint">Введите путь, например Проекты/Договоры. Оставьте пустым для корня базы знаний.</string>
+    <string name="knowledge_move_saving">Перемещение…</string>
+    <string name="knowledge_move_success">Документ перемещён в папку</string>
+    <string name="knowledge_move_failed">Не удалось переместить документ: %1$s</string>
+    <string name="knowledge_folder_item_files">%1$d файлов</string>
     <string name="knowledge_back">Назад</string>
     <string name="knowledge_sort">Сортировать</string>
     <string name="knowledge_import">Импорт</string>

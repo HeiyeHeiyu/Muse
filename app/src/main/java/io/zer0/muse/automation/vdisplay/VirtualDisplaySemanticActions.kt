@@ -33,7 +33,12 @@ object VirtualDisplaySemanticActions {
             if (node != null) {
                 val x = node.centerX
                 val y = node.centerY
-                if (screen.screenWidth <= 0 || screen.screenHeight <= 0 || x !in 0 until screen.screenWidth || y !in 0 until screen.screenHeight) {
+                if (
+                    screen.screenWidth <= 0 ||
+                    screen.screenHeight <= 0 ||
+                    x !in 0 until screen.screenWidth ||
+                    y !in 0 until screen.screenHeight
+                ) {
                     return TapTextResult(false, attempt + 1, true, false, error = "目标控件坐标无效")
                 }
                 val tap = VirtualDisplayInputCommand.build(displayId, "tap", mapOf("x" to x.toString(), "y" to y.toString()))
@@ -45,7 +50,14 @@ object VirtualDisplaySemanticActions {
                 }
                 val execution = displayManager.exec(tap.shellCommand)
                 if (execution.exitCode != 0) {
-                    return TapTextResult(false, attempt + 1, true, false, outcomeUnknown = true, error = "虚拟屏点击结果未知(exit=${execution.exitCode})")
+                    return TapTextResult(
+                        false,
+                        attempt + 1,
+                        true,
+                        false,
+                        outcomeUnknown = true,
+                        error = "虚拟屏点击结果未知(exit=${execution.exitCode})",
+                    )
                 }
                 val expected = verifyText?.trim()?.takeIf { it.isNotEmpty() }
                     ?: return TapTextResult(true, attempt + 1, true, false)
@@ -106,14 +118,26 @@ object VirtualDisplaySemanticActions {
                 ?: return TapTextResult(false, attempt + 1, false, false, error = "虚拟屏控件树不可用")
             val node = screen.findBestViewIdNode(viewId)
             if (node != null) {
-                val x = node.centerX; val y = node.centerY
-                if (screen.screenWidth <= 0 || screen.screenHeight <= 0 || x !in 0 until screen.screenWidth || y !in 0 until screen.screenHeight) {
+                val x = node.centerX
+                val y = node.centerY
+                if (
+                    screen.screenWidth <= 0 ||
+                    screen.screenHeight <= 0 ||
+                    x !in 0 until screen.screenWidth ||
+                    y !in 0 until screen.screenHeight
+                ) {
                     return TapTextResult(false, attempt + 1, true, false, error = "目标控件坐标无效")
                 }
                 val command = VirtualDisplayInputCommand.build(displayId, "tap", mapOf("x" to x.toString(), "y" to y.toString()))
                     ?: return TapTextResult(false, attempt + 1, true, false, error = "无法构造虚拟屏点击")
                 when (val check = DeviceCommandPolicy.validate(command.shellCommand)) {
-                    is DeviceCommandPolicy.Check.Invalid -> return TapTextResult(false, attempt + 1, true, false, error = "点击命令被策略拒绝:${check.reason}")
+                    is DeviceCommandPolicy.Check.Invalid -> return TapTextResult(
+                        false,
+                        attempt + 1,
+                        true,
+                        false,
+                        error = "点击命令被策略拒绝:${check.reason}",
+                    )
                     DeviceCommandPolicy.Check.Valid -> Unit
                 }
                 if (displayManager.exec(command.shellCommand).exitCode != 0) {
@@ -121,20 +145,48 @@ object VirtualDisplaySemanticActions {
                 }
                 val expected = verifyText?.takeIf { it.isNotBlank() } ?: return TapTextResult(true, attempt + 1, true, true)
                 delay(350L)
-                val after = manager.readScreenOnDisplay(displayId) ?: return TapTextResult(false, attempt + 1, true, false, outcomeUnknown = true, error = "点击已发送但无法验证")
+                val after = manager.readScreenOnDisplay(displayId)
+                    ?: return TapTextResult(
+                        success = false,
+                        attempts = attempt + 1,
+                        matched = true,
+                        verified = false,
+                        outcomeUnknown = true,
+                        error = "点击已发送但无法验证",
+                    )
                 val verified = after.nodes.any { candidate ->
                     val text = candidate.text ?: candidate.contentDescription ?: return@any false
                     text.contains(expected, ignoreCase = true)
                 }
-                return if (verified) TapTextResult(true, attempt + 1, true, true) else TapTextResult(false, attempt + 1, true, false, outcomeUnknown = true, error = "点击已发送但未验证")
+                return if (verified) {
+                    TapTextResult(
+                        true,
+                        attempt + 1,
+                        true,
+                        true,
+                    )
+                } else {
+                    TapTextResult(false, attempt + 1, true, false, outcomeUnknown = true, error = "点击已发送但未验证")
+                }
             }
             if (attempt < bounded && screen.screenHeight > 0) {
-                val swipe = VirtualDisplayInputCommand.build(displayId, "swipe", mapOf(
-                    "x1" to (screen.screenWidth / 2).toString(), "y1" to (screen.screenHeight * 82 / 100).toString(),
-                    "x2" to (screen.screenWidth / 2).toString(), "y2" to (screen.screenHeight * 28 / 100).toString(),
-                    "duration_ms" to SWIPE_DURATION_MS.toString(),
-                )) ?: return TapTextResult(false, attempt + 1, false, false, error = "无法构造滚动")
-                if (displayManager.exec(swipe.shellCommand).exitCode != 0) return TapTextResult(false, attempt + 1, false, false, error = "滚动失败")
+                val swipe = VirtualDisplayInputCommand.build(
+                    displayId, "swipe",
+                    mapOf(
+                        "x1" to (screen.screenWidth / 2).toString(), "y1" to (screen.screenHeight * 82 / 100).toString(),
+                        "x2" to (screen.screenWidth / 2).toString(), "y2" to (screen.screenHeight * 28 / 100).toString(),
+                        "duration_ms" to SWIPE_DURATION_MS.toString(),
+                    ),
+                ) ?: return TapTextResult(false, attempt + 1, false, false, error = "无法构造滚动")
+                if (displayManager.exec(swipe.shellCommand).exitCode != 0) {
+                    return TapTextResult(
+                        false,
+                        attempt + 1,
+                        false,
+                        false,
+                        error = "滚动失败",
+                    )
+                }
                 delay(SCROLL_SETTLE_MS)
             }
         }

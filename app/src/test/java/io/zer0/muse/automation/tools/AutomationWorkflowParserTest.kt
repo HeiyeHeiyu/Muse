@@ -21,7 +21,10 @@ class AutomationWorkflowParserTest {
         )
 
         assertTrue(result.isSuccess)
-        assertEquals(listOf("launch", "tap_text", "read", "virtual_tap", "virtual_read", "node_script"), result.getOrThrow().map { it.action })
+        assertEquals(
+            listOf("launch", "tap_text", "read", "virtual_tap", "virtual_read", "node_script"),
+            result.getOrThrow().map { it.action },
+        )
         assertEquals(2, result.getOrThrow()[1].maxSwipes)
         assertEquals(42, result.getOrThrow()[3].displayId)
         assertEquals(120, result.getOrThrow()[3].x)

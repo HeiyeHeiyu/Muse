@@ -10,12 +10,12 @@ import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.Model
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.muse.data.SettingsRepository
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.runBlocking
 
 /**
  * R-TEST-19: 视觉辅助流程编排的纯函数/降级提示测试。

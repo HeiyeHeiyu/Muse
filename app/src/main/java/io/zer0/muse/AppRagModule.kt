@@ -1,6 +1,5 @@
 package io.zer0.muse
 
-import io.zer0.common.resultOf
 import kotlinx.coroutines.flow.first
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.qualifier.named
@@ -115,9 +114,11 @@ val appRagModule = module {
                     topK = topK,
                     scopeDocIds = null,
                     metadataFilter = null,
-                    docDao = get(),
-                    chunkDao = get(),
-                    ftsDao = get<io.zer0.muse.data.session.MuseDb>().knowledgeChunkFtsDao(),
+                    daos = io.zer0.muse.rag.KnowledgeKeywordFallback.SearchDaos(
+                        docDao = get(),
+                        chunkDao = get(),
+                        ftsDao = get<io.zer0.muse.data.session.MuseDb>().knowledgeChunkFtsDao(),
+                    ),
                 )
             },
             scopedKeywordSearchFallback = { query, topK, docIds, metadataFilter ->
@@ -126,9 +127,11 @@ val appRagModule = module {
                     topK = topK,
                     scopeDocIds = docIds,
                     metadataFilter = metadataFilter,
-                    docDao = get(),
-                    chunkDao = get(),
-                    ftsDao = get<io.zer0.muse.data.session.MuseDb>().knowledgeChunkFtsDao(),
+                    daos = io.zer0.muse.rag.KnowledgeKeywordFallback.SearchDaos(
+                        docDao = get(),
+                        chunkDao = get(),
+                        ftsDao = get<io.zer0.muse.data.session.MuseDb>().knowledgeChunkFtsDao(),
+                    ),
                 )
             },
             // v1.0.12: HNSW 索引持久化文件路径 — 启用 RAG 向量索引落盘

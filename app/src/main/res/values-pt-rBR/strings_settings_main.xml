@@ -64,6 +64,7 @@
     <string name="settings_provider_test_error_timeout">A conexão expirou</string>
     <string name="settings_provider_test_error_unknown_host">Sem contato com o servidor</string>
     <string name="settings_provider_test_error_failed">Falha na conexão: %1$s</string>
+    <string name="settings_provider_test_error_html">O servidor retornou uma página da web em vez de JSON da API. APIs compatíveis com NewAPI geralmente exigem /v1 na URL base; verifique a rota e o proxy reverso.</string>
     <!-- v1.133: batch provider health check ("Test All" button in list header + per-row status) -->
     <string name="settings_provider_test_all">Teste tudo</string>
     <string name="settings_provider_test_all_in_progress">Testando %1$d/%2$d</string>

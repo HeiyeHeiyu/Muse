@@ -654,9 +654,15 @@ class FactStoreTest {
             assertEquals(listOf("same preference"), store.getTombstones("main", "work"))
             assertTrue(store.getTombstones("main", "personal").isEmpty())
             assertTrue(store.getTombstones("assistant-a", "work").isEmpty())
-            assertTrue("an active duplicate is exempt from an old shared text tombstone", otherStore.getTombstones("main", "work").isEmpty())
-            assertEquals("legacy tombstone still filters stale compiled text when no active exact fact exists",
-                listOf("same preference"), otherStore.getTombstones("assistant-a", "work"))
+            assertTrue(
+                "an active duplicate is exempt from an old shared text tombstone",
+                otherStore.getTombstones("main", "work").isEmpty(),
+            )
+            assertEquals(
+                "legacy tombstone still filters stale compiled text when no active exact fact exists",
+                listOf("same preference"),
+                otherStore.getTombstones("assistant-a", "work"),
+            )
         } finally {
             legacyFile.delete()
             otherDb.close()

@@ -168,6 +168,68 @@ class MuseDbMigrationTest {
     }
 
     @Test
+    fun migrate105ToLatest_disablesGlobalMemoryOnlyForNonDefaultAssistants() {
+        val dbFile = context.getDatabasePath("muse_migration_assistant_memory_105.db").apply {
+            parentFile?.mkdirs()
+            if (exists()) delete()
+        }
+        try {
+            createSchemaAtVersion(105, dbFile.absolutePath)
+            val legacyHelper = FrameworkSQLiteOpenHelperFactory().create(
+                androidx.sqlite.db.SupportSQLiteOpenHelper.Configuration.builder(context)
+                    .name(dbFile.absolutePath)
+                    .callback(object : androidx.sqlite.db.SupportSQLiteOpenHelper.Callback(105) {
+                        override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) = Unit
+                        override fun onUpgrade(db: androidx.sqlite.db.SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                    })
+                    .build(),
+            )
+            val legacyDb = legacyHelper.writableDatabase
+            try {
+                listOf(
+                    Triple("default", "Default", 1),
+                    Triple("assistant-shared", "Previously shared", 1),
+                    Triple("assistant-private", "Already private", 0),
+                ).forEach { (id, name, useGlobalMemory) ->
+                    legacyDb.compileStatement(
+                        "INSERT INTO assistants (id, name, useGlobalMemory) VALUES (?, ?, ?)",
+                    ).use { statement ->
+                        statement.bindString(1, id)
+                        statement.bindString(2, name)
+                        statement.bindLong(3, useGlobalMemory.toLong())
+                        statement.executeInsert()
+                    }
+                }
+            } finally {
+                legacyHelper.close()
+            }
+
+            val db = Room.databaseBuilder(context, MuseDb::class.java, dbFile.absolutePath)
+                .addMigrations(*migrationsFrom(105).toTypedArray())
+                .allowMainThreadQueries()
+                .build()
+            try {
+                val migratedSettings = mutableMapOf<String, Pair<String, Int>>()
+                db.openHelper.writableDatabase.query(
+                    "SELECT id, name, useGlobalMemory FROM assistants",
+                ).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        migratedSettings[cursor.getString(0)] = cursor.getString(1) to cursor.getInt(2)
+                    }
+                }
+                assertEquals("Default" to 1, migratedSettings["default"])
+                assertEquals("Previously shared" to 0, migratedSettings["assistant-shared"])
+                assertEquals("Already private" to 0, migratedSettings["assistant-private"])
+            } finally {
+                db.close()
+            }
+        } finally {
+            if (dbFile.exists()) dbFile.delete()
+            context.deleteDatabase(dbFile.name)
+        }
+    }
+
+    @Test
     fun migrateRealV68WithoutIsLocked_addsMissingColumnsAndKeepsData() {
         val dbFile = context.getDatabasePath("muse_migration_68_real.db").apply {
             parentFile?.mkdirs()

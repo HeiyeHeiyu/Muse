@@ -8,7 +8,8 @@ class ScreenInfoTest {
     @Test
     fun `best text node prefers exact clickable text over decorative duplicate`() {
         val decorative = UiNode(text = "Settings", boundsLeft = 0, boundsTop = 0, boundsRight = 100, boundsBottom = 40)
-        val clickable = UiNode(text = "Settings", boundsLeft = 100, boundsTop = 100, boundsRight = 300, boundsBottom = 180, isClickable = true)
+        val clickable =
+            UiNode(text = "Settings", boundsLeft = 100, boundsTop = 100, boundsRight = 300, boundsBottom = 180, isClickable = true)
 
         val node = ScreenInfo(nodes = listOf(decorative, clickable)).findBestTextNode("Settings")
 

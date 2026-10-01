@@ -1041,8 +1041,15 @@ class MemoryTicker(
         assistantId: String? = null,
     ): String {
         val currentTarget = currentCompileTarget()
+        // In Muse every non-main memory scope belongs to the assistant with that id.
+        // Prefer that scope over the background runtime's current assistant (usually `default`);
+        // callers with a custom owner can still supply assistantId explicitly.
+        val resolvedAssistantId =
+            assistantId?.takeIf { it.isNotBlank() }
+                ?: scope?.takeIf { it.isNotBlank() && it != "main" }
+                ?: currentTarget.assistantId
         val target = currentTarget.copy(
-            assistantId = assistantId?.takeIf { it.isNotBlank() } ?: currentTarget.assistantId,
+            assistantId = resolvedAssistantId,
             scope = scope?.takeIf { it.isNotBlank() } ?: currentTarget.scope,
             spaceId = spaceId?.takeIf { it.isNotBlank() } ?: currentTarget.spaceId,
         )

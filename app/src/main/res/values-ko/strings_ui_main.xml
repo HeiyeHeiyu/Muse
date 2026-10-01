@@ -67,7 +67,7 @@
     <string name="assistant_detail_enable_memory">기억 활성화</string>
     <string name="assistant_detail_enable_memory_desc">끄면 이 어시스턴트는 장기 기억을 주입하지 않습니다</string>
     <string name="assistant_detail_use_global_memory">전역 기억 사용</string>
-    <string name="assistant_detail_use_global_memory_desc">끄면 독립된 기억 풀을 사용합니다(실험적)</string>
+    <string name="assistant_detail_use_global_memory_desc">켜면 공유 프로필, 고정 메모리, 공유 경험도 사용합니다. 이 도우미만의 사실과 최근 대화는 어느 설정에서나 유지됩니다. 새 도우미에서는 기본으로 꺼져 있습니다.</string>
     <string name="assistant_detail_recent_chats_reference">최근 대화 참조</string>
     <string name="assistant_detail_recent_chats_reference_desc">최근 대화 요약을 컨텍스트로 프롬프트에 주입합니다</string>
     <string name="assistant_detail_time_reminder">시간 알림</string>
@@ -76,10 +76,16 @@
     <string name="assistant_detail_add_memory">기억 추가</string>
     <string name="assistant_detail_add_memory_desc">사실이나 지식을 수동으로 입력하면 AI가 참고합니다</string>
     <string name="assistant_detail_saved_memory_count">저장된 기억 (%1$d)</string>
+    <string name="assistant_detail_global_pinned_count">전역 고정 기억 (%1$d)</string>
+    <string name="assistant_detail_global_pinned_enabled">전역 기억이 켜져 있어 이 항목이 이 도우미에 포함됩니다.</string>
+    <string name="assistant_detail_global_pinned_disabled">보기 전용입니다. 전역 기억이 꺼져 있어 이 도우미에는 포함되지 않습니다.</string>
+    <string name="assistant_detail_saved_memory_interaction_hint">탭하여 펼치기 · 길게 눌러 편집</string>
     <string name="assistant_detail_no_memory">아직 기억이 없습니다</string>
     <string name="assistant_detail_delete_cd">삭제</string>
     <string name="assistant_detail_delete_memory">기억 삭제</string>
     <string name="assistant_detail_add_memory_dialog_title">기억 추가</string>
+    <string name="assistant_detail_memory_edit_missing">이 기억이 없거나 내용이 올바르지 않습니다</string>
+    <string name="assistant_detail_edit_memory_dialog_title">기억 편집</string>
     <string name="assistant_detail_input_fact">사실/지식 입력</string>
     <string name="assistant_detail_save">저장</string>
     <string name="assistant_detail_cancel">취소</string>

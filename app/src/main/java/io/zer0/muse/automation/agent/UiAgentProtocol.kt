@@ -24,6 +24,7 @@ object UiAgentProtocol {
         data class Key(val key: String) : Action()
         data class Launch(val packageName: String) : Action()
         data class Wait(val ms: Long) : Action()
+
         /** completed=null means the model did not prove whether the task succeeded. */
         data class Finish(val result: String, val completed: Boolean? = null) : Action()
     }
@@ -201,11 +202,17 @@ object UiAgentProtocol {
                 while (index < body.length) {
                     val char = body[index++]
                     when {
-                        char == quote -> { closed = true; break }
+                        char == quote -> {
+                            closed = true
+                            break
+                        }
                         char == '\\' && index < body.length -> {
                             val escaped = body[index++]
-                            if (escaped == quote || escaped == '\\') value.append(escaped)
-                            else value.append('\\').append(escaped)
+                            if (escaped == quote || escaped == '\\') {
+                                value.append(escaped)
+                            } else {
+                                value.append('\\').append(escaped)
+                            }
                         }
                         else -> value.append(char)
                     }
@@ -229,9 +236,11 @@ object UiAgentProtocol {
         while (index < body.length) {
             val char = body[index]
             if (quote != null) {
-                if (escaped) escaped = false
-                else if (char == '\\') escaped = true
-                else if (char == quote) quote = null
+                if (escaped) {
+                    escaped = false
+                } else if (char == '\\') {
+                    escaped = true
+                } else if (char == quote) quote = null
             } else if (char == '"' || char == '\'') {
                 quote = char
             } else if (char == ',') {

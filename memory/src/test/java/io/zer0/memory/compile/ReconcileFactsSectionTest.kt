@@ -172,7 +172,10 @@ class ReconcileFactsSectionTest {
             assertEquals(1, changed)
             assertEquals("", providerCompiler.readSection(MemoryCompiler.Section.FACTS, target))
             assertTrue(childStore.getByScopeAndSpace(assistantId, "work").isEmpty())
-            assertTrue("deleted child facts must not be absorbed into the default store", factStore.getByScopeAndSpace("main", "work").isEmpty())
+            assertTrue(
+                "deleted child facts must not be absorbed into the default store",
+                factStore.getByScopeAndSpace("main", "work").isEmpty(),
+            )
         } finally {
             provider.release(assistantId)
             context.deleteDatabase(databaseName)

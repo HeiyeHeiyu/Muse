@@ -48,9 +48,7 @@ class KnowledgeKeywordFallbackTest {
             topK = 5,
             scopeDocIds = listOf("internal-doc", "outside-doc", "public-doc"),
             metadataFilter = VectorSearchService.MetadataFilter(tag = "keep", startTime = 100L),
-            docDao = docs,
-            chunkDao = chunks,
-            ftsDao = fts,
+            daos = KnowledgeKeywordFallback.SearchDaos(docDao = docs, chunkDao = chunks, ftsDao = fts),
         )
 
         assertEquals(1, results.size)
@@ -80,9 +78,7 @@ class KnowledgeKeywordFallbackTest {
             topK = 5,
             scopeDocIds = null,
             metadataFilter = null,
-            docDao = docs,
-            chunkDao = chunks,
-            ftsDao = fts,
+            daos = KnowledgeKeywordFallback.SearchDaos(docDao = docs, chunkDao = chunks, ftsDao = fts),
         )
 
         assertEquals(1, results.size)

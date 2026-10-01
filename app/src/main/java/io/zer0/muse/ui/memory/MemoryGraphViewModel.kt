@@ -4,8 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.zer0.memory.ai.MemoryLinkDao
-import io.zer0.memory.fact.FactStore
 import io.zer0.memory.fact.FactDbProvider
+import io.zer0.memory.fact.FactStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,13 +35,17 @@ class MemoryGraphViewModel(
         val error: String? = null,
     )
 
-    private fun storeForScope(scope: String?): FactStore =
-        if (scope.isNullOrBlank() || scope == "main") factStore
-        else factDbProvider?.getFactStore(scope) ?: factStore
+    private fun storeForScope(scope: String?): FactStore = if (scope.isNullOrBlank() || scope == "main") {
+        factStore
+    } else {
+        factDbProvider?.getFactStore(scope) ?: factStore
+    }
 
-    private fun linksForScope(scope: String?): MemoryLinkDao =
-        if (scope.isNullOrBlank() || scope == "main") memoryLinkDao
-        else factDbProvider?.getFactDb(scope)?.memoryLinkDao() ?: memoryLinkDao
+    private fun linksForScope(scope: String?): MemoryLinkDao = if (scope.isNullOrBlank() || scope == "main") {
+        memoryLinkDao
+    } else {
+        factDbProvider?.getFactDb(scope)?.memoryLinkDao() ?: memoryLinkDao
+    }
 
     private val _state = MutableStateFlow(GraphState(isLoading = true))
     val state: StateFlow<GraphState> = _state.asStateFlow()

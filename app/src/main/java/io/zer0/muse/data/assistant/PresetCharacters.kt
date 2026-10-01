@@ -41,7 +41,8 @@ object PresetCharacters {
         topP = preset.recommendedTopP,
         avatarEmoji = preset.avatarEmoji,
         memoryEnabled = true,
-        useGlobalMemory = true,
+        // Presets are separate assistants; global memories are an explicit per-assistant opt-in.
+        useGlobalMemory = false,
         enableRecentChatsReference = true,
         enableTimeReminder = true,
     )

@@ -74,8 +74,6 @@ class RagService(
      * App 启动时调用 [loadVectorIndexIfNeeded] 加载;新增 chunk 时增量更新 + 定期 save。
      */
     private val indexFile: File? = null,
-    /** Re-open the original imported source when doc.content is only a bounded preview. */
-    private val reindexSourceProvider: (suspend (KnowledgeDocEntity, RagConfig) -> Flow<String>?)? = null,
     /** Cache directory used to stage a full source before replacing its current index. */
     private val reindexStagingDirectory: File? = null,
 ) {
@@ -96,7 +94,9 @@ class RagService(
         vectorIndexNeedsFullRebuild = true
         pendingSaveCount.set(0)
         val marker = vectorIndexRebuildMarkerFile
-        val markerWritten = if (marker == null) false else {
+        val markerWritten = if (marker == null) {
+            false
+        } else {
             persistVectorIndexRebuildMarker(reason)
             marker.exists()
         }
@@ -294,8 +294,11 @@ class RagService(
             preservePendingIndexBeforeLoad(vi, expectedFingerprint)
             val file = indexFile
             val rebuildMarkerExists = vectorIndexRebuildMarkerFile?.exists() == true
-            val loadResult = if (rebuildMarkerExists) IndexLoadResult(loaded = false)
-            else loadIndexFile(vi, file, expectedFingerprint)
+            val loadResult = if (rebuildMarkerExists) {
+                IndexLoadResult(loaded = false)
+            } else {
+                loadIndexFile(vi, file, expectedFingerprint)
+            }
             if (!loadResult.loaded) {
                 vi.clear()
                 pendingSaveCount.set(0)
@@ -480,17 +483,18 @@ class RagService(
             return
         }
         val idsToRemove = (dbIds + cacheIds).distinct()
-        if (idsToRemove.isEmpty()) return
-        var removeFailed = false
-        for (id in idsToRemove) {
-            resultOf { vi.remove(id) }
-                .onError { msg, e ->
-                    removeFailed = true
-                    Logger.e("RagService", "HNSW remove 失败(chunkId=$id): $msg", e)
-                }
-            chunkMetaCache.remove(id)
+        if (idsToRemove.isNotEmpty()) {
+            var removeFailed = false
+            for (id in idsToRemove) {
+                resultOf { vi.remove(id) }
+                    .onError { msg, e ->
+                        removeFailed = true
+                        Logger.e("RagService", "HNSW remove 失败(chunkId=$id): $msg", e)
+                    }
+                chunkMetaCache.remove(id)
+            }
+            if (removeFailed) markVectorIndexNeedsFullRebuild("incremental remove failed for doc $docId")
         }
-        if (removeFailed) markVectorIndexNeedsFullRebuild("incremental remove failed for doc $docId")
     }
 
     private val vectorSearch = VectorSearchService(
@@ -1191,8 +1195,10 @@ class RagService(
             // able to leak internal or out-of-scope documents into automatic prompts.
             .filterNot { it.isInternal }
             .filter { allowedDocIds == null || it.docId in allowedDocIds }
-            .filter { metadataFilter == null || metadataFilter.isEmpty() ||
-                metadataFilter.matches(it.docId, it.docTitle, it.metadataJson, it.createdAt) }
+            .filter {
+                metadataFilter == null || metadataFilter.isEmpty() ||
+                    metadataFilter.matches(it.docId, it.docTitle, it.metadataJson, it.createdAt)
+            }
             .distinctBy { it.chunkId.ifBlank { "${it.docId}\u0000${it.docTitle}\u0000${it.snippet}" } }
             .take(ragConfig.topK)
         if (fallbackResults.isEmpty()) return RagInjection("", emptyList(), System.currentTimeMillis() - start)
@@ -1322,11 +1328,17 @@ class RagService(
         sourceContentProvider: (suspend (KnowledgeDocEntity) -> Flow<String>?)? = null,
         onProgress: (current: Int, total: Int) -> Unit = { _, _ -> },
     ): Map<String, String> {
-        if (kbIds.isEmpty()) return emptyMap()
-        val visibleDocs = resultOf { docDao.getByKbIds(kbIds) }
-            .onError { msg, e -> Logger.e("RagService", "KB 重索引:加载文档失败: $msg", e) }
-            .getOrNull() ?: return emptyMap<String, String>().also {
-            Logger.w("RagService", "KB 重索引:无文档可处理")
+        val visibleDocs =
+            if (kbIds.isEmpty()) {
+                null
+            } else {
+                resultOf { docDao.getByKbIds(kbIds) }
+                    .onError { msg, e -> Logger.e("RagService", "KB 重索引:加载文档失败: $msg", e) }
+                    .getOrNull()
+            }
+        if (visibleDocs == null) {
+            if (kbIds.isNotEmpty()) Logger.w("RagService", "KB 重索引:无文档可处理")
+            return emptyMap()
         }
         val provider = embeddingService.getProvider(ragConfig)
         loadVectorIndexIfNeeded(provider)
@@ -1421,7 +1433,7 @@ class RagService(
 
         // Document.content is a preview; stage the original source completely before the existing index is touched.
         val source = sourceContentProvider?.invoke(document)
-            ?: throw IllegalStateException("Document source is truncated or unavailable; re-import the original file before reindexing")
+            ?: error("Document source is truncated or unavailable; re-import the original file before reindexing")
         val staged = stageReindexSource(source)
         try {
             val chunkCount = indexDocumentStreamed(
@@ -1429,9 +1441,7 @@ class RagService(
                 textPieces = stagedReindexFlow(staged.file),
                 ragConfig = ragConfig,
             )
-            if (chunkCount <= 0) {
-                throw IllegalStateException("Original source produced no indexable chunks")
-            }
+            check(chunkCount > 0) { "Original source produced no indexable chunks" }
             docDao.upsert(
                 document.copy(
                     content = staged.preview,

@@ -74,7 +74,7 @@
     <string name="assistant_detail_enable_memory">启用记忆</string>
     <string name="assistant_detail_enable_memory_desc">关闭后此助手不注入长期记忆</string>
     <string name="assistant_detail_use_global_memory">使用全局记忆</string>
-    <string name="assistant_detail_use_global_memory_desc">关闭后使用独立记忆池(实验性)</string>
+    <string name="assistant_detail_use_global_memory_desc">开启后额外参考全局用户画像、置顶记忆和共享经验；关闭后仍使用此助手自己的事实记忆与近期会话。新助手默认关闭。</string>
     <string name="assistant_detail_recent_chats_reference">近期会话引用</string>
     <string name="assistant_detail_recent_chats_reference_desc">在 Prompt 中注入最近会话摘要作为上下文</string>
     <string name="assistant_detail_time_reminder">时间提醒</string>
@@ -83,10 +83,16 @@
     <string name="assistant_detail_add_memory">添加记忆</string>
     <string name="assistant_detail_add_memory_desc">手动输入事实/知识,AI 会参考</string>
     <string name="assistant_detail_saved_memory_count">已存记忆 (%1$d)</string>
+    <string name="assistant_detail_global_pinned_count">全局置顶记忆 (%1$d)</string>
+    <string name="assistant_detail_global_pinned_enabled">使用全局记忆已开启，这些内容会注入当前助手</string>
+    <string name="assistant_detail_global_pinned_disabled">仅供查看；当前助手关闭了全局记忆，因此不会注入</string>
+    <string name="assistant_detail_saved_memory_interaction_hint">点按展开全文 · 长按编辑</string>
     <string name="assistant_detail_no_memory">暂无记忆</string>
     <string name="assistant_detail_delete_cd">删除</string>
     <string name="assistant_detail_delete_memory">删除记忆</string>
     <string name="assistant_detail_add_memory_dialog_title">添加记忆</string>
+    <string name="assistant_detail_memory_edit_missing">这条记忆已不存在或内容无效</string>
+    <string name="assistant_detail_edit_memory_dialog_title">编辑记忆</string>
     <string name="assistant_detail_input_fact">输入事实/知识</string>
     <string name="assistant_detail_save">保存</string>
     <string name="assistant_detail_cancel">取消</string>

@@ -137,7 +137,14 @@ data class ProviderConfig(
     private fun normalizeKnownBaseUrl(url: String): String = if (url.equals("https://api.siliconflow.cn", ignoreCase = true)) {
         "$url/v1"
     } else {
-        url
+        // NewAPI's web UI is served from the host root; the OpenAI-compatible API is under /v1.
+        // Users commonly paste only the host, which makes /models resolve to the HTML SPA and
+        // fail JSON parsing. Normalize both the built-in template and this known host consistently
+        // so model discovery and later chat requests use the same API base.
+        val uri = runCatching { java.net.URI(url) }.getOrNull()
+        val path = uri?.path.orEmpty().trimEnd('/')
+        val isNewApi = id == "preset_newapi" || uri?.host?.equals("newapi.0z.hk", ignoreCase = true) == true
+        if (isNewApi && path.isBlank()) "$url/v1" else url
     }
 
     /**

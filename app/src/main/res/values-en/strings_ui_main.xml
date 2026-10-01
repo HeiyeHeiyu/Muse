@@ -74,7 +74,7 @@
     <string name="assistant_detail_enable_memory">Enable Memory</string>
     <string name="assistant_detail_enable_memory_desc">When off, this assistant won\'t inject long-term memory</string>
     <string name="assistant_detail_use_global_memory">Use Global Memory</string>
-    <string name="assistant_detail_use_global_memory_desc">When off, uses an independent memory pool (experimental)</string>
+    <string name="assistant_detail_use_global_memory_desc">When on, this assistant also uses the shared user profile, pinned memories, and experiences. Its own facts and recent chats stay available either way. Off by default for new assistants.</string>
     <string name="assistant_detail_recent_chats_reference">Recent Chat Reference</string>
     <string name="assistant_detail_recent_chats_reference_desc">Inject recent chat summaries as context into the prompt</string>
     <string name="assistant_detail_time_reminder">Time Reminder</string>
@@ -83,10 +83,16 @@
     <string name="assistant_detail_add_memory">Add Memory</string>
     <string name="assistant_detail_add_memory_desc">Manually enter facts/knowledge for AI reference</string>
     <string name="assistant_detail_saved_memory_count">Saved Memories (%1$d)</string>
+    <string name="assistant_detail_global_pinned_count">Global Pinned Memories (%1$d)</string>
+    <string name="assistant_detail_global_pinned_enabled">Global memory is on, so these entries are included for this assistant.</string>
+    <string name="assistant_detail_global_pinned_disabled">View only. Global memory is off, so these entries are not included for this assistant.</string>
+    <string name="assistant_detail_saved_memory_interaction_hint">Tap to expand · Long-press to edit</string>
     <string name="assistant_detail_no_memory">No memories yet</string>
     <string name="assistant_detail_delete_cd">Delete</string>
     <string name="assistant_detail_delete_memory">Delete Memory</string>
     <string name="assistant_detail_add_memory_dialog_title">Add Memory</string>
+    <string name="assistant_detail_memory_edit_missing">This memory no longer exists or the content is invalid</string>
+    <string name="assistant_detail_edit_memory_dialog_title">Edit Memory</string>
     <string name="assistant_detail_input_fact">Enter fact/knowledge</string>
     <string name="assistant_detail_save">Save</string>
     <string name="assistant_detail_cancel">Cancel</string>

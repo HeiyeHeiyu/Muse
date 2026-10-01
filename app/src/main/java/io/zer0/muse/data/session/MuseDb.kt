@@ -169,7 +169,7 @@ import java.io.File
         MessagePartEntity::class,
         SessionBranchHeadEntity::class,
     ],
-    version = 105,
+    version = 106,
     exportSchema = true,
 )
 @TypeConverters(QuickNoteConverters::class)
@@ -951,6 +951,23 @@ abstract class MuseDb : RoomDatabase() {
                 }
                 if ("warmupPending" !in existing) {
                     db.execSQL("ALTER TABLE sessions ADD COLUMN warmupPending INTEGER NOT NULL DEFAULT 0")
+                }
+            }
+        }
+
+        /**
+         * v105→v106: 默认助手保留全局记忆；其他助手默认隔离。
+         *
+         * 旧版 useGlobalMemory 对所有助手默认开启，升级时关闭非 default 助手的全局共享，
+         * 避免全局画像/置顶记忆意外串入其他助手。各助手自己的 facts 和近期会话仍保留。
+         * 使用 compileStatement 执行 DML，兼容 Android 16 对 execSQL DML 的限制。
+         */
+        val MIGRATION_105_106 = object : Migration(105, 106) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.compileStatement(
+                    "UPDATE assistants SET useGlobalMemory = 0 WHERE id != 'default' AND useGlobalMemory != 0",
+                ).use { statement ->
+                    statement.executeUpdateDelete()
                 }
             }
         }
@@ -2913,6 +2930,7 @@ abstract class MuseDb : RoomDatabase() {
                         MIGRATION_102_103,
                         MIGRATION_103_104,
                         MIGRATION_104_105,
+                        MIGRATION_105_106,
                     )
                     // 启用外键约束(artifacts 表的 ON DELETE CASCADE 依赖此设置)
                     // onOpen 不在 onCreate 事务内,可以执行此类命令;onCreate 内禁止 PRAGMA

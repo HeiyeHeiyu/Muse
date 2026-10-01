@@ -1120,9 +1120,13 @@ class OpenAIProvider(
             call.execute().use { resp ->
                 if (!resp.isSuccessful) {
                     // L-OAI1: 用 readBodySafely 替代 runCatching
+                    val contentType = resp.header("Content-Type").orEmpty()
                     val errText = ProviderHttpSupport.readBodySafely(resp)
-                    val errMsg = ErrorCode.INVALID_RESPONSE.toMessage("model_list_fetch", resp.code) +
-                        errText.takeIf { it.isNotBlank() }?.let { ": $it" }.orEmpty()
+                    val htmlHint = openAiHtmlEndpointHint(contentType, errText)
+                    val errMsg = htmlHint ?: (
+                        ErrorCode.INVALID_RESPONSE.toMessage("model_list_fetch", resp.code) +
+                            errText.takeIf { it.isNotBlank() }?.let { ": $it" }.orEmpty()
+                        )
                     // v1.0.8 (7.5): 错误分级日志 — 401/403 鉴权问题 vs 404/5xx 网络问题分别记录
                     val category = when (resp.code) {
                         401, 403 -> "auth_failed"
@@ -1136,9 +1140,23 @@ class OpenAIProvider(
                     throw OpenAIHttpException(resp.code, errMsg)
                 }
                 // M-OAI6: body 空安全
+                val contentType = resp.header("Content-Type").orEmpty()
                 val raw = resp.body?.string()
                     ?: throw ErrorCode.INVALID_RESPONSE.toProviderException("model_list_empty", resp.code)
-                val parsed = AppJson.decodeFromString<OpenAIModelsResponse>(raw)
+                openAiHtmlEndpointHint(contentType, raw)?.let { hint ->
+                    throw OpenAIHttpException(resp.code, hint)
+                }
+                val parsed = try {
+                    AppJson.decodeFromString<OpenAIModelsResponse>(raw)
+                } catch (error: kotlinx.serialization.SerializationException) {
+                    throw ProviderException(
+                        ProviderError.Unknown(
+                            httpCode = resp.code,
+                            displayMessage = "The models endpoint returned invalid JSON. Verify the OpenAI-compatible API base URL.",
+                            cause = error,
+                        ),
+                    )
+                }
                 val models = parsed.data.orEmpty()
                 // v1.0.8 (7.5): 成功日志 — 记录上游返回的模型数量,便于排查"返回 0 个模型"场景
                 Logger.i("OpenAIProvider", "listModels 成功: 上游返回 ${models.size} 个模型")
@@ -2658,6 +2676,15 @@ class OpenAIProvider(
  * v1.0.27 Phase 5-A: 改为继承 [ProviderException],让消费端可通过
  * `(throwable as? ProviderException)?.providerError` 拿到类型化错误。
  */
+internal fun openAiHtmlEndpointHint(contentType: String, body: String): String? {
+    val prefix = body.trimStart().take(256).lowercase()
+    val isHtml = contentType.contains("text/html", ignoreCase = true) ||
+        prefix.startsWith("<!doctype html") || prefix.startsWith("<html") || prefix.startsWith("<head")
+    if (!isHtml) return null
+    return "The server returned an HTML page instead of OpenAI-compatible JSON. " +
+        "NewAPI base URLs usually need the /v1 path; check the API base URL, proxy route, and web-protection page."
+}
+
 internal class OpenAIHttpException(
     val code: Int,
     message: String,

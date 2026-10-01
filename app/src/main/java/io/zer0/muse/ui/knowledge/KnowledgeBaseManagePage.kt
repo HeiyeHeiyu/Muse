@@ -69,8 +69,8 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.security.MessageDigest
 import org.koin.compose.koinInject
+import java.security.MessageDigest
 
 /**
  * v1.133: 知识库管理页 — 创建/重命名/删除 KB,查看文档数,一键重索引。

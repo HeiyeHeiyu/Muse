@@ -45,8 +45,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.ai.core.Model
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ReasoningLevel
+import io.zer0.common.Logger
+import io.zer0.common.Result
+import io.zer0.common.resultOf
 import io.zer0.memory.fact.FactDbProvider
 import io.zer0.memory.fact.FactStore
+import io.zer0.memory.pin.PinnedMemoryStore
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantCardExporter
@@ -1400,19 +1404,39 @@ fun AssistantMemoryPage(assistantId: String, onBack: () -> Unit) {
     val settings: SettingsRepository = koinInject()
     val scope = rememberCoroutineScope()
     var showAddFactDialog by remember { mutableStateOf(false) }
+    var editingFactId by remember { mutableStateOf<Long?>(null) }
     var factInput by remember { mutableStateOf("") }
+    val expandedFactIds = remember { androidx.compose.runtime.mutableStateMapOf<Long, Boolean>() }
+    val context = LocalContext.current
     var refreshKey by remember { mutableStateOf(0) }
     val memoryScope: String =
         if (assistant == null || assistant.id.isBlank() || assistant.id == "default") "main" else assistant.id
     val memoryStore: FactStore =
         if (memoryScope == "main") koinInject<FactStore>() else factDbProvider.getFactStore(assistant!!.id)
+    // Pinned memories are a separate global store; show them explicitly so they are not mistaken
+    // for assistant-scoped facts or for an empty global FactStore.
+    val pinnedMemoryStore: PinnedMemoryStore = koinInject()
+    val pinnedMemories by produceState(
+        initialValue = emptyList<PinnedMemoryStore.PinnedEntry>(),
+        refreshKey,
+    ) {
+        value =
+            resultOf { pinnedMemoryStore.getAll() }
+                .onError { message, error -> Logger.w("AssistantMemoryPage", "读取置顶记忆失败: $message", error) }
+                .getOrNull()
+                .orEmpty()
+    }
     // spaceId 取当前 Space,与生产读取(按 currentSpaceId 过滤)保持同一维度。
     val spaceId by produceState(initialValue = "default", refreshKey) {
         value = settings.currentSpaceIdFlow.first().ifBlank { "default" }
     }
     // 注:此处按 scope+space 读取该 store 下 AI 实际使用的事实;增删后递增 refreshKey 触发重新拉取。
     val facts by produceState<List<FactStore.Fact>>(initialValue = emptyList(), refreshKey, memoryScope, spaceId) {
-        value = runCatching { memoryStore.getByScopeAndSpace(memoryScope, spaceId) }.getOrDefault(emptyList())
+        value =
+            resultOf { memoryStore.getByScopeAndSpace(memoryScope, spaceId) }
+                .onError { message, error -> Logger.w("AssistantMemoryPage", "读取助手记忆失败: $message", error) }
+                .getOrNull()
+                .orEmpty()
     }
 
     SettingsSubPageScaffold(title = stringResource(R.string.assistant_detail_memory), onBack = onBack) {
@@ -1476,11 +1500,55 @@ fun AssistantMemoryPage(assistantId: String, onBack: () -> Unit) {
                 )
             }
         }
-        // 已存记忆列表(支持删除)
+        if (pinnedMemories.isNotEmpty()) {
+            item {
+                CardGroup(
+                    modifier = museAnimateItem(),
+                    title = {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(stringResource(R.string.assistant_detail_global_pinned_count, pinnedMemories.size))
+                            Text(
+                                text = stringResource(
+                                    if (a.useGlobalMemory) {
+                                        R.string.assistant_detail_global_pinned_enabled
+                                    } else {
+                                        R.string.assistant_detail_global_pinned_disabled
+                                    },
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
+                ) {
+                    pinnedMemories.forEach { entry ->
+                        item(
+                            key = entry.id,
+                            headlineContent = {
+                                Text(entry.content, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            },
+                            supportingContent = { Text(entry.createdAt) },
+                        )
+                    }
+                }
+            }
+        }
+        // 已存记忆列表(支持展开、长按编辑和删除)
         item {
             CardGroup(
                 modifier = museAnimateItem(),
-                title = { Text(stringResource(R.string.assistant_detail_saved_memory_count, facts.size)) },
+                title = {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(stringResource(R.string.assistant_detail_saved_memory_count, facts.size))
+                        if (facts.isNotEmpty()) {
+                            Text(
+                                text = stringResource(R.string.assistant_detail_saved_memory_interaction_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                },
             ) {
                 if (facts.isEmpty()) {
                     item(headlineContent = { Text(stringResource(R.string.assistant_detail_no_memory)) })
@@ -1488,11 +1556,23 @@ fun AssistantMemoryPage(assistantId: String, onBack: () -> Unit) {
                     facts.forEach { fact ->
                         item(
                             key = fact.id,
+                            onClick = {
+                                if (expandedFactIds[fact.id] == true) {
+                                    expandedFactIds.remove(fact.id)
+                                } else {
+                                    expandedFactIds[fact.id] = true
+                                }
+                            },
+                            onLongClick = {
+                                factInput = fact.fact
+                                editingFactId = fact.id
+                            },
                             headlineContent = {
+                                val expanded = expandedFactIds[fact.id] == true
                                 Text(
                                     text = fact.fact,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = if (expanded) Int.MAX_VALUE else 2,
+                                    overflow = if (expanded) TextOverflow.Clip else TextOverflow.Ellipsis,
                                 )
                             },
                             supportingContent = { Text(fact.createdAt) },
@@ -1512,14 +1592,20 @@ fun AssistantMemoryPage(assistantId: String, onBack: () -> Unit) {
                                         onConfirm = {
                                             showDeleteConfirm = false
                                             scope.launch {
-                                                runCatching {
-                                                    memoryStore.delete(
-                                                        id = fact.id,
-                                                        assistantId = if (memoryScope == "main") "default" else memoryScope,
-                                                        scope = memoryScope,
-                                                        spaceId = spaceId,
-                                                    )
-                                                }
+                                                val deleted =
+                                                    resultOf {
+                                                        memoryStore.delete(
+                                                            id = fact.id,
+                                                            assistantId = if (memoryScope == "main") "default" else memoryScope,
+                                                            scope = memoryScope,
+                                                            spaceId = spaceId,
+                                                        )
+                                                    }
+                                                        .onError { message, error ->
+                                                            Logger.w("AssistantMemoryPage", "删除助手记忆失败: $message", error)
+                                                        }
+                                                        .getOrNull() == true
+                                                if (deleted) expandedFactIds.remove(fact.id)
                                                 refreshKey++
                                             }
                                         },
@@ -1534,11 +1620,24 @@ fun AssistantMemoryPage(assistantId: String, onBack: () -> Unit) {
         }
     }
 
-    // 添加记忆对话框
-    if (showAddFactDialog) {
+    // 手动新增/长按编辑共用对话框。
+    if (showAddFactDialog || editingFactId != null) {
+        val targetFactId = editingFactId
+        val isEditing = targetFactId != null
+        fun dismissFactEditor() {
+            showAddFactDialog = false
+            editingFactId = null
+            factInput = ""
+        }
         MuseDialog(
-            onDismissRequest = { showAddFactDialog = false },
-            title = stringResource(R.string.assistant_detail_add_memory_dialog_title),
+            onDismissRequest = ::dismissFactEditor,
+            title = stringResource(
+                if (isEditing) {
+                    R.string.assistant_detail_edit_memory_dialog_title
+                } else {
+                    R.string.assistant_detail_add_memory_dialog_title
+                },
+            ),
             content = {
                 MuseTextField(
                     value = factInput,
@@ -1552,21 +1651,38 @@ fun AssistantMemoryPage(assistantId: String, onBack: () -> Unit) {
             // MEM-07: 空内容禁用保存按钮
             confirmEnabled = factInput.isNotBlank(),
             onConfirm = {
+                val content = factInput.trim()
                 scope.launch {
-                    // P2-9: 写入目标为当前 scope 对应的生产 store,AI 侧才能读回
-                    runCatching {
-                        memoryStore.add(FactStore.Fact(fact = factInput.trim()), scope = memoryScope, spaceId = spaceId)
+                    // Keep the same assistant/scope store that prompt assembly reads from.
+                    val result =
+                        resultOf {
+                            if (targetFactId == null) {
+                                memoryStore.add(FactStore.Fact(fact = content), scope = memoryScope, spaceId = spaceId)
+                                true
+                            } else {
+                                memoryStore.update(id = targetFactId, content = content, scope = memoryScope)
+                            }
+                        }
+                    val saved = result.getOrNull() ?: false
+                    if (saved) {
+                        targetFactId?.let { expandedFactIds[it] = true }
+                        refreshKey++
+                        dismissFactEditor()
+                    } else if (result.isError) {
+                        val message = (result as? Result.Error)?.let { it.throwable?.message ?: it.message }.orEmpty()
+                        MuseToast.show(
+                            context.getString(
+                                if (targetFactId == null) R.string.memory_add_failed else R.string.memory_edit_failed,
+                                message.ifBlank { context.getString(R.string.assistant_detail_memory_edit_missing) },
+                            ),
+                        )
+                    } else {
+                        MuseToast.show(context.getString(R.string.assistant_detail_memory_edit_missing))
                     }
-                    factInput = ""
-                    showAddFactDialog = false
-                    refreshKey++
                 }
             },
             dismissText = stringResource(R.string.assistant_detail_cancel),
-            onDismiss = {
-                showAddFactDialog = false
-                factInput = ""
-            },
+            onDismiss = ::dismissFactEditor,
         )
     }
 }

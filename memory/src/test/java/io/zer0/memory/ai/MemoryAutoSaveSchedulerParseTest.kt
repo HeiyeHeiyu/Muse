@@ -24,7 +24,14 @@ class MemoryAutoSaveSchedulerParseTest {
         val scheduler = MemoryAutoSaveScheduler(
             factDbProvider = FactDbProvider(context),
             llmClient = object : MemoryLlmClient {
-                override suspend fun callText(systemPrompt: String, userContent: String, model: Model?, temperature: Float, maxTokens: Int, timeoutMs: Long): String = "{}"
+                override suspend fun callText(
+                    systemPrompt: String,
+                    userContent: String,
+                    model: Model?,
+                    temperature: Float,
+                    maxTokens: Int,
+                    timeoutMs: Long,
+                ): String = "{}"
             },
             scope = CoroutineScope(Dispatchers.Unconfined),
         )

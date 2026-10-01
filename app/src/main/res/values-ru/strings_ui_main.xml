@@ -67,7 +67,7 @@
     <string name="assistant_detail_enable_memory">Включить память</string>
     <string name="assistant_detail_enable_memory_desc">Если выключено, ассистент не внедряет долгосрочную память</string>
     <string name="assistant_detail_use_global_memory">Использовать глобальную память</string>
-    <string name="assistant_detail_use_global_memory_desc">Если выключено, используется независимый пул памяти (экспериментальное)</string>
+    <string name="assistant_detail_use_global_memory_desc">При включении ассистент также использует общий профиль, закреплённые воспоминания и опыт. Его собственные факты и недавние чаты доступны при любом значении. Для новых ассистентов функция выключена по умолчанию.</string>
     <string name="assistant_detail_recent_chats_reference">Ссылка на недавние чаты</string>
     <string name="assistant_detail_recent_chats_reference_desc">Внедряет краткие сводки недавних чатов в промпт как контекст</string>
     <string name="assistant_detail_time_reminder">Напоминание о времени</string>
@@ -76,10 +76,16 @@
     <string name="assistant_detail_add_memory">Добавить память</string>
     <string name="assistant_detail_add_memory_desc">Вручную введите факты/знания для использования AI</string>
     <string name="assistant_detail_saved_memory_count">Сохранённая память (%1$d)</string>
+    <string name="assistant_detail_global_pinned_count">Закреплённые глобальные воспоминания (%1$d)</string>
+    <string name="assistant_detail_global_pinned_enabled">Общая память включена, поэтому эти записи добавляются в контекст этого ассистента.</string>
+    <string name="assistant_detail_global_pinned_disabled">Только просмотр. Общая память отключена, поэтому эти записи не добавляются в контекст этого ассистента.</string>
+    <string name="assistant_detail_saved_memory_interaction_hint">Нажмите, чтобы развернуть · Удерживайте для редактирования</string>
     <string name="assistant_detail_no_memory">Пока нет воспоминаний</string>
     <string name="assistant_detail_delete_cd">Удалить</string>
     <string name="assistant_detail_delete_memory">Удалить память</string>
     <string name="assistant_detail_add_memory_dialog_title">Добавить память</string>
+    <string name="assistant_detail_memory_edit_missing">Это воспоминание не найдено или его содержимое недопустимо</string>
+    <string name="assistant_detail_edit_memory_dialog_title">Изменить воспоминание</string>
     <string name="assistant_detail_input_fact">Введите факт/знание</string>
     <string name="assistant_detail_save">Сохранить</string>
     <string name="assistant_detail_cancel">Отмена</string>

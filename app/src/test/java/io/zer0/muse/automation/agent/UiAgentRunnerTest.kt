@@ -1,10 +1,8 @@
 package io.zer0.muse.automation.agent
 
 import android.graphics.Bitmap
-import java.io.ByteArrayOutputStream
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
@@ -23,6 +21,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.ByteArrayOutputStream
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
@@ -49,12 +48,30 @@ class UiAgentRunnerTest {
         coEvery { client.screenshot(7) } returns png
         coEvery { automation.readScreenOnDisplay(7) } returnsMany listOf(
             ScreenInfo(
-                nodes = listOf(UiNode(text = "Target", boundsLeft = 1, boundsTop = 1, boundsRight = 5, boundsBottom = 7, isClickable = true)),
+                nodes = listOf(
+                    UiNode(
+                        text = "Target",
+                        boundsLeft = 1,
+                        boundsTop = 1,
+                        boundsRight = 5,
+                        boundsBottom = 7,
+                        isClickable = true,
+                    ),
+                ),
                 screenWidth = 10,
                 screenHeight = 10,
             ),
             ScreenInfo(
-                nodes = listOf(UiNode(text = "Target", boundsLeft = 1, boundsTop = 1, boundsRight = 5, boundsBottom = 7, isClickable = true)),
+                nodes = listOf(
+                    UiNode(
+                        text = "Target",
+                        boundsLeft = 1,
+                        boundsTop = 1,
+                        boundsRight = 5,
+                        boundsBottom = 7,
+                        isClickable = true,
+                    ),
+                ),
                 screenWidth = 10,
                 screenHeight = 10,
             ),

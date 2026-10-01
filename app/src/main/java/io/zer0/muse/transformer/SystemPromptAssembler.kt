@@ -14,6 +14,7 @@ import io.zer0.muse.data.STICKER_FREQ_FREQUENT
 import io.zer0.muse.data.STICKER_FREQ_OCCASIONALLY
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantEntity
+import io.zer0.muse.data.assistant.AssistantMemoryAccessPolicy
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.experience.ExperienceEntity
 import io.zer0.muse.data.groupchat.GroupChatMemoryRepository
@@ -263,22 +264,38 @@ class SystemPromptAssembler(
         ignoreMemory: Boolean = false,
         // v12 (T2-2): 当前用户输入 — 非空时按问题 FTS 召回相关记忆(<relevant_memory>)
         currentUserInput: String? = null,
-        /** 是否允许注入全局用户记忆；助手自己的 facts 仍由 memoryEnabled 控制。 */
-        useGlobalMemory: Boolean = true,
+        /** 是否允许注入全局用户记忆；子助手自己的事实不受此开关影响，缺少助手上下文时默认关闭。 */
+        useGlobalMemory: Boolean = assistant?.useGlobalMemory ?: false,
         /** 当前助手的 facts 作用域；default 映射为 main。 */
         memoryScope: String? = null,
         /** 当前记忆空间；为空时读取设置中的当前空间。 */
         memorySpaceId: String? = null,
     ): String =
         io.zer0.common.Perf.trackSuspend("sys-prompt-static") {
+            val resolvedAssistantId = assistant?.id?.takeIf { it.isNotBlank() }
+            val canReadGlobalMemory =
+                AssistantMemoryAccessPolicy.canReadGlobalMemory(resolvedAssistantId, useGlobalMemory)
+            val assistantFactsId =
+                resolvedAssistantId?.takeIf {
+                    AssistantMemoryAccessPolicy.canInjectAssistantFacts(
+                        assistantId = it,
+                        useGlobalMemory = useGlobalMemory,
+                        memoryEnabled = memoryEnabled,
+                        forSubagent = forSubagent,
+                        ignoreMemory = ignoreMemory,
+                    )
+                }
             val resolvedMemoryScope =
-                memoryScope?.takeIf { it.isNotBlank() }
-                    ?: assistant?.id?.takeIf { it.isNotBlank() && it != "default" }
-                    ?: "main"
+                memoryScope?.takeIf { it.isNotBlank() } ?: resolvedAssistantId?.takeIf { it != "default" } ?: "main"
             val resolvedMemorySpaceId =
                 memorySpaceId?.takeIf { it.isNotBlank() }
                     ?: resultOf { settings.currentSpaceIdFlow.first() }.getOrNull().orEmpty().ifBlank { "default" }
-            val scopedFactStore = factDbProvider?.getFactStore(assistant?.id ?: "default") ?: factStore
+            // 只有 default 助手可在 FactDbProvider 未注入时回落全局 store；
+            // 子助手缺少分库时应跳过检索，不能把 default 的事实当成自己的记忆。
+            val scopedFactStore =
+                resolvedAssistantId?.let { id ->
+                    factDbProvider?.getFactStore(id) ?: factStore.takeIf { id == "default" }
+                }
             // v1.0.52: 分段计时 — 精确定位首次启动慢的根因(日志显示 117s 但无法定位子项)
             val perfTimer = io.zer0.common.Perf.start("sys-prompt-static-detail")
             val sections = mutableListOf<String>()
@@ -336,7 +353,8 @@ class SystemPromptAssembler(
                     "本对话不参考记忆\n- 本会话已开启「不参考记忆」:不要使用任何用户历史记忆、用户画像、近期会话、经验库中的信息\n- 以当前对话内容为准,把用户当成第一次认识\n- 除非用户在本对话中明确告知,否则不要假设任何背景信息",
                 )
             }
-            val profile = if (!skipMemorySections && memoryEnabled && useGlobalMemory) buildUserProfileSection() else ""
+            val profile =
+                if (!skipMemorySections && memoryEnabled && canReadGlobalMemory) buildUserProfileSection() else ""
             if (profile.isNotBlank()) sections.add(profile)
             perfTimer.split("profile")
 
@@ -344,30 +362,39 @@ class SystemPromptAssembler(
             // v1.0.52: 注入当前助手最近的会话标题+预览,让 LLM 感知用户近期上下文。
             // forSubagent=true 时跳过:子助手是隔离子会话,不应感知主会话历史。
             // 仅在 assistant.enableRecentChatsReference=true 时注入(用户可关闭)。
-            if (memoryEnabled && useGlobalMemory && !forSubagent && !skipMemorySections && assistant?.enableRecentChatsReference == true && !assistant.id.isNullOrBlank()) {
-                val recentChats = buildRecentChatsSection(assistant.id)
+            val recentChatsAssistantId =
+                resolvedAssistantId?.takeIf {
+                    AssistantMemoryAccessPolicy.canReadRecentChats(
+                        assistantId = it,
+                        memoryEnabled = memoryEnabled,
+                        recentChatsEnabled = assistant.enableRecentChatsReference,
+                        forSubagent = forSubagent,
+                        ignoreMemory = skipMemorySections,
+                    )
+                }
+            if (recentChatsAssistantId != null) {
+                val recentChats = buildRecentChatsSection(recentChatsAssistantId)
                 if (recentChats.isNotBlank()) sections.add(recentChats)
             }
             perfTimer.split("recent_chats")
 
             // ── 3. Pinned Memories ──
-            val pinned = if (!skipMemorySections && memoryEnabled && useGlobalMemory) buildPinnedMemoriesSection() else ""
+            val pinned =
+                if (!skipMemorySections && memoryEnabled && canReadGlobalMemory) buildPinnedMemoriesSection() else ""
             if (pinned.isNotBlank()) sections.add(pinned)
             perfTimer.split("pinned")
 
             // ── 4. 长期记忆摘要 ──
             // forSubagent=true 时跳过:subagent 是隔离子会话,不注入长期记忆,避免递归爆炸
             // v1.0.72: ignoreMemory=true 时同样跳过
-            if (memoryEnabled && !forSubagent && !skipMemorySections) {
-                var longTermSection = ""
-                if (useGlobalMemory) {
-                    longTermSection =
-                        buildLongTermMemorySection(
-                            scope = resolvedMemoryScope,
-                            spaceId = resolvedMemorySpaceId,
-                        )
-                    if (longTermSection.isNotBlank()) sections.add(longTermSection)
-                }
+            if (assistantFactsId != null) {
+                val longTermSection =
+                    buildLongTermMemorySection(
+                        assistantId = assistantFactsId,
+                        scope = resolvedMemoryScope,
+                        spaceId = resolvedMemorySpaceId,
+                    )
+                if (longTermSection.isNotBlank()) sections.add(longTermSection)
                 // v12 (T2-2): 相关记忆检索 — 按当前问题 FTS 召回 top-K 相关事实,
                 // 作为全量长期记忆的补充(不替换,兜底仍在)。
                 // D3-P4: 传入长期段内容用于去重(同一条事实不重复注入)
@@ -383,6 +410,7 @@ class SystemPromptAssembler(
                 val relevant =
                     buildRelevantMemorySection(
                         currentUserInput = currentUserInput,
+                        assistantId = assistantFactsId,
                         store = scopedFactStore,
                         scope = resolvedMemoryScope,
                         spaceId = resolvedMemorySpaceId,
@@ -408,7 +436,7 @@ class SystemPromptAssembler(
             // ── 4.5 经验库 ──
             // v1.98: experienceEnabled=true 时注入经验条目,让 AI 参考过往经验处理类似任务
             // v1.0.72: ignoreMemory=true 时跳过经验库
-            if (memoryEnabled && useGlobalMemory && settings.experienceEnabledCache && !skipMemorySections) {
+            if (memoryEnabled && canReadGlobalMemory && settings.experienceEnabledCache && !skipMemorySections) {
                 // P2-34: 按当前问题相关性召回经验,不再固定最近 20 条
                 val experience = buildExperienceSection(currentUserInput)
                 if (experience.isNotBlank()) sections.add(experience)
@@ -622,7 +650,8 @@ class SystemPromptAssembler(
                 java.time.DayOfWeek.SUNDAY -> "星期日"
                 else -> ""
             }
-        return "当前时间: ${now.format(formatter)} $weekday"
+        return "当前时间: ${now.format(formatter)} $weekday\n" +
+            "Answer ordinary current-time questions from this turn's timestamp. Only call get_current_time for a different timezone or an explicitly fresh reading."
     }
 
     /**
@@ -764,15 +793,19 @@ class SystemPromptAssembler(
     }
 
     /** 5. 长期记忆摘要 — MemoryCompiler 编译后的 markdown。 */
-    internal suspend fun buildLongTermMemorySection(scope: String? = null, spaceId: String? = null): String {
+    internal suspend fun buildLongTermMemorySection(assistantId: String, scope: String? = null, spaceId: String? = null): String {
         // H-ASM1: memoryTicker.readCompiledMemoryMarkdown() 为 suspend,用 resultOf 正确重抛 CancellationException
         // M-ASM3: 用 <long_term_memory> 边界标签包裹,声明标签内为数据而非指令,防止提示词注入
         val md =
             resultOf {
                 if (scope != null && spaceId != null) {
-                    memoryTicker.readCompiledMemoryMarkdown(scope = scope, spaceId = spaceId)
+                    memoryTicker.readCompiledMemoryMarkdown(
+                        scope = scope,
+                        spaceId = spaceId,
+                        assistantId = assistantId,
+                    )
                 } else {
-                    memoryTicker.readCompiledMemoryMarkdown()
+                    memoryTicker.readCompiledMemoryMarkdown(assistantId = assistantId)
                 }
             }
                 .onError { _, t -> Logger.w(TAG, "readCompiledMemoryMarkdown 失败", t) }
@@ -845,20 +878,21 @@ class SystemPromptAssembler(
 
     internal suspend fun buildRelevantMemorySection(
         currentUserInput: String?,
-        store: io.zer0.memory.fact.FactStore? = factStore,
+        assistantId: String,
+        store: io.zer0.memory.fact.FactStore? = null,
         scope: String = "main",
         spaceId: String = "default",
-        assistantId: String? = null,
         /**
          * D3-P4: 已在长期记忆段(投影后 = facts 表内容)出现过的行 — 命中即不再重复注入,
          * 防"同一条事实同时出现在长期段与相关段"的冗余(省预算、减少重复感)。
          */
         excludeLines: Set<String> = emptySet(),
     ): String {
+        val storeOwnerId = assistantId.takeIf { it.isNotBlank() } ?: return ""
         val resolvedStore =
             store
-                ?: factDbProvider?.getFactStore(assistantId ?: "default")
-                ?: factStore
+                ?: factDbProvider?.getFactStore(storeOwnerId)
+                ?: factStore.takeIf { storeOwnerId == "default" }
                 ?: return ""
         val resolvedScope = scope.ifBlank { "main" }
         val resolvedSpaceId = spaceId.ifBlank { "default" }

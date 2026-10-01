@@ -27,6 +27,7 @@
     <ID>ComplexCondition:PebbleTemplateEngine.kt$Evaluator$input == null || input == "" || (input is Collection&lt;*&gt; &amp;&amp; input.isEmpty())</ID>
     <ID>ComplexCondition:PebbleTemplateEngine.kt$ExprParser$c.isDigit() || (c == '-' &amp;&amp; pos + 1 &lt; src.length &amp;&amp; src[pos + 1].isDigit())</ID>
     <ID>ComplexCondition:PebbleTemplateEngine.kt$ExprParser$pos &lt; src.length &amp;&amp; (src[pos].isDigit() || (src[pos] == '.' &amp;&amp; !hasDot))</ID>
+    <ID>ComplexCondition:RagService.kt$RagService$rebuildMarkerExists || file?.exists() == true || fingerprintChanged || indexedCount == null || indexedCount &gt; 0</ID>
     <ID>ComplexCondition:RagService.kt$RagService$vi != null &amp;&amp; scopeDocIds.isNullOrEmpty() &amp;&amp; (metadataFilter == null || metadataFilter.isEmpty())</ID>
     <ID>ComplexCondition:ScheduledTasksScreen.kt$dom != "*" &amp;&amp; month == "*" &amp;&amp; dow == "*" &amp;&amp; minute != "*" &amp;&amp; hour != "*" &amp;&amp; !minute.contains("-") &amp;&amp; !hour.contains("-") &amp;&amp; !dom.contains("-")</ID>
     <ID>ComplexCondition:ScheduledTasksScreen.kt$dom == "*" &amp;&amp; month == "*" &amp;&amp; (dow == "0,6" || dow == "6,0") &amp;&amp; minute != "*" &amp;&amp; hour != "*" &amp;&amp; !minute.contains("-") &amp;&amp; !hour.contains("-")</ID>
@@ -44,6 +45,7 @@
     <ID>ComplexCondition:ToolApprovalRouter.kt$ToolApprovalRouter$value != null &amp;&amp; current != null &amp;&amp; current !== value &amp;&amp; inFlight.get() &gt; 0</ID>
     <ID>ComplexCondition:ToolOrchestrator.kt$ToolOrchestrator$cleanedAssistantToolMsg.content.isNotBlank() || !cleanedAssistantToolMsg.reasoning.isNullOrBlank() || cleanedAssistantToolMsg.imageUrls.isNotEmpty() || cleanedAssistantToolMsg.imageBase64List.isNotEmpty() || cleanedAssistantToolMsg.toolCallInfo != null</ID>
     <ID>ComplexCondition:ToolRegistrySmokeTest.kt$ToolRegistrySmokeTest$skill.id.isBlank() || skill.name.isBlank() || skill.description.isBlank() || !isValidJsonObject(skill.parametersJson)</ID>
+    <ID>ComplexCondition:VirtualDisplaySemanticActions.kt$VirtualDisplaySemanticActions$screen.screenWidth &lt;= 0 || screen.screenHeight &lt;= 0 || x !in 0 until screen.screenWidth || y !in 0 until screen.screenHeight</ID>
     <ID>ComplexCondition:VisionBridge.kt$VisionBridge$providerError.httpCode == 413 || message.contains("413", ignoreCase = true) || message.contains("too large", ignoreCase = true) || message.contains("payload too large", ignoreCase = true)</ID>
     <ID>ComplexCondition:WordPieceTokenizer.kt$WordPieceTokenizer$code in 33..47 || code in 58..64 || code in 91..96 || code in 123..126</ID>
     <ID>ConstructorParameterNaming:HnswVectorIndex.kt$HnswVectorIndex$private val M: Int = DEFAULT_M</ID>
@@ -70,6 +72,7 @@
     <ID>CyclomaticComplexMethod:AgentSettingsPage.kt$@OptIn(ExperimentalLayoutApi::class) @Composable fun AgentSettingsPage( onBack: () -&gt; Unit, onOpenMultiAgentSettings: () -&gt; Unit, onOpenAgentDm: () -&gt; Unit = {}, /** 独立主动消息页复用同一套配置组件时隐藏 Agent/协作区。 */ proactiveOnly: Boolean = false, showProactiveSettings: Boolean = false, )</ID>
     <ID>CyclomaticComplexMethod:AsrSection.kt$@Composable internal fun AsrSection(asrConfig: AsrConfig, settings: SettingsRepository)</ID>
     <ID>CyclomaticComplexMethod:AssistantDetailPages.kt$@Composable fun AssistantExtensionsPage(assistantId: String, onBack: () -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:AssistantDetailPages.kt$@Composable fun AssistantMemoryPage(assistantId: String, onBack: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:AssistantDetailPages.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AssistantBasicPage(assistantId: String, onBack: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:AssistantDetailPages.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun AssistantDetailPage( assistantId: String, onBack: (() -&gt; Unit)? = null, onOpenBasic: () -&gt; Unit, onOpenPrompt: () -&gt; Unit, onOpenExtensions: () -&gt; Unit, onOpenMemory: () -&gt; Unit, onOpenAdvanced: () -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:AssistantRepository.kt$AssistantRepository$fun mergeRagConfigOverride(entity: AssistantEntity, baseConfig: io.zer0.muse.rag.RagConfig): io.zer0.muse.rag.RagConfig</ID>
@@ -78,6 +81,7 @@
     <ID>CyclomaticComplexMethod:AuditLogPage.kt$private fun prettyJson(json: String): String</ID>
     <ID>CyclomaticComplexMethod:AuditLogger.kt$AuditLogger$private fun toJsonElement(v: Any): JsonElement</ID>
     <ID>CyclomaticComplexMethod:AutomationTools.kt$AutomationTools$fun register(registry: ToolRegistry)</ID>
+    <ID>CyclomaticComplexMethod:AutomationWorkflow.kt$AutomationWorkflow$private suspend fun runLocked( steps: List&lt;AutomationWorkflowStep&gt;, runId: String, retryUnknown: Boolean, durableJournal: WorkflowJournal, ): ToolOutcome</ID>
     <ID>CyclomaticComplexMethod:BackupService.kt$BackupService$private fun Backup.hasAnyData(): Boolean</ID>
     <ID>CyclomaticComplexMethod:BackupService.kt$BackupService$private suspend fun applyBackupInternal(backup: Backup): Pair&lt;Int, Int&gt;</ID>
     <ID>CyclomaticComplexMethod:BackupService.kt$BackupService$private suspend fun applyCloudBackupData(config: CloudBackupConfig, data: ByteArray): Pair&lt;Int, Int&gt;?</ID>
@@ -119,6 +123,8 @@
     <ID>CyclomaticComplexMethod:ConversationTree.kt$ConversationTree.Companion$fun build(messages: List&lt;UIMessage&gt;, previous: ConversationTree? = null): ConversationTree</ID>
     <ID>CyclomaticComplexMethod:ConversationTree.kt$private fun restoreSelection(tree: ConversationTree, previous: ConversationTree?): ConversationTree</ID>
     <ID>CyclomaticComplexMethod:CronExpression.kt$CronExpression.Companion$private fun parseSegment(segment: String, min: Int, max: Int): Set&lt;Int&gt;</ID>
+    <ID>CyclomaticComplexMethod:DashScopeAsrClient.kt$DashScopeAsrController$@SuppressLint("MissingPermission") private fun startRecordingInternal()</ID>
+    <ID>CyclomaticComplexMethod:DashScopeAsrClient.kt$DashScopeAsrController$private fun handleEvent(event: JsonObject)</ID>
     <ID>CyclomaticComplexMethod:DebugScreen.kt$@Composable fun DebugScreen(onBack: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:DebugScreen.kt$@Composable private fun DbIntegritySheet(onDismiss: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:DelegationConfirmDialog.kt$@Composable private fun DelegationConfirmDialogContent( pauseRequest: DelegationPauseManager.PauseRequest, onSubmit: (DelegationPauseManager.PauseResponse) -&gt; Unit, onCancel: () -&gt; Unit, )</ID>
@@ -173,6 +179,7 @@
     <ID>CyclomaticComplexMethod:McpSection.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable private fun PromptsBrowserDialog(serverId: String, mcpRegistry: McpRegistry, onDismiss: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:MediaGenToolsImpl.kt$MediaGenToolsImpl$suspend fun execGenerateImage(args: Map&lt;String, String&gt;): String</ID>
     <ID>CyclomaticComplexMethod:MemoryGraphView.kt$@Composable fun MemoryGraphView( state: MemoryGraphViewModel.GraphState, modifier: Modifier = Modifier, onNodeAction: ((MemoryGraphNode, NodeAction) -&gt; Unit)? = null, onEdgeAction: ((MemoryGraphEdge, EdgeAction) -&gt; Unit)? = null, )</ID>
+    <ID>CyclomaticComplexMethod:MemoryInjectionTransformer.kt$MemoryInjectionTransformer$override suspend fun transform(messages: List&lt;UIMessage&gt;, context: TransformContext): List&lt;UIMessage&gt;</ID>
     <ID>CyclomaticComplexMethod:MemoryLlmClientImpl.kt$MemoryLlmClientImpl$override suspend fun callText( systemPrompt: String, userContent: String, model: Model?, temperature: Float, maxTokens: Int, timeoutMs: Long, ): String</ID>
     <ID>CyclomaticComplexMethod:MemoryScreen.kt$@Composable fun MemoryScreen(onBack: () -&gt; Unit = {}, onOpenSettings: () -&gt; Unit = {}, viewModel: MemoryViewModel = koinViewModel())</ID>
     <ID>CyclomaticComplexMethod:MemoryScreen.kt$@Suppress("FunctionNaming", "LongParameterList") @Composable private fun MemoryFactRow( item: MemoryItem, onEdit: (() -&gt; Unit)? = null, onDelete: (() -&gt; Unit)? = null, onPin: (() -&gt; Unit)? = null, onImportance: (() -&gt; Unit)? = null, onHistory: (() -&gt; Unit)? = null, )</ID>
@@ -206,6 +213,8 @@
     <ID>CyclomaticComplexMethod:OAuthManager.kt$OAuthManager$suspend fun launchDeviceFlow(config: OAuthConfig, providerId: String = ""): Result&lt;String&gt;</ID>
     <ID>CyclomaticComplexMethod:OnboardingScreen.kt$@Composable fun OnboardingScreen(onComplete: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:OnboardingScreen.kt$@Composable private fun StepProviderConfig( presetProviders: PresetProviders, selectedPresetId: String, onPresetSelected: (String) -&gt; Unit, apiKey: String, onApiKeyChange: (String) -&gt; Unit, customBaseUrl: String, onCustomBaseUrlChange: (String) -&gt; Unit, apiKeyVisible: Boolean, onToggleApiKeyVisible: () -&gt; Unit, testStatus: TestStatus, onTestConnection: () -&gt; Unit, onSkip: () -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:OpenAiRealtimeAsrClient.kt$OpenAiRealtimeAsrController$@SuppressLint("MissingPermission") private fun startRecordingInternal()</ID>
+    <ID>CyclomaticComplexMethod:OpenAiWhisperAsrClient.kt$OpenAiWhisperAsrController$@SuppressLint("MissingPermission") private fun startRecording()</ID>
     <ID>CyclomaticComplexMethod:OpenAiWhisperAsrClient.kt$OpenAiWhisperAsrController$private suspend fun recognizeSegment(wavBytes: ByteArray): String?</ID>
     <ID>CyclomaticComplexMethod:PebbleTemplateEngine.kt$Evaluator$private fun applyFilter(input: Any?, name: String, args: List&lt;Any?&gt;): Any?</ID>
     <ID>CyclomaticComplexMethod:PebbleTemplateEngine.kt$Evaluator$private fun evalNode(n: Node, sb: StringBuilder)</ID>
@@ -226,6 +235,7 @@
     <ID>CyclomaticComplexMethod:ProviderBrandAssets.kt$@Composable fun providerBrandIconOrNull(type: ProviderType, name: String): ImageVector?</ID>
     <ID>CyclomaticComplexMethod:ProviderModelFetcher.kt$ProviderModelFetcher$suspend fun fetch(config: ProviderConfig, forceFresh: Boolean = false): Outcome</ID>
     <ID>CyclomaticComplexMethod:ProviderModelRow.kt$@OptIn(ExperimentalLayoutApi::class) @Composable internal fun ModelAbilityChips(model: Model, testStatus: ModelTestStatus = ModelTestStatus.Idle)</ID>
+    <ID>CyclomaticComplexMethod:RagService.kt$RagService$private suspend fun loadVectorIndexIfNeeded(provider: EmbeddingProvider)</ID>
     <ID>CyclomaticComplexMethod:RagService.kt$RagService$suspend fun buildInjectionContextWithCitations( query: String, ragConfig: RagConfig, scopeDocIds: List&lt;String&gt;? = null, metadataFilter: VectorSearchService.MetadataFilter? = null, ): RagInjection</ID>
     <ID>CyclomaticComplexMethod:RagService.kt$RagService$suspend fun indexDocumentStreamed( docId: String, textPieces: Flow&lt;String&gt;, ragConfig: RagConfig, windowChars: Int = STREAM_WINDOW_CHARS, onProgress: (indexedChunks: Int) -&gt; Unit = {}, ): Int</ID>
     <ID>CyclomaticComplexMethod:RagService.kt$RagService$suspend fun retrieve( query: String, topK: Int, threshold: Float, ragConfig: RagConfig, scopeDocIds: List&lt;String&gt;? = null, metadataFilter: VectorSearchService.MetadataFilter? = null, ): List&lt;VectorSearchService.SearchResult&gt;</ID>
@@ -238,7 +248,9 @@
     <ID>CyclomaticComplexMethod:ScheduledTasksScreen.kt$@Composable private fun TaskCard( task: ScheduledTaskEntity, executionDao: ScheduledTaskExecutionDao, runner: ScheduledTaskRunner, initiallyExpanded: Boolean = false, onToggle: (Boolean) -&gt; Unit, onEdit: (ScheduledTaskEntity) -&gt; Unit, onDelete: () -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:ScheduledTasksScreen.kt$@Composable private fun TaskDialog( existingTask: ScheduledTaskEntity?, assistants: List&lt;AssistantEntity&gt;, dao: ScheduledTaskDao = koinInject(), onDismiss: () -&gt; Unit, onSave: (ScheduledTaskEntity) -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:ScheduledTasksScreen.kt$private fun describeCron(expr: String, res: Resources): String?</ID>
+    <ID>CyclomaticComplexMethod:ScreenInfo.kt$ScreenInfo$fun findBestTextNode(query: String, exact: Boolean = false): UiNode?</ID>
     <ID>CyclomaticComplexMethod:SearchMemoryTool.kt$SearchMemoryTool$private suspend fun executeInternal(args: Map&lt;String, String&gt;, factStore: FactStore, executionContext: ToolExecutionContext?): String</ID>
+    <ID>CyclomaticComplexMethod:SessionRepository.kt$SessionRepository$private suspend fun appendMessageInternal(sessionId: String, message: UIMessage): String</ID>
     <ID>CyclomaticComplexMethod:SessionRepository.kt$SessionRepository$suspend fun commitConversationMessage(request: MessageCommitRequest): MessageCommitResult</ID>
     <ID>CyclomaticComplexMethod:SessionRepository.kt$SessionRepository$suspend fun recoverInterruptedGenerations()</ID>
     <ID>CyclomaticComplexMethod:SettingsRepository.kt$SettingsRepository$fun detectTaskType(input: String): TaskType</ID>
@@ -267,6 +279,7 @@
     <ID>CyclomaticComplexMethod:StatsPage.kt$@Composable private fun CanvasHeatmap(messagesPerDay: Map&lt;LocalDate, Int&gt;, onCellTap: (LocalDate, Int) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:StatsPage.kt$@Composable private fun TrendCard(messagesPerDay: Map&lt;LocalDate, Int&gt;, modifier: Modifier = Modifier)</ID>
     <ID>CyclomaticComplexMethod:StatsViewModel.kt$StatsViewModel$fun loadStats()</ID>
+    <ID>CyclomaticComplexMethod:StepAsrClient.kt$StepAsrController$private suspend fun recognizeSegment(wavBytes: ByteArray): String?</ID>
     <ID>CyclomaticComplexMethod:StickerLibraryRepository.kt$StickerLibraryRepository$suspend fun importZip(uri: Uri, onProgress: ((phase: String, done: Int, total: Int?) -&gt; Unit)? = null): Result&lt;Int&gt;</ID>
     <ID>CyclomaticComplexMethod:SubagentFloatingWindow.kt$@Composable internal fun SubagentFloatingWindow( activeThreads: List&lt;SubagentThreadStore.ThreadEntry&gt;, pendingTasks: List&lt;DeferredResultStore.DeferredTask&gt;, onCancelTask: (String) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
     <ID>CyclomaticComplexMethod:SubagentRunner.kt$SubagentRunner$private suspend fun runInternal(params: Params, threadId: String, isNew: Boolean, cancellation: SubagentCancellation?): Result</ID>
@@ -296,16 +309,22 @@
     <ID>CyclomaticComplexMethod:ToolOrchestrator.kt$ToolOrchestrator$suspend fun runLoop( params: ToolLoopParams, conversationHistory: MutableList&lt;UIMessage&gt;, host: ToolLoopHost, accessor: ChatStateAccessor, taskCardCoordinator: ChatTaskCardCoordinator, ): ToolLoopResult</ID>
     <ID>CyclomaticComplexMethod:ToolPermissionResolver.kt$ToolPermissionResolver$fun resolve( toolName: String, risk: ToolRiskLevel?, mode: SessionPermissionMode, perToolPolicy: ToolApprovalPolicy?, args: Map&lt;String, Any?&gt; = emptyMap(), ): ToolApprovalState</ID>
     <ID>CyclomaticComplexMethod:ToolPermissionResolver.kt$ToolPermissionResolver$private fun fallbackRiskFor(toolName: String): ToolRiskLevel</ID>
-    <ID>CyclomaticComplexMethod:ToolRegistry.kt$ToolRegistry$private suspend fun executeInternal( name: String, args: Map&lt;String, String&gt;, executionContext: ToolExecutionContext?, cancellationToken: () -&gt; Boolean, ): ToolOutcome</ID>
+    <ID>CyclomaticComplexMethod:ToolRegistry.kt$ToolRegistry$private suspend fun executeInternalUnlocked( name: String, args: Map&lt;String, String&gt;, executionContext: ToolExecutionContext?, cancellationToken: () -&gt; Boolean, ): ToolOutcome</ID>
     <ID>CyclomaticComplexMethod:TranslateScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun TranslateScreen(onBack: () -&gt; Unit, onSendToNewChat: (String) -&gt; Unit = {}, viewModel: TranslateViewModel = koinViewModel())</ID>
     <ID>CyclomaticComplexMethod:TtsManager.kt$TtsManager$fun speakStream(chunk: String, utteranceId: String)</ID>
     <ID>CyclomaticComplexMethod:TtsManager.kt$TtsManager$private fun ensureCloudPipeline(utteranceId: String)</ID>
     <ID>CyclomaticComplexMethod:UIToolsSkill.kt$UIToolsRegistrar$fun registerAll()</ID>
-    <ID>CyclomaticComplexMethod:UiAgentProtocol.kt$UiAgentProtocol$private fun parseDo(match: MatchResult): Action?</ID>
+    <ID>CyclomaticComplexMethod:UiAgentProtocol.kt$UiAgentProtocol$private fun parseArgs(body: String): Map&lt;String, String&gt;</ID>
+    <ID>CyclomaticComplexMethod:UiAgentProtocol.kt$UiAgentProtocol$private fun parseDo(args: Map&lt;String, String&gt;): Action?</ID>
+    <ID>CyclomaticComplexMethod:UiAgentRunner.kt$UiAgentRunner$private suspend fun execute(action: UiAgentProtocol.Action, virtualDisplayId: Int?, width: Int, height: Int): String</ID>
+    <ID>CyclomaticComplexMethod:UiAgentRunner.kt$UiAgentRunner$private suspend fun executeOnVirtualDisplay(action: UiAgentProtocol.Action, displayId: Int, width: Int, height: Int): String</ID>
+    <ID>CyclomaticComplexMethod:UiAgentRunner.kt$UiAgentRunner$suspend fun run( task: String, maxSteps: Int = DEFAULT_MAX_STEPS, onProgress: (String) -&gt; Unit = {}, displayMode: DisplayMode = DisplayMode.AUTO, packageName: String? = null, ): RunResult</ID>
     <ID>CyclomaticComplexMethod:UserProfileEditPage.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun UserProfileEditPage(onBack: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:VectorSearchService.kt$VectorSearchService$private suspend fun scanPagedProvider( queryVector: FloatArray, queryNorm: Float, topK: Int, threshold: Float, mmrLambda: Float, applyMetadataInMemory: Boolean, metadataFilter: MetadataFilter?, pageProvider: suspend (limit: Int, offset: Int) -&gt; List&lt;ChunkWithDoc&gt;, ): List&lt;SearchResult&gt;</ID>
     <ID>CyclomaticComplexMethod:VectorSearchService.kt$VectorSearchService$private suspend fun searchStreamed( queryVector: FloatArray, queryNorm: Float, topK: Int, threshold: Float, mmrLambda: Float, // P2-30: 限定检索范围的文档集合;null/空 = 全库 scopeDocIds: List&lt;String&gt;?, metadataFilter: MetadataFilter?, ): List&lt;SearchResult&gt;</ID>
     <ID>CyclomaticComplexMethod:VideoGenerationPage.kt$@Composable fun VideoGenerationPage( onBack: () -&gt; Unit, videoService: VideoGenerationService = koinInject(), settingsRepo: SettingsRepository = koinInject(), )</ID>
+    <ID>CyclomaticComplexMethod:VirtualDisplaySemanticActions.kt$VirtualDisplaySemanticActions$suspend fun tapText( manager: AutomationManager, displayManager: VirtualDisplayServerManager, displayId: Int, text: String, exact: Boolean = false, maxSwipes: Int = 0, verifyText: String? = null, ): TapTextResult</ID>
+    <ID>CyclomaticComplexMethod:VirtualDisplaySemanticActions.kt$VirtualDisplaySemanticActions$suspend fun tapViewId( manager: AutomationManager, displayManager: VirtualDisplayServerManager, displayId: Int, viewId: String, maxSwipes: Int = 0, verifyText: String? = null, ): TapTextResult</ID>
     <ID>CyclomaticComplexMethod:VisionBridge.kt$VisionBridge$private fun normalizePrimitive(prim: kotlinx.serialization.json.JsonElement, caps: VisionCapabilities?): NormalizedPrimitive?</ID>
     <ID>CyclomaticComplexMethod:VisionImagePreprocessor.kt$VisionImagePreprocessor$suspend fun prepareSingle(imageBase64: String, imageCount: Int = 1): PreparedImage?</ID>
     <ID>CyclomaticComplexMethod:VisionSettingsPage.kt$@Composable fun VisionSettingsPage(onBack: () -&gt; Unit)</ID>
@@ -412,7 +431,6 @@
     <ID>FunctionNaming:ChartRenderer.kt$@Composable private fun ChartSourceView(code: String, onRetry: () -&gt; Unit)</ID>
     <ID>FunctionNaming:ChartRenderer.kt$@Composable private fun PlantUmlRemoteNotice(onRender: () -&gt; Unit)</ID>
     <ID>FunctionNaming:ChartRenderer.kt$@SuppressLint("SetJavaScriptEnabled") @Composable fun MermaidBlock(code: String)</ID>
-    <ID>FunctionNaming:ChatListScreen.kt$@Composable private fun ActionSheetRow( icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, onClick: () -&gt; Unit, modifier: Modifier = Modifier, contentColor: Color = MaterialTheme.colorScheme.onSurface, )</ID>
     <ID>FunctionNaming:ChatListScreen.kt$@Composable private fun ArchivedSessionRow(session: SessionEntity, onRestore: () -&gt; Unit, onSelect: () -&gt; Unit)</ID>
     <ID>FunctionNaming:ChatListScreen.kt$@Composable private fun ArchivedSessionsList( archived: List&lt;SessionEntity&gt;, onBack: () -&gt; Unit, onRestore: (String) -&gt; Unit, onSelect: (String) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
     <ID>FunctionNaming:ChatListScreen.kt$@Composable private fun ChatListEditAction(label: String, enabled: Boolean, onClick: () -&gt; Unit)</ID>
@@ -555,7 +573,8 @@
     <ID>FunctionNaming:KnowledgeBaseManagePage.kt$@Composable private fun KbRow( kb: KnowledgeBaseEntity, onEdit: () -&gt; Unit, onDelete: () -&gt; Unit, onReindex: () -&gt; Unit, // F-31: 向本知识库添加文档 onAddDocument: () -&gt; Unit, )</ID>
     <ID>FunctionNaming:KnowledgeBaseManagePage.kt$@Composable private fun LinearProgress(progress: Float)</ID>
     <ID>FunctionNaming:KnowledgeScreen.kt$@Composable private fun DocCard(doc: KnowledgeDocEntity, highlight: String?, onClick: () -&gt; Unit, onDelete: () -&gt; Unit)</ID>
-    <ID>FunctionNaming:KnowledgeScreen.kt$@Composable private fun DocDetailDialog( doc: KnowledgeDocEntity, onDismiss: () -&gt; Unit, onReindex: () -&gt; Unit, // v1.0.53: 封面能力(打开封面库 / 生成封面 / 生成中状态) onOpenCoverManager: () -&gt; Unit = {}, onGenerateCover: () -&gt; Unit = {}, generatingCover: Boolean = false, // F-32: 文档重命名 / 正文编辑入口(仅文本型文档提供正文编辑) onRename: () -&gt; Unit = {}, onEditContent: () -&gt; Unit = {}, )</ID>
+    <ID>FunctionNaming:KnowledgeScreen.kt$@Composable private fun DocDetailDialog( doc: KnowledgeDocEntity, onDismiss: () -&gt; Unit, onReindex: () -&gt; Unit, // v1.0.53: 封面能力(打开封面库 / 生成封面 / 生成中状态) onOpenCoverManager: () -&gt; Unit = {}, onGenerateCover: () -&gt; Unit = {}, generatingCover: Boolean = false, // F-32: 文档重命名 / 正文编辑入口(仅文本型文档提供正文编辑) onRename: () -&gt; Unit = {}, onEditContent: () -&gt; Unit = {}, onMoveToFolder: () -&gt; Unit = {}, )</ID>
+    <ID>FunctionNaming:KnowledgeScreen.kt$@Composable private fun KnowledgeFolderCard(title: String, detail: String, onClick: () -&gt; Unit)</ID>
     <ID>FunctionNaming:KnowledgeScreen.kt$@Composable private fun PdfMetadataCard(metadata: Map&lt;String, String&gt;)</ID>
     <ID>FunctionNaming:KnowledgeScreen.kt$@Composable private fun PdfOutlineCard(outline: List&lt;String&gt;)</ID>
     <ID>FunctionNaming:KnowledgeScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun KnowledgeScreen( onBack: () -&gt; Unit, dao: KnowledgeDocDao = koinInject(), ragService: io.zer0.muse.rag.RagService = koinInject(), documentParser: io.zer0.muse.doc.DocumentParser = koinInject(), ocrManager: io.zer0.muse.doc.OcrManager = koinInject(), settings: io.zer0.muse.data.SettingsRepository = koinInject(), // F-31: 知识库 DAO,用于列出"目标知识库"供导入选择 kbDao: io.zer0.muse.data.knowledge.KnowledgeBaseDao = koinInject(), // v1.0.53: 封面库路由回调(文档详情 → 封面管理页) onOpenCoverManager: () -&gt; Unit = {}, )</ID>
@@ -582,7 +601,6 @@
     <ID>FunctionNaming:MarkdownText.kt$@Composable private fun TableView(table: MarkdownBlock.Table)</ID>
     <ID>FunctionNaming:McpSection.kt$@Composable internal fun McpSection()</ID>
     <ID>FunctionNaming:McpSection.kt$@Composable private fun InlineError(message: String, onDismiss: () -&gt; Unit)</ID>
-    <ID>FunctionNaming:McpSection.kt$@Composable private fun McpActionRow(label: String, onClick: () -&gt; Unit)</ID>
     <ID>FunctionNaming:McpSection.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable private fun McpServerAddDialog(onDismiss: () -&gt; Unit, onAdd: suspend (McpServerConfig) -&gt; Unit)</ID>
     <ID>FunctionNaming:McpSection.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable private fun McpServerRow( server: McpServerConfig, state: McpConnectionState, mcpRegistry: McpRegistry, /** v1.0.79 (E-1): 该 server 已注册的工具数;CONNECTED 但为 0 时警示。 */ toolCount: Int = -1, onToggleEnabled: (Boolean) -&gt; Unit, onReconnect: () -&gt; Unit, onDelete: () -&gt; Unit, )</ID>
     <ID>FunctionNaming:McpSection.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable private fun PromptsBrowserDialog(serverId: String, mcpRegistry: McpRegistry, onDismiss: () -&gt; Unit)</ID>
@@ -604,7 +622,6 @@
     <ID>FunctionNaming:MemorySpaceSwitcher.kt$@Composable fun SpaceSwitcherRow(spaces: List&lt;MemorySpaceEntity&gt;, selectedSpaceId: String, onSelect: (String) -&gt; Unit, modifier: Modifier = Modifier)</ID>
     <ID>FunctionNaming:MemorySpaceSwitcher.kt$@Composable private fun SpaceCreateDialog(onConfirm: (String) -&gt; Unit, onDismiss: () -&gt; Unit)</ID>
     <ID>FunctionNaming:MemorySpaceSwitcher.kt$@Composable private fun SpaceRenameDialog(initialName: String, onConfirm: (String) -&gt; Unit, onDismiss: () -&gt; Unit)</ID>
-    <ID>FunctionNaming:MemorySpaceSwitcher.kt$@Composable private fun SpaceRow( space: MemorySpaceWithCount, onRename: () -&gt; Unit, onDelete: () -&gt; Unit, onMoveUp: () -&gt; Unit, onMoveDown: () -&gt; Unit, )</ID>
     <ID>FunctionNaming:MemoryTimelineView.kt$@Composable internal fun MemoryTimelineFilterRow(selected: String, onSelect: (String) -&gt; Unit)</ID>
     <ID>FunctionNaming:MemoryTimelineView.kt$@Composable internal fun MonthHeader(month: String)</ID>
     <ID>FunctionNaming:MemoryTimelineView.kt$@Composable internal fun TimelineEventCard(item: TimelineItem)</ID>
@@ -994,6 +1011,7 @@
     <ID>LargeClass:McpClient.kt$McpClient : AutoCloseable</ID>
     <ID>LargeClass:McpRegistry.kt$McpRegistry</ID>
     <ID>LargeClass:MemoryViewModel.kt$MemoryViewModel : AndroidViewModel</ID>
+    <ID>LargeClass:MuseApp.kt$MuseApp : ApplicationImageLoaderFactory</ID>
     <ID>LargeClass:MuseDbMigrationTest.kt$MuseDbMigrationTest</ID>
     <ID>LargeClass:PluginManager.kt$PluginManager : PluginSkinSource</ID>
     <ID>LargeClass:PresetProviders.kt$PresetProviders</ID>
@@ -1025,6 +1043,7 @@
     <ID>LongMethod:AssistantNavGraph.kt$fun NavGraphBuilder.assistantNavGraph(navController: NavHostController, sharedViewModel: ChatViewModel)</ID>
     <ID>LongMethod:AssistantScreen.kt$@Composable fun AssistantScreen(onBack: () -&gt; Unit, onOpenDetail: (String) -&gt; Unit, viewModel: ChatViewModel = koinViewModel())</ID>
     <ID>LongMethod:AuditLogPage.kt$@OptIn(ExperimentalLayoutApi::class) @Composable fun AuditLogPage(onBack: () -&gt; Unit)</ID>
+    <ID>LongMethod:AutomationInitializer.kt$AutomationInitializer$fun initialize(context: Context, toolRegistry: ToolRegistry)</ID>
     <ID>LongMethod:AutomationSettingsPage.kt$@Composable fun AutomationSettingsPage( manager: AutomationManager, onBack: () -&gt; Unit = {}, /** v1.xxx: F-24 编排入口 — 跳到定时任务页编排自动化动作。 */ onOpenScheduledTasks: () -&gt; Unit = {}, /** v2.x: 权限配置向导入口。 */ onOpenPermissionWizard: () -&gt; Unit = {}, )</ID>
     <ID>LongMethod:AutomationTools.kt$AutomationTools$fun register(registry: ToolRegistry)</ID>
     <ID>LongMethod:BackgroundKeepAlive.kt$fun detectKeepAliveGuide(): KeepAliveGuide</ID>
@@ -1044,6 +1063,7 @@
     <ID>LongMethod:CharacterSharing.kt$CharacterSharer$fun generateCardPng(context: Context, assistant: ShareableAssistant, width: Int = 1080, height: Int = 1350): Uri?</ID>
     <ID>LongMethod:ChartRenderer.kt$@Composable fun PlantUmlBlock(code: String)</ID>
     <ID>LongMethod:ChartRenderer.kt$@SuppressLint("SetJavaScriptEnabled") @Composable fun MermaidBlock(code: String)</ID>
+    <ID>LongMethod:ChatGenerationController.kt$ChatGenerationController$@Suppress("TooGenericExceptionCaught") suspend fun consumeSendRequest(req: SendRequest)</ID>
     <ID>LongMethod:ChatListScreen.kt$@Composable private fun TaskActionSheet( session: SessionEntity, folders: List&lt;FolderEntity&gt;, onDismiss: () -&gt; Unit, onTogglePinned: () -&gt; Unit, onArchive: () -&gt; Unit, onDelete: () -&gt; Unit, onRename: () -&gt; Unit, onMoveToFolder: (String?) -&gt; Unit, )</ID>
     <ID>LongMethod:ChatListScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun FolderItem( folder: FolderEntity, onSelectFolder: (FolderEntity) -&gt; Unit, onRenameFolder: (String, String) -&gt; Unit, onDeleteFolder: (String) -&gt; Unit, )</ID>
     <ID>LongMethod:ChatListScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun TaskItem( session: SessionEntity, folders: List&lt;FolderEntity&gt;, onSelect: (String) -&gt; Unit, onDelete: (String) -&gt; Unit, onRenameTo: (SessionEntity, String) -&gt; Unit, onTogglePinned: (String) -&gt; Unit, onMoveSessionToFolder: (String, String?) -&gt; Unit, onArchive: (String) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
@@ -1095,6 +1115,7 @@
     <ID>LongMethod:GroupChatListScreen.kt$@Composable private fun GroupChatCard( chat: GroupChatEntity, members: List&lt;AssistantEntity&gt;, memberCount: Int, /** 前端修复 (性能-4): 页面级共享 ticker 时间戳,用于相对时间刷新。 */ now: Long, viewModel: GroupChatViewModel, onClick: () -&gt; Unit, onTogglePin: () -&gt; Unit, onDelete: () -&gt; Unit, onClearMemory: () -&gt; Unit, onToggleArchive: (Boolean) -&gt; Unit, )</ID>
     <ID>LongMethod:GroupChatScheduler.kt$GroupChatScheduler$fun launchRoundRobin(chatId: String, text: String, images: List&lt;String&gt;, fileAttachments: List&lt;FileAttachment&gt; = emptyList())</ID>
     <ID>LongMethod:GroupChatScheduler.kt$GroupChatScheduler$fun launchWhisper(chatId: String, targetAssistantId: String, text: String)</ID>
+    <ID>LongMethod:GroupChatScheduler.kt$GroupChatScheduler$private suspend fun buildDebateMessages( chatName: String, chatId: String, assistant: AssistantEntity, memberNames: List&lt;String&gt;, recentMessages: List&lt;GroupChatMessageEntity&gt;, role: String, speakerIndex: Int, totalSpeakers: Int, previousReply: String?, isRepair: Boolean, ): List&lt;UIMessage&gt;</ID>
     <ID>LongMethod:GroupChatScheduler.kt$GroupChatScheduler$private suspend fun buildMessages( chat: GroupChatEntity, assistant: AssistantEntity, memberNames: List&lt;String&gt;, recentMessages: List&lt;GroupChatMessageEntity&gt;, model: io.zer0.ai.core.Model?, isMentioned: Boolean = false, isRepair: Boolean = false, ): List&lt;UIMessage&gt;</ID>
     <ID>LongMethod:GroupChatScheduler.kt$GroupChatScheduler$private suspend fun executeAutoDiscussion( chat: GroupChatEntity, chatId: String, onSpeakerChange: ((AssistantEntity) -&gt; Unit)?, ledgerId: String? = null, startRound: Int = 1, startMemberIndex: Int = 0, ): List&lt;GroupChatMessageEntity&gt;</ID>
     <ID>LongMethod:GroupChatScheduler.kt$GroupChatScheduler$private suspend fun executeDebate( chat: GroupChatEntity, chatId: String, onSpeakerChange: ((AssistantEntity) -&gt; Unit)?, ledgerId: String? = null, startMemberIndex: Int = 0, ): List&lt;GroupChatMessageEntity&gt;</ID>
@@ -1110,7 +1131,7 @@
     <ID>LongMethod:InputBar.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable private fun RowScope.MessageInputField( text: String, assistantName: String, isStreaming: Boolean, isDrawMode: Boolean, enterToSend: Boolean, hasDraft: Boolean, showExpandButton: Boolean, focusRequester: FocusRequester, mentionTransform: VisualTransformation, pasteAsFileEnabled: Boolean, pasteAsFileThreshold: Int, onTextChanged: (String) -&gt; Unit, onSend: () -&gt; Unit, onNavigateInputHistory: (Int) -&gt; Unit, onAddPastedTextAsDocument: (String) -&gt; Unit, onExpand: () -&gt; Unit, onClearDraft: () -&gt; Unit, )</ID>
     <ID>LongMethod:InputBar.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class) @Composable internal fun InputBar(state: MuseInputState = MuseInputState(), callbacks: InputBarCallbacks = InputBarCallbacks())</ID>
     <ID>LongMethod:KnowledgeBaseManagePage.kt$@Composable fun KnowledgeBaseManagePage( onBack: () -&gt; Unit, kbDao: KnowledgeBaseDao = koinInject(), docDao: KnowledgeDocDao = koinInject(), ragService: RagService = koinInject(), settings: SettingsRepository = koinInject(), // F-31: 向本知识库添加文档 — 复用文档解析器 / OCR documentParser: io.zer0.muse.doc.DocumentParser = koinInject(), ocrManager: io.zer0.muse.doc.OcrManager = koinInject(), )</ID>
-    <ID>LongMethod:KnowledgeScreen.kt$@Composable private fun DocDetailDialog( doc: KnowledgeDocEntity, onDismiss: () -&gt; Unit, onReindex: () -&gt; Unit, // v1.0.53: 封面能力(打开封面库 / 生成封面 / 生成中状态) onOpenCoverManager: () -&gt; Unit = {}, onGenerateCover: () -&gt; Unit = {}, generatingCover: Boolean = false, // F-32: 文档重命名 / 正文编辑入口(仅文本型文档提供正文编辑) onRename: () -&gt; Unit = {}, onEditContent: () -&gt; Unit = {}, )</ID>
+    <ID>LongMethod:KnowledgeScreen.kt$@Composable private fun DocDetailDialog( doc: KnowledgeDocEntity, onDismiss: () -&gt; Unit, onReindex: () -&gt; Unit, // v1.0.53: 封面能力(打开封面库 / 生成封面 / 生成中状态) onOpenCoverManager: () -&gt; Unit = {}, onGenerateCover: () -&gt; Unit = {}, generatingCover: Boolean = false, // F-32: 文档重命名 / 正文编辑入口(仅文本型文档提供正文编辑) onRename: () -&gt; Unit = {}, onEditContent: () -&gt; Unit = {}, onMoveToFolder: () -&gt; Unit = {}, )</ID>
     <ID>LongMethod:KnowledgeScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun KnowledgeScreen( onBack: () -&gt; Unit, dao: KnowledgeDocDao = koinInject(), ragService: io.zer0.muse.rag.RagService = koinInject(), documentParser: io.zer0.muse.doc.DocumentParser = koinInject(), ocrManager: io.zer0.muse.doc.OcrManager = koinInject(), settings: io.zer0.muse.data.SettingsRepository = koinInject(), // F-31: 知识库 DAO,用于列出"目标知识库"供导入选择 kbDao: io.zer0.muse.data.knowledge.KnowledgeBaseDao = koinInject(), // v1.0.53: 封面库路由回调(文档详情 → 封面管理页) onOpenCoverManager: () -&gt; Unit = {}, )</ID>
     <ID>LongMethod:LicensesScreen.kt$@Composable fun LicensesScreen(onBack: () -&gt; Unit, repository: LicenseRepository = koinInject())</ID>
     <ID>LongMethod:LorebookScreen.kt$@Composable fun LorebookScreen(onBack: () -&gt; Unit, viewModel: ChatViewModel = koinViewModel())</ID>
@@ -1217,7 +1238,6 @@
     <ID>LongMethod:RichContentCard.kt$@Composable internal fun RichContentCard( language: String, content: String, modifier: Modifier = Modifier, onHtmlPreview: (String) -&gt; Unit = {}, showPreviewButton: Boolean = true, /** v1.0.92: 卡桥回传回调(聊天场景提供;null 时保持纯渲染无脚本)。 */ onCardAction: ((CardAction) -&gt; Unit)? = null, )</ID>
     <ID>LongMethod:RootToolsRegistrar.kt$RootToolsRegistrar$fun registerAll()</ID>
     <ID>LongMethod:SafeModeScreen.kt$@Composable fun SafeModeScreen()</ID>
-    <ID>LongMethod:ScheduledTaskRunner.kt$ScheduledTaskRunner$suspend fun executeTask(task: ScheduledTaskEntity, chainDepth: Int = 0)</ID>
     <ID>LongMethod:ScheduledTaskToolsRegistrar.kt$ScheduledTaskToolsRegistrar$fun registerAll()</ID>
     <ID>LongMethod:SearchScreen.kt$@Composable @OptIn(ExperimentalMaterial3Api::class) fun SearchScreen( onBack: () -&gt; Unit, onOpenSession: (String) -&gt; Unit, /** * v2.x: Tab=消息内容 点击消息项跳转回调。 * @param sessionId 目标会话 id * @param messageId 目标消息 id(用于 ChatScreen 滚动定位) * @param query 搜索关键词(用于 MessageBubble 内文本高亮) */ onOpenMessage: (sessionId: String, messageId: String, query: String) -&gt; Unit = { _, _, _ -&gt; }, viewModel: ChatViewModel = koinViewModel(), )</ID>
     <ID>LongMethod:SearchScreen.kt$@Composable private fun MessageSearchResults( query: String, messageResults: List&lt;io.zer0.muse.data.session.SearchResult&gt;, isSearching: Boolean, searchError: String? = null, onRetry: () -&gt; Unit = {}, onOpenMessage: (sessionId: String, messageId: String, query: String) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
@@ -1278,8 +1298,11 @@
     <ID>LongMethod:TranslateViewModel.kt$TranslateViewModel$fun translate()</ID>
     <ID>LongMethod:TtsControllerWidget.kt$@Composable fun TtsControllerWidget(modifier: Modifier = Modifier, ttsManager: TtsManager = koinInject())</ID>
     <ID>LongMethod:UIToolsSkill.kt$UIToolsSkill$fun toolDefs(): List&lt;ToolRegistry.ToolDef&gt;</ID>
+    <ID>LongMethod:UiAgentRunner.kt$UiAgentRunner$private suspend fun executeOnVirtualDisplay(action: UiAgentProtocol.Action, displayId: Int, width: Int, height: Int): String</ID>
+    <ID>LongMethod:UiAgentRunner.kt$UiAgentRunner$suspend fun run( task: String, maxSteps: Int = DEFAULT_MAX_STEPS, onProgress: (String) -&gt; Unit = {}, displayMode: DisplayMode = DisplayMode.AUTO, packageName: String? = null, ): RunResult</ID>
     <ID>LongMethod:UserProfileEditPage.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun UserProfileEditPage(onBack: () -&gt; Unit)</ID>
     <ID>LongMethod:VideoGenerationPage.kt$@Composable fun VideoGenerationPage( onBack: () -&gt; Unit, videoService: VideoGenerationService = koinInject(), settingsRepo: SettingsRepository = koinInject(), )</ID>
+    <ID>LongMethod:VirtualDisplaySemanticActions.kt$VirtualDisplaySemanticActions$suspend fun tapViewId( manager: AutomationManager, displayManager: VirtualDisplayServerManager, displayId: Int, viewId: String, maxSwipes: Int = 0, verifyText: String? = null, ): TapTextResult</ID>
     <ID>LongMethod:VisionSettingsPage.kt$@Composable fun VisionSettingsPage(onBack: () -&gt; Unit)</ID>
     <ID>LongMethod:VoiceCloningPage.kt$@Composable fun VoiceCloningPage( onBack: () -&gt; Unit, voiceCloningService: VoiceCloningService = koinInject(), elevenLabsProvider: ElevenLabsVoiceCloningProvider = koinInject(), fishProvider: FishAudioVoiceCloningProvider = koinInject(), settings: SettingsRepository = koinInject(), )</ID>
     <ID>LongMethod:VoiceMessageBar.kt$@Composable fun VoiceMessageBar( isRecording: Boolean, durationSeconds: Int = 0, onCancel: () -&gt; Unit = {}, onStop: () -&gt; Unit = {}, modifier: Modifier = Modifier, )</ID>
@@ -1370,7 +1393,7 @@
     <ID>LongParameterList:InputBar.kt$( text: String, assistantName: String, isStreaming: Boolean, isDrawMode: Boolean, enterToSend: Boolean, hasDraft: Boolean, showExpandButton: Boolean, focusRequester: FocusRequester, mentionTransform: VisualTransformation, pasteAsFileEnabled: Boolean, pasteAsFileThreshold: Int, onTextChanged: (String) -&gt; Unit, onSend: () -&gt; Unit, onNavigateInputHistory: (Int) -&gt; Unit, onAddPastedTextAsDocument: (String) -&gt; Unit, onExpand: () -&gt; Unit, onClearDraft: () -&gt; Unit, )</ID>
     <ID>LongParameterList:KnowledgeBaseManagePage.kt$( onBack: () -&gt; Unit, kbDao: KnowledgeBaseDao = koinInject(), docDao: KnowledgeDocDao = koinInject(), ragService: RagService = koinInject(), settings: SettingsRepository = koinInject(), // F-31: 向本知识库添加文档 — 复用文档解析器 / OCR documentParser: io.zer0.muse.doc.DocumentParser = koinInject(), ocrManager: io.zer0.muse.doc.OcrManager = koinInject(), )</ID>
     <ID>LongParameterList:KnowledgeChunkDao.kt$KnowledgeChunkDao$( limit: Int, offset: Int, docIdsJson: String, tag: String, startTime: Long, endTime: Long, )</ID>
-    <ID>LongParameterList:KnowledgeScreen.kt$( doc: KnowledgeDocEntity, onDismiss: () -&gt; Unit, onReindex: () -&gt; Unit, // v1.0.53: 封面能力(打开封面库 / 生成封面 / 生成中状态) onOpenCoverManager: () -&gt; Unit = {}, onGenerateCover: () -&gt; Unit = {}, generatingCover: Boolean = false, // F-32: 文档重命名 / 正文编辑入口(仅文本型文档提供正文编辑) onRename: () -&gt; Unit = {}, onEditContent: () -&gt; Unit = {}, )</ID>
+    <ID>LongParameterList:KnowledgeScreen.kt$( doc: KnowledgeDocEntity, onDismiss: () -&gt; Unit, onReindex: () -&gt; Unit, // v1.0.53: 封面能力(打开封面库 / 生成封面 / 生成中状态) onOpenCoverManager: () -&gt; Unit = {}, onGenerateCover: () -&gt; Unit = {}, generatingCover: Boolean = false, // F-32: 文档重命名 / 正文编辑入口(仅文本型文档提供正文编辑) onRename: () -&gt; Unit = {}, onEditContent: () -&gt; Unit = {}, onMoveToFolder: () -&gt; Unit = {}, )</ID>
     <ID>LongParameterList:KnowledgeScreen.kt$( onBack: () -&gt; Unit, dao: KnowledgeDocDao = koinInject(), ragService: io.zer0.muse.rag.RagService = koinInject(), documentParser: io.zer0.muse.doc.DocumentParser = koinInject(), ocrManager: io.zer0.muse.doc.OcrManager = koinInject(), settings: io.zer0.muse.data.SettingsRepository = koinInject(), // F-31: 知识库 DAO,用于列出"目标知识库"供导入选择 kbDao: io.zer0.muse.data.knowledge.KnowledgeBaseDao = koinInject(), // v1.0.53: 封面库路由回调(文档详情 → 封面管理页) onOpenCoverManager: () -&gt; Unit = {}, )</ID>
     <ID>LongParameterList:LifecycleAwareWebViewContainer.kt$( modifier: Modifier = Modifier, htmlContent: String? = null, baseUrl: String? = "file:///android_asset/", mimeType: String = "text/html", encoding: String = "UTF-8", historyUrl: String? = null, javaScriptEnabled: Boolean = false, domStorageEnabled: Boolean = false, transparentBackground: Boolean = true, webViewClient: WebViewClient? = null, onWebViewCreated: ((WebView) -&gt; Unit)? = null, onWebViewReleased: ((WebView) -&gt; Unit)? = null, onPageFinished: ((WebView, String) -&gt; Unit)? = null, )</ID>
     <ID>LongParameterList:LorebookTransformerTest.kt$LorebookTransformerTest$( id: String = "lb1", name: String = "test-lore", keywordsJson: String = """["魔法","巫师"]""", content: String = "巫师协会是一个古老的秘密组织。", priority: Int = 0, insertionPosition: String = "after_system", caseSensitive: Boolean = false, )</ID>
@@ -1450,6 +1473,7 @@
     <ID>LongParameterList:SearchScreen.kt$( sessionTitle: String, content: String, fallbackSnippet: String, query: String, timestamp: Long, onClick: () -&gt; Unit, )</ID>
     <ID>LongParameterList:SessionDao.kt$SessionDao$(id: String, preview: String, now: Long, defaultTitle: String, isUser: Int, autoTitle: String)</ID>
     <ID>LongParameterList:SessionRepository.kt$SessionRepository$( private val sessionDao: SessionDao, private val messageDao: MessageDao, private val database: MuseDb, private val context: Context, private val messageImageStore: MessageImageStore, /** v1.135-A: 视觉辅助缓存清理(会话删除时清理 sidecar)。 */ private val visionCache: io.zer0.muse.vision.VisionCache? = null, /** P3: 会话权限模式清理(会话删除时清理持久化设置)。 */ private val sessionPermissionStore: SessionPermissionStore? = null, /** P2-4: 审计日志记录器(会话删除等用户操作)。 */ private val auditLogger: AuditLogger? = null, )</ID>
+    <ID>LongParameterList:SessionRepository.kt$SessionRepository$( sessionId: String, userMessageId: String, assistantMessageId: String, content: String, createdAt: Long, outboxId: String, )</ID>
     <ID>LongParameterList:SettingsItemRow.kt$( icon: ImageVector? = null, title: String, subtitle: String? = null, onClick: (() -&gt; Unit)? = null, enabled: Boolean = true, trailing: @Composable (() -&gt; Unit)? = null, )</ID>
     <ID>LongParameterList:SettingsScreen.kt$( onBack: () -&gt; Unit, onOpenAssistants: () -&gt; Unit = {}, onOpenAccount: () -&gt; Unit = {}, onOpenModelSettings: () -&gt; Unit = {}, onOpenMultiAgentSettings: () -&gt; Unit = {}, onOpenAgentSettings: () -&gt; Unit = {}, onOpenProactiveSettings: () -&gt; Unit = {}, onOpenDataSettings: () -&gt; Unit = {}, onOpenAppearanceSettings: () -&gt; Unit = {}, onOpenChatSettings: () -&gt; Unit = {}, onOpenMemorySettings: () -&gt; Unit = {}, onOpenMemoryConfig: () -&gt; Unit = {}, onOpenMediaSettings: () -&gt; Unit = {}, onOpenExperimentsSettings: () -&gt; Unit = {}, onOpenSecuritySettings: () -&gt; Unit = {}, onOpenProxySettings: () -&gt; Unit = {}, onOpenAboutSettings: () -&gt; Unit = {}, onOpenStats: () -&gt; Unit = {}, onOpenRagSettings: () -&gt; Unit = {}, onOpenDataImport: () -&gt; Unit = {}, onOpenTutorial: () -&gt; Unit = {}, onOpenUserProfile: () -&gt; Unit = {}, onOpenTranslate: () -&gt; Unit = {}, onOpenVisionSettings: () -&gt; Unit = {}, onOpenDataManagement: () -&gt; Unit = {}, onOpenDebugLog: () -&gt; Unit = {}, onOpenCrashReport: () -&gt; Unit = {}, onOpenComponentGallery: () -&gt; Unit = {}, onOpenAuditLog: () -&gt; Unit = {}, onOpenWorkspace: () -&gt; Unit = {}, onOpenConnectionCenter: () -&gt; Unit = {}, onOpenArchivedChats: () -&gt; Unit = {}, onOpenProviderPlugins: () -&gt; Unit = {}, onOpenWebSearch: () -&gt; Unit = {}, onOpenAsr: () -&gt; Unit = {}, onOpenMcp: () -&gt; Unit = {}, onOpenAssistantResources: () -&gt; Unit = {}, onOpenNotificationListener: () -&gt; Unit = {}, onOpenTools: () -&gt; Unit = {}, onNavigate: (Any) -&gt; Unit = {}, )</ID>
     <ID>LongParameterList:SettingsSegmentedRow.kt$( icon: ImageVector, title: String, subtitle: String, options: List&lt;String&gt;, selectedIndex: Int, onSelectedChange: (Int) -&gt; Unit, )</ID>
@@ -1493,15 +1517,18 @@
     <ID>LongParameterList:TranslateScreen.kt$( translatedText: String, translating: Boolean, onCopy: () -&gt; Unit, onSpeak: () -&gt; Unit, onUseAsInput: () -&gt; Unit, onSendToNewChat: () -&gt; Unit, )</ID>
     <ID>LongParameterList:TranslateViewModel.kt$TranslateViewModel.Companion$( text: String, targetLanguage: String, sourceLanguage: String = SOURCE_AUTO, style: String = TRANSLATION_STYLES.first(), customStyles: List&lt;CustomStyle&gt; = emptyList(), glossary: Map&lt;String, String&gt; = emptyMap(), )</ID>
     <ID>LongParameterList:UIToolsSkill.kt$UIToolsSkill$(client: AccessibilityClient, startX: Int, startY: Int, endX: Int, endY: Int, duration: Long)</ID>
-    <ID>LongParameterList:UiAgentRunner.kt$UiAgentRunner$(task: String, step: Int, maxSteps: Int, history: String, width: Int, height: Int)</ID>
+    <ID>LongParameterList:UiAgentRunner.kt$UiAgentRunner$( task: String, step: Int, maxSteps: Int, history: String, width: Int, height: Int, displayMode: DisplayMode, screenContext: String?, )</ID>
     <ID>LongParameterList:VectorSearchService.kt$VectorSearchService$( queryVector: FloatArray, queryNorm: Float, topK: Int, threshold: Float, mmrLambda: Float, // P2-30: 限定检索范围的文档集合;null/空 = 全库 scopeDocIds: List&lt;String&gt;?, metadataFilter: MetadataFilter?, )</ID>
     <ID>LongParameterList:VectorSearchService.kt$VectorSearchService$( queryVector: FloatArray, queryNorm: Float, topK: Int, threshold: Float, mmrLambda: Float, applyMetadataInMemory: Boolean, metadataFilter: MetadataFilter?, pageProvider: suspend (limit: Int, offset: Int) -&gt; List&lt;ChunkWithDoc&gt;, )</ID>
     <ID>LongParameterList:VectorSearchService.kt$VectorSearchService$( queryVector: FloatArray, topK: Int, threshold: Float, mmrLambda: Float = 1.0f, scopeDocIds: List&lt;String&gt;? = null, metadataFilter: MetadataFilter? = null, )</ID>
+    <ID>LongParameterList:VirtualDisplaySemanticActions.kt$VirtualDisplaySemanticActions$( manager: AutomationManager, displayManager: VirtualDisplayServerManager, displayId: Int, text: String, exact: Boolean = false, maxSwipes: Int = 0, verifyText: String? = null, )</ID>
+    <ID>LongParameterList:VirtualDisplaySemanticActions.kt$VirtualDisplaySemanticActions$( manager: AutomationManager, displayManager: VirtualDisplayServerManager, displayId: Int, viewId: String, maxSwipes: Int = 0, verifyText: String? = null, )</ID>
     <ID>LongParameterList:VisionBridge.kt$VisionBridge$( text: String, images: List&lt;String&gt;, userRequest: String, sessionId: String? = null, /** v1.0.16: 正在分析的消息 id,驱动 UI 只在该消息上显示进度 */ messageId: String? = null, /** v1.0.20: 进度回调,每完成一张图触发 (current=已完成数, total=总图片数) */ onProgress: ((current: Int, total: Int) -&gt; Unit)? = null, )</ID>
     <ID>LongParameterList:VoiceConversationMode.kt$( state: VoiceConversationState, transcript: String, aiReply: String, amplitudes: List&lt;Float&gt;, playbackPositionMs: Long, playbackDurationMs: Long, playbackChunkIndex: Int, playbackTotalChunks: Int, modifier: Modifier = Modifier, )</ID>
     <ID>LongParameterList:WaitPrimitives.kt$WaitPrimitives$( initialPackage: String?, initialActivity: String?, targetPackage: String? = null, targetActivity: String? = null, snapshotProvider: suspend () -&gt; ScreenSnapshot, timeoutMs: Long = DEFAULT_TIMEOUT_MS, pollIntervalMs: Long = DEFAULT_POLL_INTERVAL_MS, )</ID>
     <ID>LongParameterList:WorkflowJournal.kt$WorkflowJournal$(runId: String, nodeSeq: Int, key: String, result: String, status: String, nodeKind: String)</ID>
     <ID>LoopWithTooManyJumpStatements:AnrWatcher.kt$AnrWatcher$while</ID>
+    <ID>LoopWithTooManyJumpStatements:AutomationManager.kt$AutomationManager$for</ID>
     <ID>LoopWithTooManyJumpStatements:BackupService.kt$BackupService$while</ID>
     <ID>LoopWithTooManyJumpStatements:ChatViewModel.kt$ChatViewModel$for</ID>
     <ID>LoopWithTooManyJumpStatements:ConfigImporter.kt$ConfigImporter$for</ID>
@@ -1538,6 +1565,7 @@
     <ID>LoopWithTooManyJumpStatements:ToolOrchestrator.kt$ToolOrchestrator$while</ID>
     <ID>LoopWithTooManyJumpStatements:ToolRegistrySmokeTest.kt$ToolRegistrySmokeTest$for</ID>
     <ID>LoopWithTooManyJumpStatements:TtsManager.kt$TtsManager$for</ID>
+    <ID>LoopWithTooManyJumpStatements:UiAgentProtocol.kt$UiAgentProtocol$while</ID>
     <ID>LoopWithTooManyJumpStatements:UserActivityProfile.kt$UserActivityProfile$for</ID>
     <ID>LoopWithTooManyJumpStatements:VectorSearchService.kt$VectorSearchService$for</ID>
     <ID>LoopWithTooManyJumpStatements:VectorSearchService.kt$VectorSearchService$while</ID>
@@ -1545,6 +1573,7 @@
     <ID>LoopWithTooManyJumpStatements:WebDavClient.kt$WebDavClient$for</ID>
     <ID>LoopWithTooManyJumpStatements:WebSearchProviders.kt$AutoWebSearchService$for</ID>
     <ID>LoopWithTooManyJumpStatements:WorkflowJournal.kt$WorkflowJournal$for</ID>
+    <ID>LoopWithTooManyJumpStatements:WorkflowJournal.kt$WorkflowJournal$while</ID>
     <ID>LoopWithTooManyJumpStatements:WorkspaceManager.kt$WorkspaceManager$while</ID>
     <ID>LoopWithTooManyJumpStatements:ZipUtils.kt$while</ID>
     <ID>MatchingDeclarationName:ActionColors.kt$MuseActionColors</ID>
@@ -1617,9 +1646,6 @@
     <ID>MaxLineLength:JsSandbox.kt$JsSandbox$"JS 沙盒超时熔断(scope=${scopeKey ?: "default"}): consecutive=${state.consecutiveTimeouts} total=${state.totalTimedOutMs}"</ID>
     <ID>MaxLineLength:KnowledgeChunkDao.kt$KnowledgeChunkDao$"SELECT id, doc_id, content, '' AS embedding, NULL AS embedding_blob, chunk_index, token_count, metadata_json, created_at FROM knowledge_chunks"</ID>
     <ID>MaxLineLength:LinkPreviewCard.kt$"""&lt;meta\s+[^&gt;]*(?:property|name)\s*=\s*["']([^"']+)["'][^&gt;]*content\s*=\s*["']([^"']*)["'][^&gt;]*/?&gt;|&lt;meta\s+[^&gt;]*content\s*=\s*["']([^"']*)["'][^&gt;]*(?:property|name)\s*=\s*["']([^"']+)["'][^&gt;]*/?&gt;"""</ID>
-    <ID>MaxLineLength:McpRegistry.kt$McpRegistry$"${cfg.id} | ${cfg.name} | ${cfg.transportType.name} | ${if (cfg.enabled) "enabled" else "disabled"} | ${_serversState.value[cfg.id] ?: McpConnectionState.DISCONNECTED} | ${cfg.url}"</ID>
-    <ID>MaxLineLength:McpRegistry.kt$McpRegistry$if (parsedUrl == null || parsedUrl.scheme !in setOf("http", "https") || parsedUrl.host.isNullOrBlank()) return "MCP url 必须是合法的 http/https 地址；Android 不支持 stdio。"</ID>
-    <ID>MaxLineLength:McpRegistry.kt$McpRegistry$val obj = io.zer0.common.AppJson.parseToJsonElement(raw) as? kotlinx.serialization.json.JsonObject ?: return "headers_json 必须是 JSON 对象。"</ID>
     <ID>MaxLineLength:MemoryViewModel.kt$MemoryViewModel$appendLine(getApplication&lt;Application&gt;().getString(R.string.memory_error_trace_device) + "${android.os.Build.BRAND} ${android.os.Build.MODEL} (Android ${android.os.Build.VERSION.RELEASE}, SDK ${android.os.Build.VERSION.SDK_INT})")</ID>
     <ID>MaxLineLength:MemoryViewModel.kt$MemoryViewModel$appendLine(getApplication&lt;Application&gt;().getString(R.string.memory_error_trace_time) + java.text.SimpleDateFormat(MuseDateFormats.DATE_TIME_FULL_SEC, java.util.Locale.getDefault()).format(java.util.Date()))</ID>
     <ID>MaxLineLength:MemoryViewModel.kt$MemoryViewModel$errorTrace = (it.errorTrace ?: "") + "\n" + getApplication&lt;Application&gt;().getString(R.string.memory_add_failed, msg)</ID>
@@ -1718,7 +1744,7 @@
     <ID>MaxLineLength:StatsViewModel.kt$StatsViewModel$title = io.sessionTitles[smc.sessionId]?.ifBlank { null } ?: getApplication&lt;Application&gt;().getString(R.string.stats_deleted_session)</ID>
     <ID>MaxLineLength:StatsViewModel.kt$StatsViewModel$val filteredAssistantTs = if (rangeStartMs == null) raw.assistantTimestamps else raw.assistantTimestamps.filter { it &gt;= rangeStartMs }</ID>
     <ID>MaxLineLength:SubagentTaskListCard.kt$onClick = { task.threadId?.let { tid -&gt; selectedThread = tid to (activeThreads.firstOrNull { it.threadId == tid }?.assistantId ?: "") } }</ID>
-    <ID>MaxLineLength:SystemPromptAssembler.kt$SystemPromptAssembler$if</ID>
+    <ID>MaxLineLength:SystemPromptAssembler.kt$SystemPromptAssembler$"Answer ordinary current-time questions from this turn's timestamp. Only call get_current_time for a different timezone or an explicitly fresh reading."</ID>
     <ID>MaxLineLength:SystemPromptAssembler.kt$SystemPromptAssembler.Companion$private</ID>
     <ID>MaxLineLength:SystemToolsImpl.kt$SystemToolsImpl$context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) == android.content.pm.PackageManager.PERMISSION_GRANTED</ID>
     <ID>MaxLineLength:SystemToolsImpl.kt$SystemToolsImpl$context.getString(R.string.tool_base64_encoded, android.util.Base64.encodeToString(text.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP))</ID>
@@ -1730,7 +1756,6 @@
     <ID>MaxLineLength:ThirdPartyImporter.kt$ThirdPartyImporter$val title = convObj["title"]?.jsonPrimitive?.contentOrNull ?: context.getString(R.string.import_default_session_title)</ID>
     <ID>MaxLineLength:TodoTool.kt$TodoTool$"todos" to "Required. JSON array of todo items: [{\"content\":\"...\",\"activeForm\":\"...\",\"status\":\"pending|in_progress|completed\"}]"</ID>
     <ID>MaxLineLength:ToolExposurePolicy.kt$ToolExposurePolicy$keywords = setOf("电量", "电池", "内存", "存储", "亮度", "音量", "手电筒", "闪光灯", "蓝牙", "wifi", "无线", "震动", "battery", "volume", "brightness", "flashlight")</ID>
-    <ID>MaxLineLength:ToolOrchestrator.kt$ToolOrchestrator$"tool-chain truncated | round=$round | size ${params.baseHistorySize + toolChainSize} → ${conversationHistory.size}"</ID>
     <ID>MaxLineLength:ToolRegistryJsonToolTest.kt$ToolRegistryJsonToolTest$val schema = """{"type":"object","properties":{"count":{"type":"integer"},"enabled":{"type":"boolean"},"filters":{"type":"array","items":{"type":"string"}}},"required":["count","enabled"]}"""</ID>
     <ID>MaxLineLength:ToolRegistrySmokeTest.kt$ToolRegistrySmokeTest$definitionsBroken += "${skill.id}(name='${skill.name}', desc=${skill.description.length}chars, params=${skill.parametersJson})"</ID>
     <ID>MaxLineLength:TranslateHistoryDao.kt$TranslateHistoryDao$"SELECT * FROM translate_history WHERE source_text LIKE '%' || :keyword || '%' OR translated_text LIKE '%' || :keyword || '%' ORDER BY created_at DESC LIMIT :limit"</ID>
@@ -1770,6 +1795,7 @@
     <ID>NestedBlockDepth:MarkdownParser.kt$internal fun parseMarkdownPass(lines: List&lt;String&gt;, startLine: Int): ParsePassResult</ID>
     <ID>NestedBlockDepth:MediaGenToolsImpl.kt$MediaGenToolsImpl$private fun parseReferenceImages(raw: String?): List&lt;String&gt;</ID>
     <ID>NestedBlockDepth:MuseApp.kt$MuseApp$private suspend fun startThemeScheduler()</ID>
+    <ID>NestedBlockDepth:MuseDbMigrationTest.kt$MuseDbMigrationTest$@Test fun migrate105ToLatest_disablesGlobalMemoryOnlyForNonDefaultAssistants()</ID>
     <ID>NestedBlockDepth:MuseDbMigrationTest.kt$MuseDbMigrationTest$@Test fun migrateEveryVersionTo75_keepsDataAndAddsGenerationTables()</ID>
     <ID>NestedBlockDepth:MuseDbMigrationTest.kt$MuseDbMigrationTest$@Test fun migrateRealV68WithoutIsLocked_addsMissingColumnsAndKeepsData()</ID>
     <ID>NestedBlockDepth:MuseDbMigrationTest.kt$MuseDbMigrationTest$@Test fun migrateV99To100_addsGroupChatArchivedColumn()</ID>
@@ -1802,6 +1828,9 @@
     <ID>NestedBlockDepth:ToolOrchestrator.kt$ToolOrchestrator$suspend fun runLoop( params: ToolLoopParams, conversationHistory: MutableList&lt;UIMessage&gt;, host: ToolLoopHost, accessor: ChatStateAccessor, taskCardCoordinator: ChatTaskCardCoordinator, ): ToolLoopResult</ID>
     <ID>NestedBlockDepth:ToolRegistry.kt$ToolRegistry$internal fun parseArgumentsLenient(json: String): JsonObject</ID>
     <ID>NestedBlockDepth:TtsManager.kt$TtsManager$fun flushStream()</ID>
+    <ID>NestedBlockDepth:UiAgentProtocol.kt$UiAgentProtocol$private fun parseArgs(body: String): Map&lt;String, String&gt;</ID>
+    <ID>NestedBlockDepth:UiAgentRunner.kt$UiAgentRunner$private suspend fun executeOnVirtualDisplay(action: UiAgentProtocol.Action, displayId: Int, width: Int, height: Int): String</ID>
+    <ID>NestedBlockDepth:UiAgentRunner.kt$UiAgentRunner$suspend fun run( task: String, maxSteps: Int = DEFAULT_MAX_STEPS, onProgress: (String) -&gt; Unit = {}, displayMode: DisplayMode = DisplayMode.AUTO, packageName: String? = null, ): RunResult</ID>
     <ID>NestedBlockDepth:VectorSearchService.kt$VectorSearchService$private fun applyMMR(candidates: List&lt;Pair&lt;CachedVector, Float&gt;&gt;, topK: Int, mmrLambda: Float): List&lt;SearchResult&gt;</ID>
     <ID>NestedBlockDepth:WeClawClient.kt$WeClawClient$private fun parseMessages(array: JsonArray): List&lt;InboundMsg&gt;</ID>
     <ID>NestedBlockDepth:WebSearchProviders.kt$AutoWebSearchService$override suspend fun search(query: String, maxResults: Int): List&lt;WebSearchResult&gt;</ID>
@@ -1825,6 +1854,11 @@
     <ID>ReturnCount:AutoBackupHelper.kt$AutoBackupHelper$private fun ensureBackupDir(): File?</ID>
     <ID>ReturnCount:AutoBackupWorker.kt$AutoBackupWorker$override suspend fun doWork(): Result</ID>
     <ID>ReturnCount:AutomationManager.kt$AutomationManager$suspend fun executeWithRetry(action: suspend () -&gt; Boolean, maxRetries: Int = 1): Boolean</ID>
+    <ID>ReturnCount:AutomationWorkflow.kt$AutomationWorkflow$private suspend fun executeNodeScript(index: Int, action: String, step: AutomationWorkflowStep): AutomationWorkflowStepResult</ID>
+    <ID>ReturnCount:AutomationWorkflow.kt$AutomationWorkflow$private suspend fun executeVirtualInput( index: Int, action: String, step: AutomationWorkflowStep, displayManager: VirtualDisplayServerManager, displayId: Int, ): AutomationWorkflowStepResult</ID>
+    <ID>ReturnCount:AutomationWorkflow.kt$AutomationWorkflow$private suspend fun executeVirtualStep(index: Int, action: String, step: AutomationWorkflowStep): AutomationWorkflowStepResult</ID>
+    <ID>ReturnCount:AutomationWorkflow.kt$AutomationWorkflow$private suspend fun runLocked( steps: List&lt;AutomationWorkflowStep&gt;, runId: String, retryUnknown: Boolean, durableJournal: WorkflowJournal, ): ToolOutcome</ID>
+    <ID>ReturnCount:AutomationWorkflowResumeTest.kt$AutomationWorkflowResumeTest.TestWorkflowResultCipher$override suspend fun decryptOrNull(stored: String): String?</ID>
     <ID>ReturnCount:BackupService.kt$BackupService$private suspend fun applyCloudBackupData(config: CloudBackupConfig, data: ByteArray): Pair&lt;Int, Int&gt;?</ID>
     <ID>ReturnCount:BackupService.kt$BackupService$private suspend fun verifyCloudBackupWrite(config: CloudBackupConfig, write: CloudWrite): Boolean</ID>
     <ID>ReturnCount:BackupService.kt$BackupService$suspend fun importFromCloud(): Pair&lt;Int, Int&gt;?</ID>
@@ -1841,12 +1875,12 @@
     <ID>ReturnCount:CalendarToolsRegistrar.kt$CalendarToolsRegistrar$private fun parseDateTime(input: String): Long?</ID>
     <ID>ReturnCount:ChannelAutoReply.kt$ChannelAutoReply$private suspend fun maybeCompress(config: ChannelConfig, from: String)</ID>
     <ID>ReturnCount:ChannelAutoReply.kt$ChannelAutoReply$private suspend fun resolveImageContent(config: ChannelConfig, from: String, turn: ChannelConversationStore.Turn): String</ID>
-    <ID>ReturnCount:ChannelMediaCleaner.kt$ChannelMediaCleaner$fun cleanup( dir: File, now: Long = System.currentTimeMillis(), ttlMs: Long = DEFAULT_TTL_MS, maxTotalBytes: Long = DEFAULT_MAX_TOTAL_BYTES, ): Int</ID>
     <ID>ReturnCount:ChannelReplyTool.kt$ChannelReplyTool$suspend fun execute(args: Map&lt;String, String&gt;): String</ID>
     <ID>ReturnCount:ChannelSenders.kt$DingtalkChannelSender$override suspend fun sendText(config: ChannelConfig, text: String, targetOverride: String?): Result&lt;Unit&gt;</ID>
     <ID>ReturnCount:ChannelSenders.kt$TelegramChannelSender$override suspend fun sendText(config: ChannelConfig, text: String, targetOverride: String?): Result&lt;Unit&gt;</ID>
     <ID>ReturnCount:ChartRenderer.kt$fun isMermaidCodeBlock(lang: String?, code: String): Boolean</ID>
     <ID>ReturnCount:ChatAudioCoordinator.kt$ChatAudioCoordinator$private fun getOrCreateAsrController(): ASRController?</ID>
+    <ID>ReturnCount:ChatGenerationController.kt$ChatGenerationController$@Suppress("TooGenericExceptionCaught") suspend fun consumeSendRequest(req: SendRequest)</ID>
     <ID>ReturnCount:ChatGenerationController.kt$ChatGenerationController$private fun rehydrateOptimisticPlaceholders(sessionId: String, req: SendRequest)</ID>
     <ID>ReturnCount:ChatInputController.kt$ChatInputController$fun sendPendingSend(index: Int)</ID>
     <ID>ReturnCount:ChatListScreen.kt$private fun inferTaskStatus(session: SessionEntity, now: Long): TaskStatus</ID>
@@ -1905,6 +1939,7 @@
     <ID>ReturnCount:DailySummaryService.kt$DailySummaryService$private suspend fun generateAndDeliver(slotKey: String, summaryDate: LocalDate, notificationsEnabled: Boolean): Boolean</ID>
     <ID>ReturnCount:DailySummaryService.kt$DailySummaryService$private suspend fun generateForSlotLocked(slotKey: String, summaryDate: LocalDate, notificationsEnabled: Boolean): Boolean</ID>
     <ID>ReturnCount:DailySummaryWorker.kt$DailySummaryWorker$override suspend fun doWork(): Result</ID>
+    <ID>ReturnCount:DashScopeAsrClient.kt$DashScopeAsrController$override fun start(onTranscriptChange: ((String) -&gt; Unit)?)</ID>
     <ID>ReturnCount:DashScopeAsrClient.kt$DashScopeAsrController$private fun scheduleReconnect(reason: String)</ID>
     <ID>ReturnCount:DashScopeAsrClient.kt$DashScopeAsrController$private suspend fun establishConnection(isInitial: Boolean): Boolean</ID>
     <ID>ReturnCount:DashScopeAsrClient.kt$DashScopeSession$suspend fun waitForEvent(type: String?, timeoutMs: Long): JsonObject?</ID>
@@ -2017,13 +2052,14 @@
     <ID>ReturnCount:NotifyTool.kt$NotifyTool$fun execute(args: Map&lt;String, String&gt;, notificationManager: MuseNotificationManager): String</ID>
     <ID>ReturnCount:OAuthCallbackActivity.kt$OAuthCallbackActivity$private fun handleIntent(intent: Intent?)</ID>
     <ID>ReturnCount:OAuthManager.kt$OAuthManager$fun completeAuthorizationCodeFlow(code: String, state: String): Boolean</ID>
+    <ID>ReturnCount:OAuthManager.kt$OAuthManager$private suspend fun refreshTokenIfNeededLocked(providerId: String, config: OAuthConfig? = null): Result&lt;String&gt;</ID>
     <ID>ReturnCount:OAuthManager.kt$OAuthManager$suspend fun getStoredToken(providerId: String): TokenBundle?</ID>
     <ID>ReturnCount:OAuthManager.kt$OAuthManager$suspend fun launchAuthorizationCodeFlow(activity: Activity, config: OAuthConfig, providerId: String = ""): Result&lt;String&gt;</ID>
     <ID>ReturnCount:OAuthManager.kt$OAuthManager$suspend fun launchDeviceFlow(config: OAuthConfig, providerId: String = ""): Result&lt;String&gt;</ID>
-    <ID>ReturnCount:OAuthManager.kt$OAuthManager$suspend fun refreshTokenIfNeeded(providerId: String, config: OAuthConfig? = null): Result&lt;String&gt;</ID>
     <ID>ReturnCount:OnnxEmbeddingProvider.kt$OnnxEmbeddingProvider$private fun meanPool(hiddenStates: Array&lt;FloatArray&gt;, attentionMask: LongArray): FloatArray</ID>
     <ID>ReturnCount:OnnxEmbeddingProvider.kt$OnnxEmbeddingProvider$private fun resolveVocabPath(): String</ID>
     <ID>ReturnCount:OnnxRerankProvider.kt$OnnxRerankProvider$private fun resolveVocabPath(): String</ID>
+    <ID>ReturnCount:OpenAiRealtimeAsrClient.kt$OpenAiRealtimeAsrController$override fun start(onTranscriptChange: ((String) -&gt; Unit)?)</ID>
     <ID>ReturnCount:OpenAiRealtimeAsrClient.kt$OpenAiRealtimeAsrController$private fun onWebSocketDisconnected(code: Int, reason: String)</ID>
     <ID>ReturnCount:OpenAiRealtimeAsrClient.kt$OpenAiRealtimeAsrController$private suspend fun establishConnection(isInitial: Boolean): Boolean</ID>
     <ID>ReturnCount:OpenAiRealtimeAsrClient.kt$RealtimeSession$suspend fun waitForEvent(type: String?, timeoutMs: Long): JsonObject?</ID>
@@ -2090,7 +2126,6 @@
     <ID>ReturnCount:RagService.kt$RagService$private fun splitOversizedPlainChunk(chunk: TextChunker.Chunk, targetSize: Int, overlap: Int): List&lt;TextChunker.Chunk&gt;</ID>
     <ID>ReturnCount:RagService.kt$RagService$private suspend fun applyIsInternal(results: List&lt;VectorSearchService.SearchResult&gt;): List&lt;VectorSearchService.SearchResult&gt;</ID>
     <ID>ReturnCount:RagService.kt$RagService$suspend fun buildInjectionContextWithCitations( query: String, ragConfig: RagConfig, scopeDocIds: List&lt;String&gt;? = null, metadataFilter: VectorSearchService.MetadataFilter? = null, ): RagInjection</ID>
-    <ID>ReturnCount:RagService.kt$RagService$suspend fun reindexAllInKbs( kbIds: List&lt;String&gt;, ragConfig: RagConfig, onProgress: (current: Int, total: Int) -&gt; Unit = { _, _ -&gt; }, ): Map&lt;String, String&gt;</ID>
     <ID>ReturnCount:RagService.kt$RagService$suspend fun resolveMentionToDocIds(text: String): List&lt;String&gt;</ID>
     <ID>ReturnCount:RagService.kt$RagService$suspend fun retrieve( query: String, topK: Int, threshold: Float, ragConfig: RagConfig, scopeDocIds: List&lt;String&gt;? = null, metadataFilter: VectorSearchService.MetadataFilter? = null, ): List&lt;VectorSearchService.SearchResult&gt;</ID>
     <ID>ReturnCount:RecordExperienceTool.kt$RecordExperienceTool$suspend fun execute(args: Map&lt;String, String&gt;, repo: ExperienceRepository): String</ID>
@@ -2241,7 +2276,7 @@
     <ID>ReturnCount:ToolPermissionResolver.kt$ToolPermissionResolver$fun resolve( toolName: String, risk: ToolRiskLevel?, mode: SessionPermissionMode, perToolPolicy: ToolApprovalPolicy?, args: Map&lt;String, Any?&gt; = emptyMap(), ): ToolApprovalState</ID>
     <ID>ReturnCount:ToolRegistry.kt$ToolRegistry$internal fun parseArgumentsLenient(json: String): JsonObject</ID>
     <ID>ReturnCount:ToolRegistry.kt$ToolRegistry$private suspend fun executeFromJsonInternal(name: String, argumentsJson: String, executionContext: ToolExecutionContext?): String</ID>
-    <ID>ReturnCount:ToolRegistry.kt$ToolRegistry$private suspend fun executeInternal( name: String, args: Map&lt;String, String&gt;, executionContext: ToolExecutionContext?, cancellationToken: () -&gt; Boolean, ): ToolOutcome</ID>
+    <ID>ReturnCount:ToolRegistry.kt$ToolRegistry$private suspend fun executeInternalUnlocked( name: String, args: Map&lt;String, String&gt;, executionContext: ToolExecutionContext?, cancellationToken: () -&gt; Boolean, ): ToolOutcome</ID>
     <ID>ReturnCount:ToolRegistry.kt$ToolRegistry$private suspend fun executeJson( name: String, rawArgs: JsonObject, fn: JsonToolFn, cancellationToken: () -&gt; Boolean = { false }, ): ToolOutcome</ID>
     <ID>ReturnCount:ToolResultJudge.kt$ToolResultJudge$fun isSuccess(result: String): Boolean</ID>
     <ID>ReturnCount:ToolRouteExecutionGuard.kt$ToolRouteExecutionGuard$fun validateLocal(name: String, snapshot: ToolRouteSnapshot? = null): String?</ID>
@@ -2255,8 +2290,9 @@
     <ID>ReturnCount:TtsManager.kt$TtsManager$private suspend fun synthesizeWithSystemTts(text: String, file: File): Boolean</ID>
     <ID>ReturnCount:UIToolsSkill.kt$UIToolsSkill$suspend fun screenshot(client: AccessibilityClient, context: Context, path: String?, format: String): String</ID>
     <ID>ReturnCount:UIToolsSkill.kt$UIToolsSkill$suspend fun setText(client: AccessibilityClient, nodeId: String, text: String): String</ID>
-    <ID>ReturnCount:UiAgentProtocol.kt$UiAgentProtocol$private fun parseDo(match: MatchResult): Action?</ID>
-    <ID>ReturnCount:UiAgentRunner.kt$UiAgentRunner$suspend fun run(task: String, maxSteps: Int = DEFAULT_MAX_STEPS, onProgress: (String) -&gt; Unit = {}): RunResult</ID>
+    <ID>ReturnCount:UiAgentProtocol.kt$UiAgentProtocol$private fun parseDo(args: Map&lt;String, String&gt;): Action?</ID>
+    <ID>ReturnCount:UiAgentRunner.kt$UiAgentRunner$private suspend fun executeOnVirtualDisplay(action: UiAgentProtocol.Action, displayId: Int, width: Int, height: Int): String</ID>
+    <ID>ReturnCount:UiAgentRunner.kt$UiAgentRunner$suspend fun run( task: String, maxSteps: Int = DEFAULT_MAX_STEPS, onProgress: (String) -&gt; Unit = {}, displayMode: DisplayMode = DisplayMode.AUTO, packageName: String? = null, ): RunResult</ID>
     <ID>ReturnCount:UserActivityProfile.kt$UserActivityProfile$@Synchronized fun getActiveProbability(hour: Int): Float</ID>
     <ID>ReturnCount:UserActivityProfile.kt$UserActivityProfile$@Synchronized fun getNextActiveWindow(fromTime: Long, allowedHourStart: Int = 8, allowedHourEnd: Int = 22): Long</ID>
     <ID>ReturnCount:UserActivityProfile.kt$UserActivityProfile$private fun applyDecayIfNeeded(timestamp: Long)</ID>
@@ -2268,6 +2304,8 @@
     <ID>ReturnCount:VectorSearchService.kt$VectorSearchService.MetadataFilter$fun matches(docId: String, docTitle: String, metadataJson: String, createdAt: Long): Boolean</ID>
     <ID>ReturnCount:VirtualDisplayBinderReceiver.kt$VirtualDisplayBinderReceiver$override fun onReceive(context: Context, intent: Intent)</ID>
     <ID>ReturnCount:VirtualDisplayBinderRegistry.kt$VirtualDisplayBinderRegistry$fun current(): IBinder?</ID>
+    <ID>ReturnCount:VirtualDisplaySemanticActions.kt$VirtualDisplaySemanticActions$suspend fun tapText( manager: AutomationManager, displayManager: VirtualDisplayServerManager, displayId: Int, text: String, exact: Boolean = false, maxSwipes: Int = 0, verifyText: String? = null, ): TapTextResult</ID>
+    <ID>ReturnCount:VirtualDisplaySemanticActions.kt$VirtualDisplaySemanticActions$suspend fun tapViewId( manager: AutomationManager, displayManager: VirtualDisplayServerManager, displayId: Int, viewId: String, maxSwipes: Int = 0, verifyText: String? = null, ): TapTextResult</ID>
     <ID>ReturnCount:VirtualDisplayServerManager.kt$VirtualDisplayServerManager$private suspend fun deployJar(): Boolean</ID>
     <ID>ReturnCount:VirtualDisplayTool.kt$VirtualDisplayTool$private suspend fun handleOpen(args: Map&lt;String, String&gt;): String</ID>
     <ID>ReturnCount:VisionBridge.kt$VisionBridge$private fun normalizePrimitive(prim: kotlinx.serialization.json.JsonElement, caps: VisionCapabilities?): NormalizedPrimitive?</ID>
@@ -2377,6 +2415,7 @@
     <ID>TooGenericExceptionCaught:AutomationInitializer.kt$AutomationInitializer$e: Exception</ID>
     <ID>TooGenericExceptionCaught:AutomationManager.kt$AutomationManager$e: Exception</ID>
     <ID>TooGenericExceptionCaught:AutomationTools.kt$AutomationTools$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:AutomationWorkflow.kt$AutomationWorkflow$error: Exception</ID>
     <ID>TooGenericExceptionCaught:BingWebViewSearcher.kt$BingWebViewSearcher$e: Exception</ID>
     <ID>TooGenericExceptionCaught:BrowserAutomationTool.kt$BrowserAutomationTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:BrowserManager.kt$BrowserManager$e: Exception</ID>
@@ -2401,6 +2440,7 @@
     <ID>TooGenericExceptionCaught:ConversationCompressor.kt$ConversationCompressor$t: Throwable</ID>
     <ID>TooGenericExceptionCaught:DailySummaryService.kt$DailySummaryService$e: Exception</ID>
     <ID>TooGenericExceptionCaught:DashScopeAsrClient.kt$DashScopeAsrController$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:DashScopeAsrClient.kt$DashScopeAsrController$error: Exception</ID>
     <ID>TooGenericExceptionCaught:DebugLogStore.kt$DebugLogStore$t: Throwable</ID>
     <ID>TooGenericExceptionCaught:DebugScreen.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:DocumentParser.kt$DocumentParser$e: Throwable</ID>
@@ -2448,6 +2488,7 @@
     <ID>TooGenericExceptionCaught:NotifyTool.kt$NotifyTool$e: Exception</ID>
     <ID>TooGenericExceptionCaught:OAuthManager.kt$OAuthManager$e: Exception</ID>
     <ID>TooGenericExceptionCaught:OpenAiRealtimeAsrClient.kt$OpenAiRealtimeAsrController$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:OpenAiRealtimeAsrClient.kt$OpenAiRealtimeAsrController$error: Exception</ID>
     <ID>TooGenericExceptionCaught:OpenAiWhisperAsrClient.kt$OpenAiWhisperAsrController$e: Exception</ID>
     <ID>TooGenericExceptionCaught:PdfVisionParser.kt$PdfVisionParser$t: Throwable</ID>
     <ID>TooGenericExceptionCaught:PendingMessageManager.kt$PendingMessageManager$e: Exception</ID>
@@ -2467,6 +2508,8 @@
     <ID>TooGenericExceptionCaught:QuickNotesViewModel.kt$QuickNotesViewModel$e: Exception</ID>
     <ID>TooGenericExceptionCaught:RagService.kt$RagService$e: RuntimeException</ID>
     <ID>TooGenericExceptionCaught:RagService.kt$RagService$e: Throwable</ID>
+    <ID>TooGenericExceptionCaught:RagService.kt$RagService$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:RagService.kt$RagService$error: Throwable</ID>
     <ID>TooGenericExceptionCaught:RegexTransformer.kt$RegexTransformer$e: Exception</ID>
     <ID>TooGenericExceptionCaught:ReminderStore.kt$ReminderStore$e: Exception</ID>
     <ID>TooGenericExceptionCaught:ResourceLibraryStore.kt$ResourceLibraryStore$e: Exception</ID>
@@ -2515,6 +2558,7 @@
     <ID>TooGenericExceptionCaught:TtsToolsImpl.kt$TtsToolsImpl$e: Exception</ID>
     <ID>TooGenericExceptionCaught:Type.kt$e: RuntimeException</ID>
     <ID>TooGenericExceptionCaught:UiAgentRunner.kt$UiAgentRunner$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:UiAgentRunner.kt$UiAgentRunner$error: Exception</ID>
     <ID>TooGenericExceptionCaught:UpdateNotifier.kt$t: Throwable</ID>
     <ID>TooGenericExceptionCaught:VideoAttachmentHandler.kt$VideoAttachmentHandler$e: Exception</ID>
     <ID>TooGenericExceptionCaught:VirtualDisplayClient.kt$VirtualDisplayClient$e: Exception</ID>
@@ -2526,6 +2570,7 @@
     <ID>TooGenericExceptionCaught:WebSearchProviders.kt$AutoWebSearchService$e: Exception</ID>
     <ID>TooGenericExceptionCaught:WebSearchSection.kt$e: Exception</ID>
     <ID>TooGenericExceptionCaught:WebServerTls.kt$WebServerTls$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:WorkflowJournal.kt$WorkflowJournal$error: Exception</ID>
     <ID>TooGenericExceptionCaught:WorkflowOrchestrator.kt$WorkflowOrchestrator$e: Exception</ID>
     <ID>TooGenericExceptionCaught:WorkspaceManager.kt$WorkspaceManager$e: Exception</ID>
     <ID>TooGenericExceptionThrown:KnowledgeChunkFtsSelfHealTest.kt$KnowledgeChunkFtsSelfHealTest.FakeFtsDao$throw RuntimeException("no such table: knowledge_chunks_fts")</ID>
@@ -2546,6 +2591,7 @@
     <ID>TooManyFunctions:AssistantRepository.kt$AssistantRepository</ID>
     <ID>TooManyFunctions:AutomationExecutor.kt$AutomationExecutor</ID>
     <ID>TooManyFunctions:AutomationManager.kt$AutomationManager</ID>
+    <ID>TooManyFunctions:AutomationWorkflow.kt$AutomationWorkflow</ID>
     <ID>TooManyFunctions:BackupService.kt$BackupService</ID>
     <ID>TooManyFunctions:BrowserManager.kt$BrowserManager</ID>
     <ID>TooManyFunctions:ChannelAutoReply.kt$ChannelAutoReply</ID>
@@ -2569,6 +2615,7 @@
     <ID>TooManyFunctions:Ed25519.kt$Ed25519</ID>
     <ID>TooManyFunctions:FeishuReceiver.kt$FeishuReceiver</ID>
     <ID>TooManyFunctions:FolderDao.kt$FolderDao</ID>
+    <ID>TooManyFunctions:GenerationCheckpointEntity.kt$GenerationCheckpointDao</ID>
     <ID>TooManyFunctions:GreetingHelper.kt$GreetingHelper</ID>
     <ID>TooManyFunctions:GroupChatDao.kt$GroupChatDao</ID>
     <ID>TooManyFunctions:GroupChatMessageDao.kt$GroupChatMessageDao</ID>

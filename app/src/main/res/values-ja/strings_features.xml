@@ -286,6 +286,14 @@
 
     <!-- ===== ui/knowledge ===== -->
     <string name="knowledge_title">知識ベース</string>
+    <string name="knowledge_folder_browser_hint">ZIP 内のフォルダーは相対パスで表示されます。文書の移動時に新しいパスを入力するとフォルダーを作成できます。</string>
+    <string name="knowledge_move_to_folder">フォルダーに移動</string>
+    <string name="knowledge_move_folder_title">文書を移動</string>
+    <string name="knowledge_move_folder_hint">フォルダーパスを入力（例: Projects/Contracts）。空欄の場合は知識ベースのルートです。</string>
+    <string name="knowledge_move_saving">移動中…</string>
+    <string name="knowledge_move_success">文書をフォルダーに移動しました</string>
+    <string name="knowledge_move_failed">文書を移動できませんでした: %1$s</string>
+    <string name="knowledge_folder_item_files">%1$d 件のファイル</string>
     <string name="knowledge_back">戻る</string>
     <string name="knowledge_sort">選別</string>
     <string name="knowledge_import">輸入</string>

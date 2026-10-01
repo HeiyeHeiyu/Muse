@@ -47,7 +47,13 @@ class MemoryInjectionTransformerTest {
 
     @Test
     fun `memory markdown injected at head when enabled`() = runTest {
-        coEvery { memoryTicker.readCompiledMemoryMarkdown(scope = "main", spaceId = "default") } returns "用户喜欢编程和音乐。"
+        coEvery {
+            memoryTicker.readCompiledMemoryMarkdown(
+                scope = "main",
+                spaceId = "default",
+                assistantId = "default",
+            )
+        } returns "用户喜欢编程和音乐。"
 
         val transformer = MemoryInjectionTransformer(memoryTicker)
         val messages = listOf(
@@ -69,7 +75,13 @@ class MemoryInjectionTransformerTest {
         coEvery { factStore.getByScopeAndSpace("main", "default") } returns listOf(
             FactStore.Fact(fact = "默认空间事实", scope = "main", spaceId = "default"),
         )
-        coEvery { memoryTicker.readCompiledMemoryMarkdown(scope = "main", spaceId = "default") } returns ""
+        coEvery {
+            memoryTicker.readCompiledMemoryMarkdown(
+                scope = "main",
+                spaceId = "default",
+                assistantId = "default",
+            )
+        } returns ""
 
         val transformer = MemoryInjectionTransformer(memoryTicker, factStore)
         val messages = listOf(UIMessage(role = MessageRole.USER, content = "你好"))
@@ -99,7 +111,13 @@ class MemoryInjectionTransformerTest {
 
     @Test
     fun `injected message has disclaimer`() = runTest {
-        coEvery { memoryTicker.readCompiledMemoryMarkdown(scope = "main", spaceId = "default") } returns "一些长期记忆"
+        coEvery {
+            memoryTicker.readCompiledMemoryMarkdown(
+                scope = "main",
+                spaceId = "default",
+                assistantId = "default",
+            )
+        } returns "一些长期记忆"
 
         val transformer = MemoryInjectionTransformer(memoryTicker)
         val messages = listOf(

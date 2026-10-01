@@ -127,51 +127,44 @@ sealed class ProviderError {
          * @param retryAfterSec Retry-After 头秒数(由调用方解析后传入,避免本类依赖 OkHttp)
          * @param throwable 原始异常
          */
-        fun from(code: Int?, body: String, retryAfterSec: Int? = null, throwable: Throwable? = null): ProviderError {
-            // 1. IOException 优先归为 Network(即使 code 非 null,如 SSE 中断后 IOException)
-            if (throwable is IOException) {
-                return Network(
+        fun from(code: Int?, body: String, retryAfterSec: Int? = null, throwable: Throwable? = null): ProviderError = when {
+            // IOException 优先归为 Network(即使 code 非 null,如 SSE 中断后 IOException)。
+            throwable is IOException ->
+                Network(
                     displayMessage = throwable.message ?: "network error",
                     cause = throwable,
                 )
-            }
-
-            // 2. 按 HTTP 状态码分类
-            if (code != null) {
-                return when {
-                    code == 401 || code == 403 -> AuthError(
-                        httpCode = code,
-                        displayMessage = buildDisplayMessage(code, body, "auth"),
-                    )
-                    code == 400 || code == 413 || code == 422 || code == 404 -> InvalidRequest(
-                        httpCode = code,
-                        displayMessage = buildDisplayMessage(code, body, "invalid request"),
-                    )
-                    code == 429 -> RateLimit(
-                        httpCode = code,
-                        retryAfterSec = retryAfterSec,
-                        displayMessage = buildDisplayMessage(code, body, "rate limited"),
-                    )
-                    code in 500..599 -> ServerError(
-                        httpCode = code,
-                        displayMessage = buildDisplayMessage(code, body, "server error"),
-                    )
-                    else -> Unknown(
-                        httpCode = code,
-                        displayMessage = buildDisplayMessage(code, body, null),
-                    )
-                }
-            }
-
-            // 3. 无 HTTP code,有 throwable
-            return if (throwable != null) {
+            code != null -> fromHttpStatus(code, body, retryAfterSec)
+            throwable != null ->
                 Unknown(
                     displayMessage = throwable.message ?: "unknown error",
                     cause = throwable,
                 )
-            } else {
-                Unknown(displayMessage = body.ifBlank { "unknown error" })
-            }
+            else -> Unknown(displayMessage = body.ifBlank { "unknown error" })
+        }
+
+        private fun fromHttpStatus(code: Int, body: String, retryAfterSec: Int?): ProviderError = when {
+            code == 401 || code == 403 -> AuthError(
+                httpCode = code,
+                displayMessage = buildDisplayMessage(code, body, "auth"),
+            )
+            code == 400 || code == 413 || code == 422 || code == 404 -> InvalidRequest(
+                httpCode = code,
+                displayMessage = buildDisplayMessage(code, body, "invalid request"),
+            )
+            code == 429 -> RateLimit(
+                httpCode = code,
+                retryAfterSec = retryAfterSec,
+                displayMessage = buildDisplayMessage(code, body, "rate limited"),
+            )
+            code in 500..599 -> ServerError(
+                httpCode = code,
+                displayMessage = buildDisplayMessage(code, body, "server error"),
+            )
+            else -> Unknown(
+                httpCode = code,
+                displayMessage = buildDisplayMessage(code, body, null),
+            )
         }
 
         /**
