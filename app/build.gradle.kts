@@ -135,15 +135,17 @@ android {
         // v2.3.0: 工具轮次默认无限制/上下文连续性(窗口外历史摘要·工具回合保留助手说明)/
         //         记忆归档缺陷根治(版本守卫·归档保真·一次性恢复)/工具权限分层(标注·预检)/
         //         提示词技能参数·MOOD 调试出口·知识搜索诊断·渠道卡片重设计。
+        // v2.4.0: 手机 Agent 工作流/虚拟屏与应用控制/Node npm 沙盒/MCP stdio/
+        //         记忆隔离与 RAG 可靠性/语音生命周期/对话恢复一致性。
         versionCode = (project.findProperty("versionCode") as? String)
             ?.takeIf { it.isNotBlank() }
             ?.toIntOrNull()
             ?: System.getenv("VERSION_CODE")?.takeIf { it.isNotBlank() }?.toIntOrNull()
-            ?: 230
+            ?: 240
         versionName = (project.findProperty("versionName") as? String)
             ?.takeIf { it.isNotBlank() }
             ?: System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }
-            ?: "2.3.0"
+            ?: "2.4.0"
     }
 
     signingConfigs {
@@ -438,7 +440,7 @@ gradle.taskGraph.whenReady {
     if (hasReleaseTask && !skipKeystoreCheck && !keystorePropertiesFile.exists()) {
         throw GradleException("正式构建缺少 keystore.properties：请先配置 release 签名，禁止回退 debug 签名。")
     }
-    // 版本号硬约束：正式构建必须显式注入 versionName/versionCode，避免误用过期默认版本；当前默认线为 230/2.3.0。
+    // 版本号硬约束：正式构建必须显式注入 versionName/versionCode，避免误用过期默认版本；当前默认线为 240/2.4.0。
     // 本地临时验证可传 -PreleaseSkipVersionCheck=true 跳过。
     val skipVersionCheck = project.findProperty("releaseSkipVersionCheck") == "true"
     val hasVersionName = project.hasProperty("versionName") || !System.getenv("VERSION_NAME").isNullOrBlank()
