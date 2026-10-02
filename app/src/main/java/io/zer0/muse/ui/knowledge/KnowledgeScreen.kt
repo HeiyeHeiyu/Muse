@@ -1,6 +1,5 @@
 package io.zer0.muse.ui.knowledge
 
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
@@ -48,6 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
@@ -506,7 +506,7 @@ fun KnowledgeScreen(
     suspend fun originalDocumentContent(doc: KnowledgeDocEntity, ragConfig: io.zer0.muse.rag.RagConfig): Flow<String>? {
         val path = doc.filePath
         if (!path.startsWith("content://") && !path.startsWith("file://")) return null
-        val uri = Uri.parse(path)
+        val uri = path.toUri()
         return when (doc.fileType.lowercase(Locale.ROOT)) {
             "pdf", "docx", "epub", "pptx" -> flow {
                 val parsed = documentParser
