@@ -269,18 +269,22 @@ jobs:
       - name: Generate release manifest
         run: |
           $releaseApkDirectory = 'app/build/outputs/apk/release'
-          $releaseApkNames = @(
-            'app-arm64-v8a-release.apk',
-            'app-armeabi-v7a-release.apk',
-            'app-universal-release.apk'
+          $releaseApkMappings = @(
+            @{ Source = 'app-arm64-v8a-release.apk'; Architecture = 'arm64-v8a' },
+            @{ Source = 'app-armeabi-v7a-release.apk'; Architecture = 'armeabi-v7a' },
+            @{ Source = 'app-universal-release.apk'; Architecture = 'universal' }
           )
           $apkArgs = @()
-          foreach ($apkName in $releaseApkNames) {
-            $apkPath = Join-Path $releaseApkDirectory $apkName
-            if (-not (Test-Path -LiteralPath $apkPath -PathType Leaf)) { throw "missing release APK: $apkName" }
-            $apkArgs += @('--apk', $apkPath)
+          $releaseAssetDirectory = 'release'
+          New-Item -ItemType Directory -Path $releaseAssetDirectory -Force | Out-Null
+          foreach ($mapping in $releaseApkMappings) {
+            $sourcePath = Join-Path $releaseApkDirectory $mapping.Source
+            if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { throw "missing release APK: $($mapping.Source)" }
+            $assetName = "Muse_$($env:GITHUB_REF_NAME)_$($mapping.Architecture).apk"
+            $assetPath = Join-Path $releaseAssetDirectory $assetName
+            Copy-Item -LiteralPath $sourcePath -Destination $assetPath -Force
+            $apkArgs += @('--apk', $assetPath)
           }
-          New-Item -ItemType Directory -Path release -Force | Out-Null
           python3 ci/script/generate_release_manifest.py `
             --version-name "${{ steps.version.outputs.version_name }}" `
             --version-code "${{ steps.version.outputs.version_code }}" `
@@ -301,9 +305,7 @@ jobs:
         with:
           name: release-apks
           path: |
-            app/build/outputs/apk/release/app-arm64-v8a-release.apk
-            app/build/outputs/apk/release/app-armeabi-v7a-release.apk
-            app/build/outputs/apk/release/app-universal-release.apk
+            release/Muse_*.apk
             release/manifest.json
           if-no-files-found: error
       - name: Publish GitHub Release
@@ -313,7 +315,5 @@ jobs:
           python3 ci/script/publish_release.py `
             --tag "$env:GITHUB_REF_NAME" `
             --body-file "releases/$env:GITHUB_REF_NAME/release_body.md" `
-            --artifacts 'app/build/outputs/apk/release/app-arm64-v8a-release.apk' `
-            --artifacts 'app/build/outputs/apk/release/app-armeabi-v7a-release.apk' `
-            --artifacts 'app/build/outputs/apk/release/app-universal-release.apk' `
+            --artifacts 'release/Muse_*.apk' `
             --artifacts 'release/manifest.json'

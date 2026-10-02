@@ -318,22 +318,25 @@ def test_release_workflow_publishes_only_distribution_apks():
     manifest_step = workflow[manifest_start:artifact_start]
     artifact_step = workflow[artifact_start:publish_start]
     publish_step = workflow[publish_start:]
-    distribution_apks = (
-        "app-arm64-v8a-release.apk",
-        "app-armeabi-v7a-release.apk",
-        "app-universal-release.apk",
-    )
+    distribution_arches = ("arm64-v8a", "armeabi-v7a", "universal")
 
-    for apk_name in distribution_apks:
-        assert apk_name in manifest_step
-        assert apk_name in artifact_step
-        assert apk_name in publish_step
+    for architecture in distribution_arches:
+        source_name = f"app-{architecture}-release.apk"
+        assert source_name in manifest_step
+        assert f"Architecture = '{architecture}'" in manifest_step
+
+    assert "Muse_$($env:GITHUB_REF_NAME)_$($mapping.Architecture).apk" in manifest_step
+    assert "release/Muse_*.apk" in artifact_step
+    assert "release/Muse_*.apk" in publish_step
+    assert "app/build/outputs/apk/release/*.apk" not in manifest_step
+    assert "app/build/outputs/apk/release/*.apk" not in publish_step
 
     assert "app-x86_64-release.apk" not in manifest_step
     assert "app-x86_64-release.apk" not in artifact_step
     assert "app-x86_64-release.apk" not in publish_step
     assert "*.apk" not in manifest_step
-    assert "*.apk" not in publish_step
+    assert artifact_step.count("release/Muse_*.apk") == 1
+    assert publish_step.count("release/Muse_*.apk") == 1
 
 
 if __name__ == "__main__":
