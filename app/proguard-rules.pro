@@ -108,6 +108,15 @@
 # -keep class com.google.android.gms.** { *; }
 -dontwarn com.google.mlkit.**
 
+# These entry points are instantiated by class name at runtime. Dependency consumer rules keep
+# the class declarations but not necessarily their public no-argument constructors.
+-keep class * implements com.google.firebase.components.ComponentRegistrar {
+    public <init>();
+}
+-keep class * extends androidx.work.InputMerger {
+    public <init>();
+}
+
 # ============================================================================
 # v1.55: jtokkit(BPE tokenizer)— 保留编码表资源和反射加载的类
 # ============================================================================

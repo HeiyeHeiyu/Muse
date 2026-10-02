@@ -9,6 +9,7 @@
 
 - **上下文整理进度更清楚**：手动整理记忆和压缩对话时会显示当前阶段，改进会话切换期间的状态同步。
 - **中断后的恢复更稳**：改进手机操作、消息处理、外部连接和备份恢复在异常中断后的续接，降低重复处理和会话状态错乱。
+- **扫描识别和后台任务更可靠**：提升扫描文档识别、自动备份与定时任务的启动和恢复稳定性。
 
 ---
 
@@ -23,3 +24,4 @@
 
 - **Clearer context-organization progress**: manual memory organization and conversation compression show their current stage, with improved state handling when switching conversations.
 - **More reliable recovery after interruptions**: recovery is improved for phone actions, message handling, external connections, and backup restoration, reducing duplicate processing and conversation-state mix-ups.
+- **More reliable scanning and background tasks**: startup and recovery are improved for scanned-document recognition, automatic backups, and scheduled tasks.

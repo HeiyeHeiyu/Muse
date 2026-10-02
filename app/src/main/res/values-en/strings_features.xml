@@ -313,7 +313,7 @@
 
     <!-- ===== ui/knowledge ===== -->
     <string name="knowledge_title">Knowledge base</string>
-    <string name="knowledge_folder_browser_hint">Folders from ZIP imports are shown by relative path. Enter a new path when moving a document to create folders.</string>
+    <string name="knowledge_folder_browser_hint">Folders and files from archives are shown by their relative paths. Enter a new path when moving a document to create folders.</string>
     <string name="knowledge_move_to_folder">Move to folder</string>
     <string name="knowledge_move_folder_title">Move document</string>
     <string name="knowledge_move_folder_hint">Enter a folder path, for example Projects/Contracts. Leave empty for the KB root.</string>
@@ -329,7 +329,7 @@
     <string name="knowledge_no_match_title">No matching documents found</string>
     <string name="knowledge_empty_title">Knowledge base is empty</string>
     <string name="knowledge_no_match_subtitle">Try a different keyword</string>
-    <string name="knowledge_empty_subtitle">Tap the + at the bottom right to import documents (txt/md/csv)</string>
+    <string name="knowledge_empty_subtitle">Tap + at the bottom right to import a document or archive (ZIP/7Z/RAR)</string>
     <string name="knowledge_deleted">Deleted</string>
     <string name="knowledge_delete_doc">Delete document</string>
     <string name="knowledge_delete">Delete</string>

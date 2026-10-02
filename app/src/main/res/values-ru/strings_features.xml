@@ -286,7 +286,7 @@
 
     <!-- ===== ui/knowledge ===== -->
     <string name="knowledge_title">База знаний</string>
-    <string name="knowledge_folder_browser_hint">Папки из ZIP отображаются по относительному пути. При перемещении документа можно указать новый путь и создать папки.</string>
+    <string name="knowledge_folder_browser_hint">Папки и файлы из архива отображаются по относительным путям. При перемещении документа можно указать новый путь и создать папки.</string>
     <string name="knowledge_move_to_folder">Переместить в папку</string>
     <string name="knowledge_move_folder_title">Переместить документ</string>
     <string name="knowledge_move_folder_hint">Введите путь, например Проекты/Договоры. Оставьте пустым для корня базы знаний.</string>
@@ -302,7 +302,7 @@
     <string name="knowledge_no_match_title">Соответствующие документы не найдены</string>
     <string name="knowledge_empty_title">База знаний пуста</string>
     <string name="knowledge_no_match_subtitle">Попробуйте другое ключевое слово</string>
-    <string name="knowledge_empty_subtitle">Нажмите + в правом нижнем углу, чтобы импортировать документы (txt/md/csv).</string>
+    <string name="knowledge_empty_subtitle">Нажмите + в правом нижнем углу, чтобы импортировать документ или архив (ZIP/7Z/RAR).</string>
     <string name="knowledge_deleted">Удалено</string>
     <string name="knowledge_delete_doc">Удалить документ</string>
     <string name="knowledge_delete">Удалить</string>

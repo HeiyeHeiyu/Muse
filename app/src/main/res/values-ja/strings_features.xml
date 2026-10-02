@@ -286,7 +286,7 @@
 
     <!-- ===== ui/knowledge ===== -->
     <string name="knowledge_title">知識ベース</string>
-    <string name="knowledge_folder_browser_hint">ZIP 内のフォルダーは相対パスで表示されます。文書の移動時に新しいパスを入力するとフォルダーを作成できます。</string>
+    <string name="knowledge_folder_browser_hint">圧縮ファイル内のフォルダーとファイルは相対パスで表示されます。文書の移動時に新しいパスを入力するとフォルダーを作成できます。</string>
     <string name="knowledge_move_to_folder">フォルダーに移動</string>
     <string name="knowledge_move_folder_title">文書を移動</string>
     <string name="knowledge_move_folder_hint">フォルダーパスを入力（例: Projects/Contracts）。空欄の場合は知識ベースのルートです。</string>
@@ -302,7 +302,7 @@
     <string name="knowledge_no_match_title">一致するドキュメントが見つかりませんでした</string>
     <string name="knowledge_empty_title">ナレッジベースが空です</string>
     <string name="knowledge_no_match_subtitle">別のキーワードを試してください</string>
-    <string name="knowledge_empty_subtitle">右下の＋をタップしてドキュメント（txt/md/csv）をインポートします</string>
+    <string name="knowledge_empty_subtitle">右下の＋をタップして、ドキュメントまたは圧縮ファイル（ZIP/7Z/RAR）をインポートします</string>
     <string name="knowledge_deleted">削除されました</string>
     <string name="knowledge_delete_doc">文書の削除</string>
     <string name="knowledge_delete">消去</string>

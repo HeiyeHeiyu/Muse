@@ -486,7 +486,7 @@
 
     <!-- ===== ui/knowledge ===== -->
     <string name="knowledge_title">知识库</string>
-    <string name="knowledge_folder_browser_hint">子文件夹和文件会按 ZIP 中的相对目录展示；你也可以在移动文档时输入新路径。</string>
+    <string name="knowledge_folder_browser_hint">子文件夹和文件会按压缩包内的相对目录展示；你也可以在移动文档时输入新路径。</string>
     <string name="knowledge_move_to_folder">移动到文件夹</string>
     <string name="knowledge_move_folder_title">移动文档</string>
     <string name="knowledge_move_folder_hint">输入文件夹路径，例如 项目/合同；留空表示当前知识库根目录</string>
@@ -502,7 +502,7 @@
     <string name="knowledge_no_match_title">未找到匹配的文档</string>
     <string name="knowledge_empty_title">知识库为空</string>
     <string name="knowledge_no_match_subtitle">试试其他关键词</string>
-    <string name="knowledge_empty_subtitle">点击右下角 + 导入文档(txt/md/csv)</string>
+    <string name="knowledge_empty_subtitle">点击右下角 + 导入文档或压缩包（ZIP/7Z/RAR）</string>
     <string name="knowledge_deleted">已删除</string>
     <string name="knowledge_delete_doc">删除文档</string>
     <string name="knowledge_delete">删除</string>

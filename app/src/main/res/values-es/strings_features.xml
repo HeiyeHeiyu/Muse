@@ -286,7 +286,7 @@
 
     <!-- ===== ui/knowledge ===== -->
     <string name="knowledge_title">base de conocimientos</string>
-    <string name="knowledge_folder_browser_hint">Las carpetas importadas desde ZIP se muestran por ruta relativa. Escribe una ruta nueva al mover un documento para crear carpetas.</string>
+    <string name="knowledge_folder_browser_hint">Las carpetas y los archivos conservan la ruta relativa del archivo comprimido. Escribe una ruta nueva al mover un documento para crear carpetas.</string>
     <string name="knowledge_move_to_folder">Mover a carpeta</string>
     <string name="knowledge_move_folder_title">Mover documento</string>
     <string name="knowledge_move_folder_hint">Escribe una ruta, por ejemplo Proyectos/Contratos. Déjala vacía para la raíz.</string>
@@ -302,7 +302,7 @@
     <string name="knowledge_no_match_title">No se encontraron documentos coincidentes</string>
     <string name="knowledge_empty_title">La base de conocimientos está vacía.</string>
     <string name="knowledge_no_match_subtitle">Pruebe con una palabra clave diferente</string>
-    <string name="knowledge_empty_subtitle">Toque + en la parte inferior derecha para importar documentos (txt/md/csv)</string>
+    <string name="knowledge_empty_subtitle">Toque + abajo a la derecha para importar un documento o archivo comprimido (ZIP/7Z/RAR)</string>
     <string name="knowledge_deleted">Eliminado</string>
     <string name="knowledge_delete_doc">Eliminar documento</string>
     <string name="knowledge_delete">Borrar</string>

@@ -286,7 +286,7 @@
 
     <!-- ===== ui/knowledge ===== -->
     <string name="knowledge_title">Base de conhecimento</string>
-    <string name="knowledge_folder_browser_hint">Pastas importadas de ZIP são exibidas pelo caminho relativo. Digite um novo caminho ao mover um documento para criar pastas.</string>
+    <string name="knowledge_folder_browser_hint">Pastas e arquivos do arquivo compactado são exibidos pelo caminho relativo. Digite um novo caminho ao mover um documento para criar pastas.</string>
     <string name="knowledge_move_to_folder">Mover para pasta</string>
     <string name="knowledge_move_folder_title">Mover documento</string>
     <string name="knowledge_move_folder_hint">Digite um caminho, por exemplo Projetos/Contratos. Deixe vazio para a raiz da base.</string>
@@ -302,7 +302,7 @@
     <string name="knowledge_no_match_title">Nenhum documento correspondente encontrado</string>
     <string name="knowledge_empty_title">A base de conhecimento está vazia</string>
     <string name="knowledge_no_match_subtitle">Experimente uma palavra-chave diferente</string>
-    <string name="knowledge_empty_subtitle">Toque no + no canto inferior direito para importar documentos (txt/md/csv)</string>
+    <string name="knowledge_empty_subtitle">Toque em + no canto inferior direito para importar um documento ou arquivo compactado (ZIP/7Z/RAR)</string>
     <string name="knowledge_deleted">Excluído</string>
     <string name="knowledge_delete_doc">Excluir documento</string>
     <string name="knowledge_delete">Excluir</string>
