@@ -114,12 +114,7 @@ class KnowledgeArchiveImporterIntegrationTest {
         coVerify(exactly = 1) { kbDao.upsert(match { it.description == archive.name }) }
     }
 
-    private fun archiveCase(
-        context: Context,
-        format: ArchiveFormat,
-        entryPath: String,
-        content: String,
-    ): ArchiveCase {
+    private fun archiveCase(context: Context, format: ArchiveFormat, entryPath: String, content: String): ArchiveCase {
         val extension = ".${format.extension}"
         val archive = File.createTempFile("knowledge-import-", extension, context.cacheDir)
         when (format) {
@@ -138,12 +133,7 @@ class KnowledgeArchiveImporterIntegrationTest {
         return ArchiveCase(archive, format, mapOf(entryPath to content))
     }
 
-    private fun rarFixture(
-        context: Context,
-        fixtureName: String,
-        firstContent: String,
-        secondContent: String,
-    ): ArchiveCase {
+    private fun rarFixture(context: Context, fixtureName: String, firstContent: String, secondContent: String): ArchiveCase {
         val fixture = checkNotNull(javaClass.getResourceAsStream("/knowledge/archive-fixtures/$fixtureName"))
         val archive = File.createTempFile("knowledge-import-", ".rar", context.cacheDir)
         fixture.use { input -> archive.outputStream().use(input::copyTo) }
@@ -158,9 +148,5 @@ class KnowledgeArchiveImporterIntegrationTest {
         )
     }
 
-    private data class ArchiveCase(
-        val archive: File,
-        val format: ArchiveFormat,
-        val expectedEntries: Map<String, String>,
-    )
+    private data class ArchiveCase(val archive: File, val format: ArchiveFormat, val expectedEntries: Map<String, String>)
 }
