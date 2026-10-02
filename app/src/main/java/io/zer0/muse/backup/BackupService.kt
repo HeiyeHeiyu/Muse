@@ -226,7 +226,7 @@ class BackupService(
         messageOutboxes.isNotEmpty() || diaries.isNotEmpty() || scopedFacts.isNotEmpty() ||
         translateHistories.isNotEmpty() || knowledgeBases.isNotEmpty() || subagentThreads.isNotEmpty() ||
         toolRounds.isNotEmpty() || sessionBranchHeads.isNotEmpty() || groupChatMemories.isNotEmpty() ||
-        settingsSnapshot.isNotEmpty()
+        settingsSnapshot.isNotEmpty() || fileStores.isNotEmpty()
 
     /**
      * 导出全部会话 + 消息 + memory 数据到指定 URI。
@@ -519,6 +519,7 @@ class BackupService(
         // P0-10: 子助手分库(facts_<id>.db)
         val scopedFactIds = listScopedFactDbIds()
         val settingsSnapshot = settings.exportSettingsSnapshot()
+        val fileStores = readFileStores()
 
         // Step 2: 写 meta 行
         val meta = buildJsonObject {
@@ -568,12 +569,13 @@ class BackupService(
             put("groupChatMemories", groupChatMemories.size)
             // settings 是一条可选记录，用 0/1 表示是否实际写出。
             put("settings", if (settingsSnapshot.isEmpty()) 0 else 1)
+            put("fileStores", fileStores.size)
         }
         writer.write(meta.toString())
         writer.newLine()
 
         // Step 2.5: v4 文件型存储(小体积,直接内联写入)
-        readFileStores().forEach { (name, content) ->
+        fileStores.forEach { (name, content) ->
             val line = buildJsonObject {
                 put("type", "fileStore")
                 put("name", name)
@@ -816,7 +818,7 @@ class BackupService(
      *
      * @return 导入的会话数 + 消息数
      */
-    private suspend fun applyNdJsonStreaming(lines: Sequence<String>): Pair<Int, Int> {
+    private suspend fun applyNdJsonStreaming(lines: Sequence<String>, allowEmptyBackup: Boolean = false): Pair<Int, Int> {
         // v1.0.74 fix: 空备份保护 — 云端路径有"0 会话 0 消息拒绝恢复",本地路径没有,
         // 误选空/损坏文件会先清空全部表。先读 meta 行校验再决定是否继续。
         val lineIter = lines.iterator()
@@ -840,7 +842,7 @@ class BackupService(
                         expectedCounts[key] = count
                     }
                 }
-                if (expectedCounts.isEmpty() || expectedCounts.values.sum() == 0) {
+                if (!allowEmptyBackup && (expectedCounts.isEmpty() || expectedCounts.values.sum() == 0)) {
                     throw IllegalArgumentException("空备份文件(meta 无任何数据),已拒绝导入")
                 }
             }.onError { msg, t ->
@@ -963,7 +965,10 @@ class BackupService(
                     val type = obj["type"]?.let { (it as? JsonPrimitive)?.content }
                         ?: return@forEachIndexed
                     if (type != "meta" && type in typeToMetaKey) {
-                        require(obj["data"] != null) { "备份记录缺少 data: $type" }
+                        // fileStore 使用 name/content 结构，不属于实体型 data 记录。
+                        if (type != "fileStore") {
+                            require(obj["data"] != null) { "备份记录缺少 data: $type" }
+                        }
                         val key = typeToMetaKey.getValue(type)
                         actualCounts[key] = (actualCounts[key] ?: 0) + 1
                     }
@@ -1427,8 +1432,9 @@ class BackupService(
         }
         // v1.0.74 fix: 直插 messages 绕过 FTS 同步,启动时 ensureFtsIndexConsistent 的计数启发式
         // (消息数恰好相同)会跳过 rebuild,搜索索引停留在导入前。导入完成显式重建。
-        resultOf { sessionRepository.rebuildFtsIndex() }
-            .onError { msg, t -> Logger.w("BackupService", "导入后 FTS 重建失败: ${t?.message ?: msg}") }
+        // FTS 是恢复结果的一部分；失败必须向外传播，触发持久化 recovery point 回滚，
+        // 不能像普通派生索引刷新那样只记日志后继续宣称恢复成功。
+        sessionRepository.rebuildFtsIndex()
         invalidateRagAfterRestore()
 
         // v4: 恢复文件型存储(白名单内,单个失败不阻塞)
@@ -1441,10 +1447,86 @@ class BackupService(
     private suspend fun applyNdJsonStreamingWithImageCleanup(lines: Sequence<String>): Pair<Int, Int> {
         return restoreAndPruneMessageImages(
             imageStore = messageImageStore,
-            restore = { applyNdJsonStreaming(lines) },
+            restore = { applyNdJsonStreamingWithRecovery(lines) },
             readReferencedPaths = { readReferencedMessageImagePaths() },
         )
     }
+
+    /**
+     * NDJSON 导入的跨库恢复包装。
+     *
+     * NDJSON 正文不能复用单 JSON staging；这里先把当前状态以 NDJSON 流式写入
+     * 持久化 recovery point，再执行目标导入。任一独立数据库或 FTS 步骤失败，
+     * 都从该恢复点流式回滚。
+     */
+    private suspend fun applyNdJsonStreamingWithRecovery(lines: Sequence<String>): Pair<Int, Int> {
+        val journalEntry = restoreJournal.begin(
+            restoreId = "restore-${UUID.randomUUID()}",
+            sourceHash = "ndjson-${UUID.randomUUID()}",
+            backupVersion = 4,
+            recoveryFormat = RestoreJournal.RecoveryFormat.NDJSON,
+        )
+        var currentJournal = journalEntry
+        return try {
+            currentJournal = restoreJournal.advance(currentJournal, RestoreJournal.Phase.STAGING)
+            restoreStagingStore.writeRecoveryNdJson(currentJournal) { writer ->
+                writeNdJson(writer)
+            }
+            currentJournal = restoreJournal.advance(currentJournal, RestoreJournal.Phase.VALIDATING)
+            currentJournal = restoreJournal.advance(currentJournal, RestoreJournal.Phase.COMMITTING)
+            val result = applyNdJsonStreaming(lines)
+            currentJournal = restoreJournal.advance(
+                currentJournal,
+                RestoreJournal.Phase.REBUILDING,
+                completedStores = setOf(
+                    RestoreJournal.Store.MUSE_DB,
+                    RestoreJournal.Store.MEMORY_DB,
+                    RestoreJournal.Store.FACT_DB,
+                    RestoreJournal.Store.SETTINGS,
+                    RestoreJournal.Store.FTS,
+                ),
+            )
+            restoreJournal.complete(currentJournal)
+            restoreStagingStore.cleanup(currentJournal)
+            result
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            val rolledBack = rollbackNdJsonRestore(currentJournal, e)
+            if (!rolledBack) restoreJournal.fail(currentJournal, e)
+            throw e
+        } catch (e: Exception) {
+            val rolledBack = rollbackNdJsonRestore(currentJournal, e)
+            if (!rolledBack) restoreJournal.fail(currentJournal, e)
+            throw e
+        }
+    }
+
+    private suspend fun rollbackNdJsonRestore(entry: RestoreJournal.Entry, originalError: Throwable): Boolean =
+        withContext(kotlinx.coroutines.NonCancellable) {
+            try {
+                Logger.w("BackupService", "NDJSON 恢复失败,回滚持久化恢复点: ${originalError.message}", originalError)
+                var rollbackJournal = restoreJournal.advance(entry, RestoreJournal.Phase.ROLLING_BACK)
+                restoreStagingStore.readRecoveryNdJson(entry) { recoveryLines ->
+                    applyNdJsonStreaming(recoveryLines, allowEmptyBackup = true)
+                }
+                rollbackJournal = restoreJournal.advance(
+                    rollbackJournal,
+                    RestoreJournal.Phase.REBUILDING,
+                    completedStores = setOf(
+                        RestoreJournal.Store.MUSE_DB,
+                        RestoreJournal.Store.MEMORY_DB,
+                        RestoreJournal.Store.FACT_DB,
+                        RestoreJournal.Store.SETTINGS,
+                        RestoreJournal.Store.FTS,
+                    ),
+                )
+                restoreJournal.complete(rollbackJournal)
+                restoreStagingStore.cleanup(rollbackJournal)
+                true
+            } catch (rollbackError: Exception) {
+                Logger.e("BackupService", "NDJSON 恢复点回滚失败,保留账本和副本: ${rollbackError.message}", rollbackError)
+                false
+            }
+        }
 
     /**
      * P0-10: 枚举磁盘上已存在的子助手分库文件 facts_<id>.db,返回 assistantId 列表。
@@ -2079,23 +2161,21 @@ class BackupService(
 
     /** v4: 读取文件型存储快照(缺失/失败跳过)。 */
     private suspend fun readFileStores(): Map<String, String> = withContext(Dispatchers.IO) {
-        backupFileStorePaths.mapNotNull { name ->
-            val f = File(context.filesDir, name)
-            if (f.isFile) runCatching { name to f.readText() }.getOrNull() else null
-        }.toMap()
+        readBackupFileStores(backupFileStorePaths) { name ->
+            val file = File(context.filesDir, name)
+            file.takeIf { it.isFile }?.readText()
+        }
     }
 
     /** v4: 恢复文件型存储(白名单内逐个写回,单个失败不阻塞其余)。 */
     private suspend fun writeFileStores(stores: Map<String, String>) = withContext(Dispatchers.IO) {
-        stores.forEach { (name, content) ->
-            if (name !in backupFileStorePaths) return@forEach
-            runCatching {
-                val target = File(context.filesDir, name)
-                target.parentFile?.mkdirs()
-                io.zer0.muse.data.AtomicFileStore.writeText(target, content)
-            }.onFailure { e ->
-                Logger.w("BackupService", "文件存储恢复失败 $name: ${e.message}")
-            }
+        restoreBackupFileStores(
+            stores = stores,
+            allowedPaths = backupFileStorePaths.toSet(),
+        ) { name, content ->
+            val target = File(context.filesDir, name)
+            target.parentFile?.mkdirs()
+            io.zer0.muse.data.AtomicFileStore.writeText(target, content)
         }
     }
 
@@ -2366,13 +2446,19 @@ class BackupService(
         val entry = restoreJournal.incompleteEntry() ?: return@withContext false
         var current = entry
         try {
-            val recovery = restoreStagingStore.readRecoveryPoint(entry)
-                ?: error("恢复账本存在，但找不到持久化 recovery point")
             val imageFilesBeforeRollback = messageImageStore.snapshotStoredFilePaths()
             current = restoreJournal.advance(current, RestoreJournal.Phase.ROLLING_BACK)
-            applyBackupInternal(recovery)
-            sessionRepository.rebuildFtsIndex()
-            invalidateRagAfterRestore()
+            if (entry.recoveryFormat == RestoreJournal.RecoveryFormat.NDJSON) {
+                restoreStagingStore.readRecoveryNdJson(entry) { recoveryLines ->
+                    applyNdJsonStreaming(recoveryLines, allowEmptyBackup = true)
+                }
+            } else {
+                val recovery = restoreStagingStore.readRecoveryPoint(entry)
+                    ?: error("恢复账本存在，但找不到持久化 recovery point")
+                applyBackupInternal(recovery)
+                sessionRepository.rebuildFtsIndex()
+                invalidateRagAfterRestore()
+            }
             current = restoreJournal.advance(
                 current,
                 RestoreJournal.Phase.REBUILDING,
@@ -2598,6 +2684,7 @@ private val ndjsonTypeToMetaKey: Map<String, String> = mapOf(
     "compiledSection" to "compiledSections",
     "scopedCompiledSection" to "scopedCompiledSections",
     "fact" to "facts",
+    "fileStore" to "fileStores",
     "assistant" to "assistants",
     "lorebook" to "lorebooks",
     "skill" to "skills",

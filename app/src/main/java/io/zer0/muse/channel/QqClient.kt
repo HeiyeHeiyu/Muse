@@ -136,8 +136,10 @@ internal object QqMsgIdCache {
     fun nextSeq(target: String): Int = seqs.getOrPut(target) { AtomicInteger(0) }.incrementAndGet()
 
     /** 自动回复有事件身份时绑定该事件并固定重试序号;null 才使用最近缓存。 */
-    fun replyContext(target: String, sourceEventId: String?): ReplyContext? = if (sourceEventId != null) {
-        sourceEventId.takeIf { it.isNotBlank() }?.let { ReplyContext(it, sequence = 1) }
+    fun replyContext(target: String, sourceEventId: String?, sequenceOverride: Int? = null): ReplyContext? = if (sourceEventId != null) {
+        sourceEventId.takeIf { it.isNotBlank() }?.let {
+            ReplyContext(it, sequence = sequenceOverride?.coerceAtLeast(1) ?: 1)
+        }
     } else {
         get(target)?.let { ReplyContext(it, nextSeq(target)) }
     }

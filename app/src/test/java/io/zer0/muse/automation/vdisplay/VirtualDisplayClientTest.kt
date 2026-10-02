@@ -16,6 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -64,5 +65,17 @@ class VirtualDisplayClientTest {
         }
 
         verify(exactly = 1) { service.destroyDisplay(52) }
+    }
+
+    @Test
+    fun `destroy clears stale display id when the virtual display service is unavailable`() = runBlocking {
+        val manager = mockk<VirtualDisplayServerManager>(relaxed = true)
+        every { manager.lastDisplayId } returns 53
+        coEvery { manager.existingLiveProxy() } returns null
+        val client = VirtualDisplayClient(context, manager)
+
+        assertFalse(client.destroy(53))
+
+        verify(exactly = 1) { manager.lastDisplayId = -1 }
     }
 }

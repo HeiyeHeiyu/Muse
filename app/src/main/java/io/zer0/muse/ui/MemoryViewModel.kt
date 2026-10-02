@@ -18,6 +18,7 @@ import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.experience.DEFAULT_EXPERIENCE_CATEGORY
 import io.zer0.muse.data.experience.ExperienceEntity
 import io.zer0.muse.data.experience.ExperienceRepository
+import io.zer0.muse.data.session.SessionRepository
 import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.theme.MuseDateFormats
 import kotlinx.coroutines.CancellationException
@@ -161,6 +162,8 @@ data class MemoryItem(
     val lastHitAt: String? = null,
     /** 累计命中次数(0 = 从未被检索召回)。 */
     val hitCount: Int = 0,
+    /** 会话摘要所属记忆空间;事实项由事实存储自身保留。 */
+    val spaceId: String? = null,
 )
 
 /**
@@ -228,6 +231,7 @@ class MemoryViewModel(
     private val experienceRepository: ExperienceRepository,
     /** v8: 注入 AssistantRepository 用于加载 availableScopes(主助手 + 子助手列表)。 */
     private val assistantRepository: AssistantRepository,
+    private val sessionRepository: SessionRepository,
     /** v1.0.52 P2-2: 注入 MemorySpaceRepository 用于 Space 切换 + 列表。 */
     private val spaceRepository: MemorySpaceRepository,
     /** v1.0.72: 注入 GroupChatMemoryRepository 用于群聊记忆展示/删除。 */
@@ -380,17 +384,14 @@ class MemoryViewModel(
                 }
                 _organizeStage.value = "dedup"
                 val merged = withContext(Dispatchers.IO) {
+                    val scopes = memoryScopesForMaintenance(_selectedScope.value, _availableScopes.value)
+                    val spaceId = _selectedSpaceId.value.ifBlank { "default" }
                     resultOf {
-                        if (_selectedScope.value == null) {
-                            // P0-4: 全部视图沿用默认库全量去重(子助手分库由各自 scope 视图去重)
-                            factStore.dedupPassAllScopes(spaceId = _selectedSpaceId.value)
-                        } else {
-                            // P0-4: 按 scope 路由到生产侧分库去重
-                            storeForScope(_selectedScope.value).dedupPass(
-                                scope = _selectedScope.value ?: "main",
-                                spaceId = _selectedSpaceId.value,
-                            )
+                        var total = 0
+                        for (scope in scopes) {
+                            total += storeForScope(scope).dedupPass(scope = scope, spaceId = spaceId)
                         }
+                        total
                     }
                         .onError { msg, t -> Logger.w("MemoryViewModel", "整理记忆去重失败: ${t?.message ?: msg}") }
                         .getOrNull()
@@ -639,13 +640,19 @@ class MemoryViewModel(
      * v1.0.92: 实现委托给 [io.zer0.memory.fact.LlmFactConsolidator] — 与每日自动整合
      * 共用同一实现;返回实际合并的簇数,供"整理记忆"结果文案统计。
      */
-    private suspend fun llmMergeDuplicates(): Int {
+    private suspend fun llmMergeDuplicates(scope: String? = _selectedScope.value): Int {
         val consolidator = factConsolidator ?: return 0
-        val scope = _selectedScope.value ?: "main"
-        val store = storeForScope(scope)
-        return resultOf { consolidator.consolidate(store, scope, _selectedSpaceId.value) }
-            .onError { msg, t -> Logger.w("MemoryViewModel", "LLM 合并重复记忆失败: $msg", t) }
-            .getOrNull() ?: 0
+        val targets = memoryScopesForMaintenance(scope, _availableScopes.value)
+        val spaceId = _selectedSpaceId.value.ifBlank { "default" }
+        var merged = 0
+        for (target in targets) {
+            merged += resultOf {
+                consolidator.consolidate(storeForScope(target), target, spaceId)
+            }
+                .onError { msg, t -> Logger.w("MemoryViewModel", "LLM 合并重复记忆失败($target): $msg", t) }
+                .getOrNull() ?: 0
+        }
+        return merged
     }
 
     /** v1.x: 编译结果提示(UI LaunchedEffect 消费后清除)。 */
@@ -669,10 +676,14 @@ class MemoryViewModel(
         _dedupState.value = true
         viewModelScope.launch {
             val merged = withContext(Dispatchers.IO) {
+                val scopes = memoryScopesForMaintenance(_selectedScope.value, _availableScopes.value)
+                val spaceId = _selectedSpaceId.value.ifBlank { "default" }
                 resultOf {
-                    storeForScope(
-                        _selectedScope.value,
-                    ).dedupPass(scope = _selectedScope.value ?: "main", spaceId = _selectedSpaceId.value)
+                    var total = 0
+                    for (scope in scopes) {
+                        total += storeForScope(scope).dedupPass(scope = scope, spaceId = spaceId)
+                    }
+                    total
                 }
                     .onError { msg, t -> Logger.w("MemoryViewModel", "记忆去重失败: ${t?.message ?: msg}") }
                     .getOrNull()
@@ -725,7 +736,14 @@ class MemoryViewModel(
                 }
                 // F-7: 客户端过滤(重要程度 + 时间范围);统计仍基于全量 facts
                 val visibleFacts = filterFacts(facts)
-                val summaries = withContext(Dispatchers.IO) { summaryManager.getAllSummaries() }
+                val summaries = withContext(Dispatchers.IO) {
+                    summaryManager.getAllSummaries().filter { summary ->
+                        summary.matchesConversationMemoryFilter(scope, spaceId)
+                    }
+                }
+                val sessionsById = withContext(Dispatchers.IO) {
+                    sessionRepository.getSessionsByIds(summaries.map { it.sessionId }).associateBy { it.id }
+                }
                 // P2-33: 编译段此前读写钉死 main/default,切子助手 scope / 其他 space 后
                 // 「AI 对你的理解」编辑的是错误槽位(与注入读路径错位)。统一按当前
                 // scope(全部视图回退主助手)+ space 路由读。
@@ -800,15 +818,16 @@ class MemoryViewModel(
                         category = fact.category,
                     )
                 }
-                val summaryItems = summaries.map { summary ->
-                    MemoryItem(
-                        id = summary.sessionId,
-                        title = getApplication<Application>().getString(R.string.memory_summary_title, summary.sessionId.take(8)),
-                        content = summary.summary,
-                        time = summary.updatedAt,
-                        source = "Summary",
-                    )
-                }
+                val summaryItems = projectConversationMemoryItems(
+                    summaries = summaries,
+                    sessionsById = sessionsById,
+                    fallbackTitle = { sessionId ->
+                        getApplication<Application>().getString(
+                            R.string.memory_summary_title,
+                            sessionId.take(8),
+                        )
+                    },
+                ).map(ConversationMemoryItem::toMemoryItem)
                 val compileItems = buildList {
                     if (compileFacts.isNotBlank()) add(MemoryItem("facts", getApplication<Application>().getString(R.string.memory_compile_section_facts), compileFacts, source = "Compile"))
                     if (compileToday.isNotBlank()) add(MemoryItem("today", getApplication<Application>().getString(R.string.memory_compile_section_today), compileToday, source = "Compile"))
@@ -1139,19 +1158,26 @@ class MemoryViewModel(
     /**
      * P2: 编辑单条 Fact 内容。
      */
-    fun editFact(factId: String, newContent: String, scope: String? = null) {
-        if (newContent.isBlank()) return
+    fun editFact(factId: String, newContent: String, scope: String? = null, onResult: (Boolean) -> Unit = {}) {
+        if (newContent.isBlank()) {
+            onResult(false)
+            return
+        }
         viewModelScope.launch {
-            withContext(Dispatchers.IO) {
+            val saved = withContext(Dispatchers.IO) {
                 val id = factId.toLongOrNull()
-                if (id != null) {
+                if (id == null) {
+                    false
+                } else {
                     // v1.78 (H6): 包装 suspend 调用必须用 resultOf,避免吞 CancellationException
                     // P0-4: 按 factId 定位实际所在 store
                     resultOf { storeForFact(id, scope).update(id, newContent) }
                         .onError { msg, t -> MuseToast.show(getApplication<Application>().getString(R.string.memory_edit_failed, msg)) }
+                        .getOrNull() == true
                 }
             }
-            loadAll()
+            if (saved) loadAll()
+            onResult(saved)
         }
     }
 
@@ -1185,8 +1211,11 @@ class MemoryViewModel(
      * v1.0.52 P2-2: 新增事实的 spaceId 取当前 [_selectedSpaceId],
      * 新增的事实归属当前选中的 Space。
      */
-    fun addFact(content: String) {
-        if (content.isBlank()) return
+    fun addFact(content: String, onResult: (Boolean) -> Unit = {}) {
+        if (content.isBlank()) {
+            onResult(false)
+            return
+        }
         viewModelScope.launch {
             // v1.78 (H6): loadAll 移出 runCatching,避免 add 成功但 loadAll 失败时
             // 错误信息显示"添加失败"(错误归因错位)
@@ -1206,19 +1235,23 @@ class MemoryViewModel(
                 }.isSuccess
             }
             if (ok) loadAll()
+            onResult(ok)
         }
     }
 
     /**
      * P2: 编辑单条 Summary 内容。
      */
-    fun editSummary(sessionId: String, newContent: String) {
-        if (newContent.isBlank()) return
+    fun editSummary(sessionId: String, newContent: String, onResult: (Boolean) -> Unit = {}) {
+        if (newContent.isBlank()) {
+            onResult(false)
+            return
+        }
         viewModelScope.launch {
-            withContext(Dispatchers.IO) {
+            val saved = withContext(Dispatchers.IO) {
                 // v1.78 (H6): 包装 suspend 调用必须用 resultOf,避免吞 CancellationException
                 resultOf {
-                    val existing = summaryManager.getSummary(sessionId) ?: return@resultOf
+                    val existing = summaryManager.getSummary(sessionId) ?: return@resultOf false
                     summaryManager.saveSummary(
                         sessionId,
                         existing.copy(
@@ -1226,9 +1259,15 @@ class MemoryViewModel(
                             updatedAt = Instant.now().toString(),
                         ),
                     )
+                    true
                 }
+                    .onError { msg, _ ->
+                        MuseToast.show(getApplication<Application>().getString(R.string.memory_edit_failed, msg))
+                    }
+                    .getOrNull() ?: false
             }
-            loadAll()
+            if (saved) loadAll()
+            onResult(saved)
         }
     }
 

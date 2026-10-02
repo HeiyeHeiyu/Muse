@@ -13,6 +13,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.nio.file.Files
 
 class RagIndexReliabilityTest {
     private class FixedEmbeddingProvider : EmbeddingProvider {
@@ -22,6 +23,19 @@ class RagIndexReliabilityTest {
         override val modelName = "fixed-model"
 
         override suspend fun embed(texts: List<String>): List<FloatArray> = texts.map { floatArrayOf(1f, 0f) }
+    }
+
+    private class RecordingEmbeddingProvider : EmbeddingProvider {
+        override val id = "recording"
+        override val displayName = "Recording test provider"
+        override val dimension = 2
+        override val modelName = "recording-model"
+        val receivedTexts = mutableListOf<String>()
+
+        override suspend fun embed(texts: List<String>): List<FloatArray> {
+            receivedTexts += texts
+            return texts.map { floatArrayOf(1f, 0f) }
+        }
     }
 
     private fun config() = RagConfig(
@@ -36,9 +50,11 @@ class RagIndexReliabilityTest {
         docDao: KnowledgeDocDao,
         ftsDao: KnowledgeChunkFtsDao,
         indexFile: java.io.File? = null,
+        reindexStagingDirectory: java.io.File? = null,
+        provider: EmbeddingProvider = FixedEmbeddingProvider(),
     ): RagService {
         val embedding = mockk<EmbeddingService>()
-        coEvery { embedding.getProvider(any()) } returns FixedEmbeddingProvider()
+        coEvery { embedding.getProvider(any()) } returns provider
         return RagService(
             chunkDao = chunkDao,
             docDao = docDao,
@@ -46,6 +62,7 @@ class RagIndexReliabilityTest {
             docTitleProvider = { mapOf("old-doc" to "Old", "new-doc" to "New") },
             embeddingService = embedding,
             indexFile = indexFile,
+            reindexStagingDirectory = reindexStagingDirectory,
         )
     }
 
@@ -116,5 +133,45 @@ class RagIndexReliabilityTest {
         val results = rag.retrieve("query", topK = 8, threshold = 0f, ragConfig = config())
 
         assertEquals(setOf("old-doc", "new-doc"), results.map { it.docId }.toSet())
+    }
+
+    @Test
+    fun `single reindex uses original source when stored content is only a preview`() = runBlocking {
+        val fullContent = "source-head " + "x".repeat(3_000) + " source-tail-marker"
+        val doc = KnowledgeDocEntity(
+            id = "preview-doc",
+            title = "Preview document",
+            content = fullContent.take(40),
+            contentHash = RagService.computeContentHash(fullContent),
+            chunkCount = 1,
+            embeddingModel = "old-model",
+        )
+        val chunkDao = mockk<KnowledgeChunkDao>(relaxed = true)
+        val docDao = mockk<KnowledgeDocDao>(relaxed = true)
+        val ftsDao = mockk<KnowledgeChunkFtsDao>(relaxed = true)
+        val provider = RecordingEmbeddingProvider()
+        val stagingDir = Files.createTempDirectory("rag-reindex-").toFile()
+        try {
+            coEvery { docDao.getById("preview-doc") } returns doc
+            coEvery { chunkDao.getFirstIndexedEmbeddingDim() } returns null
+            coEvery { chunkDao.getByDoc("preview-doc") } returns emptyList()
+            val rag = service(
+                chunkDao = chunkDao,
+                docDao = docDao,
+                ftsDao = ftsDao,
+                reindexStagingDirectory = stagingDir,
+                provider = provider,
+            )
+
+            rag.reindexDocument(
+                docId = doc.id,
+                ragConfig = config(),
+                sourceContentProvider = { flowOf(fullContent) },
+            )
+
+            assertTrue(provider.receivedTexts.any { it.contains("source-tail-marker") })
+        } finally {
+            stagingDir.deleteRecursively()
+        }
     }
 }

@@ -198,7 +198,7 @@ class AnthropicProvider(
                             val delayMs = baseDelay + kotlin.random.Random.nextLong(0, 500)
                             // v1.0.1: 429 限流优先用 Retry-After 头
                             val retryAfter = if (code == 429) {
-                                response.header("Retry-After")?.toIntOrNull()?.let { it * 1000L }
+                                ProviderError.parseRetryAfter(response.header("Retry-After"))?.let { it * 1000L }
                             } else {
                                 null
                             }
@@ -407,7 +407,7 @@ class AnthropicProvider(
                         var delayMs = baseDelay + kotlin.random.Random.nextLong(0, 500)
                         // v1.0.1: 429 限流优先用 Retry-After 头
                         if (code == 429) {
-                            delayMs = response?.header("Retry-After")?.toIntOrNull()
+                            delayMs = ProviderError.parseRetryAfter(response?.header("Retry-After"))
                                 ?.let { it * 1000L } ?: delayMs
                         }
                         Logger.w(
@@ -513,7 +513,13 @@ class AnthropicProvider(
                     val errText = readBodyCapped(resp)
                     val msg = parseErrorMessage(code, errText)
                     Logger.w("AnthropicProvider", "completeText HTTP $code: $msg")
-                    throw ProviderException(ProviderError.from(code = code, body = errText))
+                    throw ProviderException(
+                        ProviderError.from(
+                            code = code,
+                            body = errText,
+                            retryAfterSec = ProviderError.parseRetryAfter(resp.header("Retry-After")),
+                        ),
+                    )
                 }
                 val raw = resp.body.string()
                 val parsed = AppJson.decodeFromString<AnthropicCompletionResponse>(raw)
@@ -810,6 +816,7 @@ class AnthropicProvider(
                         ProviderError.from(
                             code = resp.code,
                             body = errText,
+                            retryAfterSec = ProviderError.parseRetryAfter(resp.header("Retry-After")),
                         ),
                     )
                 }

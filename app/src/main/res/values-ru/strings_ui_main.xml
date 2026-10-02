@@ -121,6 +121,8 @@
     <string name="memory_screen_cancel">Отмена</string>
     <string name="memory_screen_edit_fact">Изменить метафакт</string>
     <string name="memory_screen_edit_summary">Изменить сводку сессии</string>
+    <string name="memory_open_conversation">Открыть исходный диалог</string>
+    <string name="memory_conversation_meta">Ассистент %1$s · Пространство %2$s</string>
     <string name="memory_screen_edit_compile">Изменить результат компиляции</string>
     <string name="memory_screen_edit_memory">Изменить память</string>
     <string name="memory_screen_no_match">Совпадающая память не найдена</string>
@@ -733,6 +735,7 @@
     <string name="rich_input_link_url">URL ссылки</string>
     <string name="rich_input_link_insert">Вставить ссылку</string>
     <string name="chat_compressing_banner">Сжатие истории разговора…</string>
+    <string name="chat_updating_memory_banner">Обновление памяти…</string>
     <string name="chat_delegation_banner">Делегирование · выполняется %1$d подзадач</string>
     <string name="chat_draft_restored">Черновик восстановлен</string>
     <string name="chat_loading_more_history">Загрузка истории…</string>

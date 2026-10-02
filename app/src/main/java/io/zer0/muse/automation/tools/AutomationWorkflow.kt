@@ -6,6 +6,7 @@ import io.zer0.muse.automation.core.AutomationManager
 import io.zer0.muse.automation.core.DeviceCommandPolicy
 import io.zer0.muse.automation.vdisplay.VirtualDisplayClient
 import io.zer0.muse.automation.vdisplay.VirtualDisplayInputCommand
+import io.zer0.muse.automation.vdisplay.VirtualDisplayLeaseRegistry
 import io.zer0.muse.automation.vdisplay.VirtualDisplaySemanticActions
 import io.zer0.muse.automation.vdisplay.VirtualDisplayServerManager
 import io.zer0.muse.tools.NodeScriptTool
@@ -16,6 +17,18 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
+
+private val DISPLAY_REQUIRED_VIRTUAL_ACTIONS = setOf(
+    "virtual_launch",
+    "virtual_tap",
+    "virtual_tap_text",
+    "virtual_swipe",
+    "virtual_text",
+    "virtual_key",
+    "virtual_wait",
+    "virtual_read",
+)
+private val CACHED_DISPLAY_ID_REGEX = Regex("""displayId=(\d+)""")
 
 /**
  * 受控设备工作流 —— 把安全的手机动作原语组合成一次可审计调用。
@@ -29,6 +42,7 @@ class AutomationWorkflow(
     private val virtualDisplayClient: VirtualDisplayClient? = null,
     private val virtualDisplayManager: VirtualDisplayServerManager? = null,
     private val nodeScriptExecutor: (suspend (String, Long) -> SkillEngineResult)? = null,
+    private val displayLeases: VirtualDisplayLeaseRegistry = VirtualDisplayLeaseRegistry(),
 ) {
     suspend fun run(steps: List<AutomationWorkflowStep>, runId: String, retryUnknown: Boolean = false): ToolOutcome {
         val durableJournal = journal ?: return ToolOutcome.error("工作流断点日志不可用，拒绝执行不可恢复的设备动作")
@@ -71,16 +85,41 @@ class AutomationWorkflow(
                 ),
             )
         }
+        val nextDisplayActionIndex = steps.indices.firstOrNull { index ->
+            index >= resumeFrom && steps[index].action.trim().lowercase() in DISPLAY_REQUIRED_VIRTUAL_ACTIONS
+        }
+        val nextEnsureIndex = steps.indices.firstOrNull { index ->
+            index >= resumeFrom && steps[index].action.trim().equals("virtual_ensure", ignoreCase = true)
+        }
+        val cachedEnsureToRefresh =
+            if (nextDisplayActionIndex != null && (nextEnsureIndex == null || nextDisplayActionIndex < nextEnsureIndex)) {
+                steps.indices.lastOrNull { index ->
+                    index < resumeFrom && steps[index].action.trim().equals("virtual_ensure", ignoreCase = true)
+                }
+            } else {
+                null
+            }
         for ((index, step) in steps.withIndex()) {
             val cached = resume.cached[index]
             val cachedResult = cached
                 ?.takeIf { index < resumeFrom && it.status == "done" }
                 ?.let { runCatching { AppJson.decodeFromString(AutomationWorkflowStepResult.serializer(), it.result) }.getOrNull() }
             val result = cachedResult?.let { cachedStep ->
-                if (step.action.trim().equals("node_script", ignoreCase = true)) {
-                    cachedStep.copy(message = "Node 脚本结果（安全断点恢复）: ${cachedStep.message}")
+                val restored = restoreCachedDisplayLease(
+                    runId = runId,
+                    index = index,
+                    step = step,
+                    cached = cachedStep,
+                    refreshDisplay = index == cachedEnsureToRefresh,
+                )
+                if (!restored.success) {
+                    restored
+                } else if (step.action.trim().equals("node_script", ignoreCase = true)) {
+                    restored.copy(message = "Node 脚本结果（安全断点恢复）: ${restored.message}")
+                } else if (step.action.trim().equals("virtual_ensure", ignoreCase = true) && restored.displayId != null) {
+                    restored.copy(message = "虚拟屏已就绪 displayId=${restored.displayId}")
                 } else {
-                    cachedStep.copy(message = "已从工作流断点恢复")
+                    restored.copy(message = "已从工作流断点恢复")
                 }
             } ?: runStepDurably(durableJournal, runId, index, expectedKeys[index].orEmpty(), step)
             results += result
@@ -124,7 +163,7 @@ class AutomationWorkflow(
         } catch (error: Exception) {
             return failure(index, step.action, "无法持久化动作开始状态，未执行:${error.message ?: "日志写入失败"}")
         }
-        val result = executeStep(index, step)
+        val result = executeStep(index, step, runId)
         return try {
             journal.recordRequired(
                 runId,
@@ -158,7 +197,7 @@ class AutomationWorkflow(
         return AppJson.encodeToString(AutomationWorkflowStepResult.serializer(), result)
     }
 
-    private suspend fun executeStep(index: Int, step: AutomationWorkflowStep): AutomationWorkflowStepResult {
+    private suspend fun executeStep(index: Int, step: AutomationWorkflowStep, runId: String): AutomationWorkflowStepResult {
         val action = step.action.trim().lowercase()
         return runCatching {
             when (action) {
@@ -173,7 +212,7 @@ class AutomationWorkflow(
                 "node_script" -> executeNodeScript(index, action, step)
                 "virtual_ensure", "virtual_launch", "virtual_tap", "virtual_tap_text", "virtual_swipe", "virtual_text",
                 "virtual_key", "virtual_wait", "virtual_read", "virtual_close",
-                -> executeVirtualStep(index, action, step)
+                -> executeVirtualStep(index, action, step, runId)
                 else -> failure(index, action, "不支持的动作")
             }
         }.onFailure { error ->
@@ -256,21 +295,46 @@ class AutomationWorkflow(
         return result(index, action, true, screen.toSummary(20))
     }
 
-    private suspend fun executeVirtualStep(index: Int, action: String, step: AutomationWorkflowStep): AutomationWorkflowStepResult {
+    private suspend fun executeVirtualStep(
+        index: Int,
+        action: String,
+        step: AutomationWorkflowStep,
+        runId: String,
+    ): AutomationWorkflowStepResult {
         val client = virtualDisplayClient ?: return failure(index, action, "虚拟屏工作流未初始化")
         val displayManager = virtualDisplayManager ?: return failure(index, action, "虚拟屏工作流未初始化")
         if (action == "virtual_ensure") {
             val display = ensureVirtualDisplay(step, client)
                 .getOrElse { return failure(index, action, "创建虚拟屏失败:${it.message}") }
-            return result(index, action, true, "虚拟屏已就绪 displayId=${display.displayId} (${display.width}x${display.height})")
+            displayLeases.acquire(runId, display.displayId)
+            return result(
+                index,
+                action,
+                true,
+                "虚拟屏已就绪 displayId=${display.displayId} (${display.width}x${display.height})",
+                displayId = display.displayId,
+            )
         }
 
-        val displayId = step.displayId ?: displayManager.lastDisplayId
+        val leasedDisplayId = displayLeases.displayFor(runId)
+        if (step.displayId != null && leasedDisplayId != null && !displayLeases.isKnownDisplayId(runId, step.displayId)) {
+            return failure(index, action, "displayId=${step.displayId} 不属于当前 run_id 的虚拟屏 lease")
+        }
+        if (action == "virtual_close" && leasedDisplayId == null) {
+            return failure(index, action, "当前 run_id 没有可释放的虚拟屏 lease")
+        }
+        val displayId = leasedDisplayId ?: step.displayId ?: displayManager.lastDisplayId
         if (displayId < 0) {
             if (action != "virtual_launch") return failure(index, action, "虚拟屏未创建；请先执行 virtual_ensure")
             val display = ensureVirtualDisplay(step, client)
                 .getOrElse { return failure(index, action, "创建虚拟屏失败:${it.message}") }
+            displayLeases.acquire(runId, display.displayId)
             return launchOnVirtualDisplay(index, action, step, client, display.displayId)
+        }
+        if (leasedDisplayId == null && action != "virtual_close") {
+            // 兼容旧的 workflow：历史步骤依赖 manager.lastDisplayId，
+            // 首次使用时把该兼容 display 登记为共享 lease，后续 close 仍受 owner 保护。
+            displayLeases.acquire(runId, displayId)
         }
 
         return when (action) {
@@ -281,9 +345,42 @@ class AutomationWorkflow(
                 result(index, action, true, screen.toSummary(30))
             }
             "virtual_tap_text" -> executeVirtualTapText(index, action, step, displayManager, displayId)
-            "virtual_close" -> result(index, action, client.destroy(displayId), "销毁虚拟屏 $displayId")
+            "virtual_close" -> {
+                val canDestroy = displayLeases.release(runId, displayId)
+                if (!canDestroy) {
+                    result(index, action, true, "已释放 run_id 对虚拟屏 $displayId 的 lease，屏幕仍被其他 workflow 使用")
+                } else {
+                    val destroyed = client.destroy(displayId)
+                    if (!destroyed) displayLeases.acquire(runId, displayId)
+                    result(index, action, destroyed, "销毁虚拟屏 $displayId")
+                }
+            }
             else -> executeVirtualInput(index, action, step, displayManager, displayId)
         }
+    }
+
+    private suspend fun restoreCachedDisplayLease(
+        runId: String,
+        index: Int,
+        step: AutomationWorkflowStep,
+        cached: AutomationWorkflowStepResult,
+        refreshDisplay: Boolean,
+    ): AutomationWorkflowStepResult {
+        if (!step.action.trim().equals("virtual_ensure", ignoreCase = true)) return cached
+        val displayId = cached.displayId
+            ?: CACHED_DISPLAY_ID_REGEX.find(cached.message)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            ?: return cached
+        displayLeases.acquire(runId, displayId)
+        if (!refreshDisplay) return cached.copy(displayId = displayId)
+
+        val client = virtualDisplayClient ?: return failure(index, step.action, "虚拟屏工作流未初始化")
+        val display = ensureVirtualDisplay(step, client)
+            .getOrElse { return failure(index, step.action, "恢复虚拟屏失败:${it.message}") }
+        displayLeases.acquire(runId, display.displayId)
+        return cached.copy(
+            message = "虚拟屏服务重启后已刷新 displayId=${display.displayId} (${display.width}x${display.height})",
+            displayId = display.displayId,
+        )
     }
 
     private suspend fun ensureVirtualDisplay(
@@ -385,8 +482,8 @@ class AutomationWorkflow(
         )
     }
 
-    private fun result(index: Int, action: String, success: Boolean, message: String) =
-        AutomationWorkflowStepResult(index, action, success, message, outcomeUnknown = !success)
+    private fun result(index: Int, action: String, success: Boolean, message: String, displayId: Int? = null) =
+        AutomationWorkflowStepResult(index, action, success, message, outcomeUnknown = !success, displayId = displayId)
 
     private fun failure(index: Int, action: String, message: String, outcomeUnknown: Boolean = false) =
         AutomationWorkflowStepResult(index, action, false, message, outcomeUnknown)
@@ -423,6 +520,7 @@ data class AutomationWorkflowStepResult(
     val success: Boolean,
     val message: String,
     val outcomeUnknown: Boolean = false,
+    val displayId: Int? = null,
 )
 
 internal object AutomationWorkflowParser {

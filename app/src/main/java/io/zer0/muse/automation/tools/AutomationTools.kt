@@ -3,6 +3,7 @@ package io.zer0.muse.automation.tools
 import io.zer0.common.Logger
 import io.zer0.muse.automation.core.AutomationManager
 import io.zer0.muse.automation.vdisplay.VirtualDisplayClient
+import io.zer0.muse.automation.vdisplay.VirtualDisplayLeaseRegistry
 import io.zer0.muse.automation.vdisplay.VirtualDisplayServerManager
 import io.zer0.muse.tools.ToolOutcome
 import io.zer0.muse.tools.ToolRegistry
@@ -26,6 +27,9 @@ class AutomationTools(
     private val virtualDisplayManager: VirtualDisplayServerManager? = null,
     private val nodeScriptExecutor: (suspend (String, Long) -> io.zer0.muse.tools.script.SkillEngineResult)? = null,
 ) {
+    /** 所有 automation_workflow 工具调用共享的 lease 台账，按 run_id 隔离虚拟屏释放权。 */
+    private val displayLeases = VirtualDisplayLeaseRegistry()
+
     fun register(registry: ToolRegistry) {
         registerWorkflow(registry)
         // ── 感知类 ──────────────────────────────────────────
@@ -422,6 +426,7 @@ class AutomationTools(
                 virtualDisplayClient,
                 virtualDisplayManager,
                 nodeScriptExecutor,
+                displayLeases,
             ).run(steps, runId, retryUnknown)
         }
     }

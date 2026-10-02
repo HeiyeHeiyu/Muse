@@ -23,6 +23,21 @@ class KnowledgeFolderBrowserTest {
     }
 
     @Test
+    fun `zip 7z and rar entries expose the same relative folder structure`() {
+        val docs = listOf(
+            KnowledgeDocEntity(id = "zip", title = "one.md", filePath = "zip://bundle.zip/Notes/one.md"),
+            KnowledgeDocEntity(id = "7z", title = "two.md", filePath = "7z://bundle.7z/Notes/two.md"),
+            KnowledgeDocEntity(id = "rar", title = "three.md", filePath = "rar://bundle.rar/Notes/three.md"),
+        )
+
+        assertEquals(listOf("Notes", "Notes", "Notes"), docs.map(KnowledgeFolderBrowser::folderPath))
+        assertEquals(
+            listOf(KnowledgeFolderBrowser.Folder("Notes", "Notes", 3)),
+            KnowledgeFolderBrowser.childFolders(docs, ""),
+        )
+    }
+
+    @Test
     fun `explicit folder assignment overrides zip source and preserves other metadata`() {
         val doc = KnowledgeDocEntity(
             id = "one",

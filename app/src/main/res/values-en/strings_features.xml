@@ -349,7 +349,7 @@
     <string name="knowledge_ocr">Running OCR…</string>
     <string name="knowledge_chunking">Chunking and building vector index…</string>
     <string name="knowledge_generating_vector">Generating vectors %1$d/%2$d…</string>
-    <string name="knowledge_import_unsupported">Archives and binary files are not supported yet — unzip and import the documents inside</string>
+    <string name="knowledge_import_unsupported">This archive or binary format is not supported. Import a ZIP, 7Z, or RAR file.</string>
     <string name="knowledge_zip_extracting">Extracting and importing…</string>
     <string name="knowledge_zip_progress">Extracting and importing… (%1$d imported)</string>
     <string name="knowledge_zip_done">Created knowledge base %1$s: %2$d documents imported, %3$d skipped</string>
@@ -364,6 +364,7 @@
     <string name="knowledge_index_error_reason">Reason: %1$s</string>
     <string name="knowledge_import_cancelled">Import cancelled</string>
     <string name="knowledge_import_failed_read">Import failed: cannot read file</string>
+    <string name="knowledge_source_unavailable">The original document content could not be read.</string>
     <string name="knowledge_import_failed">Import failed: %1$s</string>
     <string name="knowledge_reindex_progress">Rechunking and rebuilding vector index…</string>
     <string name="knowledge_reindexed">Reindexed: %1$s (%2$d chunks)</string>

@@ -3,8 +3,17 @@ package io.zer0.muse.backup
 import android.content.Context
 import io.zer0.common.Logger
 import io.zer0.muse.data.AtomicFileStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import java.io.BufferedWriter
 import java.io.File
+import java.io.FileOutputStream
+import java.io.OutputStreamWriter
+import java.nio.charset.StandardCharsets
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 /**
  * 恢复过程的持久化 staging/recovery point。
@@ -29,6 +38,38 @@ class RestoreStagingStore(context: Context) {
     fun readTarget(entry: RestoreJournal.Entry): BackupService.Backup? = read(fileFor(entry.stagingFileName))
 
     fun readRecoveryPoint(entry: RestoreJournal.Entry): BackupService.Backup? = read(fileFor(entry.recoveryFileName))
+
+    /**
+     * 将大体量 NDJSON 恢复点流式写入磁盘，不把正文拼成一个 JSON 字符串。
+     */
+    suspend fun writeRecoveryNdJson(entry: RestoreJournal.Entry, write: suspend (BufferedWriter) -> Unit) = withContext(Dispatchers.IO) {
+        val target = fileFor(entry.recoveryFileName)
+        directory.mkdirs()
+        val temp = File(directory, ".${target.name}.${System.nanoTime()}.tmp")
+        try {
+            FileOutputStream(temp).use { output ->
+                val writer = BufferedWriter(OutputStreamWriter(output, StandardCharsets.UTF_8))
+                try {
+                    write(writer)
+                    writer.flush()
+                    output.fd.sync()
+                } finally {
+                    writer.close()
+                }
+            }
+            moveIntoPlace(temp, target)
+        } finally {
+            if (temp.exists()) temp.delete()
+        }
+    }
+
+    /** 在文件仍打开时消费 NDJSON 恢复点，避免把整个恢复点读入内存。 */
+    suspend fun <T> readRecoveryNdJson(entry: RestoreJournal.Entry, read: suspend (Sequence<String>) -> T): T =
+        withContext(Dispatchers.IO) {
+            fileFor(entry.recoveryFileName)
+                .bufferedReader(StandardCharsets.UTF_8)
+                .use { reader -> read(reader.lineSequence()) }
+        }
 
     /** 完成或放弃恢复后清除私有恢复副本；删除失败只记日志，不暴露文件内容。 */
     fun cleanup(entry: RestoreJournal.Entry) {
@@ -65,6 +106,19 @@ class RestoreStagingStore(context: Context) {
             "invalid restore artifact name"
         }
         return File(directory, name)
+    }
+
+    private fun moveIntoPlace(temp: File, target: File) {
+        try {
+            Files.move(
+                temp.toPath(),
+                target.toPath(),
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING,
+            )
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
     }
 
     private companion object {

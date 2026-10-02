@@ -126,6 +126,9 @@ class SessionRepository(
 
         /** C-23: 内容抽查时每个样本用于构造 MATCH 探测的 token 数量上限。 */
         private const val FTS_PROBE_TOKEN_LIMIT = 3
+
+        /** Keep each Room `IN` query below SQLite's bind-argument limit. */
+        private const val SESSION_ID_QUERY_BATCH_SIZE = 900
     }
 
     /**
@@ -136,6 +139,19 @@ class SessionRepository(
 
     /** 按 id 获取会话(通知深链等一次性导航场景使用)。 */
     suspend fun getSessionById(sessionId: String): SessionEntity? = sessionDao.getById(sessionId)
+
+    /** 按 id 批量获取会话,保留请求顺序并忽略重复/空 id。 */
+    suspend fun getSessionsByIds(sessionIds: Collection<String>): List<SessionEntity> = withContext(Dispatchers.IO) {
+        val uniqueIds = sessionIds.filter { it.isNotBlank() }.distinct()
+        if (uniqueIds.isEmpty()) return@withContext emptyList()
+
+        val sessions = mutableListOf<SessionEntity>()
+        for (batch in uniqueIds.chunked(SESSION_ID_QUERY_BATCH_SIZE)) {
+            sessions += sessionDao.getByIds(batch)
+        }
+        val byId = sessions.associateBy { it.id }
+        uniqueIds.mapNotNull(byId::get)
+    }
 
     /** v0.45: 观察已归档会话(按 updatedAt 降序)。归档列表用。 */
     fun observeArchived(): Flow<List<SessionEntity>> = sessionDao.observeArchived()

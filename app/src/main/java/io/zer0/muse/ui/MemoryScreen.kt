@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.memory.fact.MemoryLegacyReset
+import io.zer0.memory.space.MemorySpaceEntity
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
@@ -87,7 +88,12 @@ import java.time.ZoneId
  * 内容区只显示当前分段，避免单页无限长列表，也避免横向滚动的筛选胶囊。
  */
 @Composable
-fun MemoryScreen(onBack: () -> Unit = {}, onOpenSettings: () -> Unit = {}, viewModel: MemoryViewModel = koinViewModel()) {
+fun MemoryScreen(
+    onBack: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    viewModel: MemoryViewModel = koinViewModel(),
+    onOpenSession: (String) -> Unit = {},
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scopes by viewModel.availableScopes.collectAsStateWithLifecycle()
     val spaces by viewModel.availableSpaces.collectAsStateWithLifecycle()
@@ -219,11 +225,14 @@ fun MemoryScreen(onBack: () -> Unit = {}, onOpenSettings: () -> Unit = {}, viewM
                         0 ->
                             memoryStreamItems(
                                 state = state,
+                                scopes = scopes,
+                                spaces = spaces,
                                 timelineMode = streamTimelineMode,
                                 timelineFilter = timelineFilter,
                                 onTimelineFilter = { timelineFilter = it },
                                 onToggleTimeline = { streamTimelineMode = !streamTimelineMode },
                                 onOpenFacts = { tab = 1 },
+                                onOpenSession = onOpenSession,
                                 onHistory = {
                                     viewModel.loadFactRevisions(it.id, it.scope)
                                     revisionTarget = it
@@ -266,22 +275,29 @@ fun MemoryScreen(onBack: () -> Unit = {}, onOpenSettings: () -> Unit = {}, viewM
 
     editItem?.let { item ->
         FactEditDialog(
-            title = stringResource(R.string.memory_screen_edit_fact),
+            title = stringResource(
+                if (item.source == "Summary") {
+                    R.string.memory_screen_edit_summary
+                } else {
+                    R.string.memory_screen_edit_fact
+                },
+            ),
             initialContent = item.content,
             onDismiss = { editItem = null },
-            onConfirm = { content ->
-                viewModel.editFact(item.id, content, item.scope)
-                editItem = null
+            onConfirm = { content, onSaved ->
+                routeMemoryItemAction(
+                    item = item,
+                    onFact = { factId, scope -> viewModel.editFact(factId, content, scope, onSaved) },
+                    onSummary = { sessionId -> viewModel.editSummary(sessionId, content, onSaved) },
+                    onUnsupported = { onSaved(false) },
+                )
             },
         )
     }
     if (showAddFact) {
         AddFactDialog(
             onDismiss = { showAddFact = false },
-            onConfirm = { content ->
-                viewModel.addFact(content)
-                showAddFact = false
-            },
+            onConfirm = viewModel::addFact,
         )
     }
     // F-10: 重要程度选择(0=普通, 1=重要, 2=关键 — 关键事实永不衰减)
@@ -304,7 +320,12 @@ fun MemoryScreen(onBack: () -> Unit = {}, onOpenSettings: () -> Unit = {}, viewM
             itemName = item.title.ifBlank { item.content },
             consequence = stringResource(R.string.memory_delete_consequence),
             onConfirm = {
-                viewModel.deleteFact(item.id, item.scope)
+                routeMemoryItemAction(
+                    item = item,
+                    onFact = viewModel::deleteFact,
+                    onSummary = viewModel::deleteSummary,
+                    onUnsupported = {},
+                )
                 deleteTarget = null
             },
             onDismiss = { deleteTarget = null },
@@ -556,20 +577,23 @@ private fun MemoryOverviewCard(
 @Suppress("LongParameterList")
 private fun LazyListScope.memoryStreamItems(
     state: MemoryUiState,
+    scopes: List<ScopeOption>,
+    spaces: List<MemorySpaceEntity>,
     timelineMode: Boolean,
     timelineFilter: String,
     onTimelineFilter: (String) -> Unit,
     onToggleTimeline: () -> Unit,
     onOpenFacts: () -> Unit,
+    onOpenSession: (String) -> Unit,
     onHistory: (MemoryItem) -> Unit,
     onEdit: (MemoryItem) -> Unit,
     onDelete: (MemoryItem) -> Unit,
     onPin: (MemoryItem) -> Unit,
     onImportance: (MemoryItem) -> Unit,
 ) {
-    val items = state.factItems.sortedByDescending { it.createdAt ?: it.time.orEmpty() }
+    val items = buildMemoryStreamItems(state.factItems, state.summaryItems)
     // P1-3: 置顶区接线 — 置顶事实集中展示,可一键取消置顶
-    val pinned = items.filter { it.pinnedAt != null }
+    val pinned = state.factItems.filter { it.pinnedAt != null }
     if (pinned.isNotEmpty()) {
         item(key = "memory_stream_pinned") {
             PinnedMemorySection(
@@ -639,10 +663,12 @@ private fun LazyListScope.memoryStreamItems(
             }.toSortedMap(compareByDescending { it })
         grouped.forEach { (month, monthItems) ->
             val filtered =
-                if (timelineFilter == "all") {
-                    monthItems
-                } else {
-                    monthItems.filter { it.source == timelineFilter }
+                when (timelineFilter) {
+                    "all" -> monthItems
+                    "fact" -> monthItems.filter { it.source == "Fact" }
+                    "summary" -> monthItems.filter { it.source == "Summary" }
+                    "milestone" -> monthItems.filter { it.source == "Milestone" }
+                    else -> emptyList()
                 }
             if (filtered.isNotEmpty()) {
                 item(key = "timeline_month_$month") {
@@ -654,7 +680,7 @@ private fun LazyListScope.memoryStreamItems(
                         TimelineEventCard(
                             item =
                             TimelineItem(
-                                id = item.id,
+                                id = "${item.source}_${item.id}",
                                 content = item.content,
                                 source = item.source,
                                 importance = item.importance,
@@ -681,16 +707,27 @@ private fun LazyListScope.memoryStreamItems(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = MusePaddings.screen, vertical = 4.dp),
             )
         }
-        items(dayItems, key = { "stream_${it.id}" }) { item ->
+        items(dayItems, key = { "stream_${it.source}_${it.id}" }) { item ->
             // v2.x: 动效补齐 — 记忆流列表条目入场/位移过渡
             Box(modifier = museAnimateItem().padding(horizontal = MusePaddings.screen)) {
+                val sourceMeta = if (item.source == "Summary") {
+                    val assistantName = scopes.firstOrNull { it.id == item.scope }?.displayName
+                        ?: item.scope.orEmpty()
+                    val spaceName = spaces.firstOrNull { it.id == item.spaceId }?.name
+                        ?: item.spaceId.orEmpty()
+                    stringResource(R.string.memory_conversation_meta, assistantName, spaceName)
+                } else {
+                    null
+                }
                 MemoryFactRow(
                     item = item,
+                    sourceMeta = sourceMeta,
+                    onOpenSession = if (item.source == "Summary") onOpenSession else null,
                     onEdit = { onEdit(item) },
                     onDelete = { onDelete(item) },
-                    onHistory = { onHistory(item) },
-                    onPin = { onPin(item) },
-                    onImportance = { onImportance(item) },
+                    onHistory = if (item.source == "Fact") ({ onHistory(item) }) else null,
+                    onPin = if (item.source == "Fact") ({ onPin(item) }) else null,
+                    onImportance = if (item.source == "Fact") ({ onImportance(item) }) else null,
                 )
             }
         }
@@ -937,8 +974,10 @@ private fun MemoryConstellationTab(scope: String?, spaceId: String, factCount: I
 // F-9: 行内操作文本组与回调透传:与既有列表行惯例一致
 @Suppress("FunctionNaming", "LongParameterList")
 @Composable
-private fun MemoryFactRow(
+internal fun MemoryFactRow(
     item: MemoryItem,
+    sourceMeta: String? = null,
+    onOpenSession: ((String) -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onDelete: (() -> Unit)? = null,
     onPin: (() -> Unit)? = null,
@@ -974,6 +1013,13 @@ private fun MemoryFactRow(
                         .weight(1f)
                         .clickable(enabled = canExpand) { toggleExpand() },
                 )
+                if (onOpenSession != null && item.sessionId != null) {
+                    MuseTactileButton(
+                        icon = MuseIcons.chat,
+                        onClick = { onOpenSession(item.sessionId) },
+                        contentDescription = stringResource(R.string.memory_open_conversation),
+                    )
+                }
                 // LAYOUT-01: 纯装饰分隔符 — 只限行，保证永不被压成多行
                 if (item.pinnedAt != null) {
                     Text(
@@ -1006,6 +1052,15 @@ private fun MemoryFactRow(
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                sourceMeta?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 item.category?.takeIf {
                     it.isNotBlank()
                 }?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }

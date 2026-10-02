@@ -19,6 +19,13 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 
+internal fun sanitizeDingtalkPayloadForStorage(payload: JsonObject): String = JsonObject(
+    payload.toMutableMap().apply {
+        remove("sessionWebhook")
+        remove("sessionWebhookExpiredTime")
+    },
+).toString()
+
 /**
  * v2.0: 钉钉接收器 — Stream 模式 WebSocket 长连接。
  *
@@ -87,8 +94,10 @@ class DingtalkReceiver(
             request,
             object : WebSocketListener() {
                 override fun onMessage(webSocket: WebSocket, text: String) {
-                    runCatching { handleFrame(webSocket, text, config.id) }
-                        .onFailure { e -> Logger.w(TAG, "钉钉帧处理失败: ${e.message}") }
+                    appScope.launch {
+                        runCatching { handleFrame(webSocket, text, config.id) }
+                            .onFailure { e -> Logger.w(TAG, "钉钉帧处理失败: ${e.message}") }
+                    }
                 }
 
                 override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
@@ -111,7 +120,7 @@ class DingtalkReceiver(
     }
 
     /** 处理 Stream 推送帧(协议见钉钉开发者文档)。 */
-    private fun handleFrame(webSocket: WebSocket, frame: String, channelId: String) {
+    private suspend fun handleFrame(webSocket: WebSocket, frame: String, channelId: String) {
         val obj = runCatching { AppJson.parseToJsonElement(frame).jsonObject }.getOrNull() ?: return
         val type = obj["type"]?.jsonPrimitive?.contentOrNull.orEmpty()
         val headers = obj["headers"] as? JsonObject
@@ -143,7 +152,7 @@ class DingtalkReceiver(
     }
 
     /** 解析机器人消息回调并写入收件箱。 */
-    private fun handleRobotMessage(dataJson: String, channelId: String, eventId: String) {
+    private suspend fun handleRobotMessage(dataJson: String, channelId: String, eventId: String) {
         val payload = runCatching { AppJson.parseToJsonElement(dataJson).jsonObject }.getOrNull() ?: return
         // text 字段为对象 {"content": "..."};防御式兼容纯字符串形式
         val content = (payload["text"] as? JsonObject)
@@ -158,12 +167,19 @@ class DingtalkReceiver(
         val expireAt = payload["sessionWebhookExpiredTime"]?.jsonPrimitive?.contentOrNull?.toLongOrNull() ?: 0L
         // 群/单聊双键缓存,回发侧无需区分来源类型
         DingtalkSessionCache.put(listOf(conversationId, senderStaffId), webhook, expireAt)
+        val encryptedReplyContextToken = protectDingtalkReplyContextToken(webhook)
         // 群聊(conversationType=2)用会话 id,单聊用发送人 id,与发送侧目标语义一致
         val from = if (conversationType == "2") conversationId else senderStaffId
         ChannelInbox.record(
-            ChannelInbox.Source("DINGTALK", from, channelId, eventId),
+            ChannelInbox.Source(
+                platform = "DINGTALK",
+                from = from,
+                channelId = channelId,
+                eventId = eventId,
+                encryptedReplyContextToken = encryptedReplyContextToken,
+            ),
             text,
-            dataJson,
+            sanitizeDingtalkPayloadForStorage(payload),
         )
     }
 

@@ -94,7 +94,10 @@ class VirtualDisplayClient(
 
     /** 销毁虚拟屏(服务端不存在时返回 false,不算错误)。 */
     suspend fun destroy(displayId: Int = manager.lastDisplayId): Boolean = withContext(Dispatchers.IO) {
-        val proxy = manager.existingLiveProxy() ?: return@withContext false
+        val proxy = manager.existingLiveProxy() ?: run {
+            if (displayId == manager.lastDisplayId) manager.lastDisplayId = -1
+            return@withContext false
+        }
         runCatching {
             proxy.destroyDisplay(displayId)
             if (displayId == manager.lastDisplayId) manager.lastDisplayId = -1

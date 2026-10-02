@@ -14,6 +14,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.time.Instant
 
+private val VIBE_LINE_REGEX = Regex("""(?im)^\s*Vibe\s*:\s*(.+)$""")
+
 /**
  * Session 摘要管理器。
  *
@@ -306,10 +308,25 @@ class SessionSummaryManager(
         val isZh = locale.startsWith("zh")
         val userLabel = if (isZh) "用户" else "User"
         val assistantLabel = if (isZh) "助手" else "Assistant"
+        val assistantVibeLabel = if (isZh) {
+            "助手当时表达的感受（Vibe 自述）"
+        } else {
+            "Assistant self-reported Vibe"
+        }
         val parts = mutableListOf<String>()
         for (msg in messages) {
             val content = msg.content.trim()
-            if (content.isEmpty()) continue
+            val assistantVibe = if (msg.role == io.zer0.ai.core.MessageRole.ASSISTANT) {
+                VIBE_LINE_REGEX.find(msg.mood.orEmpty())
+                    ?.groupValues
+                    ?.getOrNull(1)
+                    ?.trim()
+                    ?.take(240)
+                    ?.takeIf { it.isNotBlank() }
+            } else {
+                null
+            }
+            if (content.isEmpty() && assistantVibe == null) continue
             val timePrefix = if (msg.createdAt > 0) {
                 val instant = Instant.ofEpochMilli(msg.createdAt)
                 val formatted = TimeContext.formatSummaryTimestamp(instant, zone)
@@ -318,7 +335,11 @@ class SessionSummaryManager(
                 ""
             }
             val speaker = if (msg.role == io.zer0.ai.core.MessageRole.USER) userLabel else assistantLabel
-            parts.add("$timePrefix【$speaker】$content")
+            val messageText = buildList {
+                assistantVibe?.let { add("【$assistantVibeLabel】Vibe: $it") }
+                content.takeIf { it.isNotBlank() }?.let { add("【$speaker】$it") }
+            }.joinToString("\n")
+            parts.add("$timePrefix$messageText")
         }
         return parts.joinToString("\n\n")
     }

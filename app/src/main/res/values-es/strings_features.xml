@@ -322,7 +322,7 @@
     <string name="knowledge_ocr">Ejecutando OCR...</string>
     <string name="knowledge_chunking">Fragmentación y construcción de índice de vectores…</string>
     <string name="knowledge_generating_vector">Generando vectores %1$d/%2$d…</string>
-    <string name="knowledge_import_unsupported">Los archivos comprimidos o binarios aún no son compatibles — descomprime e importa los documentos</string>
+    <string name="knowledge_import_unsupported">Este formato comprimido o binario no es compatible. Importa un archivo ZIP, 7Z o RAR.</string>
     <string name="knowledge_zip_extracting">Extrayendo e importando…</string>
     <string name="knowledge_zip_progress">Extrayendo e importando… (%1$d importados)</string>
     <string name="knowledge_zip_done">Se creó la base de conocimientos %1$s: %2$d documentos importados, %3$d omitidos</string>
@@ -337,6 +337,7 @@
     <string name="knowledge_index_error_reason">Motivo: %1$s</string>
     <string name="knowledge_import_cancelled">Importación cancelada</string>
     <string name="knowledge_import_failed_read">Falló la importación: no se puede leer el archivo</string>
+    <string name="knowledge_source_unavailable">No se pudo leer el contenido original del documento.</string>
     <string name="knowledge_import_failed">Error de importación: %1$s</string>
     <string name="knowledge_reindex_progress">Reconstruyendo y reconstruyendo el índice de vectores...</string>
     <string name="knowledge_reindexed">Reindexado: %1$s (%2$d fragmentos)</string>

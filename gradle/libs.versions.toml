@@ -28,6 +28,10 @@ junit = "4.13.2"
 # Phase 8.6: 文档解析 + OCR
 pdfboxAndroid = "2.0.27.0"
 mlkitTextRecognition = "16.0.1"
+# Knowledge archive import: bounded 7z decoding and RAR extraction.
+commonsCompress = "1.28.0"
+junrar = "8.1.1"
+xz = "1.12"
 # Phase 8.11: Ktor 嵌入式 Web 服务器
 ktor = "3.0.3"
 # Phase 8.11: JWT 鉴权(与 Ktor auth-jwt 配合)
@@ -122,6 +126,9 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 # Phase 8.6: PDF 文本提取 / OCR
 tom-roush-pdfbox-android = { group = "com.tom-roush", name = "pdfbox-android", version.ref = "pdfboxAndroid" }
 google-mlkit-text-recognition-chinese = { group = "com.google.mlkit", name = "text-recognition-chinese", version.ref = "mlkitTextRecognition" }
+commons-compress = { group = "org.apache.commons", name = "commons-compress", version.ref = "commonsCompress" }
+junrar = { group = "com.github.junrar", name = "junrar", version.ref = "junrar" }
+xz = { group = "org.tukaani", name = "xz", version.ref = "xz" }
 
 # Phase 8.11: Ktor 嵌入式 Web 服务器(CIO 引擎 — 纯 Kotlin 协程实现,无 JNI,适合 Android)
 ktor-server-core = { group = "io.ktor", name = "ktor-server-core", version.ref = "ktor" }

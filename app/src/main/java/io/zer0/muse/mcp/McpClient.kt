@@ -241,6 +241,12 @@ class McpClient(
     @Volatile
     private var streamableSessionInvalidated = false
 
+    /** Streamable HTTP 会话恢复互斥，避免并发请求重复 initialize。 */
+    private val streamableSessionRecoveryMutex = Mutex()
+
+    /** 每次真正更换 Streamable HTTP session 时递增，用于让并发请求复用同一轮恢复结果。 */
+    private val streamableSessionGeneration = AtomicLong(0)
+
     /** 最近一次传输层失败摘要,只保存状态码/网络类别,不保存响应正文或凭证。 */
     @Volatile
     private var lastTransportFailure: String? = null
@@ -819,13 +825,14 @@ class McpClient(
     private suspend fun postStreamableRequest(jsonRpc: String, retryOn401: Boolean = true): JsonObject? {
         if (config.feishuAuth.enabled && !ensureFeishuTenantToken()) return null
         val authHeaders = resolvedAuthHeaders()
+        val requestSessionId = streamableSessionId
         val request = Request.Builder()
             .url(config.url.toHttpUrl())
             .header("Content-Type", "application/json")
             .header("Accept", "application/json, text/event-stream")
             .header("MCP-Protocol-Version", negotiatedProtocolVersion)
             .apply {
-                streamableSessionId?.let { header("Mcp-Session-Id", it) }
+                requestSessionId?.let { header("Mcp-Session-Id", it) }
             }
             .apply { authHeaders.forEach { (k, v) -> header(k, v) } }
             .post(jsonRpc.toRequestBody(JSON_MEDIA_TYPE))
@@ -851,10 +858,11 @@ class McpClient(
                         lastTransportFailure = "MCP HTTP ${resp.code}"
                         if (
                             resp.code == 404 &&
-                            streamableSessionId != null
+                            requestSessionId != null &&
+                            streamableSessionId == requestSessionId
                         ) {
-                            // 按 MCP 会话规范,404 表示 session 已被 server 终止;下一次
-                            // 请求前清掉旧 ID,由 sendRequest 重新 initialize。
+                            // Only invalidate the session used by this request. A late 404 from
+                            // the previous session must not clear a newer ID installed by recovery.
                             streamableSessionInvalidated = true
                             streamableSessionId = null
                         }
@@ -869,6 +877,9 @@ class McpClient(
                     // initialize 通常是第一个 Streamable HTTP 请求,但规范允许 server
                     // 在后续响应更新会话 ID,因此每次响应都读取并覆盖本地缓存。
                     resp.header("Mcp-Session-Id")?.takeIf { it.isNotBlank() }?.let { sessionId ->
+                        if (streamableSessionId != sessionId) {
+                            streamableSessionGeneration.incrementAndGet()
+                        }
                         streamableSessionId = sessionId
                         Logger.d(
                             TAG,
@@ -1013,7 +1024,7 @@ class McpClient(
         if (!closed) scheduleReconnect()
     }
 
-    private suspend fun sendInitialize(): Boolean {
+    private suspend fun sendInitialize(allowSessionRecovery: Boolean = true): Boolean {
         val id = idCounter.getAndIncrement()
         val request = buildJsonObject {
             put("jsonrpc", "2.0")
@@ -1047,7 +1058,7 @@ class McpClient(
                 },
             )
         }
-        val response = sendRequest(id, request) ?: return false
+        val response = sendRequest(id, request, allowSessionRecovery = allowSessionRecovery) ?: return false
         logJsonRpcError("initialize", response)
 
         // 解析 serverInfo
@@ -1369,6 +1380,11 @@ class McpClient(
     private suspend fun sendRequest(id: Long, request: JsonObject, allowSessionRecovery: Boolean = true): JsonObject? {
         val jsonStr = AppJson.encodeToString(request)
         val timeoutMs = config.requestTimeoutMs
+        val sessionGenerationAtStart = if (config.transportType == McpTransportType.STREAMABLE_HTTP) {
+            streamableSessionGeneration.get()
+        } else {
+            -1L
+        }
 
         val response = when (config.transportType) {
             McpTransportType.STREAMABLE_HTTP -> {
@@ -1415,11 +1431,24 @@ class McpClient(
             response == null &&
             allowSessionRecovery &&
             config.transportType == McpTransportType.STREAMABLE_HTTP &&
-            streamableSessionInvalidated
+            (
+                streamableSessionInvalidated ||
+                    streamableSessionGeneration.get() > sessionGenerationAtStart ||
+                    streamableSessionRecoveryMutex.isLocked
+                )
         ) {
-            streamableSessionInvalidated = false
-            Logger.i(TAG, "[${config.name}] MCP session 已失效,重新 initialize 后重试原请求")
-            if (sendInitialize()) {
+            val recovered = streamableSessionRecoveryMutex.withLock {
+                if (streamableSessionGeneration.get() > sessionGenerationAtStart) {
+                    true
+                } else if (streamableSessionInvalidated) {
+                    streamableSessionInvalidated = false
+                    Logger.i(TAG, "[${config.name}] MCP session 已失效,重新 initialize 后重试原请求")
+                    sendInitialize(allowSessionRecovery = false)
+                } else {
+                    false
+                }
+            }
+            if (recovered) {
                 return sendRequest(id, request, allowSessionRecovery = false)
             }
         }

@@ -854,6 +854,10 @@ class ChatStreamCoordinator(
                 userProfile?.assistantName
                     ?: assistant?.name
             val userNickname = userProfile?.userNickName
+            val sessionIgnoresMemory =
+                accessor.snapshot.sessions.firstOrNull { it.id == sessionId }?.ignoreMemory == true
+            val conversationMemoryEnabled =
+                (assistant?.memoryEnabled ?: true) && settings.isMemoryEnabled() && !sessionIgnoresMemory
             val context =
                 TransformContext(
                     sessionId = sessionId,
@@ -865,6 +869,7 @@ class ChatStreamCoordinator(
                         // v0.30-a: 已由 SystemPromptAssembler 接管,关闭 Transformer 管道里的对应职责
                         "memory_enabled" to false,
                         "time_reminder_enabled" to false,
+                        "conversation_memory_enabled" to conversationMemoryEnabled,
                         "current_scope" to (assistant?.id?.takeIf { it.isNotBlank() && it != "default" } ?: "main"),
                         "current_space" to settings.currentSpaceIdFlow.firstOrNull().orEmpty().ifBlank { "default" },
                         // Phase 8.5

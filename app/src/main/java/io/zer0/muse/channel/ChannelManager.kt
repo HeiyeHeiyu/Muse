@@ -80,6 +80,7 @@ class ChannelManager(context: Context) {
                 options.targetOverride,
                 options.contextTokenOverride,
                 options.sourceEventIdOverride,
+                options.sourceEventSequenceOverride,
             ).fold(
                 onSuccess = { ChannelSendResult(true, "已发送到 ${config.name.ifBlank { config.platform.name }}") },
                 onFailure = { error ->
@@ -119,4 +120,5 @@ internal data class ChannelSendOptions(
     val targetOverride: String? = null,
     val contextTokenOverride: String? = null,
     val sourceEventIdOverride: String? = null,
+    val sourceEventSequenceOverride: Int? = null,
 )

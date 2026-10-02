@@ -95,6 +95,10 @@ interface SessionDao {
     @Query("SELECT * FROM sessions WHERE id = :id")
     suspend fun getById(id: String): SessionEntity?
 
+    /** 按 id 批量取会话,用于记忆中心关联摘要标题。 */
+    @Query("SELECT * FROM sessions WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<String>): List<SessionEntity>
+
     /** 插入新会话(冲突时忽略)。 */
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(session: SessionEntity)

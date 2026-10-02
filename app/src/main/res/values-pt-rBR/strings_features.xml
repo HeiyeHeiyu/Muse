@@ -322,7 +322,7 @@
     <string name="knowledge_ocr">Executando OCR…</string>
     <string name="knowledge_chunking">Segmentação e construção de índice vetorial…</string>
     <string name="knowledge_generating_vector">Gerando vetores %1$d/%2$d…</string>
-    <string name="knowledge_import_unsupported">Arquivos compactados ou binários ainda não são compatíveis — descompacte e importe os documentos</string>
+    <string name="knowledge_import_unsupported">Este formato compactado ou binário não é compatível. Importe um arquivo ZIP, 7Z ou RAR.</string>
     <string name="knowledge_zip_extracting">Extraindo e importando…</string>
     <string name="knowledge_zip_progress">Extraindo e importando… (%1$d importados)</string>
     <string name="knowledge_zip_done">Base de conhecimento %1$s criada: %2$d documentos importados, %3$d ignorados</string>
@@ -337,6 +337,7 @@
     <string name="knowledge_index_error_reason">Motivo: %1$s</string>
     <string name="knowledge_import_cancelled">Importação cancelada</string>
     <string name="knowledge_import_failed_read">Falha na importação: não é possível ler o arquivo</string>
+    <string name="knowledge_source_unavailable">Não foi possível ler o conteúdo original do documento.</string>
     <string name="knowledge_import_failed">Falha na importação: %1$s</string>
     <string name="knowledge_reindex_progress">Reagrupando e reconstruindo índice vetorial…</string>
     <string name="knowledge_reindexed">Reindexado: %1$s (%2$d pedaços)</string>

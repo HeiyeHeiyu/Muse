@@ -331,6 +331,58 @@ class MemoryTickerTest {
     }
 
     @Test
+    fun `notifySessionEnd keeps the captured space when runtime space changes`() = runTest(testDispatcher) {
+        val validSummary = """
+            ### 重要事实
+            - 用户在测试中设置了一个偏好
+            ### 事情经过
+            - 用户在测试会话中描述了这个偏好
+        """.trimIndent()
+        fakeLlm.response = validSummary
+        var runtimeSpace = "runtime-space"
+        val ticker = MemoryTicker(
+            summaryManager = summaryManager,
+            compiler = compiler,
+            deepProcessor = deepProcessor,
+            dailyStateDao = fakeDailyDao,
+            getResetAt = { null },
+            isMemoryEnabled = { true },
+            scope = this,
+            runtimeContext = MemoryRuntimeContext(
+                getConfig = { MemoryConfig() },
+                getCurrentAssistantId = { "assistant-a" },
+                getCurrentSpaceId = { runtimeSpace },
+            ),
+        )
+        val messages = listOf(
+            io.zer0.ai.core.UIMessage(
+                role = io.zer0.ai.core.MessageRole.USER,
+                content = "请记住这个偏好",
+            ),
+        )
+
+        ticker.notifyTurn(
+            sessionId = "space-capture-session",
+            messages = messages,
+            model = null,
+            assistantId = "assistant-a",
+            spaceId = "captured-space",
+        )
+        runtimeSpace = "new-runtime-space"
+
+        val job = ticker.notifySessionEnd(
+            sessionId = "space-capture-session",
+            messages = messages,
+            model = null,
+            assistantId = "assistant-a",
+        )
+        job.join()
+
+        assertEquals("captured-space", fakeDao.lastUpserted?.spaceId)
+        ticker.stop()
+    }
+
+    @Test
     fun `compiled memory uses the assistant-specific tombstones when scope is explicit`() = runTest(testDispatcher) {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val assistantId = "ticker-scope-${System.nanoTime()}"
@@ -410,7 +462,10 @@ class MemoryTickerTest {
 
 /** Fake [SessionSummaryDao]: 全部返回空数据,记录调用次数便于断言。 */
 private class FakeSessionSummaryDao : SessionSummaryDao {
-    override suspend fun upsert(entity: SessionSummaryEntity) {}
+    @Volatile var lastUpserted: SessionSummaryEntity? = null
+    override suspend fun upsert(entity: SessionSummaryEntity) {
+        lastUpserted = entity
+    }
     override suspend fun get(sessionId: String): SessionSummaryEntity? = null
     override suspend fun getAll(): List<SessionSummaryEntity> = emptyList()
     override suspend fun getInRange(startISO: String, endISO: String, since: String?, assistantId: String?): List<SessionSummaryEntity> =
@@ -460,6 +515,8 @@ private class FakeDailyStateDao : DailyStateDao {
 /** Fake [MemoryLlmClient]: 记录调用次数,返回空串(被吞错时也不影响流程)。 */
 private class FakeMemoryLlmClient : MemoryLlmClient {
     @Volatile var callTextCount: Int = 0
+
+    @Volatile var response: String = ""
     override suspend fun callText(
         systemPrompt: String,
         userContent: String,
@@ -471,6 +528,6 @@ private class FakeMemoryLlmClient : MemoryLlmClient {
         callTextCount++
         // 返回空串让 MemoryCompiler 走 "result 为空 → SKIPPED" 分支
         // 这样 doCompileTodayAndAssemble/doDaily 都能快速完成
-        return ""
+        return response
     }
 }

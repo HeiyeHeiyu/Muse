@@ -9,7 +9,7 @@ import io.zer0.memory.format.RollingSummaryFormat
  */
 object RollingSummaryPrompt {
 
-    const val TEMPLATE_VERSION = "rolling-summary.v2"
+    const val TEMPLATE_VERSION = "rolling-summary.v3"
     const val CACHE_GROUP = "memory.rolling_summary"
 
     /**
@@ -41,7 +41,7 @@ object RollingSummaryPrompt {
 
         if (!isZh) {
             return """
-You are $resolvedAgentName, reviewing a conversation you just experienced.
+You are $resolvedAgentName, preserving continuity for a conversation you just experienced.
 
 Review the new conversation from your own perspective and decide what deserves long-term memory.
 
@@ -60,7 +60,7 @@ ${existingMemory.ifBlank { "(No existing long-term memory)" }}
 ${roster.ifBlank { "(No other agents)" }}
 
 ## Core Principle
-Your long-term memory should center on $resolvedUserName: who they are, your relationship, their long-running projects, and shared context. Prioritize who the user is, what they like, what they care about, and broad themes they are focused on.
+The Facts section is for stable information about $resolvedUserName. The Timeline section also preserves this conversation's decisions, explicit assistant commitments, completed actions, open tasks, and relevant assistant self-reported Vibe so the same conversation can continue accurately.
 
 $formatRequirements
 
@@ -74,12 +74,12 @@ Preserve the user's original wording; do not add "the user" as a subject. Keep w
 Do NOT extract work-style preferences, collaboration preferences, tool preferences, engineering rules, or task details. When in doubt, skip. Missing a fact is safer than recording it wrongly.
 
 **$timelineTitle section**
-Record what happened in this session chronologically with YYYY-MM-DD HH:MM timestamps, capturing key points. Work-related content may only be kept at the broad-theme level.
+Record what happened in this session chronologically with YYYY-MM-DD HH:MM timestamps. Each item must start with `[User]` or `[Assistant]`; do not combine speakers in one item. Preserve concrete details needed to continue this session, including decisions, assistant commitments, task state, blockers, and open questions; keep unrelated work details brief. Write a self-reported Vibe only as `[Assistant Vibe] ...`.
 
 ## Rules
 1. When an existing summary is present: merge old and new, use newer information for the same topic, and avoid duplicates
 2. Extract time annotations from message timestamps (YYYY-MM-DD HH:MM format)
-3. Record only objective facts, not MOOD or the assistant's inner thoughts
+3. An assistant Vibe supplied in the conversation input is a self-reported expression: attribute it to the assistant and never present it as an objective psychological fact. Do not record Sparks, Reflections, Will, or hidden reasoning.
 4. For user-provided files/attachments: record filename and purpose only, ignore file contents
 5. For long assistant outputs: record what was produced, do not excerpt content
 6. Prefer brevity: summary length should match the actual information density
@@ -87,7 +87,7 @@ Record what happened in this session chronologically with YYYY-MM-DD HH:MM times
         }
 
         return """
-你是 $resolvedAgentName，正在整理自己刚刚经历的一段对话。
+你是 $resolvedAgentName，正在为自己刚刚经历的一段对话整理连续性记忆。
 
 下面是你在本次对话开始前已经拥有的设定和记忆。它们是背景，不是新增事实。请从自己的视角审视本次对话，判断哪些新信息值得进入长期记忆。
 
@@ -108,7 +108,7 @@ ${existingMemory.ifBlank { "（暂无已有长期记忆）" }}
 ${roster.ifBlank { "（没有其他 Agent）" }}
 
 ## 核心原则
-你的长期记忆应以对${resolvedUserName}的理解为中心：他们是谁、你们的关系、长期项目与共同语境。优先记录${resolvedUserName}是谁、喜欢什么、在意什么、最近关注什么大主题。
+重要事实一节用于整理关于${resolvedUserName}的稳定信息。事情经过一节还要保留本对话的决策、助手明确承诺、已完成行动、未完成事项，以及有意义的助手 Vibe 自述，让同一对话能准确接续。
 
 $formatRequirements
 
@@ -122,12 +122,12 @@ $formatRequirements
 不要抽取：工作方式偏好、协作流程偏好、工具和平台偏好、工程纪律和项目规则、一次任务里的格式标准。拿不准一律不抽；宁可漏，不可错。
 
 **$timelineTitle 一节**
-按时间顺序记录本 session 发生了什么，带 YYYY-MM-DD HH:MM 时间标注，抓重点脉络。工作相关内容只允许保留到大主题层级。
+按时间顺序记录本 session 发生了什么，带 YYYY-MM-DD HH:MM 时间标注。每条事项必须以 `[用户]` 或 `[助手]` 开始，不要把双方内容合并为一条。保留继续本对话所需的具体决策、助手承诺、任务状态、阻塞原因和待办；无关工作细节从简。助手自述 Vibe 只能写成 `[助手 Vibe 自述] ...`。
 
 ## 规则
 1. 有已有摘要时：新旧内容合并，同一件事以新信息为准，不要重复
 2. 时间标注从消息时间戳提取（YYYY-MM-DD HH:MM 格式）
-3. 只记录客观事实，不记录 MOOD 或助手内心想法
+3. 输入中提供的助手 Vibe 是助手当时表达的感受，应明确归属给助手，不能写成客观心理事实；不要记录 Sparks、Reflections、Will 或隐藏推理
 4. 用户提供的文件/附件：只记录文件名和用途，忽略具体内容
 5. 助手的长篇输出：只记录产出了什么，不摘录内容
 6. 宁短勿长：摘要长度与对话的实际信息密度成正比，闲聊几句只需一两行

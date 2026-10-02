@@ -81,6 +81,9 @@ fun Flow<ChatStreamEvent>.withFirstEventWatchdog(
                 )
             }
             trySend(ChatStreamEvent.Done(completion.finishReason))
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            close(cancelled)
+            throw cancelled
         } catch (t: Throwable) {
             trySend(ChatStreamEvent.Error(t.message ?: "非流式回退失败", t))
         } finally {
@@ -140,9 +143,12 @@ fun Flow<ChatStreamEvent>.withFirstEventWatchdog(
                     }
                 }
             }
-            // 注意：上游流“无任何事件即结束”（如空流 / SSE 立即断开）不应视为正常完成。
-            // 此时保持 finished=false，让 watchdog 超时后触发非流式回退。
-            // 用户停止生成的路径由 Provider 发出 StreamInterrupted 事件覆盖（finished=true）。
+            // 上游流“无任何事件即结束”（如空流 / SSE 立即断开）已经确认不会再产生内容，
+            // 不应继续等待 45s/90s 的首事件看门狗。立即复用非流式回退，避免用户看到长时间
+            // loading；仍保持打开的 SSE 不会进入这里，而用户停止/显式错误路径会先把 finished 置 true。
+            if (!meaningfulEventReceived && !finished) {
+                emitFallback("流式响应为空，正在切换请求方式", cancelUpstream = false)
+            }
         } catch (t: Throwable) {
             if (t is kotlinx.coroutines.CancellationException) {
                 // 取消 / abort：标记结束并向上传播，不把取消当成 stream failed，

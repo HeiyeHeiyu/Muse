@@ -141,11 +141,11 @@ android {
             ?.takeIf { it.isNotBlank() }
             ?.toIntOrNull()
             ?: System.getenv("VERSION_CODE")?.takeIf { it.isNotBlank() }?.toIntOrNull()
-            ?: 240
+            ?: 241
         versionName = (project.findProperty("versionName") as? String)
             ?.takeIf { it.isNotBlank() }
             ?: System.getenv("VERSION_NAME")?.takeIf { it.isNotBlank() }
-            ?: "2.4.0"
+            ?: "2.4.1"
     }
 
     signingConfigs {
@@ -374,6 +374,9 @@ dependencies {
     implementation(libs.tom.roush.pdfbox.android)
     // Phase 8.6: ML Kit 文字识别(中英文离线 OCR)
     implementation(libs.google.mlkit.text.recognition.chinese)
+    implementation(libs.commons.compress)
+    implementation(libs.junrar)
+    implementation(libs.xz)
 
     // v1.134 P0-1: ONNX Runtime — 本地 embedding / cross-encoder rerank 推理。
     // 用户已确认引入(onnxruntime-android 1.23.0,APK 体积增加 ~40MB)。
@@ -440,7 +443,7 @@ gradle.taskGraph.whenReady {
     if (hasReleaseTask && !skipKeystoreCheck && !keystorePropertiesFile.exists()) {
         throw GradleException("正式构建缺少 keystore.properties：请先配置 release 签名，禁止回退 debug 签名。")
     }
-    // 版本号硬约束：正式构建必须显式注入 versionName/versionCode，避免误用过期默认版本；当前默认线为 240/2.4.0。
+    // 版本号硬约束：正式构建必须显式注入 versionName/versionCode，避免误用过期默认版本；当前默认线为 241/2.4.1。
     // 本地临时验证可传 -PreleaseSkipVersionCheck=true 跳过。
     val skipVersionCheck = project.findProperty("releaseSkipVersionCheck") == "true"
     val hasVersionName = project.hasProperty("versionName") || !System.getenv("VERSION_NAME").isNullOrBlank()

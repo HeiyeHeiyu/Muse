@@ -25,7 +25,6 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
@@ -46,8 +45,8 @@ class FeishuReceiver(
 ) {
     private var job: Job? = null
 
-    /** 分片事件缓冲:message_id → 各分片 payload。 */
-    private val pendingFrames = ConcurrentHashMap<String, MutableMap<Int, ByteArray>>()
+    /** 分片事件缓冲:有界 FIFO 拼装,避免单个异常连接耗尽内存。 */
+    private val frameAssembler = FeishuFrameAssembler()
 
     private data class InboundEvent(
         val from: String,
@@ -146,40 +145,25 @@ class FeishuReceiver(
     /** 数据帧:分片合并 → 事件分发 → ack 回写。 */
     private fun handleDataFrame(frame: FeishuPbbp2.Frame, webSocket: WebSocket, channelId: String) {
         val messageId = frame.header("message_id")
+        val frameType = frame.header("type")
         val merged = messageId
-            ?.takeIf { frame.header("type") == "event" }
+            ?.takeIf { frameType == "event" }
             ?.let {
                 val sum = frame.header("sum")?.toIntOrNull() ?: 1
                 val seq = frame.header("seq")?.toIntOrNull() ?: 0
-                mergeData(it, sum, seq, frame.payload)
+                frameAssembler.add(it, sum, seq, frame.payload)
             }
-        if (messageId != null && merged != null) {
+        if (merged != null) {
             dispatchEvent(merged, channelId)
-            // ack:同帧回写 payload(code=200),附加 biz_rt。
+        }
+        if (shouldAcknowledgeFeishuEventFrame(messageId, frameType)) {
+            // 每个事件分片都确认传输层已收到;只有完整 payload 才进入上面的业务派发。
             val ackFrame = frame.copy(
                 headers = frame.headers + FeishuPbbp2.Header("biz_rt", "0"),
                 payload = "{\"code\":200}".toByteArray(Charsets.UTF_8),
             )
             runCatching { webSocket.send(FeishuPbbp2.encode(ackFrame).toByteString()) }
         }
-    }
-
-    /** 分片合并(按 message_id 缓存,全部到齐后拼接为完整 JSON);未齐返回 null。 */
-    private fun mergeData(messageId: String, sum: Int, seq: Int, payload: ByteArray): String? {
-        val slots = pendingFrames.getOrPut(messageId) {
-            // 简单的过期保护:仅保留最近 64 个待合并 message_id。
-            if (pendingFrames.size > 64) pendingFrames.clear()
-            ConcurrentHashMap<Int, ByteArray>()
-        }
-        slots[seq] = payload
-        if (slots.size < sum) return null
-        val merged = java.io.ByteArrayOutputStream()
-        for (index in 0 until sum) {
-            val chunk = slots[index] ?: return null
-            merged.write(chunk)
-        }
-        pendingFrames.remove(messageId)
-        return String(merged.toByteArray(), Charsets.UTF_8)
     }
 
     /** 事件 JSON 派发(仅 im.message.receive_v1)。 */

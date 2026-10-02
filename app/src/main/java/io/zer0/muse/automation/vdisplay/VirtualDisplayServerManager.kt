@@ -8,6 +8,8 @@ import io.zer0.muse.vdproto.IVirtualDisplayService
 import io.zer0.muse.vdproto.VdContract
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -25,6 +27,8 @@ class VirtualDisplayServerManager(
     private val context: Context,
     private val shell: AutomationManager,
 ) {
+    private val startupMutex = Mutex()
+
     /** 最近一次 ensure 成功的 displayId(工具跨调用复用)。 */
     @Volatile
     var lastDisplayId: Int = -1
@@ -46,37 +50,41 @@ class VirtualDisplayServerManager(
     suspend fun ensureStarted(): Result<IVirtualDisplayService> = withContext(Dispatchers.IO) {
         existingLiveProxy()?.let { return@withContext Result.success(it) }
 
-        var state = shell.permissionState.value
-        if (!state.shellEnabled && !state.rootEnabled) {
-            // 缓存可能过期(刚授权/撤销),探一次再决定
-            state = shell.refreshPermissions()
-        }
-        if (!state.shellEnabled && !state.rootEnabled) {
-            return@withContext Result.failure(
-                IllegalStateException("虚拟屏需要 Shizuku 或 Root 权限通道(设置→权限向导授权)"),
-            )
-        }
-        if (!deployJar()) {
-            return@withContext Result.failure(IllegalStateException("虚拟屏服务端部署失败(assets 缺失或写入被拒)"))
-        }
+        startupMutex.withLock {
+            existingLiveProxy()?.let { return@withLock Result.success(it) }
 
-        VirtualDisplayBinderRegistry.update(null)
-        exec("pkill -f ${VdContract.SERVER_KILL_PATTERN}")
-        val launch = exec(launchCommand())
-        if (launch.exitCode != 0) {
-            Logger.w(TAG, "服务端启动命令退出码 ${launch.exitCode}: ${launch.output.take(200)}")
-        }
-
-        val proxy =
-            awaitBinder()
-                ?: return@withContext Result.failure(
-                    IllegalStateException(
-                        "虚拟屏服务端未在 ${AWAIT_TIMEOUT_MS / 1000}s 内就绪" +
-                            "(详见 /data/local/tmp/muse-vd-server.log)",
-                    ),
+            var state = shell.permissionState.value
+            if (!state.shellEnabled && !state.rootEnabled) {
+                // 缓存可能过期(刚授权/撤销),探一次再决定
+                state = shell.refreshPermissions()
+            }
+            if (!state.shellEnabled && !state.rootEnabled) {
+                return@withLock Result.failure(
+                    IllegalStateException("虚拟屏需要 Shizuku 或 Root 权限通道(设置→权限向导授权)"),
                 )
-        Logger.i(TAG, "虚拟屏服务端已就绪")
-        Result.success(proxy)
+            }
+            if (!deployJar()) {
+                return@withLock Result.failure(IllegalStateException("虚拟屏服务端部署失败(assets 缺失或写入被拒)"))
+            }
+
+            VirtualDisplayBinderRegistry.update(null)
+            exec("pkill -f ${VdContract.SERVER_KILL_PATTERN}")
+            val launch = exec(launchCommand())
+            if (launch.exitCode != 0) {
+                Logger.w(TAG, "服务端启动命令退出码 ${launch.exitCode}: ${launch.output.take(200)}")
+            }
+
+            val proxy =
+                awaitBinder()
+                    ?: return@withLock Result.failure(
+                        IllegalStateException(
+                            "虚拟屏服务端未在 ${AWAIT_TIMEOUT_MS / 1000}s 内就绪" +
+                                "(详见 /data/local/tmp/muse-vd-server.log)",
+                        ),
+                    )
+            Logger.i(TAG, "虚拟屏服务端已就绪")
+            Result.success(proxy)
+        }
     }
 
     /** 清除失效 binder 并返回当前可用代理(不触发启动)。 */

@@ -79,6 +79,8 @@ val appInfraModule = module {
     //         而不是在构造时缓存,保证用户改完设置页立即生效�?
     single {
         val settings = get<SettingsRepository>()
+        val assistants = get<io.zer0.muse.data.assistant.AssistantRepository>()
+        val factDbProvider = get<io.zer0.memory.fact.FactDbProvider>()
         MemoryTicker(
             summaryManager = get(),
             compiler = get(),
@@ -101,6 +103,12 @@ val appInfraModule = module {
             pipelineLog = io.zer0.memory.observe.PipelineLog.create(
                 java.io.File(androidContext().filesDir, "memory"),
             ),
+            getFactStoresForMaintenance = {
+                (listOf("default") + assistants.getAll().map { it.id })
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .map(factDbProvider::getFactStore)
+            },
         )
     }
     // v1.0.92: LLM 记忆整合器(手动"整理记忆"与每日自动整合共用同一实现)

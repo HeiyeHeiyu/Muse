@@ -43,6 +43,23 @@ internal interface ChannelSender {
         contextTokenOverride: String?,
         sourceEventIdOverride: String?,
     ): Result<Unit> = sendText(config, text, targetOverride, contextTokenOverride)
+
+    /** QQ 自动回复重试时使用持久化的派发尝试次数生成递增 msg_seq。 */
+    @Suppress("UnusedParameter")
+    suspend fun sendText(
+        config: ChannelConfig,
+        text: String,
+        targetOverride: String?,
+        contextTokenOverride: String?,
+        sourceEventIdOverride: String?,
+        sourceEventSequenceOverride: Int?,
+    ): Result<Unit> = sendText(
+        config,
+        text,
+        targetOverride,
+        contextTokenOverride,
+        sourceEventIdOverride,
+    )
 }
 
 /** 平台 access_token 缓存(有效期约 2 小时;提前 5 分钟视为过期)。 */
@@ -162,7 +179,7 @@ internal class QqChannelSender : ChannelSender {
     private val tokenCache = TokenCache()
 
     override suspend fun sendText(config: ChannelConfig, text: String, targetOverride: String?): Result<Unit> =
-        sendText(config, text, targetOverride, null, null)
+        sendText(config, text, targetOverride, null, null, null)
 
     @Suppress("UnusedParameter")
     override suspend fun sendText(
@@ -171,6 +188,7 @@ internal class QqChannelSender : ChannelSender {
         targetOverride: String?,
         contextTokenOverride: String?,
         sourceEventIdOverride: String?,
+        sourceEventSequenceOverride: Int?,
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val token = tokenCache.get() ?: run {
             val info = QqClient.fetchAccessToken(config.appId, config.appSecret).getOrElse { e ->
@@ -198,7 +216,11 @@ internal class QqChannelSender : ChannelSender {
             put("content", text)
             put("msg_type", 0)
             // v2.0.1: 被动回复 — 来源消息 ID(60 分钟窗)+ 递增序号(相同 msg_id+seq 会被平台去重)。
-            QqMsgIdCache.replyContext(rawTarget, sourceEventIdOverride)?.let { reply ->
+            QqMsgIdCache.replyContext(
+                target = rawTarget,
+                sourceEventId = sourceEventIdOverride,
+                sequenceOverride = sourceEventSequenceOverride,
+            )?.let { reply ->
                 put("msg_id", reply.messageId)
                 put("msg_seq", reply.sequence)
             }
@@ -291,13 +313,21 @@ internal class DingtalkChannelSender : ChannelSender {
 
     private val tokenCache = TokenCache()
 
-    override suspend fun sendText(config: ChannelConfig, text: String, targetOverride: String?): Result<Unit> {
+    override suspend fun sendText(config: ChannelConfig, text: String, targetOverride: String?): Result<Unit> =
+        sendText(config, text, targetOverride, null)
+
+    override suspend fun sendText(
+        config: ChannelConfig,
+        text: String,
+        targetOverride: String?,
+        contextTokenOverride: String?,
+    ): Result<Unit> {
         val target = targetOverride?.takeIf { it.isNotBlank() } ?: config.targetId
         if (target.isBlank()) {
             return Result.failure(IllegalStateException("缺少发送目标(会话或用户 id)"))
         }
         // 1. sessionWebhook 优先(临时地址自带会话凭据)
-        DingtalkSessionCache.get(target)?.let { webhook ->
+        (contextTokenOverride?.takeIf { it.isNotBlank() } ?: DingtalkSessionCache.get(target))?.let { webhook ->
             return DingtalkClient.sendViaSessionWebhook(webhook, text)
         }
         // 2. OpenAPI 主动发送

@@ -12,6 +12,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 
+internal const val CONTEXT_COMPRESSED_MARKER = "[COMPRESSED]"
+
 /**
  * 按原始历史顺序保留最近消息与优先级消息。
  *
@@ -94,7 +96,7 @@ class ContextCompressTransformer(
         // v2.3.2: 水位线同样按双口径判定(条数 / token 预算各留半档余量)
         val hasCompressed =
             messages.any {
-                it.role == MessageRole.SYSTEM && it.content.startsWith(COMPRESSED_MARKER)
+                it.role == MessageRole.SYSTEM && it.content.startsWith(CONTEXT_COMPRESSED_MARKER)
             }
         if (hasCompressed) {
             val stillOverCount = messages.size > threshold + threshold / 2
@@ -122,7 +124,7 @@ class ContextCompressTransformer(
         // M-COMP3: 跳过已压缩的 SYSTEM 摘要消息,避免摘要叠加摘要
         val toCompress =
             messages.subList(prefixEnd, compressibleEnd).filter {
-                !(it.role == MessageRole.SYSTEM && it.content.startsWith(COMPRESSED_MARKER))
+                !(it.role == MessageRole.SYSTEM && it.content.startsWith(CONTEXT_COMPRESSED_MARKER))
             }
         val recent = messages.takeLast(keepRecent)
 
@@ -156,7 +158,7 @@ class ContextCompressTransformer(
         val summaryMsg =
             UIMessage(
                 role = MessageRole.SYSTEM,
-                content = "$COMPRESSED_MARKER 历史对话摘要\n\n$summary",
+                content = "$CONTEXT_COMPRESSED_MARKER 历史对话摘要\n\n$summary",
             )
         val compacted = prefix + listOf(summaryMsg) + adjustedRecent
         // v2.3.2: 净收益校验 —— 工具密集会话(大量保留项)或可压缩区间过短时,摘要可能比被替换掉的
@@ -322,9 +324,6 @@ class ContextCompressTransformer(
     private companion object {
         const val DEFAULT_THRESHOLD = 20
         const val DEFAULT_KEEP_RECENT = 15
-
-        // M-COMP3: 压缩摘要前缀标记,下次压缩时识别并跳过
-        const val COMPRESSED_MARKER = "[COMPRESSED]"
 
         // v1.116 (C1-5): 单条消息送入 LLM 压缩时的最大字符数(原 500,提升到 1500)
         const val MAX_COMPRESS_MSG_CHARS = 1500

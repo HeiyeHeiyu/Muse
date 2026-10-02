@@ -9,8 +9,9 @@ package io.zer0.memory.prompt
 object FactExtractionPrompt {
 
     // D6 第 2 期: 强化原子性约束(单一实体+单一谓词、连接词多断言拆分、正反例) → v3
-    // D3: 触发准则补充(纠正处理 / 强调与边界 — 参考 HANA 记忆系统"什么值得记"的克制原则) → v4
-    const val TEMPLATE_VERSION = "fact-extraction.v4"
+    // D3: 触发准则补充(纠正处理 / 强调与边界) → v4
+    // 助手会话事件不得提升为用户长期事实 → v5
+    const val TEMPLATE_VERSION = "fact-extraction.v5"
     const val CACHE_GROUP = "memory.extract_facts"
 
     fun buildSystemPrompt(locale: String = "zh-CN", hasPrevious: Boolean = false): String {
@@ -61,7 +62,7 @@ object FactExtractionPrompt {
    若摘要只有 HH:MM，且时间上下文只有一个本地日期，则补全该日期；跨多个本地日期时填 null。
    无法确定具体时间时填 null。
 
-6. 只记录客观事实与事件，不记录助手的内心活动。
+6. 只记录客观的用户事实与事件，不提取助手的 Vibe 自述、助手承诺、助手行动或角色状态；这些属于会话记忆，不是用户事实。任何带 `[助手...]` 说话者标记的时间线条目都不得生成用户事实。
 
 7. importance 取 0/1/2：
    - 0（普通）：日常偏好、兴趣，记错影响很小（如“喝咖啡不加糖”“喜欢科幻”）。
@@ -154,7 +155,7 @@ You are a memory fact splitter. $diffInstruction
    If the summary has HH:MM only and the time context has exactly one local date, combine them. If it spans multiple local dates, use null.
    When the exact time cannot be determined, use null.
 
-6. Record only objective facts and events, not the assistant's inner thoughts.
+6. Record only objective user facts and events. Do not extract the assistant's self-reported Vibe, commitments, actions, or persona state; those belong to conversation memory, not user facts. Never turn a timeline item marked `[Assistant...]` into a user fact.
 
 7. importance takes 0/1/2:
    - 0 (normal): daily preferences or interests; being wrong is harmless (e.g. "coffee without sugar", "likes science fiction").

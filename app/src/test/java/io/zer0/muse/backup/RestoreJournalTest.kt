@@ -80,4 +80,43 @@ class RestoreJournalTest {
         val journalFile = File(context.filesDir, "restore-journal.json")
         assertTrue(journalFile.delete() || !journalFile.exists())
     }
+
+    @Test
+    fun `journal source declares durable NDJSON recovery artifacts`() {
+        val source = File("src/main/java/io/zer0/muse/backup/RestoreJournal.kt").readText()
+
+        assertTrue(source.contains("recoveryFormat"))
+        assertTrue(source.contains("NDJSON"))
+    }
+
+    @Test
+    fun `ndjson recovery point is persisted and cleaned`() = runBlocking {
+        val journal = RestoreJournal(context)
+        val staging = RestoreStagingStore(context)
+        val entry = journal.begin(
+            restoreId = "restore-ndjson",
+            sourceHash = "hash",
+            backupVersion = 4,
+            recoveryFormat = RestoreJournal.RecoveryFormat.NDJSON,
+        )
+
+        staging.writeRecoveryNdJson(entry) { writer ->
+            writer.appendLine("""{"type":"meta","version":4}""")
+            writer.appendLine("""{"type":"session","data":{}}""")
+        }
+
+        assertEquals(
+            listOf("""{"type":"meta","version":4}""", """{"type":"session","data":{}}"""),
+            staging.readRecoveryNdJson(entry) { it.toList() },
+        )
+
+        staging.cleanup(entry)
+        assertTrue(
+            !File(
+                context.filesDir,
+                "restore-staging/${entry.recoveryFileName}",
+            ).exists(),
+        )
+        journal.complete(entry)
+    }
 }

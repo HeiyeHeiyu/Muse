@@ -45,7 +45,7 @@ object ChannelInbox {
         val channelId: String = "",
         /** 平台事件 ID;平台缺少稳定 ID 时可使用接收端派生的重投键。 */
         val eventId: String = "",
-        /** WeClaw 回发令牌的 SecureKeyStore 密文;只在事件待处理期间落盘。 */
+        /** 渠道临时回发凭据的 SecureKeyStore 密文;只在事件待处理期间落盘。 */
         val encryptedReplyContextToken: String = "",
     )
 
@@ -83,7 +83,7 @@ object ChannelInbox {
         val retryAtMillis: Long = 0L,
         /** 发信前持久化,重试时复用以避免重复调用模型生成不同回复。 */
         val preparedReply: String = "",
-        /** WeClaw 回发令牌密文;完成派发后立即清空。 */
+        /** 渠道临时回发凭据密文;完成派发后立即清空。 */
         val encryptedReplyContextToken: String = "",
         /** 加密后的 Agent 工具轮次断点;完成派发后立即清空。 */
         val encryptedAgentCheckpoint: String = "",

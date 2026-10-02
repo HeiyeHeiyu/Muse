@@ -11,6 +11,7 @@ import kotlinx.serialization.json.jsonPrimitive
 /** Virtual folder paths for a file-manager style KB browser, stored in document metadata (no DB migration). */
 object KnowledgeFolderBrowser {
     private const val FOLDER_PATH_KEY = "folderPath"
+    private val ARCHIVE_SOURCE_SCHEMES = setOf("zip", "7z", "rar")
     private val json = Json { ignoreUnknownKeys = true }
 
     data class Folder(
@@ -45,20 +46,20 @@ object KnowledgeFolderBrowser {
             ""
         }
 
-    /** Explicit move metadata wins; ZIP imports retain their relative entry folders in filePath. */
+    /** Explicit move metadata wins; archive imports retain their relative entry folders in filePath. */
     fun folderPath(document: KnowledgeDocEntity): String {
         val explicitFolder = runCatching {
             json.parseToJsonElement(document.metadataJson).jsonObject[FOLDER_PATH_KEY]?.jsonPrimitive?.content
         }.getOrNull()
-        val zipEntryFolder = document.filePath
-            .takeIf { it.startsWith("zip://", ignoreCase = true) }
-            ?.substringAfter("zip://", "")
+        val archiveEntryFolder = ARCHIVE_SOURCE_SCHEMES
+            .firstOrNull { document.filePath.startsWith("$it://", ignoreCase = true) }
+            ?.let { document.filePath.substringAfter("://", "") }
             ?.substringAfter('/', "")
             ?.let { entry ->
                 val slash = entry.lastIndexOf('/')
                 entry.takeIf { slash > 0 }?.substring(0, slash)
             }
-        return explicitFolder?.let(::normalize) ?: zipEntryFolder?.let(::normalize).orEmpty()
+        return explicitFolder?.let(::normalize) ?: archiveEntryFolder?.let(::normalize).orEmpty()
     }
 
     fun documentsInFolder(documents: List<KnowledgeDocEntity>, path: String): List<KnowledgeDocEntity> {
@@ -89,8 +90,8 @@ object KnowledgeFolderBrowser {
         val existing = runCatching { json.parseToJsonElement(document.metadataJson).jsonObject }
             .getOrDefault(JsonObject(emptyMap()))
         val normalized = normalize(path)
-        // Keep an explicit empty path too: it lets a user move a ZIP entry back to the KB root,
-        // overriding the folder inferred from the immutable archive-entry source path.
+        // Keep an explicit empty path too: it lets a user move an archive entry to the KB root,
+        // overriding the folder inferred from its immutable archive source path.
         val updated = JsonObject(existing + (FOLDER_PATH_KEY to JsonPrimitive(normalized)))
         return document.copy(metadataJson = json.encodeToString(JsonObject.serializer(), updated))
     }

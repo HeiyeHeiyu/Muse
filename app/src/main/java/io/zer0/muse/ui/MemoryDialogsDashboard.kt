@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
@@ -69,8 +70,9 @@ import java.time.Instant
  * P2: 通用内容编辑对话框。
  */
 @Composable
-internal fun FactEditDialog(title: String, initialContent: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+internal fun FactEditDialog(title: String, initialContent: String, onDismiss: () -> Unit, onConfirm: (String, (Boolean) -> Unit) -> Unit) {
     var text by remember(initialContent) { mutableStateOf(initialContent) }
+    var isSaving by remember(initialContent) { mutableStateOf(false) }
 
     MuseDialog(
         onDismissRequest = onDismiss,
@@ -87,12 +89,24 @@ internal fun FactEditDialog(title: String, initialContent: String, onDismiss: ()
         },
         confirmText = stringResource(R.string.memory_screen_save),
         // MEM-07: 空内容禁用保存按钮,而非点了无反应
-        confirmEnabled = text.isNotBlank(),
+        confirmEnabled = text.isNotBlank() && !isSaving,
         onConfirm = {
-            onConfirm(text)
+            if (!isSaving) {
+                isSaving = true
+                onConfirm(text) { saved ->
+                    isSaving = false
+                    if (saved) onDismiss()
+                }
+            }
         },
-        dismissText = stringResource(R.string.memory_screen_cancel),
+        dismissText = if (isSaving) null else stringResource(R.string.memory_screen_cancel),
         onDismiss = onDismiss,
+        properties = DialogProperties(
+            dismissOnClickOutside = false,
+            dismissOnBackPress = !isSaving,
+            decorFitsSystemWindows = false,
+            usePlatformDefaultWidth = false,
+        ),
     )
 }
 
@@ -100,7 +114,7 @@ internal fun FactEditDialog(title: String, initialContent: String, onDismiss: ()
  * 新增元事实对话框。
  */
 @Composable
-internal fun AddFactDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+internal fun AddFactDialog(onDismiss: () -> Unit, onConfirm: (String, (Boolean) -> Unit) -> Unit) {
     FactEditDialog(
         title = stringResource(R.string.memory_add_fact_dialog_title),
         initialContent = "",

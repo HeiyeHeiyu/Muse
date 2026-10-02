@@ -22,6 +22,17 @@
     <file name="src/main/java/io/zer0/memory/observe/FailureClassifier.kt">
         <error line="33" column="19" source="standard:discouraged-comment-location" />
     </file>
+    <file name="src/main/java/io/zer0/memory/pin/PinnedMemoryStore.kt">
+        <error line="199" column="9" source="standard:function-signature" />
+        <error line="200" column="9" source="standard:function-signature" />
+        <error line="201" column="9" source="standard:function-signature" />
+        <error line="201" column="32" source="standard:function-signature" />
+        <error line="217" column="9" source="standard:function-signature" />
+        <error line="218" column="9" source="standard:function-signature" />
+        <error line="219" column="9" source="standard:function-signature" />
+        <error line="219" column="32" source="standard:function-signature" />
+        <error line="220" column="18" source="standard:function-signature" />
+    </file>
     <file name="src/main/java/io/zer0/memory/summary/CompiledSectionEntity.kt">
         <error line="21" column="29" source="standard:discouraged-comment-location" />
     </file>
@@ -29,22 +40,23 @@
         <error line="31" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/memory/ticker/MemoryTicker.kt">
-        <error line="144" column="17" source="standard:property-naming" />
-        <error line="147" column="17" source="standard:property-naming" />
-        <error line="148" column="17" source="standard:property-naming" />
+        <error line="146" column="17" source="standard:property-naming" />
+        <error line="154" column="17" source="standard:property-naming" />
         <error line="157" column="17" source="standard:property-naming" />
-        <error line="170" column="17" source="standard:property-naming" />
-        <error line="181" column="17" source="standard:property-naming" />
-        <error line="184" column="17" source="standard:property-naming" />
-        <error line="185" column="17" source="standard:property-naming" />
-        <error line="188" column="17" source="standard:property-naming" />
-        <error line="190" column="27" source="standard:property-naming" />
-        <error line="192" column="27" source="standard:property-naming" />
-        <error line="193" column="17" source="standard:property-naming" />
-        <error line="207" column="17" source="standard:property-naming" />
-        <error line="208" column="17" source="standard:property-naming" />
-        <error line="240" column="17" source="standard:property-naming" />
-        <error line="244" column="17" source="standard:property-naming" />
+        <error line="158" column="17" source="standard:property-naming" />
+        <error line="167" column="17" source="standard:property-naming" />
+        <error line="180" column="17" source="standard:property-naming" />
+        <error line="191" column="17" source="standard:property-naming" />
+        <error line="194" column="17" source="standard:property-naming" />
+        <error line="195" column="17" source="standard:property-naming" />
+        <error line="198" column="17" source="standard:property-naming" />
+        <error line="200" column="27" source="standard:property-naming" />
+        <error line="202" column="27" source="standard:property-naming" />
+        <error line="203" column="17" source="standard:property-naming" />
+        <error line="217" column="17" source="standard:property-naming" />
+        <error line="218" column="17" source="standard:property-naming" />
+        <error line="250" column="17" source="standard:property-naming" />
+        <error line="254" column="17" source="standard:property-naming" />
     </file>
     <file name="src/test/java/io/zer0/memory/fact/FactDbMigrationTest.kt">
         <error line="67" column="17" source="standard:property-naming" />

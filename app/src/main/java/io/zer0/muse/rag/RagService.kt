@@ -1374,6 +1374,29 @@ class RagService(
         return failures
     }
 
+    /**
+     * 重新索引单个文档。
+     *
+     * [KnowledgeDocEntity.content] 可能只是预览；当 [contentHash] 与预览哈希不一致时，
+     * 必须通过 [sourceContentProvider] 读取原始内容，禁止把预览覆盖成新的完整索引。
+     */
+    suspend fun reindexDocument(
+        docId: String,
+        ragConfig: RagConfig,
+        sourceContentProvider: (suspend (KnowledgeDocEntity) -> Flow<String>?)? = null,
+    ): Int {
+        val document = docDao.getById(docId) ?: error("Knowledge document not found: $docId")
+        val provider = embeddingService.getProvider(ragConfig)
+        loadVectorIndexIfNeeded(provider)
+        reindexDocument(
+            document = document,
+            ragConfig = ragConfig,
+            allowDimensionChange = false,
+            sourceContentProvider = sourceContentProvider,
+        )
+        return docDao.getById(docId)?.chunkCount ?: 0
+    }
+
     private data class ReindexPlan(
         val documents: List<KnowledgeDocEntity>,
         val coversAllIndexedDocuments: Boolean,

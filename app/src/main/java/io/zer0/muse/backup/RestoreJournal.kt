@@ -41,15 +41,17 @@ class RestoreJournal(context: Context) {
 
     /** 创建一次新的恢复记录。 */
     @Synchronized
-    fun begin(restoreId: String, sourceHash: String, backupVersion: Int): Entry = update(
-        Entry(
-            restoreId = restoreId,
-            sourceHash = sourceHash,
-            backupVersion = backupVersion,
-            phase = Phase.PREPARING,
-            artifactId = UUID.randomUUID().toString(),
-        ),
-    )
+    fun begin(restoreId: String, sourceHash: String, backupVersion: Int, recoveryFormat: RecoveryFormat = RecoveryFormat.JSON): Entry =
+        update(
+            Entry(
+                restoreId = restoreId,
+                sourceHash = sourceHash,
+                backupVersion = backupVersion,
+                recoveryFormat = recoveryFormat,
+                phase = Phase.PREPARING,
+                artifactId = UUID.randomUUID().toString(),
+            ),
+        )
 
     /** 更新恢复阶段和已完成的存储。 */
     @Synchronized
@@ -98,6 +100,8 @@ class RestoreJournal(context: Context) {
         val backupVersion: Int,
         /** 恢复副本的私有文件名前缀，不含用户数据。旧账本缺失时由 restoreId 兼容。 */
         val artifactId: String = restoreId,
+        /** 恢复点正文格式；旧账本默认单 JSON。 */
+        val recoveryFormat: RecoveryFormat = RecoveryFormat.JSON,
         val phase: Phase,
         val completedStores: Set<Store> = emptySet(),
         val failureReason: String? = null,
@@ -106,7 +110,14 @@ class RestoreJournal(context: Context) {
     ) {
         /** staging/recovery 文件名只由内部随机标识构成，不能穿越目录。 */
         val stagingFileName: String get() = "target-$artifactId.json"
-        val recoveryFileName: String get() = "recovery-$artifactId.json"
+        val recoveryFileName: String
+            get() = "recovery-$artifactId.${if (recoveryFormat == RecoveryFormat.NDJSON) "ndjson" else "json"}"
+    }
+
+    @Serializable
+    enum class RecoveryFormat {
+        JSON,
+        NDJSON,
     }
 
     @Serializable

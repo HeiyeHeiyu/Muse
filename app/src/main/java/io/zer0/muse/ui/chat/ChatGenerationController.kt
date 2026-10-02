@@ -55,10 +55,7 @@ import kotlin.uuid.Uuid
  * 跨职责的附属任务取消(图片/翻译)、待审批清理、addError/generateImage 经回调注入,
  * 不反向依赖 ChatViewModel。
  */
-internal fun composeSystemPromptMessages(
-    staticPrompt: String,
-    dynamicPrompt: String,
-): List<UIMessage> = listOfNotNull(
+internal fun composeSystemPromptMessages(staticPrompt: String, dynamicPrompt: String): List<UIMessage> = listOfNotNull(
     staticPrompt.takeIf { it.isNotBlank() }?.let { UIMessage(role = MessageRole.SYSTEM, content = it) },
     dynamicPrompt.takeIf { it.isNotBlank() }?.let { UIMessage(role = MessageRole.SYSTEM, content = it) },
 )
@@ -1341,12 +1338,18 @@ internal class ChatGenerationController(
         // 通知 memory ticker(后台 rollingSummary + daily check)。
         val conversationMessages = deps.stateStore.messages.value
         val selectedModel = resultOf { deps.settings.getSelectedModel() }.getOrNull()
+        val generationAssistantId = state.assistant?.id ?: "default"
+        val generationSpaceId =
+            (state.transformContext?.extra("current_space") as? String)
+                ?.takeIf { it.isNotBlank() }
+                ?: deps.settings.currentSpaceIdFlow.firstOrNull().orEmpty().ifBlank { "default" }
         runCatching {
             deps.memoryTicker.notifyTurn(
                 sessionId,
                 conversationMessages,
                 selectedModel,
-                assistantId = accessor.snapshot.currentAssistant?.id ?: "",
+                assistantId = generationAssistantId,
+                spaceId = generationSpaceId,
             )
         }.onFailure { Logger.w("ChatVM", "notifyTurn failed: ${it.message}") }
 

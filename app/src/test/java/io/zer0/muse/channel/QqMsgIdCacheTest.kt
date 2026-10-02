@@ -22,4 +22,14 @@ class QqMsgIdCacheTest {
         assertEquals("newer-message", regularSend?.messageId)
         assertNull(missingSource)
     }
+
+    @Test
+    fun `event-bound reply sequence advances with the persisted retry attempt`() {
+        val firstAttempt = QqMsgIdCache.replyContext("target", "event-1", sequenceOverride = 1)
+        val retry = QqMsgIdCache.replyContext("target", "event-1", sequenceOverride = 2)
+
+        assertEquals(1, firstAttempt?.sequence)
+        assertEquals(2, retry?.sequence)
+        assertEquals(firstAttempt?.messageId, retry?.messageId)
+    }
 }

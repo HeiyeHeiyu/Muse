@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -22,6 +23,21 @@ class FirstEventWatchdogTest {
 
         assertTrue(events.any { it is ChatStreamEvent.FallbackNotice })
         assertTrue(events.any { it is ChatStreamEvent.ContentDelta && it.delta == "fallback reply" })
+        assertTrue(events.last() is ChatStreamEvent.Done)
+    }
+
+    @Test
+    fun `upstream empty completion falls back without waiting for watchdog timeout`() = runTest {
+        val events = withTimeout(1_000) {
+            emptyFlow<ChatStreamEvent>()
+                .withFirstEventWatchdog(timeoutMs = 60_000, fallback = {
+                    ChatCompletion(text = "immediate fallback", finishReason = "stop")
+                })
+                .toList()
+        }
+
+        assertTrue(events.any { it is ChatStreamEvent.FallbackNotice })
+        assertTrue(events.any { it is ChatStreamEvent.ContentDelta && it.delta == "immediate fallback" })
         assertTrue(events.last() is ChatStreamEvent.Done)
     }
 
@@ -85,6 +101,27 @@ class FirstEventWatchdogTest {
 
         assertTrue(events.any { it is ChatStreamEvent.ContentDelta && it.delta == "partial" })
         assertFalse(events.any { it is ChatStreamEvent.FallbackNotice })
+    }
+
+    @Test
+    fun `cancellation during non-stream fallback propagates instead of becoming an error event`() = runTest {
+        val events = mutableListOf<ChatStreamEvent>()
+        val cancellation = try {
+            withTimeout(2_000) {
+                emptyFlow<ChatStreamEvent>()
+                    .withFirstEventWatchdog(
+                        timeoutMs = 60_000,
+                        fallback = { throw kotlinx.coroutines.CancellationException("fallback cancelled") },
+                    )
+                    .collect { events += it }
+            }
+            null
+        } catch (error: kotlinx.coroutines.CancellationException) {
+            error
+        }
+
+        assertEquals("fallback cancelled", cancellation?.message)
+        assertFalse(events.any { it is ChatStreamEvent.Error })
     }
 
     @Test

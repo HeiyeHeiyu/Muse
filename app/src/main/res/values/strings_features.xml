@@ -522,7 +522,7 @@
     <string name="knowledge_ocr">正在 OCR 识别…</string>
     <string name="knowledge_chunking">正在分块和生成向量索引…</string>
     <string name="knowledge_generating_vector">正在生成向量 %1$d/%2$d…</string>
-    <string name="knowledge_import_unsupported">暂不支持导入压缩包/二进制文件,请解压后逐个导入其中的文档</string>
+    <string name="knowledge_import_unsupported">暂不支持该压缩包或二进制格式，请导入 ZIP、7Z 或 RAR 文件</string>
     <string name="knowledge_zip_extracting">正在解压导入…</string>
     <string name="knowledge_zip_progress">正在解压导入…(已导入 %1$d 个)</string>
     <string name="knowledge_zip_done">已创建知识库「%1$s」:导入 %2$d 个文档,跳过 %3$d 个</string>
@@ -537,6 +537,7 @@
     <string name="knowledge_index_error_reason">原因:%1$s</string>
     <string name="knowledge_import_cancelled">已取消导入</string>
     <string name="knowledge_import_failed_read">导入失败: 无法读取文件</string>
+    <string name="knowledge_source_unavailable">无法读取文档原始内容</string>
     <string name="knowledge_import_failed">导入失败: %1$s</string>
     <string name="knowledge_reindex_progress">正在重新分块和生成向量索引…</string>
     <string name="knowledge_reindexed">已重新索引: %1$s (%2$d 块)</string>

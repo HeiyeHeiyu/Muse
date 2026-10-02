@@ -97,6 +97,8 @@ class MemoryTicker(
      * 由 app 侧装配注入,落盘位置 `filesDir/memory/pipeline_log.jsonl`。
      */
     private val pipelineLog: io.zer0.memory.observe.PipelineLog? = null,
+    /** 所有 Assistant 的 FactStore,供每日跨分库去重/语义整合。 */
+    private val getFactStoresForMaintenance: suspend () -> List<io.zer0.memory.fact.FactStore> = { emptyList() },
 ) {
 
     /** 当前生效的 [MemoryConfig](每次访问都重新读取闭包,保证拿到用户最新设置)。 */
@@ -142,6 +144,14 @@ class MemoryTicker(
 
     /** session → 累计轮数(自上次 rollingSummary 后)。v1.78: 改 ConcurrentHashMap 防并发修改异常。 */
     private val _turnCounts = ConcurrentHashMap<String, Int>()
+
+    /**
+     * 每个 session 最近一次对话通知对应的助手/空间快照。
+     *
+     * 会话切换时 [notifySessionEnd] 可能在运行时上下文已经切到新空间后才真正执行；
+     * 这里保存发送完成时的目标，避免旧 session 的滚动摘要串入新空间。
+     */
+    private val _sessionNotificationTargets = ConcurrentHashMap<String, MemoryCompileTarget>()
 
     /** 正在跑 rollingSummary 的 session id(防止重入)。 */
     private val _summaryInProgress = mutableSetOf<String>()
@@ -441,6 +451,7 @@ class MemoryTicker(
         timeZone: String,
         trigger: String,
         assistantId: String = "",
+        spaceId: String? = null,
     ): Boolean {
         // 重入保护: 同一 session 不并发跑两次 rolling
         _summaryInProgressLock.withLock {
@@ -459,7 +470,8 @@ class MemoryTicker(
                     timeZone,
                     SessionSummaryManager.SummaryOwnership(
                         assistantId = assistantId,
-                        spaceId = runtimeContext.getCurrentSpaceId(),
+                        spaceId = spaceId?.ifBlank { null }
+                            ?: runtimeContext.getCurrentSpaceId().ifBlank { "default" },
                     ),
                 )
             }
@@ -496,11 +508,39 @@ class MemoryTicker(
         spaceId = runtimeContext.getCurrentSpaceId(),
     )
 
-    private suspend fun doCompileTodayAndAssemble(model: Model?, locale: String, timeZone: String) {
+    private fun captureNotificationTarget(sessionId: String, assistantId: String, spaceId: String?) {
+        if (assistantId.isBlank() && spaceId.isNullOrBlank()) return
+        _sessionNotificationTargets[sessionId] =
+            notificationCompileTarget(
+                current = MemoryCompileTarget(),
+                assistantId = assistantId,
+                spaceId = spaceId,
+            )
+    }
+
+    private suspend fun resolveSessionNotificationTarget(
+        captured: MemoryCompileTarget?,
+        assistantId: String,
+        spaceId: String?,
+    ): MemoryCompileTarget {
+        val current = captured ?: currentCompileTarget()
+        return notificationCompileTarget(
+            current = current,
+            assistantId = assistantId.ifBlank { captured?.assistantId.orEmpty() },
+            spaceId = spaceId ?: captured?.normalizedSpaceId,
+        )
+    }
+
+    private suspend fun doCompileTodayAndAssemble(
+        model: Model?,
+        locale: String,
+        timeZone: String,
+        targetOverride: MemoryCompileTarget? = null,
+    ) {
         if (!stepBackoff.shouldRun("compileToday")) return
         try {
             markStepStart("compileToday", "turn")
-            val target = currentCompileTarget()
+            val target = targetOverride ?: currentCompileTarget()
             // v1.0.51: serialize compileToday 调用,避免 notifyTurn/notifySessionEnd 并发写 TODAY section 竞态
             _compileTodayLock.withLock {
                 // A-19: 只编译主助手摘要,子助手会话摘要不得串台进入"今天"段
@@ -692,22 +732,32 @@ class MemoryTicker(
                 }
             }
 
-            // v1.x: 每日去重 — deepMemory 写入新事实后,全量扫描合并近似重复
-            // (此前仅前缀匹配漏掉的存量重复),失败不影响主流程
-            factStore?.let { fs ->
-                resultOf { fs.dedupPassAllSpaces() }
-                    .onError { msg, t -> Logger.w(TAG, "每日记忆去重失败: ${t?.message ?: msg}") }
-                    .onSuccess { n -> if (n > 0) Logger.i(TAG, "每日记忆去重: 合并 $n 条重复事实") }
-            }
-
-            // v1.0.92: LLM 记忆整合 — 规则去重后,把语义重复(表述差异大)的相似簇
-            // 交给大模型合并("定期模型整合")。失败不影响主流程。
-            if (factConsolidator != null && factStore != null) {
-                val consolidator = factConsolidator
-                val fs = factStore
-                resultOf { consolidator.consolidateAll(fs) }
-                    .onError { msg, t -> Logger.w(TAG, "每日 LLM 记忆整合失败: ${t?.message ?: msg}") }
-                    .onSuccess { n -> if (n > 0) Logger.i(TAG, "每日 LLM 记忆整合: 合并 $n 组语义重复记忆") }
+            // 每日规则去重与 LLM 语义整合覆盖全部助手分库,不只默认 FactStore。
+            val additionalStores = resultOf { getFactStoresForMaintenance() }
+                .onError { msg, t -> Logger.w(TAG, "读取助手记忆分库失败: ${t?.message ?: msg}") }
+                .getOrNull()
+                .orEmpty()
+            val maintenanceStores = (listOfNotNull(factStore) + additionalStores)
+                .distinctBy { it.assistantId.ifBlank { "default" } }
+            for (store in maintenanceStores) {
+                resultOf { store.dedupPassAllSpaces() }
+                    .onError { msg, t ->
+                        Logger.w(TAG, "每日记忆去重失败(${store.assistantId}): ${t?.message ?: msg}")
+                    }
+                    .onSuccess { count ->
+                        if (count > 0) Logger.i(TAG, "每日记忆去重(${store.assistantId}): 合并 $count 条")
+                    }
+                factConsolidator?.let { consolidator ->
+                    resultOf { consolidator.consolidateAll(store) }
+                        .onError { msg, t ->
+                            Logger.w(TAG, "每日 LLM 记忆整合失败(${store.assistantId}): ${t?.message ?: msg}")
+                        }
+                        .onSuccess { count ->
+                            if (count > 0) {
+                                Logger.i(TAG, "每日 LLM 记忆整合(${store.assistantId}): 合并 $count 组")
+                            }
+                        }
+                }
             }
 
             // v12 (T3-1): 记忆反思 — 每日整理(回填实体键/合并同实体重复/矛盾检测/晋升)。
@@ -762,9 +812,11 @@ class MemoryTicker(
         locale: String = "zh-CN",
         timeZone: String = TimeContext.DEFAULT_TIMEZONE,
         assistantId: String = "",
+        spaceId: String? = null,
     ) {
         if (_stopped) return
         if (!isMemoryEnabled()) return
+        captureNotificationTarget(sessionId, assistantId, spaceId)
         // v1.78: 原子 read-modify-write,防止并发切会话时丢计数
         // L1: ConcurrentHashMap.merge 对 absent key 会写入 defaultValue(1),且累加永不返回 null,
         // 故运行期永不返回 null;?: 1 为死代码,已移除。merge 签名返回 V?,用 !! 断言非空以匹配实际语义。
@@ -773,8 +825,22 @@ class MemoryTicker(
 
         if (count % TURNS_PER_SUMMARY == 0) {
             launchTracked {
-                doRollingSummary(sessionId, messages, model, locale, timeZone, "threshold", assistantId)
-                doCompileTodayAndAssemble(model, locale, timeZone)
+                val target = resolveSessionNotificationTarget(
+                    captured = _sessionNotificationTargets[sessionId],
+                    assistantId = assistantId,
+                    spaceId = spaceId,
+                )
+                doRollingSummary(
+                    sessionId,
+                    messages,
+                    model,
+                    locale,
+                    timeZone,
+                    "threshold",
+                    assistantId = target.assistantId.orEmpty(),
+                    spaceId = target.normalizedSpaceId,
+                )
+                doCompileTodayAndAssemble(model, locale, timeZone, target)
             }
         }
         checkDailyJob(model, locale, timeZone)
@@ -794,8 +860,10 @@ class MemoryTicker(
         locale: String = "zh-CN",
         timeZone: String = TimeContext.DEFAULT_TIMEZONE,
         assistantId: String = "",
+        spaceId: String? = null,
     ): Job {
         if (_stopped) return scope.launch { /* no-op */ }
+        val capturedTarget = _sessionNotificationTargets.remove(sessionId)
         val count = _turnCounts.remove(sessionId) ?: 0
         if (count == 0) return scope.launch { /* no-op */ }
         if (!isMemoryEnabled()) return scope.launch { /* no-op */ }
@@ -803,8 +871,18 @@ class MemoryTicker(
             try {
                 // v1.0.51: rollingSummary 成功且有变化后,立即跑事实提取(不等 daily pipeline)
                 // 用户退出对话后,刚说的事实(如"下周三有考试")能立刻进 FactStore,下次对话即可用
-                val changed = doRollingSummary(sessionId, messages, model, locale, timeZone, "session_end", assistantId)
-                doCompileTodayAndAssemble(model, locale, timeZone)
+                val target = resolveSessionNotificationTarget(capturedTarget, assistantId, spaceId)
+                val changed = doRollingSummary(
+                    sessionId,
+                    messages,
+                    model,
+                    locale,
+                    timeZone,
+                    "session_end",
+                    assistantId = target.assistantId.orEmpty(),
+                    spaceId = target.normalizedSpaceId,
+                )
+                doCompileTodayAndAssemble(model, locale, timeZone, target)
                 if (changed) {
                     // rollingSummary 有变化 → session 变成 dirty → 立即提取事实
                     // processSession 内部会检查 dirty 状态,复用 Semaphore(3) 排队

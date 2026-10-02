@@ -25,6 +25,13 @@ import kotlinx.serialization.json.Json
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
+private val ASSISTANT_ATTRIBUTED_LINE_REGEX =
+    Regex("""^\s*[-*+]\s*\[(?:助手|assistant)[^\]]*\].*$""", RegexOption.IGNORE_CASE)
+
+internal fun filterAssistantAttributedMemoryEntries(summary: String): String = summary.lineSequence()
+    .filterNot { ASSISTANT_ATTRIBUTED_LINE_REGEX.matches(it) }
+    .joinToString("\n")
+
 /**
  * 深度记忆处理器。
  *
@@ -175,8 +182,16 @@ class DeepMemoryProcessor(
         // deepMemory 的输入摘要与 LLM 输出均未过滤,已删内容会"复活")。
         val memoryScope = if (summary.assistantId.isBlank() || summary.assistantId == "default") "main" else summary.assistantId
         val tombstones = resultOf { factStore.getTombstones(memoryScope, summary.spaceId) }.getOrNull() ?: emptyList()
-        val effectiveSummary = FactStore.filterTombstonedLines(summaryText, tombstones)
-        val effectiveSnapshot = FactStore.filterTombstonedLines(prevSnapshot, tombstones)
+        val effectiveSummary = filterAssistantAttributedMemoryEntries(
+            FactStore.filterTombstonedLines(summaryText, tombstones),
+        )
+        val effectiveSnapshot = filterAssistantAttributedMemoryEntries(
+            FactStore.filterTombstonedLines(prevSnapshot, tombstones),
+        )
+        if (effectiveSummary == effectiveSnapshot) {
+            summaryManager.markProcessed(summary.sessionId)
+            return 0
+        }
 
         // 构建 LLM 输入
         val isZh = locale.startsWith("zh")

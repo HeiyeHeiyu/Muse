@@ -5,6 +5,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import io.zer0.muse.license.LicensesScreen
+import io.zer0.muse.ui.ChatViewModel
 import io.zer0.muse.ui.DebugScreen
 import io.zer0.muse.ui.MemoryScreen
 import io.zer0.muse.ui.SettingsScreen
@@ -49,7 +50,7 @@ import io.zer0.muse.ui.terminal.TerminalScreen
  * 从 MainActivity 抽取以解决后者过载问题(原 1804 行 → 目标 ≤ 800 行)。
  * 所有 composable 统一使用 [MuseTransitions.horizontalPushEnter] / [horizontalPushPopExit] 过渡。
  */
-fun NavGraphBuilder.settingsNavGraph(navController: NavHostController) {
+fun NavGraphBuilder.settingsNavGraph(navController: NavHostController, sharedViewModel: ChatViewModel) {
     // 设置页(slide-in)
     composable<SettingsRoute>(
         enterTransition = { MuseTransitions.horizontalPushEnter() },
@@ -270,6 +271,10 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController) {
         MemoryScreen(
             onBack = { navController.popBackStack() },
             onOpenSettings = { navController.navigate(SettingsMemoryConfigRoute) },
+            onOpenSession = { sessionId ->
+                sharedViewModel.switchSession(sessionId)
+                navController.navigate(ChatDetailRoute) { launchSingleTop = true }
+            },
         )
     }
     // v1.0.51: 记忆参数配置页(原"记忆与通知",从记忆中心齿轮入口进入)

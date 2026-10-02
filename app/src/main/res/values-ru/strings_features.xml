@@ -322,7 +322,7 @@
     <string name="knowledge_ocr">Запускаем распознавание текста…</string>
     <string name="knowledge_chunking">Разбиение на части и построение векторного индекса…</string>
     <string name="knowledge_generating_vector">Генерация векторов %1$d/%2$d…</string>
-    <string name="knowledge_import_unsupported">Архивы и бинарные файлы пока не поддерживаются — распакуйте и импортируйте документы</string>
+    <string name="knowledge_import_unsupported">Этот формат архива или бинарного файла не поддерживается. Импортируйте файл ZIP, 7Z или RAR.</string>
     <string name="knowledge_zip_extracting">Извлечение и импорт…</string>
     <string name="knowledge_zip_progress">Извлечение и импорт… (импортировано: %1$d)</string>
     <string name="knowledge_zip_done">Создана база знаний %1$s: импортировано документов: %2$d, пропущено: %3$d</string>
@@ -337,6 +337,7 @@
     <string name="knowledge_index_error_reason">Причина: %1$s</string>
     <string name="knowledge_import_cancelled">Импорт отменен</string>
     <string name="knowledge_import_failed_read">Ошибка импорта: невозможно прочитать файл</string>
+    <string name="knowledge_source_unavailable">Не удалось прочитать исходное содержимое документа.</string>
     <string name="knowledge_import_failed">Не удалось импортировать: %1$s</string>
     <string name="knowledge_reindex_progress">Перегруппировка и восстановление векторного индекса…</string>
     <string name="knowledge_reindexed">Переиндексировано: %1$s (%2$d фрагменты)</string>

@@ -6,7 +6,6 @@
     <ID>ComplexCondition:AnthropicProvider.kt$AnthropicProvider.&lt;no name provided&gt;$isRetryable &amp;&amp; !anyDeltaSent.get() &amp;&amp; retryCount &lt; maxRetries &amp;&amp; !producerScope.isClosedForSend</ID>
     <ID>ComplexCondition:AnthropicProvider.kt$AnthropicProvider.&lt;no name provided&gt;$isRetryable &amp;&amp; !anyDeltaSent.get() &amp;&amp; retryCount &lt; maxRetries &amp;&amp; !request.abortSignal.aborted &amp;&amp; !producerScope.isClosedForSend</ID>
     <ID>ComplexCondition:GeminiProvider.kt$GeminiProvider$specific is ProviderSpecificConfig.Gemini &amp;&amp; specific.useVertexAI &amp;&amp; specific.useServiceAccount &amp;&amp; specific.serviceAccountEmail.isNotBlank() &amp;&amp; specific.privateKey.isNotBlank()</ID>
-    <ID>ComplexCondition:GeminiProvider.kt$GeminiProvider$t is RuntimeException &amp;&amp; (t.message?.startsWith("Gemini") == true || t.message?.contains("HTTP") == true || t.message?.contains("Gemini 安全过滤") == true || t.message?.contains("Vertex AI") == true)</ID>
     <ID>ComplexCondition:GeminiProvider.kt$GeminiProvider.&lt;no name provided&gt;$code == 429 &amp;&amp; !anyDeltaSent.get() &amp;&amp; attempt.get() &lt; MAX_RETRIES &amp;&amp; !request.abortSignal.aborted &amp;&amp; !scope.isClosedForSend &amp;&amp; switchToNextKey()</ID>
     <ID>ComplexCondition:OpenAIProvider.kt$OpenAIProvider$code == 429 &amp;&amp; !request.abortSignal.aborted &amp;&amp; keySwitchDepth &lt; MAX_KEY_SWITCHES &amp;&amp; switchToNextKey()</ID>
     <ID>ComplexCondition:OpenAIProvider.kt$OpenAIProvider.&lt;no name provided&gt;$code == 429 &amp;&amp; !anyDeltaSent.get() &amp;&amp; retryCount.get() &lt; MAX_RETRIES &amp;&amp; !request.abortSignal.aborted &amp;&amp; switchToNextKey()</ID>
@@ -61,6 +60,7 @@
     <ID>CyclomaticComplexMethod:ImageService.kt$ImageService$suspend fun generate(prompt: String, params: ImageGenParams = ImageGenParams(), providerConfig: ProviderConfig? = null): List&lt;String&gt;</ID>
     <ID>CyclomaticComplexMethod:KlingVideoProvider.kt$KlingVideoProvider$override suspend fun poll(taskId: String): VideoPollResult</ID>
     <ID>CyclomaticComplexMethod:KlingVideoProvider.kt$KlingVideoProvider$override suspend fun submit(request: VideoGenRequest): VideoSubmitResult</ID>
+    <ID>CyclomaticComplexMethod:ModelCapabilityQuery.kt$ModelCapabilityQuery$fun snapshot( modelId: String, compat: ProviderCompat? = null, providerSupportsNonStreaming: Boolean? = null, providerId: String? = null, ): ModelCapabilitySnapshot</ID>
     <ID>CyclomaticComplexMethod:ModelContextWindowRegistry.kt$ModelContextWindowRegistry$fun lookup(modelId: String): Int?</ID>
     <ID>CyclomaticComplexMethod:ModelRegistry.kt$ModelRegistry$fun enhanceModel(model: Model): Model</ID>
     <ID>CyclomaticComplexMethod:ModelRegistry.kt$ModelRegistry$fun enrich(model: Model): Model</ID>
@@ -86,7 +86,6 @@
     <ID>CyclomaticComplexMethod:VideoGenerationService.kt$VideoGenerationService$private suspend fun pollUntilCompletion( provider: VideoProvider, taskId: String, onProgress: ((elapsedSec: Long) -&gt; Unit)?, timeoutMs: Long, ): String</ID>
     <ID>InstanceOfCheckForException:AnthropicProvider.kt$AnthropicProvider$t is RuntimeException</ID>
     <ID>InstanceOfCheckForException:FirstEventWatchdog.kt$t is kotlinx.coroutines.CancellationException</ID>
-    <ID>InstanceOfCheckForException:GeminiProvider.kt$GeminiProvider$t is RuntimeException</ID>
     <ID>InstanceOfCheckForException:OpenAIProvider.kt$OpenAIProvider$t is OpenAIHttpException</ID>
     <ID>InstanceOfCheckForException:OpenAIProvider.kt$OpenAIProvider$t is kotlin.coroutines.cancellation.CancellationException</ID>
     <ID>InstanceOfCheckForException:Provider.kt$Provider$t is kotlinx.coroutines.CancellationException</ID>
@@ -98,6 +97,7 @@
     <ID>LongMethod:AnthropicProvider.kt$AnthropicProvider$private fun splitSystem(messages: List&lt;UIMessage&gt;, model: Model): Pair&lt;List&lt;AnthropicSystemBlock&gt;?, List&lt;AnthropicMessage&gt;&gt;</ID>
     <ID>LongMethod:AnthropicProvider.kt$AnthropicProvider$private suspend fun completeTextImpl(request: ChatRequest, keySwitchDepth: Int = 0): ChatCompletion</ID>
     <ID>LongMethod:AnthropicProvider.kt$AnthropicProvider.&lt;no name provided&gt;$override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String)</ID>
+    <ID>LongMethod:FirstEventWatchdog.kt$fun Flow&lt;ChatStreamEvent&gt;.withFirstEventWatchdog( timeoutMs: Long = 15_000L, fallback: suspend () -&gt; ChatCompletion, // 审计修复 (7.8): 可选取消检查 — 调用方传入"用户是否已停止"的判断, // fallback 触发前检查,避免用户停止后仍发一次计费请求。 abortCheck: () -&gt; Boolean = { false }, ): Flow&lt;ChatStreamEvent&gt;</ID>
     <ID>LongMethod:GeminiProvider.kt$GeminiProvider$fun startStream()</ID>
     <ID>LongMethod:GeminiProvider.kt$GeminiProvider$private suspend fun completeTextImpl(request: ChatRequest, keySwitchDepth: Int = 0): ChatCompletion</ID>
     <ID>LongMethod:GeminiProvider.kt$GeminiProvider$suspend fun uploadFile(bytes: ByteArray, mimeType: String, displayName: String? = null): String</ID>
@@ -120,8 +120,6 @@
     <ID>LoopWithTooManyJumpStatements:ProviderHttpSupport.kt$ProviderHttpSupport.Companion$while</ID>
     <ID>LoopWithTooManyJumpStatements:UIMessage.kt$while</ID>
     <ID>MaxLineLength:GeminiProvider.kt$GeminiProvider$*</ID>
-    <ID>MaxLineLength:GeminiProvider.kt$GeminiProvider$}</ID>
-    <ID>MaxLineLength:GeminiProvider.kt$GeminiProvider.&lt;no name provided&gt;$"B-42: Gemini 流式 emptyContentButFinished(仅 reasoning 无 content, finishReason=$reason),发 StreamInterrupted 触发非流式回退"</ID>
     <ID>MaxLineLength:OpenAIProvider.kt$OpenAIProvider$"completeText OK: text=${text.length} chars, reasoning=${reasoningContent.length} chars, toolCalls=${toolCalls?.size ?: 0}"</ID>
     <ID>MaxLineLength:OpenAIProvider.kt$OpenAIProvider$"completeTextResponses OK: text=${text.length} chars, reasoning=${reasoningContent.length} chars, toolCalls=${toolCalls?.size ?: 0}"</ID>
     <ID>MaxLineLength:OpenAIProvider.kt$OpenAIProvider$"contentChars=${contentCharsSent.get()} | reasoningChars=${reasoningCharsSent.get()} | anyDeltaSent=${anyDeltaSent.get()} | "</ID>
@@ -165,6 +163,7 @@
     <ID>ReturnCount:OpenAIProvider.kt$OpenAIProvider$private fun mergeCustomBody(body: String): String</ID>
     <ID>ReturnCount:OpenAIProvider.kt$OpenAIProvider.&lt;no name provided&gt;$override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String)</ID>
     <ID>ReturnCount:OpenAIProvider.kt$OpenAIProvider.&lt;no name provided&gt;$override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?)</ID>
+    <ID>ReturnCount:ProviderError.kt$ProviderError.Companion$fun parseRetryAfter(headerValue: String?): Int?</ID>
     <ID>ReturnCount:ProviderHttpSupport.kt$ProviderHttpSupport$protected fun warnIfBaseUrlLooksInternal(baseUrl: String)</ID>
     <ID>ReturnCount:ProviderPayloadNormalizer.kt$ProviderPayloadNormalizer$private fun stripOrphanToolMessages(messages: List&lt;UIMessage&gt;): List&lt;UIMessage&gt;</ID>
     <ID>ReturnCount:ProviderPromptPatches.kt$ProviderPromptPatches$private fun isDeepSeekReasoningModel(model: Model, baseUrl: String, thinkingFormat: ThinkingFormat?): Boolean</ID>

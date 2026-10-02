@@ -2233,12 +2233,22 @@ fun ChatScreen(
                 //  - 恢复执行:调 viewModel.resumePendingToolCalls 依次执行 pending 工具,
                 //    结果作为 TOOL 消息回填,再触发 launchStream 让 LLM 继续
                 //  - 丢弃:调 viewModel.discardPendingToolCalls 清空 pending 记录,Banner 隐藏
-                // U-18: 顶部横幅互斥 — 错误 > 断点续传 > 压缩 > 委派,避免同锚点(TopCenter)重叠。
-                // 用组合显示条件只保留最高优先级横幅,保持原有状态字段不变。
+                // 顶部横幅互斥 — 压缩进度 > 错误 > 断点续传 > 委派 > 未配置,避免重叠且保留运行反馈。
                 val showPendingResume = state.pendingToolCallCount > 0 && !isStreaming
+                val runningDelegateCount =
+                    state.delegationChain.count {
+                        it.status == io.zer0.muse.ui.taskcard.DelegationNodeStatus.RUNNING
+                    }
+                val topBanner = resolveChatTopBanner(
+                    isCompressing = state.isCompressing,
+                    showPendingResume = showPendingResume,
+                    hasErrors = state.errors.isNotEmpty(),
+                    runningDelegateCount = runningDelegateCount,
+                    isConfigured = state.isConfigured,
+                )
                 AnimatedVisibility(
                     // v1.0.20 (Task 3): isStreaming 读派生值,避免 input 按键触发 Banner 重组
-                    visible = showPendingResume && state.errors.isEmpty(),
+                    visible = topBanner == ChatTopBanner.PENDING_TOOLS,
                     enter = MuseMotion.expandFadeEnter(),
                     exit = MuseMotion.expandFadeExit(),
                     modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
@@ -2323,8 +2333,7 @@ fun ChatScreen(
                 // v1.0.4 (P2): 压缩会话历史 Banner — /compact 期间持续显示,
                 // (原仅顶部 IconButton 替换为转圈,对话区无反馈,用户不知道压缩是否在运行)
                 AnimatedVisibility(
-                    // U-18: 压缩横幅仅在无错误且无断点续传时显示,避免与高优先级横幅重叠
-                    visible = state.isCompressing && state.errors.isEmpty() && !showPendingResume,
+                    visible = topBanner == ChatTopBanner.COMPRESSION,
                     enter = MuseMotion.expandFadeEnter(),
                     exit = MuseMotion.expandFadeExit(),
                     modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
@@ -2345,7 +2354,13 @@ fun ChatScreen(
                                 color = MaterialTheme.colorScheme.onTertiaryContainer,
                             )
                             Text(
-                                text = stringResource(R.string.chat_compressing_banner),
+                                text = stringResource(
+                                    if (state.compressionPhase == ManualCompressionPhase.UPDATING_MEMORY) {
+                                        R.string.chat_updating_memory_banner
+                                    } else {
+                                        R.string.chat_compressing_banner
+                                    },
+                                ),
                                 color = MaterialTheme.colorScheme.onTertiaryContainer,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
@@ -2363,13 +2378,8 @@ fun ChatScreen(
                 )
                 // v1.0.4 (P2): 委派链路顶部 Banner — 当前有 RUNNING 子任务时显示进度,
                 // 避免用户必须滚到末尾才能在 TaskCard 内看到委派链路信息
-                val runningDelegateCount =
-                    state.delegationChain.count {
-                        it.status == io.zer0.muse.ui.taskcard.DelegationNodeStatus.RUNNING
-                    }
                 AnimatedVisibility(
-                    // U-18: 委派横幅让位于错误/断点续传,仅共享锚点时保持最高优先级横幅
-                    visible = runningDelegateCount > 0 && !state.isCompressing && state.errors.isEmpty() && !showPendingResume,
+                    visible = topBanner == ChatTopBanner.DELEGATION,
                     enter = MuseMotion.expandFadeEnter(),
                     exit = MuseMotion.expandFadeExit(),
                     modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
@@ -2406,9 +2416,7 @@ fun ChatScreen(
                 // U-1: 未配置模型服务常驻轻提示条 — 无 provider/无 key(isConfigured=false)时显示,
                 // 点击跳转模型设置面板;仅在无更高优先级横幅时展示,避免与错误横幅重叠。
                 AnimatedVisibility(
-                    visible =
-                    !state.isConfigured &&
-                        state.errors.isEmpty() && !showPendingResume && !state.isCompressing,
+                    visible = topBanner == ChatTopBanner.NOT_CONFIGURED,
                     enter = MuseMotion.expandFadeEnter(),
                     exit = MuseMotion.expandFadeExit(),
                     modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),
@@ -2444,7 +2452,7 @@ fun ChatScreen(
                 }
 
                 AnimatedVisibility(
-                    visible = state.errors.isNotEmpty(),
+                    visible = topBanner == ChatTopBanner.ERROR,
                     enter = MuseMotion.expandFadeEnter(),
                     exit = MuseMotion.expandFadeExit(),
                     modifier = Modifier.align(Alignment.TopCenter).padding(top = topInset),

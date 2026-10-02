@@ -121,6 +121,8 @@
     <string name="memory_screen_cancel">Cancelar</string>
     <string name="memory_screen_edit_fact">Editar metahecho</string>
     <string name="memory_screen_edit_summary">Editar resumen de sesión</string>
+    <string name="memory_open_conversation">Abrir conversación</string>
+    <string name="memory_conversation_meta">Asistente %1$s · Espacio %2$s</string>
     <string name="memory_screen_edit_compile">Editar artefacto compilado</string>
     <string name="memory_screen_edit_memory">Editar memoria</string>
     <string name="memory_screen_no_match">No se encontraron recuerdos coincidentes</string>
@@ -737,6 +739,7 @@
     <string name="rich_input_link_url">URL del enlace</string>
     <string name="rich_input_link_insert">Insertar enlace</string>
     <string name="chat_compressing_banner">Compresión del historial…</string>
+    <string name="chat_updating_memory_banner">Actualizando memoria…</string>
     <string name="chat_delegation_banner">Delegando · %1$d subtareas en curso</string>
     <string name="chat_draft_restored">Borrador restaurado</string>
     <string name="chat_loading_more_history">Cargando más historial…</string>

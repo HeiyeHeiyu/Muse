@@ -8,6 +8,7 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import androidx.annotation.RequiresApi
 import io.zer0.common.Logger
 import io.zer0.muse.R
 import io.zer0.muse.notification.MuseNotificationManager
@@ -179,9 +180,22 @@ class ChatGenerationService : Service() {
         // v1.0.15: 释放 wakelock
         runCatching { wakeLock?.takeIf { it.isHeld }?.release() }
         wakeLock = null
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
+            .onFailure { Logger.w("ChatGenService", "移除前台状态失败", it) }
         stopSelf()
         Logger.i("ChatGenService", "service stopped")
+    }
+
+    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    override fun onTimeout(startId: Int, foregroundServiceType: Int) {
+        Logger.w(
+            "ChatGenService",
+            "前台服务达到系统时限,取消活跃生成并停止服务 (startId=$startId, type=$foregroundServiceType)",
+        )
+        runCatching { stopService() }
+            .onFailure { Logger.e("ChatGenService", "系统超时后停止前台服务失败", it) }
+        runCatching { chatGenerationManager.stop() }
+            .onFailure { Logger.e("ChatGenService", "系统超时后取消生成失败", it) }
     }
 
     /**

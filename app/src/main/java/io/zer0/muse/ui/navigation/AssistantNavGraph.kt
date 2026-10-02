@@ -168,6 +168,10 @@ fun NavGraphBuilder.assistantNavGraph(navController: NavHostController, sharedVi
         MemoryScreen(
             onBack = { navController.popBackStack() },
             onOpenSettings = { navController.navigate(SettingsMemoryConfigRoute) },
+            onOpenSession = { sessionId ->
+                sharedViewModel.switchSession(sessionId)
+                navController.navigate(ChatDetailRoute) { launchSingleTop = true }
+            },
         )
     }
     composable<FavoritesRoute>(

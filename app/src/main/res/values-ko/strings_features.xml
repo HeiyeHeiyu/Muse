@@ -322,7 +322,7 @@
     <string name="knowledge_ocr">OCR 실행 중…</string>
     <string name="knowledge_chunking">청킹 및 벡터 인덱스 구축…</string>
     <string name="knowledge_generating_vector">벡터 생성 %1$d/%2$d…</string>
-    <string name="knowledge_import_unsupported">압축 파일·바이너리 파일은 아직 지원되지 않습니다. 압축을 풀고 문서를 개별로 가져오세요</string>
+    <string name="knowledge_import_unsupported">이 압축 또는 바이너리 형식은 지원되지 않습니다. ZIP, 7Z 또는 RAR 파일을 가져오세요.</string>
     <string name="knowledge_zip_extracting">압축 해제 후 가져오는 중…</string>
     <string name="knowledge_zip_progress">압축 해제 후 가져오는 중…(%1$d개 완료)</string>
     <string name="knowledge_zip_done">기술 자료 %1$s 생성: 문서 %2$d개 가져옴, %3$d개 건너뜀</string>
@@ -337,6 +337,7 @@
     <string name="knowledge_index_error_reason">이유: %1$s</string>
     <string name="knowledge_import_cancelled">가져오기가 취소되었습니다.</string>
     <string name="knowledge_import_failed_read">가져오기 실패: 파일을 읽을 수 없습니다.</string>
+    <string name="knowledge_source_unavailable">문서 원본 내용을 읽을 수 없습니다.</string>
     <string name="knowledge_import_failed">가져오기 실패: %1$s</string>
     <string name="knowledge_reindex_progress">벡터 인덱스 재구축 및 재구축 중...</string>
     <string name="knowledge_reindexed">재색인됨: %1$s (%2$d 청크)</string>

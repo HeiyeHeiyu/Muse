@@ -121,6 +121,7 @@ fun MuseDialog(
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
+                    enabled = properties.dismissOnClickOutside,
                     onClick = onDismissRequest,
                 )
                 .testTag(MUSE_DIALOG_SCRIM_TAG),

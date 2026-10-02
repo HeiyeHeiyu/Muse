@@ -8,7 +8,9 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import io.zer0.ai.ChatService
+import io.zer0.ai.core.ChatStreamEvent
 import io.zer0.ai.core.MessageRole
+import io.zer0.ai.core.UIMessage
 import io.zer0.ai.image.ImageService
 import io.zer0.ai.video.VideoGenerationService
 import io.zer0.memory.ticker.MemoryTicker
@@ -43,15 +45,22 @@ import io.zer0.muse.ui.speech.TtsManager
 import io.zer0.muse.vision.VisionBridge
 import io.zer0.muse.vision.VisionProgress
 import io.zer0.muse.web.WebSearchService
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -371,5 +380,86 @@ class ChatViewModelSessionMismatchTest {
 
         // 验证不向错误会话调用 appendMessage
         coVerify(exactly = 0) { sessionRepository.appendMessage(any(), any()) }
+    }
+
+    @Test
+    fun `interrupted streamed translation keeps partial text but does not persist as complete`() = runBlocking {
+        runInitCoroutines()
+        val source = UIMessage(role = MessageRole.USER, content = "source text")
+        viewModel.update { it.copy(currentSessionId = "session-A", errors = emptyList()) }
+        viewModel.updateMessages { listOf(source) }
+        coEvery {
+            chatService.streamChat(
+                messages = any(),
+                model = any(),
+                temperature = any(),
+                maxTokens = any(),
+                tools = any(),
+                toolChoice = any(),
+                nativeWebSearch = any(),
+                reasoningLevel = any(),
+                providerConfig = any(),
+                mode = any(),
+                resumeFromText = any(),
+                topP = any(),
+            )
+        } returns flowOf(
+            ChatStreamEvent.ContentDelta("partial translation"),
+            ChatStreamEvent.StreamInterrupted("network interrupted", java.io.IOException("socket closed")),
+        )
+
+        viewModel.translateMessage(source.id)
+
+        val completedState = withTimeout(5_000) {
+            viewModel.state.first { !it.isTranslating && it.translatingMessageId == null }
+        }
+
+        assertTrue("an interrupted SSE translation must surface a failure", completedState.errors.isNotEmpty())
+        val partialTranslation = viewModel.messages.value.last()
+        assertEquals(source.id.toString(), partialTranslation.translationSourceId)
+        assertTrue(partialTranslation.content.endsWith("partial translation"))
+        coVerify(exactly = 0) { sessionRepository.appendMessage("session-A", any()) }
+    }
+
+    @Test
+    fun `stopping streamed translation keeps deltas already shown in the chat`() = runBlocking {
+        runInitCoroutines()
+        val source = UIMessage(role = MessageRole.USER, content = "source text")
+        val firstDeltaApplied = CompletableDeferred<Unit>()
+        viewModel.update { it.copy(currentSessionId = "session-A", errors = emptyList()) }
+        viewModel.updateMessages { listOf(source) }
+        coEvery {
+            chatService.streamChat(
+                messages = any(),
+                model = any(),
+                temperature = any(),
+                maxTokens = any(),
+                tools = any(),
+                toolChoice = any(),
+                nativeWebSearch = any(),
+                reasoningLevel = any(),
+                providerConfig = any(),
+                mode = any(),
+                resumeFromText = any(),
+                topP = any(),
+            )
+        } returns flow {
+            emit(ChatStreamEvent.ContentDelta("partial translation"))
+            firstDeltaApplied.complete(Unit)
+            awaitCancellation()
+        }
+
+        viewModel.translateMessage(source.id)
+        withTimeout(5_000) { firstDeltaApplied.await() }
+
+        viewModel.stop()
+
+        withTimeout(5_000) {
+            viewModel.state.first { !it.isTranslating && it.translatingMessageId == null }
+        }
+        val partialTranslation = viewModel.messages.value.last()
+        assertEquals(source.id.toString(), partialTranslation.translationSourceId)
+        assertTrue(partialTranslation.content.endsWith("partial translation"))
+        coVerify(exactly = 0) { sessionRepository.appendMessage("session-A", any()) }
     }
 }

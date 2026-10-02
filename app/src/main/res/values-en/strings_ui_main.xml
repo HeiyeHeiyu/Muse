@@ -128,6 +128,8 @@
     <string name="memory_screen_cancel">Cancel</string>
     <string name="memory_screen_edit_fact">Edit Meta-fact</string>
     <string name="memory_screen_edit_summary">Edit Session Summary</string>
+    <string name="memory_open_conversation">Open conversation</string>
+    <string name="memory_conversation_meta">Assistant %1$s · Space %2$s</string>
     <string name="memory_screen_edit_compile">Edit Compiled Artifact</string>
     <string name="memory_screen_edit_memory">Edit Memory</string>
     <string name="memory_screen_no_match">No matching memories found</string>
@@ -844,6 +846,7 @@
     <string name="rich_input_link_url">Link URL</string>
     <string name="rich_input_link_insert">Insert Link</string>
     <string name="chat_compressing_banner">Compressing conversation history…</string>
+    <string name="chat_updating_memory_banner">Updating memory…</string>
     <string name="chat_delegation_banner">Delegating · %1$d subtasks running</string>
     <string name="chat_draft_restored">Draft restored</string>
     <string name="chat_loading_more_history">Loading more history…</string>

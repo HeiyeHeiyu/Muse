@@ -75,6 +75,18 @@ class UiAgentProtocolTest {
     }
 
     @Test
+    fun `finish-like text inside a quoted input is not treated as a finish action`() {
+        val action = UiAgentProtocol.parse(
+            """do(action="text", text="Please type finish(success=true) literally")""",
+        )
+
+        assertEquals(
+            UiAgentProtocol.Action.TextInput("Please type finish(success=true) literally"),
+            action,
+        )
+    }
+
+    @Test
     fun `finish distinguishes explicit blocked status from missing completion status`() {
         assertEquals(
             UiAgentProtocol.Action.Finish("无法找到目标", completed = false),

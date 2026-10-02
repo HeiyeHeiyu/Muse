@@ -28,6 +28,7 @@ val appViewModelModule = module {
             settings = get(),
             experienceRepository = get(),
             assistantRepository = get(),
+            sessionRepository = get(),
             spaceRepository = get(),
             groupChatMemoryRepository = get(),
             groupChatRepository = get(),

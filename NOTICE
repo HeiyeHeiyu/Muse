@@ -58,6 +58,9 @@ the Muse codebase beyond static/dynamic linking):
   - ZXing (Apache 2.0)                 https://github.com/zxing/zxing
   - ONNX Runtime (MIT)                 https://github.com/microsoft/onnxruntime
   - JTokkit (Apache 2.0)               https://github.com/knuddelsgmbh/jtokkit
+  - Apache Commons Compress (Apache 2.0) https://commons.apache.org/proper/commons-compress/
+  - XZ for Java (0BSD)                  https://tukaani.org/xz/java.html
+  - Junrar (UnRAR License; extraction only, not for developing a RAR-compatible archiver) https://github.com/junrar/junrar
   - Shizuku API (MIT)                  https://github.com/RikkaApps/Shizuku-API
   - CameraX (Apache 2.0)               https://developer.android.com/jetpack/androidx/releases/camera
   - WorkManager (Apache 2.0)           https://developer.android.com/jetpack/androidx/releases/work

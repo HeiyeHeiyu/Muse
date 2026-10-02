@@ -24,6 +24,7 @@ import io.zer0.common.AppDispatchers
 import io.zer0.common.Logger
 import io.zer0.common.Perf
 import io.zer0.common.resultOf
+import io.zer0.memory.summary.SessionSummaryManager
 import io.zer0.memory.ticker.MemoryTicker
 import io.zer0.muse.util.ErrorMessages
 import io.zer0.muse.data.MultiAgentConfig
@@ -82,6 +83,7 @@ import io.zer0.muse.data.chat.rewrite.MessageCommitRequest
 import io.zer0.muse.data.chat.rewrite.buildCommitParts
 import io.zer0.muse.data.session.ConversationTurnEntity
 import io.zer0.muse.transformer.ContextCompressTransformer
+import io.zer0.muse.transformer.ConversationMemoryInjectionTransformer
 import io.zer0.muse.transformer.LorebookTransformer
 import io.zer0.muse.transformer.MemoryInjectionTransformer
 import io.zer0.muse.transformer.PromptInjectionTransformer
@@ -321,6 +323,7 @@ data class ChatStreamState(
 
 data class ChatToolsState(
     val isCompressing: Boolean = false,
+    val compressionPhase: ManualCompressionPhase = ManualCompressionPhase.IDLE,
     val taskCards: Map<String, io.zer0.muse.ui.taskcard.TaskCardData> = emptyMap(),
     val toolCallHistory: List<ToolCallRecord> = emptyList(),
     val pendingToolApprovals: List<PendingToolApproval> = emptyList(),
@@ -671,6 +674,7 @@ class ChatUiState(
     val toolProgressMessage: String? get() = streamState.toolProgressMessage
     val pendingToolCallCount: Int get() = streamState.pendingToolCallCount
     val isCompressing: Boolean get() = toolsState.isCompressing
+    val compressionPhase: ManualCompressionPhase get() = toolsState.compressionPhase
     val taskCards: Map<String, io.zer0.muse.ui.taskcard.TaskCardData> get() = toolsState.taskCards
     val toolCallHistory: List<ToolCallRecord> get() = toolsState.toolCallHistory
     val pendingToolApprovals: List<PendingToolApproval> get() = toolsState.pendingToolApprovals
@@ -1230,6 +1234,7 @@ class ChatViewModel(
     // v2.x: 委员会 — 从主对话随时召唤临时群聊讨论并把结论回灌(与群聊页共享同一调度器实例)
     private val groupChatScheduler: io.zer0.muse.schedule.GroupChatScheduler? = null,
     private val groupChatRepository: io.zer0.muse.data.groupchat.GroupChatRepository? = null,
+    private val conversationSummaryManager: SessionSummaryManager? = null,
 ) : ViewModel(), ChatStateAccessor, io.zer0.muse.tools.ToolApprovalBridge {
     // v1.0.54: autoSave 去重状态(30 秒内同会话只跑一次,防堆积)
     private var lastAutoSaveSessionId: String? = null
@@ -1822,30 +1827,27 @@ class ChatViewModel(
     private val routeGuard = io.zer0.muse.tools.ToolRouteExecutionGuard(toolRegistry)
 
     /**
-     * Phase 8.1 H1 + Phase 8.2 + Phase 8.5: Transformer 管道。
-     * 顺序: MemoryInjection → TimeReminder → Lorebook → PromptInjection → Template(变量替换) → ThinkTag
+     * Transformer 管道。会话摘要在上下文压缩后加入,不会被二次压缩或写入历史消息。
      * - TemplateTransformer 接管 Assistant.messageTemplate 的 {{var}} 替换
      * - Assistant 配置通过 [TransformContext.extras] 注入,各 Transformer 自行读取
      * - Phase 8.5: LorebookTransformer(关键词触发) + PromptInjectionTransformer(模式开关)
      */
-    private fun buildTransformerPipeline(): TransformerPipeline = TransformerPipeline.Builder()
-        // v8: MemoryInjectionTransformer 新增可选 factStore 参数(默认 null)用于按 scope 过滤。
-        // 本文件按任务约定"仅输出修改建议不直接修改",这里仍用单参数构造(走 fallback 路径)。
-        // 启用 scope 过滤需补 factStore 参数,详见最终回复 ChatViewModel.kt 修改建议清单。
-        .add(MemoryInjectionTransformer(memoryTicker))
-        .add(TimeReminderTransformer())
-        .add(LorebookTransformer(lorebookRepository))
-        .add(PromptInjectionTransformer())
-        // v1.97: 传入 appContext 以读取电池电量等系统变量
-        .add(TemplateTransformer(appContext))
-        // v1.97: 助手级正则替换规则(visualOnly=false 走管道,影响 LLM 输入)
-        .add(io.zer0.muse.transformer.RegexMessageTransformer())
-        .add(ThinkTagTransformer())
-        // v0.30-b: MOOD 标签剥离(6 步工作流第 6 步,放 ThinkTag 后)
-        .add(io.zer0.muse.transformer.MoodTagTransformer())
-        // v0.25: 长上下文压缩(消息数超阈值时调用 LLM 生成摘要替换旧消息)
-        .add(contextCompressTransformer)
-        .build()
+    private fun buildTransformerPipeline(): TransformerPipeline {
+        val builder = TransformerPipeline.Builder()
+            .add(MemoryInjectionTransformer(memoryTicker))
+            .add(TimeReminderTransformer())
+            .add(LorebookTransformer(lorebookRepository))
+            .add(PromptInjectionTransformer())
+            .add(TemplateTransformer(appContext))
+            .add(io.zer0.muse.transformer.RegexMessageTransformer())
+            .add(ThinkTagTransformer())
+            .add(io.zer0.muse.transformer.MoodTagTransformer())
+            .add(contextCompressTransformer)
+        conversationSummaryManager?.let { manager ->
+            builder.add(ConversationMemoryInjectionTransformer(manager))
+        }
+        return builder.build()
+    }
 
     /** Phase 8.5 修复: 首次会话初始化标记,防止 observeSessions 竞态重复创建会话。 */
     @Volatile
@@ -2944,24 +2946,20 @@ class ChatViewModel(
             return
         }
 
-        _state.update { it.copy(toolsState = it.toolsState.copy(isCompressing = true)) }
+        _state.update {
+            it.copy(
+                toolsState = it.toolsState.copy(
+                    isCompressing = true,
+                    compressionPhase = if (updateMemoryFirst) {
+                        ManualCompressionPhase.UPDATING_MEMORY
+                    } else {
+                        ManualCompressionPhase.COMPRESSING_CONTEXT
+                    },
+                ),
+            )
+        }
         viewModelScope.launch(AppDispatchers.io) {
             try {
-                // 1. 可选:先更新记忆(强制提炼 fact + deep memory + 刷新 today)
-                if (updateMemoryFirst) {
-                    val model = resultOf { settings.getSelectedModel() }.getOrNull()
-                    resultOf {
-                        memoryTicker.forceCompileNow(model = model)
-                    }.onError { msg, t ->
-                        Logger.w("ChatVM", "forceCompileNow failed: $msg")
-                        // v1.78 (#31): 记忆更新失败时提示用户,不阻断后续压缩
-                        MuseToast.show(appContext.getString(R.string.err_chat_compress_memory_failed))
-                    }
-                }
-                // 2. 压缩历史:用 contextCompressTransformer 直接 transform
-                // threshold=1 强制触发(只要 messages.size > keepRecent 就压缩)
-                // keepRecent 自适应:未指定时保留最近 min(MANUAL_COMPRESS_KEEP_RECENT, size-1) 条,
-                // 确保至少压缩 1 条;H10 对话框可显式指定保留条数
                 val effectiveKeepRecent =
                     keepRecent
                         ?.coerceIn(1, currentMessages.size - 1)
@@ -2979,13 +2977,35 @@ class ChatViewModel(
                             "compress_instruction" to instruction,
                         ),
                     )
-                // H-01 修复: transform 是 suspend 函数,改用 resultOf 避免吞没 CancellationException
-                val compressed =
-                    resultOf {
-                        contextCompressTransformer.transform(currentMessages, context)
-                    }.onError { msg, t ->
-                        Logger.w("ChatVM", "manualCompress transform failed: $msg")
-                    }.getOrNull() ?: currentMessages // 失败时保留原消息
+
+                val compressed = runManualCompressionStages(
+                    updateMemoryFirst = updateMemoryFirst,
+                    onPhase = { phase ->
+                        _state.update { state ->
+                            state.copy(
+                                toolsState = state.toolsState.copy(compressionPhase = phase),
+                            )
+                        }
+                    },
+                    updateMemory = {
+                        // 强制提炼 fact + deep memory + 刷新 today;失败不阻断后续压缩。
+                        val model = resultOf { settings.getSelectedModel() }.getOrNull()
+                        resultOf {
+                            memoryTicker.forceCompileNow(model = model)
+                        }.onError { msg, _ ->
+                            Logger.w("ChatVM", "forceCompileNow failed: $msg")
+                            MuseToast.show(appContext.getString(R.string.err_chat_compress_memory_failed))
+                        }
+                    },
+                    compress = {
+                        // H-01 修复: transform 是 suspend 函数,改用 resultOf 避免吞没 CancellationException
+                        resultOf {
+                            contextCompressTransformer.transform(currentMessages, context)
+                        }.onError { msg, _ ->
+                            Logger.w("ChatVM", "manualCompress transform failed: $msg")
+                        }.getOrNull() ?: currentMessages
+                    },
+                )
                 // 3. 替换内存中的 messages(不持久化,DB 保留完整历史)
                 if (compressed.size < currentMessages.size) {
                     // v2.3.2: 会话守卫 — 同 triggerAutoCompress,压缩期间切走会话则丢弃过期结果
@@ -3019,7 +3039,14 @@ class ChatViewModel(
                 Logger.w("ChatVM", "manualCompress failed: ${e.message}")
                 reportError(appContext.getString(R.string.err_chat_compress_failed, e.message ?: ""))
             } finally {
-                _state.update { it.copy(toolsState = it.toolsState.copy(isCompressing = false)) }
+                _state.update {
+                    it.copy(
+                        toolsState = it.toolsState.copy(
+                            isCompressing = false,
+                            compressionPhase = ManualCompressionPhase.IDLE,
+                        ),
+                    )
+                }
             }
         }
     }
@@ -3655,9 +3682,12 @@ class ChatViewModel(
 
                     val sb = StringBuilder()
                     val prefix = appContext.getString(R.string.err_chat_translate_prefix, targetLanguage)
+                    var streamFailure: Pair<String, ChatErrorType>? = null
+                    var streamCompleted = false
                     try {
                         chatService.streamChat(messages = messages).collect { ev ->
                             if (ev is ChatStreamEvent.ContentDelta) {
+                                if (streamFailure != null) return@collect
                                 sb.append(ev.delta)
                                 // 增量更新最后一条消息(占位)的 content,前缀保持 "翻译(X):\n\n"
                                 val updated = placeholder.copy(content = prefix + sb.toString())
@@ -3665,11 +3695,42 @@ class ChatViewModel(
                                     _messages.value.map { m ->
                                         if (m.id == placeholder.id) updated else m
                                     }
+                            } else if (ev is ChatStreamEvent.Error) {
+                                streamFailure = ev.message to classifyErrorType(ev.message, ev.throwable)
+                            } else if (ev is ChatStreamEvent.StreamInterrupted) {
+                                streamFailure = ev.message to ChatErrorType.NETWORK
+                            } else if (ev is ChatStreamEvent.Done) {
+                                streamCompleted = true
                             }
                         }
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         // 取消时保留已收集的部分结果
                         throw e
+                    }
+
+                    val failure = streamFailure
+                        ?: if (!streamCompleted) {
+                            appContext.getString(R.string.err_chat_stream_broken) to ChatErrorType.NETWORK
+                        } else {
+                            null
+                        }
+                    if (failure != null) {
+                        if (sb.isEmpty()) {
+                            _messages.value = _messages.value.filterNot { it.id == placeholder.id }
+                        }
+                        _state.update {
+                            it.copy(
+                                errors = listOf(
+                                    ChatError(
+                                        type = failure.second,
+                                        message = ErrorMessages.resolve(appContext, failure.first),
+                                    ),
+                                ),
+                                isTranslating = false,
+                                translatingMessageId = null,
+                            )
+                        }
+                        return@launch
                     }
 
                     val translated = io.zer0.muse.transformer.stripThinkTags(sb.toString()).trim()

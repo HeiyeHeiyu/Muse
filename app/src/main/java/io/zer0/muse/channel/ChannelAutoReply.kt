@@ -269,7 +269,7 @@ class ChannelAutoReply(
                 dispatchId = inbound.dispatchId,
             ),
         )
-        val contextTokenOverride = resolveWeClawContextToken(inbound)
+        val contextTokenOverride = resolveReplyContextToken(inbound)
         return when (contextTokenOverride) {
             ContextTokenOverride.Unavailable -> HandleResult.Retry
             is ContextTokenOverride.Value -> {
@@ -285,6 +285,8 @@ class ChannelAutoReply(
                         targetOverride = inbound.from.takeIf { it.isNotBlank() },
                         contextTokenOverride = contextTokenOverride.value,
                         sourceEventIdOverride = qqEventIdOverride,
+                        sourceEventSequenceOverride = (inbound.attemptCount + 1)
+                            .takeIf { inbound.platform == ChannelPlatform.QQ.name },
                     ),
                 )
                 if (!result.ok) {
@@ -317,20 +319,22 @@ class ChannelAutoReply(
         data object Unavailable : ContextTokenOverride
     }
 
-    private suspend fun resolveWeClawContextToken(inbound: ChannelInbox.Inbound): ContextTokenOverride =
-        if (inbound.platform != ChannelPlatform.WECLAW.name) {
-            ContextTokenOverride.Value(null)
-        } else {
-            val encrypted = ChannelInbox.journal.encryptedReplyContextToken(inbound.dispatchId)
-                ?: inbound.encryptedReplyContextToken
-            if (encrypted.isBlank()) {
-                ContextTokenOverride.Value(null)
-            } else {
-                restoreWeClawReplyContextToken(encrypted)
-                    ?.let { ContextTokenOverride.Value(it) }
-                    ?: ContextTokenOverride.Unavailable
-            }
+    private suspend fun resolveReplyContextToken(inbound: ChannelInbox.Inbound): ContextTokenOverride {
+        val isSupported = inbound.platform == ChannelPlatform.WECLAW.name ||
+            inbound.platform == ChannelPlatform.DINGTALK.name
+        if (!isSupported) return ContextTokenOverride.Value(null)
+
+        val encrypted = ChannelInbox.journal.encryptedReplyContextToken(inbound.dispatchId)
+            ?: inbound.encryptedReplyContextToken
+        if (encrypted.isBlank()) return ContextTokenOverride.Value(null)
+
+        val restored = when (inbound.platform) {
+            ChannelPlatform.WECLAW.name -> restoreWeClawReplyContextToken(encrypted)
+            ChannelPlatform.DINGTALK.name -> restoreDingtalkReplyContextToken(encrypted)
+            else -> null
         }
+        return restored?.let { ContextTokenOverride.Value(it) } ?: ContextTokenOverride.Unavailable
+    }
 
     /** 跑一轮对话(渠道对话上下文 + 工具循环);失败按可恢复/不可恢复分类。 */
     @Suppress("CyclomaticComplexMethod", "ReturnCount", "TooGenericExceptionCaught")

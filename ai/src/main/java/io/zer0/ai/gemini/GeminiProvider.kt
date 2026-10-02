@@ -250,7 +250,7 @@ class GeminiProvider(
                             eventSource.cancel()
                             call.cancel()
                             scope.launch {
-                                delay(backoffMs(attempt.get()))
+                                delay(backoffMs(attempt.get(), response.header("Retry-After")))
                                 // M-GEM4: 重试时重新解析 token(Vertex AI 旧 token 可能已过期)
                                 token = try {
                                     resolveToken()
@@ -271,7 +271,18 @@ class GeminiProvider(
                             markKeyFailed(hardBlock = true)
                         }
                         finished.set(true)
-                        trySend(ChatStreamEvent.Error(msg))
+                        trySend(
+                            ChatStreamEvent.Error(
+                                msg,
+                                ProviderException(
+                                    ProviderError.from(
+                                        code = code,
+                                        body = errText,
+                                        retryAfterSec = ProviderError.parseRetryAfter(response.header("Retry-After")),
+                                    ),
+                                ),
+                            ),
+                        )
                         close()
                         return
                     }
@@ -403,7 +414,7 @@ class GeminiProvider(
                         // H-GEM1: 推进 generation 使旧流的后续 onClosed 失效
                         generation.incrementAndGet()
                         scope.launch {
-                            delay(backoffMs(attempt.get()))
+                            delay(backoffMs(attempt.get(), response?.header("Retry-After")))
                             // M-GEM4: 重试时重新解析 token
                             token = try {
                                 resolveToken()
@@ -520,7 +531,13 @@ class GeminiProvider(
                     }
                     // M-GEM14: 用 readBodyCapped 替代 runCatching { resp.body.string() }
                     val errText = ProviderHttpSupport.readBodyCapped(resp)
-                    throw ProviderException(ProviderError.from(code = code, body = errText))
+                    throw ProviderException(
+                        ProviderError.from(
+                            code = code,
+                            body = errText,
+                            retryAfterSec = ProviderError.parseRetryAfter(resp.header("Retry-After")),
+                        ),
+                    )
                 }
                 val raw = resp.body.string()
                 val parsed = AppJson.decodeFromString<GeminiResponse>(raw)
@@ -636,6 +653,7 @@ class GeminiProvider(
                         ProviderError.from(
                             code = resp.code,
                             body = "model_list_fetch: $errText",
+                            retryAfterSec = ProviderError.parseRetryAfter(resp.header("Retry-After")),
                         ),
                     )
                 }
@@ -994,7 +1012,8 @@ class GeminiProvider(
      * M-GEM2: 指数退避(500ms / 1000ms / 2000ms)。
      * v1.80 (L-GEM2): 加随机 jitter(±20%),避免多客户端同步重试引发惊群。
      */
-    private fun backoffMs(attempt: Int): Long {
+    private fun backoffMs(attempt: Int, retryAfterHeader: String? = null): Long {
+        ProviderError.parseRetryAfter(retryAfterHeader)?.let { return it.toLong() * 1000L }
         val shift = (attempt - 1).coerceIn(0, 4)
         val base = 500L * (1L shl shift)
         // L-GEM2: jitter = base * (0.8 + random*0.4),范围 [0.8*base, 1.2*base]

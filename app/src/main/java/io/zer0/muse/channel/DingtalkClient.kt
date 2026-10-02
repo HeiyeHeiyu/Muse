@@ -1,6 +1,7 @@
 package io.zer0.muse.channel
 
 import io.zer0.common.AppJson
+import io.zer0.muse.data.SecureKeyStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.add
@@ -207,6 +208,16 @@ internal object DingtalkClient {
         put("data", data)
     }.toString()
 }
+
+internal const val DINGTALK_REPLY_CONTEXT_PREFIX = "muse.dingtalk.session-webhook.v1:"
+
+internal suspend fun protectDingtalkReplyContextToken(webhookUrl: String): String =
+    if (webhookUrl.isBlank()) "" else SecureKeyStore.encrypt(DINGTALK_REPLY_CONTEXT_PREFIX + webhookUrl)
+
+internal suspend fun restoreDingtalkReplyContextToken(encryptedToken: String): String? = SecureKeyStore.decryptOrNull(encryptedToken)
+    ?.takeIf { it.startsWith(DINGTALK_REPLY_CONTEXT_PREFIX) }
+    ?.removePrefix(DINGTALK_REPLY_CONTEXT_PREFIX)
+    ?.takeIf { it.isNotBlank() }
 
 /**
  * v2.0: 钉钉会话 Webhook 缓存 — 收到消息时记录 sessionWebhook,回发时优先使用。

@@ -36,10 +36,6 @@
         <error line="73" column="23" source="standard:discouraged-comment-location" />
         <error line="283" column="26" source="standard:discouraged-comment-location" />
     </file>
-    <file name="src/main/java/io/zer0/ai/gemini/GeminiProvider.kt">
-        <error line="360" column="1" source="standard:max-line-length" />
-        <error line="579" column="1" source="standard:max-line-length" />
-    </file>
     <file name="src/main/java/io/zer0/ai/gemini/VertexAiAuthToken.kt">
         <error line="238" column="55" source="standard:discouraged-comment-location" />
         <error line="239" column="31" source="standard:discouraged-comment-location" />
@@ -57,15 +53,18 @@
         <error line="156" column="23" source="standard:discouraged-comment-location" />
     </file>
     <file name="src/main/java/io/zer0/ai/openai/OpenAIProvider.kt">
-        <error line="295" column="1" source="standard:max-line-length" />
-        <error line="303" column="1" source="standard:max-line-length" />
-        <error line="362" column="1" source="standard:max-line-length" />
-        <error line="468" column="1" source="standard:max-line-length" />
-        <error line="710" column="1" source="standard:max-line-length" />
-        <error line="984" column="1" source="standard:max-line-length" />
-        <error line="2111" column="1" source="standard:max-line-length" />
-        <error line="2116" column="1" source="standard:max-line-length" />
-        <error line="2340" column="1" source="standard:max-line-length" />
+        <error line="296" column="1" source="standard:max-line-length" />
+        <error line="304" column="1" source="standard:max-line-length" />
+        <error line="363" column="1" source="standard:max-line-length" />
+        <error line="469" column="1" source="standard:max-line-length" />
+        <error line="730" column="1" source="standard:max-line-length" />
+        <error line="1004" column="1" source="standard:max-line-length" />
+        <error line="2139" column="1" source="standard:max-line-length" />
+        <error line="2144" column="1" source="standard:max-line-length" />
+        <error line="2368" column="1" source="standard:max-line-length" />
+    </file>
+    <file name="src/main/java/io/zer0/ai/registry/ModelRegistry.kt">
+        <error line="522" column="90" source="standard:function-signature" />
     </file>
     <file name="src/test/java/io/zer0/ai/decorator/RateLimitDecoratorTest.kt">
         <error line="97" column="40" source="standard:discouraged-comment-location" />

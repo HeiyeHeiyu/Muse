@@ -565,7 +565,7 @@ class OpenAIProvider(
                                     OpenAIHttpException(
                                         code,
                                         msg,
-                                        response.header("Retry-After")?.toIntOrNull(),
+                                        ProviderError.parseRetryAfter(response.header("Retry-After")),
                                     ),
                                 ),
                             )
@@ -848,7 +848,7 @@ class OpenAIProvider(
                             var backoffMs = (1L shl attempt) * RETRY_BASE_DELAY_MS
                             // M-OAI7: 429 限流优先用 Retry-After 响应头(秒数 → 毫秒)
                             if (code == 429) {
-                                backoffMs = response?.header("Retry-After")?.toIntOrNull()
+                                backoffMs = ProviderError.parseRetryAfter(response?.header("Retry-After"))
                                     ?.let { it * 1000L } ?: backoffMs
                                 // v1.0.1: 429 时切换到下一个 key(多 key 场景)
                                 //  切换成功后立即重试(不等 backoff),因为新 key 可能未限流
@@ -970,7 +970,7 @@ class OpenAIProvider(
                         Logger.w("OpenAIProvider", "completeText 400 完整响应体: $errText")
                     }
                     // L-OAI11: 用自定义异常替代字符串前缀判断
-                    throw OpenAIHttpException(code, msg, response.header("Retry-After")?.toIntOrNull())
+                    throw OpenAIHttpException(code, msg, ProviderError.parseRetryAfter(response.header("Retry-After")))
                 }
                 // M-OAI6: body 可能为 null(虽然 OkHttp 实际几乎不为 null,但类型上 Nullable),统一做空安全
                 val raw = resp.body?.string()
@@ -2044,7 +2044,7 @@ class OpenAIProvider(
                                     OpenAIHttpException(
                                         code,
                                         msg,
-                                        response.header("Retry-After")?.toIntOrNull(),
+                                        ProviderError.parseRetryAfter(response.header("Retry-After")),
                                     ),
                                 ),
                             )
@@ -2348,7 +2348,7 @@ class OpenAIProvider(
                     val errText = ProviderHttpSupport.readBodySafely(resp)
                     val msg = parseErrorMessage(code, errText)
                     Logger.w("OpenAIProvider", "completeTextResponses HTTP $code: $msg")
-                    throw OpenAIHttpException(code, msg, response.header("Retry-After")?.toIntOrNull())
+                    throw OpenAIHttpException(code, msg, ProviderError.parseRetryAfter(response.header("Retry-After")))
                 }
                 val raw = resp.body?.string()
                     ?: throw ErrorCode.INVALID_RESPONSE.toProviderException("empty_body", resp.code)

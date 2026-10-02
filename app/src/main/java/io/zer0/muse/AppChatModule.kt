@@ -80,6 +80,7 @@ val appChatModule = module {
             // v2.x: 委员会 — 群聊调度器/仓库(与群聊页共享同一单例)
             groupChatScheduler = get(),
             groupChatRepository = get(),
+            conversationSummaryManager = get(),
         )
     }
 }

@@ -634,6 +634,7 @@ private fun MuseNavGraph(
                         )
                         settingsNavGraph(
                             navController = navController,
+                            sharedViewModel = sharedViewModel,
                         )
                         toolsNavGraph(
                             navController = navController,

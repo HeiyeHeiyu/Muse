@@ -183,7 +183,10 @@ sealed class ProviderError {
          */
         fun parseRetryAfter(headerValue: String?): Int? {
             if (headerValue.isNullOrBlank()) return null
-            return headerValue.trim().toIntOrNull()
+            val seconds = headerValue.trim().toLongOrNull() ?: return null
+            return seconds
+                .takeIf { it >= 0L && it <= Int.MAX_VALUE.toLong() }
+                ?.toInt()
         }
 
         private fun buildDisplayMessage(code: Int, body: String, category: String?): String {
