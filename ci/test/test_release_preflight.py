@@ -310,6 +310,32 @@ def test_release_manifest_rejects_invalid_provenance(tmp_path, monkeypatch):
     assert generate_manifest_main() == 1
 
 
+def test_release_workflow_publishes_only_distribution_apks():
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    manifest_start = workflow.index("      - name: Generate release manifest")
+    artifact_start = workflow.index("      - name: Upload release build artifacts", manifest_start)
+    publish_start = workflow.index("      - name: Publish GitHub Release", artifact_start)
+    manifest_step = workflow[manifest_start:artifact_start]
+    artifact_step = workflow[artifact_start:publish_start]
+    publish_step = workflow[publish_start:]
+    distribution_apks = (
+        "app-arm64-v8a-release.apk",
+        "app-armeabi-v7a-release.apk",
+        "app-universal-release.apk",
+    )
+
+    for apk_name in distribution_apks:
+        assert apk_name in manifest_step
+        assert apk_name in artifact_step
+        assert apk_name in publish_step
+
+    assert "app-x86_64-release.apk" not in manifest_step
+    assert "app-x86_64-release.apk" not in artifact_step
+    assert "app-x86_64-release.apk" not in publish_step
+    assert "*.apk" not in manifest_step
+    assert "*.apk" not in publish_step
+
+
 if __name__ == "__main__":
     test_release_version_matches_current_gradle_defaults()
     test_release_version_rejects_tag_drift()
@@ -320,4 +346,5 @@ if __name__ == "__main__":
     test_release_apk_verification_requires_pinned_certificate()
     test_release_apk_verification_rejects_unexpected_certificate()
     test_release_manifest_multi_apk_round_trip_without_pytest_fixtures()
+    test_release_workflow_publishes_only_distribution_apks()
     print("test_release_preflight OK")
