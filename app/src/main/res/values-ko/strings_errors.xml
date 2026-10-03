@@ -83,7 +83,7 @@
     <string name="err_chat_request_failed">요청 실패: %1$s</string>
     <string name="err_chat_compress_too_few">압축할 메시지가 너무 적습니다.</string>
     <string name="err_chat_compress_memory_failed">메모리 업데이트 실패, 기록만 압축됨</string>
-    <string name="err_chat_compress_done">압축됨: %1$d → %2$d 메시지</string>
+    <string name="err_chat_compress_done">컨텍스트가 압축되었습니다</string>
     <string name="err_chat_compress_no_need">메모리가 업데이트되었으며 메시지 압축이 필요하지 않습니다.</string>
     <string name="err_chat_compress_failed">압축 실패: %1$s</string>
     <string name="err_chat_fetch_models_empty">업스트림에서 모델을 반환하지 않았습니다.</string>

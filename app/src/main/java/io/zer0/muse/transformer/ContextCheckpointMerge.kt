@@ -31,6 +31,15 @@ object ContextCheckpointMerge {
     /** 摘要消息的可见标记（上下文分隔线的识别依据，与既有压缩标记保持一致）。 */
     const val MARKER = "[COMPRESSED]"
 
+    /**
+     * 界面上的"上下文分隔线"标记。
+     *
+     * 与 [MARKER] 分开：摘要消息（[MARKER]）是**发给模型的**内容；分隔线是**只在界面上**的
+     * 定位锚点，用来告诉用户"这里之前的对话已压缩、模型不再看到"。两者混用会让"模型看到什么"
+     * 与"界面显示什么"互相污染。
+     */
+    const val DIVIDER_MARKER = "[CONTEXT_DIVIDER]"
+
     /** 摘要正文的抬头：让模型知道这段是"更早的历史"，不是本轮新输入。 */
     private const val HEADER = "历史对话摘要（更早的内容已压缩，以下为要点）"
 

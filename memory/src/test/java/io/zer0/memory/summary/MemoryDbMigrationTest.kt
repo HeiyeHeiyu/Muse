@@ -41,7 +41,12 @@ class MemoryDbMigrationTest {
 
         val db = Room.databaseBuilder(context, MemoryDb::class.java, file.absolutePath)
             .allowMainThreadQueries()
-            .addMigrations(MemoryDb.MIGRATION_1_2, MemoryDb.MIGRATION_2_3, MemoryDb.MIGRATION_3_4)
+            .addMigrations(
+                MemoryDb.MIGRATION_1_2,
+                MemoryDb.MIGRATION_2_3,
+                MemoryDb.MIGRATION_3_4,
+                MemoryDb.MIGRATION_4_5,
+            )
             .build()
         try {
             assertEquals("legacy facts", db.compiledSectionDao().get("facts")?.content)
@@ -75,7 +80,7 @@ class MemoryDbMigrationTest {
 
         val db = Room.databaseBuilder(context, MemoryDb::class.java, file.absolutePath)
             .allowMainThreadQueries()
-            .addMigrations(MemoryDb.MIGRATION_3_4)
+            .addMigrations(MemoryDb.MIGRATION_3_4, MemoryDb.MIGRATION_4_5)
             .build()
         try {
             // ① 旧摘要仍在
@@ -111,6 +116,55 @@ class MemoryDbMigrationTest {
             // 删除后读回为 null
             db.contextCheckpointDao().deleteById("s-1")
             assertNull(db.contextCheckpointDao().get("s-1"))
+        } finally {
+            db.close()
+        }
+    }
+
+    /**
+     * v4 → v5：检查点增加"累计并入摘要条数"列。
+     *
+     * 断言：旧检查点保留、新列存在且默认 0（展示层遇到 0 按"未知"处理）。
+     */
+    @Test
+    fun `v4 to v5 adds total covered count and keeps checkpoints`() = runTest {
+        val dir = Files.createTempDirectory("memory-migration-v5").toFile()
+        tempFiles += dir
+        val file = File(dir, "memory.db")
+        val helper = buildV1Database(file)
+        val oldDb = helper.writableDatabase
+        oldDb.execSQL(
+            // v1 的 session_summaries 只有 9 列（space_id 是 v2 才加的）
+            "INSERT INTO session_summaries VALUES ('s-1', '2026-09-01T00:00:00Z', " +
+                "'2026-09-02T00:00:00Z', 'legacy rolling summary', 12, NULL, '', NULL, '')",
+        )
+        helper.close()
+
+        val db = Room.databaseBuilder(context, MemoryDb::class.java, file.absolutePath)
+            .allowMainThreadQueries()
+            .addMigrations(
+                MemoryDb.MIGRATION_1_2,
+                MemoryDb.MIGRATION_2_3,
+                MemoryDb.MIGRATION_3_4,
+                MemoryDb.MIGRATION_4_5,
+            )
+            .build()
+        try {
+            db.contextCheckpointDao().upsert(
+                ContextCheckpointEntity(
+                    sessionId = "s-1",
+                    coveredSeq = 10L,
+                    lastCoveredMessageId = "m-10",
+                    summary = "摘要",
+                    updatedAt = 1_700_000_000_000L,
+                ),
+            )
+            val loaded = db.contextCheckpointDao().get("s-1")
+            assertEquals("新列默认 0", 0, loaded?.totalCoveredCount)
+            assertEquals(10L, loaded?.coveredSeq)
+            // 写入累计值后可读回
+            db.contextCheckpointDao().upsert((loaded ?: error("missing")).copy(totalCoveredCount = 42))
+            assertEquals(42, db.contextCheckpointDao().get("s-1")?.totalCoveredCount)
         } finally {
             db.close()
         }

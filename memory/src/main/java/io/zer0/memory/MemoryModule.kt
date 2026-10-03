@@ -44,6 +44,7 @@ val memoryModule: Module = module {
                 io.zer0.memory.summary.MemoryDb.MIGRATION_1_2,
                 io.zer0.memory.summary.MemoryDb.MIGRATION_2_3,
                 io.zer0.memory.summary.MemoryDb.MIGRATION_3_4,
+                io.zer0.memory.summary.MemoryDb.MIGRATION_4_5,
             )
             // 仅允许降级时重建；打开前 guard 已归档更高版本库及 WAL sidecars。
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)

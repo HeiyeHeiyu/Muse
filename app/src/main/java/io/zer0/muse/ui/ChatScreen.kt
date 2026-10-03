@@ -87,6 +87,7 @@ import io.zer0.muse.data.knowledge.KnowledgeDocDao
 import io.zer0.muse.perf.MessagePaginator
 import io.zer0.muse.transformer.InternalMarkupSanitizer
 import io.zer0.muse.ui.chat.BrowserStatusCapsule
+import io.zer0.muse.ui.chat.ChatContextDivider
 import io.zer0.muse.ui.chat.MESSAGE_MAP_MIN_MESSAGES
 import io.zer0.muse.ui.chat.MessageMapBar
 import io.zer0.muse.ui.chat.PendingApprovalsSummary
@@ -382,6 +383,11 @@ fun ChatScreen(
         if (!performanceMode) paginatorPageCount = 1
     }
     var savedPaginatorScrollOffset by remember { mutableStateOf(0) }
+    // v2.x: 上下文分隔线的展开状态（默认收起 —— 压缩后应当看起来像"从新上下文继续"）。
+    // 按会话记忆：切换会话后回到默认收起，而不是沿用上一个会话的展开状态。
+    var contextDividerExpanded by remember(state.currentSessionId, state.agentSessionId) {
+        mutableStateOf(false)
+    }
     val visibleMessages by produceState(
         initialValue =
         if (isAgentMode && !state.isAgentMode && !state.isSwitchingSession) {
@@ -395,6 +401,9 @@ fun ChatScreen(
         isAgentMode,
         state.isAgentMode,
         state.isSwitchingSession,
+        // v2.x: 检查点边界或展开状态变化都要重算可见列表
+        state.contextCheckpointBoundaryId,
+        contextDividerExpanded,
     ) {
         // 门禁:Agent Tab 模式下但 ViewModel 还没切换到 Agent 模式时,显示空白。
         // 避免 HorizontalPager 动画期间目标页已 compose 但 setAgentMode 尚未执行时闪现旧对话内容。
@@ -412,11 +421,26 @@ fun ChatScreen(
                     "session=${state.currentSessionId ?: state.agentSessionId ?: "none"}",
             )
         }
+        // v2.x: 上下文已压缩时，默认把边界之前的消息收起（界面看起来像"从新上下文继续"）。
+        // 注意只影响界面：发给模型的历史由 ContextCheckpointMerge 在组装阶段过滤，
+        // 两者各管一段，互不依赖。
+        val boundary = state.contextCheckpointBoundaryId
+        val boundaryIndex = if (boundary == null) {
+            -1
+        } else {
+            renderableMessages.indexOfFirst { it.id.toString() == boundary }
+        }
+        val pruned =
+            if (boundaryIndex > 0 && !contextDividerExpanded) {
+                renderableMessages.subList(boundaryIndex, renderableMessages.size).toList()
+            } else {
+                renderableMessages
+            }
         if (!performanceMode) {
-            value = renderableMessages
+            value = pruned
             return@produceState
         }
-        val allIds = renderableMessages.map { it.id.toString() }
+        val allIds = pruned.map { it.id.toString() }
         if (allIds.isEmpty()) {
             value = emptyList()
             return@produceState
@@ -424,12 +448,16 @@ fun ChatScreen(
         val pageSize = MessagePaginator.DEFAULT_PAGE_SIZE * paginatorPageCount
         // 取首页(最新 N 条 ID),再反查 UIMessage 保留顺序
         val visibleIds = MessagePaginator.createFlow(allIds, pageSize = pageSize).first()
-        val msgById = renderableMessages.associateBy { it.id.toString() }
+        val msgById = pruned.associateBy { it.id.toString() }
         value = visibleIds.mapNotNull { msgById[it] }
     }
 
     // v1.0.74 fix (前端审计 1.1): 消息区在 LazyColumn 的起始全局索引。
     // 消息前后有条件插入的额外 item(agent_mode_hint/load_more/shimmer/subagent_task_list 等),
+    // v2.x: 上下文分隔线的锚点消息 id —— 只在收起状态下可见列表的第一条上画线。
+    // 展开时老消息全部显示，线就不再需要（用户已经能看到原文）。
+    val boundaryIdForRender: String? =
+        state.contextCheckpointBoundaryId?.takeIf { !contextDividerExpanded }
     // 所有"消息局部索引 ↔ 全局索引"换算必须加这个偏移,否则 isAtBottom/滚动定位全错位。
     val messageStartIndex =
         run {
@@ -1782,6 +1810,10 @@ fun ChatScreen(
                                         val showDateSeparator =
                                             prevMsg != null &&
                                                 !isSameDay(prevMsg.createdAt, msg.createdAt)
+                                        // v2.x: 上下文分隔线 —— 画在"已压缩边界"那条消息之前。
+                                        // 只用界面锚点渲染，不改动 messages，也就不可能被误落库。
+                                        val showContextDivider =
+                                            boundaryIdForRender != null && msg.id.toString() == boundaryIdForRender
                                         // 消息项动画、最后一条 assistant 工具与 debug 状态共用可见列表末项判断。
                                         val isLast = msg.id == visibleMessages.lastOrNull()?.id
                                         // 最后一条用户提问：控制 user 消息底部的重roll按钮。
@@ -1866,6 +1898,17 @@ fun ChatScreen(
                                             // 日期分隔线渲染在消息上方
                                             if (showDateSeparator) {
                                                 DateSeparator(timestamp = msg.createdAt)
+                                            }
+                                            // v2.x: 上下文分隔线画在"已压缩边界"那条消息之前 ——
+                                            // 它同时是这条消息的"以下是模型仍能看到的内容"的起点。
+                                            if (showContextDivider) {
+                                                ChatContextDivider(
+                                                    totalCovered = state.contextCheckpointTotalCovered,
+                                                    expanded = contextDividerExpanded,
+                                                    onToggle = { contextDividerExpanded = !contextDividerExpanded },
+                                                    // 分隔线自带水平内边距，抵消外层消息的底部间距造成的过宽留白
+                                                    modifier = Modifier.padding(bottom = 0.dp),
+                                                )
                                             }
                                             // v2.x: 左滑引用已移除(用户反馈误触率高) — 引用改由长按菜单进入。
                                             MessageBubble(

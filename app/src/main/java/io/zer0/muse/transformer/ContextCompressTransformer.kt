@@ -203,6 +203,11 @@ class ContextCompressTransformer(
         val tokensBefore: Int,
         val tokensAfter: Int,
         val reason: String,
+        /**
+         * 上一次检查点的累计并入条数。滚动覆盖语义下新检查点取代旧的，
+         * 累计值必须由调用方带上并累加，否则界面上的"已压缩多少条"会越显示越少。
+         */
+        val previousTotalCovered: Int = 0,
     )
 
     /**
@@ -219,6 +224,7 @@ class ContextCompressTransformer(
         val entry = CompressionSummaryStore.entry(request.sessionId)
         val summary = entry?.summary?.takeIf { it.isNotBlank() }
         val boundaryUuid = entry?.let { resolveBoundaryUuid(it, request) }
+        val newlyCovered = entry?.let { newlyCoveredCount(it, request.previousBoundaryId) } ?: 0
         return if (entry == null || summary == null || boundaryUuid == null) {
             null
         } else {
@@ -226,7 +232,8 @@ class ContextCompressTransformer(
                 sessionId = request.sessionId,
                 coveredSeq = request.coveredSeq,
                 lastCoveredMessageId = boundaryUuid.toString(),
-                coveredCount = newlyCoveredCount(entry, request.previousBoundaryId),
+                coveredCount = newlyCovered,
+                totalCoveredCount = request.previousTotalCovered + newlyCovered,
                 summary = summary,
                 tokensBefore = request.tokensBefore,
                 tokensAfter = request.tokensAfter,
@@ -241,10 +248,7 @@ class ContextCompressTransformer(
      * 边界指针：优先取"本次新覆盖的最后一条"（UUIDv7 时间有序，取最大值即最新）；
      * 本次没有新覆盖（例如等价区间被重复触发）时保持旧边界不动；都拿不到才回退到调用方给的值。
      */
-    private fun resolveBoundaryUuid(
-        entry: CompressionSummaryStore.Entry,
-        request: CheckpointRequest,
-    ): Uuid? {
+    private fun resolveBoundaryUuid(entry: CompressionSummaryStore.Entry, request: CheckpointRequest): Uuid? {
         val previous = request.previousBoundaryId?.let { runCatching { Uuid.parse(it) }.getOrNull() }
         val newlyCovered = newlyCoveredUuids(entry, request.previousBoundaryId)
         return newlyCovered.maxOrNull()
@@ -253,10 +257,7 @@ class ContextCompressTransformer(
     }
 
     /** 水位线覆盖集合里、排在旧边界之后的部分（即"本次实际并入摘要"的消息）。 */
-    private fun newlyCoveredUuids(
-        entry: CompressionSummaryStore.Entry,
-        previousBoundaryId: String?,
-    ): List<Uuid> {
+    private fun newlyCoveredUuids(entry: CompressionSummaryStore.Entry, previousBoundaryId: String?): List<Uuid> {
         val previous = previousBoundaryId?.let { runCatching { Uuid.parse(it) }.getOrNull() }
         return entry.coveredIds
             .mapNotNull { runCatching { Uuid.parse(it) }.getOrNull() }
@@ -266,7 +267,8 @@ class ContextCompressTransformer(
     private fun newlyCoveredCount(entry: CompressionSummaryStore.Entry, previousBoundaryId: String?): Int =
         newlyCoveredUuids(entry, previousBoundaryId).size
 
-    /** 取摘要的结局(v2.3.2: 把原先散落在 transform 里的 return 收敛成显式类型,便于控制函数长度)。 */    private sealed interface SummaryOutcome {
+    /** 取摘要的结局(v2.3.2: 把原先散落在 transform 里的 return 收敛成显式类型,便于控制函数长度)。 */
+    private sealed interface SummaryOutcome {
         /** 拿到摘要(可能来自缓存水位线,也可能是新生成的)。 */
         data class Ok(val summary: String) : SummaryOutcome
 
@@ -367,7 +369,9 @@ class ContextCompressTransformer(
                     // v1.116 (C1-5): 单条消息截断阈值从 500 提升到 1500 字符,
                     // 避免长回复(如代码块/详细分析)被过度截断导致摘要丢失关键信息。
                     val raw = msg.content
-                    val text = if (raw.length > MAX_COMPRESS_MSG_CHARS) raw.take(MAX_COMPRESS_MSG_CHARS) + "…" else raw
+                    // v2.x: 保头尾而非只保头 —— 工具结果与报错的结论在尾部，
+                    // 只留头部会让摘要拿到"调用开始了"却拿不到"结果是什么"。
+                    val text = io.zer0.common.TextTruncation.headTailText(raw, MAX_COMPRESS_MSG_CHARS)
                     appendLine("[$role] $text")
                 }
             }

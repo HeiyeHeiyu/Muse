@@ -83,7 +83,7 @@
     <string name="err_chat_request_failed">リクエストが失敗しました: %1$s</string>
     <string name="err_chat_compress_too_few">圧縮するにはメッセージが少なすぎます</string>
     <string name="err_chat_compress_memory_failed">メモリの更新に失敗しました。履歴のみが圧縮されました</string>
-    <string name="err_chat_compress_done">圧縮: %1$d → %2$d メッセージ</string>
+    <string name="err_chat_compress_done">コンテキストを圧縮しました</string>
     <string name="err_chat_compress_no_need">メモリが更新されたため、メッセージ圧縮は必要ありません</string>
     <string name="err_chat_compress_failed">圧縮に失敗しました: %1$s</string>
     <string name="err_chat_fetch_models_empty">アップストリームはモデルを返しませんでした</string>

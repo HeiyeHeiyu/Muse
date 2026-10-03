@@ -5,7 +5,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-internal const val MEMORY_DB_VERSION = 4
+internal const val MEMORY_DB_VERSION = 5
 
 /**
  * Memory 模块的 Room 数据库。
@@ -104,6 +104,19 @@ abstract class MemoryDb : RoomDatabase() {
                 )
                 // 注意：不要在这里额外建索引 —— Room 会按实体的 @Entity 定义校验 schema，
                 // 库里存在实体未声明的索引会导致打开数据库时报 schema 不一致。
+            }
+        }
+
+        /**
+         * v2.x: 检查点增加"累计并入摘要的条数"（界面分隔线展示用）。
+         *
+         * 只增列，旧检查点该值为 0 —— 展示层遇到 0 按"未知"处理，不回填也不猜测。
+         */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE context_checkpoints ADD COLUMN total_covered_count INTEGER NOT NULL DEFAULT 0",
+                )
             }
         }
     }

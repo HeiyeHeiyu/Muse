@@ -625,4 +625,10 @@
     <string name="tool_approval_timeout_hint">ツール %1$s の承認がタイムアウトし、自動的に拒否されました</string>
     <string name="chat_token_output">出力</string>
     <string name="chat_token_prompt">プロンプト</string>
+
+    <!-- 上下文压缩分隔线（仅界面展示，不进模型上下文） -->
+    <string name="chat_context_divider_title">コンテキストを圧縮しました</string>
+    <string name="chat_context_divider_title_count">コンテキストを圧縮しました · %1$d 件を要約</string>
+    <string name="chat_context_divider_hint_collapsed">タップで元のメッセージを表示</string>
+    <string name="chat_context_divider_hint_expanded">タップで元のメッセージを隠す</string>
 </resources>

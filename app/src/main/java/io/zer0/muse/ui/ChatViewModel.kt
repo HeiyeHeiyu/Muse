@@ -531,6 +531,16 @@ class ChatUiState(
      */
     val contextMaxTokens: Int = 0,
     /**
+     * v2.x: 上下文检查点的边界消息 id（null = 本会话还没有检查点）。
+     *
+     * 界面据此在对话流里画一条"上下文已压缩"分隔线，并把该消息及更早的老消息默认收起。
+     * 这是**仅界面**的展示锚点：发给模型的历史由 [io.zer0.muse.transformer.ContextCheckpointMerge]
+     * 在组装阶段过滤，两者不共用同一份数据，避免互相污染。
+     */
+    val contextCheckpointBoundaryId: String? = null,
+    /** v2.x: 累计并入摘要的消息条数（0 = 未知/旧检查点，分隔线不显示条数）。 */
+    val contextCheckpointTotalCovered: Int = 0,
+    /**
      * v1.0.47: Token 估算开关(默认关闭)。
      *
      * 用户在设置页显式开启后,输入框显示当前输入 token 估算,
@@ -754,6 +764,8 @@ class ChatUiState(
         webSearchEnabled: Boolean = this.webSearchEnabled,
         contextTokenCount: Int = this.contextTokenCount,
         contextMaxTokens: Int = this.contextMaxTokens,
+        contextCheckpointBoundaryId: String? = this.contextCheckpointBoundaryId,
+        contextCheckpointTotalCovered: Int = this.contextCheckpointTotalCovered,
         tokenEstimateEnabled: Boolean = this.tokenEstimateEnabled,
         pasteAsFileEnabled: Boolean = this.pasteAsFileEnabled,
         pasteAsFileThreshold: Int = this.pasteAsFileThreshold,
@@ -2797,16 +2809,6 @@ class ChatViewModel(
         generationController.computeStaticSnapshotKey(assistant, memoryEnabled)
 
     /**
-     * v0.45: 快速更新 token 计数(流式过程中每 200 字符或 1000ms 调用)。
-     *
-     * 使用 [cachedSystemPrompt] 避免每次都重建 system prompt(IO 密集)。
-     * 非流式场景应调用 [refreshContextInfo](会重建 system prompt + 加载 contextWindow)。
-     *
-     * v1.97 性能修复: 改为 suspend,TokenEstimator.estimate(jtokkit BPE 编码,CPU 密集)
-     * 移到 Dispatchers.Default 执行。原先在主线程同步,长历史下单次 50-200ms,
-     * 流式期间每秒叠加一次,是卡顿的主要根因。
-     */
-    /**
      * v2.x: 当前会话检查点覆盖的消息 id 缓存。
      *
      * 供占用率估算排除"已压缩、不会再发给模型"的消息。用缓存而不是每次查库，是因为
@@ -2844,6 +2846,15 @@ class ChatViewModel(
                         checkpoint,
                     )
                 }
+                // 同步界面锚点：分隔线位置 + 累计条数（无检查点时清空，避免残留上一会话的分隔线）
+                val boundaryId = checkpoint?.lastCoveredMessageId?.takeIf { it.isNotBlank() }
+                _state.update {
+                    it.copy(
+                        contextCheckpointBoundaryId = boundaryId,
+                        contextCheckpointTotalCovered = checkpoint?.totalCoveredCount ?: 0,
+                    )
+                }
+                checkpointCoveredIds
             } catch (ce: kotlinx.coroutines.CancellationException) {
                 throw ce
             } catch (t: Throwable) {
@@ -2852,6 +2863,16 @@ class ChatViewModel(
             }
     }
 
+    /**
+     * v0.45: 快速更新 token 计数(流式过程中每 200 字符或 1000ms 调用)。
+     *
+     * 使用 [cachedSystemPrompt] 避免每次都重建 system prompt(IO 密集)。
+     * 非流式场景应调用 [refreshContextInfo](会重建 system prompt + 加载 contextWindow)。
+     *
+     * v1.97 性能修复: 改为 suspend,TokenEstimator.estimate(jtokkit BPE 编码,CPU 密集)
+     * 移到 Dispatchers.Default 执行。原先在主线程同步,长历史下单次 50-200ms,
+     * 流式期间每秒叠加一次,是卡顿的主要根因。
+     */
     private suspend fun updateContextTokenCount(): Unit {
         displayedSessionId()?.let { ensureCheckpointCoveredIds(it) }
         generationController.updateContextTokenCount(checkpointCoveredIds)
@@ -2992,6 +3013,7 @@ class ChatViewModel(
                 persistContextCheckpoint(
                     sessionId = sessionId,
                     previousBoundaryId = currentCheckpointBoundaryId,
+                    previousTotalCovered = existingCheckpoint?.totalCoveredCount ?: 0,
                     generatedBoundaryId = maxCoveredId,
                     tokensBefore = currentTokens,
                     tokensAfter = TokenEstimator.estimate(compressed),
@@ -3026,6 +3048,7 @@ class ChatViewModel(
     private suspend fun persistContextCheckpoint(
         sessionId: String,
         previousBoundaryId: String?,
+        previousTotalCovered: Int,
         generatedBoundaryId: String,
         tokensBefore: Int,
         tokensAfter: Int,
@@ -3045,6 +3068,7 @@ class ChatViewModel(
                     tokensBefore = tokensBefore,
                     tokensAfter = tokensAfter,
                     reason = reason,
+                    previousTotalCovered = previousTotalCovered,
                 ),
             ) ?: return
             checkpointReader.put(checkpoint)
@@ -3160,8 +3184,11 @@ class ChatViewModel(
                         // 日志为内部诊断,不使用中文字面量(避免 CJK 门禁误判)
                         "$compressSummary (keepRecent=$effectiveKeepRecent)",
                     )
-                    // v1.78 (#33): 压缩成功反馈,让用户知道压缩生效
-                    MuseToast.show(appContext.getString(R.string.err_chat_compress_done, currentMessages.size, compressed.size))
+                    // v1.78 (#33): 压缩成功反馈。
+                    // v2.x: 不再报"已压缩: N → M 条" —— 条数变化对用户没有意义，还会让人以为
+                    //   会话被砍掉了。压缩在界面上的表达是对话流里的常驻分隔线（见 refreshContextInfo），
+                    //   这里只给一句状态。
+                    MuseToast.show(appContext.getString(R.string.err_chat_compress_done))
                 } else if (updateMemoryFirst) {
                     // 压缩未生效(可能消息太少或 LLM 返回空摘要),但记忆已更新
                     MuseToast.show(appContext.getString(R.string.err_chat_compress_no_need))

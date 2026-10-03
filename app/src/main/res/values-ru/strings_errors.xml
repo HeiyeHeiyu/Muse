@@ -83,7 +83,7 @@
     <string name="err_chat_request_failed">Запрос не выполнен: %1$s</string>
     <string name="err_chat_compress_too_few">Слишком мало сообщений для сжатия</string>
     <string name="err_chat_compress_memory_failed">Обновление памяти не выполнено, сжата только история</string>
-    <string name="err_chat_compress_done">Сжатые: %1$d → %2$d сообщения.</string>
+    <string name="err_chat_compress_done">Контекст сжат</string>
     <string name="err_chat_compress_no_need">Память обновлена, сжатие сообщений не требуется.</string>
     <string name="err_chat_compress_failed">Сжатие не удалось: %1$s</string>
     <string name="err_chat_fetch_models_empty">Восходящий поток не вернул ни одной модели</string>

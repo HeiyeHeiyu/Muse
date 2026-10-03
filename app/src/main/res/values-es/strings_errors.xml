@@ -83,7 +83,7 @@
     <string name="err_chat_request_failed">Solicitud fallida: %1$s</string>
     <string name="err_chat_compress_too_few">Muy pocos mensajes para comprimir</string>
     <string name="err_chat_compress_memory_failed">Error en la actualización de la memoria, solo el historial comprimido</string>
-    <string name="err_chat_compress_done">Comprimido: %1$d → %2$d mensajes</string>
+    <string name="err_chat_compress_done">Contexto comprimido</string>
     <string name="err_chat_compress_no_need">Memoria actualizada, no se necesita compresión de mensajes</string>
     <string name="err_chat_compress_failed">Error de compresión: %1$s</string>
     <string name="err_chat_fetch_models_empty">El upstream no devolvió ningún modelo.</string>

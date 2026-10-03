@@ -643,4 +643,10 @@
     <string name="moment_generate_now">立即生成一条动态</string>
     <string name="chat_token_output">输出</string>
     <string name="chat_token_prompt">输入上下文</string>
+
+    <!-- 上下文压缩分隔线（仅界面展示，不进模型上下文） -->
+    <string name="chat_context_divider_title">上下文已压缩</string>
+    <string name="chat_context_divider_title_count">上下文已压缩 · %1$d 条并入摘要</string>
+    <string name="chat_context_divider_hint_collapsed">点击展开原文</string>
+    <string name="chat_context_divider_hint_expanded">点击收起原文</string>
 </resources>

@@ -83,7 +83,7 @@
     <string name="err_chat_request_failed">Falha na solicitação: %1$s</string>
     <string name="err_chat_compress_too_few">Poucas mensagens para compactar</string>
     <string name="err_chat_compress_memory_failed">Falha na atualização da memória, apenas histórico compactado</string>
-    <string name="err_chat_compress_done">Comprimido: %1$d → %2$d mensagens</string>
+    <string name="err_chat_compress_done">Contexto compactado</string>
     <string name="err_chat_compress_no_need">Memória atualizada, sem necessidade de compactação de mensagens</string>
     <string name="err_chat_compress_failed">Falha na compactação: %1$s</string>
     <string name="err_chat_fetch_models_empty">O upstream não retornou nenhum modelo</string>

@@ -55,6 +55,15 @@ data class ContextCheckpointEntity(
     @ColumnInfo(name = "covered_count", defaultValue = "0")
     val coveredCount: Int = 0,
 
+    /**
+     * 累计并入摘要的消息总条数（滚动累加，仅用于界面展示"已压缩多少条"）。
+     *
+     * 与 [coveredCount] 的区别：[coveredCount] 是本次压缩新并入的条数（审计/校验用），
+     * 这里是历史累计值，语义随时间单调增长，适合展示。
+     */
+    @ColumnInfo(name = "total_covered_count", defaultValue = "0")
+    val totalCoveredCount: Int = 0,
+
     @ColumnInfo(name = "summary")
     val summary: String,
 

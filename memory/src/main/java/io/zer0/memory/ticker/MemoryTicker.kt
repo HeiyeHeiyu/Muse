@@ -36,10 +36,24 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
+ * 本轮是否应更新滚动摘要。
+ *
+ * 抽成纯函数是为了能被单测直接锁定：**摘要间隔必须整除编译间隔**，
+ * 否则"先编译后摘要"会用上一轮的旧摘要去编译今日记忆。
+ */
+internal fun shouldRollSummary(turnCount: Int): Boolean =
+    turnCount > 0 && turnCount % MemoryTicker.TURNS_PER_SUMMARY == 0
+
+/** 本轮是否应编译今日记忆并装配。间隔更宽（写入与大模型调用更重）。 */
+internal fun shouldCompileToday(turnCount: Int): Boolean =
+    turnCount > 0 && turnCount % MemoryTicker.TURNS_PER_COMPILE == 0
+
+/**
  * 记忆调度器。
  *
  * 触发策略:
- *  - 每 [TURNS_PER_SUMMARY] 轮: rollingSummary + compileToday + assemble
+ *  - 每 [TURNS_PER_SUMMARY] 轮: rollingSummary
+ *  - 每 [TURNS_PER_COMPILE] 轮: 额外做 compileToday + assemble（写入与大模型调用更重，间隔更宽）
  *  - session 结束: final rollingSummary + compileToday + assemble
  *  - 日期切换: compileToday → compileWeek → compileLongterm → compileFacts → assemble → deepMemory
  *
@@ -105,7 +119,17 @@ class MemoryTicker(
     val config: MemoryConfig get() = runtimeContext.getConfig()
 
     companion object {
-        const val TURNS_PER_SUMMARY = 10
+        const val TURNS_PER_SUMMARY = 5
+
+        /**
+         * 编译今日记忆 + 装配的频率（轮数）。
+         *
+         * 与 [TURNS_PER_SUMMARY] 分开：滚动摘要每 5 轮更新一次（用户反馈 10 轮太迟，摘要容易错过
+         * 刚发生的事），而"编译今日 + 装配"涉及的写入与大模型调用明显更重，保持 10 轮一次。
+         * 两者必须满足 [TURNS_PER_SUMMARY] 整除 [TURNS_PER_COMPILE]，否则编译会跑在摘要之前，
+         * 用到尚未更新的摘要。
+         */
+        const val TURNS_PER_COMPILE = 10
         const val DAILY_CHECK_INTERVAL_MS = 60L * 60 * 1000 // 1 小时
         private const val TAG = "MemoryTicker"
 
@@ -823,7 +847,7 @@ class MemoryTicker(
         // 注意:用 lambda 替代 Int::plus,避免 Kotlin 严格可空检查下 Int::plus 被解析为 Int? 接收者
         val count = _turnCounts.merge(sessionId, 1) { a, b -> a + b }!!
 
-        if (count % TURNS_PER_SUMMARY == 0) {
+        if (shouldRollSummary(count)) {
             launchTracked {
                 val target = resolveSessionNotificationTarget(
                     captured = _sessionNotificationTargets[sessionId],
@@ -840,7 +864,11 @@ class MemoryTicker(
                     assistantId = target.assistantId.orEmpty(),
                     spaceId = target.normalizedSpaceId,
                 )
-                doCompileTodayAndAssemble(model, locale, timeZone, target)
+                // 编译/装配比摘要更重，按自己的间隔走：只有同时命中时才跑，
+                // 保证用到的摘要一定是本轮刚更新过的。
+                if (shouldCompileToday(count)) {
+                    doCompileTodayAndAssemble(model, locale, timeZone, target)
+                }
             }
         }
         checkDailyJob(model, locale, timeZone)

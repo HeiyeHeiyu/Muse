@@ -641,4 +641,10 @@
     <string name="tool_approval_timeout_hint">Approval for tool %1$s timed out and was automatically rejected</string>
     <string name="chat_token_output">Output</string>
     <string name="chat_token_prompt">Prompt</string>
+
+    <!-- 上下文压缩分隔线（仅界面展示，不进模型上下文） -->
+    <string name="chat_context_divider_title">Context compressed</string>
+    <string name="chat_context_divider_title_count">Context compressed · %1$d messages summarized</string>
+    <string name="chat_context_divider_hint_collapsed">Tap to show original messages</string>
+    <string name="chat_context_divider_hint_expanded">Tap to hide original messages</string>
 </resources>

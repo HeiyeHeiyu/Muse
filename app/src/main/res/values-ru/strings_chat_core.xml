@@ -625,4 +625,10 @@
     <string name="tool_approval_timeout_hint">Время одобрения инструмента %1$s истекло; запрос отклонён автоматически</string>
     <string name="chat_token_output">Вывод</string>
     <string name="chat_token_prompt">Входной контекст</string>
+
+    <!-- 上下文压缩分隔线（仅界面展示，不进模型上下文） -->
+    <string name="chat_context_divider_title">Контекст сжат</string>
+    <string name="chat_context_divider_title_count">Контекст сжат · %1$d сообщений в сводке</string>
+    <string name="chat_context_divider_hint_collapsed">Нажмите, чтобы показать исходные сообщения</string>
+    <string name="chat_context_divider_hint_expanded">Нажмите, чтобы скрыть исходные сообщения</string>
 </resources>

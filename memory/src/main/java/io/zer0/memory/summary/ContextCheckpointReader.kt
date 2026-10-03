@@ -14,8 +14,7 @@ class ContextCheckpointReader(
     private fun dao(): ContextCheckpointDao = db.contextCheckpointDao()
 
     /** 读取某会话的检查点（没有则 null）。 */
-    suspend fun get(sessionId: String?): ContextCheckpointEntity? =
-        sessionId?.takeIf { it.isNotBlank() }?.let { dao().get(it) }
+    suspend fun get(sessionId: String?): ContextCheckpointEntity? = sessionId?.takeIf { it.isNotBlank() }?.let { dao().get(it) }
 
     /**
      * 读取检查点并校验它引用边界那条消息是否仍在给定历史里。

@@ -222,7 +222,8 @@ class ConversationCompressor(
                     MessageRole.TOOL -> "工具"
                 }
                 val raw = msg.content
-                val text = if (raw.length > MAX_MSG_CHARS) raw.take(MAX_MSG_CHARS) + "…" else raw
+                // v2.x: 与 ContextCompressTransformer 口径一致 —— 保头尾，让尾部结论进得了摘要
+                val text = io.zer0.common.TextTruncation.headTailText(raw, MAX_MSG_CHARS)
                 appendLine("[$role] $text")
             }
         }

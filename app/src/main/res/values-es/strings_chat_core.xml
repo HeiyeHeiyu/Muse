@@ -625,4 +625,10 @@
     <string name="tool_approval_timeout_hint">La aprobación de la herramienta %1$s agotó el tiempo y se rechazó automáticamente</string>
     <string name="chat_token_output">Salida</string>
     <string name="chat_token_prompt">Entrada al modelo</string>
+
+    <!-- 上下文压缩分隔线（仅界面展示，不进模型上下文） -->
+    <string name="chat_context_divider_title">Contexto comprimido</string>
+    <string name="chat_context_divider_title_count">Contexto comprimido · %1$d mensajes resumidos</string>
+    <string name="chat_context_divider_hint_collapsed">Toca para ver los mensajes originales</string>
+    <string name="chat_context_divider_hint_expanded">Toca para ocultar los mensajes originales</string>
 </resources>

@@ -85,7 +85,7 @@
     <string name="err_chat_request_failed">请求失败: %1$s</string>
     <string name="err_chat_compress_too_few">消息太少,无需压缩</string>
     <string name="err_chat_compress_memory_failed">记忆更新失败,仅压缩历史</string>
-    <string name="err_chat_compress_done">已压缩: %1$d → %2$d 条</string>
+    <string name="err_chat_compress_done">上下文已压缩</string>
     <string name="err_chat_compress_no_need">记忆已更新,消息无需压缩</string>
     <string name="err_chat_compress_failed">压缩失败: %1$s</string>
     <string name="err_chat_fetch_models_empty">上游未返回任何模型</string>
