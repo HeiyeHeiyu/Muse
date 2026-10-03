@@ -24,14 +24,21 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * 应用更新检查器 — 通过 GitHub Releases API 拉取最新发布版本。
+ * 应用更新检查器 — 拉取最新发布版本。
  *
- * 实现说明:既有实现 项目的 update_provider.dart。
+ * 端点（按顺序尝试，前一个失败才用下一个）：
+ *  1. `https://museai.ltd/api/latest.json` —— 自建镜像，结构由 GitHub Release 转换而来，
+ *     **不限流**；字段与 GitHub 一致（缺 `body`/`digest` 时按缺省处理）。
+ *  2. `https://api.github.com/repos/{repo}/releases/latest` —— 兜底。
  *
- * 端点:GET https://api.github.com/repos/{repo}/releases/latest
- *  - GitHub API 强制要求 User-Agent header,否则 403
+ * 为什么必须把自建镜像放前面：GitHub 对"未认证"请求的额度是每小时 60 次，且按 IP 计算。
+ * 移动网络出口 IP 常被大量设备共用，额度被跑满后整个 IP 的检查更新都会 403
+ * （响应头 X-RateLimit-Remaining: 0）。这个失败与用户自己的行为无关，只能靠换端点解决。
+ *
+ * 实现说明：
  *  - 网络请求在 IO 线程执行,协程可取消(suspendCancellableCoroutine + enqueue)
  *  - 不引入新依赖,复用项目已有的 OkHttp + kotlinx.serialization
+ *  - GitHub 端点强制要求 User-Agent header,否则 403
  *
  * @param client OkHttpClient(由调用方注入,通常复用 named("chat") 单例)
  * @param repo GitHub 仓库标识,格式 "owner/name"
@@ -41,8 +48,11 @@ class UpdateChecker(
     private val repo: String = DEFAULT_REPO,
 ) {
 
-    /** GitHub Releases API 端点。 */
-    private val apiUrl: String
+    /** 自建镜像端点（首选，不限流）。 */
+    private val officialApiUrl: String get() = OFFICIAL_LATEST_URL
+
+    /** GitHub Releases API 端点（兜底）。 */
+    private val githubApiUrl: String
         get() = "https://api.github.com/repos/$repo/releases/latest"
 
     /**
@@ -82,22 +92,45 @@ class UpdateChecker(
     )
 
     /**
-     * 异步查询最新 Release。
+     * 异步查询最新 Release：依次尝试各端点，第一个成功即返回。
+     *
+     * 首选自建镜像（不限流），失败后回落 GitHub API。全部失败才返回错误。
      *
      * @return 成功返回 [Result.Success] 携带 [ReleaseInfo];
      *         失败(网络/解析错误)返回 [Result.Error]
      */
     suspend fun checkLatestRelease(): Result<ReleaseInfo> = withContext(Dispatchers.IO) {
+        val attempts = listOf("official" to officialApiUrl, "github" to githubApiUrl)
+        var lastError: Result.Error = Result.Error("network error")
+        for ((label, url) in attempts) {
+            when (val outcome = fetchRelease(label, url)) {
+                is Result.Success -> return@withContext outcome
+                is Result.Error -> {
+                    Logger.w(TAG, "check latest release failed via $label: ${outcome.message}")
+                    lastError = outcome
+                }
+            }
+        }
+        lastError
+    }
+
+    /**
+     * 单个端点的取回与解析；任何失败都收敛成 [Result.Error]。
+     *
+     * `internal`（而非 private）以便测试直接喂入 MockWebServer 地址，验证"取回 + 解析"这一层。
+     */
+    internal suspend fun fetchRelease(label: String, url: String): Result<ReleaseInfo> {
         val req = Request.Builder()
-            .url(apiUrl)
+            .url(url)
             .header("User-Agent", USER_AGENT)
             .header("Accept", "application/vnd.github+json")
             .get()
             .build()
-        resultOf {
+        return resultOf {
             exec(req).use { resp ->
                 if (!resp.isSuccessful) {
-                    Logger.w(TAG, "GitHub API failed: HTTP ${resp.code}")
+                    // 403 在这里通常就是 GitHub 匿名限流（X-RateLimit-Remaining: 0）
+                    Logger.w(TAG, "$label API failed: HTTP ${resp.code}")
                     return@use Result.Error("HTTP ${resp.code}")
                 }
                 val bodyText = resp.body.string()
@@ -107,7 +140,7 @@ class UpdateChecker(
                 parseReleaseInfo(bodyText)
             }
         }.onError { msg, t ->
-            Logger.e(TAG, "检查更新失败: ${t?.message ?: msg}", t)
+            Logger.e(TAG, "检查更新失败($label): ${t?.message ?: msg}", t)
         }.getOrNull() ?: Result.Error("network error")
     }
 
@@ -196,6 +229,15 @@ class UpdateChecker(
 
         /** User-Agent(GitHub API 强制要求,否则 403)。 */
         private const val USER_AGENT = "muse-android"
+
+        /**
+         * 自建镜像端点：官网服务器每 30 分钟从 GitHub 同步一次的 Release 快照。
+         *
+         * 字段与 GitHub 的 `releases/latest` 对齐（`tag_name` / `name` / `html_url` /
+         * `published_at` / `assets[].browser_download_url`）；上游没有 `body` 与 `digest` 时，
+         * 应用按"缺省"处理（说明为空、跳过摘要校验），不影响版本判断与下载。
+         */
+        const val OFFICIAL_LATEST_URL = "https://museai.ltd/api/latest.json"
         private val SHA256_REGEX = Regex("^[0-9a-fA-F]{64}$")
         private val TRUSTED_DOWNLOAD_HOSTS = setOf(
             "github.com",
