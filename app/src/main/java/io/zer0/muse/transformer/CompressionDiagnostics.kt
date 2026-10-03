@@ -19,6 +19,13 @@ internal object CompressionDiagnostics {
     /** 压缩跑完却没有覆盖记录（水位线为空），本轮不写检查点。 */
     const val NO_COVERAGE_RECORD: String = "Auto-compress 完成但无覆盖记录(水位线为空),不写检查点"
 
+    /** 摘要不可用，已改用零请求本地重建并落检查点。 */
+    fun localRebuildSaved(covered: Int, before: Int): String =
+        "summary unavailable; local rebuild checkpoint saved: covered=$covered of $before"
+
+    /** 本地重建也拿不到可摘录内容，本轮放弃（保持全量历史）。 */
+    const val LOCAL_REBUILD_EMPTY: String = "local rebuild produced nothing; keeping full history"
+
     /** 读取当前会话检查点失败，按"无检查点"继续。 */
     fun readCheckpointFailed(message: String?): String = "读取会话检查点失败(按无检查点处理): $message"
 

@@ -72,7 +72,18 @@ class ContextCompressTransformer(
 ) : Transformer {
     override val name: String = "ContextCompress"
 
+    /**
+     * v2.x: 最近一次 transform 中"已并入摘要"的边界消息 id（按时间顺序的最后一条）。
+     *
+     * 供调用方落检查点时取用 —— 边界只能由**有序的压缩集合**得出，不能用消息 id 排序推断
+     * （消息 id 是随机 UUID）。transform 未真正压缩时保持 null。
+     */
+    var lastCoveredBoundaryId: String? = null
+        private set
+
     override suspend fun transform(messages: List<UIMessage>, context: TransformContext): List<UIMessage> {
+        // 本次不再压缩时不能留下上一次的边界，否则调用方会写入一个过期的边界
+        lastCoveredBoundaryId = null
         val enabled = (context.extra("compress_enabled") as? Boolean) ?: false
         if (!enabled) return messages
 
@@ -143,6 +154,11 @@ class ContextCompressTransformer(
         // Phase 8.5 修复: keepRecent >= messages.size 时 toCompress 为空,跳过避免发无意义 LLM 请求
         if (adjustedToCompress.isEmpty()) return messages
 
+        // v2.x: 记录本次"已并入摘要"的边界消息（按时间顺序的最后一条）。
+        // 必须在这里按**有序列表**取，不能靠 UUID 比较猜：消息 id 是随机 UUID（非时间有序），
+        // 一旦取错边界，组装侧会把尚未覆盖的消息也当成已覆盖而丢掉。
+        lastCoveredBoundaryId = adjustedToCompress.last().id.toString()
+
         // v2.3.2: 取摘要的三种结局统一由 [resolveSummary] 给出(它内部优先复用进程内水位线 —— 见 C 的说明,
         // 超时/异常的降级路径也收敛在那里);这里只负责按结局拼装结果。
         val outcome = resolveSummary(adjustedToCompress, instruction, context.sessionId)
@@ -204,10 +220,23 @@ class ContextCompressTransformer(
         val tokensAfter: Int,
         val reason: String,
         /**
+         * 本次"已并入摘要"的边界消息 id（按时间顺序的最后一条），由 [lastCoveredBoundaryId] 提供。
+         *
+         * **必须显式传入**：消息 id 是随机 UUID，无法通过排序推断谁是边界。
+         */
+        val boundaryMessageId: String? = null,
+        /**
          * 上一次检查点的累计并入条数。滚动覆盖语义下新检查点取代旧的，
          * 累计值必须由调用方带上并累加，否则界面上的"已压缩多少条"会越显示越少。
          */
         val previousTotalCovered: Int = 0,
+        /**
+         * 本次新并入摘要的条数（由调用方按**有序消息列表**与上次边界求得）。
+         *
+         * 不在本类里用消息 id 排序推断：消息 id 是随机 UUID、集合无序，
+         * 靠排序猜"哪些是新增覆盖"会在真实数据上算错。
+         */
+        val newlyCoveredCount: Int = 0,
     )
 
     /**
@@ -224,7 +253,7 @@ class ContextCompressTransformer(
         val entry = CompressionSummaryStore.entry(request.sessionId)
         val summary = entry?.summary?.takeIf { it.isNotBlank() }
         val boundaryUuid = entry?.let { resolveBoundaryUuid(it, request) }
-        val newlyCovered = entry?.let { newlyCoveredCount(it, request.previousBoundaryId) } ?: 0
+        val newlyCovered = request.newlyCoveredCount
         return if (entry == null || summary == null || boundaryUuid == null) {
             null
         } else {
@@ -245,27 +274,68 @@ class ContextCompressTransformer(
     }
 
     /**
-     * 边界指针：优先取"本次新覆盖的最后一条"（UUIDv7 时间有序，取最大值即最新）；
-     * 本次没有新覆盖（例如等价区间被重复触发）时保持旧边界不动；都拿不到才回退到调用方给的值。
+     * 边界指针：优先用调用方给出的**有序**边界（[CheckpointRequest.boundaryMessageId]，
+     * 由 transform 按压缩集合的时间顺序取得）；拿不到时才退回旧边界，最后才用生成值兜底。
      */
     private fun resolveBoundaryUuid(entry: CompressionSummaryStore.Entry, request: CheckpointRequest): Uuid? {
+        val explicit = request.boundaryMessageId?.let { runCatching { Uuid.parse(it) }.getOrNull() }
         val previous = request.previousBoundaryId?.let { runCatching { Uuid.parse(it) }.getOrNull() }
-        val newlyCovered = newlyCoveredUuids(entry, request.previousBoundaryId)
-        return newlyCovered.maxOrNull()
+        return explicit
             ?: previous
             ?: runCatching { Uuid.parse(request.generatedBoundaryId) }.getOrNull()
     }
 
-    /** 水位线覆盖集合里、排在旧边界之后的部分（即"本次实际并入摘要"的消息）。 */
-    private fun newlyCoveredUuids(entry: CompressionSummaryStore.Entry, previousBoundaryId: String?): List<Uuid> {
+    /**
+     * v2.x: 构建**本地重建**检查点（零模型请求）。
+     *
+     * 用在摘要不可用时（网络差、摘要模型报错、超时）：把"会被覆盖的消息"做确定性文本摘录
+     * （[io.zer0.ai.core.ContextHistoryDigest]），仍然写出一条带边界指针的检查点。
+     *
+     * 为什么这一步重要：摘要失败后如果什么都不写，重开应用/切回会话又回到全量历史，
+     * 下次还得再试一遍摘要——用户看到的是"压缩了但没用"。本地重建虽然不提炼要点，
+     * 但**边界生效**：被覆盖的消息不再进模型，而且历史被确定性收窄到这个规模。
+     *
+     * @param covered 本次要覆盖的消息（按时间顺序，旧→新）；为空则返回 null
+     * @param previousBoundaryId 上一次检查点的边界（null 表示首次）
+     * @param coveredSeq 新边界消息在消息表里的真实 seq（查不到传 0，组装侧以消息 id 为准）
+     */
+    fun buildLocalCheckpoint(
+        sessionId: String,
+        covered: List<UIMessage>,
+        previousBoundaryId: String?,
+        coveredSeq: Long,
+        tokensBefore: Int,
+        tokensAfter: Int,
+        reason: String,
+        /** 摘录正文的字符预算（默认沿用 [io.zer0.ai.core.ContextHistoryDigest] 的默认值）。 */
+        maxChars: Int? = null,
+    ): io.zer0.memory.summary.ContextCheckpointEntity? {
+        if (covered.isEmpty()) return null
+        val digest = if (maxChars == null) {
+            io.zer0.ai.core.ContextHistoryDigest.build(covered)
+        } else {
+            io.zer0.ai.core.ContextHistoryDigest.build(covered, maxChars)
+        } ?: return null
         val previous = previousBoundaryId?.let { runCatching { Uuid.parse(it) }.getOrNull() }
-        return entry.coveredIds
-            .mapNotNull { runCatching { Uuid.parse(it) }.getOrNull() }
-            .filter { id -> previous == null || id > previous }
+        // 边界取**时间顺序上的最后一条**（covered 由调用方按旧→新给出）。
+        // 这里不能用 maxOrNull()：那是假设 UUIDv7 时间有序，而消息 id 可能是 v4（顺序随机），
+        // 一旦取错边界，组装侧就会把"还没被覆盖"的消息也当成已覆盖而丢掉。
+        val boundary = runCatching { Uuid.parse(covered.last().id.toString()) }.getOrNull()
+            ?: previous
+            ?: return null
+        return io.zer0.memory.summary.ContextCheckpointEntity(
+            sessionId = sessionId,
+            coveredSeq = coveredSeq,
+            lastCoveredMessageId = boundary.toString(),
+            coveredCount = covered.size,
+            summary = digest.content,
+            tokensBefore = tokensBefore,
+            tokensAfter = tokensAfter,
+            strategy = io.zer0.memory.summary.ContextCheckpointEntity.STRATEGY_LOCAL,
+            reason = reason,
+            updatedAt = System.currentTimeMillis(),
+        )
     }
-
-    private fun newlyCoveredCount(entry: CompressionSummaryStore.Entry, previousBoundaryId: String?): Int =
-        newlyCoveredUuids(entry, previousBoundaryId).size
 
     /** 取摘要的结局(v2.3.2: 把原先散落在 transform 里的 return 收敛成显式类型,便于控制函数长度)。 */
     private sealed interface SummaryOutcome {

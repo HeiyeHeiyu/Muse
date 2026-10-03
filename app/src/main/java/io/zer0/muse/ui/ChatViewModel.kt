@@ -3051,6 +3051,14 @@ class ChatViewModel(
                     tokensBefore = currentTokens,
                     tokensAfter = TokenEstimator.estimate(compressed),
                     reason = io.zer0.memory.summary.ContextCheckpointEntity.REASON_AUTO,
+                    // 边界与条数都取自"有序的压缩集合"，不用消息 id 排序推断：
+                    // 消息 id 是随机 UUID，集合无序，靠排序会选错边界并丢掉未覆盖的消息。
+                    boundaryMessageId = contextCompressTransformer.lastCoveredBoundaryId,
+                    newlyCoveredCount = newlyCoveredCount(
+                        messages = currentMessages,
+                        coveredIds = coveredIds,
+                        previousBoundaryId = currentCheckpointBoundaryId,
+                    ),
                 )
                 // v2.x: 覆盖集合先刷新再算占用率 —— 刷新后 checkpointCoveredIds 才是本次压缩的结果
                 checkpointCoveredSessionId = sessionId
@@ -3065,7 +3073,96 @@ class ChatViewModel(
                         after = compressed.size,
                     ),
                 )
+            } else {
+                // v2.x 降级阶梯最后一级：摘要没产出（网络差 / 摘要模型报错 / 超时 / 无净收益）。
+                // 此时**不空手而归** —— 用零请求的确定性文本摘录做本地重建，仍然写出一条检查点。
+                // 不这么做的话，重开应用/切回会话又回到全量历史，下次还得再试一遍摘要，
+                // 用户看到的现象是"压了但没用"。
+                if (displayedSessionId() == sessionId) {
+                    persistLocalCheckpointFallback(
+                        sessionId = sessionId,
+                        messages = currentMessages,
+                        keepRecent = keepRecent,
+                        previousBoundaryId = currentCheckpointBoundaryId,
+                        previousTotalCovered = existingCheckpoint?.totalCoveredCount ?: 0,
+                        tokensBefore = currentTokens,
+                    )
+                }
             }
+        }
+    }
+
+    /**
+     * v2.x: 数出"本次新并入摘要"的消息条数。
+     *
+     * 用**有序的消息列表**来数（而不是对覆盖 id 集合排序）：消息 id 是随机 UUID，
+     * 集合本身无序，任何基于 id 比较的推断都会在真实数据上算错。
+     * 上次边界之后、且落在覆盖集合内的消息才算"本次新增"。
+     */
+    private fun newlyCoveredCount(
+        messages: List<UIMessage>,
+        coveredIds: Set<String>,
+        previousBoundaryId: String?,
+    ): Int {
+        if (coveredIds.isEmpty()) return 0
+        val startIndex =
+            if (previousBoundaryId == null) {
+                0
+            } else {
+                messages.indexOfFirst { it.id.toString() == previousBoundaryId }
+                    .let { if (it < 0) 0 else it + 1 }
+            }
+        return messages.drop(startIndex).count { it.id.toString() in coveredIds }
+    }
+
+    /**
+     * v2.x: 摘要不可用时的**本地重建**检查点（零模型请求）。
+     *
+     * 覆盖范围与正常压缩一致：保留最近 [keepRecent] 条，其余做确定性文本摘录。
+     * 摘录只截取每条的自然语言片段，不做提炼 —— 它的价值不在于"摘要得多好"，
+     * 而在于**边界立刻生效**：被覆盖的消息不再进模型，且这一状态是持久的。
+     */
+    private suspend fun persistLocalCheckpointFallback(
+        sessionId: String,
+        messages: List<UIMessage>,
+        keepRecent: Int,
+        previousBoundaryId: String?,
+        previousTotalCovered: Int,
+        tokensBefore: Int,
+    ) {
+        val compressibleEnd = messages.size - keepRecent
+        if (compressibleEnd <= 0) return
+        val covered = messages.subList(0, compressibleEnd).filterNot {
+            it.role == MessageRole.SYSTEM && it.content.startsWith(io.zer0.muse.transformer.ContextCheckpointMerge.MARKER)
+        }
+        if (covered.isEmpty()) return
+        try {
+            val boundary = covered.last().id.toString()
+            val coveredSeq = runCatching { sessionRepository.getMessageById(boundary)?.seq ?: 0L }.getOrDefault(0L)
+            val checkpoint = contextCompressTransformer.buildLocalCheckpoint(
+                sessionId = sessionId,
+                covered = covered,
+                previousBoundaryId = previousBoundaryId,
+                coveredSeq = coveredSeq,
+                tokensBefore = tokensBefore,
+                // 本地摘录的收益是"不再带原文"，按摘录正文长度估算即可（不精确，但方向正确）
+                tokensAfter = TokenEstimator.estimate(covered.last().content) + covered.size * 20,
+                reason = io.zer0.memory.summary.ContextCheckpointEntity.REASON_AUTO,
+            ) ?: return
+            checkpointReader.put(
+                checkpoint.copy(totalCoveredCount = previousTotalCovered + covered.size),
+            )
+            checkpointCoveredSessionId = sessionId
+            refreshCheckpointCoveredIds(sessionId)
+            updateContextTokenCount()
+            Logger.i(
+                "ChatVM",
+                CompressionDiagnostics.localRebuildSaved(covered = covered.size, before = messages.size),
+            )
+        } catch (ce: kotlinx.coroutines.CancellationException) {
+            throw ce
+        } catch (t: Throwable) {
+            Logger.w("ChatVM", CompressionDiagnostics.writeCheckpointFailed(t.message))
         }
     }
 
@@ -3086,11 +3183,16 @@ class ChatViewModel(
         tokensBefore: Int,
         tokensAfter: Int,
         reason: String,
+        /** 本次"已并入摘要"的边界消息 id（按时间顺序的最后一条，由 transform 给出）。 */
+        boundaryMessageId: String? = null,
+        /** 本次新并入摘要的条数（按有序列表求出，不用消息 id 排序推断）。 */
+        newlyCoveredCount: Int = 0,
     ) {
         try {
             // 边界消息在消息表里的真实 seq（查不到就传 0：组装侧以消息 id 为准，seq 只作上界）
+            val boundaryForSeq = boundaryMessageId ?: generatedBoundaryId
             val coveredSeq =
-                runCatching { sessionRepository.getMessageById(generatedBoundaryId)?.seq ?: 0L }
+                runCatching { sessionRepository.getMessageById(boundaryForSeq)?.seq ?: 0L }
                     .getOrDefault(0L)
             val checkpoint = contextCompressTransformer.buildCheckpoint(
                 io.zer0.muse.transformer.ContextCompressTransformer.CheckpointRequest(
@@ -3101,7 +3203,9 @@ class ChatViewModel(
                     tokensBefore = tokensBefore,
                     tokensAfter = tokensAfter,
                     reason = reason,
+                    boundaryMessageId = boundaryMessageId,
                     previousTotalCovered = previousTotalCovered,
+                    newlyCoveredCount = newlyCoveredCount,
                 ),
             ) ?: return
             checkpointReader.put(checkpoint)
