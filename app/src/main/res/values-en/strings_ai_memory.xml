@@ -213,4 +213,11 @@
     <!-- v2.2.1: memory library archive / recovery hints -->
     <string name="memory_archive_rebuilt_hint">The memory library was archived and rebuilt due to a version change; some history may not have been kept</string>
     <string name="memory_archive_recovered">Recovered %1$d memories from the version-change archive</string>
+    <string name="memory_archive_recovery_title">Recoverable memory archive</string>
+    <string name="memory_archive_recovery_message">A version-change archive was found with %1$d session summaries and %2$d compiled sections. The current memory database is empty and can be restored safely.</string>
+    <string name="memory_archive_recovery_action">Restore archive</string>
+    <string name="memory_archive_recovery_confirm_title">Restore memory archive?</string>
+    <string name="memory_archive_recovery_confirm">This restores summaries and compiled memory into the current empty database without overwriting existing data. Continue?</string>
+    <string name="memory_archive_recovery_done">Restored %1$d memory records</string>
+    <string name="memory_archive_recovery_failed">Memory archive recovery failed: %1$s</string>
 </resources>

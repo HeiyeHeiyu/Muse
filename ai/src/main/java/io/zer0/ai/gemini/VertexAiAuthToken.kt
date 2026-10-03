@@ -178,7 +178,11 @@ class VertexAiAuthToken(
             client.newCall(request).execute().use { resp ->
                 val body = resp.body.string()
                 if (!resp.isSuccessful) {
-                    Logger.w(TAG, "Token 交换失败 HTTP ${resp.code}: $body")
+                    Logger.w(
+                        TAG,
+                        "Token 交换失败 HTTP ${resp.code}: " +
+                            (io.zer0.ai.core.ProviderError.safeErrorDetail(body) ?: "<empty>"),
+                    )
                     return@use null
                 }
                 AppJson.decodeFromString<TokenResponse>(body)

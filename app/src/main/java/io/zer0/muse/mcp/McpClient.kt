@@ -866,11 +866,9 @@ class McpClient(
                             streamableSessionInvalidated = true
                             streamableSessionId = null
                         }
-                        val errorBody = resp.body?.string()?.take(500).orEmpty()
                         Logger.w(
                             TAG,
-                            "[${config.name}] StreamableHTTP HTTP ${resp.code}" +
-                                errorBody.takeIf { it.isNotBlank() }?.let { ": $it" }.orEmpty(),
+                            "[${config.name}] StreamableHTTP HTTP ${resp.code}",
                         )
                         return@use null
                     }

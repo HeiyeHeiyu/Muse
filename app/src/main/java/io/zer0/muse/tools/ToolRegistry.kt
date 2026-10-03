@@ -454,8 +454,15 @@ class ToolRegistry(
             resultOf {
                 parseArgumentsLenient(argumentsJson)
             }.onError { msg, _ ->
-                Logger.w("ToolRegistry", "executeFromJson 参数解析失败: $msg(原始: $argumentsJson)")
-            }.getOrNull() ?: return context.getString(R.string.tool_param_parse_failed, argumentsJson)
+                Logger.w(
+                    "ToolRegistry",
+                    "executeFromJson 参数解析失败: $msg " +
+                        ToolDataPrivacy.safeArgumentsForPreview(name, argumentsJson),
+                )
+            }.getOrNull() ?: return context.getString(
+                R.string.tool_param_parse_failed,
+                ToolDataPrivacy.safeArgumentsForPreview(name, argumentsJson),
+            )
 
         jsonTools[name]?.let { fn ->
             val outcome = withDeviceInteractionLock(name) { executeJson(name, obj, fn) }
@@ -474,8 +481,15 @@ class ToolRegistry(
             resultOf {
                 obj.entries.associate { (k, v) -> k to v.toString().trim('"') }
             }.onError { msg, _ ->
-                Logger.w("ToolRegistry", "executeFromJson 参数转换失败: $msg(原始: $argumentsJson)")
-            }.getOrNull() ?: return context.getString(R.string.tool_param_parse_failed, argumentsJson)
+                Logger.w(
+                    "ToolRegistry",
+                    "executeFromJson 参数转换失败: $msg " +
+                        ToolDataPrivacy.safeArgumentsForPreview(name, argumentsJson),
+                )
+            }.getOrNull() ?: return context.getString(
+                R.string.tool_param_parse_failed,
+                ToolDataPrivacy.safeArgumentsForPreview(name, argumentsJson),
+            )
         // v1.0.53: execute 返回 ToolOutcome,取 content 保持 String 语义。
         // 空字符串不能继续向上游传播,否则工具卡片只能显示“执行中”而没有终态。
         val outcome =
@@ -649,7 +663,7 @@ class ToolRegistry(
                 // 补充内置工具
                 "pin_memory", "unpin_memory", "save_memory", "delete_memory",
                 "recall_experience", "record_experience",
-                "todo_write", "show_card", "notify", "current_status",
+                "todo_write", "show_card", "render_data", "notify", "current_status",
                 // v2.0: 卡片数据绑定(AgentToolsRegistrar 注册)
                 "update_card_data",
                 "subagent_task",

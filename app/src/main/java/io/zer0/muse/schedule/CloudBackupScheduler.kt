@@ -139,7 +139,7 @@ class CloudBackupScheduler(
      */
     private suspend fun checkAndSync() {
         // B-25: 总控关闭时直接跳过(读 DataStore 缓存值,成本低)
-        if (!settings.scheduleWorkEnabledFlow.first()) {
+        if (!readScheduleWorkEnabledOrFalse { settings.scheduleWorkEnabledFlow.first() }) {
             Logger.i(TAG, "后台调度总控已关闭,跳过云备份检查")
             return
         }

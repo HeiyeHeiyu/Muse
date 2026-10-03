@@ -20,6 +20,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 import java.time.ZoneId
 
+internal fun dailySummaryNotificationsEnabledOrFalse(value: Boolean?): Boolean =
+    scheduleWorkEnabledOrFalse(value)
+
 /**
  * 每日总结的唯一生成入口。
  *
@@ -65,8 +68,8 @@ class DailySummaryService(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Logger.w(TAG, "读取每日总结通知开关失败,按允许生成处理: ${e.message}", e)
-            true
+            Logger.w(TAG, "读取每日总结通知开关失败,按关闭通知处理: ${e.message}", e)
+            dailySummaryNotificationsEnabledOrFalse(null)
         }
         generateForSlotLocked(slotKey, summaryDate, notificationsEnabled)
     }

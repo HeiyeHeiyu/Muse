@@ -1,0 +1,17 @@
+package io.zer0.muse.ui
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class ChatViewModelSessionScopeTest {
+
+    @Test
+    fun `agent mode session scope prefers agent session`() {
+        val state = ChatUiState(
+            sessionState = ChatSessionState(currentSessionId = "task-1"),
+            agentState = ChatAgentState(isAgentMode = true, agentSessionId = "agent-1"),
+        )
+
+        assertEquals("agent-1", effectiveChatSessionId(state))
+    }
+}

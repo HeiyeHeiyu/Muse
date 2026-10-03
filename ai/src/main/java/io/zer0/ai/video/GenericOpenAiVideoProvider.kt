@@ -1,5 +1,6 @@
 package io.zer0.ai.video
 
+import io.zer0.ai.core.ProviderError
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import kotlinx.coroutines.Dispatchers
@@ -109,7 +110,8 @@ class GenericOpenAiVideoProvider(
                     val apiMsg = parseApiErrorMessage(respBody)
                     error(
                         "视频生成请求失败: HTTP ${resp.code}" +
-                            (apiMsg?.let { ": $it" } ?: if (respBody.isNotBlank()) ": $respBody" else ""),
+                            (apiMsg?.let { ": $it" }
+                                ?: ProviderError.safeErrorDetail(respBody)?.let { ": $it" }.orEmpty()),
                     )
                 }
 

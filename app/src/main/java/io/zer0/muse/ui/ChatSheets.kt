@@ -107,6 +107,7 @@ internal fun ChatSheetHost(
     onOpenPromptTemplateManager: () -> Unit,
 ) {
     val uiState by viewModel.state.collectAsStateWithLifecycle()
+    val messages by viewModel.messages.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
 
     // 阶段 5: 模型切换底部面板
@@ -202,11 +203,16 @@ internal fun ChatSheetHost(
     // v1.97: 合并展示任务待办 + 工具调用历史,可滑动查看
     if (sheetState.showToolCallSheet) {
         val latestPlan = uiState.agentPlans.values.maxByOrNull { it.createdAt }
+        val effectiveSessionId = if (uiState.isAgentMode) uiState.agentSessionId else uiState.currentSessionId
         MuseBottomSheet(
             onDismissRequest = { sheetState.showToolCallSheet = false },
         ) {
             ToolCallHistorySheet(
-                records = uiState.toolCallHistory,
+                    records = mergeToolCallRecords(
+                        records = uiState.toolCallHistory,
+                        messages = messages,
+                        sessionId = effectiveSessionId.orEmpty(),
+                    ),
                 agentPlan = latestPlan,
             )
         }

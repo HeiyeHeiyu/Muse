@@ -105,7 +105,7 @@ class MomentScheduler(
 
     private suspend fun checkAndGenerate() {
         // B-25: 后台调度总控 — 关闭时跳过(周期调度仍由 WorkManager 保留,重开即恢复)
-        if (!settings.scheduleWorkEnabledFlow.first()) {
+        if (!readScheduleWorkEnabledOrFalse { settings.scheduleWorkEnabledFlow.first() }) {
             Logger.d(TAG, "后台调度总控已关闭,跳过朋友圈调度")
             return
         }
@@ -205,9 +205,12 @@ class MomentWorker(
             return Result.success()
         }
         // B-25: 后台调度总控 — 关闭时跳过执行体,重开即恢复
-        val workEnabled = resultOf {
-            koin.get<SettingsRepository>().scheduleWorkEnabledFlow.first()
-        }.getOrNull() ?: true
+        val workEnabled =
+            scheduleWorkEnabledOrFalse(
+                resultOf {
+                    koin.get<SettingsRepository>().scheduleWorkEnabledFlow.first()
+                }.getOrNull(),
+            )
         if (!workEnabled) {
             Logger.i(TAG, "后台调度总控已关闭,跳过本次执行")
             return Result.success()

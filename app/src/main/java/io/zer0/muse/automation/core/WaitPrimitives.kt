@@ -1,6 +1,7 @@
 package io.zer0.muse.automation.core
 
 import io.zer0.common.Logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 
 /**
@@ -67,6 +68,8 @@ object WaitPrimitives {
         }
         Logger.w(TAG, "waitForIdle: timeout after ${timeoutMs}ms")
         false
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Logger.w(TAG, "waitForIdle exception: ${e.message}")
         false
@@ -107,6 +110,8 @@ object WaitPrimitives {
         }
         Logger.w(TAG, "waitForWindowChange: timeout after ${timeoutMs}ms")
         false
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Logger.w(TAG, "waitForWindowChange exception: ${e.message}")
         false
@@ -144,6 +149,8 @@ object WaitPrimitives {
         }
         Logger.w(TAG, "waitForText: timeout waiting for text '${text.take(30)}'")
         false
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         Logger.w(TAG, "waitForText exception: ${e.message}")
         false

@@ -75,6 +75,31 @@ class ToolTraceSummaryTest {
         assertTrue(longSummary.endsWith("…"))
     }
 
+    @Test
+    fun `persisted tool cards restore history when in-memory records are empty`() {
+        val message = io.zer0.ai.core.UIMessage(
+            role = io.zer0.ai.core.MessageRole.ASSISTANT,
+            content = "",
+            createdAt = 100L,
+            toolCallInfo = io.zer0.ai.core.ToolCallInfo(
+                toolName = "get_current_time",
+                arguments = """{"timezone":"UTC"}""",
+                result = "2026-10-03T10:00:00Z",
+                isSuccess = true,
+            ),
+        )
+
+        val restored = mergeToolCallRecords(
+            records = emptyList(),
+            messages = listOf(message),
+            sessionId = "session-1",
+        )
+
+        assertEquals(1, restored.size)
+        assertEquals("get_current_time", restored.single().toolName)
+        assertEquals("2026-10-03T10:00:00Z", restored.single().result)
+    }
+
     private fun record(toolName: String, timestamp: Long, success: Boolean, result: String) = ToolCallRecord(
         toolName = toolName,
         arguments = "{}",

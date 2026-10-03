@@ -28,15 +28,28 @@ object ToolCallSanitizer {
         }
         val repaired = repairArguments(tc.arguments)
         if (repaired == null) {
-            safeWarn("工具参数无法解析,保留调用并降级为 {}: tool=${tc.name}, id=${tc.id}, raw=${tc.arguments.take(240)}")
+            safeWarn(
+                "工具参数无法解析,保留调用并降级为 {}: " +
+                    safeArgumentsForLog(tc.name, tc.arguments),
+            )
             tc.copy(arguments = "{}")
         } else {
             if (repaired != tc.arguments) {
-                safeWarn("工具参数已修复: tool=${tc.name}, id=${tc.id}, before=${tc.arguments.take(160)}, after=${repaired.take(160)}")
+                safeWarn(
+                    "工具参数已修复: ${safeArgumentsForLog(tc.name, tc.arguments)}" +
+                        " repaired=[REDACTED]",
+                )
             }
             tc.copy(arguments = repaired)
         }
     }
+
+    /**
+     * Diagnostic-only representation. Tool arguments can contain passwords, clipboard
+     * contents, or text injected into another app; never put the raw JSON in logs.
+     */
+    internal fun safeArgumentsForLog(toolName: String, arguments: String): String =
+        "tool=$toolName args=[REDACTED] length=${arguments.length}"
 
     private fun safeWarn(message: String) {
         runCatching { Logger.w("ToolCallSanitizer", message) }

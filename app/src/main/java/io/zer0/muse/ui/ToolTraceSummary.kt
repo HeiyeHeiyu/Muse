@@ -1,6 +1,7 @@
 package io.zer0.muse.ui
 
 import android.content.res.Resources
+import io.zer0.ai.core.UIMessage
 import io.zer0.muse.R
 
 /**
@@ -62,6 +63,40 @@ internal fun summarizeToolTrace(records: List<ToolCallRecord>): List<ToolTraceSu
             latestRecord = latestRecord,
         )
     }
+}
+
+/**
+ * Restore tool history from persisted assistant tool cards when the in-memory trace was cleared
+ * by a new generation or a session reload. Runtime records win on duplicate executions.
+ */
+internal fun mergeToolCallRecords(
+    records: List<ToolCallRecord>,
+    messages: List<UIMessage>,
+    sessionId: String,
+): List<ToolCallRecord> {
+    val merged = LinkedHashMap<String, ToolCallRecord>()
+    fun key(record: ToolCallRecord): String =
+        listOf(record.toolName, record.timestamp, record.result).joinToString("\u001f")
+
+    records.forEach { merged[key(it)] = it }
+    messages.forEach { message ->
+        val info = message.toolCallInfo ?: return@forEach
+        val restored =
+            ToolCallRecord(
+                toolName = info.toolName,
+                arguments = info.arguments,
+                result = info.result,
+                isSuccess = info.isSuccess,
+                timestamp = message.createdAt,
+                sessionId = sessionId,
+                toolCallId = message.id.toString(),
+                status = if (info.isSuccess) "SUCCESS" else "FAILED",
+                startedAt = message.createdAt,
+                finishedAt = message.createdAt,
+            )
+        merged.putIfAbsent(key(restored), restored)
+    }
+    return merged.values.sortedBy { it.timestamp }
 }
 
 private const val TOOL_TRACE_PREVIEW_LIMIT = 120

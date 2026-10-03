@@ -552,7 +552,10 @@ class OpenAIProvider(
                             // 请求内容(含对话/参数),全量打日志可能把用户对话写入日志文件。
                             if (code == 400) {
                                 Logger.w("OpenAIProvider", "streamChat 400 请求摘要: ${describeRequestBody(body)}")
-                                Logger.w("OpenAIProvider", "streamChat 400 响应体(截断): ${errText.take(500)}")
+                                Logger.w(
+                                    "OpenAIProvider",
+                                    "streamChat 400 响应摘要: ${ProviderError.safeErrorDetail(errText) ?: "<empty>"}",
+                                )
                             }
                             // v1.0.1: 401/403 鉴权失败时标记当前 key 失败(多 key 场景)
                             if (code == 401 || code == 403) {
@@ -967,7 +970,10 @@ class OpenAIProvider(
                     // v1.0.28: HTTP 400 时记录请求体和完整响应体,帮助诊断中转站参数错误
                     if (code == 400) {
                         Logger.w("OpenAIProvider", "completeText 400 请求摘要: ${describeRequestBody(body)}")
-                        Logger.w("OpenAIProvider", "completeText 400 完整响应体: $errText")
+                        Logger.w(
+                            "OpenAIProvider",
+                            "completeText 400 响应摘要: ${ProviderError.safeErrorDetail(errText) ?: "<empty>"}",
+                        )
                     }
                     // L-OAI11: 用自定义异常替代字符串前缀判断
                     throw OpenAIHttpException(code, msg, ProviderError.parseRetryAfter(response.header("Retry-After")))
@@ -1145,7 +1151,7 @@ class OpenAIProvider(
                     val htmlHint = openAiHtmlEndpointHint(contentType, errText)
                     val errMsg = htmlHint ?: (
                         ErrorCode.INVALID_RESPONSE.toMessage("model_list_fetch", resp.code) +
-                            errText.takeIf { it.isNotBlank() }?.let { ": $it" }.orEmpty()
+                            ProviderError.safeErrorDetail(errText)?.let { ": $it" }.orEmpty()
                         )
                     // v1.0.8 (7.5): 错误分级日志 — 401/403 鉴权问题 vs 404/5xx 网络问题分别记录
                     val category = when (resp.code) {
@@ -1871,8 +1877,8 @@ class OpenAIProvider(
             // 优先用解析出的 detail.message,回退到原始 body(统一在此处截断一次)
             // L-OAI11: 移除 safeBody=body.take(200) 的预先截断,仅在此处 take(200)
             val msg = detail?.message?.takeIf { it.isNotBlank() }
-                ?: body.takeIf { it.isNotBlank() }
-            msg?.let { append(": ").append(it.take(200)) }
+                ?: ProviderError.safeErrorDetail(body)
+            msg?.let { append(": ").append(ProviderError.safeErrorDetail(it) ?: it.take(200)) }
             // L-OAI10: 追加 detail.code 字段
             detail?.code?.let { codeElem ->
                 val codeStr = when (codeElem) {

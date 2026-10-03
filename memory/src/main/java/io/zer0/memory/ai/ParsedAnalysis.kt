@@ -34,6 +34,10 @@ data class ParsedAnalysis(
     val profileMarkdown: String? = null,
 )
 
+/** 用户事实库只接受明确归属于 USER 的条目,避免主客体错位污染画像。 */
+internal fun ParsedAnalysis.userFactsOnly(): List<ParsedEntity> =
+    extractedEntities.filter { it.speaker.equals("USER", ignoreCase = true) }
+
 /**
  * 提取的实体(原子事实)。
  *
@@ -52,6 +56,8 @@ data class ParsedEntity(
     // MemoryAutoSaveScheduler 的 coerceInputValues 让单条坏字段不拖垮整次提取。
     val title: String = "",
     val content: String = "",
+    /** 事实说话者: USER 才能进入用户事实库;ASSISTANT/OTHER 保留为非用户信息。 */
+    val speaker: String = "USER",
     val credibility: Float = 0.5f,
     val importance: Float = 0.5f,
     val folderPath: String? = null,

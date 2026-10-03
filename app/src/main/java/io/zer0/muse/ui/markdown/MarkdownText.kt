@@ -331,7 +331,9 @@ fun MarkdownText(
                     val headingStyle = when (block.level) {
                         1 -> MaterialTheme.typography.headlineLarge
                         2 -> MaterialTheme.typography.headlineSmall
-                        else -> MaterialTheme.typography.titleMedium
+                        3 -> MaterialTheme.typography.titleMedium
+                        4 -> MaterialTheme.typography.titleSmall
+                        else -> MaterialTheme.typography.labelLarge
                     }
                     val annotated = remember(block.text, color, linkColor, codeBgColor, citationUrls, citationColor) {
                         parseInline(block.text, color, linkColor, codeBgColor, citationUrls, citationColor)

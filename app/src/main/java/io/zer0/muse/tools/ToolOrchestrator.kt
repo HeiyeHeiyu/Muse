@@ -1062,12 +1062,20 @@ class ToolOrchestrator(
                                     roundIndex = round,
                                     toolCallId = result.tc.id,
                                     toolName = result.tc.name,
-                                    argsJson = result.tc.arguments,
-                                    resultJson = result.finalToolResult,
+                                    argsJson = ToolDataPrivacy.safeArgumentsForPersistence(result.tc.name, result.tc.arguments),
+                                    resultJson = ToolDataPrivacy.safeResultForPersistence(result.tc.name, result.finalToolResult),
                                     status = result.status.name,
                                     startedAt = stepStartedAt,
                                     finishedAt = finishedAt,
-                                    errorDetail = if (result.isSuccess) null else result.displayResult ?: result.finalToolResult,
+                                    errorDetail =
+                                        if (result.isSuccess) {
+                                            null
+                                        } else {
+                                            ToolDataPrivacy.safeResultForPersistence(
+                                                result.tc.name,
+                                                result.displayResult ?: result.finalToolResult,
+                                            )
+                                        },
                                 )
                             }
                     }
@@ -1177,7 +1185,18 @@ class ToolOrchestrator(
                         // assistant(tool_calls) 已在上方落盘，这里补齐对应的 tool result 展示消息。
                         // 使用消息自身 id 做幂等 upsert，不影响当前 UI 是否正在展示该会话。
                         if (tc.name !in silentToolNames || tc.name == "send_sticker") {
-                            persistAssistantToolMsg(params.sessionId, toolDisplay, host)
+                            val persistedToolDisplay =
+                                toolDisplay.copy(
+                                    toolCallInfo =
+                                        toolDisplay.toolCallInfo?.copy(
+                                            arguments = ToolDataPrivacy.safeArgumentsForPersistence(tc.name, tc.arguments),
+                                            result = ToolDataPrivacy.safeResultForPersistence(
+                                                tc.name,
+                                                displayResult ?: finalToolResult,
+                                            ),
+                                        ),
+                                )
+                            persistAssistantToolMsg(params.sessionId, persistedToolDisplay, host)
                         }
                         val snapshot = accessor.snapshot
                         val isCurrentDisplayedSession =
@@ -1369,12 +1388,20 @@ class ToolOrchestrator(
                 roundIndex = round,
                 toolCallId = result.tc.id,
                 toolName = result.tc.name,
-                argsJson = result.tc.arguments,
-                resultJson = result.finalToolResult,
+                argsJson = ToolDataPrivacy.safeArgumentsForPersistence(result.tc.name, result.tc.arguments),
+                resultJson = ToolDataPrivacy.safeResultForPersistence(result.tc.name, result.finalToolResult),
                 status = result.status.name,
                 startedAt = startedAt,
                 finishedAt = now,
-                errorDetail = if (result.isSuccess) null else result.displayResult ?: result.finalToolResult,
+                errorDetail =
+                    if (result.isSuccess) {
+                        null
+                    } else {
+                        ToolDataPrivacy.safeResultForPersistence(
+                            result.tc.name,
+                            result.displayResult ?: result.finalToolResult,
+                        )
+                    },
             )
         resultOf { sessionRepository.upsertToolRound(entity) }
             .onError { msg, t ->

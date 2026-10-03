@@ -2,10 +2,12 @@ package io.zer0.muse.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import io.zer0.muse.data.SecureKeyCipher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -17,10 +19,24 @@ import org.robolectric.annotation.Config
 class PendingToolCallStoreTest {
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
+    private val cipher = object : SecureKeyCipher {
+        override suspend fun encrypt(plain: String): String = "enc_test:${plain.reversed()}"
+
+        override suspend fun decrypt(stored: String): String = stored.removePrefix("enc_test:").reversed()
+
+        override suspend fun decryptOrNull(stored: String): String? =
+            if (stored.startsWith("enc_test:")) stored.removePrefix("enc_test:").reversed() else stored
+    }
 
     @Before
     fun setUp() {
+        PendingToolCallStore.persistenceCipher = cipher
         PendingToolCallStore.init(context)
+    }
+
+    @After
+    fun tearDown() {
+        PendingToolCallStore.persistenceCipher = io.zer0.muse.data.SecureKeyStore
     }
 
     @Test
@@ -77,6 +93,27 @@ class PendingToolCallStoreTest {
             "user_denied",
             PendingToolCallStore.getForChat(pending.chatId).single().abortReason,
         )
+        PendingToolCallStore.clearForChat(pending.chatId)
+    }
+
+    @Test
+    fun pendingArgumentsAreEncryptedOnDiskButRemainRecoverable() = runTest {
+        val secret = "super-secret-password"
+        val pending = PendingToolCallStore.PendingToolCall(
+            chatId = "encrypted-session",
+            toolCallId = "call-secret",
+            toolName = "browser_type",
+            arguments = """{"text":"$secret"}""",
+            createdAt = 2L,
+        )
+
+        PendingToolCallStore.clearForChat(pending.chatId)
+        PendingToolCallStore.save(pending)
+
+        val file = java.io.File(context.filesDir, "pending_tool_calls.json")
+        assertTrue(file.readText().startsWith("enc_test:"))
+        assertTrue(!file.readText().contains(secret))
+        assertEquals(pending.arguments, PendingToolCallStore.getForChat(pending.chatId).single().arguments)
         PendingToolCallStore.clearForChat(pending.chatId)
     }
 }

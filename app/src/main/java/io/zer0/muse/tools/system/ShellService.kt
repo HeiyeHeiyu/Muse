@@ -9,6 +9,14 @@ import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 
+private val SAFE_SHELL_VERB_REGEX = Regex("^[A-Za-z][A-Za-z0-9_-]*$")
+
+/** Keep device-command diagnostics useful without persisting arguments or their sensitive values. */
+internal fun sanitizeShellCommandForLog(command: String): String {
+    val verb = command.trim().split(Regex("\\s+"), limit = 2).firstOrNull()
+    return verb?.takeIf { SAFE_SHELL_VERB_REGEX.matches(it) } ?: "<unknown>"
+}
+
 /**
  * P3-3: Shizuku UserService — 以 shell 权限执行命令的服务。
  *
@@ -49,7 +57,7 @@ class ShellService : IShellService.Stub() {
 
     override fun execute(command: String): String {
         return try {
-            Logger.d(TAG, "执行命令: $command")
+            Logger.d(TAG, "执行命令 verb=${sanitizeShellCommandForLog(command)}")
             val proc = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
             // stdout/stderr 必须在 waitFor 的同时持续排空；否则 uiautomator/screencap
             // 等输出稍大的命令会把管道写满，子进程永远等不到退出而被误判超时。

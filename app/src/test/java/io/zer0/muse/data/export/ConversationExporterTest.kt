@@ -2,6 +2,8 @@ package io.zer0.muse.data.export
 
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Locale
@@ -59,6 +61,18 @@ class ConversationExporterTest {
         )
         assertTrue(out.contains("### Thinking"))
         assertTrue(out.contains("because 1+1=2"))
+    }
+
+    @Test
+    fun `json export preserves session identity and complete message fields`() {
+        val out = ConversationExporter.exportToJson(
+            sessionId = "session-1",
+            messages = listOf(msg(MessageRole.USER, "hello")),
+            chatTitle = "My Chat",
+        )
+        val root = Json.parseToJsonElement(out).jsonObject
+        assertTrue(root["sessionId"]?.toString() == "\"session-1\"")
+        assertTrue(root["messages"]?.toString()?.contains("hello") == true)
     }
 
     @Test

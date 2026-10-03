@@ -63,6 +63,12 @@ class TeamWorkflowExecutor(
     private val skippedRequestIds: MutableSet<String> =
         java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
 
+    private sealed interface ConditionalDecision {
+        data object Execute : ConditionalDecision
+        data object Skip : ConditionalDecision
+        data class Failed(val reason: String) : ConditionalDecision
+    }
+
     /**
      * 执行团队工作流。
      *
@@ -196,12 +202,68 @@ class TeamWorkflowExecutor(
                     )
                 }
 
+                // 失败或被条件跳过的前置节点不能解锁后继节点。
+                // 否则一个 guard 返回 NO 后,依赖它的副作用节点仍会继续执行。
+                val blocked = ready.filter { node ->
+                    node.dependsOn.any { dependencyId ->
+                        val dependency = executed[dependencyId] ?: return@any false
+                        !dependency.success ||
+                            skippedRequestIds.contains("$parentRequestId/$dependencyId")
+                    }
+                }
+                blocked.forEach { node ->
+                    val childRequestId = "$parentRequestId/${node.id}"
+                    val inheritedSkip = node.dependsOn.any { dependencyId ->
+                        skippedRequestIds.contains("$parentRequestId/$dependencyId")
+                    }
+                    val blockedResult =
+                        if (inheritedSkip) {
+                            skippedRequestIds.add(childRequestId)
+                            skippedResult(childRequestId)
+                        } else {
+                            errorResult(
+                                childRequestId,
+                                "前置步骤未成功,已阻止执行该节点",
+                                startedAt,
+                            )
+                        }
+                    executed[node.id] = blockedResult
+                    delegationChainTracker?.onDelegationStarted(
+                        requestId = childRequestId,
+                        parentRequestId = parentRequestId,
+                        task = node.taskTemplate.ifBlank { teamTask },
+                        targetType = "assistant",
+                        targetId = node.assistantId,
+                        targetName = node.name.ifBlank { node.id },
+                    )
+                    delegationChainTracker?.onDelegationFinished(
+                        requestId = childRequestId,
+                        success = blockedResult.success,
+                        resultText = if (inheritedSkip) "(已跳过: 前置条件不满足)" else "",
+                        error = blockedResult.error,
+                    )
+                    recordToJournal(
+                        effectiveRunId,
+                        nodeSeqMap[node.id] ?: -1,
+                        node.taskTemplate.ifBlank { teamTask },
+                        node,
+                        if (inheritedSkip) "(skipped)" else blockedResult.error.orEmpty(),
+                        if (inheritedSkip) "done" else "failed",
+                        WorkflowJournal.NODE_KIND_LLM_DETERMINISTIC,
+                    )
+                    errors.addAll(blockedResult.collectErrors())
+                    pending.remove(node)
+                }
+
+                val executableReady = ready.filterNot { blocked.contains(it) }
+                if (executableReady.isEmpty()) continue
+
                 // v1.201: 每个成员执行前暂停(pauseBeforeEachMember)
                 if (pauseManager != null && pausePolicy.pauseBeforeEachMember) {
                     if (pauseManager.isCancelled(parentRequestId)) {
                         return errorResult(parentRequestId, "团队工作流被用户取消", startedAt)
                     }
-                    ready.forEach { node ->
+                    executableReady.forEach { node ->
                         val pauseReq = DelegationPauseManager.PauseRequest(
                             requestId = "pause-$parentRequestId-${node.id}",
                             taskId = "$parentRequestId/${node.id}",
@@ -235,28 +297,31 @@ class TeamWorkflowExecutor(
                         }
                     }
                     // 如果所有 ready 节点都被拒绝,继续下一轮
-                    if (ready.all { executed.containsKey(it.id) }) {
-                        pending.removeAll(ready)
+                    if (executableReady.all { executed.containsKey(it.id) }) {
+                        pending.removeAll(executableReady)
                         continue
                     }
                 }
 
+                val runnable = executableReady.filterNot { executed.containsKey(it.id) }
+                if (runnable.isEmpty()) continue
+
                 // 同一层节点按 mode 决定串行或并行
-                val sequential = ready.first().mode == DelegationContract.TeamWorkflowNode.Mode.SEQUENTIAL
+                val sequential = runnable.first().mode == DelegationContract.TeamWorkflowNode.Mode.SEQUENTIAL
                 val layerResults: List<DelegationContract.DelegationResult> = if (sequential) {
-                    ready.map { node ->
+                    runnable.map { node ->
                         executed[node.id] ?: executeNode(node, teamTask, parentRequestId, baseContext, executed, effectiveRunId, nodeSeqMap[node.id] ?: -1).also {
                             executed[node.id] = it
                         }
                     }
                 } else {
-                    executeParallel(ready, teamTask, parentRequestId, baseContext, executed, effectiveRunId, nodeSeqMap).also {
+                    executeParallel(runnable, teamTask, parentRequestId, baseContext, executed, effectiveRunId, nodeSeqMap).also {
                         executed.putAll(it)
                     }.values.toList()
                 }
 
                 errors.addAll(layerResults.flatMap { it.collectErrors() })
-                pending.removeAll(ready)
+                pending.removeAll(runnable)
             }
 
             val orderedResults = nodes.mapNotNull { executed[it.id] }
@@ -299,36 +364,63 @@ class TeamWorkflowExecutor(
         val childRequestId = "$parentRequestId/${node.id}"
         val task = buildNodeTask(node, teamTask, executed)
 
-        // v1.202 改造 2: CONDITIONAL 节点真条件判断
-        // - 仅当 mode==CONDITIONAL 且有前置依赖且 chatService 可用时,才做 LLM 判断
-        // - LLM 回答 NO 则跳过此节点(记录为 skipped),不执行 delegate
-        // - chatService 为 null 或 LLM 调用异常时降级为直接执行(避免误跳过)
+        // v1.202 改造 2: CONDITIONAL 节点真条件判断。
+        // 条件服务缺失、调用失败或返回非 YES/NO 时必须 fail-closed,不能把
+        // “无法判断”当成“允许执行”,否则后续委派可能产生外部副作用。
         if (node.mode == DelegationContract.TeamWorkflowNode.Mode.CONDITIONAL &&
-            node.dependsOn.isNotEmpty() &&
-            chatService != null
+            node.dependsOn.isNotEmpty()
         ) {
-            val shouldExecute = evaluateConditional(node, executed)
-            if (!shouldExecute) {
+            when (val decision = evaluateConditional(node, executed)) {
+                ConditionalDecision.Execute -> Unit
+                is ConditionalDecision.Failed -> {
+                    val reason = decision.reason
+                    delegationChainTracker?.onDelegationStarted(
+                        requestId = childRequestId,
+                        parentRequestId = parentRequestId,
+                        task = task,
+                        targetType = "assistant",
+                        targetId = node.assistantId,
+                        targetName = node.name.ifBlank { node.id },
+                    )
+                    delegationChainTracker?.onDelegationFinished(
+                        requestId = childRequestId,
+                        success = false,
+                        resultText = "",
+                        error = reason,
+                    )
+                    recordToJournal(
+                        runId,
+                        nodeSeq,
+                        task,
+                        node,
+                        reason,
+                        "failed",
+                        WorkflowJournal.NODE_KIND_LLM_DETERMINISTIC,
+                    )
+                    return errorResult(childRequestId, reason, System.currentTimeMillis())
+                }
+                ConditionalDecision.Skip -> {
                 // 标记为 skipped:resultText 留空,自然被 aggregateResults 的 isNotBlank() 过滤
-                skippedRequestIds.add(childRequestId)
-                // 同步到链路追踪器:开始 + 立即结束(skipped 状态)
-                // 用 "(已跳过)" 作为结果预览,UI 卡片可直接展示跳过原因
-                delegationChainTracker?.onDelegationStarted(
-                    requestId = childRequestId,
-                    parentRequestId = parentRequestId,
-                    task = task,
-                    targetType = "assistant",
-                    targetId = node.assistantId,
-                    targetName = node.name.ifBlank { node.id },
-                )
-                delegationChainTracker?.onDelegationFinished(
-                    requestId = childRequestId,
-                    success = true,
-                    resultText = "(已跳过: 条件不满足)",
-                )
-                // v1.0.53 Phase 2: CONDITIONAL 判定为 NO 属确定性结果(温度=0),记为 llm_deterministic
-                recordToJournal(runId, nodeSeq, task, node, "(skipped)", "done", WorkflowJournal.NODE_KIND_LLM_DETERMINISTIC)
-                return skippedResult(childRequestId)
+                    skippedRequestIds.add(childRequestId)
+                    // 同步到链路追踪器:开始 + 立即结束(skipped 状态)
+                    // 用 "(已跳过)" 作为结果预览,UI 卡片可直接展示跳过原因
+                    delegationChainTracker?.onDelegationStarted(
+                        requestId = childRequestId,
+                        parentRequestId = parentRequestId,
+                        task = task,
+                        targetType = "assistant",
+                        targetId = node.assistantId,
+                        targetName = node.name.ifBlank { node.id },
+                    )
+                    delegationChainTracker?.onDelegationFinished(
+                        requestId = childRequestId,
+                        success = true,
+                        resultText = "(已跳过: 条件不满足)",
+                    )
+                    // v1.0.53 Phase 2: CONDITIONAL 判定为 NO 属确定性结果(温度=0),记为 llm_deterministic
+                    recordToJournal(runId, nodeSeq, task, node, "(skipped)", "done", WorkflowJournal.NODE_KIND_LLM_DETERMINISTIC)
+                    return skippedResult(childRequestId)
+                }
             }
         }
 
@@ -609,21 +701,23 @@ $dependencySummary
      *  - 构造简短 prompt,把前置结果摘要 + 当前任务交给 LLM,要求只回答 YES/NO
      *  - temperature=0 保证确定性,maxTokens=10 防止 LLM 啰嗦浪费 token
      *  - 优先匹配 NO(避免同时含 YES/NO 时误判)
-     *  - LLM 调用失败/超时/异常时返回 true(默认执行,避免误跳过造成工作流断链)
-     *  - 前置结果全为空时直接返回 true(无依据可判,默认执行)
+     *  - LLM 调用失败/超时/异常时 fail-closed,阻止该节点执行
+     *  - 前置结果全为空时也阻止执行,避免无依据地触发副作用
      */
     private suspend fun evaluateConditional(
         node: DelegationContract.TeamWorkflowNode,
         executed: Map<String, DelegationContract.DelegationResult>,
-    ): Boolean {
+    ): ConditionalDecision {
         val previousResults = node.dependsOn.mapNotNull { depId ->
             executed[depId]?.let { dep ->
                 val status = if (dep.success) "成功" else "失败"
                 "[$depId]($status): ${dep.resultText.take(500)}"
             }
         }.joinToString("\n")
-        // 无前置结果可参考,默认执行
-        if (previousResults.isBlank()) return true
+        // 无前置结果可参考,阻止执行
+        if (previousResults.isBlank()) {
+            return ConditionalDecision.Failed("条件判断缺少前置结果,已阻止执行该节点")
+        }
 
         val nodeTask = node.taskTemplate.ifBlank { node.name.ifBlank { node.id } }
         val prompt = """根据以下前置结果,判断是否应该执行任务"$nodeTask"。回答 YES 或 NO。
@@ -643,20 +737,24 @@ $previousResults
         )
 
         // resultOf{} 自动重抛 CancellationException,不破坏协程取消语义
+        val service = chatService
+            ?: return ConditionalDecision.Failed("条件判断服务不可用,已阻止执行该节点")
         val completion = resultOf {
-            chatService?.completeText(
+            service.completeText(
                 messages = messages,
                 temperature = 0f,
                 maxTokens = 10,
             )
         }.onError { msg, t ->
-            Logger.w("TeamWorkflowExecutor", "CONDITIONAL 条件判断 LLM 调用失败,默认执行: $msg", t)
-        }.getOrNull() ?: return true // chatService 为 null 或调用异常,默认执行
+            Logger.w("TeamWorkflowExecutor", "CONDITIONAL 条件判断 LLM 调用失败,已阻止节点执行: $msg", t)
+        }.getOrNull() ?: return ConditionalDecision.Failed("条件判断调用失败,已阻止执行该节点")
 
         val text = completion.text.trim().uppercase()
-        // 优先匹配 NO(避免 "YES, but..." 之类同时含 YES/NO 时误判为 NO)
-        // startsWith("NO") 处理 "NO" / "NO." / "NO, because..." 这类开头
-        return !(text.startsWith("NO") || (text.contains("NO") && !text.contains("YES")))
+        return when {
+            text.startsWith("NO") -> ConditionalDecision.Skip
+            text.startsWith("YES") -> ConditionalDecision.Execute
+            else -> ConditionalDecision.Failed("条件判断返回无法识别的结果,已阻止执行该节点")
+        }
     }
 
     /**

@@ -123,8 +123,11 @@ public final class ServerService extends IVirtualDisplayService.Stub {
     @Override
     public synchronized boolean launchApp(String packageName, int id) {
         touch();
-        if (packageName == null || !displays.containsKey(id) || !packageName.matches("[a-zA-Z][a-zA-Z0-9_.]*")) {
+        if (packageName == null || !packageName.matches("[a-zA-Z][a-zA-Z0-9_.]*")) {
             return false;
+        }
+        if (!displays.containsKey(id)) {
+            throw new IllegalStateException("display not found: " + id);
         }
         try {
             String component = resolveLauncherComponent(packageName);
@@ -168,7 +171,11 @@ public final class ServerService extends IVirtualDisplayService.Stub {
     public synchronized byte[] requestScreenshot(int id) {
         touch();
         DisplayState state = displays.get(id);
-        if (state == null) return null;
+        if (state == null) {
+            // Let the client distinguish a stale display ID from a valid display
+            // that simply has not produced a frame yet.
+            throw new IllegalStateException("display not found: " + id);
+        }
         Image image = null;
         try {
             long deadline = System.currentTimeMillis() + SCREENSHOT_TIMEOUT_MS;

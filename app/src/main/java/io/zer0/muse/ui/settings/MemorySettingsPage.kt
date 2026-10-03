@@ -97,6 +97,16 @@ fun MemorySettingsPage(onBack: () -> Unit, onOpenMemorySpace: () -> Unit = {}) {
                     onCheckedChange = { v -> scope.launch { settings.saveMemoryEnabled(v) } },
                 )
                 SettingsGroupDivider()
+                SettingsSwitchRow(
+                    icon = MuseIcons.history,
+                    title = stringResource(R.string.settings_memory_conversation_recall),
+                    subtitle = stringResource(R.string.settings_memory_conversation_recall_subtitle),
+                    checked = localConfig.conversationRecallEnabled,
+                    onCheckedChange = { enabled ->
+                        localConfig = localConfig.copy(conversationRecallEnabled = enabled)
+                    },
+                )
+                SettingsGroupDivider()
                 SettingsSliderRow(
                     icon = MuseIcons.server,
                     iconContentDescription = stringResource(R.string.settings_memory_token_budget),

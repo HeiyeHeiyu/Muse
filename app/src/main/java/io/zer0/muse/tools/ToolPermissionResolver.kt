@@ -301,6 +301,7 @@ object ToolPermissionResolver {
         "http_post" to ToolRiskLevel.NORMAL,
         "todo_write" to ToolRiskLevel.NORMAL,
         "show_card" to ToolRiskLevel.NORMAL,
+        "render_data" to ToolRiskLevel.SAFE,
         "notify" to ToolRiskLevel.NORMAL,
         "record_experience" to ToolRiskLevel.NORMAL,
         "channel_reply" to ToolRiskLevel.NORMAL,

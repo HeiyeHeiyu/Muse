@@ -1,6 +1,7 @@
 package io.zer0.muse.automation.vdisplay
 
 import android.content.Context
+import android.os.RemoteException
 import androidx.test.core.app.ApplicationProvider
 import io.mockk.coEvery
 import io.mockk.every
@@ -17,6 +18,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -75,6 +77,34 @@ class VirtualDisplayClientTest {
         val client = VirtualDisplayClient(context, manager)
 
         assertFalse(client.destroy(53))
+
+        verify(exactly = 1) { manager.lastDisplayId = -1 }
+    }
+
+    @Test
+    fun `screenshot clears cached id when a live service rejects the stale display`() = runBlocking {
+        val manager = mockk<VirtualDisplayServerManager>(relaxed = true)
+        val service = mockk<IVirtualDisplayService>()
+        every { manager.lastDisplayId } returns 42
+        coEvery { manager.ensureStarted() } returns Result.success(service)
+        every { service.requestScreenshot(42) } throws RemoteException("stale display")
+        val client = VirtualDisplayClient(context, manager)
+
+        assertNull(client.screenshot())
+
+        verify(exactly = 1) { manager.lastDisplayId = -1 }
+    }
+
+    @Test
+    fun `openApp clears cached id when a live service rejects the stale display`() = runBlocking {
+        val manager = mockk<VirtualDisplayServerManager>(relaxed = true)
+        val service = mockk<IVirtualDisplayService>()
+        every { manager.lastDisplayId } returns 42
+        coEvery { manager.existingLiveProxy() } returns service
+        every { service.launchApp("com.example.target", 42) } throws RemoteException("stale display")
+        val client = VirtualDisplayClient(context, manager)
+
+        assertFalse(client.openApp("com.example.target", 42))
 
         verify(exactly = 1) { manager.lastDisplayId = -1 }
     }

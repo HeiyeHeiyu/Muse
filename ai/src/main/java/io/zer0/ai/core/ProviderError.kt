@@ -4,6 +4,9 @@ import io.zer0.common.ErrorCode
 import io.zer0.common.Logger
 import io.zer0.common.toMessage
 import java.io.IOException
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * v1.0.1: Provider 错误归一化 sealed class。
@@ -131,13 +134,13 @@ sealed class ProviderError {
             // IOException 优先归为 Network(即使 code 非 null,如 SSE 中断后 IOException)。
             throwable is IOException ->
                 Network(
-                    displayMessage = throwable.message ?: "network error",
+                    displayMessage = safeErrorDetail(throwable.message.orEmpty()) ?: "network error",
                     cause = throwable,
                 )
             code != null -> fromHttpStatus(code, body, retryAfterSec)
             throwable != null ->
                 Unknown(
-                    displayMessage = throwable.message ?: "unknown error",
+                    displayMessage = safeErrorDetail(throwable.message.orEmpty()) ?: "unknown error",
                     cause = throwable,
                 )
             else -> Unknown(displayMessage = body.ifBlank { "unknown error" })
@@ -193,11 +196,45 @@ sealed class ProviderError {
             return buildString {
                 append("HTTP ").append(code)
                 category?.let { append(" [").append(it).append("]") }
-                if (body.isNotBlank()) {
-                    val capped = if (body.length > 200) body.take(200) else body
+                safeErrorDetail(body)?.let { capped ->
                     append(": ").append(capped)
                 }
             }
+        }
+
+        /**
+         * Keep provider diagnostics useful without copying a response body that may echo
+         * prompts, tool arguments, API keys, or redirect parameters.
+         */
+        internal fun safeErrorDetail(body: String): String? {
+            if (body.isBlank()) return null
+            val candidate =
+                runCatching {
+                    val root = Json.parseToJsonElement(body)
+                    val error = (root as? JsonObject)?.get("error")
+                    val errorObject = error as? JsonObject
+                    val message = (errorObject?.get("message") as? JsonPrimitive)?.content
+                        ?: (root as? JsonObject)?.get("message")?.let { (it as? JsonPrimitive)?.content }
+                    val type = (errorObject?.get("type") as? JsonPrimitive)?.content
+                    val code = (errorObject?.get("code") as? JsonPrimitive)?.content
+                    listOfNotNull(message, type?.let { "type=$it" }, code?.let { "code=$it" })
+                        .joinToString(" | ")
+                        .ifBlank { body }
+                }.getOrDefault(body)
+            val redacted = redactSecrets(candidate)
+            return redacted.take(200).ifBlank { null }
+        }
+
+        private fun redactSecrets(text: String): String {
+            var value = text
+            value = Regex(
+                """(?i)(api[\s_-]?key|token|password|secret|authorization|cookie)\s*[:=]?\s*["']?[A-Za-z0-9._~+/=-]{6,}""",
+            ).replace(value) { "${it.groupValues[1]}=[REDACTED]" }
+            value = Regex("""(?i)\b(?:sk|rk|pk|ak)-[A-Za-z0-9][A-Za-z0-9._-]{5,}\b""")
+                .replace(value, "[REDACTED]")
+            value = Regex("""(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{8,}\b""")
+                .replace(value, "Bearer [REDACTED]")
+            return value
         }
     }
 }
@@ -263,21 +300,22 @@ val ChatStreamEvent.Error.providerError: ProviderError?
 )
 fun inferFromMessage(message: String, throwable: Throwable?): ProviderError? {
     if (message.isBlank() && throwable == null) return null
-    val msg = message.lowercase()
+    val safeMessage = ProviderError.safeErrorDetail(message) ?: message.take(200)
+    val msg = safeMessage.lowercase()
     return when {
         throwable is IOException ||
             msg.contains("timeout") || msg.contains("network") || msg.contains("网络") ->
-            ProviderError.Network(message, throwable)
+            ProviderError.Network(safeMessage, throwable)
         msg.contains("401") || msg.contains("403") ||
             msg.contains("api key") || msg.contains("unauthorized") ->
-            ProviderError.AuthError(displayMessage = message, cause = throwable)
+            ProviderError.AuthError(displayMessage = safeMessage, cause = throwable)
         msg.contains("429") || msg.contains("rate limit") ->
-            ProviderError.RateLimit(displayMessage = message, cause = throwable)
+            ProviderError.RateLimit(displayMessage = safeMessage, cause = throwable)
         msg.contains("500") || msg.contains("502") || msg.contains("503") ||
             msg.contains("504") || msg.contains("529") || msg.contains("overloaded") ->
-            ProviderError.ServerError(httpCode = 529, displayMessage = message, cause = throwable)
+            ProviderError.ServerError(httpCode = 529, displayMessage = safeMessage, cause = throwable)
         msg.contains("400") || msg.contains("422") || msg.contains("404") ->
-            ProviderError.InvalidRequest(displayMessage = message, cause = throwable)
+            ProviderError.InvalidRequest(displayMessage = safeMessage, cause = throwable)
         else -> null // 不强推断为 Unknown,让上层保留原行为
     }
 }

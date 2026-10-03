@@ -5,6 +5,8 @@ import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.data.AtomicFileStore
+import io.zer0.muse.data.SecureKeyCipher
+import io.zer0.muse.data.SecureKeyStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -67,6 +69,13 @@ object PendingToolCallStore {
     private var fileRef: File? = null
 
     /**
+     * Pending arguments may contain passwords, clipboard text, or browser input. Keep the
+     * recovery file encrypted at rest; tests may inject a deterministic cipher.
+     */
+    @Volatile
+    internal var persistenceCipher: SecureKeyCipher = SecureKeyStore
+
+    /**
      * 初始化文件路径。需在 App 启动时调用一次(从 [MuseApp] 或 Koin 模块注入时)。
      * 不调用也能用 — 首次 [loadAll] 会用 applicationContext 兜底。
      */
@@ -94,7 +103,9 @@ object PendingToolCallStore {
         val f = file() ?: return@withContext emptyList()
         if (!f.exists()) return@withContext emptyList()
         resultOf {
-            val text = f.readText()
+            val stored = f.readText()
+            val text = persistenceCipher.decryptOrNull(stored)
+                ?: error("pending tool-call file could not be decrypted")
             if (text.isBlank()) {
                 emptyList()
             } else {
@@ -114,11 +125,12 @@ object PendingToolCallStore {
                 ListSerializer(PendingToolCall.serializer()),
                 list,
             )
+            val stored = persistenceCipher.encrypt(text)
             // 审批/断点状态同样需要 fsync + 原子替换，避免停止或进程被杀时写半个 JSON。
-            AtomicFileStore.writeText(f, text)
+            AtomicFileStore.writeText(f, stored)
         }.onError { msg, t ->
             Logger.e(TAG, "saveAllInternal 写入失败: $msg", t)
-        }
+        }.getOrThrow()
     }
 
     /**

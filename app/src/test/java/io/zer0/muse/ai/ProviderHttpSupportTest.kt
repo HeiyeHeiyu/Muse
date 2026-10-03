@@ -9,6 +9,7 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -126,7 +127,8 @@ class ProviderHttpSupportTest {
     fun `buildHttpErrorMessage 包含截断的 body 摘要`() {
         val body = "Invalid API key provided"
         val msg = ProviderHttpSupport.buildHttpErrorMessage("OpenAI", 401, body)
-        assertTrue("应包含 body 内容: $msg", msg.contains(body))
+        assertTrue("应包含脱敏后的 body 摘要: $msg", msg.contains("API key=[REDACTED]"))
+        assertFalse("不应原样回显凭证字段: $msg", msg.contains(body))
     }
 
     @Test

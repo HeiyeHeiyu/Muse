@@ -208,4 +208,11 @@
     <!-- v2.2.1: 記憶ライブラリのアーカイブ/復元のヒント -->
     <string name="memory_archive_rebuilt_hint">バージョン変更により記憶ライブラリがアーカイブ・再構築されました。一部の履歴が保持されていない可能性があります</string>
     <string name="memory_archive_recovered">バージョン変更のアーカイブから %1$d 件の記憶を復元しました</string>
+    <string name="memory_archive_recovery_title">復元可能な記憶アーカイブ</string>
+    <string name="memory_archive_recovery_message">バージョン変更のアーカイブにセッション概要 %1$d 件とコンパイル済みセクション %2$d 件があります。現在の記憶データベースは空のため安全に復元できます。</string>
+    <string name="memory_archive_recovery_action">アーカイブを復元</string>
+    <string name="memory_archive_recovery_confirm_title">記憶アーカイブを復元しますか?</string>
+    <string name="memory_archive_recovery_confirm">既存データを上書きせず、空の現在のデータベースに概要とコンパイル済み記憶を復元します。続行しますか?</string>
+    <string name="memory_archive_recovery_done">%1$d 件の記憶レコードを復元しました</string>
+    <string name="memory_archive_recovery_failed">記憶アーカイブの復元に失敗しました: %1$s</string>
 </resources>

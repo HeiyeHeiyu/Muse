@@ -208,4 +208,11 @@
     <!-- v2.2.1: avisos de archivo/recuperación de la biblioteca de memoria -->
     <string name="memory_archive_rebuilt_hint">La biblioteca de memoria se archivó y reconstruyó por un cambio de versión; parte del historial podría no haberse conservado</string>
     <string name="memory_archive_recovered">Se recuperaron %1$d memorias del archivo por cambio de versión</string>
+    <string name="memory_archive_recovery_title">Archivo de memoria recuperable</string>
+    <string name="memory_archive_recovery_message">Se encontró un archivo de cambio de versión con %1$d resúmenes de sesión y %2$d secciones compiladas. La base de memoria actual está vacía y se puede restaurar de forma segura.</string>
+    <string name="memory_archive_recovery_action">Restaurar archivo</string>
+    <string name="memory_archive_recovery_confirm_title">¿Restaurar el archivo de memoria?</string>
+    <string name="memory_archive_recovery_confirm">Esto restaurará los resúmenes y la memoria compilada en la base actual vacía sin sobrescribir datos existentes. ¿Continuar?</string>
+    <string name="memory_archive_recovery_done">Se restauraron %1$d registros de memoria</string>
+    <string name="memory_archive_recovery_failed">Error al restaurar el archivo de memoria: %1$s</string>
 </resources>

@@ -208,4 +208,11 @@
     <!-- v2.2.1: подсказки об архивации/восстановлении библиотеки памяти -->
     <string name="memory_archive_rebuilt_hint">Библиотека памяти была заархивирована и пересоздана из-за смены версии; часть истории могла не сохраниться</string>
     <string name="memory_archive_recovered">Восстановлено %1$d воспоминаний из архива смены версии</string>
+    <string name="memory_archive_recovery_title">Доступен архив памяти</string>
+    <string name="memory_archive_recovery_message">Найден архив смены версии: сводок сессий — %1$d, скомпилированных разделов — %2$d. Текущая база памяти пуста, восстановление безопасно.</string>
+    <string name="memory_archive_recovery_action">Восстановить архив</string>
+    <string name="memory_archive_recovery_confirm_title">Восстановить архив памяти?</string>
+    <string name="memory_archive_recovery_confirm">Сводки и скомпилированная память будут восстановлены в пустую текущую базу без перезаписи существующих данных. Продолжить?</string>
+    <string name="memory_archive_recovery_done">Восстановлено записей памяти: %1$d</string>
+    <string name="memory_archive_recovery_failed">Не удалось восстановить архив памяти: %1$s</string>
 </resources>

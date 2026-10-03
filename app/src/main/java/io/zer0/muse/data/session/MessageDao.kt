@@ -90,11 +90,37 @@ interface MessageDao {
     @Query("SELECT COALESCE(MAX(seq), 0) FROM messages WHERE sessionId = :sessionId")
     suspend fun getMaxSeq(sessionId: String): Long
 
-    /** v1.58: 查询会话中到指定时间戳为止(含)的全部消息(升序),用于对话分叉 Fork。 */
+    /**
+     * v1.58/v2.4: 查询会话中到指定锚点为止(含)的全部消息(升序),用于对话分叉 Fork。
+     *
+     * 分叉边界必须与会话读取排序使用同一个复合键。仅按 createdAt 截断会把同一毫秒内
+     * 锚点之后的消息一并复制,而流式写入和批量导入都可能产生相同时间戳。
+     */
     @Query(
-        "SELECT * FROM messages WHERE sessionId = :sessionId AND createdAt <= :untilCreatedAt ORDER BY CASE WHEN commitSeq > 0 THEN commitSeq ELSE seq END ASC",
+        """
+        SELECT * FROM messages
+        WHERE sessionId = :sessionId
+          AND (
+            (CASE WHEN commitSeq > 0 THEN commitSeq ELSE seq END) < :untilOrder
+            OR (
+              (CASE WHEN commitSeq > 0 THEN commitSeq ELSE seq END) = :untilOrder
+              AND createdAt < :untilCreatedAt
+            )
+            OR (
+              (CASE WHEN commitSeq > 0 THEN commitSeq ELSE seq END) = :untilOrder
+              AND createdAt = :untilCreatedAt
+              AND id <= :untilMessageId
+            )
+          )
+        ORDER BY CASE WHEN commitSeq > 0 THEN commitSeq ELSE seq END ASC, createdAt ASC, id ASC
+        """,
     )
-    suspend fun getUpToBySession(sessionId: String, untilCreatedAt: Long): List<MessageEntity>
+    suspend fun getUpToBySession(
+        sessionId: String,
+        untilOrder: Long,
+        untilCreatedAt: Long,
+        untilMessageId: String,
+    ): List<MessageEntity>
 
     /** 插入消息(冲突时替换,支持流式更新 assistant 消息)。 */
     @Insert(onConflict = OnConflictStrategy.REPLACE)

@@ -1043,7 +1043,9 @@ class GeminiProvider(
             append("HTTP ").append(code)
             status?.takeIf { it.isNotBlank() }?.let { append(" (").append(it).append(")") }
             statusHint?.let { append(" [").append(it).append("]") }
-            detail?.message?.takeIf { it.isNotBlank() }?.let { append(": ").append(it) }
+            detail?.message?.takeIf { it.isNotBlank() }?.let {
+                append(": ").append(ProviderError.safeErrorDetail(it) ?: it.take(200))
+            }
         }
     }
 

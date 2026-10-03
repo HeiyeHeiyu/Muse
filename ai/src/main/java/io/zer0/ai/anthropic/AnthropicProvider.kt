@@ -941,7 +941,9 @@ class AnthropicProvider(
             append("HTTP ").append(code)
             category?.let { append(" [").append(it).append("]") }
             detail?.type?.takeIf { it.isNotBlank() }?.let { append(" (").append(it).append(")") }
-            detail?.message?.takeIf { it.isNotBlank() }?.let { append(": ").append(it) }
+            detail?.message?.takeIf { it.isNotBlank() }?.let {
+                append(": ").append(ProviderError.safeErrorDetail(it) ?: it.take(200))
+            }
         }
     }
 

@@ -1,6 +1,7 @@
 package io.zer0.muse.tools
 
 import io.zer0.common.Logger
+import io.zer0.muse.tools.system.sanitizeShellCommandForLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -147,7 +148,10 @@ object ShellSandboxTool {
             val exitCode = process.exitValue()
             val truncated = if (output.length > 8000) output.substring(0, 8000) + "\n...(输出超 8000 字符,已截断)" else output
 
-            Logger.i("ShellSandbox", "execute: $command → exit=$exitCode (${output.length} chars)")
+            Logger.i(
+                "ShellSandbox",
+                "execute verb=${sanitizeShellCommandForLog(command)} → exit=$exitCode (${output.length} chars)",
+            )
             if (exitCode == 0) {
                 truncated.ifBlank { "[成功] 命令执行完成,无输出" }
             } else {

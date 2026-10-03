@@ -54,7 +54,8 @@ object ToolArgsParser {
         }.onError { msg, _ ->
             Logger.w(
                 TAG,
-                "$toolName arguments 解析失败: $msg(前 200 字: ${trimmed.take(200)})",
+                "$toolName arguments 解析失败: $msg " +
+                    ToolDataPrivacy.safeArgumentsForPreview(toolName, trimmed),
             )
         }.getOrNull()
         return parsed ?: emptyMap()

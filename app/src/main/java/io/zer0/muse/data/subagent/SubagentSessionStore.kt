@@ -5,6 +5,8 @@ import io.zer0.ai.core.UIMessage
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.data.SecureKeyCipher
+import io.zer0.muse.data.SecureKeyStore
 import io.zer0.muse.util.TokenEstimator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -27,9 +29,11 @@ import java.io.File
 class SubagentSessionStore(
     private val sessionsDir: File,
     private val tokenEstimator: TokenEstimator = TokenEstimator,
+    private val persistenceCipher: SecureKeyCipher = SecureKeyStore,
 ) {
     companion object {
         private const val TAG = "SubagentSessionStore"
+        private val SAFE_THREAD_ID = Regex("^[a-zA-Z0-9_:-]{1,128}$")
     }
 
     init {
@@ -45,11 +49,13 @@ class SubagentSessionStore(
             if (messages.isEmpty()) return@resultOf
             val file = pathOf(threadId)
             file.parentFile?.mkdirs()
-            file.appendText(
-                messages.joinToString("") { msg ->
-                    AppJson.encodeToString(UIMessage.serializer(), msg) + "\n"
-                },
-            )
+            val encoded = buildString {
+                messages.forEach { msg ->
+                    val plain = AppJson.encodeToString(UIMessage.serializer(), msg)
+                    append(persistenceCipher.encrypt(plain)).append('\n')
+                }
+            }
+            file.appendText(encoded)
         }
     }
 
@@ -68,7 +74,9 @@ class SubagentSessionStore(
             for (line in lines) {
                 if (line.isBlank()) continue
                 val parsed = resultOf {
-                    AppJson.decodeFromString(UIMessage.serializer(), line)
+                    val plain = persistenceCipher.decryptOrNull(line)
+                        ?: error("subagent session line could not be decrypted")
+                    AppJson.decodeFromString(UIMessage.serializer(), plain)
                 }.getOrNull()
                 if (parsed != null) {
                     all.add(parsed)
@@ -107,5 +115,15 @@ class SubagentSessionStore(
     }
 
     /** 诊断:获取 thread 的会话文件路径(可能不存在)。 */
-    fun pathOf(threadId: String): File = File(sessionsDir, "$threadId.jsonl")
+    fun pathOf(threadId: String): File {
+        require(threadId.matches(SAFE_THREAD_ID)) {
+            "subagent thread id must be a safe filename token"
+        }
+        val root = sessionsDir.canonicalFile
+        val target = File(root, "$threadId.jsonl").canonicalFile
+        require(target.parentFile == root) {
+            "subagent session path escapes its directory"
+        }
+        return target
+    }
 }

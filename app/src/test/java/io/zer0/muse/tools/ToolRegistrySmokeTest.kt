@@ -276,7 +276,7 @@ class ToolRegistrySmokeTest {
             "list_stickers", "send_sticker",
             // 记忆/经验(依赖 DB + LLM)
             "pin_memory", "unpin_memory", "recall_experience", "record_experience",
-            "todo_write", "show_card", "notify", "current_status", "subagent_task",
+            "todo_write", "show_card", "render_data", "notify", "current_status", "subagent_task",
             "update_card_data",
             // JS 沙盒(WebView)
             "execute_javascript",

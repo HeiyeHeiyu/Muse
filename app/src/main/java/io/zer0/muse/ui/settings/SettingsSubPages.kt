@@ -541,6 +541,7 @@ fun SettingsDataPage(onBack: () -> Unit, onOpenCloudBackup: () -> Unit = {}) {
                 messageCount = messageCount,
                 backupService = backupService,
                 settings = settings,
+                sessionRepository = sessionRepository,
                 autoBackupLogDao = koinInject(),
                 onOpenCloudBackup = onOpenCloudBackup,
             )

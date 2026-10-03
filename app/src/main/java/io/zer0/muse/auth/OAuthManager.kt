@@ -7,6 +7,8 @@ import android.util.Base64
 import io.zer0.ai.core.OAuthConfig
 import io.zer0.common.Logger
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,7 +16,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -76,6 +80,7 @@ object OAuthManager {
 
     /** token 即将过期的提前刷新窗口(秒),避免边界时间窗内的 401。 */
     private const val REFRESH_BUFFER_SECONDS = 60L
+    private const val AUTH_CODE_FLOW_TIMEOUT_MS = 5 * 60 * 1000L
 
     /** OAuth 流程当前状态,UI 通过 [stateFlow] 观察。 */
     sealed class State {
@@ -339,13 +344,14 @@ object OAuthManager {
 
         // 4. 等待 OAuthCallbackActivity 调用 completeAuthorizationCodeFlow
         _stateFlow.value = State.AWAITING_USER()
-        val code = try {
-            deferred.await()
-        } catch (e: Exception) {
+        val codeResult = awaitAuthorizationCode(deferred, AUTH_CODE_FLOW_TIMEOUT_MS)
+        if (codeResult.isFailure) {
             clearPendingAuthCodeFlow(pending)
-            _stateFlow.value = State.ERROR(e.message ?: "授权回调被取消")
-            return Result.failure(e)
+            val error = codeResult.exceptionOrNull() ?: IllegalStateException("授权回调失败")
+            _stateFlow.value = State.ERROR(error.message ?: "授权回调失败")
+            return Result.failure(error)
         }
+        val code = codeResult.getOrThrow()
 
         // 5. 用 code + code_verifier 换 access_token
         _stateFlow.value = State.POLLING
@@ -387,6 +393,26 @@ object OAuthManager {
             return false
         }
         return pending.deferred.complete(code)
+    }
+
+    /**
+     * 等待授权回调但不允许损坏/缺失的 deep link 永久挂起 OAuth 流程。
+     * 外部协程取消仍然向上传播，不被转换成普通超时。
+     */
+    internal suspend fun awaitAuthorizationCode(
+        deferred: Deferred<String>,
+        timeoutMs: Long,
+    ): Result<String> {
+        require(timeoutMs > 0) { "timeoutMs must be positive" }
+        return try {
+            Result.success(withTimeout(timeoutMs) { deferred.await() })
+        } catch (timeout: TimeoutCancellationException) {
+            Result.failure(IllegalStateException("OAuth 授权回调超时", timeout))
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
     }
 
     private fun clearPendingAuthCodeFlow(expected: PendingAuthCode) {

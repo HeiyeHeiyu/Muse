@@ -155,7 +155,8 @@ class ChatMessageController(
      * 流式期间 messages 是扁平事实源;发送/重试/编辑/切会话/流结束等稳定点调用。
      */
     fun rebuildConversationTree(previousOverride: ConversationTree? = null) {
-        val sessionId = accessor.snapshot.currentSessionId ?: accessor.snapshot.agentSessionId
+        val snapshot = accessor.snapshot
+        val sessionId = if (snapshot.isAgentMode) snapshot.agentSessionId else snapshot.currentSessionId
         val currentTree =
             if (sessionId != null && treeSessionId == sessionId) {
                 treeState.value
@@ -191,7 +192,7 @@ class ChatMessageController(
         val messages = accessor.messagesSnapshot
         val index = messages.indexOfFirst { it.id == messageId && it.role == MessageRole.ASSISTANT }
         // P2-4: Agent 模式下用 agentSessionId,避免把编辑写到错误会话(与 rebuildConversationTree 同一口径)
-        val sessionId = snapshot.currentSessionId ?: snapshot.agentSessionId
+        val sessionId = if (snapshot.isAgentMode) snapshot.agentSessionId else snapshot.currentSessionId
         // 流式中/无会话/无匹配 assistant 消息 → 跳过
         if (snapshot.isStreaming || sessionId == null || index == -1) return
         val sessionIdSafe = sessionId

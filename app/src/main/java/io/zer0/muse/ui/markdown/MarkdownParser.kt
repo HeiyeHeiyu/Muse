@@ -18,7 +18,7 @@ sealed class MarkdownBlock {
     /** 段落(单行或多行文本,行内格式由 [parseInline] 处理)。 */
     data class Paragraph(val text: String) : MarkdownBlock()
 
-    /** 标题。level 1-3 对应 #/##/###。 */
+    /** 标题。level 1-6 对应 # 到 ######。 */
     data class Heading(val level: Int, val text: String) : MarkdownBlock()
 
     /** 围栏代码块。language 可空(无语言标注)。 */
@@ -45,7 +45,7 @@ sealed class MarkdownBlock {
 
 // H-MD2 修复: 所有正则提升为文件级 private val,避免 parseMarkdown 每行重复编译
 private val FENCE_REGEX = Regex("^```(.*)$")
-private val HEADING_REGEX = Regex("^(#{1,3})\\s+(.+)$")
+private val HEADING_REGEX = Regex("^(#{1,6})\\s+(.+)$")
 private val ORDERED_LIST_REGEX = Regex("^(\\d+)\\.\\s+(.+)$")
 private val UNORDERED_LIST_REGEX = Regex("^[-*]\\s+(.+)$")
 
@@ -241,7 +241,7 @@ internal fun parseMarkdownPass(lines: List<String>, startLine: Int): ParsePassRe
                 blockStartLines.add(i)
                 orderedIndex = 0
             }
-            // ── 标题 # ## ### ─────────────────────────────────────────
+            // ── 标题 # 到 ###### ─────────────────────────────────────
             headingMatch != null -> {
                 val level = headingMatch.groupValues[1].length
                 val content = headingMatch.groupValues[2].trim()

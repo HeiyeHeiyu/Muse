@@ -28,6 +28,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
+internal fun isMuseProactiveNotificationId(id: Int): Boolean =
+    id in 0x1000_0000..0x1000_0FFF
+
 /**
  * Phase 8.10: 消息生成通知管理器。
  *
@@ -470,12 +473,20 @@ class MuseNotificationManager(private val context: Context) {
 
     /** 取消所有 muse 发出的通知。 */
     fun cancelAll() {
-        nm.cancel(NOTIF_ID_CHAT_COMPLETED)
-        nm.cancel(NOTIF_ID_CHAT_PENDING_APPROVAL)
-        nm.cancel(NOTIF_ID_LIVE_UPDATE)
-        nm.cancel(NOTIF_ID_WEB_SERVER)
-        nm.cancel(NOTIF_ID_PROACTIVE_MESSAGE)
-        nm.cancel(NOTIF_ID_AUTO_BACKUP)
+        resultOf {
+            nm.cancel(NOTIF_ID_CHAT_COMPLETED)
+            nm.cancel(NOTIF_ID_CHAT_PENDING_APPROVAL)
+            nm.cancel(NOTIF_ID_LIVE_UPDATE)
+            nm.cancel(NOTIF_ID_WEB_SERVER)
+            // 旧版本使用固定 ID,保留兼容清理。
+            nm.cancel(NOTIF_ID_PROACTIVE_MESSAGE)
+            nm.cancel(NOTIF_ID_AUTO_BACKUP)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                nm.activeNotifications
+                    .filter { isMuseProactiveNotificationId(it.id) }
+                    .forEach { nm.cancel(it.id) }
+            }
+        }.onError { msg, _ -> Logger.w(TAG, "cancelAll failed: $msg") }
     }
 
     /** 构建带受控深链目标的 MainActivity PendingIntent。 */

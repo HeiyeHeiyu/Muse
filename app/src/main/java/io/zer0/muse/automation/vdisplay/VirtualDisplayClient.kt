@@ -70,14 +70,33 @@ class VirtualDisplayClient(
         val proxy = manager.ensureStarted().getOrNull() ?: return@withContext null
         val id = if (displayId >= 0) displayId else manager.lastDisplayId
         if (id < 0) return@withContext null
-        runCatching { proxy.requestScreenshot(id) }.getOrNull()
+        try {
+            proxy.requestScreenshot(id)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // A live Binder can survive a service/display restart while the cached
+            // compatibility display ID is already invalid. Do not reuse it forever.
+            clearCachedDisplayIf(id)
+            null
+        }
     }
 
     /** 在虚拟屏里打开应用:优先走服务端 shell 身份启动,服务端不可用时回退本应用 shell 通道。 */
     suspend fun openApp(packageName: String, displayId: Int = manager.lastDisplayId): Boolean = withContext(Dispatchers.IO) {
         if (!PACKAGE_REGEX.matches(packageName) || displayId < 0) return@withContext false
         manager.existingLiveProxy()?.let { proxy ->
-            return@withContext runCatching { proxy.launchApp(packageName, displayId) }.getOrDefault(false)
+            return@withContext try {
+                proxy.launchApp(packageName, displayId)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // A live Binder can outlive the display allocation after a service restart.
+                // Clear only the cached compatibility ID; a normal "no launcher" false result
+                // keeps the healthy display available for the caller's next action.
+                clearCachedDisplayIf(displayId)
+                false
+            }
         }
         // 回退:本应用 shell 通道(Shizuku/root)
         val resolved = manager.exec("cmd package resolve-activity --brief $packageName")
@@ -103,6 +122,12 @@ class VirtualDisplayClient(
             if (displayId == manager.lastDisplayId) manager.lastDisplayId = -1
             true
         }.getOrDefault(false)
+    }
+
+    private fun clearCachedDisplayIf(displayId: Int) {
+        if (displayId >= 0 && displayId == manager.lastDisplayId) {
+            manager.lastDisplayId = -1
+        }
     }
 
     companion object {

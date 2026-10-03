@@ -7,8 +7,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +37,9 @@ import io.zer0.muse.R
 import io.zer0.muse.backup.BackupService
 import io.zer0.muse.backup.CloudBackupConfig
 import io.zer0.muse.data.SettingsRepository
+import io.zer0.muse.data.export.ConversationExporter
+import io.zer0.muse.data.session.SessionEntity
+import io.zer0.muse.data.session.SessionRepository
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.MuseTextField
@@ -46,6 +53,7 @@ import io.zer0.muse.ui.common.settings.StatusDot
 import io.zer0.muse.ui.common.state.MuseSpinner
 import io.zer0.muse.ui.theme.MuseDateFormats
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -65,6 +73,7 @@ internal fun BackupSection(
     messageCount: Int,
     backupService: BackupService,
     settings: SettingsRepository,
+    sessionRepository: SessionRepository,
     /** F-04: 备份记录持久化(诊断页可见最近备份结果)。 */
     autoBackupLogDao: io.zer0.muse.data.stats.AutoBackupLogDao,
     onOpenCloudBackup: () -> Unit = {},
@@ -74,6 +83,14 @@ internal fun BackupSection(
     val cloudConfig by settings.cloudBackupConfigFlow.collectAsStateWithLifecycle(
         initialValue = CloudBackupConfig(),
     )
+    val exportableSessions by sessionRepository.observeAllSessions()
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+    var sessionExportQuery by rememberSaveable { mutableStateOf("") }
+    val filteredExportSessions =
+        exportableSessions.filter { session ->
+            sessionExportQuery.isBlank() ||
+                session.title.contains(sessionExportQuery.trim(), ignoreCase = true)
+        }
     // P3-4: 云备份配置与自动同步间隔编辑收敛到独立「云备份」页(CloudBackupPage)。
     // v2.x: 首页整组收敛为单行入口(状态展示 + 导航),开关与快捷操作统一在云备份页。
     val showGoToPageHint: () -> Unit = onOpenCloudBackup
@@ -82,6 +99,8 @@ internal fun BackupSection(
     var exporting by remember { mutableStateOf(false) }
     var importing by remember { mutableStateOf(false) }
     var localBackupDialogVisible by remember { mutableStateOf(false) }
+    var showSessionExportDialog by remember { mutableStateOf(false) }
+    var pendingSessionExport by remember { mutableStateOf<SessionEntity?>(null) }
     // F-27: 自动备份恢复
     var autoRestoreTarget by remember { mutableStateOf<io.zer0.muse.data.stats.AutoBackupLogEntity?>(null) }
     var autoRestoring by remember { mutableStateOf(false) }
@@ -126,6 +145,41 @@ internal fun BackupSection(
         }
     }
 
+    fun startSessionExport(session: SessionEntity, uri: android.net.Uri) {
+        scope.launch {
+            exporting = true
+            localBackupDialogVisible = true
+            resultOf {
+                val messages = sessionRepository.getAllMessagesForBackfill(session.id)
+                val json =
+                    ConversationExporter.exportToJson(
+                        sessionId = session.id,
+                        messages = messages,
+                        chatTitle = session.title.ifBlank { context.getString(R.string.session_repo_default_title) },
+                        locale = Locale.getDefault(),
+                    )
+                withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use { output ->
+                        output.write(json.toByteArray(Charsets.UTF_8))
+                    } ?: error(context.getString(R.string.backup_cannot_write, uri))
+                }
+                MuseToast.show(
+                    context.getString(
+                        R.string.settings_backup_export_session_success,
+                        messages.size,
+                    ),
+                )
+            }.onError { _, t ->
+                MuseToast.show(
+                    context.getString(R.string.settings_backup_export_session_failed, t?.message),
+                    3500,
+                )
+            }
+            exporting = false
+            localBackupDialogVisible = false
+        }
+    }
+
     // 导出 launcher(SAF CreateDocument)
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json"),
@@ -136,6 +190,16 @@ internal fun BackupSection(
             } else {
                 startExport(it)
             }
+        }
+    }
+
+    val sessionExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        val session = pendingSessionExport
+        pendingSessionExport = null
+        if (uri != null && session != null) {
+            startSessionExport(session, uri)
         }
     }
 
@@ -196,6 +260,13 @@ internal fun BackupSection(
         )
         SettingsGroupDivider()
         SettingsItemRow(
+            icon = MuseIcons.file,
+            title = stringResource(R.string.settings_backup_export_session),
+            subtitle = stringResource(R.string.settings_backup_export_session_subtitle),
+            onClick = { showSessionExportDialog = true },
+        )
+        SettingsGroupDivider()
+        SettingsItemRow(
             icon = MuseIcons.download,
             title = stringResource(R.string.settings_backup_import),
             subtitle = stringResource(R.string.settings_backup_import_subtitle),
@@ -216,6 +287,71 @@ internal fun BackupSection(
                     MuseToast.show(context.getString(R.string.settings_backup_import_start_failed, it.message))
                 }
             },
+        )
+    }
+
+    if (showSessionExportDialog) {
+        MuseDialog(
+            onDismissRequest = { showSessionExportDialog = false },
+            title = stringResource(R.string.settings_backup_export_session_title),
+            content = {
+                if (exportableSessions.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.settings_backup_export_session_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Column {
+                        MuseTextField(
+                            value = sessionExportQuery,
+                            onValueChange = { sessionExportQuery = it },
+                            placeholder = {
+                                Text(stringResource(R.string.settings_backup_export_session_search))
+                            },
+                            singleLine = true,
+                        )
+                        LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+                            items(filteredExportSessions, key = { it.id }) { session ->
+                                SettingsItemRow(
+                                    icon = MuseIcons.chat,
+                                    title = session.title.ifBlank {
+                                        stringResource(R.string.session_repo_default_title)
+                                    },
+                                    subtitle = stringResource(
+                                        R.string.settings_backup_export_session_count,
+                                        session.messageCount,
+                                    ),
+                                    onClick = {
+                                        showSessionExportDialog = false
+                                        sessionExportQuery = ""
+                                        pendingSessionExport = session
+                                        runCatching {
+                                            sessionExportLauncher.launch(
+                                                "muse-session-${safeExportFileName(session.title)}.json",
+                                            )
+                                        }.onFailure {
+                                            pendingSessionExport = null
+                                            MuseToast.show(
+                                                context.getString(
+                                                    R.string.settings_backup_export_start_failed,
+                                                    it.message,
+                                                ),
+                                            )
+                                        }
+                                    },
+                                )
+                                if (session != filteredExportSessions.lastOrNull()) {
+                                    SettingsGroupDivider()
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            onConfirm = null,
+            dismissText = stringResource(R.string.settings_common_cancel),
+            onDismiss = { showSessionExportDialog = false },
         )
     }
 
@@ -433,6 +569,13 @@ internal fun BackupSection(
 /**
  * F-04: 备份体量展示(B/KB/MB,无 CJK 字面量)。
  */
+private fun safeExportFileName(title: String): String =
+    title
+        .replace(Regex("""[\\/:*?"<>|\n\r\t]"""), "_")
+        .trim()
+        .take(48)
+        .ifBlank { "session" }
+
 private fun formatBackupSize(bytes: Long): String = when {
     // I18N-06: 数字格式跟随系统 Locale(原 Locale.US 固定)
     bytes >= 1_048_576L -> String.format(Locale.getDefault(), "%.1f MB", bytes / 1_048_576.0)

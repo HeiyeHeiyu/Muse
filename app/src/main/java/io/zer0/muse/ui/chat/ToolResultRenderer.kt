@@ -6,6 +6,7 @@ package io.zer0.muse.ui.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +24,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.zer0.muse.ui.markdown.DataCardParser
+import io.zer0.muse.ui.markdown.DataCardRenderer
 import io.zer0.muse.ui.theme.MusePaddings
 import org.json.JSONArray
 import org.json.JSONObject
@@ -40,6 +43,21 @@ import org.json.JSONObject
 internal fun ToolResultRenderer(result: String, modifier: Modifier = Modifier) {
     val kind = remember(result) { detectResultKind(result) }
     when (kind) {
+        ResultKind.DATA_CARD -> {
+            val card = remember(result) { DataCardParser.parse(result) }
+            if (card == null) {
+                Text(
+                    text = result,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = modifier,
+                )
+            } else {
+                Box(modifier = modifier) {
+                    DataCardRenderer(card)
+                }
+            }
+        }
         ResultKind.JSON -> JsonTreeView(result, modifier)
         ResultKind.DIFF -> DiffView(result, modifier)
         ResultKind.TABLE -> TableView(result, modifier)
@@ -52,11 +70,12 @@ internal fun ToolResultRenderer(result: String, modifier: Modifier = Modifier) {
     }
 }
 
-private enum class ResultKind { PLAIN, DIFF, JSON, TABLE }
+private enum class ResultKind { PLAIN, DIFF, JSON, TABLE, DATA_CARD }
 
 /** 启发式类型识别:JSON > diff > table > plain(纯文本永不误判为表格)。 */
 private fun detectResultKind(text: String): ResultKind {
     val trimmed = text.trim()
+    if (DataCardParser.parse(trimmed) != null) return ResultKind.DATA_CARD
     val isJson = trimmed.isNotEmpty() &&
         (trimmed.startsWith("{") || trimmed.startsWith("[")) &&
         parseJsonOrNull(trimmed) != null

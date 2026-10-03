@@ -38,6 +38,16 @@ class MarkdownParserTest {
     }
 
     @Test
+    fun `heading level 4 5 6 parses correctly`() {
+        val blocks = parseMarkdown("#### H4\n##### H5\n###### H6")
+
+        assertEquals(3, blocks.size)
+        assertEquals(MarkdownBlock.Heading(4, "H4"), blocks[0])
+        assertEquals(MarkdownBlock.Heading(5, "H5"), blocks[1])
+        assertEquals(MarkdownBlock.Heading(6, "H6"), blocks[2])
+    }
+
+    @Test
     fun `fenced code block with language parses`() {
         val md = "```kotlin\nfun foo() = 1\n```"
         val blocks = parseMarkdown(md)

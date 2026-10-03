@@ -318,8 +318,7 @@ abstract class ProviderHttpSupport(
             return buildString {
                 append(prefix).append("HTTP ").append(code)
                 category?.let { append(" [").append(it).append("]") }
-                if (body.isNotBlank()) {
-                    val capped = if (body.length > 200) body.take(200) else body
+                ProviderError.safeErrorDetail(body)?.let { capped ->
                     append(": ").append(capped)
                 }
             }

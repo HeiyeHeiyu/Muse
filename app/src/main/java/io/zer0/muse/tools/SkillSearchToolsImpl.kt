@@ -460,7 +460,11 @@ class SkillSearchToolsImpl(
 
         // 降级:LIKE 子串匹配(旧文档未分块索引)
         // M-KB1: 转义 LIKE 通配符(% _ \),配合 DAO 的 ESCAPE '\' 子句
-        val allResults = dao.search(io.zer0.muse.data.knowledge.KnowledgeDocDao.escapeLikeQuery(query)).first()
+        val allResults =
+            dao.search(
+                io.zer0.muse.data.knowledge.KnowledgeDocDao.escapeLikeQuery(query),
+                includeInternal = includeInternal,
+            ).first()
         // v1.97: 过滤内部 devdoc(include_internal=false 时排除内部文档)
         // v1.133: 改用 isInternal 字段(与 MIGRATION_38_39 标记一致,替代原 fileType="devdoc" 硬编码)
         val visibleResults =

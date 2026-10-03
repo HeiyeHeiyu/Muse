@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -74,5 +75,13 @@ class VideoProviderParsingTest {
         assertEquals("boom", kling.parseApiErrorMessage("""{"code": 1, "message": "boom"}"""))
         assertNull(kling.parseApiErrorMessage(""))
         assertNull(kling.parseApiErrorMessage("not json"))
+    }
+
+    @Test
+    fun `video api error parsers redact provider secrets`() {
+        val body = """{"message":"invalid api key sk-live-video-secret"}"""
+
+        assertFalse(agnes.parseApiErrorMessage(body).orEmpty().contains("sk-live-video-secret"))
+        assertFalse(kling.parseApiErrorMessage(body).orEmpty().contains("sk-live-video-secret"))
     }
 }

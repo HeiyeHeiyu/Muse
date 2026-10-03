@@ -210,4 +210,11 @@
     <!-- v2.2.1: 记忆库归档/恢复提示 -->
     <string name="memory_archive_rebuilt_hint">检测到记忆库曾因版本变更被归档重建,历史记忆未完整保留</string>
     <string name="memory_archive_recovered">已从版本变更归档中恢复 %1$d 条记忆</string>
+    <string name="memory_archive_recovery_title">可恢复的记忆归档</string>
+    <string name="memory_archive_recovery_message">检测到版本变更归档,包含 %1$d 条会话摘要和 %2$d 个编译段。当前记忆库为空,可以安全恢复。</string>
+    <string name="memory_archive_recovery_action">恢复归档</string>
+    <string name="memory_archive_recovery_confirm_title">恢复记忆归档?</string>
+    <string name="memory_archive_recovery_confirm">将归档中的记忆摘要和编译内容恢复到当前空记忆库,不会覆盖现有数据。继续吗?</string>
+    <string name="memory_archive_recovery_done">已恢复 %1$d 条记忆记录</string>
+    <string name="memory_archive_recovery_failed">记忆归档恢复失败:%1$s</string>
 </resources>

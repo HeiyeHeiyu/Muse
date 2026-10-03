@@ -122,7 +122,9 @@ internal class ChatSessionController(
      */
     @Suppress("TooGenericExceptionCaught")
     fun forkSessionFromMessage(messageId: Uuid) {
-        val sourceSessionId = accessor.snapshot.currentSessionId ?: return
+        val snapshot = accessor.snapshot
+        val sourceSessionId =
+            (if (snapshot.isAgentMode) snapshot.agentSessionId else snapshot.currentSessionId) ?: return
         if (accessor.snapshot.isStreaming) bridge.detachStreaming()
         accessor.coroutineScope.launch {
             try {

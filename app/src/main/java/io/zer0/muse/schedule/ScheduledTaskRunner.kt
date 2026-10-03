@@ -204,14 +204,19 @@ class ScheduledTaskRunner(
      * B-25: 读取后台调度总控开关。
      *
      * ScheduledTaskRunner 未注入 SettingsRepository(保持 Koin 模块签名稳定),这里
-     * 经 GlobalContext 解析;Koin 缺失/读取失败时保守返回 true(默认开启,避免意外停掉定时任务)。
+     * 经 GlobalContext 解析;Koin 缺失/读取失败时保守返回 false，避免设置不可读时
+     * 在用户不知情的情况下继续执行定时任务。
      */
     private suspend fun isScheduleWorkEnabled(): Boolean {
         val settings = resultOf {
             org.koin.core.context.GlobalContext.get().get<io.zer0.muse.data.SettingsRepository>()
         }.getOrNull()
-        if (settings == null) return true
-        return resultOf { settings.scheduleWorkEnabledFlow.first() }.getOrNull() ?: true
+        return scheduleWorkEnabledFromRepository(
+            available = settings != null,
+            value = settings?.let {
+                resultOf { it.scheduleWorkEnabledFlow.first() }.getOrNull()
+            },
+        )
     }
 
     /**

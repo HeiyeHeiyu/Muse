@@ -36,11 +36,11 @@ interface KnowledgeDocDao {
         """
         SELECT * FROM knowledge_docs
         WHERE (title LIKE '%' || :query || '%' ESCAPE '\' OR content LIKE '%' || :query || '%' ESCAPE '\')
-          AND is_internal = 0
+          AND (:includeInternal = 1 OR is_internal = 0)
         ORDER BY updated_at DESC
         """,
     )
-    fun search(query: String): Flow<List<KnowledgeDocEntity>>
+    fun search(query: String, includeInternal: Boolean = false): Flow<List<KnowledgeDocEntity>>
 
     @Query("SELECT * FROM knowledge_docs WHERE id = :id")
     suspend fun getById(id: String): KnowledgeDocEntity?

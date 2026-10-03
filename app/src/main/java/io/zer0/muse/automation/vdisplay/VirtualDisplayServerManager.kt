@@ -89,14 +89,32 @@ class VirtualDisplayServerManager(
 
     /** 清除失效 binder 并返回当前可用代理(不触发启动)。 */
     fun existingLiveProxy(): IVirtualDisplayService? {
-        val binder = VirtualDisplayBinderRegistry.current() ?: return null
+        val binder =
+            VirtualDisplayBinderRegistry.current()
+                ?: run {
+                    clearCachedDisplayId()
+                    return null
+                }
         val proxy = IVirtualDisplayService.Stub.asInterface(binder)
         return try {
-            if (proxy.isAlive) proxy else null
+            if (proxy != null && proxy.isAlive) {
+                proxy
+            } else {
+                VirtualDisplayBinderRegistry.update(null)
+                clearCachedDisplayId()
+                null
+            }
         } catch (e: Exception) {
             Logger.w(TAG, "服务端探活失败: ${e.message}")
             VirtualDisplayBinderRegistry.update(null)
+            clearCachedDisplayId()
             null
+        }
+    }
+
+    private fun clearCachedDisplayId() {
+        if (lastDisplayId >= 0) {
+            lastDisplayId = -1
         }
     }
 

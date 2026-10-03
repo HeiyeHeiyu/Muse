@@ -6,6 +6,7 @@ import io.mockk.coVerify
 import io.mockk.mockk
 import io.zer0.ai.core.UIMessage
 import io.zer0.muse.data.session.SessionRepository
+import io.zer0.muse.ui.ChatAgentState
 import io.zer0.muse.ui.ChatSessionState
 import io.zer0.muse.ui.ChatUiState
 import kotlinx.coroutines.CoroutineScope
@@ -119,6 +120,22 @@ class ChatSessionControllerTest {
             .forkSessionFromMessage(Uuid.random())
         advanceUntilIdle()
         coVerify { repo.forkSession("s1", any()) }
+    }
+
+    @Test
+    fun `forkSessionFromMessage in agent mode uses agent session`() = runTest {
+        val repo = mockk<SessionRepository>(relaxed = true)
+        coEvery { repo.forkSession("agent-1", any()) } returns null
+        val state = ChatUiState(
+            sessionState = ChatSessionState(currentSessionId = "task-1"),
+            agentState = ChatAgentState(isAgentMode = true, agentSessionId = "agent-1"),
+        )
+
+        controller(this, repo, state = state).forkSessionFromMessage(Uuid.random())
+        advanceUntilIdle()
+
+        coVerify { repo.forkSession("agent-1", any()) }
+        coVerify(exactly = 0) { repo.forkSession("task-1", any()) }
     }
 
     // ── P0-5: 删除/归档会话必须停止在途生成 + 写抑制 ──

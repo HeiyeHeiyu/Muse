@@ -179,7 +179,7 @@ class ProactiveMessageRunner(
 
     private suspend fun checkAndTrigger() {
         // B-25: 后台调度总控 — 关闭时跳过 60s 轮询(事件触发/测试发送不受影响)
-        if (!settings.scheduleWorkEnabledFlow.first()) {
+        if (!readScheduleWorkEnabledOrFalse { settings.scheduleWorkEnabledFlow.first() }) {
             Logger.i(TAG, "后台调度总控已关闭,跳过主动消息轮询")
             return
         }
@@ -194,7 +194,7 @@ class ProactiveMessageRunner(
      */
     private suspend fun runNightPatrol(config: io.zer0.muse.data.ProactiveMessageConfig) {
         // v1.0.74: 深夜自主行动开关(默认开;关掉则时段外完全跳过)
-        val enabled = runCatching { settings.nightPatrolEnabledFlow.first() }.getOrDefault(true)
+        val enabled = readScheduleWorkEnabledOrFalse { settings.nightPatrolEnabledFlow.first() }
         if (!enabled) {
             Logger.i(TAG, "深夜自主行动已关闭,时段外跳过")
             return

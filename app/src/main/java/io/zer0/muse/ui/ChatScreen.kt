@@ -37,7 +37,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -72,7 +71,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -299,10 +297,6 @@ fun ChatScreen(
     var currentMatchIndex by rememberSaveable { mutableStateOf(0) }
     // P1-1: 实时语音对话全屏模式开关(语音对话状态机接线到聊天页)
     var showVoiceConversation by remember { mutableStateOf(false) }
-    // ── H10: 手动压缩参数对话框 — 保留条数 / 附加指令状态 ──
-    var showCompressDialog by rememberSaveable { mutableStateOf(false) }
-    var compressKeepText by rememberSaveable { mutableStateOf("") }
-    var compressInstruction by rememberSaveable { mutableStateOf("") }
     // v2.x: 委员会 — 从对话召唤临时群聊讨论(结论经 DeferredResultStore 回灌本条会话)
     var showCommitteeDialog by remember { mutableStateOf(false) }
     // 命中列表:当前会话已加载消息中,内容含查询词(忽略大小写)的消息 id;空查询返回空。
@@ -381,7 +375,7 @@ fun ChatScreen(
     var paginatorPageCount by rememberSaveable { mutableStateOf(1) }
     // B7-03: 会话内未读状态
     // 切换会话 / 关闭性能模式时重置分页计数
-    LaunchedEffect(state.currentSessionId) {
+    LaunchedEffect(effectiveChatSessionId(state)) {
         paginatorPageCount = 1
     }
     LaunchedEffect(performanceMode) {
@@ -583,7 +577,7 @@ fun ChatScreen(
     }
     // v1.0.4 (P1): 草稿恢复 toast 反馈 — 进入有草稿的会话时显示"草稿已恢复"
     // (InputBar 已显示「草稿」小标签,本 toast 是更强的瞬时反馈,避免用户没注意到标签)
-    LaunchedEffect(state.hasDraft, state.currentSessionId) {
+    LaunchedEffect(state.hasDraft, effectiveChatSessionId(state)) {
         if (state.hasDraft && state.input.isNotBlank()) {
             MuseToast.show(context.getString(R.string.chat_draft_restored))
         }
@@ -606,7 +600,7 @@ fun ChatScreen(
     //       本 LaunchedEffect 会超时放弃滚动定位(仅清空 targetMessageId,不触发高亮)。
     //
     // 高亮实现:MessageBubble 的 highlightText 参数,见下方 itemsIndexed 内的调用。
-    LaunchedEffect(state.targetMessageId, state.currentSessionId) {
+    LaunchedEffect(state.targetMessageId, effectiveChatSessionId(state)) {
         val targetId = state.targetMessageId ?: return@LaunchedEffect
         if (targetId.isBlank()) return@LaunchedEffect
 
@@ -737,7 +731,7 @@ fun ChatScreen(
                 if (!firstCompositionDone) {
                     firstCompositionDone = true
                     lastMessageCount = size
-                    trackedSessionId = state.currentSessionId
+                    trackedSessionId = effectiveChatSessionId(state)
                     lastSeenUserMessageId = visibleMessages.lastOrNull { it.role == MessageRole.USER }?.id?.toString()
                     return@collect
                 }
@@ -745,7 +739,7 @@ fun ChatScreen(
                 val msgs = visibleMessages
                 if (msgs.isEmpty()) return@collect
                 // v2.0: 切换会话时只重置跟踪基线,不滚动(否则会把新会话直接拽到底部)
-                val sessionId = state.currentSessionId
+                val sessionId = effectiveChatSessionId(state)
                 if (sessionId != trackedSessionId) {
                     trackedSessionId = sessionId
                     lastSeenUserMessageId = msgs.lastOrNull { it.role == MessageRole.USER }?.id?.toString()
@@ -1119,9 +1113,7 @@ fun ChatScreen(
                                                     enabled = !isStreaming && !state.isCompressing && messages.size >= 2,
                                                     onClick = {
                                                         showTopMenu = false
-                                                        compressKeepText = ""
-                                                        compressInstruction = ""
-                                                        showCompressDialog = true
+                                                        viewModel.manualCompress(updateMemoryFirst = true)
                                                     },
                                                 ),
                                                 MuseFloatingActionItem(
@@ -1252,7 +1244,7 @@ fun ChatScreen(
                         )
                     }
                     // v1.0.92: 会话待办条 — AI 通过 todo_write 维护的任务分解进度,有内容时显示
-                    SessionTodoBar(sessionId = state.currentSessionId ?: "")
+                    SessionTodoBar(sessionId = effectiveChatSessionId(state).orEmpty())
                     // 只让输入岛占用底部系统安全区,避免整块 bottomBar 被 inset 撑成白色遮罩。
                     Box(Modifier.fillMaxWidth().museBottomBarInsets()) {
                         // I3: 输入区独立错误边界,输入渲染数据构建失败只降级输入条
@@ -1581,23 +1573,6 @@ fun ChatScreen(
                             onConfirm = {
                                 showDeleteConfirm = false
                                 viewModel.deleteSelectedMessages()
-                            },
-                        )
-                    }
-                    // H10: 手动压缩参数对话框(保留条数 / 附加指令 / token 估算)
-                    if (showCompressDialog) {
-                        CompressContextDialog(
-                            defaultKeepRecent = 10,
-                            totalMessages = messages.size,
-                            estimateTokens = { keep -> messages.takeLast(keep).sumOf { it.content.length / 2 } },
-                            onDismiss = { showCompressDialog = false },
-                            onConfirm = { keep, instruction ->
-                                showCompressDialog = false
-                                viewModel.manualCompress(
-                                    updateMemoryFirst = true,
-                                    keepRecent = keep,
-                                    instruction = instruction.ifBlank { null },
-                                )
                             },
                         )
                     }
@@ -2296,7 +2271,7 @@ fun ChatScreen(
                             MuseCapsuleButton(
                                 text = stringResource(R.string.chat_pending_tools_resume),
                                 onClick = {
-                                    state.currentSessionId?.let { viewModel.resumePendingToolCalls(it) }
+                                    effectiveChatSessionId(state)?.let { viewModel.resumePendingToolCalls(it) }
                                 },
                                 variant = IosCapsuleButtonVariant.Text,
                                 fillWidth = false,
@@ -2323,10 +2298,10 @@ fun ChatScreen(
                         },
                         confirmText = stringResource(R.string.chat_pending_tools_discard),
                         destructive = true,
-                        onConfirm = {
-                            showDiscardConfirm = false
-                            state.currentSessionId?.let { viewModel.discardPendingToolCalls(it) }
-                        },
+                            onConfirm = {
+                                showDiscardConfirm = false
+                                effectiveChatSessionId(state)?.let { viewModel.discardPendingToolCalls(it) }
+                            },
                     )
                 }
 
@@ -2614,21 +2589,23 @@ fun ChatScreen(
                     dismissText = stringResource(R.string.action_close),
                     onDismiss = { forwardText = null },
                 )
-                // A6: 消息地图 — CHAT-07: 移到 Scaffold 内容层内(最后绘制、置顶),
-                // 热区止于输入栏上方,不再压住输入岛右缘/发送键。
-                if (messages.size >= MESSAGE_MAP_MIN_MESSAGES && visibleMessages.isNotEmpty()) {
-                    MessageMapBar(
-                        messages = visibleMessages,
-                        listState = listState,
-                        messageStartIndex = messageStartIndex,
-                        modifier =
-                        Modifier
-                            .align(Alignment.CenterEnd)
-                            .statusBarsPadding()
-                            .navigationBarsPadding()
-                            .padding(end = MusePaddings.tightGap),
-                    )
-                }
+            }
+
+            // A6: 消息地图 — CHAT-07: 与转发弹窗同属 Scaffold 内容层,
+            // 但必须独立于 forwardText,否则正常聊天时 forwardText=null 会把入口一并移除。
+            // 热区止于输入栏上方,不压住输入岛右缘/发送键。
+            if (messages.size >= MESSAGE_MAP_MIN_MESSAGES && visibleMessages.isNotEmpty()) {
+                MessageMapBar(
+                    messages = visibleMessages,
+                    listState = listState,
+                    messageStartIndex = messageStartIndex,
+                    modifier =
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
+                        .padding(end = MusePaddings.tightGap),
+                )
             }
 
             ChatSheetHost(
@@ -2721,11 +2698,6 @@ private fun PinnedMessageBanner(content: String, onDismiss: () -> Unit) {
     }
 }
 
-/**
- * H10: 手动压缩参数对话框 — 保留条数 / 附加指令 / 保留区 token 估算。
- * 确认后以 (keepRecent, instruction) 回调,由 ChatScreen 转发 manualCompress。
- */
-
 /** v2.x: 委员会对话框 — 从主对话召唤一组助手开临时群聊讨论,结论回灌本条会话。 */
 @Composable
 fun CommitteeDialog(
@@ -2783,56 +2755,5 @@ fun CommitteeDialog(
         onConfirm = { if (canConfirm) onConfirm(selectedIds.toList(), topic.trim()) },
         dismissText = stringResource(R.string.groupchat_cancel),
         onDismiss = onDismiss,
-    )
-}
-
-/**
- * H10: 手动压缩参数对话框 — 保留条数 / 附加指令 / 保留区 token 估算。
- * 确认后以 (keepRecent, instruction) 回调,由 ChatScreen 转发 manualCompress。
- */
-@Composable
-private fun CompressContextDialog(
-    defaultKeepRecent: Int,
-    totalMessages: Int,
-    estimateTokens: (Int) -> Int,
-    onDismiss: () -> Unit,
-    onConfirm: (keepRecent: Int, instruction: String) -> Unit,
-) {
-    var keepText by rememberSaveable { mutableStateOf("") }
-    var instructionText by rememberSaveable { mutableStateOf("") }
-    val keep = keepText.toIntOrNull()?.coerceIn(1, (totalMessages - 1).coerceAtLeast(1)) ?: defaultKeepRecent
-    val estimated = estimateTokens(keep)
-    MuseDialog(
-        onDismissRequest = onDismiss,
-        title = stringResource(R.string.chat_compress_dialog_title),
-        content = {
-            Column(verticalArrangement = Arrangement.spacedBy(MusePaddings.itemGap)) {
-                MuseTextField(
-                    value = keepText,
-                    onValueChange = { keepText = it.filter { c -> c.isDigit() }.take(3) },
-                    label = { Text(stringResource(R.string.chat_compress_keep_label)) },
-                    placeholder = { Text(stringResource(R.string.chat_compress_keep_placeholder, defaultKeepRecent)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(
-                    text = stringResource(R.string.chat_compress_token_estimate, estimated),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                MuseTextField(
-                    value = instructionText,
-                    onValueChange = { instructionText = it },
-                    label = { Text(stringResource(R.string.chat_compress_instruction_label)) },
-                    placeholder = { Text(stringResource(R.string.chat_compress_instruction_placeholder)) },
-                    minLines = 2,
-                    maxLines = 4,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
-        confirmText = stringResource(R.string.chat_compress_confirm),
-        onConfirm = { onConfirm(keep, instructionText.trim()) },
     )
 }

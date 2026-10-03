@@ -868,42 +868,100 @@ class MemoryTicker(
         if (count == 0) return scope.launch { /* no-op */ }
         if (!isMemoryEnabled()) return scope.launch { /* no-op */ }
         return launchTracked {
-            try {
-                // v1.0.51: rollingSummary 成功且有变化后,立即跑事实提取(不等 daily pipeline)
-                // 用户退出对话后,刚说的事实(如"下周三有考试")能立刻进 FactStore,下次对话即可用
-                val target = resolveSessionNotificationTarget(capturedTarget, assistantId, spaceId)
-                val changed = doRollingSummary(
-                    sessionId,
-                    messages,
-                    model,
-                    locale,
-                    timeZone,
-                    "session_end",
-                    assistantId = target.assistantId.orEmpty(),
-                    spaceId = target.normalizedSpaceId,
-                )
-                doCompileTodayAndAssemble(model, locale, timeZone, target)
-                if (changed) {
-                    // rollingSummary 有变化 → session 变成 dirty → 立即提取事实
-                    // processSession 内部会检查 dirty 状态,复用 Semaphore(3) 排队
-                    resultOf {
-                        deepProcessor.processSession(
-                            sessionId,
-                            summaryManager,
-                            model,
-                            locale,
-                            runtimeContext.getConfig(),
-                        )
-                    }.onError { msg, t ->
-                        Logger.w(TAG, "notifySessionEnd: processSession 失败: $msg", t)
-                    }
+            runSessionEndPipeline(
+                sessionId = sessionId,
+                messages = messages,
+                model = model,
+                locale = locale,
+                timeZone = timeZone,
+                capturedTarget = capturedTarget,
+                assistantId = assistantId,
+                spaceId = spaceId,
+            )
+        }
+    }
+
+    /**
+     * Session 结束时从持久层读取完整历史后再跑最终摘要。
+     *
+     * 聊天 UI 采用分页窗口,不能把当前内存列表当作完整会话;调用方提供的
+     * provider 在 ticker 自己的 application scope 中执行,不会被 ViewModel 销毁取消。
+     */
+    fun notifySessionEndFromProvider(
+        sessionId: String,
+        messagesProvider: suspend () -> List<UIMessage>,
+        model: Model?,
+        locale: String = "zh-CN",
+        timeZone: String = TimeContext.DEFAULT_TIMEZONE,
+        assistantId: String = "",
+        spaceId: String? = null,
+    ): Job {
+        if (_stopped) return scope.launch { /* no-op */ }
+        val capturedTarget = _sessionNotificationTargets.remove(sessionId)
+        val count = _turnCounts.remove(sessionId) ?: 0
+        if (count == 0) return scope.launch { /* no-op */ }
+        if (!isMemoryEnabled()) return scope.launch { /* no-op */ }
+        return launchTracked {
+            val messages = messagesProvider()
+            if (messages.size < 2) return@launchTracked
+            runSessionEndPipeline(
+                sessionId = sessionId,
+                messages = messages,
+                model = model,
+                locale = locale,
+                timeZone = timeZone,
+                capturedTarget = capturedTarget,
+                assistantId = assistantId,
+                spaceId = spaceId,
+            )
+        }
+    }
+
+    private suspend fun runSessionEndPipeline(
+        sessionId: String,
+        messages: List<UIMessage>,
+        model: Model?,
+        locale: String,
+        timeZone: String,
+        capturedTarget: MemoryCompileTarget?,
+        assistantId: String,
+        spaceId: String?,
+    ) {
+        try {
+            // v1.0.51: rollingSummary 成功且有变化后,立即跑事实提取(不等 daily pipeline)
+            // 用户退出对话后,刚说的事实(如"下周三有考试")能立刻进 FactStore,下次对话即可用
+            val target = resolveSessionNotificationTarget(capturedTarget, assistantId, spaceId)
+            val changed = doRollingSummary(
+                sessionId,
+                messages,
+                model,
+                locale,
+                timeZone,
+                "session_end",
+                assistantId = target.assistantId.orEmpty(),
+                spaceId = target.normalizedSpaceId,
+            )
+            doCompileTodayAndAssemble(model, locale, timeZone, target)
+            if (changed) {
+                // rollingSummary 有变化 → session 变成 dirty → 立即提取事实
+                // processSession 内部会检查 dirty 状态,复用 Semaphore(3) 排队
+                resultOf {
+                    deepProcessor.processSession(
+                        sessionId,
+                        summaryManager,
+                        model,
+                        locale,
+                        runtimeContext.getConfig(),
+                    )
+                }.onError { msg, t ->
+                    Logger.w(TAG, "notifySessionEnd: processSession 失败: $msg", t)
                 }
-            } catch (e: CancellationException) {
-                // v1.78 (H3): 必须重抛协程取消信号,否则会破坏协程取消语义
-                throw e
-            } catch (e: Throwable) {
-                Logger.w(TAG, "notifySessionEnd 后台失败: ${e.message}")
             }
+        } catch (e: CancellationException) {
+            // v1.78 (H3): 必须重抛协程取消信号,否则会破坏协程取消语义
+            throw e
+        } catch (e: Throwable) {
+            Logger.w(TAG, "notifySessionEnd 后台失败: ${e.message}")
         }
     }
 

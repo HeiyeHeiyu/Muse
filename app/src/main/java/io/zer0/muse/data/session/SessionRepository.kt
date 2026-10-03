@@ -137,6 +137,9 @@ class SessionRepository(
      */
     fun observeSessions(): Flow<List<SessionEntity>> = sessionDao.observeTaskSessions()
 
+    /** 观察全部会话,供备份/选择性导出等数据管理入口使用。 */
+    fun observeAllSessions(): Flow<List<SessionEntity>> = sessionDao.observeAll()
+
     /** 按 id 获取会话(通知深链等一次性导航场景使用)。 */
     suspend fun getSessionById(sessionId: String): SessionEntity? = sessionDao.getById(sessionId)
 
@@ -370,7 +373,14 @@ class SessionRepository(
                 sessionDao.incrementChildCount(sourceSessionId)
                 // 复制到锚点为止的全部消息(含锚点),完整重映射消息、父消息和变体组引用。
                 // 不走 UIMessage 转换，避免丢失附件、工具轮、收藏、反应和旧变体字段。
-                val messages = messageDao.getUpToBySession(sourceSessionId, anchor.createdAt)
+                val anchorOrder = if (anchor.commitSeq > 0) anchor.commitSeq else anchor.seq
+                val messages =
+                    messageDao.getUpToBySession(
+                        sessionId = sourceSessionId,
+                        untilOrder = anchorOrder,
+                        untilCreatedAt = anchor.createdAt,
+                        untilMessageId = anchor.id,
+                    )
                 val messageIdMap = messages.associate { it.id to Uuid.random().toString() }
                 val groupIdMap = messages.mapNotNull { it.variantGroupId }.distinct().associateWith { Uuid.random().toString() }
                 val parentGroupIdMap = messages.mapNotNull { it.parentGroupId }.distinct().associateWith { Uuid.random().toString() }

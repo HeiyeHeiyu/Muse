@@ -63,4 +63,16 @@ class ToolCallSanitizerTest {
         assertTrue(ToolCallSanitizer.isValidJson(arr.arguments))
         assertEquals(arr, ToolCallSanitizer.sanitize(listOf(arr))[0])
     }
+
+    @Test
+    fun `diagnostic argument preview does not expose sensitive input`() {
+        val preview = ToolCallSanitizer.safeArgumentsForLog(
+            toolName = "browser_type",
+            arguments = """{"selector":"#password","text":"super-secret-password"}""",
+        )
+
+        assertFalse(preview.contains("super-secret-password"))
+        assertTrue(preview.contains("[REDACTED]"))
+        assertTrue(preview.contains("browser_type"))
+    }
 }

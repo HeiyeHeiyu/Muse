@@ -64,6 +64,18 @@ object JsSandbox {
         currentPluginId = pluginId
     }
 
+    /**
+     * 构造每次执行前的宿主配置注入。
+     *
+     * WebView 全局对象会跨 execute() 保留；即使 localStorage/缓存被清理，
+     * 不覆盖这些变量也会让下一个插件读取上一个插件的配置。
+     */
+    internal fun buildHostInjectionScript(scopeKey: String?, pluginConfigJson: String?): String {
+        val config = pluginConfigJson ?: "null"
+        val pluginId = scopeKey?.let(::quoteJs) ?: "null"
+        return "window.__musePluginConfig = $config; window.__musePluginId = $pluginId;"
+    }
+
     /** 注入的安全初始化 JS:禁用网络 API 与导航 API。 */
     private const val INIT_JS = """
         (function() {
@@ -258,10 +270,9 @@ object JsSandbox {
                 val raw = withTimeoutOrNull(timeoutMs) {
                     suspendCancellableCoroutine { cont ->
                         // B7-01: 在执行前注入当前插件的配置到 window.__musePluginConfig
-                        if (pluginConfigJson != null) {
-                            // pluginConfigJson 已经是安全的 JSON 字符串，直接注入
-                            webView.evaluateJavascript("window.__musePluginConfig = $pluginConfigJson;") { }
-                        }
+                        // pluginConfigJson 已经是安全的 JSON 字符串；即使为空也必须显式
+                        // 覆盖旧值，避免共享 WebView 的全局状态跨插件泄漏。
+                        webView.evaluateJavascript(buildHostInjectionScript(scopeKey, pluginConfigJson)) { }
                         webView.evaluateJavascript(wrappedCode) { result ->
                             // withTimeout 取消后回调仍可能触发;用 isActive 守卫避免 resume 已取消的 cont
                             if (cont.isActive) {

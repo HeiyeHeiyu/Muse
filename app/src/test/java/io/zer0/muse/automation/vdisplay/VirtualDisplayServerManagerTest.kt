@@ -3,6 +3,7 @@ package io.zer0.muse.automation.vdisplay
 import android.app.Application
 import android.content.Context
 import android.content.res.AssetManager
+import androidx.test.core.app.ApplicationProvider
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -28,6 +29,20 @@ import java.util.concurrent.atomic.AtomicInteger
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
 class VirtualDisplayServerManagerTest {
+
+    @Test
+    fun unavailableBinderClearsCachedCompatibilityDisplay() {
+        VirtualDisplayBinderRegistry.update(null)
+        val manager =
+            VirtualDisplayServerManager(
+                ApplicationProvider.getApplicationContext(),
+                mockk(relaxed = true),
+            )
+        manager.lastDisplayId = 42
+
+        assertEquals(null, manager.existingLiveProxy())
+        assertEquals(-1, manager.lastDisplayId)
+    }
 
     @Test
     fun concurrentEnsureCallsStartTheServerOnlyOnce() = runBlocking {

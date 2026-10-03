@@ -9,12 +9,33 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import io.zer0.muse.ui.theme.MuseDateFormats
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+@Serializable
+data class ConversationExportMessage(
+    val role: String,
+    val content: String,
+    val mood: String? = null,
+    val reasoning: String? = null,
+    val createdAt: Long = 0,
+)
+
+@Serializable
+data class ConversationExportDocument(
+    val version: Int = 1,
+    val sessionId: String,
+    val title: String,
+    val exportedAt: String,
+    val messages: List<ConversationExportMessage>,
+)
 
 /**
  * 对话导出格式枚举(扩展版,在原 Markdown 基础上新增 HTML / PDF)。
@@ -50,6 +71,11 @@ enum class ExportFormat {
  * 注:本类不持有状态,所有方法均可安全在 IO 线程调用。
  */
 object ConversationExporter {
+
+    private val exportJson = Json {
+        prettyPrint = true
+        encodeDefaults = true
+    }
 
     /** A4 宽度(PostScript points,1pt = 1/72 inch)。 */
     private const val PAGE_WIDTH = 595
@@ -112,6 +138,37 @@ object ConversationExporter {
             }
         }
         return sb.toString()
+    }
+
+    /**
+     * 导出单个会话的完整消息历史为独立 JSON。
+     *
+     * 与应用全量备份不同，这个文件只描述一个会话，适合用户选择性留存或分享；
+     * 调用方负责从数据库读取不受首屏分页限制的完整消息列表。
+     */
+    fun exportToJson(
+        sessionId: String,
+        messages: List<UIMessage>,
+        chatTitle: String,
+        locale: Locale = Locale.getDefault(),
+    ): String {
+        val document =
+            ConversationExportDocument(
+                sessionId = sessionId,
+                title = chatTitle,
+                exportedAt = SimpleDateFormat(MuseDateFormats.DATE_TIME_FULL, locale).format(Date()),
+                messages =
+                messages.map { message ->
+                    ConversationExportMessage(
+                        role = message.role.name,
+                        content = message.content,
+                        mood = message.mood,
+                        reasoning = message.reasoning,
+                        createdAt = message.createdAt,
+                    )
+                },
+            )
+        return exportJson.encodeToString(document)
     }
 
     /**

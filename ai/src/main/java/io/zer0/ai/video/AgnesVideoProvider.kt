@@ -2,6 +2,7 @@
 
 package io.zer0.ai.video
 
+import io.zer0.ai.core.ProviderError
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import kotlinx.coroutines.Dispatchers
@@ -150,7 +151,8 @@ class AgnesVideoProvider(
                     val apiMsg = parseApiErrorMessage(respBody)
                     error(
                         "Agnes submit 失败: HTTP ${resp.code}" +
-                            (apiMsg?.let { ": $it" } ?: if (respBody.isNotBlank()) ": $respBody" else ""),
+                            (apiMsg?.let { ": $it" }
+                                ?: ProviderError.safeErrorDetail(respBody)?.let { ": $it" }.orEmpty()),
                     )
                 }
                 val root = json.parseToJsonElement(respBody).jsonObject
@@ -158,7 +160,10 @@ class AgnesVideoProvider(
                 val taskId = root["video_id"]?.jsonPrimitive?.content
                     ?: root["task_id"]?.jsonPrimitive?.content
                     ?: root["id"]?.jsonPrimitive?.content
-                    ?: error("Agnes submit 响应缺少 video_id/task_id: $respBody")
+                    ?: error(
+                        "Agnes submit 响应缺少 video_id/task_id: " +
+                            (ProviderError.safeErrorDetail(respBody) ?: "<empty>"),
+                    )
 
                 // 同步返回检查:部分场景下完成态可能直接返回视频 URL
                 val syncVideoUrl = extractVideoUrl(root)
@@ -337,8 +342,9 @@ class AgnesVideoProvider(
         if (body.isBlank()) return null
         return runCatching {
             val root = json.parseToJsonElement(body).jsonObject
-            root["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content
+            val message = root["error"]?.jsonObject?.get("message")?.jsonPrimitive?.content
                 ?: root["message"]?.jsonPrimitive?.content
+            message?.let { ProviderError.safeErrorDetail(it) ?: it.take(200) }
         }.getOrNull()
     }
 

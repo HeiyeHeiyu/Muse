@@ -34,6 +34,13 @@ data class MemoryConfig(
     /** memory.md 的目标 token 预算(影响注入到 system prompt 的长度)。 */
     val tokenBudget: Int = 2500,
     /**
+     * 是否允许记忆管线在摘要/事实提取前回读会话完整原文。
+     *
+     * 关闭时仍保留 messages 原文,但后台记忆只使用当前已加载窗口;开启后才会
+     * 从 Room 读取完整历史,让较早细节可进入摘要与事实抽取。
+     */
+    val conversationRecallEnabled: Boolean = false,
+    /**
      * 高斯衰减系数 λ(days^-1)。
      * - 0.01 → 约 19 天归零(慢,记忆广)
      * - 0.02 → 约 14 天归零(默认)

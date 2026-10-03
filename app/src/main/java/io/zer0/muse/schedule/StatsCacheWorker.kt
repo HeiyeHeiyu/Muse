@@ -38,8 +38,11 @@ class StatsCacheWorker(
             return Result.success()
         }
         // v1.xxx: 后台调度总控 — 关闭时跳过执行体,周期调度本身仍保留,重新打开即恢复
-        val workEnabled = resultOf { koin.get<io.zer0.muse.data.SettingsRepository>()?.scheduleWorkEnabledFlow?.first() }
-            .getOrNull() ?: true
+        val workEnabled =
+            scheduleWorkEnabledOrFalse(
+                resultOf { koin.get<io.zer0.muse.data.SettingsRepository>()?.scheduleWorkEnabledFlow?.first() }
+                    .getOrNull(),
+            )
         if (!workEnabled) {
             Logger.i(TAG, "后台调度总控已关闭,跳过本次执行")
             return Result.success()

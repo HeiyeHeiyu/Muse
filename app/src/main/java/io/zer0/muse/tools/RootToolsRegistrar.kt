@@ -5,6 +5,12 @@ import android.content.ClipboardManager
 import android.content.Context
 import io.zer0.muse.automation.core.AutomationManager
 
+internal fun formatSettingsPutResult(tier: String, namespace: String, name: String): String =
+    "[$tier] Setting '$namespace:$name' updated"
+
+internal fun formatInputInjectResult(tier: String, textLength: Int, viaClipboard: Boolean): String =
+    "[$tier] Text injected${if (viaClipboard) " via clipboard paste" else ""} ($textLength chars)"
+
 /**
  * v2.x 自动化一期:设备级工具注册器(原 Root-level,现改为分层执行)。
  *
@@ -115,7 +121,7 @@ class RootToolsRegistrar(
             val result = runCommand(cmd) ?: return@register tierUnavailable()
             val (tier, detail) = result
             if (detail.exitCode == 0) {
-                "[$tier] Setting '$namespace:$name' updated to '$value'"
+                formatSettingsPutResult(tier, namespace, name)
             } else {
                 "[$tier] 写入失败: ${detail.output.ifBlank { "exit=${detail.exitCode}" }.take(500)}"
             }
@@ -227,7 +233,7 @@ class RootToolsRegistrar(
             val result = runCommand(cmd) ?: return@register tierUnavailable()
             val (tier, detail) = result
             if (detail.exitCode == 0) {
-                "[$tier] Text injected: ${text.take(50)}${if (text.length > 50) "..." else ""}"
+                formatInputInjectResult(tier, text.length, viaClipboard = false)
             } else {
                 // 兜底:写入剪贴板 + PASTE 按键(部分 ROM 的 input text 对特殊字符不可靠)
                 val pasteResult = runCatching {
@@ -236,7 +242,7 @@ class RootToolsRegistrar(
                     manager.execTiered("input keyevent 279")
                 }.getOrNull()
                 if (pasteResult != null && pasteResult.second.exitCode == 0) {
-                    "[$tier] Text injected via clipboard paste: ${text.take(50)}${if (text.length > 50) "..." else ""}"
+                    formatInputInjectResult(tier, text.length, viaClipboard = true)
                 } else {
                     "[$tier] 注入失败: ${detail.output.ifBlank { "exit=${detail.exitCode}" }.take(500)}"
                 }

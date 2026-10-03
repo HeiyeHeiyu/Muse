@@ -262,6 +262,8 @@
     <string name="settings_memory_policy_always">总是</string>
     <string name="settings_memory_page_title">记忆</string>
     <string name="settings_memory_system_section">记忆系统</string>
+    <string name="settings_memory_conversation_recall">允许回溯会话原文</string>
+    <string name="settings_memory_conversation_recall_subtitle">开启后,摘要和事实提取会按需读取完整会话,而不是只看当前加载的消息</string>
     <string name="settings_memory_token_budget">Token 预算</string>
     <string name="settings_memory_token_budget_subtitle">memory.md 目标长度,影响注入上下文量</string>
     <string name="settings_memory_decay_rate">衰减系数</string>

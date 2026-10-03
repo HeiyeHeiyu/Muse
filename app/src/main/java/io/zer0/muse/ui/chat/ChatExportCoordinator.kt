@@ -62,7 +62,7 @@ class ChatExportCoordinator(
         val title = if (tpl.customTitle.isNotBlank()) {
             tpl.customTitle
         } else {
-            state.sessions.find { it.id == state.currentSessionId }?.title?.takeIf { it.isNotBlank() } ?: "muse 对话"
+            resolveTitle(state)
         }
         val sb = StringBuilder()
         sb.append("# ").append(title).append("\n\n")
@@ -115,7 +115,7 @@ class ChatExportCoordinator(
         auditLogger?.log(
             category = "user_action",
             action = "export_session",
-            target = state.currentSessionId ?: state.agentSessionId ?: "",
+            target = resolveSessionId(state).orEmpty(),
             detail = mapOf("format" to "markdown"),
         )
         return output
@@ -126,7 +126,7 @@ class ChatExportCoordinator(
      */
     suspend fun exportSessionAsJson(): String {
         val state = accessor.snapshot
-        val title = state.sessions.find { it.id == state.currentSessionId }?.title?.takeIf { it.isNotBlank() } ?: "muse 对话"
+        val title = resolveTitle(state)
         val model = state.providers.firstOrNull { it.id == state.activeProviderId }
             ?.models?.firstOrNull { it.id == state.selectedModelId }
         val modelName = model?.name ?: model?.id ?: ""
@@ -154,7 +154,7 @@ class ChatExportCoordinator(
         auditLogger?.log(
             category = "user_action",
             action = "export_session",
-            target = state.currentSessionId ?: state.agentSessionId ?: "",
+            target = resolveSessionId(state).orEmpty(),
             detail = mapOf("format" to "json"),
         )
         return output
@@ -165,7 +165,7 @@ class ChatExportCoordinator(
      */
     suspend fun exportSessionAsPlainText(): String {
         val state = accessor.snapshot
-        val title = state.sessions.find { it.id == state.currentSessionId }?.title?.takeIf { it.isNotBlank() } ?: "muse 对话"
+        val title = resolveTitle(state)
         val sb = StringBuilder()
         sb.append(title).append("\n")
         sb.append("=".repeat(title.length)).append("\n\n")
@@ -179,7 +179,7 @@ class ChatExportCoordinator(
         auditLogger?.log(
             category = "user_action",
             action = "export_session",
-            target = state.currentSessionId ?: state.agentSessionId ?: "",
+            target = resolveSessionId(state).orEmpty(),
             detail = mapOf("format" to "plain_text"),
         )
         return output
@@ -212,7 +212,7 @@ class ChatExportCoordinator(
         auditLogger?.log(
             category = "user_action",
             action = "export_session",
-            target = state.currentSessionId ?: state.agentSessionId ?: "",
+            target = resolveSessionId(state).orEmpty(),
             detail = mapOf("format" to "html"),
         )
         return output
@@ -234,24 +234,29 @@ class ChatExportCoordinator(
         auditLogger?.log(
             category = "user_action",
             action = "export_session",
-            target = state.currentSessionId ?: state.agentSessionId ?: "",
+            target = resolveSessionId(state).orEmpty(),
             detail = mapOf("format" to "pdf"),
         )
         return output
     }
 
     /** 解析当前会话标题(空标题回退为 "muse 对话")。 */
-    private fun resolveTitle(state: io.zer0.muse.ui.ChatUiState): String = state.sessions.find { it.id == state.currentSessionId }
-        ?.title?.takeIf { it.isNotBlank() } ?: "muse 对话"
+    private fun resolveTitle(state: io.zer0.muse.ui.ChatUiState): String {
+        val sessionId = resolveSessionId(state)
+        return state.sessions.find { it.id == sessionId }?.title?.takeIf { it.isNotBlank() } ?: "muse 对话"
+    }
 
     private suspend fun loadAllMessages(state: io.zer0.muse.ui.ChatUiState): List<io.zer0.ai.core.UIMessage> {
-        val sessionId = if (state.isAgentMode) state.agentSessionId else state.currentSessionId
+        val sessionId = resolveSessionId(state)
         return if (sessionId != null) {
             sessionRepository.observeMessages(sessionId).first()
         } else {
             accessor.messagesSnapshot
         }
     }
+
+    private fun resolveSessionId(state: io.zer0.muse.ui.ChatUiState): String? =
+        if (state.isAgentMode) state.agentSessionId else state.currentSessionId
 
     /**
      * v0.32: 极简 Markdown → HTML 转换(分享模板 html 格式用,不引入额外依赖)。

@@ -1,5 +1,6 @@
 package io.zer0.muse.automation.core
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -216,6 +217,22 @@ class WaitPrimitivesTest {
             pollIntervalMs = 50L,
         )
         assertTrue("Should detect text disappearance", result)
+    }
+
+    @Test
+    fun `waitForText propagates cancellation instead of converting it to timeout`() = runTest {
+        var propagated = false
+        try {
+            WaitPrimitives.waitForText(
+                text = "never",
+                snapshotProvider = { throw CancellationException("caller stopped waiting") },
+                timeoutMs = 1000L,
+                pollIntervalMs = 50L,
+            )
+        } catch (_: CancellationException) {
+            propagated = true
+        }
+        assertTrue("caller cancellation must reach the workflow", propagated)
     }
 }
 

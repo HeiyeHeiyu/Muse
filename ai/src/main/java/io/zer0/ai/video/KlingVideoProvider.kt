@@ -1,5 +1,6 @@
 package io.zer0.ai.video
 
+import io.zer0.ai.core.ProviderError
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import kotlinx.coroutines.Dispatchers
@@ -120,7 +121,8 @@ class KlingVideoProvider(
                     val apiMsg = parseApiErrorMessage(respBody)
                     error(
                         "Kling submit 失败: HTTP ${resp.code}" +
-                            (apiMsg?.let { ": $it" } ?: if (respBody.isNotBlank()) ": $respBody" else ""),
+                            (apiMsg?.let { ": $it" }
+                                ?: ProviderError.safeErrorDetail(respBody)?.let { ": $it" }.orEmpty()),
                     )
                 }
                 val root = json.parseToJsonElement(respBody).jsonObject
@@ -280,7 +282,7 @@ class KlingVideoProvider(
         if (body.isBlank()) return null
         return runCatching {
             val root = json.parseToJsonElement(body).jsonObject
-            root["message"]?.jsonPrimitive?.content
+            root["message"]?.jsonPrimitive?.content?.let { ProviderError.safeErrorDetail(it) ?: it.take(200) }
         }.getOrNull()
     }
 

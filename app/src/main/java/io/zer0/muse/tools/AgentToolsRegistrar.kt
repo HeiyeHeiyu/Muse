@@ -113,6 +113,10 @@ class AgentToolsRegistrar(
         toolRegistry.register(ShowCardTool.toolDef()) { args ->
             ShowCardTool.execute(args, cardDataStore)
         }
+        // v2.x: bounded chart/table output rendered directly in the tool result card.
+        toolRegistry.register(RenderDataTool.toolDef()) { args ->
+            RenderDataTool.execute(args)
+        }
 
         // v2.0: 卡片数据绑定 — 更新已展示卡片的数据
         toolRegistry.register(

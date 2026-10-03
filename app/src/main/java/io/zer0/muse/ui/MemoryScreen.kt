@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,7 +49,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.zer0.memory.fact.MemoryLegacyReset
 import io.zer0.memory.space.MemorySpaceEntity
+import io.zer0.memory.summary.MemoryDbArchiveRecovery
 import io.zer0.muse.R
+import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseAnchoredMenu
@@ -77,7 +80,9 @@ import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 import java.time.Instant
 import java.time.ZoneId
 
@@ -104,6 +109,11 @@ fun MemoryScreen(
     val timeRangeFilter by viewModel.timeRangeFilter.collectAsStateWithLifecycle()
     val organizing by viewModel.organizeRunning.collectAsStateWithLifecycle()
     val organizeStage by viewModel.organizeStage.collectAsStateWithLifecycle()
+    val archiveRecovery: MemoryDbArchiveRecovery = koinInject()
+    val archiveRecoveryScope = rememberCoroutineScope()
+    var archiveInfo by remember { mutableStateOf<MemoryDbArchiveRecovery.ArchiveInfo?>(null) }
+    var showArchiveRecoveryConfirm by remember { mutableStateOf(false) }
+    var archiveRecoveryRunning by remember { mutableStateOf(false) }
 
     // 来龙去脉：正在查看修订历史的那条事实（非 null 时弹出修订面板）
     var revisionTarget by remember { mutableStateOf<MemoryItem?>(null) }
@@ -127,6 +137,8 @@ fun MemoryScreen(
                 MuseToast.show(context.getString(R.string.memory_archive_recovered, recovered))
             hadArchive -> MuseToast.show(context.getString(R.string.memory_archive_rebuilt_hint))
         }
+        archiveInfo = archiveRecovery.availableArchives()
+            .maxByOrNull { it.storedVersion }
     }
     var tab by remember { mutableIntStateOf(0) } // 0=记忆流 1=事实库 2=星座
     var query by remember { mutableStateOf("") }
@@ -205,6 +217,15 @@ fun MemoryScreen(
                         onOrganize = viewModel::organizeMemory,
                         onOpenFilter = { showFilter = true },
                     )
+                }
+                archiveInfo?.let { info ->
+                    item(key = "memory_archive_recovery") {
+                        MemoryArchiveRecoveryCard(
+                            info = info,
+                            running = archiveRecoveryRunning,
+                            onRestore = { showArchiveRecoveryConfirm = true },
+                        )
+                    }
                 }
                 item(key = "memory_tabs") {
                     MemoryCapsuleTabs(selected = tab, onSelect = { tab = it })
@@ -298,6 +319,43 @@ fun MemoryScreen(
         AddFactDialog(
             onDismiss = { showAddFact = false },
             onConfirm = viewModel::addFact,
+        )
+    }
+    if (showArchiveRecoveryConfirm) {
+        MuseDialog(
+            onDismissRequest = { if (!archiveRecoveryRunning) showArchiveRecoveryConfirm = false },
+            title = stringResource(R.string.memory_archive_recovery_confirm_title),
+            content = {
+                Text(stringResource(R.string.memory_archive_recovery_confirm))
+            },
+            confirmText = stringResource(R.string.memory_archive_recovery_action),
+            onConfirm = {
+                showArchiveRecoveryConfirm = false
+                archiveRecoveryRunning = true
+                archiveRecoveryScope.launch {
+                    val result = archiveRecovery.restoreLatestIfEmpty()
+                    result.onSuccess { report ->
+                        archiveInfo = null
+                        viewModel.loadAll(silent = true)
+                        MuseToast.show(
+                            context.getString(
+                                R.string.memory_archive_recovery_done,
+                                report.totalRows,
+                            ),
+                        )
+                    }.onFailure { error ->
+                        MuseToast.show(
+                            context.getString(
+                                R.string.memory_archive_recovery_failed,
+                                error.message ?: "",
+                            ),
+                        )
+                    }
+                    archiveRecoveryRunning = false
+                }
+            },
+            dismissText = stringResource(R.string.memory_screen_cancel),
+            onDismiss = { if (!archiveRecoveryRunning) showArchiveRecoveryConfirm = false },
         )
     }
     // F-10: 重要程度选择(0=普通, 1=重要, 2=关键 — 关键事实永不衰减)
@@ -565,6 +623,49 @@ private fun MemoryOverviewCard(
                 onClick = onOrganize,
                 enabled = !organizing,
                 loading = organizing,
+                variant = IosCapsuleButtonVariant.Secondary,
+                leadingIcon = MuseIcons.refresh,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun MemoryArchiveRecoveryCard(
+    info: MemoryDbArchiveRecovery.ArchiveInfo,
+    running: Boolean,
+    onRestore: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = MusePaddings.screen),
+        shape = MuseShapes.large,
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.memory_archive_recovery_title),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            Text(
+                text = stringResource(
+                    R.string.memory_archive_recovery_message,
+                    info.sessionSummaries,
+                    info.compiledSections + info.scopedCompiledSections,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            MuseCapsuleButton(
+                text = stringResource(R.string.memory_archive_recovery_action),
+                onClick = onRestore,
+                enabled = !running,
+                loading = running,
                 variant = IosCapsuleButtonVariant.Secondary,
                 leadingIcon = MuseIcons.refresh,
                 modifier = Modifier.fillMaxWidth(),

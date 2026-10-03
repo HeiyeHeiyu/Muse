@@ -1,9 +1,11 @@
 package io.zer0.muse.tools
 
+import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import io.zer0.muse.R
@@ -188,7 +190,10 @@ class SkillFileToolsImpl(private val context: Context, private val client: OkHtt
         val cacheDir = context.cacheDir.canonicalPath
         val target = File(context.filesDir, path).canonicalFile
         val targetPath = target.canonicalPath
-        return if (targetPath.startsWith(filesDir) || targetPath.startsWith(cacheDir)) target else null
+        val inside = { root: String ->
+            targetPath == root || targetPath.startsWith(root + File.separator)
+        }
+        return if (inside(filesDir) || inside(cacheDir)) target else null
     }
 
     // H-SE1: 改用 resultOf{}(正确重抛 CancellationException)
@@ -515,13 +520,27 @@ class SkillFileToolsImpl(private val context: Context, private val client: OkHtt
         }
         // v1.109 修复: LIMIT 加上限 200,防止 LLM 传超大值导致资源耗尽
         val safeLimit = limit.coerceIn(1, 200)
-        val cursor = context.contentResolver.query(
-            collection, projection, selection, selectionArgs,
-            "${MediaStore.MediaColumns.DATE_MODIFIED} DESC LIMIT $safeLimit",
-        ) ?: return context.getString(R.string.skill_query_failed_short)
+        // MediaStore providers do not consistently accept SQL LIMIT tokens in sortOrder
+        // (some return "Invalid token LIMIT"). Use structured query arguments instead.
+        val queryArgs =
+            Bundle().apply {
+                selection?.let { putString(ContentResolver.QUERY_ARG_SQL_SELECTION, it) }
+                selectionArgs?.let { putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, it) }
+                putStringArray(
+                    ContentResolver.QUERY_ARG_SORT_COLUMNS,
+                    arrayOf(MediaStore.MediaColumns.DATE_MODIFIED),
+                )
+                putInt(
+                    ContentResolver.QUERY_ARG_SORT_DIRECTION,
+                    ContentResolver.QUERY_SORT_DIRECTION_DESCENDING,
+                )
+                putInt(ContentResolver.QUERY_ARG_LIMIT, safeLimit)
+            }
+        val cursor = context.contentResolver.query(collection, projection, queryArgs, null)
+            ?: return context.getString(R.string.skill_query_failed_short)
         return cursor.use {
             val results = mutableListOf<String>()
-            while (it.moveToNext()) {
+            while (it.moveToNext() && results.size < safeLimit) {
                 val id = it.getLong(0)
                 val name = it.getString(1) ?: "?"
                 val size = it.getLong(2)

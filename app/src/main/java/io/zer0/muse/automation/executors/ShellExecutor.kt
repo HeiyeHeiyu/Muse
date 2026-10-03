@@ -7,6 +7,7 @@ import io.zer0.muse.automation.core.AutomationExecutor
 import io.zer0.muse.automation.core.PermissionLevel
 import io.zer0.muse.automation.core.ScreenInfo
 import io.zer0.muse.automation.core.UiNode
+import io.zer0.muse.tools.system.sanitizeShellCommandForLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -213,7 +214,10 @@ open class ShellExecutor(
             return@withContext if (result.isSuccess) {
                 Result.success(result.stdout)
             } else {
-                Logger.w(TAG, "Shizuku exec failed (exit=${result.exitCode}): $command -> ${result.stderr.take(200)}")
+                Logger.w(
+                    TAG,
+                    "Shizuku exec failed (exit=${result.exitCode}, verb=${sanitizeShellCommandForLog(command)})",
+                )
                 Result.failure(IllegalStateException(result.stderr.ifBlank { "Shizuku 命令执行失败" }))
             }
         }
@@ -224,7 +228,7 @@ open class ShellExecutor(
             val output = proc.inputStream.bufferedReader().use { it.readText() }
             val exit = proc.waitFor()
             if (exit != 0) {
-                Logger.w(TAG, "exec failed (exit=$exit): $command -> ${output.take(200)}")
+                Logger.w(TAG, "exec failed (exit=$exit, verb=${sanitizeShellCommandForLog(command)})")
             }
             output
         }.onFailure { Logger.w(TAG, "exec error: ${it.message}") }

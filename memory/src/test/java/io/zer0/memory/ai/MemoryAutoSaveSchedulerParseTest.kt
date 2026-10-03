@@ -43,6 +43,33 @@ class MemoryAutoSaveSchedulerParseTest {
     }
 
     @Test
+    fun `fingerprint changes when an older message changes outside the recent extraction window`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val scheduler = MemoryAutoSaveScheduler(
+            factDbProvider = FactDbProvider(context),
+            llmClient = object : MemoryLlmClient {
+                override suspend fun callText(
+                    systemPrompt: String,
+                    userContent: String,
+                    model: Model?,
+                    temperature: Float,
+                    maxTokens: Int,
+                    timeoutMs: Long,
+                ): String = "{}"
+            },
+            scope = CoroutineScope(Dispatchers.Unconfined),
+        )
+        val history = List(31) { index ->
+            UIMessage(role = MessageRole.USER, content = "message-$index")
+        }
+        val edited = history.toMutableList().apply {
+            this[0] = UIMessage(role = MessageRole.USER, content = "edited-old-message")
+        }
+
+        assertEquals(false, scheduler.fingerprintHistory(history) == scheduler.fingerprintHistory(edited))
+    }
+
+    @Test
     fun `explicit null optional object fields are coerced to defaults`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val scheduler = MemoryAutoSaveScheduler(
@@ -73,5 +100,31 @@ class MemoryAutoSaveSchedulerParseTest {
         assertEquals("", result?.mainProblem?.content)
         assertEquals("用户喜欢 Kotlin", result?.extractedEntities?.single()?.content)
         assertEquals("", result?.links?.single()?.sourceTitle)
+    }
+
+    @Test
+    fun `analysis preserves speaker attribution for extracted facts`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val scheduler = MemoryAutoSaveScheduler(
+            factDbProvider = FactDbProvider(context),
+            llmClient = object : MemoryLlmClient {
+                override suspend fun callText(
+                    systemPrompt: String,
+                    userContent: String,
+                    model: Model?,
+                    temperature: Float,
+                    maxTokens: Int,
+                    timeoutMs: Long,
+                ): String = "{}"
+            },
+            scope = CoroutineScope(Dispatchers.Unconfined),
+        )
+
+        val result = scheduler.parseAnalysisResult(
+            """{"extractedEntities":[{"title":"assistant preference","content":"I like tea","speaker":"ASSISTANT"}]}""",
+        )
+
+        assertEquals("ASSISTANT", result?.extractedEntities?.single()?.speaker)
+        assertEquals(emptyList<ParsedEntity>(), result?.userFactsOnly())
     }
 }

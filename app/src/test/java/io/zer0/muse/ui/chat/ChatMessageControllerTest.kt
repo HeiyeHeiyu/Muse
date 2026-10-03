@@ -6,8 +6,11 @@ import io.mockk.mockk
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
 import io.zer0.muse.data.chat.ConversationTree
+import io.zer0.muse.data.chat.ConversationTreeSnapshotStore
 import io.zer0.muse.data.session.SessionRepository
 import io.zer0.muse.tools.SkillExecutor
+import io.zer0.muse.ui.ChatAgentState
+import io.zer0.muse.ui.ChatSessionState
 import io.zer0.muse.ui.ChatUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -36,12 +39,18 @@ class ChatMessageControllerTest {
         override fun updateMessages(transform: (List<UIMessage>) -> List<UIMessage>) = messages.update(transform)
     }
 
-    private fun controller(scope: CoroutineScope, repo: SessionRepository, messages: List<UIMessage> = emptyList()) = ChatMessageController(
-        accessor = ScopedAccessor(ChatUiState(), scope, messages),
+    private fun controller(
+        scope: CoroutineScope,
+        repo: SessionRepository,
+        messages: List<UIMessage> = emptyList(),
+        state: ChatUiState = ChatUiState(),
+        treeSnapshotStore: ConversationTreeSnapshotStore? = null,
+    ) = ChatMessageController(
+        accessor = ScopedAccessor(state, scope, messages),
         sessionRepository = repo,
         skillExecutor = mockk<SkillExecutor>(relaxed = true),
         treeState = MutableStateFlow(ConversationTree()),
-        treeSnapshotStore = null,
+        treeSnapshotStore = treeSnapshotStore,
     )
 
     @Test
@@ -100,5 +109,22 @@ class ChatMessageControllerTest {
         val repo = mockk<SessionRepository>(relaxed = true)
         controller(this, repo).healBranchCounts("s1", emptyList(), ConversationTree())
         coVerify(exactly = 0) { repo.upsertMessage(any(), any()) }
+    }
+
+    @Test
+    fun `rebuildConversationTree saves agent snapshot under agent session`() = runTest {
+        val repo = mockk<SessionRepository>(relaxed = true)
+        val snapshots = mockk<ConversationTreeSnapshotStore>(relaxed = true)
+        val state =
+            ChatUiState(
+                sessionState = ChatSessionState(currentSessionId = "task-1"),
+                agentState = ChatAgentState(isAgentMode = true, agentSessionId = "agent-1"),
+            )
+        val message = UIMessage(role = MessageRole.USER, content = "hello")
+
+        controller(this, repo, listOf(message), state, snapshots).rebuildConversationTree()
+        advanceUntilIdle()
+
+        coVerify(timeout = 2_000) { snapshots.save("agent-1", any()) }
     }
 }

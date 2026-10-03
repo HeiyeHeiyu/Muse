@@ -97,15 +97,22 @@ class MemoryAutoSaveScheduler(
     /**
      * v12 (T2-3): 计算历史消息指纹 — 取最后 [MAX_HISTORY_MESSAGES] 条消息的
      * (id + 与实际发给 LLM 的截断长度一致的 content) 哈希。id 相同且内容相同 → 同一段历史,幂等跳过。
+     *
+     * 指纹本身必须覆盖完整历史：LLM 输入仍受 [MAX_HISTORY_MESSAGES] 限制，
+     * 但更早消息被编辑时也要允许下一次 auto-save 重跑，避免把旧记忆永久判定为已处理。
      */
     internal fun fingerprintHistory(history: List<UIMessage>): String {
-        val window = history.takeLast(MAX_HISTORY_MESSAGES)
-        // Must match buildHistoryText's MAX_MESSAGE_CHARS; hashing only 200 chars
-        // would skip re-analysis when a fact changes later in a long message.
-        val joined = window.joinToString("\n") { "${it.role}:${it.id}:${it.content.take(MAX_MESSAGE_CHARS)}" }
-        return java.security.MessageDigest.getInstance("MD5")
-            .digest(joined.toByteArray())
-            .joinToString("") { "%02x".format(it) }
+        val digest = java.security.MessageDigest.getInstance("MD5")
+        history.forEach { message ->
+            // Incremental updates avoid allocating one giant joined string for long sessions.
+            digest.update(message.role.name.toByteArray())
+            digest.update(0.toByte())
+            digest.update(message.id.toString().toByteArray())
+            digest.update(0.toByte())
+            digest.update(message.content.toByteArray())
+            digest.update(0.toByte())
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     /**
@@ -343,7 +350,7 @@ class MemoryAutoSaveScheduler(
 
         // 1. 提取新实体 → 写入 facts(自动去重合并)
         if (analysis.extractedEntities.isNotEmpty()) {
-            val facts = analysis.extractedEntities
+            val facts = analysis.userFactsOnly()
                 .filter { it.content.isNotBlank() }
                 .map { entity ->
                     FactStore.Fact(

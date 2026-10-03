@@ -136,6 +136,7 @@ object ToolCategories {
             // 任务卡 / 通知 / 状态
             "todo_write",
             "show_card",
+            "render_data",
             "update_card_data",
             "notify",
             "current_status",
