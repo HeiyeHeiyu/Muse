@@ -194,8 +194,9 @@ class UpdateNotifier(
         /**
          * 官网下载页 — 应用内所有下载/更新出口统一指向这里。
          *
-         * 下载/更新入口从 GitHub Releases 迁到官网下载页:走七牛 CDN 加速,国内可直连;
-         * 页面自带 CDN → 本机镜像 → GitHub 三级回退。
+         * 「立即下载」为什么先落到官网而不是直接给 APK 直链：官网会用当前 Release 的资产列表
+         * 按机型给出对应架构的按钮，用户点一下即从 GitHub 资产直链下载；应用内自己判断架构
+         * 反而容易选错包（尤其 32/64 位混杂的机器）。官网下载页不自己存安装包。
          */
         const val OFFICIAL_DOWNLOAD_PAGE = "https://museai.ltd/download/"
 

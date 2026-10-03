@@ -22,7 +22,6 @@ import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.audit.AuditLogger
 import io.zer0.muse.data.session.SessionRepository
 import io.zer0.muse.data.session.ToolRoundEntity
-import io.zer0.muse.util.TokenEstimator
 import io.zer0.muse.data.skill.SkillEntity
 import io.zer0.muse.data.skill.SkillRepository
 import io.zer0.muse.ui.ChatErrorType
@@ -32,6 +31,7 @@ import io.zer0.muse.ui.chat.ChatTaskCardCoordinator
 import io.zer0.muse.ui.taskcard.TaskCardData
 import io.zer0.muse.ui.taskcard.TaskCardPhase
 import io.zer0.muse.ui.taskcard.TaskStepStatus
+import io.zer0.muse.util.TokenEstimator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -1129,14 +1129,14 @@ class ToolOrchestrator(
                                     startedAt = stepStartedAt,
                                     finishedAt = finishedAt,
                                     errorDetail =
-                                        if (result.isSuccess) {
-                                            null
-                                        } else {
-                                            ToolDataPrivacy.safeResultForPersistence(
-                                                result.tc.name,
-                                                result.displayResult ?: result.finalToolResult,
-                                            )
-                                        },
+                                    if (result.isSuccess) {
+                                        null
+                                    } else {
+                                        ToolDataPrivacy.safeResultForPersistence(
+                                            result.tc.name,
+                                            result.displayResult ?: result.finalToolResult,
+                                        )
+                                    },
                                 )
                             }
                     }
@@ -1249,13 +1249,13 @@ class ToolOrchestrator(
                             val persistedToolDisplay =
                                 toolDisplay.copy(
                                     toolCallInfo =
-                                        toolDisplay.toolCallInfo?.copy(
-                                            arguments = ToolDataPrivacy.safeArgumentsForPersistence(tc.name, tc.arguments),
-                                            result = ToolDataPrivacy.safeResultForPersistence(
-                                                tc.name,
-                                                displayResult ?: finalToolResult,
-                                            ),
+                                    toolDisplay.toolCallInfo?.copy(
+                                        arguments = ToolDataPrivacy.safeArgumentsForPersistence(tc.name, tc.arguments),
+                                        result = ToolDataPrivacy.safeResultForPersistence(
+                                            tc.name,
+                                            displayResult ?: finalToolResult,
                                         ),
+                                    ),
                                 )
                             persistAssistantToolMsg(params.sessionId, persistedToolDisplay, host)
                         }
@@ -1455,14 +1455,14 @@ class ToolOrchestrator(
                 startedAt = startedAt,
                 finishedAt = now,
                 errorDetail =
-                    if (result.isSuccess) {
-                        null
-                    } else {
-                        ToolDataPrivacy.safeResultForPersistence(
-                            result.tc.name,
-                            result.displayResult ?: result.finalToolResult,
-                        )
-                    },
+                if (result.isSuccess) {
+                    null
+                } else {
+                    ToolDataPrivacy.safeResultForPersistence(
+                        result.tc.name,
+                        result.displayResult ?: result.finalToolResult,
+                    )
+                },
             )
         resultOf { sessionRepository.upsertToolRound(entity) }
             .onError { msg, t ->

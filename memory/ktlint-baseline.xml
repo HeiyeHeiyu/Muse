@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <baseline version="1.0">
+    <file name="src/main/java/io/zer0/memory/ai/ParsedAnalysis.kt">
+        <error line="38" column="66" source="standard:function-signature" />
+    </file>
     <file name="src/main/java/io/zer0/memory/budget/LlmBudget.kt">
         <error line="80" column="30" source="standard:discouraged-comment-location" />
         <error line="81" column="27" source="standard:discouraged-comment-location" />
@@ -36,27 +39,89 @@
     <file name="src/main/java/io/zer0/memory/summary/CompiledSectionEntity.kt">
         <error line="21" column="29" source="standard:discouraged-comment-location" />
     </file>
+    <file name="src/main/java/io/zer0/memory/summary/MemoryDbArchiveRecovery.kt">
+        <error line="195" column="1" source="standard:indent" />
+        <error line="196" column="1" source="standard:indent" />
+        <error line="197" column="1" source="standard:indent" />
+        <error line="198" column="1" source="standard:indent" />
+        <error line="199" column="1" source="standard:indent" />
+        <error line="200" column="1" source="standard:indent" />
+        <error line="201" column="1" source="standard:indent" />
+        <error line="202" column="1" source="standard:indent" />
+        <error line="203" column="1" source="standard:indent" />
+        <error line="204" column="1" source="standard:indent" />
+        <error line="205" column="1" source="standard:indent" />
+        <error line="206" column="1" source="standard:indent" />
+        <error line="207" column="1" source="standard:indent" />
+        <error line="208" column="1" source="standard:indent" />
+        <error line="209" column="1" source="standard:indent" />
+        <error line="210" column="1" source="standard:indent" />
+        <error line="211" column="1" source="standard:indent" />
+        <error line="214" column="1" source="standard:indent" />
+        <error line="215" column="1" source="standard:indent" />
+        <error line="216" column="1" source="standard:indent" />
+        <error line="217" column="1" source="standard:indent" />
+        <error line="218" column="1" source="standard:indent" />
+        <error line="219" column="1" source="standard:indent" />
+        <error line="220" column="1" source="standard:indent" />
+        <error line="221" column="1" source="standard:indent" />
+        <error line="222" column="1" source="standard:indent" />
+        <error line="223" column="1" source="standard:indent" />
+        <error line="224" column="1" source="standard:indent" />
+        <error line="227" column="1" source="standard:indent" />
+        <error line="228" column="1" source="standard:indent" />
+        <error line="229" column="1" source="standard:indent" />
+        <error line="230" column="1" source="standard:indent" />
+        <error line="231" column="1" source="standard:indent" />
+        <error line="232" column="1" source="standard:indent" />
+        <error line="233" column="1" source="standard:indent" />
+        <error line="234" column="1" source="standard:indent" />
+        <error line="235" column="1" source="standard:indent" />
+        <error line="236" column="1" source="standard:indent" />
+        <error line="237" column="1" source="standard:indent" />
+        <error line="240" column="1" source="standard:indent" />
+        <error line="241" column="1" source="standard:indent" />
+        <error line="242" column="1" source="standard:indent" />
+        <error line="243" column="1" source="standard:indent" />
+        <error line="244" column="1" source="standard:indent" />
+        <error line="245" column="1" source="standard:indent" />
+        <error line="246" column="1" source="standard:indent" />
+        <error line="247" column="1" source="standard:indent" />
+        <error line="248" column="1" source="standard:indent" />
+        <error line="249" column="1" source="standard:indent" />
+        <error line="250" column="1" source="standard:indent" />
+        <error line="251" column="1" source="standard:indent" />
+        <error line="252" column="1" source="standard:indent" />
+        <error line="263" column="9" source="standard:function-signature" />
+        <error line="264" column="9" source="standard:function-signature" />
+        <error line="265" column="9" source="standard:function-signature" />
+        <error line="265" column="32" source="standard:function-signature" />
+        <error line="277" column="77" source="standard:function-signature" />
+        <error line="298" column="44" source="standard:function-signature" />
+    </file>
     <file name="src/main/java/io/zer0/memory/summary/ScopedCompiledSectionDao.kt">
         <error line="31" column="1" source="standard:max-line-length" />
     </file>
     <file name="src/main/java/io/zer0/memory/ticker/MemoryTicker.kt">
-        <error line="146" column="17" source="standard:property-naming" />
-        <error line="154" column="17" source="standard:property-naming" />
-        <error line="157" column="17" source="standard:property-naming" />
-        <error line="158" column="17" source="standard:property-naming" />
-        <error line="167" column="17" source="standard:property-naming" />
-        <error line="180" column="17" source="standard:property-naming" />
+        <error line="44" column="58" source="standard:function-signature" />
+        <error line="48" column="59" source="standard:function-signature" />
+        <error line="170" column="17" source="standard:property-naming" />
+        <error line="178" column="17" source="standard:property-naming" />
+        <error line="181" column="17" source="standard:property-naming" />
+        <error line="182" column="17" source="standard:property-naming" />
         <error line="191" column="17" source="standard:property-naming" />
-        <error line="194" column="17" source="standard:property-naming" />
-        <error line="195" column="17" source="standard:property-naming" />
-        <error line="198" column="17" source="standard:property-naming" />
-        <error line="200" column="27" source="standard:property-naming" />
-        <error line="202" column="27" source="standard:property-naming" />
-        <error line="203" column="17" source="standard:property-naming" />
-        <error line="217" column="17" source="standard:property-naming" />
+        <error line="204" column="17" source="standard:property-naming" />
+        <error line="215" column="17" source="standard:property-naming" />
         <error line="218" column="17" source="standard:property-naming" />
-        <error line="250" column="17" source="standard:property-naming" />
-        <error line="254" column="17" source="standard:property-naming" />
+        <error line="219" column="17" source="standard:property-naming" />
+        <error line="222" column="17" source="standard:property-naming" />
+        <error line="224" column="27" source="standard:property-naming" />
+        <error line="226" column="27" source="standard:property-naming" />
+        <error line="227" column="17" source="standard:property-naming" />
+        <error line="241" column="17" source="standard:property-naming" />
+        <error line="242" column="17" source="standard:property-naming" />
+        <error line="274" column="17" source="standard:property-naming" />
+        <error line="278" column="17" source="standard:property-naming" />
     </file>
     <file name="src/test/java/io/zer0/memory/fact/FactDbMigrationTest.kt">
         <error line="67" column="17" source="standard:property-naming" />
@@ -84,9 +149,8 @@
         <error line="134" column="39" source="standard:discouraged-comment-location" />
         <error line="135" column="42" source="standard:discouraged-comment-location" />
     </file>
-    <file name="src/test/java/io/zer0/memory/summary/MemoryDbMigrationTest.kt">
-        <error line="42" column="1" source="standard:max-line-length" />
-        <error line="45" column="1" source="standard:max-line-length" />
-        <error line="48" column="1" source="standard:max-line-length" />
+    <file name="src/test/java/io/zer0/memory/summary/MemoryDbArchiveRecoveryTest.kt">
+        <error line="13" column="1" source="standard:no-unused-imports" />
+        <error line="179" column="1" source="standard:max-line-length" />
     </file>
 </baseline>

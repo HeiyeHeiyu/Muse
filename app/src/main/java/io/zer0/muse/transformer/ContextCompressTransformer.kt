@@ -286,6 +286,25 @@ class ContextCompressTransformer(
     }
 
     /**
+     * v2.x: 本地重建检查点的输入（参数多于 6 个，用数据类而不是长参数列表）。
+     *
+     * @param covered 本次要覆盖的消息（**按时间顺序**，旧→新）；为空则不产出检查点
+     * @param previousBoundaryId 上一次检查点的边界（null 表示首次）
+     * @param coveredSeq 新边界消息在消息表里的真实 seq（由调用方查库解析；查不到传 0）
+     */
+    data class LocalCheckpointRequest(
+        val sessionId: String,
+        val covered: List<UIMessage>,
+        val previousBoundaryId: String?,
+        val coveredSeq: Long,
+        val tokensBefore: Int,
+        val tokensAfter: Int,
+        val reason: String,
+        /** 摘录正文的字符预算（null 用 ContextHistoryDigest 的默认值）。 */
+        val maxChars: Int? = null,
+    )
+
+    /**
      * v2.x: 构建**本地重建**检查点（零模型请求）。
      *
      * 用在摘要不可用时（网络差、摘要模型报错、超时）：把"会被覆盖的消息"做确定性文本摘录
@@ -294,47 +313,36 @@ class ContextCompressTransformer(
      * 为什么这一步重要：摘要失败后如果什么都不写，重开应用/切回会话又回到全量历史，
      * 下次还得再试一遍摘要——用户看到的是"压缩了但没用"。本地重建虽然不提炼要点，
      * 但**边界生效**：被覆盖的消息不再进模型，而且历史被确定性收窄到这个规模。
-     *
-     * @param covered 本次要覆盖的消息（按时间顺序，旧→新）；为空则返回 null
-     * @param previousBoundaryId 上一次检查点的边界（null 表示首次）
-     * @param coveredSeq 新边界消息在消息表里的真实 seq（查不到传 0，组装侧以消息 id 为准）
      */
-    fun buildLocalCheckpoint(
-        sessionId: String,
-        covered: List<UIMessage>,
-        previousBoundaryId: String?,
-        coveredSeq: Long,
-        tokensBefore: Int,
-        tokensAfter: Int,
-        reason: String,
-        /** 摘录正文的字符预算（默认沿用 [io.zer0.ai.core.ContextHistoryDigest] 的默认值）。 */
-        maxChars: Int? = null,
-    ): io.zer0.memory.summary.ContextCheckpointEntity? {
-        if (covered.isEmpty()) return null
-        val digest = if (maxChars == null) {
-            io.zer0.ai.core.ContextHistoryDigest.build(covered)
-        } else {
-            io.zer0.ai.core.ContextHistoryDigest.build(covered, maxChars)
-        } ?: return null
-        val previous = previousBoundaryId?.let { runCatching { Uuid.parse(it) }.getOrNull() }
+    fun buildLocalCheckpoint(request: LocalCheckpointRequest): io.zer0.memory.summary.ContextCheckpointEntity? {
+        val covered = request.covered
+        val digest = request.maxChars?.let {
+            io.zer0.ai.core.ContextHistoryDigest.build(covered, it)
+        } ?: io.zer0.ai.core.ContextHistoryDigest.build(covered)
+        val summary = digest?.content?.takeIf { it.isNotBlank() }
+        val previous = request.previousBoundaryId?.let { runCatching { Uuid.parse(it) }.getOrNull() }
         // 边界取**时间顺序上的最后一条**（covered 由调用方按旧→新给出）。
-        // 这里不能用 maxOrNull()：那是假设 UUIDv7 时间有序，而消息 id 可能是 v4（顺序随机），
+        // 这里不能用 maxOrNull()：那是假设 UUIDv7 时间有序，而消息 id 是随机 v4（顺序随机），
         // 一旦取错边界，组装侧就会把"还没被覆盖"的消息也当成已覆盖而丢掉。
-        val boundary = runCatching { Uuid.parse(covered.last().id.toString()) }.getOrNull()
+        val boundary = covered.lastOrNull()
+            ?.let { runCatching { Uuid.parse(it.id.toString()) }.getOrNull() }
             ?: previous
-            ?: return null
-        return io.zer0.memory.summary.ContextCheckpointEntity(
-            sessionId = sessionId,
-            coveredSeq = coveredSeq,
-            lastCoveredMessageId = boundary.toString(),
-            coveredCount = covered.size,
-            summary = digest.content,
-            tokensBefore = tokensBefore,
-            tokensAfter = tokensAfter,
-            strategy = io.zer0.memory.summary.ContextCheckpointEntity.STRATEGY_LOCAL,
-            reason = reason,
-            updatedAt = System.currentTimeMillis(),
-        )
+        return if (covered.isEmpty() || summary == null || boundary == null) {
+            null
+        } else {
+            io.zer0.memory.summary.ContextCheckpointEntity(
+                sessionId = request.sessionId,
+                coveredSeq = request.coveredSeq,
+                lastCoveredMessageId = boundary.toString(),
+                coveredCount = covered.size,
+                summary = summary,
+                tokensBefore = request.tokensBefore,
+                tokensAfter = request.tokensAfter,
+                strategy = io.zer0.memory.summary.ContextCheckpointEntity.STRATEGY_LOCAL,
+                reason = request.reason,
+                updatedAt = System.currentTimeMillis(),
+            )
+        }
     }
 
     /** 取摘要的结局(v2.3.2: 把原先散落在 transform 里的 return 收敛成显式类型,便于控制函数长度)。 */
@@ -399,11 +407,7 @@ class ContextCompressTransformer(
         content = "(历史暂不可用,仅保留最近消息)",
     )
 
-    private fun forceFallbackHistory(
-        prefix: List<UIMessage>,
-        recent: List<UIMessage>,
-        tokenBudget: Int,
-    ): List<UIMessage> {
+    private fun forceFallbackHistory(prefix: List<UIMessage>, recent: List<UIMessage>, tokenBudget: Int): List<UIMessage> {
         val budget = if (tokenBudget > 0) tokenBudget else WarmupHistory.FALLBACK_BUDGET_TOKENS
         val prefixBudget = (budget - TokenEstimator.estimate(prefix)).coerceAtLeast(1)
         val retained = WarmupHistory.trimToBudget(

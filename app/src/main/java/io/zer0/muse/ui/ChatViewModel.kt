@@ -1163,8 +1163,7 @@ internal fun canUseToolModelForRound(history: List<UIMessage>, toolModel: Model)
 internal fun canRegenerate(isStreaming: Boolean, hasSession: Boolean, hasSelectedUserVariant: Boolean): Boolean =
     !isStreaming && hasSession && hasSelectedUserVariant
 
-internal fun effectiveChatSessionId(state: ChatUiState): String? =
-    if (state.isAgentMode) state.agentSessionId else state.currentSessionId
+internal fun effectiveChatSessionId(state: ChatUiState): String? = if (state.isAgentMode) state.agentSessionId else state.currentSessionId
 
 // 渐进式拆分阶段仍需平铺注入依赖；保持 Koin 参数顺序稳定，避免大范围行为变更。
 @Suppress("LongParameterList")
@@ -1547,8 +1546,7 @@ class ChatViewModel(
             generationState.sessionProviderOverrides = value
         }
 
-    private fun displayedSessionId(state: ChatUiState = _state.value): String? =
-        effectiveChatSessionId(state)
+    private fun displayedSessionId(state: ChatUiState = _state.value): String? = effectiveChatSessionId(state)
 
     private fun selectedModelForSession(sessionId: String?): String? = sessionId?.let(sessionModelOverrides::get) ?: globalSelectedModelId
 
@@ -2906,7 +2904,7 @@ class ChatViewModel(
      * 移到 Dispatchers.Default 执行。原先在主线程同步,长历史下单次 50-200ms,
      * 流式期间每秒叠加一次,是卡顿的主要根因。
      */
-    private suspend fun updateContextTokenCount(): Unit {
+    private suspend fun updateContextTokenCount() {
         displayedSessionId()?.let { ensureCheckpointCoveredIds(it) }
         generationController.updateContextTokenCount(checkpointCoveredIds)
     }
@@ -3035,35 +3033,18 @@ class ChatViewModel(
                     Logger.i("ChatVM", io.zer0.muse.transformer.CompressionDiagnostics.staleAutoCompressResult(sessionId))
                     return@launch
                 }
-                // v2.x: 压缩结果落成**会话检查点**(持久、带边界指针),不再改写内存消息列表。
-                // 这样:① 重开应用/切回会话依然生效,不必再花一次摘要调用;
-                //       ② 界面继续显示完整历史(老消息默认可见),只有发给模型的历史被过滤;
-                //       ③ 边界之前的消息不会被重复计入下一轮压缩的输入。
-                if (maxCoveredId == null) {
-                    Logger.w("ChatVM", io.zer0.muse.transformer.CompressionDiagnostics.NO_COVERAGE_RECORD)
-                    return@launch
-                }
-                persistContextCheckpoint(
+                finishCompressionWithCheckpoint(
                     sessionId = sessionId,
+                    currentMessages = currentMessages,
+                    compressed = compressed,
+                    coveredIds = coveredIds,
+                    maxCoveredId = maxCoveredId,
                     previousBoundaryId = currentCheckpointBoundaryId,
                     previousTotalCovered = existingCheckpoint?.totalCoveredCount ?: 0,
-                    generatedBoundaryId = maxCoveredId,
+                    keepRecent = keepRecent,
                     tokensBefore = currentTokens,
-                    tokensAfter = TokenEstimator.estimate(compressed),
                     reason = io.zer0.memory.summary.ContextCheckpointEntity.REASON_AUTO,
-                    // 边界与条数都取自"有序的压缩集合"，不用消息 id 排序推断：
-                    // 消息 id 是随机 UUID，集合无序，靠排序会选错边界并丢掉未覆盖的消息。
-                    boundaryMessageId = contextCompressTransformer.lastCoveredBoundaryId,
-                    newlyCoveredCount = newlyCoveredCount(
-                        messages = currentMessages,
-                        coveredIds = coveredIds,
-                        previousBoundaryId = currentCheckpointBoundaryId,
-                    ),
                 )
-                // v2.x: 覆盖集合先刷新再算占用率 —— 刷新后 checkpointCoveredIds 才是本次压缩的结果
-                checkpointCoveredSessionId = sessionId
-                refreshCheckpointCoveredIds(sessionId)
-                updateContextTokenCount()
                 Logger.i(
                     "ChatVM",
                     CompressionDiagnostics.checkpointSaved(
@@ -3073,23 +3054,73 @@ class ChatViewModel(
                         after = compressed.size,
                     ),
                 )
-            } else {
+            } else if (displayedSessionId() == sessionId) {
                 // v2.x 降级阶梯最后一级：摘要没产出（网络差 / 摘要模型报错 / 超时 / 无净收益）。
                 // 此时**不空手而归** —— 用零请求的确定性文本摘录做本地重建，仍然写出一条检查点。
-                // 不这么做的话，重开应用/切回会话又回到全量历史，下次还得再试一遍摘要，
-                // 用户看到的现象是"压了但没用"。
-                if (displayedSessionId() == sessionId) {
-                    persistLocalCheckpointFallback(
-                        sessionId = sessionId,
-                        messages = currentMessages,
-                        keepRecent = keepRecent,
-                        previousBoundaryId = currentCheckpointBoundaryId,
-                        previousTotalCovered = existingCheckpoint?.totalCoveredCount ?: 0,
-                        tokensBefore = currentTokens,
-                    )
-                }
+                persistLocalCheckpointFallback(
+                    sessionId = sessionId,
+                    messages = currentMessages,
+                    keepRecent = keepRecent,
+                    previousBoundaryId = currentCheckpointBoundaryId,
+                    previousTotalCovered = existingCheckpoint?.totalCoveredCount ?: 0,
+                    tokensBefore = currentTokens,
+                )
             }
         }
+    }
+
+    /**
+     * v2.x: 一次**成功**压缩的收尾 —— 落检查点并刷新"已覆盖/占用率"口径。
+     *
+     * 自动与手动压缩共用：两条路径在"模型看到什么、占用率怎么算"上必须完全一致，
+     * 否则用户主动点"压缩"会得到与自动压缩不同的结果（曾经就是这样的行为分叉）。
+     *
+     * 落检查点而不是改写内存消息列表：界面继续显示完整历史（老消息默认收起），
+     * 只有发给模型的历史按边界过滤；重开应用/切回会话依然生效。
+     *
+     * @param previousBoundaryId 上一次检查点的边界（`newlyCoveredCount` 的起点）
+     * @param previousTotalCovered 上一次检查点的累计条数（界面展示用，滚动累加）
+     * @param maxCoveredId 本次覆盖的边界 id 兜底值（正常应取 [ContextCompressTransformer.lastCoveredBoundaryId]）
+     */
+    private suspend fun finishCompressionWithCheckpoint(
+        sessionId: String,
+        currentMessages: List<UIMessage>,
+        compressed: List<UIMessage>,
+        coveredIds: Set<String>,
+        maxCoveredId: String?,
+        previousBoundaryId: String?,
+        previousTotalCovered: Int,
+        keepRecent: Int,
+        tokensBefore: Int,
+        reason: String,
+    ) {
+        if (maxCoveredId == null) {
+            Logger.w("ChatVM", CompressionDiagnostics.NO_COVERAGE_RECORD)
+            return
+        }
+        persistContextCheckpoint(
+            sessionId = sessionId,
+            previousBoundaryId = previousBoundaryId,
+            previousTotalCovered = previousTotalCovered,
+            generatedBoundaryId = maxCoveredId,
+            tokensBefore = tokensBefore,
+            tokensAfter = TokenEstimator.estimate(compressed),
+            reason = reason,
+            // 边界与条数都取自"有序的压缩集合"，不用消息 id 排序推断：
+            // 消息 id 是随机 UUID，集合无序，靠排序会选错边界并丢掉未覆盖的消息。
+            boundaryMessageId = contextCompressTransformer.lastCoveredBoundaryId,
+            newlyCoveredCount = newlyCoveredCount(
+                messages = currentMessages,
+                coveredIds = coveredIds,
+                previousBoundaryId = previousBoundaryId,
+            ),
+        )
+        // 覆盖集合先刷新再算占用率 —— 刷新后 checkpointCoveredIds 才是本次压缩的结果
+        checkpointCoveredSessionId = sessionId
+        refreshCheckpointCoveredIds(sessionId)
+        updateContextTokenCount()
+        // keepRecent 目前不参与落库，但保留在签名里以免调用方以为"保留策略只由压缩器决定"
+        Logger.d("ChatVM", "checkpoint finished (keepRecent=$keepRecent)")
     }
 
     /**
@@ -3099,11 +3130,7 @@ class ChatViewModel(
      * 集合本身无序，任何基于 id 比较的推断都会在真实数据上算错。
      * 上次边界之后、且落在覆盖集合内的消息才算"本次新增"。
      */
-    private fun newlyCoveredCount(
-        messages: List<UIMessage>,
-        coveredIds: Set<String>,
-        previousBoundaryId: String?,
-    ): Int {
+    private fun newlyCoveredCount(messages: List<UIMessage>, coveredIds: Set<String>, previousBoundaryId: String?): Int {
         if (coveredIds.isEmpty()) return 0
         val startIndex =
             if (previousBoundaryId == null) {
@@ -3131,23 +3158,28 @@ class ChatViewModel(
         tokensBefore: Int,
     ) {
         val compressibleEnd = messages.size - keepRecent
-        if (compressibleEnd <= 0) return
-        val covered = messages.subList(0, compressibleEnd).filterNot {
-            it.role == MessageRole.SYSTEM && it.content.startsWith(io.zer0.muse.transformer.ContextCheckpointMerge.MARKER)
+        val covered = if (compressibleEnd <= 0) {
+            emptyList()
+        } else {
+            messages.subList(0, compressibleEnd).filterNot {
+                it.role == MessageRole.SYSTEM && it.content.startsWith(io.zer0.muse.transformer.ContextCheckpointMerge.MARKER)
+            }
         }
         if (covered.isEmpty()) return
         try {
             val boundary = covered.last().id.toString()
             val coveredSeq = runCatching { sessionRepository.getMessageById(boundary)?.seq ?: 0L }.getOrDefault(0L)
             val checkpoint = contextCompressTransformer.buildLocalCheckpoint(
-                sessionId = sessionId,
-                covered = covered,
-                previousBoundaryId = previousBoundaryId,
-                coveredSeq = coveredSeq,
-                tokensBefore = tokensBefore,
-                // 本地摘录的收益是"不再带原文"，按摘录正文长度估算即可（不精确，但方向正确）
-                tokensAfter = TokenEstimator.estimate(covered.last().content) + covered.size * 20,
-                reason = io.zer0.memory.summary.ContextCheckpointEntity.REASON_AUTO,
+                io.zer0.muse.transformer.ContextCompressTransformer.LocalCheckpointRequest(
+                    sessionId = sessionId,
+                    covered = covered,
+                    previousBoundaryId = previousBoundaryId,
+                    coveredSeq = coveredSeq,
+                    tokensBefore = tokensBefore,
+                    // 本地摘录的收益是"不再带原文"，按摘录正文长度估算即可（不精确，但方向正确）
+                    tokensAfter = TokenEstimator.estimate(covered.last().content) + covered.size * 20,
+                    reason = io.zer0.memory.summary.ContextCheckpointEntity.REASON_AUTO,
+                ),
             ) ?: return
             checkpointReader.put(
                 checkpoint.copy(totalCoveredCount = previousTotalCovered + covered.size),
@@ -3254,125 +3286,138 @@ class ChatViewModel(
             )
         }
         viewModelScope.launch(AppDispatchers.io) {
-            try {
-                val effectiveKeepRecent =
-                    minOf(COMPRESSION_SAFETY_TAIL_MESSAGES, currentMessages.size - 1).coerceAtLeast(1)
-                // v2.x: 手动压缩也走检查点，因此先取一次现有检查点（边界 + 累计条数）
-                val manualExisting =
-                    runCatching { checkpointReader.get(sessionId) }.getOrNull()
-                val manualPreviousBoundaryId = manualExisting?.lastCoveredMessageId
-                val manualPreviousTotalCovered = manualExisting?.totalCoveredCount ?: 0
-                val manualTokensBefore = _state.value.contextTokenCount
-                val context =
-                    TransformContext(
-                        sessionId = sessionId,
-                        modelId = _state.value.currentAssistant?.modelId,
-                        extras =
-                        mapOf(
-                            "compress_enabled" to true,
-                            "compress_threshold" to 1, // 强制触发
-                            "compress_keep_recent" to effectiveKeepRecent,
-                            "compress_force_fallback" to true,
-                            "compress_char_budget" to
-                                WarmupHistory.compressTokenBudgetFor(_state.value.contextMaxTokens),
-                        ),
-                    )
+            runManualCompress(
+                sessionId = sessionId,
+                currentMessages = currentMessages,
+                updateMemoryFirst = updateMemoryFirst,
+            )
+        }
+    }
 
-                val compressed = runManualCompressionStages(
-                    updateMemoryFirst = updateMemoryFirst,
-                    onPhase = { phase ->
-                        _state.update { state ->
-                            state.copy(
-                                toolsState = state.toolsState.copy(compressionPhase = phase),
-                            )
-                        }
-                    },
-                    updateMemory = {
-                        // 强制提炼 fact + deep memory + 刷新 today;失败不阻断后续压缩。
-                        val model = resultOf { settings.getSelectedModel() }.getOrNull()
-                        resultOf {
-                            memoryTicker.forceCompileNow(model = model)
-                        }.onError { msg, _ ->
-                            Logger.w("ChatVM", "forceCompileNow failed: $msg")
-                            MuseToast.show(appContext.getString(R.string.err_chat_compress_memory_failed))
-                        }
-                    },
-                    compress = {
-                        // H-01 修复: transform 是 suspend 函数,改用 resultOf 避免吞没 CancellationException
-                        resultOf {
-                            contextCompressTransformer.transform(currentMessages, context)
-                        }.onError { msg, _ ->
-                            Logger.w("ChatVM", "manualCompress transform failed: $msg")
-                        }.getOrNull() ?: currentMessages
-                    },
-                )
-                // 3. 替换内存中的 messages(不持久化,DB 保留完整历史)
-                if (compressed.size < currentMessages.size) {
-                    // v2.3.2: 会话守卫 — 同 triggerAutoCompress,压缩期间切走会话则丢弃过期结果
-                    // (isCompressing 由外层 finally 复位,这里直接返回即可)
-                    if (displayedSessionId() != sessionId) {
-                        Logger.i("ChatVM", "manualCompress 结果已过期(会话已切换),丢弃: $sessionId")
-                        return@launch
+    /**
+     * 手动压缩用的 transform 上下文。
+     *
+     * 与自动压缩的区别只在"强制触发 + 强制兜底"：用户主动点了压缩，就不该因为
+     * 收益不明显而什么都不做；字符预算仍按当前窗口推导，避免切出超窗的巨块。
+     */
+    private fun manualCompressContext(sessionId: String, keepRecent: Int): TransformContext = TransformContext(
+        sessionId = sessionId,
+        modelId = _state.value.currentAssistant?.modelId,
+        extras =
+        mapOf(
+            "compress_enabled" to true,
+            // 强制触发：用户主动点了压缩，不该因为收益不明显而什么都不做
+            "compress_threshold" to 1,
+            "compress_keep_recent" to keepRecent,
+            "compress_force_fallback" to true,
+            "compress_char_budget" to
+                WarmupHistory.compressTokenBudgetFor(_state.value.contextMaxTokens),
+        ),
+    )
+
+    /**
+     * 手动压缩成功后的对外反馈。
+     *
+     * v2.x: 不再报"已压缩: N → M 条" —— 条数变化对用户没有意义，还会让人以为会话被砍掉了。
+     * 压缩在界面上的表达是对话流里的常驻分隔线（见 refreshContextInfo），这里只给一句状态。
+     */
+    private fun announceManualCompressDone(beforeCount: Int, afterCount: Int, keepRecent: Int) {
+        // 日志为内部诊断,不使用中文字面量(避免 CJK 门禁误判)
+        Logger.i(
+            "ChatVM",
+            "manualCompress: $beforeCount -> $afterCount msgs (keepRecent=$keepRecent)",
+        )
+        MuseToast.show(appContext.getString(R.string.err_chat_compress_done))
+    }
+
+    /** 手动压缩的实际执行体（从 [manualCompress] 抽出，便于阅读与测试）。 */
+    private suspend fun runManualCompress(sessionId: String, currentMessages: List<UIMessage>, updateMemoryFirst: Boolean) {
+        try {
+            val effectiveKeepRecent =
+                minOf(COMPRESSION_SAFETY_TAIL_MESSAGES, currentMessages.size - 1).coerceAtLeast(1)
+            // v2.x: 手动压缩也走检查点，因此先取一次现有检查点（边界 + 累计条数）
+            val manualExisting =
+                runCatching { checkpointReader.get(sessionId) }.getOrNull()
+            val manualPreviousBoundaryId = manualExisting?.lastCoveredMessageId
+            val manualPreviousTotalCovered = manualExisting?.totalCoveredCount ?: 0
+            val manualTokensBefore = _state.value.contextTokenCount
+            val context = manualCompressContext(sessionId, effectiveKeepRecent)
+
+            val compressed = runManualCompressionStages(
+                updateMemoryFirst = updateMemoryFirst,
+                onPhase = { phase ->
+                    _state.update { state ->
+                        state.copy(
+                            toolsState = state.toolsState.copy(compressionPhase = phase),
+                        )
                     }
-                    // v1.117: 修复消息丢失竞态 — 压缩是 suspend LLM 调用,耗时数秒,
-                    // 期间用户可能继续发送新消息(已 append 到 _messages.value)。
-                    // 直接用旧快照的 compressed 覆盖会丢弃这些新消息。
-                    // 对齐 triggerAutoCompress 的修复:保留压缩期间新增的消息。
-                    // v2.3.2: 改为对 _messages 做原子 update(原写法在 _state.update 变换体内
-                    // 二次读取 _messages,CAS 重放时会切片错位)。
-                    // v2.x: 与自动压缩统一 —— 压缩结果落成**会话检查点**，不再改写内存消息列表。
-                    // 这样手动压缩与自动压缩在"模型看到什么 / 界面显示什么"上完全一致：
-                    // 界面保留完整历史（老消息默认收起，见 ChatScreen 的分隔线），
-                    // 只有发给模型的历史按边界过滤；重开应用依然生效。
-                    val manualCoveredIds =
-                        io.zer0.muse.transformer.CompressionSummaryStore.entry(sessionId)?.coveredIds.orEmpty()
-                    persistContextCheckpoint(
-                        sessionId = sessionId,
-                        previousBoundaryId = manualPreviousBoundaryId,
-                        previousTotalCovered = manualPreviousTotalCovered,
-                        generatedBoundaryId = manualCoveredIds.maxOrNull().orEmpty(),
-                        tokensBefore = manualTokensBefore,
-                        tokensAfter = TokenEstimator.estimate(compressed),
-                        reason = io.zer0.memory.summary.ContextCheckpointEntity.REASON_MANUAL,
-                        boundaryMessageId = contextCompressTransformer.lastCoveredBoundaryId,
-                        newlyCoveredCount = newlyCoveredCount(
-                            messages = currentMessages,
-                            coveredIds = manualCoveredIds,
-                            previousBoundaryId = manualPreviousBoundaryId,
-                        ),
-                    )
-                    val compressSummary = "manualCompress: ${currentMessages.size} -> ${compressed.size} msgs"
-                    Logger.i(
-                        "ChatVM",
-                        // 日志为内部诊断,不使用中文字面量(避免 CJK 门禁误判)
-                        "$compressSummary (keepRecent=$effectiveKeepRecent)",
-                    )
-                    // v2.x: 覆盖集合与占用率同步刷新，让占用圆环立刻反映压缩结果
-                    checkpointCoveredSessionId = sessionId
-                    refreshCheckpointCoveredIds(sessionId)
-                    // v1.78 (#33): 压缩成功反馈。
-                    // v2.x: 不再报"已压缩: N → M 条" —— 条数变化对用户没有意义，还会让人以为
-                    //   会话被砍掉了。压缩在界面上的表达是对话流里的常驻分隔线（见 refreshContextInfo），
-                    //   这里只给一句状态。
-                    MuseToast.show(appContext.getString(R.string.err_chat_compress_done))
-                } else if (updateMemoryFirst) {
-                    // 压缩未生效(可能消息太少或 LLM 返回空摘要),但记忆已更新
-                    MuseToast.show(appContext.getString(R.string.err_chat_compress_no_need))
+                },
+                updateMemory = {
+                    // 强制提炼 fact + deep memory + 刷新 today;失败不阻断后续压缩。
+                    val model = resultOf { settings.getSelectedModel() }.getOrNull()
+                    resultOf {
+                        memoryTicker.forceCompileNow(model = model)
+                    }.onError { msg, _ ->
+                        Logger.w("ChatVM", "forceCompileNow failed: $msg")
+                        MuseToast.show(appContext.getString(R.string.err_chat_compress_memory_failed))
+                    }
+                },
+                compress = {
+                    // H-01 修复: transform 是 suspend 函数,改用 resultOf 避免吞没 CancellationException
+                    resultOf {
+                        contextCompressTransformer.transform(currentMessages, context)
+                    }.onError { msg, _ ->
+                        Logger.w("ChatVM", "manualCompress transform failed: $msg")
+                    }.getOrNull() ?: currentMessages
+                },
+            )
+            // 3. 替换内存中的 messages(不持久化,DB 保留完整历史)
+            if (compressed.size < currentMessages.size) {
+                // v2.3.2: 会话守卫 — 同 triggerAutoCompress,压缩期间切走会话则丢弃过期结果
+                // (isCompressing 由外层 finally 复位,这里直接返回即可)
+                if (displayedSessionId() != sessionId) {
+                    Logger.i("ChatVM", "manualCompress 结果已过期(会话已切换),丢弃: $sessionId")
+                    return
                 }
-                // 4. 刷新 token 计数(重建 system prompt 因为记忆可能已更新)
-                refreshContextInfo()
-            } catch (e: Exception) {
-                Logger.w("ChatVM", "manualCompress failed: ${e.message}")
-                reportError(appContext.getString(R.string.err_chat_compress_failed, e.message ?: ""))
-            } finally {
-                _state.update {
-                    it.copy(
-                        toolsState = it.toolsState.copy(
-                            isCompressing = false,
-                            compressionPhase = ManualCompressionPhase.IDLE,
-                        ),
-                    )
-                }
+                // v1.117: 修复消息丢失竞态 — 压缩是 suspend LLM 调用,耗时数秒,
+                // 期间用户可能继续发送新消息(已 append 到 _messages.value)。
+                // 直接用旧快照的 compressed 覆盖会丢弃这些新消息。
+                // v2.x: 与自动压缩统一 —— 压缩结果落成**会话检查点**，不再改写内存消息列表。
+                // 两层含义：① 界面保留完整历史（老消息默认收起，见 ChatScreen 的分隔线），
+                // 只有发给模型的历史按边界过滤；② 手动与自动路径的行为完全一致，不会因为
+                // 用户主动点"压缩"而回到旧行为。收尾逻辑与自动路径共用同一个 helper。
+                val manualCoveredIds =
+                    io.zer0.muse.transformer.CompressionSummaryStore.entry(sessionId)?.coveredIds.orEmpty()
+                finishCompressionWithCheckpoint(
+                    sessionId = sessionId,
+                    currentMessages = currentMessages,
+                    compressed = compressed,
+                    coveredIds = manualCoveredIds,
+                    maxCoveredId = manualCoveredIds.maxOrNull(),
+                    previousBoundaryId = manualPreviousBoundaryId,
+                    previousTotalCovered = manualPreviousTotalCovered,
+                    keepRecent = effectiveKeepRecent,
+                    tokensBefore = manualTokensBefore,
+                    reason = io.zer0.memory.summary.ContextCheckpointEntity.REASON_MANUAL,
+                )
+                announceManualCompressDone(currentMessages.size, compressed.size, effectiveKeepRecent)
+            } else if (updateMemoryFirst) {
+                // 压缩未生效(可能消息太少或 LLM 返回空摘要),但记忆已更新
+                MuseToast.show(appContext.getString(R.string.err_chat_compress_no_need))
+            }
+            // 4. 刷新 token 计数(重建 system prompt 因为记忆可能已更新)
+            refreshContextInfo()
+        } catch (e: Exception) {
+            Logger.w("ChatVM", "manualCompress failed: ${e.message}")
+            reportError(appContext.getString(R.string.err_chat_compress_failed, e.message ?: ""))
+        } finally {
+            _state.update {
+                it.copy(
+                    toolsState = it.toolsState.copy(
+                        isCompressing = false,
+                        compressionPhase = ManualCompressionPhase.IDLE,
+                    ),
+                )
             }
         }
     }

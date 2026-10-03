@@ -24,36 +24,34 @@ object RenderDataTool {
 
     private val CHART_TYPES = setOf("bar", "line", "donut")
 
-    fun toolDef(): ToolRegistry.ToolDef =
-        ToolRegistry.ToolDef(
-            name = NAME,
-            description =
-                "在聊天中直接展示结构化数据。type=bar/line/donut 时 data 需为 " +
-                    "{\"labels\":[...],\"values\":[...]}；type=table 时 data 需为 " +
-                    "{\"columns\":[...],\"rows\":[[...]]}。数据仅在本地渲染，不访问网络。",
-            parameters = mapOf(
-                "type" to "必填:bar | line | donut | table",
-                "title" to "必填,图表或表格标题",
-                "data" to "必填 JSON 数据:图表使用 labels/values,表格使用 columns/rows",
-            ),
-            required = setOf("type", "title", "data"),
-            category = "built-in",
-            riskLevel = ToolRiskLevel.SAFE,
-        )
+    fun toolDef(): ToolRegistry.ToolDef = ToolRegistry.ToolDef(
+        name = NAME,
+        description =
+        "在聊天中直接展示结构化数据。type=bar/line/donut 时 data 需为 " +
+            "{\"labels\":[...],\"values\":[...]}；type=table 时 data 需为 " +
+            "{\"columns\":[...],\"rows\":[[...]]}。数据仅在本地渲染，不访问网络。",
+        parameters = mapOf(
+            "type" to "必填:bar | line | donut | table",
+            "title" to "必填,图表或表格标题",
+            "data" to "必填 JSON 数据:图表使用 labels/values,表格使用 columns/rows",
+        ),
+        required = setOf("type", "title", "data"),
+        category = "built-in",
+        riskLevel = ToolRiskLevel.SAFE,
+    )
 
     fun execute(args: Map<String, String>): String {
         val type = args["type"]?.trim()?.lowercase()
-            ?: return error("缺少 type")
         val title = args["title"]?.let(::cleanText)
-            ?: return error("缺少 title")
-        if (title.isBlank()) return error("title 不能为空")
         val rawData = args["data"]?.trim()
-            ?: return error("缺少 data")
-        val data = runCatching { AppJson.parseToJsonElement(rawData) as? JsonObject }.getOrNull()
-            ?: return error("data 必须是 JSON 对象")
-
+        val data = rawData?.let { runCatching { AppJson.parseToJsonElement(it) as? JsonObject }.getOrNull() }
         val rendered =
             when {
+                type == null -> error("缺少 type")
+                title == null -> error("缺少 title")
+                title.isBlank() -> error("title 不能为空")
+                rawData == null -> error("缺少 data")
+                data == null -> error("data 必须是 JSON 对象")
                 type in CHART_TYPES -> renderChart(type, title, data)
                 type == "table" -> renderTable(title, data)
                 else -> error("type 只支持 bar、line、donut 或 table")
@@ -62,61 +60,92 @@ object RenderDataTool {
     }
 
     private fun renderChart(type: String, title: String, data: JsonObject): String {
-        val labels = stringArray(data["labels"]) ?: return error("图表 labels 必须是字符串数组")
-        val values = numberArray(data["values"]) ?: return error("图表 values 必须是有限数字数组")
-        if (labels.isEmpty() || values.isEmpty()) return error("图表数据不能为空")
-        if (labels.size != values.size) return error("labels 与 values 长度必须一致")
-        if (labels.size > MAX_ROWS) return error("图表数据最多支持 $MAX_ROWS 个点")
-
-        val cardJson =
-            buildJsonObject {
-                put("type", JsonPrimitive(type))
-                put("title", JsonPrimitive(title))
-                put("labels", buildJsonArray { labels.forEach { add(JsonPrimitive(it)) } })
-                put("values", buildJsonArray { values.forEach { add(JsonPrimitive(it)) } })
+        val labels = stringArray(data["labels"])
+        val values = numberArray(data["values"])
+        // 校验分支各自产出错误文案；只有全部通过才产出卡片 JSON。两侧都是 String，
+        // 因此不需要额外的类型判断，也不会误把错误文案包进 ```card 代码块。
+        return when {
+            labels == null -> error("图表 labels 必须是字符串数组")
+            values == null -> error("图表 values 必须是有限数字数组")
+            labels.isEmpty() || values.isEmpty() -> error("图表数据不能为空")
+            labels.size != values.size -> error("labels 与 values 长度必须一致")
+            labels.size > MAX_ROWS -> error("图表数据最多支持 $MAX_ROWS 个点")
+            else -> {
+                val cardJson =
+                    buildJsonObject {
+                        put("type", JsonPrimitive(type))
+                        put("title", JsonPrimitive(title))
+                        put("labels", buildJsonArray { labels.forEach { add(JsonPrimitive(it)) } })
+                        put("values", buildJsonArray { values.forEach { add(JsonPrimitive(it)) } })
+                    }
+                "```card\n$cardJson\n```"
             }
-        return "```card\n$cardJson\n```"
+        }
     }
 
     private fun renderTable(title: String, data: JsonObject): String {
-        val columns = stringArray(data["columns"]) ?: return error("表格 columns 必须是字符串数组")
-        if (columns.isEmpty()) return error("表格至少需要一列")
-        if (columns.size > MAX_COLUMNS) return error("表格最多支持 $MAX_COLUMNS 列")
-        val rows = data["rows"] as? JsonArray ?: return error("表格 rows 必须是二维数组")
-        if (rows.size > MAX_ROWS) return error("表格最多支持 $MAX_ROWS 行")
-
-        val normalizedRows =
-            rows.mapIndexed { index, row ->
-                val cells = stringArray(row) ?: return error("第 ${index + 1} 行必须是字符串/数字数组")
-                if (cells.size != columns.size) {
-                    return error("第 ${index + 1} 行列数与 columns 不一致")
+        val columns = stringArray(data["columns"])
+        val rows = data["rows"] as? JsonArray
+        val shapeError = validateTableShape(columns, rows)
+        val normalizedRows = if (shapeError == null && columns != null && rows != null) {
+            rows.map { stringArray(it) }
+        } else {
+            null
+        }
+        val rowsError = if (columns != null && normalizedRows != null) {
+            normalizedRows.withIndex()
+                .firstOrNull { (_, cells) -> cells == null || cells.size != columns.size }
+                ?.let { (index, cells) ->
+                    if (cells == null) {
+                        error("第 ${index + 1} 行必须是字符串/数字数组")
+                    } else {
+                        error("第 ${index + 1} 行列数与 columns 不一致")
+                    }
                 }
-                cells
-            }
-        return buildString {
-            appendLine("### $title")
-            appendLine("| ${columns.joinToString(" | ")} |")
-            appendLine("| ${columns.joinToString(" | ") { "---" }} |")
-            normalizedRows.forEach { row ->
-                appendLine("| ${row.joinToString(" | ")} |")
-            }
-        }.trimEnd()
+        } else {
+            null
+        }
+        return when {
+            shapeError != null -> shapeError
+            rowsError != null -> rowsError
+            columns != null && normalizedRows != null -> renderTableBody(title, columns, normalizedRows)
+            else -> error("表格数据不完整")
+        }
     }
+
+    /** 表格"形状"层面的校验（列本身、行数），返回 null 表示通过。 */
+    private fun validateTableShape(columns: List<String>?, rows: JsonArray?): String? = when {
+        columns == null -> error("表格 columns 必须是字符串数组")
+        columns.isEmpty() -> error("表格至少需要一列")
+        columns.size > MAX_COLUMNS -> error("表格最多支持 $MAX_COLUMNS 列")
+        rows == null -> error("表格 rows 必须是二维数组")
+        rows.size > MAX_ROWS -> error("表格最多支持 $MAX_ROWS 行")
+        else -> null
+    }
+
+    private fun renderTableBody(title: String, columns: List<String>, rows: List<List<String>?>): String = buildString {
+        appendLine("### $title")
+        appendLine("| ${columns.joinToString(" | ")} |")
+        appendLine("| ${columns.joinToString(" | ") { "---" }} |")
+        rows.forEach { row ->
+            appendLine("| ${row.orEmpty().joinToString(" | ")} |")
+        }
+    }.trimEnd()
 
     private fun stringArray(element: kotlinx.serialization.json.JsonElement?): List<String>? {
         val array = element as? JsonArray ?: return null
-        return array.map { primitive ->
-            val value = (primitive as? JsonPrimitive)?.contentOrNull() ?: return null
-            cleanText(value).takeIf { it.isNotBlank() } ?: return null
+        val cleaned = array.map { primitive ->
+            (primitive as? JsonPrimitive)?.contentOrNull()?.let(::cleanText)?.takeIf { it.isNotBlank() }
         }
+        return cleaned.takeIf { values -> values.all { it != null } }?.mapNotNull { it }
     }
 
     private fun numberArray(element: kotlinx.serialization.json.JsonElement?): List<Double>? {
         val array = element as? JsonArray ?: return null
-        return array.map { primitive ->
-            val number = (primitive as? JsonPrimitive)?.content?.toDoubleOrNull() ?: return null
-            number.takeIf { it.isFinite() } ?: return null
+        val numbers = array.map { primitive ->
+            (primitive as? JsonPrimitive)?.content?.toDoubleOrNull()?.takeIf { it.isFinite() }
         }
+        return numbers.takeIf { values -> values.all { it != null } }?.mapNotNull { it }
     }
 
     private fun cleanText(value: String): String =

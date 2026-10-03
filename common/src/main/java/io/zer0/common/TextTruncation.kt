@@ -39,27 +39,28 @@ object TextTruncation {
      * @param maxLength 触发截断的长度上限（按字符计；内部按 UTF-8 字节安全切分）
      * @param marker 省略标记的生成方式（默认给出省略了多少字符，便于模型判断信息量）
      */
-    fun headTail(text: String, maxLength: Int, marker: (Int, Int) -> String = ::defaultMarker): Result {
+    fun headTail(text: String, maxLength: Int, marker: (Int, Int) -> String = ::defaultMarker): Result =
         if (maxLength <= 0 || text.length <= maxLength) {
-            return Result(text, truncated = false, originalLength = text.length, omittedLength = 0)
+            Result(text, truncated = false, originalLength = text.length, omittedLength = 0)
+        } else {
+            val headLength = max(1, (maxLength * DEFAULT_HEAD_RATIO).toInt())
+            val tailLength = max(1, (maxLength * DEFAULT_TAIL_RATIO).toInt())
+            val head = text.takeSurrogateSafe(headLength)
+            val tail = text.takeLastSurrogateSafe(tailLength)
+            val omitted = text.length - head.length - tail.length
+            if (omitted <= 0) {
+                // 上限极小导致头尾重叠：退化为纯头部截断，至少不产生重复内容
+                val only = text.takeSurrogateSafe(maxLength)
+                Result(only, truncated = true, text.length, text.length - only.length)
+            } else {
+                Result(
+                    text = head + marker(omitted, text.length) + tail,
+                    truncated = true,
+                    originalLength = text.length,
+                    omittedLength = omitted,
+                )
+            }
         }
-        val headLength = max(1, (maxLength * DEFAULT_HEAD_RATIO).toInt())
-        val tailLength = max(1, (maxLength * DEFAULT_TAIL_RATIO).toInt())
-        val head = text.takeSurrogateSafe(headLength)
-        val tail = text.takeLastSurrogateSafe(tailLength)
-        val omitted = text.length - head.length - tail.length
-        if (omitted <= 0) {
-            // 上限极小导致头尾重叠：退化为纯头部截断，至少不产生重复内容
-            val only = text.takeSurrogateSafe(maxLength)
-            return Result(only, truncated = true, text.length, text.length - only.length)
-        }
-        return Result(
-            text = head + marker(omitted, text.length) + tail,
-            truncated = true,
-            originalLength = text.length,
-            omittedLength = omitted,
-        )
-    }
 
     /** 便捷入口：只要截断后的文本。 */
     fun headTailText(text: String, maxLength: Int): String = headTail(text, maxLength).text

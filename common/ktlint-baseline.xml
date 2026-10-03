@@ -21,6 +21,9 @@
         <error line="97" column="1" source="standard:max-line-length" />
         <error line="129" column="1" source="standard:max-line-length" />
     </file>
+    <file name="src/main/java/io/zer0/common/TextTruncation.kt">
+        <error line="69" column="69" source="standard:function-signature" />
+    </file>
     <file name="src/test/java/io/zer0/common/ResultTest.kt">
         <error line="195" column="49" source="standard:comment-wrapping" />
     </file>

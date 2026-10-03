@@ -35,13 +35,15 @@ class ContextCompressTransformerLocalCheckpointTest {
     fun `builds a local-strategy checkpoint with a usable summary`() {
         val covered = coveredMessages()
         val checkpoint = transformer.buildLocalCheckpoint(
-            sessionId = "s-1",
-            covered = covered,
-            previousBoundaryId = null,
-            coveredSeq = 42L,
-            tokensBefore = 9_000,
-            tokensAfter = 900,
-            reason = ContextCheckpointEntity.REASON_AUTO,
+            io.zer0.muse.transformer.ContextCompressTransformer.LocalCheckpointRequest(
+                sessionId = "s-1",
+                covered = covered,
+                previousBoundaryId = null,
+                coveredSeq = 42L,
+                tokensBefore = 9_000,
+                tokensAfter = 900,
+                reason = ContextCheckpointEntity.REASON_AUTO,
+            ),
         )
 
         assertNotNull("应产出检查点", checkpoint)
@@ -57,13 +59,15 @@ class ContextCompressTransformerLocalCheckpointTest {
     fun `empty covered list produces nothing`() {
         assertNull(
             transformer.buildLocalCheckpoint(
-                sessionId = "s-1",
-                covered = emptyList(),
-                previousBoundaryId = null,
-                coveredSeq = 0L,
-                tokensBefore = 1_000,
-                tokensAfter = 100,
-                reason = ContextCheckpointEntity.REASON_AUTO,
+                io.zer0.muse.transformer.ContextCompressTransformer.LocalCheckpointRequest(
+                    sessionId = "s-1",
+                    covered = emptyList(),
+                    previousBoundaryId = null,
+                    coveredSeq = 0L,
+                    tokensBefore = 1_000,
+                    tokensAfter = 100,
+                    reason = ContextCheckpointEntity.REASON_AUTO,
+                ),
             ),
         )
     }
@@ -73,13 +77,15 @@ class ContextCompressTransformerLocalCheckpointTest {
         // ContextHistoryDigest 跳过 SYSTEM 消息（动态注入的 prompt/RAG 不摘录），
         // 因此全是 SYSTEM 时没有可摘录内容 → 不写检查点（而不是写一个空摘要）
         val checkpoint = transformer.buildLocalCheckpoint(
-            sessionId = "s-1",
-            covered = listOf(msg(MessageRole.SYSTEM, "系统提示词"), msg(MessageRole.SYSTEM, "RAG 片段")),
-            previousBoundaryId = null,
-            coveredSeq = 5L,
-            tokensBefore = 500,
-            tokensAfter = 50,
-            reason = ContextCheckpointEntity.REASON_AUTO,
+            io.zer0.muse.transformer.ContextCompressTransformer.LocalCheckpointRequest(
+                sessionId = "s-1",
+                covered = listOf(msg(MessageRole.SYSTEM, "系统提示词"), msg(MessageRole.SYSTEM, "RAG 片段")),
+                previousBoundaryId = null,
+                coveredSeq = 5L,
+                tokensBefore = 500,
+                tokensAfter = 50,
+                reason = ContextCheckpointEntity.REASON_AUTO,
+            ),
         )
         assertNull("无可摘录内容时不写检查点", checkpoint)
     }
@@ -90,13 +96,15 @@ class ContextCompressTransformerLocalCheckpointTest {
         // 否则"写了检查点"只是自欺欺人（模型照样收到全量历史）。
         val covered = coveredMessages()
         val checkpoint = transformer.buildLocalCheckpoint(
-            sessionId = "s-1",
-            covered = covered,
-            previousBoundaryId = null,
-            coveredSeq = 42L,
-            tokensBefore = 9_000,
-            tokensAfter = 900,
-            reason = ContextCheckpointEntity.REASON_AUTO,
+            io.zer0.muse.transformer.ContextCompressTransformer.LocalCheckpointRequest(
+                sessionId = "s-1",
+                covered = covered,
+                previousBoundaryId = null,
+                coveredSeq = 42L,
+                tokensBefore = 9_000,
+                tokensAfter = 900,
+                reason = ContextCheckpointEntity.REASON_AUTO,
+            ),
         )
         val live = listOf(
             msg(MessageRole.USER, "那现在改成落库"),
@@ -134,13 +142,15 @@ class ContextCompressTransformerLocalCheckpointTest {
         val weird = UIMessage(role = MessageRole.ASSISTANT, content = "内容")
         val previousId = java.util.UUID.randomUUID().toString()
         val checkpoint = transformer.buildLocalCheckpoint(
-            sessionId = "s-1",
-            covered = listOf(weird),
-            previousBoundaryId = previousId,
-            coveredSeq = 7L,
-            tokensBefore = 100,
-            tokensAfter = 50,
-            reason = ContextCheckpointEntity.REASON_AUTO,
+            io.zer0.muse.transformer.ContextCompressTransformer.LocalCheckpointRequest(
+                sessionId = "s-1",
+                covered = listOf(weird),
+                previousBoundaryId = previousId,
+                coveredSeq = 7L,
+                tokensBefore = 100,
+                tokensAfter = 50,
+                reason = ContextCheckpointEntity.REASON_AUTO,
+            ),
         )
         // weird.id 是随机 Uuid，能解析；因此边界取它而不是旧边界 —— 这里只断言"有边界且非空"
         assertNotNull(checkpoint)
