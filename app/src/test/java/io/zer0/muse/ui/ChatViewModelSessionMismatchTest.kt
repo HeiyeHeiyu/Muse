@@ -100,6 +100,7 @@ class ChatViewModelSessionMismatchTest {
     private val settings: SettingsRepository = mockk(relaxed = true)
     private val memoryTicker: MemoryTicker = mockk(relaxed = true)
     private val sessionRepository: SessionRepository = mockk(relaxed = true)
+    private val checkpointReader: io.zer0.memory.summary.ContextCheckpointReader = mockk(relaxed = true)
     private val imageService: ImageService = mockk(relaxed = true)
     private val videoGenerationService: VideoGenerationService = mockk(relaxed = true)
     private val documentParser: DocumentParser = mockk(relaxed = true)
@@ -131,6 +132,7 @@ class ChatViewModelSessionMismatchTest {
     private val sessionManager: ConversationSessionManager = mockk(relaxed = true)
     private val activityProfile: UserActivityProfile = mockk(relaxed = true)
     private lateinit var appContext: Context
+    private lateinit var outboxPersisted: CompletableDeferred<Unit>
 
     private lateinit var viewModel: ChatViewModel
 
@@ -138,6 +140,7 @@ class ChatViewModelSessionMismatchTest {
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         appContext = ApplicationProvider.getApplicationContext()
+        outboxPersisted = CompletableDeferred()
 
         // stub 关键 Flow 返回 emptyFlow,避免 init 中的 collect 触发副作用
         // (observeSessions 返回空流 → 不会自动创建/切换会话)
@@ -162,6 +165,9 @@ class ChatViewModelSessionMismatchTest {
 
         // appendMessage 默认成功返回
         coEvery { sessionRepository.appendMessage(any(), any()) } returns "msg-id"
+        coEvery { sessionRepository.insertOutbox(any()) } coAnswers {
+            outboxPersisted.complete(Unit)
+        }
 
         viewModel = createViewModel()
     }
@@ -176,6 +182,7 @@ class ChatViewModelSessionMismatchTest {
         chatService = chatService,
         settings = settings,
         memoryTicker = memoryTicker,
+            checkpointReader = checkpointReader,
         sessionRepository = sessionRepository,
         imageService = imageService,
         videoGenerationService = videoGenerationService,
@@ -308,6 +315,9 @@ class ChatViewModelSessionMismatchTest {
         viewModel.send()
 
         // 不切换会话,让消费者正常处理(sessionId 匹配)
+        advanceUntilIdle()
+        withTimeout(5_000) { outboxPersisted.await() }
+        // outboxReady 在 Dispatchers.IO 完成后,消费者 continuation 回到测试 dispatcher。
         advanceUntilIdle()
 
         // 验证 appendMessage 被调用一次,且 sessionId 正确

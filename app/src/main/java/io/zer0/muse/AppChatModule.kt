@@ -45,7 +45,11 @@ val appChatModule = module {
 
     single {
         ChatViewModel(
-            get(), get(), get(), get(), get(), get(), get(), get(), get(),
+            // v2.x: checkpointReader 用命名参数注入 —— 后面 40 个依赖是按位置排列的，
+            // 中间插参数会让它们整体错位（把 A 传给 B 的字段），命名注入可避免这种事故。
+            get(), get(), get(), get(),
+            checkpointReader = get(),
+            get(), get(), get(), get(), get(),
             get(), get(), get(), get(), get(), get(), get(), get(),
             get(), get(), get(),
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),

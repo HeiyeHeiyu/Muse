@@ -76,6 +76,7 @@ class ChatViewModelFocusRestoreTest {
     private val settings: SettingsRepository = mockk(relaxed = true)
     private val memoryTicker: MemoryTicker = mockk(relaxed = true)
     private val sessionRepository: SessionRepository = mockk(relaxed = true)
+    private val checkpointReader: io.zer0.memory.summary.ContextCheckpointReader = mockk(relaxed = true)
     private val imageService: ImageService = mockk(relaxed = true)
     private val videoGenerationService: VideoGenerationService = mockk(relaxed = true)
     private val documentParser: DocumentParser = mockk(relaxed = true)
@@ -157,6 +158,7 @@ class ChatViewModelFocusRestoreTest {
         chatService = chatService,
         settings = settings,
         memoryTicker = memoryTicker,
+            checkpointReader = checkpointReader,
         sessionRepository = sessionRepository,
         imageService = imageService,
         videoGenerationService = videoGenerationService,

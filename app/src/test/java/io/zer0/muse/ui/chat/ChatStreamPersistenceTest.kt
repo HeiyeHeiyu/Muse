@@ -42,6 +42,7 @@ class ChatStreamPersistenceTest {
             accessor = accessor,
             sessionRepository = repository,
             memoryTicker = mockk(relaxed = true),
+            checkpointReader = mockk(relaxed = true),
             settings = mockk<SettingsRepository>(relaxed = true),
             appContext = mockk(relaxed = true),
             notificationManager = mockk<MuseNotificationManager>(relaxed = true),

@@ -34,7 +34,7 @@ class MemoryDbMigrationTest {
         val dir = Files.createTempDirectory("memory-migration").toFile()
         tempFiles += dir
         val file = File(dir, "memory.db")
-        val helper = buildV3Database(file)
+        val helper = buildV1Database(file)
         val oldDb = helper.writableDatabase
         oldDb.execSQL("INSERT INTO compiled_sections VALUES ('facts', 'legacy facts', NULL, '2026-08-22T00:00:00Z')")
         helper.close()
@@ -117,6 +117,68 @@ class MemoryDbMigrationTest {
     }
 
     /**
+     * 构造一个 **v1** 版本的 memory.db 文件（无 space_id、无 scoped 表）。
+     *
+     * 用于验证 v1→v2→v3 的完整升级链 —— 必须真的从 v1 起，否则 MIGRATION_2_3 那段
+     * "旧产物迁入 default 槽位"的逻辑不会被触发，测试就失去意义。
+     */
+    private fun buildV1Database(file: File): SupportSQLiteOpenHelper = FrameworkSQLiteOpenHelperFactory().create(
+        SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(file.absolutePath)
+            .callback(object : SupportSQLiteOpenHelper.Callback(1) {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE session_summaries (
+                            session_id TEXT NOT NULL,
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL,
+                            summary TEXT NOT NULL,
+                            message_count INTEGER NOT NULL,
+                            source_time_range TEXT,
+                            snapshot TEXT NOT NULL,
+                            snapshot_at TEXT,
+                            assistant_id TEXT NOT NULL,
+                            PRIMARY KEY(session_id)
+                        )
+                        """.trimIndent(),
+                    )
+                    db.execSQL(
+                        """
+                        CREATE TABLE daily_state (
+                            `key` TEXT NOT NULL,
+                            schema_version INTEGER NOT NULL,
+                            logical_date TEXT NOT NULL,
+                            reset_at TEXT,
+                            facts_mode TEXT NOT NULL,
+                            completed_steps TEXT NOT NULL,
+                            daily_completed_at TEXT,
+                            updated_at TEXT NOT NULL,
+                            PRIMARY KEY(`key`)
+                        )
+                        """.trimIndent(),
+                    )
+                    db.execSQL(
+                        """
+                        CREATE TABLE compiled_sections (
+                            section_key TEXT NOT NULL,
+                            content TEXT NOT NULL,
+                            fingerprint TEXT,
+                            updated_at TEXT NOT NULL,
+                            PRIMARY KEY(section_key)
+                        )
+                        """.trimIndent(),
+                    )
+                    db.execSQL("CREATE TABLE room_master_table (id INTEGER PRIMARY KEY, identity_hash TEXT)")
+                    db.execSQL("INSERT INTO room_master_table VALUES (42, '5b74599c11f2cfdaae37cbc32148a9fd')")
+                }
+
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+            })
+            .build(),
+    )
+
+    /**
      * 构造一个 v3 版本的 memory.db 文件（手工建表，模拟升级前的库）。
      *
      * DDL 写成多行缩进字符串：既清楚又不会超过 ktlint 的 140 字符行上限。
@@ -146,7 +208,7 @@ class MemoryDbMigrationTest {
                     db.execSQL(
                         """
                         CREATE TABLE daily_state (
-                            \key\ TEXT NOT NULL,
+                            `key` TEXT NOT NULL,
                             schema_version INTEGER NOT NULL,
                             logical_date TEXT NOT NULL,
                             reset_at TEXT,
@@ -154,7 +216,7 @@ class MemoryDbMigrationTest {
                             completed_steps TEXT NOT NULL,
                             daily_completed_at TEXT,
                             updated_at TEXT NOT NULL,
-                            PRIMARY KEY(\key\)
+                            PRIMARY KEY(`key`)
                         )
                         """.trimIndent(),
                     )

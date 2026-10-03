@@ -86,6 +86,7 @@ class ChatStreamMoodTest {
         accessor = accessor,
         sessionRepository = mockk(relaxed = true),
         memoryTicker = mockk(relaxed = true),
+            checkpointReader = mockk(relaxed = true),
         settings = mockk<SettingsRepository>(relaxed = true),
         appContext = mockk(relaxed = true),
         notificationManager = mockk<MuseNotificationManager>(relaxed = true),

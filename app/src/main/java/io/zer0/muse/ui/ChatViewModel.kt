@@ -82,6 +82,8 @@ import io.zer0.muse.data.chat.rewrite.MessageCommit
 import io.zer0.muse.data.chat.rewrite.MessageCommitRequest
 import io.zer0.muse.data.chat.rewrite.buildCommitParts
 import io.zer0.muse.data.session.ConversationTurnEntity
+import io.zer0.muse.session.WarmupHistory
+import io.zer0.muse.transformer.CompressionDiagnostics
 import io.zer0.muse.transformer.ContextCompressTransformer
 import io.zer0.muse.transformer.ConversationMemoryInjectionTransformer
 import io.zer0.muse.transformer.LorebookTransformer
@@ -1149,6 +1151,9 @@ internal fun canUseToolModelForRound(history: List<UIMessage>, toolModel: Model)
 internal fun canRegenerate(isStreaming: Boolean, hasSession: Boolean, hasSelectedUserVariant: Boolean): Boolean =
     !isStreaming && hasSession && hasSelectedUserVariant
 
+internal fun effectiveChatSessionId(state: ChatUiState): String? =
+    if (state.isAgentMode) state.agentSessionId else state.currentSessionId
+
 // 渐进式拆分阶段仍需平铺注入依赖；保持 Koin 参数顺序稳定，避免大范围行为变更。
 @Suppress("LongParameterList")
 class ChatViewModel(
@@ -1156,6 +1161,8 @@ class ChatViewModel(
     private val settings: SettingsRepository,
     private val memoryTicker: MemoryTicker,
     private val sessionRepository: SessionRepository,
+    // v2.x: 会话检查点读取器 —— 上下文组装时据此把"已压缩边界之前"的内容换成摘要
+    private val checkpointReader: io.zer0.memory.summary.ContextCheckpointReader,
     private val imageService: ImageService,
     private val videoGenerationService: io.zer0.ai.video.VideoGenerationService,
     private val documentParser: DocumentParser,
@@ -1263,8 +1270,8 @@ class ChatViewModel(
         /** v1.53-A1: 消息分页页大小(初始加载 + 上滑加载更多的窗口大小)。 */
         private const val MESSAGE_PAGE_SIZE = 50
 
-        /** v1.78 (#32): 手动压缩保留最近消息条数上限(自适应 min(此值, size-1))。 */
-        private const val MANUAL_COMPRESS_KEEP_RECENT = 10
+        /** 自动压缩安全尾部：系统保留最近少量消息和完整工具轮次,用户无需选择条数。 */
+        private const val COMPRESSION_SAFETY_TAIL_MESSAGES = 10
 
         /** v1.79 (L-CV1): 工具轮次上限读取失败时的回退值(正常路径由设置决定,0=无限制)。 */
         private const val MAX_TOOL_ROUNDS = 25
@@ -1496,7 +1503,7 @@ class ChatViewModel(
         }
 
     private fun displayedSessionId(state: ChatUiState = _state.value): String? =
-        if (state.isAgentMode) state.agentSessionId else state.currentSessionId
+        effectiveChatSessionId(state)
 
     private fun selectedModelForSession(sessionId: String?): String? = sessionId?.let(sessionModelOverrides::get) ?: globalSelectedModelId
 
@@ -1762,6 +1769,7 @@ class ChatViewModel(
             lorebookRepository = lorebookRepository,
             promptInjectionRepository = promptInjectionRepository,
             transformerPipeline = transformerPipeline,
+            checkpointReader = checkpointReader,
             hookRegistry = hookRegistry,
         )
 
@@ -2515,7 +2523,7 @@ class ChatViewModel(
     fun launchCommittee(memberIds: List<String>, topic: String) {
         val scheduler = groupChatScheduler ?: return
         val repository = groupChatRepository ?: return
-        val sessionId = state.value.currentSessionId ?: return
+        val sessionId = displayedSessionId(state.value) ?: return
         if (memberIds.size < 2 || topic.isBlank()) return
         val taskId = "committee-" + java.util.UUID.randomUUID().toString()
         val chatName =
@@ -2798,7 +2806,56 @@ class ChatViewModel(
      * 移到 Dispatchers.Default 执行。原先在主线程同步,长历史下单次 50-200ms,
      * 流式期间每秒叠加一次,是卡顿的主要根因。
      */
-    private suspend fun updateContextTokenCount() = generationController.updateContextTokenCount()
+    /**
+     * v2.x: 当前会话检查点覆盖的消息 id 缓存。
+     *
+     * 供占用率估算排除"已压缩、不会再发给模型"的消息。用缓存而不是每次查库，是因为
+     * 流式过程中占用率会按节流频繁刷新（见 updateContextTokenCount 的调用点）。
+     */
+    @Volatile
+    private var checkpointCoveredIds: Set<String> = emptySet()
+
+    /** 上面那份缓存属于哪个会话（切会话后立刻失效，避免把 A 会话的覆盖集合用到 B 会话）。 */
+    @Volatile
+    private var checkpointCoveredSessionId: String? = null
+
+    /**
+     * 确保覆盖集合与当前显示的会话一致；不一致就重新读一次检查点。
+     *
+     * 用"惰性自愈"而不是在每个切会话/写检查点的位置都埋一次调用：只要状态对不上，
+     * 下一次算占用率时就会自动纠正，不会出现"改了十个地方漏了一个"的长期漂移。
+     */
+    private suspend fun ensureCheckpointCoveredIds(sessionId: String) {
+        if (checkpointCoveredSessionId == sessionId) return
+        checkpointCoveredSessionId = sessionId
+        refreshCheckpointCoveredIds(sessionId)
+    }
+
+    /** 重新读取当前会话的检查点并刷新覆盖集合（写检查点后 / 切换会话后调用）。 */
+    private suspend fun refreshCheckpointCoveredIds(sessionId: String) {
+        checkpointCoveredIds =
+            try {
+                val checkpoint = checkpointReader.get(sessionId)
+                if (checkpoint == null) {
+                    emptySet()
+                } else {
+                    io.zer0.muse.transformer.ContextCheckpointMerge.coveredMessageIds(
+                        _messages.value,
+                        checkpoint,
+                    )
+                }
+            } catch (ce: kotlinx.coroutines.CancellationException) {
+                throw ce
+            } catch (t: Throwable) {
+                Logger.w("ChatVM", io.zer0.muse.transformer.CompressionDiagnostics.refreshCoveredIdsFailed(t.message))
+                emptySet()
+            }
+    }
+
+    private suspend fun updateContextTokenCount(): Unit {
+        displayedSessionId()?.let { ensureCheckpointCoveredIds(it) }
+        generationController.updateContextTokenCount(checkpointCoveredIds)
+    }
 
     /**
      * 退出对话时触发 AI 摘要命名。
@@ -2882,7 +2939,18 @@ class ChatViewModel(
         if (currentMessages.size < 2) return
 
         viewModelScope.launch(AppDispatchers.io) {
-            val keepRecent = minOf(MANUAL_COMPRESS_KEEP_RECENT, currentMessages.size - 1).coerceAtLeast(1)
+            val keepRecent = minOf(COMPRESSION_SAFETY_TAIL_MESSAGES, currentMessages.size - 1).coerceAtLeast(1)
+            // v2.x: 取上一次检查点的边界 —— 既用于"只统计本次新增并入的消息",也用于滚动改写
+            val existingCheckpoint =
+                try {
+                    checkpointReader.get(sessionId)
+                } catch (ce: kotlinx.coroutines.CancellationException) {
+                    throw ce
+                } catch (t: Throwable) {
+                    Logger.w("ChatVM", io.zer0.muse.transformer.CompressionDiagnostics.readCheckpointFailed(t.message))
+                    null
+                }
+            val currentCheckpointBoundaryId = existingCheckpoint?.lastCoveredMessageId
             val compressContext =
                 TransformContext(
                     sessionId = sessionId,
@@ -2901,23 +2969,89 @@ class ChatViewModel(
                 }.onError { msg, t ->
                     Logger.w("ChatVM", "Auto-compress transform failed: $msg")
                 }.getOrNull() ?: currentMessages
+            // 本次实际并入摘要的消息(进程内水位线记录);为空说明没压成,不写检查点
+            val compressedEntry = io.zer0.muse.transformer.CompressionSummaryStore.entry(sessionId)
+            val coveredIds: Set<String> = compressedEntry?.coveredIds.orEmpty()
+            val maxCoveredId: String? = coveredIds.maxOrNull()
             if (compressed.size < currentMessages.size) {
                 // v2.3.2: 会话守卫 — 压缩是耗时 LLM 调用,期间用户可能已切走会话;
                 // 过期结果绝不能写进当前会话(否则 A 会话的摘要会盖到 B 会话的消息列表上,
                 // 界面出现"另一个会话的内容",继续发送还会把 A 的上下文送给模型)。
-                if (_state.value.currentSessionId != sessionId) {
-                    Logger.i("ChatVM", "Auto-compress 结果已过期(会话已切换),丢弃: $sessionId")
+                if (displayedSessionId() != sessionId) {
+                    Logger.i("ChatVM", io.zer0.muse.transformer.CompressionDiagnostics.staleAutoCompressResult(sessionId))
                     return@launch
                 }
-                // v1.80 (H-CVM2): 压缩在后台 IO 异步执行,期间用户可能已发送新消息。
-                // 不能用 compressed 直接覆盖整个 messages 列表(会丢失新增消息)。
-                // 仅替换被压缩的旧区间(currentMessages),保留之后新增的消息。
-                // v2.3.2: 改为对 _messages 做**原子 update** —— 原实现把赋值放在
-                // _state.update{} 变换体内并在其中二次读取 _messages,一旦 CAS 重放就会切片错位。
-                _messages.update { current -> compressed + current.drop(currentMessages.size) }
+                // v2.x: 压缩结果落成**会话检查点**(持久、带边界指针),不再改写内存消息列表。
+                // 这样:① 重开应用/切回会话依然生效,不必再花一次摘要调用;
+                //       ② 界面继续显示完整历史(老消息默认可见),只有发给模型的历史被过滤;
+                //       ③ 边界之前的消息不会被重复计入下一轮压缩的输入。
+                if (maxCoveredId == null) {
+                    Logger.w("ChatVM", io.zer0.muse.transformer.CompressionDiagnostics.NO_COVERAGE_RECORD)
+                    return@launch
+                }
+                persistContextCheckpoint(
+                    sessionId = sessionId,
+                    previousBoundaryId = currentCheckpointBoundaryId,
+                    generatedBoundaryId = maxCoveredId,
+                    tokensBefore = currentTokens,
+                    tokensAfter = TokenEstimator.estimate(compressed),
+                    reason = io.zer0.memory.summary.ContextCheckpointEntity.REASON_AUTO,
+                )
+                // v2.x: 覆盖集合先刷新再算占用率 —— 刷新后 checkpointCoveredIds 才是本次压缩的结果
+                checkpointCoveredSessionId = sessionId
+                refreshCheckpointCoveredIds(sessionId)
                 updateContextTokenCount()
-                Logger.i("ChatVM", "Auto-compress triggered: ratio=${"%.2f".format(ratio)}, ${currentMessages.size} → ${compressed.size} 条")
+                Logger.i(
+                    "ChatVM",
+                    CompressionDiagnostics.checkpointSaved(
+                        ratio = "%.2f".format(ratio),
+                        covered = coveredIds.size,
+                        before = currentMessages.size,
+                        after = compressed.size,
+                    ),
+                )
             }
+        }
+    }
+
+    /**
+     * v2.x: 把一次压缩的结果写成会话检查点。
+     *
+     * 边界与前一次的差值才是"本次并入摘要"的消息集合 —— 检查点是滚动覆盖的，
+     * 新检查点已经包含旧检查点的内容，若把旧边界之前也计入，会让 `coveredCount`/`tokensBefore`
+     * 逐次虚增（表现为"压缩收益"越报越大，实际并没有省那么多）。
+     *
+     * 失败只记录日志：检查点写不进去最多是下一次还要重新摘要，绝不能影响本轮对话。
+     */
+    private suspend fun persistContextCheckpoint(
+        sessionId: String,
+        previousBoundaryId: String?,
+        generatedBoundaryId: String,
+        tokensBefore: Int,
+        tokensAfter: Int,
+        reason: String,
+    ) {
+        try {
+            // 边界消息在消息表里的真实 seq（查不到就传 0：组装侧以消息 id 为准，seq 只作上界）
+            val coveredSeq =
+                runCatching { sessionRepository.getMessageById(generatedBoundaryId)?.seq ?: 0L }
+                    .getOrDefault(0L)
+            val checkpoint = contextCompressTransformer.buildCheckpoint(
+                io.zer0.muse.transformer.ContextCompressTransformer.CheckpointRequest(
+                    sessionId = sessionId,
+                    previousBoundaryId = previousBoundaryId,
+                    generatedBoundaryId = generatedBoundaryId,
+                    coveredSeq = coveredSeq,
+                    tokensBefore = tokensBefore,
+                    tokensAfter = tokensAfter,
+                    reason = reason,
+                ),
+            ) ?: return
+            checkpointReader.put(checkpoint)
+        } catch (ce: kotlinx.coroutines.CancellationException) {
+            throw ce
+        } catch (t: Throwable) {
+            Logger.w("ChatVM", io.zer0.muse.transformer.CompressionDiagnostics.writeCheckpointFailed(t.message))
         }
     }
 
@@ -2927,15 +3061,15 @@ class ChatViewModel(
      * @param updateMemoryFirst true = 先调 [MemoryTicker.forceCompileNow] 更新记忆(fact/摘要),
      *                          再压缩历史;false = 只压缩历史(纯压缩)
      *
-     * UI 按钮文案统一为"更新并压缩",默认调用 manualCompress(updateMemoryFirst = true)。
-     * 纯压缩模式暂不暴露 UI(内部用),未来可长按按钮弹选择菜单。
+     * UI 入口是一键后台压缩：系统自动选择安全尾部，不向用户暴露保留条数或压缩指令。
+     * 纯压缩模式仍供斜杠命令内部使用。
      *
      * 压缩结果只替换内存中的 messages(_messages.value),不持久化到 DB
      * (DB 保留完整历史用于搜索/导出,内存版本用于 LLM 上下文)。
      * 切换会话后从 DB 重新加载,下次发送时自动压缩器会再次处理。
      */
-    fun manualCompress(updateMemoryFirst: Boolean = true, keepRecent: Int? = null, instruction: String? = null) {
-        val sessionId = _state.value.currentSessionId
+    fun manualCompress(updateMemoryFirst: Boolean = true) {
+        val sessionId = displayedSessionId()
         val currentMessages = _messages.value
         // 前置校验统一收敛为单出口:无会话/消息过少/流式中/压缩中均直接返回。
         // 保持原语义:仅"消息过少"提示用户,其余前置状态静默跳过。
@@ -2961,9 +3095,7 @@ class ChatViewModel(
         viewModelScope.launch(AppDispatchers.io) {
             try {
                 val effectiveKeepRecent =
-                    keepRecent
-                        ?.coerceIn(1, currentMessages.size - 1)
-                        ?: minOf(MANUAL_COMPRESS_KEEP_RECENT, currentMessages.size - 1).coerceAtLeast(1)
+                    minOf(COMPRESSION_SAFETY_TAIL_MESSAGES, currentMessages.size - 1).coerceAtLeast(1)
                 val context =
                     TransformContext(
                         sessionId = sessionId,
@@ -2973,8 +3105,9 @@ class ChatViewModel(
                             "compress_enabled" to true,
                             "compress_threshold" to 1, // 强制触发
                             "compress_keep_recent" to effectiveKeepRecent,
-                            // H10: 本次压缩附加指令(对话框输入),transformer 注入压缩 prompt
-                            "compress_instruction" to instruction,
+                            "compress_force_fallback" to true,
+                            "compress_char_budget" to
+                                WarmupHistory.compressTokenBudgetFor(_state.value.contextMaxTokens),
                         ),
                     )
 
@@ -3010,7 +3143,7 @@ class ChatViewModel(
                 if (compressed.size < currentMessages.size) {
                     // v2.3.2: 会话守卫 — 同 triggerAutoCompress,压缩期间切走会话则丢弃过期结果
                     // (isCompressing 由外层 finally 复位,这里直接返回即可)
-                    if (_state.value.currentSessionId != sessionId) {
+                    if (displayedSessionId() != sessionId) {
                         Logger.i("ChatVM", "manualCompress 结果已过期(会话已切换),丢弃: $sessionId")
                         return@launch
                     }
@@ -3061,7 +3194,7 @@ class ChatViewModel(
      */
     fun executeSlashCommand(text: String): Boolean {
         val cmd = SlashCommand.parse(text) ?: return false
-        val sessionId = _state.value.currentSessionId
+        val sessionId = displayedSessionId()
         when (cmd) {
             SlashCommand.NEW -> {
                 // 新建会话 — 复用现有 createNewSession(内部会创建 DB 会话并切换状态)
@@ -3446,13 +3579,13 @@ class ChatViewModel(
     fun sendFromCard(text: String) {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
-        val sid = snapshot.currentSessionId ?: return
+        val sid = displayedSessionId(snapshot) ?: return
         enqueueSend(trimmed, emptyList(), sid)
     }
 
     /** v1.0.92: 卡片回传 — 富内容卡片保存为工件(保存后按消息关联展示在消息下方)。 */
     fun saveCardAsArtifact(messageId: String, language: String, content: String) {
-        val sid = snapshot.currentSessionId ?: return
+        val sid = displayedSessionId(snapshot) ?: return
         viewModelScope.launch {
             resultOf {
                 artifactRepository.upsert(
@@ -3667,7 +3800,7 @@ class ChatViewModel(
                             style = style,
                         )
                     val messages = listOf(UIMessage(role = MessageRole.USER, content = prompt))
-                    val sessionId = _state.value.currentSessionId ?: return@launch
+                    val sessionId = displayedSessionId() ?: return@launch
 
                     // v1.0.4 (P2): 流式翻译 — 先插占位 ASSISTANT 消息逐 delta 更新,用户立即可见
                     // (animateItem() 已提供 fade-in,无需额外动画)
@@ -3785,7 +3918,7 @@ class ChatViewModel(
      */
     fun applyUserEdit(messageId: String, newContent: String) {
         if (_state.value.isStreaming) return
-        val sessionId = _state.value.currentSessionId ?: _state.value.agentSessionId ?: return
+        val sessionId = displayedSessionId() ?: return
         val tree = _conversationTree.value
         val target =
             tree.userNodes.asSequence()
@@ -6042,7 +6175,7 @@ class ChatViewModel(
      */
     private fun triggerMemoryAutoSaveIfNeeded() {
         val scheduler = memoryAutoSaveScheduler ?: return
-        val sessionId = _state.value.currentSessionId ?: return
+        val sessionId = displayedSessionId() ?: return
         // v1.0.54: 30 秒内同会话去重 — 切 Tab/切会话/重启上下文会反复触发
         //   notifySessionEndForCurrent,每次排队一个 autoSave;网络慢时堆积十几次,
         //   用户感知"回复后一直不停下"(后台持续调用 completeText)。
@@ -6050,14 +6183,32 @@ class ChatViewModel(
         if (sessionId == lastAutoSaveSessionId && now - lastAutoSaveAt < 30_000L) return
         lastAutoSaveSessionId = sessionId
         lastAutoSaveAt = now
-        val history = _messages.value
-        if (history.size < 2) return
+        val uiHistory = _messages.value
+        if (uiHistory.size < 2) return
         val assistantId = _state.value.currentAssistant?.id ?: "default"
         val scope = if (assistantId == "default") "main" else assistantId
         val locale = "zh-CN"
         // 在排队前捕获当前空间，不能把后台提取永远写入 default；
         // 之后用户切换空间也不会改变这次 session 的归属。
         viewModelScope.launch(Dispatchers.IO) {
+            // 记忆提取不能受聊天页首屏分页限制;优先读取完整持久历史,
+            // 再补上尚未落库的 UI 消息(例如切换/进程边界上的最后一轮)。
+            val dbHistory =
+                if (settings.memoryConfigCache.conversationRecallEnabled) {
+                    resultOf { sessionRepository.getAllMessagesForWarmup(sessionId) }
+                        .onError { msg, t -> Logger.w("ChatVM", "memory full history load failed: $msg", t) }
+                        .getOrNull()
+                        .orEmpty()
+                } else {
+                    emptyList()
+                }
+            val dbIds = dbHistory.mapTo(HashSet()) { it.id }
+            val history = if (dbHistory.isEmpty()) {
+                uiHistory
+            } else {
+                dbHistory + uiHistory.filter { it.id !in dbIds }
+            }
+            if (history.size < 2) return@launch
             val spaceId = settings.currentSpaceIdFlow.firstOrNull().orEmpty().ifBlank { "default" }
             // model 传 null,MemoryLlmClient 实现侧用 Provider 配置的默认模型
             scheduler.scheduleAutoSave(
@@ -6299,7 +6450,7 @@ class ChatViewModel(
      * - 不重新发消息(避免误触发);用户可手动重生成
      */
     fun setSessionAssistant(assistantId: String) {
-        val sessionId = _state.value.currentSessionId ?: return
+        val sessionId = displayedSessionId() ?: return
         viewModelScope.launch {
             sessionRepository.setSessionAssistant(sessionId, assistantId)
             val assistant =
@@ -6373,7 +6524,7 @@ class ChatViewModel(
     fun toggleFavorite(messageId: Uuid) {
         // v1.0.88 (S-4): 收藏变更同步失效内存缓存 — 否则会话缓存里消息的
         // favorite 状态陈旧(气泡收藏图标与收藏面板不一致)。
-        _state.value.currentSessionId?.let { sessionMemoryCache.remove(it) }
+        displayedSessionId()?.let { sessionMemoryCache.remove(it) }
         miscCoordinator.toggleFavorite(messageId)
     }
 
@@ -6425,11 +6576,7 @@ class ChatViewModel(
         // v1.0.85 (T-2): 删除消息同步失效会话内存缓存 — 否则切走再切回时命中
         // 删除前的旧快照,已删消息"复活"(用户反馈:删了重进还在)。
         val sessionId =
-            if (_state.value.isAgentMode) {
-                _state.value.agentSessionId
-            } else {
-                _state.value.currentSessionId
-            }
+            displayedSessionId()
         sessionId?.let { sessionMemoryCache.remove(it) }
         // B-1: 删除前停止该会话在途生成并禁止后续落盘,防止已删消息被流式"复活"。
         generationController.stopGenerationForSession(sessionId)
@@ -6453,11 +6600,7 @@ class ChatViewModel(
      */
     fun deleteMessageWithFollowing(messageId: Uuid) {
         val sessionId =
-            if (_state.value.isAgentMode) {
-                _state.value.agentSessionId
-            } else {
-                _state.value.currentSessionId
-            } ?: return
+            displayedSessionId() ?: return
         sessionMemoryCache.remove(sessionId)
         // B-1: 删除前停止该会话在途生成并禁止后续落盘,防止已删消息被流式"复活"。
         generationController.stopGenerationForSession(sessionId)
@@ -6500,7 +6643,7 @@ class ChatViewModel(
 
     /** B7-03: 滚动到底部时标记当前会话已读。 */
     fun markSessionRead() {
-        val sessionId = _state.value.currentSessionId ?: _state.value.agentSessionId ?: return
+        val sessionId = displayedSessionId() ?: return
         // 新会话消息可能尚未加载（_messages 为空），此时也必须按 messageCount 标记已读，
         // 否则 lastReadCount 一直为 0，messageCount - lastReadCount > 0，新会话永远显示“未读 1”。
         viewModelScope.launch {

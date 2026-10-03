@@ -56,7 +56,10 @@ import kotlin.uuid.Uuid
 // A5: LargeClass 豁免 — 类体 LOC 恰在 detekt 600 阈值边界(历史体量已接近上限,
 // A5 为 persistInterruptedAssistant 补 1 个 durationMs 参数即越线)。拆分属独立重构任务,
 // 与本功能无关,暂以注释说明豁免(先例: ToolOrchestrator @Suppress("LongParameterList"))。
-@Suppress("LargeClass")
+// v2.x: LongParameterList 一并豁免 — 本类构造参数早已超过阈值(15 个),此前未报是因为
+// 上限刚好卡在边界;新增 checkpointReader(上下文检查点读取)使其显式越线。它注入的是既有依赖,
+// 不是新引入的耦合,拆分构造参数属于与本次功能无关的重构。
+@Suppress("LargeClass", "LongParameterList")
 class ChatStreamCoordinator(
     private val accessor: ChatStateAccessor,
     private val sessionRepository: SessionRepository,
@@ -72,6 +75,7 @@ class ChatStreamCoordinator(
     private val lorebookRepository: LorebookRepository,
     private val promptInjectionRepository: PromptInjectionRepository,
     private val transformerPipeline: TransformerPipeline,
+    private val checkpointReader: io.zer0.memory.summary.ContextCheckpointReader,
     // P1-1: Hook 注册表 — 在管道执行后调用 PromptFinalizeHook
     private val hookRegistry: io.zer0.muse.hook.HookRegistry? = null,
 ) {
@@ -131,13 +135,20 @@ class ChatStreamCoordinator(
         val sessionId =
             (if (state.isAgentMode) state.agentSessionId else state.currentSessionId)
                 ?: return
-        val messages = accessor.messagesSnapshot
-        if (messages.isNotEmpty()) {
+        val fallbackMessages = accessor.messagesSnapshot
+        if (fallbackMessages.isNotEmpty()) {
             // onCleared 时 viewModelScope 即将取消;MemoryTicker 用自己的 application scope fire-and-forget
             // model 传 null,MemoryTicker 内部降级用默认模型
-            memoryTicker.notifySessionEnd(
+            memoryTicker.notifySessionEndFromProvider(
                 sessionId,
-                messages,
+                messagesProvider = {
+                    if (!settings.memoryConfigCache.conversationRecallEnabled) {
+                        fallbackMessages
+                    } else {
+                        val dbMessages = sessionRepository.getAllMessagesForWarmup(sessionId)
+                        if (dbMessages.isEmpty()) fallbackMessages else dbMessages
+                    }
+                },
                 model = null,
                 assistantId = state.currentAssistant?.id ?: "",
             )
@@ -598,6 +609,10 @@ class ChatStreamCoordinator(
                     "清理孤儿 tool_call: ${messagesExceptPlaceholder.size - rawHistory.size} 条 assistant 消息被丢弃",
                 )
             }
+            // 会话检查点合并：把"已压缩边界之前"的助手侧内容替换为检查点摘要。
+            // 必须放在截断之前 —— 这样按条数的裁剪作用于已压缩后的历史；也必须放在 transformer
+            // 管道之前 —— 摘要要与最终请求里的消息同源，不能只影响压缩器自己看到的那份。
+            rawHistory = applySessionCheckpoint(sessionId, rawHistory)
             // v1.x: 工具依赖感知截断;预热轮改为 token 预算截断(全量优先)
             truncatedHistory =
                 if (warmupActive) {
@@ -615,6 +630,39 @@ class ChatStreamCoordinator(
                 } else {
                     buildContextWindow(rawHistory, contextSize)
                 }
+        }
+    }
+
+    /**
+     * v2.x: 把会话检查点合并进历史（"压缩后的上下文"生效点）。
+     *
+     * 读取检查点 → 校验它引用的边界消息仍在历史里（不在就作废，见 ContextCheckpointReader）→
+     * 用摘要替换边界之前的助手侧内容。任何异常都不阻断生成：压缩失败最多是上下文长一点，
+     * 绝不能因为读检查点失败而让整轮对话发不出去。
+     */
+    private suspend fun applySessionCheckpoint(sessionId: String, history: List<UIMessage>): List<UIMessage> {
+        if (history.isEmpty()) return history
+        return try {
+            val knownIds = history.mapTo(HashSet()) { it.id.toString() }
+            val checkpoint = checkpointReader.getValid(sessionId, knownIds)
+            if (checkpoint == null) {
+                history
+            } else {
+                val merged = io.zer0.muse.transformer.ContextCheckpointMerge.apply(history, checkpoint)
+                if (merged.applied) {
+                    Logger.i(
+                        tag,
+                        "${history.size} -> ${merged.messages.size} checkpoint applied " +
+                            "(coveredSeq=${checkpoint.coveredSeq}, strategy=${checkpoint.strategy})",
+                    )
+                }
+                merged.messages
+            }
+        } catch (ce: kotlinx.coroutines.CancellationException) {
+            throw ce
+        } catch (t: Throwable) {
+            Logger.w(tag, "checkpoint merge failed, sending full history: ${t.message}")
+            history
         }
     }
 
@@ -913,7 +961,7 @@ class ChatStreamCoordinator(
                     io.zer0.muse.hook.PromptFinalizeEvent(
                         preparedHistory = transformedMessages,
                         assistantId = accessor.snapshot.currentAssistant?.id,
-                        sessionId = accessor.snapshot.currentSessionId,
+                        sessionId = sessionId,
                         transformContext = context,
                     )
                 val finalizeResult =

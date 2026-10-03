@@ -52,6 +52,9 @@ val memoryModule: Module = module {
     // Explicit recovery entry for rows preserved in a newer-version archive after downgrade.
     single { MemoryDbArchiveRecovery(androidContext(), get()) }
 
+    // 会话上下文检查点的读取与有效性判定（供上下文组装方注入）
+    single { io.zer0.memory.summary.ContextCheckpointReader(get()) }
+
     // v0.22: per-assistant facts.db 提供者(按 assistantId 创建/缓存独立 FactDb)
     // v12: 透传 LLM 去重判定器(同实体模糊候选交给大模型判断)
     // 注意: 不注入 FactRevisionDao(内部从 db 取),避免 Koin 循环依赖
@@ -65,6 +68,7 @@ val memoryModule: Module = module {
 
     // ── DAO ──
     single { get<MemoryDb>().sessionSummaryDao() }
+    single { get<MemoryDb>().contextCheckpointDao() }
     single { get<MemoryDb>().dailyStateDao() }
     single { get<MemoryDb>().compiledSectionDao() }
     single { get<MemoryDb>().scopedCompiledSectionDao() }

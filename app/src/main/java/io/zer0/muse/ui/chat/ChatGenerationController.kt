@@ -27,6 +27,7 @@ import io.zer0.muse.session.TurnPhase
 import io.zer0.muse.transformer.UserMessageTimeContext
 import io.zer0.muse.ui.ChatErrorType
 import io.zer0.muse.ui.ChatStreamPhase
+import io.zer0.muse.ui.ChatUiState
 import io.zer0.muse.ui.buildSendText
 import io.zer0.muse.ui.canContinueGeneration
 import io.zer0.muse.ui.canRegenerate
@@ -59,6 +60,13 @@ internal fun composeSystemPromptMessages(staticPrompt: String, dynamicPrompt: St
     staticPrompt.takeIf { it.isNotBlank() }?.let { UIMessage(role = MessageRole.SYSTEM, content = it) },
     dynamicPrompt.takeIf { it.isNotBlank() }?.let { UIMessage(role = MessageRole.SYSTEM, content = it) },
 )
+
+/** Agent mode owns an independent session; task-session state must never win this lookup. */
+internal fun effectiveGenerationSessionId(state: ChatUiState): String? =
+    if (state.isAgentMode) state.agentSessionId else state.currentSessionId
+
+internal fun shouldRollbackOptimisticSend(state: ChatUiState, requestSessionId: String): Boolean =
+    effectiveGenerationSessionId(state) == requestSessionId
 
 @Suppress("LongParameterList", "TooManyFunctions", "LargeClass")
 internal class ChatGenerationController(
@@ -98,7 +106,7 @@ internal class ChatGenerationController(
     /** 用户点"停止"。 */
     fun stop() {
         // 只停止单聊的生成,不影响群聊
-        val sid = accessor.snapshot.currentSessionId ?: accessor.snapshot.agentSessionId
+        val sid = effectiveGenerationSessionId(accessor.snapshot)
         sid?.let { executionRegistry?.requestCancelForSession(it, "user_stop") }
         chatGenerationManager.stop(sid)
         // 记录运行时取消标志,区分"用户停止"与异常失败;Job 与 chatGenerationManager 持有同一实例,重复 cancel 幂等。
@@ -388,7 +396,7 @@ internal class ChatGenerationController(
 
     /** 队列消费失败时回滚某条请求的乐观更新(user/assistant 占位消息)。 */
     fun rollbackOptimisticSend(req: SendRequest) {
-        if (accessor.snapshot.currentSessionId != req.sessionId) return
+        if (!shouldRollbackOptimisticSend(accessor.snapshot, req.sessionId)) return
         deps.stateStore.messages.value =
             deps.stateStore.messages.value.filterNot { message ->
                 message.id == req.userMessage.id || message.id == req.assistantMessageId
@@ -572,12 +580,25 @@ internal class ChatGenerationController(
     }
 
     /** 快速更新 token 计数(流式过程中每 200 字符或 1000ms 调用,避免每次重建 system prompt)。 */
-    suspend fun updateContextTokenCount() {
+    /**
+     * 刷新上下文占用估算。
+     *
+     * v2.x: [excludedMessageIds] 排除"已并入会话检查点、不会再发给模型"的消息。
+     * 占用率必须反映**模型实际会看到的内容**：否则压缩之后占用率仍停在压缩前的水位，
+     * 会每轮重复触发压缩同一段历史（既费钱，也会让用户看到反复压缩的怪现象）。
+     */
+    suspend fun updateContextTokenCount(excludedMessageIds: Set<String> = emptySet()) {
         val msgsSnapshot = deps.stateStore.messages.value
+        val counted =
+            if (excludedMessageIds.isEmpty()) {
+                msgsSnapshot
+            } else {
+                msgsSnapshot.filterNot { it.id.toString() in excludedMessageIds }
+            }
         val sysPromptSnapshot = deps.systemPromptCache.cachedSystemPrompt
         val tokenCount =
             withContext(Dispatchers.Default) {
-                runCatching { TokenEstimator.estimate(msgsSnapshot, sysPromptSnapshot) }
+                runCatching { TokenEstimator.estimate(counted, sysPromptSnapshot) }
                     .onFailure { Logger.w("ChatVM", "TokenEstimator failed: ${it.message}") }
                     .getOrDefault(0)
             }
@@ -1336,7 +1357,25 @@ internal class ChatGenerationController(
         }.onError { msg, t -> Logger.w("ChatVM", "流式完成通知失败: $msg", t) }
 
         // 通知 memory ticker(后台 rollingSummary + daily check)。
-        val conversationMessages = deps.stateStore.messages.value
+        // 聊天 UI 可能只保留最近一页消息;记忆管线必须从 DB 读取完整会话,
+        // 再补上本轮尚未落库的 UI 消息,避免早期事实永远进不了摘要/抽取。
+        val uiConversationMessages = deps.stateStore.messages.value
+        val dbConversationMessages =
+            if (deps.settings.memoryConfigCache.conversationRecallEnabled) {
+                resultOf { deps.sessionRepository.getAllMessagesForWarmup(sessionId) }
+                    .onError { msg, t -> Logger.w("ChatVM", "notifyTurn full history load failed: $msg", t) }
+                    .getOrNull()
+                    .orEmpty()
+            } else {
+                emptyList()
+            }
+        val dbMessageIds = dbConversationMessages.mapTo(HashSet()) { it.id }
+        val conversationMessages =
+            if (dbConversationMessages.isEmpty()) {
+                uiConversationMessages
+            } else {
+                dbConversationMessages + uiConversationMessages.filter { it.id !in dbMessageIds }
+            }
         val selectedModel = resultOf { deps.settings.getSelectedModel() }.getOrNull()
         val generationAssistantId = state.assistant?.id ?: "default"
         val generationSpaceId =

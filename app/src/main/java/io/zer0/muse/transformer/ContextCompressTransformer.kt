@@ -7,10 +7,12 @@ import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
+import io.zer0.muse.session.WarmupHistory
 import io.zer0.muse.util.TokenEstimator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
+import kotlin.uuid.Uuid
 
 internal const val CONTEXT_COMPRESSED_MARKER = "[COMPRESSED]"
 
@@ -76,8 +78,11 @@ class ContextCompressTransformer(
 
         val threshold = (context.extra("compress_threshold") as? Int) ?: DEFAULT_THRESHOLD
         val keepRecent = (context.extra("compress_keep_recent") as? Int) ?: DEFAULT_KEEP_RECENT
-        // H10: 手动压缩附加指令(对话框输入),优先于设置级自定义 prompt,空/缺省时用默认
+        // Optional internal override; ordinary chat compression uses the settings-level prompt.
         val instruction = context.extra("compress_instruction") as? String
+        // Manual compression is an explicit user request: if the summary model fails or
+        // produces no net savings, still shrink the payload with a visible fallback marker.
+        val forceFallback = (context.extra("compress_force_fallback") as? Boolean) == true
         // v2.3.2: 历史 key 名为 compress_char_budget,实际统一按 token 预算解释。
         // TokenEstimator 会计入 reasoning/toolCalls/图片,避免压缩在视觉或工具密集会话中触发过晚。
         val tokenBudget = (context.extra("compress_char_budget") as? Int) ?: 0
@@ -143,13 +148,18 @@ class ContextCompressTransformer(
         val outcome = resolveSummary(adjustedToCompress, instruction, context.sessionId)
         // 超时/异常 → 降级为截断标记(M-COMP4: 告知模型历史被截断,而非静默丢弃全部历史)
         if (outcome is SummaryOutcome.DegradeToMarker) {
-            return prefix + listOf(fallbackMessage()) + adjustedRecent
+            return if (forceFallback) {
+                forceFallbackHistory(prefix, adjustedRecent, tokenBudget)
+            } else {
+                prefix + listOf(fallbackMessage()) + adjustedRecent
+            }
         }
         // v2.3.2: 摘要生成失败(压缩器整体返回 null)→ **保留原文**,不做任何替换。
         // 历史本身还在,失败的只是"摘要"这一步;用占位文本换掉原文才是真正的失忆。
         // (transform 的输入已由上游按 contextSize / token 预算裁剪,保留原文不会无界膨胀。)
         if (outcome !is SummaryOutcome.Ok) {
             Logger.w(name, "compress 全部块失败, 本轮保留原文不压缩")
+            if (forceFallback) return forceFallbackHistory(prefix, adjustedRecent, tokenBudget)
             return messages
         }
         val summary = outcome.summary
@@ -167,6 +177,7 @@ class ContextCompressTransformer(
         val afterTokens = TokenEstimator.estimate(compacted)
         if (afterTokens >= totalTokens) {
             Logger.i(name, "compress 无净收益($totalTokens → $afterTokens token),保留原文不压缩")
+            if (forceFallback) return forceFallbackHistory(prefix, adjustedRecent, tokenBudget)
             return messages
         }
         // v2.3.2 (C/D): 摘要**确实被采用**时才记水位线 —— 记录哪些消息已被它覆盖。
@@ -180,8 +191,82 @@ class ContextCompressTransformer(
         return compacted
     }
 
-    /** 取摘要的结局(v2.3.2: 把原先散落在 transform 里的 return 收敛成显式类型,便于控制函数长度)。 */
-    private sealed interface SummaryOutcome {
+    /**
+     * v2.x: 组装会话检查点所需的输入（参数多于 6 个，用数据类而不是长参数列表，
+     * 也便于调用方按名传参、避免位置传错）。
+     */
+    data class CheckpointRequest(
+        val sessionId: String,
+        val previousBoundaryId: String?,
+        val generatedBoundaryId: String,
+        val coveredSeq: Long,
+        val tokensBefore: Int,
+        val tokensAfter: Int,
+        val reason: String,
+    )
+
+    /**
+     * v2.x: 把一次压缩的结果组装成**会话检查点**（供调用方落库）。
+     *
+     * 滚动语义：新检查点覆盖的范围 = 上一次边界之后的所有消息（含上一次已覆盖的部分，
+     * 因为摘要本身也是改写而非追加），因此 [ContextCheckpointEntity.coveredCount] 记的是
+     * **本次并入摘要**的条数、[ContextCheckpointEntity.tokensBefore] 记的是压缩前的上下文规模，
+     * 两者都取自调用方掌握的当轮快照，不在这里二次估算。
+     *
+     * @return 组装好的检查点；摘要缺失或边界无法定位时返回 null（宁可不写，也不写一个错边界）
+     */
+    fun buildCheckpoint(request: CheckpointRequest): io.zer0.memory.summary.ContextCheckpointEntity? {
+        val entry = CompressionSummaryStore.entry(request.sessionId)
+        val summary = entry?.summary?.takeIf { it.isNotBlank() }
+        val boundaryUuid = entry?.let { resolveBoundaryUuid(it, request) }
+        return if (entry == null || summary == null || boundaryUuid == null) {
+            null
+        } else {
+            io.zer0.memory.summary.ContextCheckpointEntity(
+                sessionId = request.sessionId,
+                coveredSeq = request.coveredSeq,
+                lastCoveredMessageId = boundaryUuid.toString(),
+                coveredCount = newlyCoveredCount(entry, request.previousBoundaryId),
+                summary = summary,
+                tokensBefore = request.tokensBefore,
+                tokensAfter = request.tokensAfter,
+                strategy = io.zer0.memory.summary.ContextCheckpointEntity.STRATEGY_SUMMARY,
+                reason = request.reason,
+                updatedAt = System.currentTimeMillis(),
+            )
+        }
+    }
+
+    /**
+     * 边界指针：优先取"本次新覆盖的最后一条"（UUIDv7 时间有序，取最大值即最新）；
+     * 本次没有新覆盖（例如等价区间被重复触发）时保持旧边界不动；都拿不到才回退到调用方给的值。
+     */
+    private fun resolveBoundaryUuid(
+        entry: CompressionSummaryStore.Entry,
+        request: CheckpointRequest,
+    ): Uuid? {
+        val previous = request.previousBoundaryId?.let { runCatching { Uuid.parse(it) }.getOrNull() }
+        val newlyCovered = newlyCoveredUuids(entry, request.previousBoundaryId)
+        return newlyCovered.maxOrNull()
+            ?: previous
+            ?: runCatching { Uuid.parse(request.generatedBoundaryId) }.getOrNull()
+    }
+
+    /** 水位线覆盖集合里、排在旧边界之后的部分（即"本次实际并入摘要"的消息）。 */
+    private fun newlyCoveredUuids(
+        entry: CompressionSummaryStore.Entry,
+        previousBoundaryId: String?,
+    ): List<Uuid> {
+        val previous = previousBoundaryId?.let { runCatching { Uuid.parse(it) }.getOrNull() }
+        return entry.coveredIds
+            .mapNotNull { runCatching { Uuid.parse(it) }.getOrNull() }
+            .filter { id -> previous == null || id > previous }
+    }
+
+    private fun newlyCoveredCount(entry: CompressionSummaryStore.Entry, previousBoundaryId: String?): Int =
+        newlyCoveredUuids(entry, previousBoundaryId).size
+
+    /** 取摘要的结局(v2.3.2: 把原先散落在 transform 里的 return 收敛成显式类型,便于控制函数长度)。 */    private sealed interface SummaryOutcome {
         /** 拿到摘要(可能来自缓存水位线,也可能是新生成的)。 */
         data class Ok(val summary: String) : SummaryOutcome
 
@@ -241,6 +326,20 @@ class ContextCompressTransformer(
         role = MessageRole.SYSTEM,
         content = "(历史暂不可用,仅保留最近消息)",
     )
+
+    private fun forceFallbackHistory(
+        prefix: List<UIMessage>,
+        recent: List<UIMessage>,
+        tokenBudget: Int,
+    ): List<UIMessage> {
+        val budget = if (tokenBudget > 0) tokenBudget else WarmupHistory.FALLBACK_BUDGET_TOKENS
+        val prefixBudget = (budget - TokenEstimator.estimate(prefix)).coerceAtLeast(1)
+        val retained = WarmupHistory.trimToBudget(
+            history = listOf(fallbackMessage()) + recent,
+            budgetTokens = prefixBudget,
+        ).history
+        return prefix + retained
+    }
 
     /** 调用 LLM 压缩旧消息为摘要。 */
     private suspend fun compressMessages(oldMessages: List<UIMessage>, instruction: String? = null): String {
