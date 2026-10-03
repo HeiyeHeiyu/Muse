@@ -516,4 +516,14 @@
     <string name="settings_provider_remove_key">Delete this key</string>
     <string name="settings_provider_test_connection_endpoint">Test connection (endpoint)</string>
     <string name="settings_provider_test_connection_endpoint_sub">Only checks the endpoint and authentication</string>
+
+    <!-- 补齐 strict=en 门禁缺口 -->
+    <string name="settings_backup_export_session">Export a single conversation</string>
+    <string name="settings_backup_export_session_count">%1$d messages</string>
+    <string name="settings_backup_export_session_empty">No conversation to export yet</string>
+    <string name="settings_backup_export_session_failed">Failed to export conversation: %1$s</string>
+    <string name="settings_backup_export_session_search">Search conversation titles</string>
+    <string name="settings_backup_export_session_subtitle">Pick one conversation and export its full history as a JSON file</string>
+    <string name="settings_backup_export_session_success">Conversation exported: %1$d messages</string>
+    <string name="settings_backup_export_session_title">Choose a conversation to export</string>
 </resources>

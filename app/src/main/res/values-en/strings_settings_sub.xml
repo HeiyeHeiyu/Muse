@@ -795,4 +795,8 @@
     <string name="settings_chat_message_font_size_subtitle">Scale message text, default 100%</string>
     <string name="settings_chat_letter_spacing">Letter spacing</string>
     <string name="settings_chat_letter_spacing_subtitle">Adjust character spacing</string>
+
+    <!-- 补齐 strict=en 门禁缺口 -->
+    <string name="settings_memory_conversation_recall">Allow recalling original conversation text</string>
+    <string name="settings_memory_conversation_recall_subtitle">When enabled, summaries and fact extraction read the full conversation on demand instead of only the currently loaded messages</string>
 </resources>
