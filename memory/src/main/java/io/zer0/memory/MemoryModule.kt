@@ -7,6 +7,7 @@ import io.zer0.memory.fact.FactDb
 import io.zer0.memory.fact.FactStore
 import io.zer0.memory.summary.MEMORY_DB_VERSION
 import io.zer0.memory.summary.MemoryDb
+import io.zer0.memory.summary.MemoryDbArchiveRecovery
 import io.zer0.memory.summary.MemoryDbDowngradeGuard
 import io.zer0.memory.summary.SessionSummaryManager
 import io.zer0.memory.ticker.MemoryTicker
@@ -38,14 +39,18 @@ val memoryModule: Module = module {
         )
         Room.databaseBuilder(context, MemoryDb::class.java, MEMORY_DB_NAME)
             // v2: session summary 增加 space_id，只做加法迁移，保留旧数据。
+            // v2.x: 新增 context_checkpoints（会话压缩检查点），同样是纯增表。
             .addMigrations(
                 io.zer0.memory.summary.MemoryDb.MIGRATION_1_2,
                 io.zer0.memory.summary.MemoryDb.MIGRATION_2_3,
+                io.zer0.memory.summary.MemoryDb.MIGRATION_3_4,
             )
             // 仅允许降级时重建；打开前 guard 已归档更高版本库及 WAL sidecars。
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .build()
     }
+    // Explicit recovery entry for rows preserved in a newer-version archive after downgrade.
+    single { MemoryDbArchiveRecovery(androidContext(), get()) }
 
     // v0.22: per-assistant facts.db 提供者(按 assistantId 创建/缓存独立 FactDb)
     // v12: 透传 LLM 去重判定器(同实体模糊候选交给大模型判断)

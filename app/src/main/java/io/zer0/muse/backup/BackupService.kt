@@ -12,6 +12,7 @@ import io.zer0.memory.summary.ScopedCompiledSectionEntity
 import io.zer0.memory.summary.DailyStateEntity
 import io.zer0.memory.summary.MemoryDb
 import io.zer0.memory.summary.SessionSummaryEntity
+import io.zer0.memory.summary.ContextCheckpointEntity
 import io.zer0.muse.R
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.session.MuseDb
@@ -162,6 +163,7 @@ class BackupService(
         val sessions: List<SessionEntity>,
         val messages: List<MessageEntity>,
         val sessionSummaries: List<SessionSummaryEntity> = emptyList(),
+        val contextCheckpoints: List<ContextCheckpointEntity> = emptyList(),
         val dailyStates: List<DailyStateEntity> = emptyList(),
         val compiledSections: List<CompiledSectionEntity> = emptyList(),
         val scopedCompiledSections: List<ScopedCompiledSectionEntity> = emptyList(),
@@ -214,6 +216,7 @@ class BackupService(
 
     /** 空备份保护需要覆盖所有导出表,不能只检查 sessions/messages。 */
     private fun Backup.hasAnyData(): Boolean = sessions.isNotEmpty() || messages.isNotEmpty() || sessionSummaries.isNotEmpty() ||
+        contextCheckpoints.isNotEmpty() ||
         dailyStates.isNotEmpty() || compiledSections.isNotEmpty() || scopedCompiledSections.isNotEmpty() ||
         facts.isNotEmpty() || assistants.isNotEmpty() || lorebooks.isNotEmpty() || skills.isNotEmpty() ||
         artifacts.isNotEmpty() || quickMessages.isNotEmpty() || promptInjections.isNotEmpty() ||
@@ -479,6 +482,7 @@ class BackupService(
         val sessions = muse.sessions
         val allMessages = muse.messages
         val sessionSummaries = memoryDb.sessionSummaryDao().getAll()
+        val contextCheckpoints = memoryDb.contextCheckpointDao().getAll()
         val compiledSections = memoryDb.compiledSectionDao().getAll()
         val scopedCompiledSections = memoryDb.scopedCompiledSectionDao().getAll()
         val dailyState = memoryDb.dailyStateDao().get()?.let { listOf(it) } ?: emptyList()
@@ -529,6 +533,7 @@ class BackupService(
             put("sessions", sessions.size)
             put("messages", allMessages.size)
             put("sessionSummaries", sessionSummaries.size)
+        put("contextCheckpoints", contextCheckpoints.size)
             put("dailyStates", dailyState.size)
             put("compiledSections", compiledSections.size)
             put("scopedCompiledSections", scopedCompiledSections.size)
@@ -614,6 +619,14 @@ class BackupService(
             val line = buildJsonObject {
                 put("type", "summary")
                 put("data", json.encodeToJsonElement(SessionSummaryEntity.serializer(), summary))
+            }
+            writer.write(line.toString())
+            writer.newLine()
+        }
+        contextCheckpoints.forEach { checkpoint ->
+            val line = buildJsonObject {
+                put("type", "contextCheckpoint")
+                put("data", json.encodeToJsonElement(ContextCheckpointEntity.serializer(), checkpoint))
             }
             writer.write(line.toString())
             writer.newLine()
@@ -870,6 +883,7 @@ class BackupService(
             val sessionBuf = mutableListOf<SessionEntity>()
             val messageBuf = mutableListOf<MessageEntity>()
             val summaryBuf = mutableListOf<SessionSummaryEntity>()
+            val contextCheckpointBuf = mutableListOf<ContextCheckpointEntity>()
             val dailyBuf = mutableListOf<DailyStateEntity>()
             val compiledBuf = mutableListOf<CompiledSectionEntity>()
             val scopedCompiledBuf = mutableListOf<ScopedCompiledSectionEntity>()
@@ -1001,6 +1015,11 @@ class BackupService(
                             summaryBuf.add(json.decodeFromJsonElement(SessionSummaryEntity.serializer(), it))
                             // C-10: memory/fact 缓冲只在 MuseDb 事务成功后于各自独立事务内统一提交,
                             // 不再在 MuseDb 事务内循环中提前 flush(旧实现会在 MuseDb 回滚时留下已提交的 memory 半状态)。
+                        }
+                        "contextCheckpoint" -> obj["data"]?.let {
+                            contextCheckpointBuf.add(
+                                json.decodeFromJsonElement(ContextCheckpointEntity.serializer(), it),
+                            )
                         }
                         "dailyState" -> obj["data"]?.let {
                             dailyBuf.add(json.decodeFromJsonElement(DailyStateEntity.serializer(), it))
@@ -1402,10 +1421,12 @@ class BackupService(
             // 其数据量远小于 messages,且换来了正确的先后顺序与一致的提交边界。
             memoryDb.withTransaction {
                 memoryDb.sessionSummaryDao().deleteAll()
+                memoryDb.contextCheckpointDao().deleteAll()
                 memoryDb.dailyStateDao().deleteAll()
                 memoryDb.compiledSectionDao().deleteAll()
                 memoryDb.scopedCompiledSectionDao().deleteAll()
                 summaryBuf.forEach { memoryDb.sessionSummaryDao().upsert(it) }
+                contextCheckpointBuf.forEach { memoryDb.contextCheckpointDao().upsert(it) }
                 dailyBuf.forEach { memoryDb.dailyStateDao().upsert(it) }
                 compiledBuf.forEach { memoryDb.compiledSectionDao().upsert(it) }
                 scopedCompiledBuf.forEach { memoryDb.scopedCompiledSectionDao().upsert(it) }
@@ -2227,6 +2248,7 @@ class BackupService(
         val allMessages = snap.allMessages
         // memory 数据(4 张表)
         val sessionSummaries = memoryDb.sessionSummaryDao().getAll()
+        val contextCheckpoints = memoryDb.contextCheckpointDao().getAll()
         val compiledSections = memoryDb.compiledSectionDao().getAll()
         val scopedCompiledSections = memoryDb.scopedCompiledSectionDao().getAll()
         val dailyState = memoryDb.dailyStateDao().get()?.let { listOf(it) } ?: emptyList()
@@ -2279,6 +2301,7 @@ class BackupService(
             sessions = sessions,
             messages = allMessages,
             sessionSummaries = sessionSummaries,
+            contextCheckpoints = contextCheckpoints,
             dailyStates = dailyState,
             compiledSections = compiledSections,
             scopedCompiledSections = scopedCompiledSections,
@@ -2606,13 +2629,15 @@ class BackupService(
             backup.groupChatMemories.forEach { db.groupChatMemoryDao().insert(it) }
         }
 
-        // 2. 导入 memory 数据(MemoryDb — 3 张表)
+        // 2. 导入 memory 数据(MemoryDb — 5 张表)
         memoryDb.withTransaction {
             memoryDb.sessionSummaryDao().deleteAll()
+            memoryDb.contextCheckpointDao().deleteAll()
             memoryDb.dailyStateDao().deleteAll()
             memoryDb.compiledSectionDao().deleteAll()
             memoryDb.scopedCompiledSectionDao().deleteAll()
             backup.sessionSummaries.forEach { memoryDb.sessionSummaryDao().upsert(it) }
+            backup.contextCheckpoints.forEach { memoryDb.contextCheckpointDao().upsert(it) }
             backup.dailyStates.forEach { memoryDb.dailyStateDao().upsert(it) }
             backup.compiledSections.forEach { memoryDb.compiledSectionDao().upsert(it) }
             backup.scopedCompiledSections.forEach { memoryDb.scopedCompiledSectionDao().upsert(it) }
@@ -2680,6 +2705,7 @@ private val ndjsonTypeToMetaKey: Map<String, String> = mapOf(
     "session" to "sessions",
     "message" to "messages",
     "summary" to "sessionSummaries",
+    "contextCheckpoint" to "contextCheckpoints",
     "dailyState" to "dailyStates",
     "compiledSection" to "compiledSections",
     "scopedCompiledSection" to "scopedCompiledSections",

@@ -112,6 +112,8 @@ class BackupEntityCoverageTest {
             "fileStores",
             // memory 模块表(独立 MemoryDb,不在 MuseDb 清单)已随备份一并导出
             "sessionSummaries",
+            // v2.x: 会话压缩检查点,同样住在 MemoryDb
+            "contextCheckpoints",
             "dailyStates",
             "compiledSections",
             "scopedCompiledSections",

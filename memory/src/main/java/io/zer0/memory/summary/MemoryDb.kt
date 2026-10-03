@@ -5,13 +5,14 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-internal const val MEMORY_DB_VERSION = 3
+internal const val MEMORY_DB_VERSION = 4
 
 /**
  * Memory 模块的 Room 数据库。
  *
  * 汇总了 memory 系统的所有持久化表:
  *  - [SessionSummaryEntity]: session 摘要(rolling summary)
+ *  - [ContextCheckpointEntity]: 上下文检查点(会话压缩产物,含边界指针)
  *  - [DailyStateEntity]: 每日编译进度(daily-state.json 的 Room 版本)
  *  - [CompiledSectionEntity]: 四块编译产物(facts/today/week/longterm.md 的 Room 版本)
  *  - [FactEntity] 由独立的 [io.zer0.memory.fact.FactDb] 管理(因为 FTS5 需要 raw SQL)
@@ -22,6 +23,7 @@ internal const val MEMORY_DB_VERSION = 3
 @Database(
     entities = [
         SessionSummaryEntity::class,
+        ContextCheckpointEntity::class,
         DailyStateEntity::class,
         CompiledSectionEntity::class,
         ScopedCompiledSectionEntity::class,
@@ -32,6 +34,7 @@ internal const val MEMORY_DB_VERSION = 3
 )
 abstract class MemoryDb : RoomDatabase() {
     abstract fun sessionSummaryDao(): SessionSummaryDao
+    abstract fun contextCheckpointDao(): ContextCheckpointDao
     abstract fun dailyStateDao(): DailyStateDao
     abstract fun compiledSectionDao(): CompiledSectionDao
     abstract fun scopedCompiledSectionDao(): ScopedCompiledSectionDao
@@ -70,6 +73,37 @@ abstract class MemoryDb : RoomDatabase() {
                     FROM compiled_sections
                     """.trimIndent(),
                 )
+            }
+        }
+
+        /**
+         * v2.x: 新增上下文检查点表（会话压缩产物）。
+         *
+         * 纯增表：不触碰任何既有表，升级后旧会话只是"还没有检查点"，
+         * 首次压缩时自然写入。
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS context_checkpoints (
+                        session_id TEXT NOT NULL,
+                        covered_seq INTEGER NOT NULL,
+                        last_covered_message_id TEXT NOT NULL DEFAULT '',
+                        covered_count INTEGER NOT NULL DEFAULT 0,
+                        summary TEXT NOT NULL,
+                        tokens_before INTEGER NOT NULL DEFAULT 0,
+                        tokens_after INTEGER NOT NULL DEFAULT 0,
+                        strategy TEXT NOT NULL DEFAULT 'summary',
+                        reason TEXT NOT NULL DEFAULT 'auto',
+                        updated_at INTEGER NOT NULL,
+                        space_id TEXT NOT NULL DEFAULT 'default',
+                        PRIMARY KEY(session_id)
+                    )
+                    """.trimIndent(),
+                )
+                // 注意：不要在这里额外建索引 —— Room 会按实体的 @Entity 定义校验 schema，
+                // 库里存在实体未声明的索引会导致打开数据库时报 schema 不一致。
             }
         }
     }
