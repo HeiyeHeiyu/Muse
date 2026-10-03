@@ -3257,6 +3257,12 @@ class ChatViewModel(
             try {
                 val effectiveKeepRecent =
                     minOf(COMPRESSION_SAFETY_TAIL_MESSAGES, currentMessages.size - 1).coerceAtLeast(1)
+                // v2.x: 手动压缩也走检查点，因此先取一次现有检查点（边界 + 累计条数）
+                val manualExisting =
+                    runCatching { checkpointReader.get(sessionId) }.getOrNull()
+                val manualPreviousBoundaryId = manualExisting?.lastCoveredMessageId
+                val manualPreviousTotalCovered = manualExisting?.totalCoveredCount ?: 0
+                val manualTokensBefore = _state.value.contextTokenCount
                 val context =
                     TransformContext(
                         sessionId = sessionId,
@@ -3314,13 +3320,36 @@ class ChatViewModel(
                     // 对齐 triggerAutoCompress 的修复:保留压缩期间新增的消息。
                     // v2.3.2: 改为对 _messages 做原子 update(原写法在 _state.update 变换体内
                     // 二次读取 _messages,CAS 重放时会切片错位)。
-                    _messages.update { current -> compressed + current.drop(currentMessages.size) }
+                    // v2.x: 与自动压缩统一 —— 压缩结果落成**会话检查点**，不再改写内存消息列表。
+                    // 这样手动压缩与自动压缩在"模型看到什么 / 界面显示什么"上完全一致：
+                    // 界面保留完整历史（老消息默认收起，见 ChatScreen 的分隔线），
+                    // 只有发给模型的历史按边界过滤；重开应用依然生效。
+                    val manualCoveredIds =
+                        io.zer0.muse.transformer.CompressionSummaryStore.entry(sessionId)?.coveredIds.orEmpty()
+                    persistContextCheckpoint(
+                        sessionId = sessionId,
+                        previousBoundaryId = manualPreviousBoundaryId,
+                        previousTotalCovered = manualPreviousTotalCovered,
+                        generatedBoundaryId = manualCoveredIds.maxOrNull().orEmpty(),
+                        tokensBefore = manualTokensBefore,
+                        tokensAfter = TokenEstimator.estimate(compressed),
+                        reason = io.zer0.memory.summary.ContextCheckpointEntity.REASON_MANUAL,
+                        boundaryMessageId = contextCompressTransformer.lastCoveredBoundaryId,
+                        newlyCoveredCount = newlyCoveredCount(
+                            messages = currentMessages,
+                            coveredIds = manualCoveredIds,
+                            previousBoundaryId = manualPreviousBoundaryId,
+                        ),
+                    )
                     val compressSummary = "manualCompress: ${currentMessages.size} -> ${compressed.size} msgs"
                     Logger.i(
                         "ChatVM",
                         // 日志为内部诊断,不使用中文字面量(避免 CJK 门禁误判)
                         "$compressSummary (keepRecent=$effectiveKeepRecent)",
                     )
+                    // v2.x: 覆盖集合与占用率同步刷新，让占用圆环立刻反映压缩结果
+                    checkpointCoveredSessionId = sessionId
+                    refreshCheckpointCoveredIds(sessionId)
                     // v1.78 (#33): 压缩成功反馈。
                     // v2.x: 不再报"已压缩: N → M 条" —— 条数变化对用户没有意义，还会让人以为
                     //   会话被砍掉了。压缩在界面上的表达是对话流里的常驻分隔线（见 refreshContextInfo），
