@@ -29,12 +29,15 @@ class ContextCheckpointReader(
      * @param knownMessageIds 当前会话历史中可见的消息 id（字符串形式）
      */
     suspend fun getValid(sessionId: String?, knownMessageIds: Collection<String>): ContextCheckpointEntity? {
-        val entity = get(sessionId) ?: return null
-        val boundaryId = entity.lastCoveredMessageId
-        if (boundaryId.isBlank()) return entity
-        if (boundaryId in knownMessageIds) return entity
-        dao().deleteById(entity.sessionId)
-        return null
+        val entity = get(sessionId)
+        val boundaryId = entity?.lastCoveredMessageId.orEmpty()
+        // 边界为空 → 无从校验，退回"按 seq 边界"使用（消息 id 在极旧数据里可能不是 UUID，
+        // 此时 coveredSeq 仍是有效上界）；边界已不在历史里 → 作废并删除。
+        val boundaryStillPresent = boundaryId.isBlank() || boundaryId in knownMessageIds
+        if (entity != null && !boundaryStillPresent) {
+            dao().deleteById(entity.sessionId)
+        }
+        return if (entity != null && boundaryStillPresent) entity else null
     }
 
     /**

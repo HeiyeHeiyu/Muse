@@ -236,6 +236,8 @@ class OpenAIProvider(
         // v1.0.20: stream-guard — 累积 tool_call 的 name / arguments / 已发送标志,
         //   用于拦截空 name 的无效 tool call 并在 Done 时恢复为 ContentDelta
         val toolCallAccMap = mutableMapOf<Int, ToolCallAccState>()
+        // v2.x: "已命名但参数仍为空"的待补调用 localIndex —— 供无名参数续片归位（见下方 tool_calls 解析）
+        var pendingArgsLocalIndex: Int? = null
         // v1.0.21: 防止 emitDoneWithStreamGuard 被双重执行(finishReason + [DONE] 各触发一次),
         //   导致空 name tool call 恢复的文本被发送两遍,产生重复内容。
         val streamGuardDone = AtomicBoolean(false)
@@ -677,9 +679,37 @@ class OpenAIProvider(
                                     toolCallIndexMap[apiIndex] = nextToolCallIndex++
                                 }
                                 // L-OAI13: toolCallIndexMap 缺失时(首片丢了/乱序)不 fallback 到 0,
-                                //   否则会把该片误并入 index=0 的工具调用。跳过该片并记录警告。
-                                val localIndex = toolCallIndexMap[apiIndex]
+                                //   否则会把该片误并入 index=0 的工具调用。
+                                var localIndex = toolCallIndexMap[apiIndex]
                                 if (localIndex == null) {
+                                    // v2.x 修复: 续片归位。
+                                    //   实测(商汤/中转站流式)会出现"一个逻辑调用被拆成多片"：
+                                    //   首片带 name 但 arguments 为空，后续纯参数续片(newApiIndex,
+                                    //   无 id 也无 name)被分配了新索引 → 参数全落进无名调用，
+                                    //   Done 时无名调用被恢复成正文，而**真正有名字的调用参数长度为 0**，
+                                    //   下游校验直接报"缺少必填参数: query"，用户看到参数 JSON 混进正文。
+                                    //   这里把纯参数续片并回"当前唯一待补参数"的已命名调用。
+                                    //   条件收紧到三个同时成立，避免把并行的真实调用错并：
+                                    //     ① 该片无 id 且无 name（纯参数续片）
+                                    //     ② 存在且仅存在一个"已命名、参数仍为空"的待补调用（见 pendingArgsCandidate）
+                                    //     ③ 该调用尚未发出过 ToolCallDelta（发出后参数已定型，不能再追加）
+                                    val pending = pendingArgsLocalIndex
+                                    val canAdopt = pending != null &&
+                                        tc.id == null && tc.function?.name == null &&
+                                        !tc.function?.arguments.isNullOrBlank()
+                                    if (canAdopt) {
+                                        val target = toolCallAccMap[pending]
+                                        if (target != null && !target.hasEmitted) {
+                                            target.args.append(tc.function?.arguments)
+                                            toolCallIndexMap[apiIndex] = pending
+                                            Logger.d(
+                                                "OpenAIProvider",
+                                                "tool_calls 续片归位: apiIndex=$apiIndex → localIndex=$pending" +
+                                                    "(累积 args=${target.args.length} chars)",
+                                            )
+                                            return@forEach
+                                        }
+                                    }
                                     Logger.w(
                                         "OpenAIProvider",
                                         "tool_calls 片段 apiIndex=$apiIndex 未在 map 中找到(首片丢失?),跳过该片",
@@ -692,6 +722,9 @@ class OpenAIProvider(
                                 if (tc.id != null) acc.id = tc.id
                                 tc.function?.name?.takeIf { it.isNotBlank() }?.let { acc.name = it }
                                 tc.function?.arguments?.let { acc.args.append(it) }
+                                // v2.x: 记录"已命名但参数仍为空"的待补调用（供无名续片归位使用）。
+                                //   只有唯一一个候选时才允许归位，多个候选说明是并行调用，不能猜。
+                                pendingArgsLocalIndex = pendingArgsCandidate(toolCallAccMap)
 
                                 // v1.0.22: 已增量恢复为 ContentDelta 的 acc,后续 args 继续作为 ContentDelta 发送
                                 //   (一旦判定为空 name 异常 tool call 并增量恢复,name 后到也不撤回已发送的正文)
@@ -2734,6 +2767,19 @@ internal class OpenAIHttpException(
 )
 
 /**
+ * v2.x: 找出"已命名、参数仍为空、且尚未发出 ToolCallDelta"的调用，作为无名参数续片的归位目标。
+ *
+ * 返回 null 的两种情况都表示**不能猜**：
+ *  - 没有任何候选（参数可能还没开始到达）；
+ *  - 有多个候选（并行的多个调用都在等参数，无法判断续片属于谁）。
+ * 宁可保持原有行为（跳过该片并告警），也不要把参数接到错误的调用上。
+ */
+internal fun pendingArgsCandidate(accMap: Map<Int, ToolCallAccState>): Int? =
+    accMap.filterValues { acc -> !acc.name.isNullOrBlank() && acc.args.length == 0 && !acc.hasEmitted }
+        .keys
+        .singleOrNull()
+
+/**
  * v1.0.20: stream-guard 累积器 — 累积单个 tool_call 的 name / arguments / 是否已发送。
  *
  * 采用 `invalidToolCalls` 缓冲机制:
@@ -2743,7 +2789,7 @@ internal class OpenAIHttpException(
  *
  * 线程安全:EventSource 回调串行触发(单线程),无需同步原语。
  */
-private class ToolCallAccState {
+internal class ToolCallAccState {
     /** 工具调用 id(首个 chunk 携带)。 */
     var id: String? = null
 
