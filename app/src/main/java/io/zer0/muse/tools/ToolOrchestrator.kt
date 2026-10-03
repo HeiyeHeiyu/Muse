@@ -22,6 +22,7 @@ import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.audit.AuditLogger
 import io.zer0.muse.data.session.SessionRepository
 import io.zer0.muse.data.session.ToolRoundEntity
+import io.zer0.muse.util.TokenEstimator
 import io.zer0.muse.data.skill.SkillEntity
 import io.zer0.muse.data.skill.SkillRepository
 import io.zer0.muse.ui.ChatErrorType
@@ -315,6 +316,45 @@ sealed class StreamRoundResult {
 }
 
 /**
+ * v2.x: 工具链被"本地重建"后的可见标记。
+ *
+ * 用户可见（能在对话流里看出这一段被整理过），同时告知模型"更早的工具调用与结果已被丢弃"，
+ * 避免它以为那些结果还在、继续引用它们。
+ */
+internal const val TRUNCATED_TOOL_CHAIN_MARKER: String =
+    "(较早的工具调用与结果已整理省略,仅保留最近若干条；如需重新获取请再次调用对应工具)"
+
+/**
+ * v2.x: 决定工具链该保留多少条尾部消息（0 表示全部丢弃）。
+ *
+ * 两级判定，取更严的一级：
+ *  1. **条数**：超过 [MAX_TOOL_CHAIN_MESSAGES] 就压到该上限（既有行为，防"轮次多但每条很短"）；
+ *  2. **token 预算**：条数没超、但累计 token 已超过 [budgetTokens] 时，按"留一半预算给最新尾部"
+ *     估算还能留几条 —— 防"轮次不多但每条结果巨大"（日志、大文件、长网页正文）。
+ *
+ * 这是零请求的本地重建：不调模型、不依赖网络，最坏情况下也能让本轮请求发得出去。
+ *
+ * @param chainSize 工具链消息条数（不含初始上下文）
+ * @param chainTokens 工具链的 token 估算（[budgetTokens] <= 0 时调用方传 0）
+ * @param budgetTokens 本轮可用上下文预算；<= 0 表示宿主无法提供，只做条数判定
+ */
+internal fun toolChainTailToKeep(chainSize: Int, chainTokens: Int, budgetTokens: Int): Int {
+    val byCount = minOf(chainSize, MAX_TOOL_CHAIN_MESSAGES)
+    val noBudgetSignal = budgetTokens <= 0 || chainTokens <= 0
+    val withinHalfBudget = chainTokens <= budgetTokens / 2
+    // 按**实测平均条大小**估算，而不是固定值：单条超大结果（几十万 token 的日志）
+    // 用固定 50 token/条去算会得出"还能留上千条"的荒谬结论，窗口照样被撞爆。
+    val perMessageTokens = if (chainSize > 0) (chainTokens / chainSize).coerceAtLeast(1) else 1
+    val byBudget = (budgetTokens / 2) / perMessageTokens
+    return when {
+        chainSize <= 0 -> 0
+        noBudgetSignal || withinHalfBudget -> byCount
+        // 至少留 1 条：全丢会让模型完全看不到"刚才那次调用发生了什么"，比多留一条更糟。
+        else -> minOf(byCount, maxOf(1, byBudget))
+    }
+}
+
+/**
  * 工具调用循环的宿主回调。
  *
  * 由 [ChatViewModel] 实现,负责真正的流式请求、UI 更新、工具审批等。
@@ -366,6 +406,17 @@ interface ToolLoopHost {
      * 默认空实现,宿主可选覆盖。
      */
     fun onToolFinish(toolCallId: String, toolName: String, success: Boolean, durationMs: Long) {}
+
+    /**
+     * v2.x: 本轮可用的上下文 token 预算（0 或负数表示宿主无法提供，编排器不做 token 判定）。
+     *
+     * 为什么需要它：工具链截断此前只看**条数**（[MAX_TOOL_CHAIN_MESSAGES]），
+     * 但几条超大工具结果就能在条数限额内把窗口撞爆 —— 而生成中途没有压缩机会。
+     * 宿主掌握当前模型的窗口与预留量，这里只问一次、不反向依赖宿主实现。
+     *
+     * 默认返回 0（不做判定），保证既有实现不需要改动。
+     */
+    fun contextBudgetTokens(): Int = 0
 }
 
 /**
@@ -712,32 +763,42 @@ class ToolOrchestrator(
                 break
             }
 
-            // C1-2: 工具链过长时截断,保留初始上下文 + 最近工具链
+            // C1-2: 工具链过长时截断,保留初始上下文 + 最近工具链。
+            // v2.x: 除条数外增加 **token 预算**判定 —— 几条超大工具结果就能在条数限额内
+            //   把窗口撞爆,而生成中途没有压缩机会。这一级是零请求的本地重建:
+            //   丢弃旧工具链、只保留最新尾部,并插入可见标记告知模型历史被整理过。
             val toolChainSize = conversationHistory.size - params.baseHistorySize
-            if (toolChainSize > MAX_TOOL_CHAIN_MESSAGES) {
+            val budget = host.contextBudgetTokens()
+            val chainTokens =
+                if (budget > 0 && toolChainSize > 0) {
+                    TokenEstimator.estimate(conversationHistory.subList(params.baseHistorySize, conversationHistory.size))
+                } else {
+                    0
+                }
+            val keepTailCount = toolChainTailToKeep(toolChainSize, chainTokens, budget)
+            if (keepTailCount < toolChainSize) {
                 val keepHead = conversationHistory.subList(0, params.baseHistorySize).toList()
                 val keepTail =
-                    conversationHistory.subList(
-                        conversationHistory.size - MAX_TOOL_CHAIN_MESSAGES,
-                        conversationHistory.size,
-                    ).toList()
+                    if (keepTailCount <= 0) {
+                        emptyList()
+                    } else {
+                        conversationHistory.subList(conversationHistory.size - keepTailCount, conversationHistory.size).toList()
+                    }
                 val truncatedList =
                     keepHead +
                         listOf(
                             UIMessage(
                                 role = MessageRole.SYSTEM,
-                                content = "(较早的工具调用历史已省略,仅保留最近 $MAX_TOOL_CHAIN_MESSAGES 条)",
+                                content = TRUNCATED_TOOL_CHAIN_MARKER,
                             ),
                         ) + keepTail
                 conversationHistory.clear()
                 conversationHistory.addAll(truncatedList)
-                if (params.experiments.debugMode) {
-                    Logger.d(
-                        "ToolOrchestrator",
-                        "tool-chain truncated | round=$round | " +
-                            "size ${params.baseHistorySize + toolChainSize} → ${conversationHistory.size}",
-                    )
-                }
+                Logger.i(
+                    "ToolOrchestrator",
+                    "tool-chain truncated | round=$round | size ${params.baseHistorySize + toolChainSize} → " +
+                        "${conversationHistory.size} | chainTokens=$chainTokens budget=$budget keepTail=$keepTailCount",
+                )
             }
 
             // 每轮重置流式累积器;第一轮继续生成时预置已产出内容

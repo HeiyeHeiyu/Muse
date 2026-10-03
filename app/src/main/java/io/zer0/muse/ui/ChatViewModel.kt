@@ -4550,6 +4550,18 @@ class ChatViewModel(
         // 零行为变化,50ms / 自适应切片节流机制本身未改动。
         val toolLoopHost =
             object : ToolLoopHost {
+                /**
+                 * v2.x: 本轮可用的上下文预算 = 窗口 − 预留量，口径与自动压缩触发一致
+                 * （见 [shouldAutoCompress]）。宿主在这里只提供"还剩多少可用"，
+                 * 编排器据此做零请求的本地重建，避免生成中途把窗口撞爆。
+                 */
+                override fun contextBudgetTokens(): Int {
+                    val window = _state.value.contextMaxTokens
+                    if (window <= 0) return 0
+                    val reserve = maxOf(AUTO_COMPRESS_MIN_RESERVE_TOKENS, (window * AUTO_COMPRESS_RESERVE_RATIO).toInt())
+                    return (window - reserve).coerceAtLeast(0)
+                }
+
                 override suspend fun streamRound(params: StreamRoundParams): StreamRoundResult {
                     val round = params.round
                     // Client-side tools necessarily use a follow-up provider request so the model can
