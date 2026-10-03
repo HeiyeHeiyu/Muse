@@ -1309,8 +1309,41 @@ class ChatViewModel(
         /** v1.200: 自动路由置信度阈值，低于此值仍走当前助手。 */
         private const val AUTO_ROUTE_CONFIDENCE_THRESHOLD = 0.55f
         // v1.80 (L-CV1): 流式/绘图/压缩相关魔法数字提取为常量
-        /** 自动压缩触发阈值:token 占用超过 80% 时后台压缩。 */
+        /**
+         * 自动压缩的兜底触发比例（窗口未知或极小时的退化口径）。
+         *
+         * v2.x: 主口径改为"按窗口比例预留"（见 [shouldAutoCompress]，与
+         * [AUTO_COMPRESS_MIN_RESERVE_TOKENS] / [AUTO_COMPRESS_RESERVE_RATIO] 配套）。
+         * 固定 80% 对 200K 以上窗口的模型触发过晚：等占用到 80% 时，一轮工具循环
+         * 就可能在生成中途把窗口撞爆。
+         */
         private const val AUTO_COMPRESS_TOKEN_RATIO = 0.8f
+
+        /** 自动压缩预留量的下限：窗口再小也要留出这么多 token 给输出与后续工具结果。 */
+        private const val AUTO_COMPRESS_MIN_RESERVE_TOKENS = 16_384
+
+        /** 自动压缩预留量占窗口的比例（大窗口下按比例留，避免固定值相对窗口太小）。 */
+        private const val AUTO_COMPRESS_RESERVE_RATIO = 0.1
+
+        /**
+         * 是否需要触发自动压缩（纯函数，便于单测锁定口径）。
+         *
+         * 口径 = "占用越过 窗口 − 预留量"，预留量取 `max(16K, 10% 窗口)`：
+         *  - 窗口 ≤ 0（未知）或占用 ≤ 0（还没算出来）→ 不触发；
+         *  - 窗口小到连预留量都装不下（≤ 预留量）→ 退回固定 80% 比例，避免永远触发或永不触发。
+         *
+         * 为什么不用固定 80%：200K 窗口下 80% 意味着已经塞进 160K，留给"本轮输出 + 后续工具结果"
+         * 的空间只剩 40K，一轮工具循环就可能在中途撞爆窗口 —— 而中途没有压缩机会。
+         */
+        internal fun shouldAutoCompress(currentTokens: Int, maxTokens: Int): Boolean {
+            if (maxTokens <= 0 || currentTokens <= 0) return false
+            val reserve = maxOf(AUTO_COMPRESS_MIN_RESERVE_TOKENS, (maxTokens * AUTO_COMPRESS_RESERVE_RATIO).toInt())
+            return if (maxTokens > reserve) {
+                currentTokens > maxTokens - reserve
+            } else {
+                currentTokens.toFloat() / maxTokens > AUTO_COMPRESS_TOKEN_RATIO
+            }
+        }
         // v1.105 阶段 4: IMAGE_SCALE_TARGET / IMAGE_JPEG_QUALITY / DOC_MAX_CHARS 已下沉到对应 Coordinator
         /**
          * v1.0.3: 流式 UI 更新字符阈值(节流)。
@@ -2955,7 +2988,7 @@ class ChatViewModel(
         val currentTokens = _state.value.contextTokenCount
         if (maxTokens <= 0 || currentTokens <= 0) return
         val ratio = currentTokens.toFloat() / maxTokens
-        if (ratio <= AUTO_COMPRESS_TOKEN_RATIO) return
+        if (!shouldAutoCompress(currentTokens, maxTokens)) return
         val currentMessages = _messages.value
         if (currentMessages.size < 2) return
 
