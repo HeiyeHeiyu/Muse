@@ -11,6 +11,7 @@ import io.zer0.ai.core.ToolDefinition
 import io.zer0.ai.core.UIMessage
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
+import io.zer0.common.ProcessWriteGate
 import io.zer0.common.resultOf
 import io.zer0.muse.R
 import io.zer0.muse.data.AgentTeam
@@ -204,6 +205,7 @@ class GroupChatScheduler(
         status: String = "running",
     ): GroupChatGenerationLedgerEntity? {
         if (ledger == null) return null
+        if (restoreBlocksWrites(chatId, "群聊生成账本")) return ledger
         val updated = ledger.copy(
             chatId = chatId,
             mode = mode,
@@ -216,6 +218,17 @@ class GroupChatScheduler(
         resultOf { groupChatRepository.upsertGenerationLedger(updated) }
             .onError { msg, t -> Logger.w(TAG, "群聊账本写入失败: $msg", t) }
         return updated
+    }
+
+    /**
+     * 恢复窗口可能在一次模型调用期间开始，不能只依赖生成入口的早期检查。
+     * 所有群聊内部落库点在真正写入前都调用这里，恢复时保留内存中的结果，
+     * 但跳过会污染正在替换的数据库/文件存储的写入。
+     */
+    private fun restoreBlocksWrites(chatId: String, operation: String): Boolean {
+        if (!ProcessWriteGate.restoring) return false
+        Logger.w(TAG, "备份恢复进行中，跳过群聊 $chatId 的${operation}写入")
+        return true
     }
 
     private fun parseLedgerMemberIds(ledger: GroupChatGenerationLedgerEntity?): List<String>? {
@@ -424,6 +437,10 @@ class GroupChatScheduler(
             sessionTitle = "群聊生成中",
         ) {
             try {
+                if (ProcessWriteGate.restoring) {
+                    Logger.w(TAG, "备份恢复进行中，跳过群聊 $chatId 本轮写入")
+                    return@launchGeneration
+                }
                 // 1. 读取用户名 + 群聊信息
                 val userName = resultOf { settings.accountStateFlow.first().userName }
                     .getOrNull()?.ifBlank { "我" } ?: "我"
@@ -452,6 +469,7 @@ class GroupChatScheduler(
                 } else {
                     "[]"
                 }
+                if (restoreBlocksWrites(chatId, "用户消息")) return@launchGeneration
                 groupChatRepository.sendMessage(
                     chatId = chatId,
                     senderType = "user",
@@ -463,8 +481,10 @@ class GroupChatScheduler(
                 )
 
                 // 新的一轮生成会取代旧的中断轮次,先清理残留账本
-                resultOf { groupChatRepository.deleteGenerationLedgersByChatId(chatId) }
-                    .onError { msg, t -> Logger.w(TAG, "群聊旧账本清理失败: $msg", t) }
+                if (!restoreBlocksWrites(chatId, "旧群聊账本清理")) {
+                    resultOf { groupChatRepository.deleteGenerationLedgersByChatId(chatId) }
+                        .onError { msg, t -> Logger.w(TAG, "群聊旧账本清理失败: $msg", t) }
+                }
                 // 4. B5-02: 创建群聊生成账本,进程被杀后按断点重放
                 val ledgerId = "gc-ledger-$chatId-${System.currentTimeMillis()}"
                 val ledger = GroupChatGenerationLedgerEntity(
@@ -475,8 +495,10 @@ class GroupChatScheduler(
                     memberIndex = 0,
                     status = "running",
                 )
-                resultOf { groupChatRepository.upsertGenerationLedger(ledger) }
-                    .onError { msg, t -> Logger.w(TAG, "群聊账本创建失败: $msg", t) }
+                if (!restoreBlocksWrites(chatId, "群聊账本")) {
+                    resultOf { groupChatRepository.upsertGenerationLedger(ledger) }
+                        .onError { msg, t -> Logger.w(TAG, "群聊账本创建失败: $msg", t) }
+                }
 
                 // 5. 触发 Agent 轮转(带账本 id)
                 val replies = triggerAgentRoundRobin(
@@ -630,6 +652,10 @@ class GroupChatScheduler(
             sessionTitle = "重新生成中",
         ) {
             try {
+                if (ProcessWriteGate.restoring) {
+                    Logger.w(TAG, "备份恢复进行中，跳过群聊 $chatId 的重新生成")
+                    return@launchGeneration
+                }
                 val chat = groupChatRepository.getChat(chatId) ?: return@launchGeneration
                 val assistant = resultOf { assistantRepository.getById(assistantId) }.getOrNull()
                     ?: return@launchGeneration
@@ -679,6 +705,10 @@ class GroupChatScheduler(
             sessionTitle = "表决中",
         ) {
             try {
+                if (ProcessWriteGate.restoring) {
+                    Logger.w(TAG, "备份恢复进行中，跳过群聊 $chatId 的表决")
+                    return@launchGeneration
+                }
                 val chat = groupChatRepository.getChat(chatId) ?: return@launchGeneration
                 val memberIds = groupChatRepository.parseMemberIds(chat)
                 val assistants = memberIds.mapNotNull { id ->
@@ -697,6 +727,7 @@ class GroupChatScheduler(
                 // v1.0.29: 前台服务通知由 MuseApp ON_STOP 统一管理
 
                 // 保存系统提示消息
+                if (restoreBlocksWrites(chatId, "表决开始消息")) return@launchGeneration
                 groupChatRepository.sendMessage(
                     chatId = chatId,
                     senderType = "user",
@@ -708,6 +739,7 @@ class GroupChatScheduler(
 
                 activityHub.clear(chatId)
                 for (assistant in assistants) {
+                    if (restoreBlocksWrites(chatId, "表决结果")) return@launchGeneration
                     _activeGroupGeneration.update {
                         it?.copy(currentSpeakerId = assistant.id, currentSpeakerName = assistant.name)
                     }
@@ -725,6 +757,7 @@ class GroupChatScheduler(
                 }
 
                 // 保存表决结束系统提示
+                if (restoreBlocksWrites(chatId, "表决结束消息")) return@launchGeneration
                 groupChatRepository.sendMessage(
                     chatId = chatId,
                     senderType = "user",
@@ -757,6 +790,10 @@ class GroupChatScheduler(
             sessionTitle = "总结中",
         ) {
             try {
+                if (ProcessWriteGate.restoring) {
+                    Logger.w(TAG, "备份恢复进行中，跳过群聊 $chatId 的总结")
+                    return@launchGeneration
+                }
                 val chat = groupChatRepository.getChat(chatId) ?: return@launchGeneration
                 val memberIds = groupChatRepository.parseMemberIds(chat)
                 val assistants = memberIds.mapNotNull { id ->
@@ -779,7 +816,7 @@ class GroupChatScheduler(
 
                 val recentMessages = groupChatRepository.getRecentMessages(chatId, DEFAULT_CONTEXT_SIZE)
                 val summary = invokeAgentForSummary(chat, summarizer, recentMessages)
-                if (summary.isNotBlank()) {
+                if (summary.isNotBlank() && !restoreBlocksWrites(chatId, "群聊总结")) {
                     groupChatRepository.sendMessage(
                         chatId = chatId,
                         senderType = "assistant",
@@ -814,6 +851,10 @@ class GroupChatScheduler(
             sessionTitle = "私信中",
         ) {
             try {
+                if (ProcessWriteGate.restoring) {
+                    Logger.w(TAG, "备份恢复进行中，跳过群聊 $chatId 的私信")
+                    return@launchGeneration
+                }
                 val chat = groupChatRepository.getChat(chatId) ?: return@launchGeneration
                 val assistant = resultOf { assistantRepository.getById(targetAssistantId) }.getOrNull()
                     ?: return@launchGeneration
@@ -835,6 +876,7 @@ class GroupChatScheduler(
                 // 1. 保存用户悄悄话(whisperTargetId 标记)
                 val userName = resultOf { settings.accountStateFlow.first().userName }
                     .getOrNull()?.ifBlank { "我" } ?: "我"
+                if (restoreBlocksWrites(chatId, "私信用户消息")) return@launchGeneration
                 groupChatRepository.sendMessage(
                     chatId = chatId,
                     senderType = "user",
@@ -864,7 +906,7 @@ class GroupChatScheduler(
                 }
 
                 // 把用户悄悄话持久化到 ThreadStore(便于续接)
-                if (threadStore != null && whisperThreadId != null) {
+                if (threadStore != null && whisperThreadId != null && !restoreBlocksWrites(chatId, "私信线程")) {
                     resultOf {
                         threadStore.appendMessages(
                             whisperThreadId,
@@ -918,6 +960,7 @@ class GroupChatScheduler(
                     if (replyText.isNotBlank() && replyText != PASS_MARKER) {
                         val reply = rawReply
                         val reasoning = reply.second.ifBlank { extractReasoning(reply.first) ?: "" }.ifBlank { null }
+                        if (restoreBlocksWrites(chatId, "私信回复")) return@launchGeneration
                         groupChatRepository.sendMessage(
                             chatId = chatId,
                             senderType = "assistant",
@@ -930,7 +973,7 @@ class GroupChatScheduler(
                         )
                         activityHub.clearStreamingContent(chatId)
                         // v1.0.53 Phase 5: 把 agent 回复也持久化到 ThreadStore
-                        if (threadStore != null && whisperThreadId != null) {
+                        if (threadStore != null && whisperThreadId != null && !restoreBlocksWrites(chatId, "私信线程")) {
                             resultOf {
                                 threadStore.appendMessages(
                                     whisperThreadId,
@@ -946,7 +989,7 @@ class GroupChatScheduler(
                     }
                 }
                 // v1.0.53 Phase 5: 记录本次 whisper run 到 ThreadStore(更新 runCount/lastSummary)
-                if (threadStore != null && whisperThreadId != null) {
+                if (threadStore != null && whisperThreadId != null && !restoreBlocksWrites(chatId, "私信线程")) {
                     resultOf {
                         threadStore.recordRun(
                             threadId = whisperThreadId,
@@ -1193,6 +1236,10 @@ class GroupChatScheduler(
         /** B5-02: 重放起始成员下标(0-based)。 */
         startMemberIndex: Int = 0,
     ): List<GroupChatMessageEntity> = withContext(Dispatchers.IO) {
+        if (ProcessWriteGate.restoring) {
+            Logger.w(TAG, "备份恢复进行中，跳过群聊 $chatId 轮转")
+            return@withContext emptyList()
+        }
         // 1. 取群聊配置
         val chat = groupChatRepository.getChat(chatId)
         if (chat == null) {
@@ -1220,6 +1267,9 @@ class GroupChatScheduler(
                 val userMessage = recentForTask.lastOrNull { it.senderType == "user" }?.body
                     ?.takeIf { it.isNotBlank() } ?: chat.name
 
+                if (restoreBlocksWrites(chatId, "团队工作流")) {
+                    return@withContext emptyList()
+                }
                 val workflowReplies = executeWithWorkflow(chat, chatId, team, userMessage)
                 if (ledger != null) {
                     resultOf { groupChatRepository.deleteGenerationLedger(ledger.id) }
@@ -1390,6 +1440,7 @@ class GroupChatScheduler(
         team: AgentTeam,
         userMessage: String,
     ): List<GroupChatMessageEntity> {
+        if (restoreBlocksWrites(chatId, "团队工作流")) return emptyList()
         val requestId = "group-$chatId-${System.currentTimeMillis()}"
         val request = DelegationContract.DelegationRequest(
             requestId = requestId,
@@ -1410,6 +1461,7 @@ class GroupChatScheduler(
         }
 
         // 把工作流汇总结果作为群聊消息保存(以团队名义发言)
+        if (restoreBlocksWrites(chatId, "团队工作流结果")) return emptyList()
         val senderName = team.name.ifBlank { "团队" }
         val msgId = groupChatRepository.sendMessage(
             chatId = chatId,
@@ -1944,6 +1996,9 @@ class GroupChatScheduler(
             return AgentResult.Pass()
         }
 
+        if (restoreBlocksWrites(chatId, "辩论回复")) {
+            return AgentResult.Error("备份恢复进行中，已跳过群聊消息写入")
+        }
         val msgId = groupChatRepository.sendMessage(
             chatId = chatId,
             senderType = "assistant",
@@ -1964,7 +2019,7 @@ class GroupChatScheduler(
         activityHub.clearStreamingContent(chatId)
         scheduleIdleTransition(chatId, assistant)
 
-        if (groupChatMemoryRepository != null) {
+        if (groupChatMemoryRepository != null && !restoreBlocksWrites(chatId, "群聊记忆")) {
             val summary = buildGroupChatMemorySummary(chat.name, assistant, replyText)
             resultOf { groupChatMemoryRepository.saveSummary(chatId, assistant.id, summary) }
         }
@@ -2807,6 +2862,9 @@ class GroupChatScheduler(
         } else {
             "[]"
         }
+        if (restoreBlocksWrites(chatId, "群聊成员回复")) {
+            return AgentResult.Error("备份恢复进行中，已跳过群聊消息写入")
+        }
         val msgId = groupChatRepository.sendMessage(
             chatId = chatId,
             senderType = "assistant",
@@ -2839,7 +2897,7 @@ class GroupChatScheduler(
         )
         // v2.x: 群聊记忆隔离 — 把本轮 agent 回复摘要写入独立 fact store,
         // 不写入助手主记忆系统,避免群聊消息污染主对话上下文。
-        if (groupChatMemoryRepository != null) {
+        if (groupChatMemoryRepository != null && !restoreBlocksWrites(chatId, "群聊记忆")) {
             val summary = buildGroupChatMemorySummary(chat.name, assistant, replyText)
             resultOf { groupChatMemoryRepository.saveSummary(chatId, assistant.id, summary) }
                 .onError { msg, t -> Logger.w(TAG, "群聊记忆写入失败(agent=${assistant.name}): $msg", t) }

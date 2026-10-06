@@ -43,18 +43,21 @@ class ChatGenerationService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var observeJob: Job? = null
     private var emptyStateStopJob: Job? = null
+    private val stopGate = ForegroundServiceStopGate()
+    private var latestStartId: Int = 0
 
     // v1.0.15: Wakelock 保活,防止 Doze 模式下 CPU 休眠导致网络挂起
     private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onCreate() {
         super.onCreate()
+        stopGate.reset()
         // v2.2.0: Koin 未启动时优雅退场(不崩溃) — 系统 sticky 重启服务可发生在
         // MuseApp 跳过 startKoin 的 Safe Mode 进程里; 此处若无防御, 后续 by inject
         // 会抛 "KoinApplication has not been started" 形成崩溃循环。
         if (org.koin.core.context.GlobalContext.getOrNull() == null) {
             Logger.w("ChatGenService", "Koin 未启动(Safe Mode/进程异常恢复) — 放弃保活")
-            stopSelf()
+            stopService()
             return
         }
         // v1.112: 服务创建即进入前台状态,避免 onStartCommand 延迟导致 5 秒超时崩溃。
@@ -85,13 +88,14 @@ class ChatGenerationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        latestStartId = startId
         // v2.2.0: 同 onCreate 的 Koin 防御 — null Intent(sticky 重启)在此场景最常见,
         // 必须在访问任何 by inject 属性前拦截。
         // 2026-09-27 真机崩溃修复: ChatGenerationService 曾是唯一无 Koin 防御的组件,
         // 缺失时抛 "KoinApplication has not been started" 崩溃。
         if (org.koin.core.context.GlobalContext.getOrNull() == null) {
             Logger.w("ChatGenService", "Koin 未启动(Safe Mode?) — 停止服务,不进入观察循环")
-            stopSelf()
+            stopService()
             return START_NOT_STICKY
         }
         val action = intent?.action ?: ACTION_START
@@ -110,6 +114,7 @@ class ChatGenerationService : Service() {
     }
 
     private fun startObserve() {
+        stopGate.reset()
         // 用最新生成状态更新通知标题
         val active = chatGenerationManager.activeGenerations.value.values
             .maxByOrNull { it.lastUpdatedAt }
@@ -173,6 +178,7 @@ class ChatGenerationService : Service() {
     }
 
     private fun stopService() {
+        if (!stopGate.tryRequest()) return
         observeJob?.cancel()
         observeJob = null
         emptyStateStopJob?.cancel()
@@ -182,7 +188,11 @@ class ChatGenerationService : Service() {
         wakeLock = null
         runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
             .onFailure { Logger.w("ChatGenService", "移除前台状态失败", it) }
-        stopSelf()
+        if (latestStartId > 0) {
+            stopSelfResult(latestStartId)
+        } else {
+            stopSelf()
+        }
         Logger.i("ChatGenService", "service stopped")
     }
 

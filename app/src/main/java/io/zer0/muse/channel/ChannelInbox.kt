@@ -3,6 +3,7 @@ package io.zer0.muse.channel
 import android.content.Context
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
+import io.zer0.common.ProcessWriteGate
 import io.zer0.muse.data.AtomicFileStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -422,6 +423,7 @@ internal class ChannelInboxJournal(
     }
 
     private fun claimEvent(source: ChannelInbox.Source): Boolean {
+        check(!ProcessWriteGate.restoring) { "备份恢复进行中，暂不接受渠道事件" }
         if (source.eventId.isBlank() || source.channelId.isBlank() || file == null) return true
         val deduplicator = webhookEventDeduplicator
             ?: error("Webhook event deduplication is unavailable: ${webhookEventDeduplicationFailure?.message}")
@@ -453,6 +455,7 @@ internal class ChannelInboxJournal(
     private fun retain(items: List<ChannelInbox.Inbound>): List<ChannelInbox.Inbound> = normalize(items)
 
     private fun persist(items: List<ChannelInbox.Inbound>): Boolean {
+        if (ProcessWriteGate.restoring) return false
         val target = file ?: return true
         return runCatching {
             AtomicFileStore.writeText(

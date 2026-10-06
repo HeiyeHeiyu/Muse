@@ -19,6 +19,7 @@ import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.tools.ToolPermissionResolver
 import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.tools.ToolRiskLevel
+import io.zer0.muse.tools.captureLargeToolOutput
 import io.zer0.muse.transformer.TemplateTransformer
 import io.zer0.muse.transformer.TransformContext
 import io.zer0.muse.vision.VisionBridge
@@ -565,9 +566,15 @@ class ChannelAutoReply(
                 execution.content
             }
         }
+        val resultForModel =
+            captureLargeToolOutput(
+                context = context,
+                filePrefix = "channel_${toolCall.id}",
+                output = result,
+            )
         workingMessages += UIMessage(
             role = MessageRole.TOOL,
-            content = result.take(MAX_TOOL_RESULT_CHARS),
+            content = resultForModel,
             toolCallId = toolCall.id,
         )
         val updated = checkpoint.copy(
@@ -824,9 +831,8 @@ class ChannelAutoReply(
         private const val SUMMARY_MAX_TOKENS = 1200
         private const val SUMMARY_MAX_CHARS = 2_000
 
-        /** v2.0.1: 工具循环上限与单条工具结果长度上限。 */
+        /** v2.0.1: 工具循环上限。 */
         private const val MAX_TOOL_ROUNDS = 5
-        private const val MAX_TOOL_RESULT_CHARS = 4_000
 
         /** v2.0.1: 上下文内携带图片的上限 — 原生模型最近 N 张、降级分析最近 N 张。 */
         private const val MAX_NATIVE_VISION_TURNS = 4

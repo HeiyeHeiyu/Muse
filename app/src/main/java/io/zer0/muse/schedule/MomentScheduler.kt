@@ -3,6 +3,7 @@ package io.zer0.muse.schedule
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import io.zer0.common.Logger
+import io.zer0.common.ProcessWriteGate
 import io.zer0.common.resultOf
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.moment.MomentGenerator
@@ -16,6 +17,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.koin.core.context.GlobalContext
 import kotlin.random.Random
 
@@ -45,6 +48,7 @@ class MomentScheduler(
 
     private val TAG = "MomentScheduler"
     private var job: Job? = null
+    private val checkMutex = Mutex()
 
     /**
      * B-40: 进程内调度是否启动的标志。
@@ -63,7 +67,7 @@ class MomentScheduler(
                 Logger.i(TAG, "MomentScheduler started")
                 while (isActive) {
                     try {
-                        checkAndGenerate()
+                        checkAndGenerateOnce()
                     } catch (e: Exception) {
                         if (e is kotlin.coroutines.cancellation.CancellationException) throw e
                         Logger.w(TAG, "朋友圈调度错误: ${e.message}")
@@ -82,12 +86,23 @@ class MomentScheduler(
      * 由 [checkAndGenerate] 内部的 dailyMomentCountFlow 与 countToday 上限保证幂等,
      * 不会超过每日条数。
      */
-    suspend fun checkAndGenerateOnce() = checkAndGenerate()
+    suspend fun checkAndGenerateOnce() = checkMutex.withLock {
+        if (ProcessWriteGate.restoring) {
+            Logger.w(TAG, "备份恢复进行中，跳过朋友圈调度")
+            return@withLock
+        }
+        checkAndGenerate()
+    }
 
     /** 手动生成一条(用户触发)。返回是否成功。 */
     suspend fun generateNow(): Boolean {
+        if (ProcessWriteGate.restoring) {
+            Logger.w(TAG, "备份恢复进行中，跳过手动朋友圈生成")
+            return false
+        }
         val assistant = pickAssistant()
         val generated = generator.generate(assistant) ?: return false
+        if (restoreBlocksMomentWrites("手动朋友圈")) return false
         repository.insertMoment(
             generated.content,
             generated.type,
@@ -124,6 +139,7 @@ class MomentScheduler(
         // 到期:随机选一个助手生成一条
         val assistant = pickAssistant()
         val generated = generator.generate(assistant) ?: return
+        if (restoreBlocksMomentWrites("定时朋友圈")) return
         val moment = repository.insertMoment(
             generated.content,
             generated.type,
@@ -137,8 +153,15 @@ class MomentScheduler(
         Logger.i(TAG, "定时生成朋友圈 #${todayCount + 1}: ${generated.content.take(30)}...")
         // v1.0.75: 助手发动态 → 其他助手异步互动(统一走引擎)
         if (assistant != null) {
+            if (restoreBlocksMomentWrites("朋友圈互动")) return
             interactionEngine.triggerOnAssistantPublish(moment, author = assistant)
         }
+    }
+
+    private fun restoreBlocksMomentWrites(operation: String): Boolean {
+        if (!ProcessWriteGate.restoring) return false
+        Logger.w(TAG, "备份恢复进行中，跳过${operation}写入")
+        return true
     }
 
     /** 随机挑一个助手(所有助手都可发朋友圈;无助手时回退 Muse 默认身份)。 */
@@ -184,10 +207,9 @@ private suspend fun Flow<Int>.firstSafeValue(): Int? = try {
  * [MomentScheduler] 的 10min 协程轮询仅在 App 进程存活时有效;App 被杀后朋友圈无法定时生成。
  * 本 Worker 通过 WorkManager 周期性调度(Android 最小周期 15 分钟),进程被杀也能由系统拉起执行。
  *
- * 去重策略(与 [CloudBackupWorker]/[ScheduledTaskWorker] 对齐):
- *  - 若进程内 Runner([MomentScheduler.running])仍存活(冷启动后 MuseApp 已重启进程内轮询),
- *    说明已有 10min 轮询在做事,直接返回 success 跳过,避免重复巡检
- *  - 进程内 Runner 未启动时才真正调用 checkAndGenerateOnce,兜底生成
+ * 去重策略:
+ *  - Worker 与进程内 Runner 共用 [MomentScheduler.checkAndGenerateOnce] 的互斥门,
+ *    冷启动时不会因为 running 标志先置位而跳过首轮检查,并发触发也不会重复生成。
  *  - [checkAndGenerate] 内部由 dailyMomentCountFlow + countToday 上限保证幂等,不会超发
  *
  * 设计取舍:不设 setExpedited / 网络约束,符合"省电"目标;返回 success 而非 retry,
@@ -218,11 +240,6 @@ class MomentWorker(
         val scheduler = resultOf { koin.get<MomentScheduler>() }.getOrNull()
         if (scheduler == null) {
             Logger.w(TAG, "MomentScheduler 解析失败,跳过本次 Worker 执行")
-            return Result.success()
-        }
-        // B-40: 进程内 Runner 仍存活则跳过,避免 10min 轮询与 15min Worker 重复巡检
-        if (scheduler.running) {
-            Logger.d(TAG, "MomentScheduler 进程内轮询存活,兜底 Worker 跳过")
             return Result.success()
         }
         resultOf { scheduler.checkAndGenerateOnce() }

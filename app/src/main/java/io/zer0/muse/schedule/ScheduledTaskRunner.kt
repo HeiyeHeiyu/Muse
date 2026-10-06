@@ -141,6 +141,12 @@ class ScheduledTaskRunner(
         private const val CLAIM_STUCK_TIMEOUT_MS = 5 * 60 * 1000L
     }
 
+    private fun restoreBlocksScheduledWrites(taskId: String, operation: String): Boolean {
+        if (!io.zer0.common.ProcessWriteGate.restoring) return false
+        Logger.w(TAG, "备份恢复进行中，跳过定时任务 $taskId 的${operation}写入")
+        return true
+    }
+
     fun start() {
         createNotificationChannel()
         job?.cancel()
@@ -279,6 +285,7 @@ class ScheduledTaskRunner(
             Logger.w(TAG, "Chain depth limit reached ($MAX_CHAIN_DEPTH), skip task ${task.id}")
             return
         }
+        if (restoreBlocksScheduledWrites(task.id, "任务执行")) return
 
         val now = System.currentTimeMillis()
         // B-12: 抢占式领取 — 执行动作前先做原子 CAS,防止轮询(tickOnce)与 Worker(tickOnceForWorker)
@@ -318,6 +325,13 @@ class ScheduledTaskRunner(
             Logger.w(TAG, "Task ${task.id} already claimed by another executer, skip")
             return
         }
+        // 恢复可能在 CAS 领取后开始。此时不再调用模型/工具，避免把结果写进待替换数据集；
+        // 领取哨兵由 watchdog 或恢复后的下一轮调度重新接管。
+        if (io.zer0.common.ProcessWriteGate.restoring ||
+            restoreBlocksScheduledWrites(task.id, "任务动作")
+        ) {
+            return
+        }
 
         var status = "success"
         var replySummary = ""
@@ -332,6 +346,7 @@ class ScheduledTaskRunner(
                 // 条件不满足仍推进 schedule,避免任务卡死
             } else {
                 // 2. 执行动作
+                if (restoreBlocksScheduledWrites(task.id, "任务动作")) return
                 val action = AutomationConfig.Action(
                     type = task.actionType,
                     config = task.actionConfigJson.toAction().config,
@@ -371,6 +386,7 @@ class ScheduledTaskRunner(
         } else {
             computeNextRun(task, now)
         }
+        if (restoreBlocksScheduledWrites(task.id, "任务执行记录")) return
         resultOf {
             dao.recordExecutionAndScheduleNext(execution, task.id, nextRun, now, newRetryCount)
         }.onError { msg, t -> Logger.w(TAG, "Record execution+scheduleNext failed: ${t?.message ?: msg}") }
@@ -451,6 +467,7 @@ class ScheduledTaskRunner(
         } ?: error(context.getString(R.string.schedule_err_ai_timeout, LLM_TIMEOUT_MS / 1000))
         // v1.0.74 fix: 剥离 <think> 推理标签,防止思考内容混入任务回复
         val reply = io.zer0.muse.transformer.stripThinkTags(completion.text)
+        if (restoreBlocksScheduledWrites(task.id, "定时会话")) return ""
         val now = System.currentTimeMillis()
         val sessionId = if (task.dedicatedSessionId.isNotBlank()) {
             task.dedicatedSessionId
@@ -489,6 +506,10 @@ class ScheduledTaskRunner(
         val dao = quickNoteDao ?: throw IllegalStateException("QuickNoteDao 未初始化")
         val id = java.util.UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
+        if (io.zer0.common.ProcessWriteGate.restoring) {
+            Logger.w(TAG, "备份恢复进行中，跳过定时速记写入")
+            return ""
+        }
         dao.upsert(
             QuickNoteEntity(
                 id = id,
@@ -515,6 +536,7 @@ class ScheduledTaskRunner(
             else -> paramsElement?.toString()?.trim('"') ?: "{}"
         }
         val registry = toolRegistry ?: throw IllegalStateException("ToolRegistry 未初始化")
+        if (restoreBlocksScheduledWrites(task.id, "定时工具")) return ""
         // v1.0.17: 定时任务 call_tool 动作增加风险审批,绕过 ToolPermissionResolver 的安全风险修复
         // 定时任务在后台无用户交互执行,无法走会话级权限审批,故在此直接拦截 HIGH 风险工具。
         // P0-3: 风险判定走 ToolPermissionResolver.riskLevelFor(显式表 + 前缀推断的单一真源),
@@ -533,6 +555,7 @@ class ScheduledTaskRunner(
         val title = cfg["title"]?.toString()?.trim('"')?.takeIf { it.isNotBlank() } ?: "Muse"
         val message = cfg["message"]?.toString()?.trim('"')?.takeIf { it.isNotBlank() }
             ?: throw IllegalArgumentException("notify 缺少 message")
+        if (restoreBlocksScheduledWrites(task.id, "定时通知")) return ""
         showNotification(title, message, MuseNotificationTarget.ScheduledTask(task.id))
         return message
     }
@@ -625,6 +648,11 @@ class ScheduledTaskRunner(
      * Phase 3 3E: 发送定时消息 — 将用户预写的消息写入会话并弹通知。
      */
     private suspend fun deliverPendingMessage(pm: io.zer0.muse.data.schedule.PendingMessage) {
+        if (io.zer0.common.ProcessWriteGate.restoring ||
+            restoreBlocksScheduledWrites(pm.id, "待发送消息")
+        ) {
+            return
+        }
         val now = System.currentTimeMillis()
         try {
             // 将消息写入目标会话

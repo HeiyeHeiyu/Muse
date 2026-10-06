@@ -1,5 +1,7 @@
 package io.zer0.muse.channel
 
+import io.zer0.common.ProcessWriteGate
+import org.junit.Assert.assertThrows
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -31,7 +33,22 @@ class ChannelInboxTest {
 
     @After
     fun tearDown() {
+        ProcessWriteGate.end()
         directory.deleteRecursively()
+    }
+
+    @Test
+    fun inbound_record_fails_closed_while_backup_restore_gate_is_active() {
+        assertTrue(ProcessWriteGate.begin())
+        try {
+            val source = ChannelInbox.Source("QQ", "user", "qq-a", "restore-event")
+            assertThrows(IllegalStateException::class.java) {
+                journal.record(source, inbound(source, "must retry"))
+            }
+            assertTrue(journal.messagesForTest().isEmpty())
+        } finally {
+            ProcessWriteGate.end()
+        }
     }
 
     @Test

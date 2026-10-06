@@ -14,7 +14,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
@@ -88,15 +92,19 @@ class DailySummaryWorker(
                 Logger.w(TAG, "每日总结时段读取失败,跳过本次执行: ${t?.message ?: msg}")
             }
         if (configuredSlotsResult.isError) {
+            // DataStore 的瞬时读取失败不应让当前唯一任务永久脱链；
+            // 保留当前时点的下一次任务，等下一轮再读取配置。
+            scheduleNextSlot(applicationContext, slotHour, slotMinute)
             return Result.success()
         }
         val configuredSlots = slotsAfterRead(
             configured = configuredSlotsResult.getOrNull(),
             readFailed = false,
         )
-        if (slotHour !in configuredSlots) {
+        if (!shouldContinueForConfiguredSlot(slotHour, configuredSlots)) {
             Logger.i(TAG, "时点 ${slotHour.toString().padStart(2, '0')}:$slotMinute 不在已配置时段内,跳过生成: $slotKey")
-            scheduleNextSlot(applicationContext, slotHour, slotMinute)
+            // 配置已移除时不要把旧小时重新排到下一天；scheduleNext 会在下次启动/
+            // 保存设置时清理对应的唯一任务。
             return Result.success()
         }
 
@@ -142,6 +150,9 @@ class DailySummaryWorker(
         const val KEY_TARGET_DATE = "target_date"
         const val KEY_SLOT_KEY = "slot_key"
 
+        private const val SCHEDULE_PREFS_NAME = "daily_summary_schedule"
+        private const val KEY_SCHEDULED_SLOTS = "scheduled_slots"
+
         /** 计算距指定时点的延迟；恰好到点时顺延到下一天，避免重复执行。 */
         fun computeDelayToNextTarget(nowMillis: Long, targetHour: Int = DEFAULT_HOUR, targetMinute: Int = DEFAULT_MINUTE): Long {
             require(targetHour in 0..23) { "targetHour out of range" }
@@ -180,20 +191,53 @@ class DailySummaryWorker(
         fun slotKey(targetDate: String, targetHour: Int, targetMinute: Int): String =
             "$targetDate#${targetHour.toString().padStart(2, '0')}${targetMinute.toString().padStart(2, '0')}"
 
+        /** 仅允许合法整点，供调度持久化与纯逻辑测试共用。 */
+        internal fun normalizeConfiguredSlots(slots: Collection<Int>): Set<Int> =
+            slots.filter { it in 0..23 }.toSortedSet()
+
+        /** 当前配置变更后，需要从 WorkManager 移除的旧小时任务。 */
+        internal fun staleScheduledSlots(
+            previouslyScheduled: Collection<Int>,
+            configured: Collection<Int>,
+        ): Set<Int> = normalizeConfiguredSlots(previouslyScheduled) - normalizeConfiguredSlots(configured)
+
+        /** Worker 自续期前的配置门控；被用户移除的小时不能继续链式排程。 */
+        internal fun shouldContinueForConfiguredSlot(targetHour: Int, configured: Collection<Int>): Boolean =
+            targetHour in normalizeConfiguredSlots(configured)
+
         /**
          * B-10: 资源化注册下一次任务 —— 遍历用户配置时段(dailySummarySlotsFlow),
          * 不再写死 [SUMMARY_SLOTS]逐一注册,保证自定义时段能被真正注册触发
-         * (此前仅用 configuredSlots 做执行体裁剪,物理调度仍固定 4 时点导致自定义时段永不触发)。
+        * (此前仅用 configuredSlots 做执行体裁剪,物理调度仍固定 4 时点导致自定义时段永不触发)。
          */
         suspend fun scheduleNext(context: Context) {
+            val configuredSlots = resolvedConfiguredSlots()
+            if (configuredSlots.isEmpty()) {
+                // DataStore 读取失败时不要误删已有调度；下次启动/设置变更再重试。
+                return
+            }
             val workManager = WorkManager.getInstance(context)
             resultOf { workManager.cancelUniqueWork(UNIQUE_WORK_NAME) }
                 .onError { msg, t -> Logger.w(TAG, "清理旧版每日总结任务失败: ${t?.message ?: msg}") }
+            // v1.xxx: 旧版本按小时拆分 unique work；配置减少或重排时，必须逐个清理
+            // 不再需要的小时，否则它们会在 Worker 中不断自续期。
+            val previouslyScheduled = readPersistedScheduledSlots(context)
+                ?: (0..23).toSet()
+            staleScheduledSlots(previouslyScheduled, configuredSlots).forEach { hour ->
+                resultOf { workManager.cancelUniqueWork(uniqueWorkName(hour, DEFAULT_MINUTE)) }
+                    .onError { msg, t ->
+                        Logger.w(
+                            TAG,
+                            "清理旧每日总结任务失败(${hour.toString().padStart(2, '0')}:00): ${t?.message ?: msg}",
+                        )
+                    }
+            }
             // 每次注册按最近配置时点计算:时段可变,遍历全部配置时点注册下一次
-            resolvedConfiguredSlots().forEach { hour ->
+            configuredSlots.forEach { hour ->
                 // App 冷启动可能发生在 Worker 所在进程刚被拉起时，不能 REPLACE 正在执行的自身任务。
                 scheduleNextSlot(context, hour, DEFAULT_MINUTE, ExistingWorkPolicy.KEEP)
             }
+            persistScheduledSlots(context, configuredSlots)
         }
 
         /**
@@ -202,17 +246,34 @@ class DailySummaryWorker(
          * 这样前台或仍存活的进程不依赖 WorkManager 的周期调度精度。
          */
         fun startInProcess(context: Context, scope: CoroutineScope): Job = scope.launch {
-            while (isActive) {
-                val now = System.currentTimeMillis()
-                // B-10: 每次计算到最近配置时点(时段可变,重算覆盖用户最新设置)
-                val next = resolvedConfiguredSlots()
-                    .map { hour -> hour to DEFAULT_MINUTE }
-                    .minByOrNull { (hour, minute) -> computeDelayToNextTarget(now, hour, minute) }
-                    ?: break
-                val delayMillis = computeDelayToNextTarget(now, next.first, next.second)
-                delay(delayMillis.coerceAtLeast(1_000L))
-                enqueueDueSlot(context, next.first, next.second)
+            val settings = resultOf {
+                GlobalContext.get().get<SettingsRepository>()
+            }.getOrNull() ?: run {
+                Logger.w(TAG, "SettingsRepository 未就绪,暂停每日总结进程内调度")
+                return@launch
             }
+            // 单一 collectLatest 负责生命周期：DataStore 时段变更会取消旧的长 delay，
+            // 不会因为每次保存设置而启动多个长期循环。
+            val configuredSlotsFlow: Flow<List<Int>?> = settings.dailySummarySlotsFlow.map { slots -> slots }
+            configuredSlotsFlow
+                .catch { error ->
+                    Logger.w(TAG, "每日总结时段 Flow 读取失败,暂停进程内调度: ${error.message}", error)
+                    emit(null)
+                }
+                .collectLatest { rawConfigured ->
+                    if (rawConfigured == null) return@collectLatest
+                    val configured = slotsAfterRead(rawConfigured, readFailed = false)
+                    while (isActive) {
+                        val now = System.currentTimeMillis()
+                        val next = configured
+                            .map { hour -> hour to DEFAULT_MINUTE }
+                            .minByOrNull { (hour, minute) -> computeDelayToNextTarget(now, hour, minute) }
+                            ?: return@collectLatest
+                        val delayMillis = computeDelayToNextTarget(now, next.first, next.second)
+                        delay(delayMillis.coerceAtLeast(1_000L))
+                        enqueueDueSlot(context, next.first, next.second)
+                    }
+                }
         }
 
         /**
@@ -345,6 +406,24 @@ class DailySummaryWorker(
 
         fun uniqueWorkName(targetHour: Int, targetMinute: Int): String =
             "${UNIQUE_WORK_NAME}_${targetHour.toString().padStart(2, '0')}${targetMinute.toString().padStart(2, '0')}"
+
+        private fun readPersistedScheduledSlots(context: Context): Set<Int>? {
+            val raw = context.applicationContext
+                .getSharedPreferences(SCHEDULE_PREFS_NAME, Context.MODE_PRIVATE)
+                .getString(KEY_SCHEDULED_SLOTS, null)
+                ?: return null
+            return normalizeConfiguredSlots(
+                raw.split(",").mapNotNull { it.trim().toIntOrNull() },
+            )
+        }
+
+        private fun persistScheduledSlots(context: Context, slots: Collection<Int>) {
+            context.applicationContext
+                .getSharedPreferences(SCHEDULE_PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_SCHEDULED_SLOTS, normalizeConfiguredSlots(slots).joinToString(","))
+                .apply()
+        }
 
         private fun dueWorkName(targetHour: Int, targetMinute: Int, targetDate: String): String =
             "${uniqueWorkName(targetHour, targetMinute)}_due_$targetDate"

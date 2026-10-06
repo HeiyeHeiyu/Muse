@@ -59,4 +59,31 @@ class DailySummaryScheduleTest {
         assertEquals("2026-08-08#0900", DailySummaryWorker.slotKey("2026-08-08", 9, 0))
         assertEquals("muse_daily_summary_worker_1200", DailySummaryWorker.uniqueWorkName(12, 0))
     }
+
+    @Test
+    fun `removed and reordered slots are identified for work cleanup`() {
+        assertEquals(
+            setOf(9, 21),
+            DailySummaryWorker.staleScheduledSlots(
+                previouslyScheduled = listOf(0, 9, 12, 21),
+                configured = listOf(0, 12),
+            ),
+        )
+    }
+
+    @Test
+    fun `worker continuation is disabled for an obsolete slot`() {
+        assertTrue(
+            DailySummaryWorker.shouldContinueForConfiguredSlot(
+                targetHour = 12,
+                configured = listOf(0, 12, 21),
+            ),
+        )
+        assertTrue(
+            !DailySummaryWorker.shouldContinueForConfiguredSlot(
+                targetHour = 9,
+                configured = listOf(0, 12, 21),
+            ),
+        )
+    }
 }

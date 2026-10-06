@@ -5,6 +5,7 @@ import io.zer0.ai.ChatService
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
 import io.zer0.common.Logger
+import io.zer0.common.ProcessWriteGate
 import io.zer0.common.resultOf
 import io.zer0.memory.fact.FactStore
 import io.zer0.muse.data.SettingsRepository
@@ -261,6 +262,10 @@ class ProactiveMessageRunner(
      */
     private suspend fun executeProactiveCycle(triggerSource: String, suppressIfColdStart: Boolean = false, forceSend: Boolean = false) =
         triggerMutex.withLock {
+            if (ProcessWriteGate.restoring) {
+                Logger.w(TAG, "备份恢复进行中，跳过主动消息巡检: source=$triggerSource")
+                return@withLock
+            }
             // 问题6.2: 进入临界区先刷新当日计数(跨日重置 + 从 SP 读取持久化值)
             refreshDailyCount()
 
@@ -516,6 +521,7 @@ class ProactiveMessageRunner(
                 lastCycleOutcome = "失败:决策阶段超时或调用失败($routeName;上限 ${LLM_TIMEOUT_MS / 1000}s)"
                 // A-08: 记录失败时间,退避一个 interval 再重试(否则 guaranteedSend 每分钟重试)
                 // B-12: 递增连续失败计数,退避随次数指数增长
+                if (restoreBlocksProactiveWrites("主动消息失败排期")) return@withLock
                 settings.saveProactiveMessageConfig(
                     config.copy(lastFailedAt = now, consecutiveFailures = config.consecutiveFailures + 1),
                 )
@@ -571,6 +577,7 @@ class ProactiveMessageRunner(
                 lastCycleOutcome = "失败:生成阶段超时或调用失败($routeName;上限 ${LLM_TIMEOUT_MS / 1000}s)"
                 // A-08: 记录失败时间,退避一个 interval 再重试
                 // B-12: 递增连续失败计数,退避随次数指数增长
+                if (restoreBlocksProactiveWrites("主动消息失败排期")) return@withLock
                 settings.saveProactiveMessageConfig(
                     config.copy(lastFailedAt = now, consecutiveFailures = config.consecutiveFailures + 1),
                 )
@@ -585,6 +592,7 @@ class ProactiveMessageRunner(
                 lastCycleOutcome = "失败:模型返回空内容(可能被推理/思考占满输出)"
                 return@withLock
             }
+            if (restoreBlocksProactiveWrites("主动消息结果")) return@withLock
 
             // v1.0.72: 测试模式只生成不落库,通过通知展示内容,避免污染用户会话
             if (forceSend) {
@@ -597,6 +605,7 @@ class ProactiveMessageRunner(
                 lastCycleOutcome = "测试消息已发送,请查看通知栏"
                 // v2.2.1: 测试发送成功 = 链路可用 — 清零失败退避(指数封顶 16x≈32h),
                 // 避免修复配置后仍被历史失败的长退避压着不恢复
+                if (restoreBlocksProactiveWrites("主动消息测试排期")) return@withLock
                 runCatching {
                     settings.saveProactiveMessageConfig(config.copy(lastFailedAt = 0, consecutiveFailures = 0))
                 }.onFailure { e -> Logger.w(TAG, "测试发送后清零退避失败: ${e.message}", e) }
@@ -1107,6 +1116,10 @@ class ProactiveMessageRunner(
      * 问题6.2: 递增当日已发送计数并持久化到 SharedPreferences。
      */
     private fun incrementDailyCount() {
+        if (ProcessWriteGate.restoring) {
+            Logger.w(TAG, "备份恢复进行中，跳过主动消息计数写入")
+            return
+        }
         todaySentCount++
         prefs.edit().putInt("proactive_count_$todayDate", todaySentCount).apply()
         Logger.i(TAG, "主动消息计数+1: todayDate=$todayDate, todaySentCount=$todaySentCount")
@@ -1266,6 +1279,11 @@ class ProactiveMessageRunner(
         // 导致 24h 保底条件永远不满足,主动消息几乎永远不发。
         updateLastTriggered: Boolean = false,
     ) {
+        if (ProcessWriteGate.restoring ||
+            restoreBlocksProactiveWrites("主动消息排期")
+        ) {
+            return
+        }
         val base = if (updateLastTriggered) config.copy(lastTriggeredAt = now) else config
         // 审查修复 (2.0 B-11): 跳过路径以 now 为基准推进排期 —
         // 原实现基于陈旧 lastTriggeredAt 计算:elapsed>interval 且 <24h 时目标时间被
@@ -1282,6 +1300,7 @@ class ProactiveMessageRunner(
 
     /** 写入一条巡检日志(防重复 + 用户可查)。 */
     private suspend fun writePatrolLog(action: String, summary: String) {
+        if (restoreBlocksProactiveWrites("主动消息巡检日志")) return
         try {
             patrolLogDao.insert(
                 io.zer0.muse.data.patrol.PatrolLogEntity(
@@ -1296,6 +1315,12 @@ class ProactiveMessageRunner(
         } catch (e: Exception) {
             Logger.w(TAG, "写巡检日志失败: ${e.message}")
         }
+    }
+
+    private fun restoreBlocksProactiveWrites(operation: String): Boolean {
+        if (!ProcessWriteGate.restoring) return false
+        Logger.w(TAG, "备份恢复进行中，跳过${operation}写入")
+        return true
     }
 
     /** 巡检时间格式化(日志可读)。 */

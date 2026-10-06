@@ -96,6 +96,15 @@ import java.util.zip.ZipInputStream
  *  - 大数据量(10000+ 消息)JSON 一次性序列化可能 OOM,留后续分片
  *  - 不含图片二进制(只存 URL,URL 可能失效)
  */
+internal suspend fun <T> withBackupImportWriteGate(block: suspend () -> T): T {
+    require(io.zer0.common.ProcessWriteGate.begin()) { "已有备份导入或恢复正在进行,请勿重复操作" }
+    return try {
+        block()
+    } finally {
+        io.zer0.common.ProcessWriteGate.end()
+    }
+}
+
 @Suppress(
     "LongParameterList",
     "TooGenericExceptionCaught",
@@ -264,53 +273,56 @@ class BackupService(
      * @param backupPassword B-8: 导入加密备份时的用户输入密码;为空时回退到云端备份配置中的密码。
      * @return 导入的会话数 + 消息数
      */
-    suspend fun import(context: Context, uri: Uri, backupPassword: String? = null): Pair<Int, Int> = withContext(Dispatchers.IO) {
-        val rawInput = context.contentResolver.openInputStream(uri)
-            ?: error(context.getString(R.string.backup_cannot_read, uri))
-        rawInput.use { input ->
-            val buffered = BufferedInputStream(input)
-            buffered.mark(4)
-            val magic = ByteArray(4)
-            var read = 0
-            while (read < magic.size) {
-                val chunk = buffered.read(magic, read, magic.size - read)
-                if (chunk < 0) break
-                if (chunk == 0) continue
-                read += chunk
-            }
-            buffered.reset()
-            if (read == 4 && BackupCrypto.isEncrypted(magic)) {
-                // F-28: 加密本地备份(MENC magic)——整读解密后走统一解析。
-                // B-8: 优先使用用户输入的密码,便于找回忘密码前的旧加密备份。
-                val password = backupPassword?.takeIf { it.isNotEmpty() }
-                    ?: settings.cloudBackupConfigFlow.first().backupPassword
-                require(password.isNotEmpty()) {
-                    context.getString(R.string.backup_encrypted_need_password)
-                }
-                val rest = buffered.readBytes()
-                check(rest.size.toLong() <= singleJsonMaxBytes) {
-                    singleJsonTooLargeConfiguredMessage(rest.size.toLong())
-                }
-                val decrypted = BackupCrypto.decrypt(magic + rest, password)
-                val text = decrypted.toString(Charsets.UTF_8)
-                importReader(context, java.io.BufferedReader(java.io.StringReader(text)))
-            } else if (read == 4 && magic[0] == 'P'.code.toByte() && magic[1] == 'K'.code.toByte()) {
-                // 兼容旧版/文件管理器导出的 ZIP 备份,选取首个 JSON 或 NDJSON 备份条目。
-                ZipInputStream(buffered).use { zip ->
-                    var entry = zip.nextEntry
-                    while (entry != null && (entry.isDirectory || !isBackupEntry(entry.name))) {
-                        entry = zip.nextEntry
+    suspend fun import(context: Context, uri: Uri, backupPassword: String? = null): Pair<Int, Int> =
+        withContext(Dispatchers.IO) {
+            withBackupImportWriteGate {
+                val rawInput = context.contentResolver.openInputStream(uri)
+                    ?: error(context.getString(R.string.backup_cannot_read, uri))
+                rawInput.use { input ->
+                    val buffered = BufferedInputStream(input)
+                    buffered.mark(4)
+                    val magic = ByteArray(4)
+                    var read = 0
+                    while (read < magic.size) {
+                        val chunk = buffered.read(magic, read, magic.size - read)
+                        if (chunk < 0) break
+                        if (chunk == 0) continue
+                        read += chunk
                     }
-                    if (entry == null) {
-                        error(context.getString(R.string.backup_format_unrecognized))
+                    buffered.reset()
+                    if (read == 4 && BackupCrypto.isEncrypted(magic)) {
+                        // F-28: 加密本地备份(MENC magic)——整读解密后走统一解析。
+                        // B-8: 优先使用用户输入的密码,便于找回忘密码前的旧加密备份。
+                        val password = backupPassword?.takeIf { it.isNotEmpty() }
+                            ?: settings.cloudBackupConfigFlow.first().backupPassword
+                        require(password.isNotEmpty()) {
+                            context.getString(R.string.backup_encrypted_need_password)
+                        }
+                        val rest = buffered.readBytes()
+                        check(rest.size.toLong() <= singleJsonMaxBytes) {
+                            singleJsonTooLargeConfiguredMessage(rest.size.toLong())
+                        }
+                        val decrypted = BackupCrypto.decrypt(magic + rest, password)
+                        val text = decrypted.toString(Charsets.UTF_8)
+                        importReader(context, java.io.BufferedReader(java.io.StringReader(text)))
+                    } else if (read == 4 && magic[0] == 'P'.code.toByte() && magic[1] == 'K'.code.toByte()) {
+                        // 兼容旧版/文件管理器导出的 ZIP 备份,选取首个 JSON 或 NDJSON 备份条目。
+                        ZipInputStream(buffered).use { zip ->
+                            var entry = zip.nextEntry
+                            while (entry != null && (entry.isDirectory || !isBackupEntry(entry.name))) {
+                                entry = zip.nextEntry
+                            }
+                            if (entry == null) {
+                                error(context.getString(R.string.backup_format_unrecognized))
+                            }
+                            importReader(context, zip.bufferedReader(Charsets.UTF_8))
+                        }
+                    } else {
+                        importReader(context, buffered.bufferedReader(Charsets.UTF_8))
                     }
-                    importReader(context, zip.bufferedReader(Charsets.UTF_8))
                 }
-            } else {
-                importReader(context, buffered.bufferedReader(Charsets.UTF_8))
             }
         }
-    }
 
     /** 识别本地备份 ZIP 中可能承载全量数据的 JSON/NDJSON 文件。 */
     private fun isBackupEntry(name: String): Boolean {
@@ -1866,7 +1878,7 @@ class BackupService(
         val config = settings.cloudBackupConfigFlow.first()
         if (!config.isConfigured) return null
         val data = cloudBackupService.downloadLatestBackup(config) ?: return null
-        return applyCloudBackupData(config, data)
+        return withBackupImportWriteGate { applyCloudBackupData(config, data) }
     }
 
     /**
@@ -1878,7 +1890,7 @@ class BackupService(
         val config = settings.cloudBackupConfigFlow.first()
         if (!config.isConfigured) return null
         val data = cloudBackupService.downloadBackup(config, fileName) ?: return null
-        return applyCloudBackupData(config, data)
+        return withBackupImportWriteGate { applyCloudBackupData(config, data) }
     }
 
     /**
@@ -2465,10 +2477,11 @@ class BackupService(
      * @return 是否发现并处理了一条未完成恢复账本
      */
     @Suppress("TooGenericExceptionCaught")
-    suspend fun recoverIncompleteRestore(): Boolean = withContext(Dispatchers.IO) {
-        val entry = restoreJournal.incompleteEntry() ?: return@withContext false
-        var current = entry
-        try {
+    suspend fun recoverIncompleteRestore(gateAlreadyHeld: Boolean = false): Boolean = withContext(Dispatchers.IO) {
+        suspend fun restoreBody(): Boolean {
+            val entry = restoreJournal.incompleteEntry() ?: return false
+            var current = entry
+            return try {
             val imageFilesBeforeRollback = messageImageStore.snapshotStoredFilePaths()
             current = restoreJournal.advance(current, RestoreJournal.Phase.ROLLING_BACK)
             if (entry.recoveryFormat == RestoreJournal.RecoveryFormat.NDJSON) {
@@ -2498,10 +2511,17 @@ class BackupService(
             pruneRestoredMessageImages(imageFilesBeforeRollback)
             Logger.w("BackupService", "启动恢复检查已回滚未完成恢复: phase=${entry.phase}")
             true
-        } catch (error: Exception) {
-            restoreJournal.fail(current, error)
-            Logger.e("BackupService", "启动恢复检查失败，保留恢复副本供诊断: ${error.message}", error)
-            false
+            } catch (error: Exception) {
+                restoreJournal.fail(current, error)
+                Logger.e("BackupService", "启动恢复检查失败，保留恢复副本供诊断: ${error.message}", error)
+                false
+            }
+        }
+        if (gateAlreadyHeld) {
+            require(io.zer0.common.ProcessWriteGate.restoring) { "恢复闸门未持有" }
+            restoreBody()
+        } else {
+            withBackupImportWriteGate { restoreBody() }
         }
     }
 

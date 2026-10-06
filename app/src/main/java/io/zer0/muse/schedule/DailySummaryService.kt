@@ -23,6 +23,14 @@ import java.time.ZoneId
 internal fun dailySummaryNotificationsEnabledOrFalse(value: Boolean?): Boolean =
     scheduleWorkEnabledOrFalse(value)
 
+/** Returns the latest configured summary hour that has already passed today. */
+internal fun latestDueDailySummaryHour(currentMinutes: Int, configuredSlots: Collection<Int>): Int? =
+    configuredSlots
+        .asSequence()
+        .filter { it in 0..23 }
+        .filter { it * 60 <= currentMinutes }
+        .maxOrNull()
+
 /**
  * 每日总结的唯一生成入口。
  *
@@ -49,15 +57,21 @@ class DailySummaryService(
         val now = java.util.Calendar.getInstance().apply { timeInMillis = nowMillis }
         val currentMinutes = now.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
             now.get(java.util.Calendar.MINUTE)
-        val due = DailySummaryWorker.SUMMARY_SLOTS
-            .filter { (hour, minute) -> hour * 60 + minute <= currentMinutes }
-            .maxByOrNull { (hour, minute) -> hour * 60 + minute }
+        val configuredSlots = try {
+            settings.dailySummarySlotsFlow.first()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Logger.w(TAG, "读取每日总结时段失败,跳过前台补偿: ${e.message}", e)
+            return@withLock false
+        }
+        val dueHour = latestDueDailySummaryHour(currentMinutes, configuredSlots)
             ?: return@withLock false
         val zone = ZoneId.systemDefault()
         val targetDate = java.time.Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
         val targetDateText = targetDate.toString()
-        val slotKey = DailySummaryWorker.slotKey(targetDateText, due.first, due.second)
-        val summaryDate = DailySummaryWorker.summaryDateForTarget(targetDateText, due.first)
+        val slotKey = DailySummaryWorker.slotKey(targetDateText, dueHour, 0)
+        val summaryDate = DailySummaryWorker.summaryDateForTarget(targetDateText, dueHour)
         val completed = settings.isDailySummarySlotCompleted(slotKey)
         if (!completed && settings.isDailySummarySlotClaimed(slotKey) && slotKey !in activeSlots) {
             // 进程可能在 claimed 后、保存前被杀；当前进程没有该时点的活跃任务时安全释放并重试。

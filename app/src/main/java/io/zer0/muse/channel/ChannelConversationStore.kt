@@ -3,6 +3,7 @@ package io.zer0.muse.channel
 import android.content.Context
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
+import io.zer0.common.ProcessWriteGate
 import io.zer0.muse.data.AtomicFileStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -209,6 +210,7 @@ object ChannelConversationStore {
     }
 
     private fun persist(items: Map<String, Conversation>): Boolean {
+        if (ProcessWriteGate.restoring) return false
         val target = file ?: return true
         return runCatching {
             AtomicFileStore.writeText(
