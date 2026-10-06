@@ -55,6 +55,7 @@ import io.zer0.muse.schedule.ChatGenerationService
 import io.zer0.muse.schedule.UserActivityProfile
 import io.zer0.muse.tools.ToolApprovalPolicy
 import io.zer0.muse.tools.AgentRouter
+import io.zer0.muse.tools.captureLargeToolOutput
 import io.zer0.muse.tools.DelegationContract
 import io.zer0.muse.tools.DelegationContextBuilder
 import io.zer0.muse.tools.ToolApprovalState
@@ -71,6 +72,7 @@ import io.zer0.muse.tools.ToolRegistry
 import io.zer0.muse.tools.ToolExposurePolicy
 import io.zer0.muse.tools.ToolRoundPresentationPolicy
 import io.zer0.muse.tools.ToolRiskLevel
+import io.zer0.muse.chat.InternalPromptMarkers
 import io.zer0.muse.chat.PendingToolCallStore
 import io.zer0.muse.data.chat.ConversationTree
 import io.zer0.muse.data.chat.ConversationTreeSnapshotStore
@@ -1121,6 +1123,25 @@ internal fun longestCommonPrefix(a: String, b: String): Int {
 }
 
 /**
+ * 续传去重的保守裁剪策略。
+ *
+ * 只有两种情况可以证明 delta 是重放内容：
+ * 1. 整个 delta 都是旧前缀；
+ * 2. delta 覆盖了剩余旧前缀，后面才是新内容。
+ *
+ * 若 delta 在旧前缀中途分叉，公共前缀可能只是新内容的巧合开头；
+ * 此时返回 0，保留整段 delta，避免把用户真正的新首字吞掉。
+ */
+internal fun resumeOverlapToDrop(duplicateRemaining: String, delta: String): Int {
+    if (duplicateRemaining.isEmpty() || delta.isEmpty()) return 0
+    val overlap = longestCommonPrefix(duplicateRemaining, delta)
+    // A partial matching chunk may be legitimate new continuation text. Only drop
+    // a delta that proves the entire remaining old answer was replayed; otherwise
+    // prefer visible duplication over silently swallowing user-visible characters.
+    return overlap.takeIf { it == duplicateRemaining.length } ?: 0
+}
+
+/**
  * v2.0: 续传时判定 provider 是否“从头重写” — 原文已被大面积消费(重叠量 >= 原文一半且至少 6 字符)
  * 后出现分叉,说明新一轮是重新生成的完整回复,应用新文替换旧内容而不是追加,避免重复拼接。
  */
@@ -1162,6 +1183,18 @@ internal fun canUseToolModelForRound(history: List<UIMessage>, toolModel: Model)
 /** R-TEST-06: 重生成仅当非流式、有会话且当前用户变体可选时可用。 */
 internal fun canRegenerate(isStreaming: Boolean, hasSession: Boolean, hasSelectedUserVariant: Boolean): Boolean =
     !isStreaming && hasSession && hasSelectedUserVariant
+
+/** Build the source text used by message translation, including reasoning-only replies. */
+internal fun buildTranslationSourceText(message: UIMessage): String {
+    val content = message.content.trim()
+    val reasoning = message.reasoning.orEmpty().trim()
+    return when {
+        content.isNotBlank() && reasoning.isNotBlank() ->
+            "${InternalPromptMarkers.BODY_HEADER}:\n$content\n\n${InternalPromptMarkers.THINKING_HEADER}:\n$reasoning"
+        content.isNotBlank() -> content
+        else -> reasoning
+    }
+}
 
 internal fun effectiveChatSessionId(state: ChatUiState): String? = if (state.isAgentMode) state.agentSessionId else state.currentSessionId
 
@@ -1394,10 +1427,6 @@ class ChatViewModel(
         private const val STREAM_SLIDE_WINDOW = 10
         // v1.117: 删除 6 个孤儿常量(STREAM_NOTIF_*/STREAM_TOKEN_*/STREAM_PERSIST_*),
         // 实际节流逻辑在 launchStream 内用字面量实现,这些常量从未被引用。
-
-        // v1.116 (C1-1): 单个工具结果送入 LLM 上下文的最大字符数,防止超长结果撑爆上下文。
-        // 8000 字符约 2000-3000 token,足以覆盖常规工具输出(web 搜索摘要/文件读取片段等)。
-        private const val MAX_TOOL_RESULT_CHARS = 8000
 
         // v1.116 (C1-2): 工具调用循环内 conversationHistory 的工具链部分最大消息条数。
         // 超过时丢弃较早的工具调用轮次(保留初始上下文 + 最近工具链)。
@@ -2869,14 +2898,28 @@ class ChatViewModel(
         checkpointCoveredIds =
             try {
                 val checkpoint = checkpointReader.get(sessionId)
-                if (checkpoint == null) {
-                    emptySet()
-                } else {
-                    io.zer0.muse.transformer.ContextCheckpointMerge.coveredMessageIds(
-                        _messages.value,
-                        checkpoint,
-                    )
-                }
+                val covered =
+                    if (checkpoint == null) {
+                        io.zer0.muse.transformer.CompressionSummaryStore.clear(sessionId)
+                        emptySet()
+                    } else {
+                        val ids =
+                            io.zer0.muse.transformer.ContextCheckpointMerge.coveredMessageIds(
+                                _messages.value,
+                                checkpoint,
+                            )
+                        // A paged UI window may not contain the persisted boundary yet. In that
+                        // case keep the checkpoint authoritative and let the full-history path
+                        // hydrate the in-process watermark later.
+                        if (ids.isNotEmpty() && checkpoint.summary.isNotBlank()) {
+                            io.zer0.muse.transformer.CompressionSummaryStore.remember(
+                                sessionId = sessionId,
+                                coveredIds = ids,
+                                summary = checkpoint.summary,
+                            )
+                        }
+                        ids
+                    }
                 // 同步界面锚点：分隔线位置 + 累计条数（无检查点时清空，避免残留上一会话的分隔线）
                 val boundaryId = checkpoint?.lastCoveredMessageId?.takeIf { it.isNotBlank() }
                 _state.update {
@@ -2885,7 +2928,7 @@ class ChatViewModel(
                         contextCheckpointTotalCovered = checkpoint?.totalCoveredCount ?: 0,
                     )
                 }
-                checkpointCoveredIds
+                covered
             } catch (ce: kotlinx.coroutines.CancellationException) {
                 throw ce
             } catch (t: Throwable) {
@@ -4017,7 +4060,8 @@ class ChatViewModel(
         val target =
             _messages.value.firstOrNull { it.id == messageId }
                 ?: return
-        if (target.content.isBlank()) return
+        val sourceText = buildTranslationSourceText(target)
+        if (sourceText.isBlank()) return
 
         _state.update {
             it.copy(
@@ -4032,7 +4076,7 @@ class ChatViewModel(
                     // v1.0.30 gap4.9: 统一使用 TranslateViewModel.buildTranslationPrompt,与独立翻译页保持一致
                     val prompt =
                         io.zer0.muse.ui.translate.TranslateViewModel.buildTranslationPrompt(
-                            text = target.content,
+                            text = sourceText,
                             targetLanguage = targetLanguage,
                             sourceLanguage = io.zer0.muse.ui.translate.TranslateViewModel.SOURCE_AUTO,
                             style = style,
@@ -4414,23 +4458,23 @@ class ChatViewModel(
         argsPreview: String,
         args: Map<String, Any?>,
     ): ToolApprovalState {
-        // v1.0.16: 本次开启期间已批准全部工具,直接 Auto 执行,不再弹审批卡片
-        if (_state.value.appRunAllowAllTools) {
-            return ToolApprovalState.Auto
-        }
-        // v1.x: 本会话临时允许的工具直接 Auto(会话级缓存,会话切换/结束时自动失效)
-        if (sessionPermissionStore.isAllowedThisSession(sessionId, toolName)) {
-            return ToolApprovalState.Auto
-        }
+        // 本会话临时允许只应跳过确认，仍需经过统一解析器的参数硬拒绝。
+        // 显式持久化策略优先，避免临时 allow 绕过用户的 ALWAYS_DENY。
+        val allowedThisSession = sessionPermissionStore.isAllowedThisSession(sessionId, toolName)
         // toolConfigStore 可能未注入(声明为可空,默认 null);未注入时退化为
         // 会话模式+风险等级的默认判定(ASK 下 NORMAL/HIGH 仍会审批),避免首条
         // 需审批工具调用直接 NPE 崩溃。
         // 只取**用户显式配置**的策略:未配置必须是 null,否则会被判定器当成
         // "用户已放行",ASK/STRICT 模式下按风险等级应有的审批会被整段跳过。
-        val perToolPolicy = toolConfigStore?.getConfiguredPolicy(toolName)
+        val configuredPolicy = toolConfigStore?.getConfiguredPolicy(toolName)
+        val perToolPolicy = io.zer0.muse.tools.effectivePerToolPolicy(configuredPolicy, allowedThisSession)
         val displayedSessionId = currentSessionIdForApproval()
         val mode =
-            if (displayedSessionId == sessionId) {
+            if (_state.value.appRunAllowAllTools) {
+                // “本次运行全部放行”只跳过逐次审批；仍走统一解析器，保留参数硬拒绝
+                // (如 file:// URL / 危险 JS)以及显式 ALWAYS_DENY。
+                SessionPermissionMode.TRUSTED
+            } else if (displayedSessionId == sessionId) {
                 _state.value.sessionPermissionMode
             } else {
                 sessionPermissionStore.getMode(
@@ -4742,9 +4786,10 @@ class ChatViewModel(
 
                 override suspend fun streamRound(params: StreamRoundParams): StreamRoundResult {
                     val round = params.round
-                    // Client-side tools necessarily use a follow-up provider request so the model can
-                    // incorporate the tool result. Keep that continuation in the same visible turn by
-                    // suppressing repeated reasoning/MOOD metadata after round one.
+                    // Client-side tools necessarily use follow-up provider requests so the model can
+                    // incorporate tool results. Keep reasoning visible for every round when the
+                    // user enabled it; providers that do not support reasoning still legitimately
+                    // produce no reasoning delta.
                     val exposeRoundThinking = ToolRoundPresentationPolicy.exposeReasoning(round)
                     // A-14: 每轮开始把当前轮占位消息 id 同步回 state — 中断恢复(catch 块)依赖
                     // state.currentAssistantId 定位"本轮生成消息",此前只在 runToolLoop 收尾更新,
@@ -4787,6 +4832,7 @@ class ChatViewModel(
                     var thinkingEncryptedContent: String? = null
                     // B3-03: 断线续传去重 — 跳过与已显示内容重复的前缀 delta,避免用户看到重复文本
                     var duplicateRemaining: String? = if (params.preservePartialContent) params.builder.toString() else null
+                    var firstContentDeltaSeen = false
                     // v2.0: 续传重写检测 — 本轮尝试累积的完整文本(含被去重跳过的前缀) + 原文长度。
                     // 当 provider 在续传/重试时从头重写、且与原内容大面积重叠时,
                     // 用新一轮全文替换旧内容,而不是把新内容追加到旧文后面(那也是“重复回复”的主要来源)。
@@ -4836,17 +4882,18 @@ class ChatViewModel(
                     val roundReasoningLevel =
                         when {
                             params.forceMainModel -> reasoningLevel
-                            params.round > 1 -> ReasoningLevel.OFF
+                            params.round > 1 ->
+                                ToolRoundPresentationPolicy.reasoningLevelForRound(
+                                    configured = reasoningLevel,
+                                    round = params.round,
+                                )
                             // v2.0: 只有用户明确要求动作(工具意图)时才压缩本轮思考/输出预算;
                             // 普通短句(如“你好”)不再被误降级,用户开启的深度思考保持生效。
                             tools.isNotEmpty() && ToolExposurePolicy.isDirectToolRequest(latestUserText, tools) ->
-                                if (roundModel?.supportsReasoning() == true) {
-                                    // 部分推理型中转模型在 OFF 时会直接返回空 Done,
-                                    // LOW 仍能快速完成工具选择,同时避免 HIGH 的长思考。
-                                    ReasoningLevel.LOW
-                                } else {
-                                    ReasoningLevel.OFF
-                                }
+                                ToolRoundPresentationPolicy.reasoningLevelForDirectTool(
+                                    configured = reasoningLevel,
+                                    supportsReasoning = roundModel?.supportsReasoning() == true,
+                                )
                             else -> reasoningLevel
                         }
                     val configuredMaxTokens = assistant?.maxTokens?.takeIf { it > 0 }
@@ -4878,7 +4925,7 @@ class ChatViewModel(
                     val disableTools = ToolExposurePolicy.shouldDisableTools(latestUserText)
                     val toolChoice =
                         when {
-                            disableTools -> "none"
+                            params.forceFinalResponse || disableTools -> "none"
                             params.round == 1 &&
                                 !params.forceMainModel &&
                                 ToolExposurePolicy.shouldRequireTool(latestUserText, tools) -> "required"
@@ -4886,7 +4933,8 @@ class ChatViewModel(
                         }
                     // ToolOrchestrator 原生请求失败后会把这一字段降为 false，
                     // 下一次同轮请求才会真正切到用户 API / Bing HTTP / 百度 HTTP。
-                    val nativeSearchForRound = params.nativeWebSearch && params.round == 1
+                    val nativeSearchForRound =
+                        params.nativeWebSearch && params.round == 1 && !params.forceFinalResponse
                     val streamToUi =
                         _state.value.chatPreferences.streamResponse &&
                             (assistant?.streamOutput ?: true)
@@ -4917,7 +4965,7 @@ class ChatViewModel(
                                     authorizedToolNames,
                                     loadedToolNames,
                                 )
-                                .takeUnless { disableTools || nativeSearchForRound }
+                                .takeUnless { disableTools || nativeSearchForRound || params.forceFinalResponse }
                                 ?: emptyList()
                         val resumeText =
                             params.builder.toString()
@@ -4955,6 +5003,18 @@ class ChatViewModel(
                                 ),
                             )
                         }
+                        val currentTimeIncluded =
+                            params.history.any { message ->
+                                message.role == MessageRole.SYSTEM &&
+                                    message.content.contains(InternalPromptMarkers.TIME_SECTION_PREFIX)
+                            }
+                        Logger.d(
+                            "ChatVM",
+                            "provider round request | round=${params.round}" +
+                                " | systemMessages=${params.history.count { it.role == MessageRole.SYSTEM }}" +
+                                " | currentTime=$currentTimeIncluded" +
+                                " | tools=${requestTools.size} | toolChoice=${requestedToolChoice ?: "auto"}",
+                        )
                         return if (streamToUi) {
                             chatService.streamChat(
                                 messages = params.history,
@@ -4983,6 +5043,7 @@ class ChatViewModel(
                     val citationUrls = linkedSetOf<String>()
                     val toolCallAccumulator = mutableMapOf<Int, Triple<String?, String?, StringBuilder>>()
                     var streamError: String? = null
+                    var doneFinishReason: String? = null
                     // v1.0.15: StreamInterrupted 标志 — 已收部分内容后网络中断,
                     //   等待 NetworkMonitor 网络恢复事件后重试(非固定 delay),避免盲重试立即失败
                     var streamInterrupted = false
@@ -5117,19 +5178,29 @@ class ChatViewModel(
                                 }.collect { event ->
                                     when (event) {
                                         is ChatStreamEvent.ContentDelta -> {
-                                            // C-11: 续传去重 — 跳过与"尚未被消费的已显示内容"重叠的最长公共前缀。
-                                            //  B3-03 原实现用精确 startsWith 匹配:provider 改写/补全返回内容时,
-                                            //  返回前缀与已显示内容非逐字一致,startsWith 整体失败 → duplicateRemaining
-                                            //  被置空,整段已显示内容被重复追加(重复/跳变)。C-11 改为逐 delta 计算
-                                            //  最长公共前缀,仅跳过重叠部分,把改写后的新内容保留进正文。
+                                            // C-11: 续传去重采用保守裁剪。只有完整重放的 delta 才丢弃；
+                                            // 一个 delta 若在旧前缀中途分叉，公共前缀可能只是新内容的巧合开头，
+                                            // 必须保留整段，避免用户真正的首字被吞掉。
                                             var effectiveDelta = event.delta
+                                            if (experiments.debugMode && !firstContentDeltaSeen && event.delta.isNotEmpty()) {
+                                                firstContentDeltaSeen = true
+                                                Logger.d(
+                                                    "ChatVM-Debug",
+                                                    "first content delta | sessionId=$sessionId | round=$round | " +
+                                                        "preservePartial=${params.preservePartialContent} | " +
+                                                        "deltaChars=${event.delta.length} | " +
+                                                        "firstCodeUnit=${event.delta[0].code} | " +
+                                                        "builderBefore=${params.builder.length} | " +
+                                                        "duplicateRemaining=${duplicateRemaining?.length ?: 0}",
+                                                )
+                                            }
                                             // v2.0: 续传尝试的全文累积(包含被判为重复而跳过的前缀);
                                             // delta 阶段命中“从头重写”或 Done 阶段命中“新文包含原文开头”时用它替换旧内容。
                                             resumeAttemptText?.append(event.delta)
                                             val duplicate = duplicateRemaining
                                             if (duplicate != null) {
-                                                val lcp = longestCommonPrefix(duplicate, event.delta)
-                                                if (lcp == 0) {
+                                                val drop = resumeOverlapToDrop(duplicate, event.delta)
+                                                if (drop == 0) {
                                                     val consumedChars = resumeDuplicateTotal - duplicate.length
                                                     val restartedWithOverlap =
                                                         shouldReplaceOnResumeRewrite(
@@ -5152,15 +5223,14 @@ class ChatViewModel(
                                                         }
                                                         effectiveDelta = ""
                                                     }
-                                                    // 与已显示内容无任何重叠 → 已完全进入新内容,本轮起停止去重
+                                                    // 无法证明整段 delta 是重放内容，本轮起停止去重。
                                                     duplicateRemaining = null
                                                 } else {
-                                                    val remaining = duplicate.substring(lcp).takeIf { it.isNotEmpty() }
+                                                    val remaining = duplicate.substring(drop).takeIf { it.isNotEmpty() }
                                                     duplicateRemaining = remaining
-                                                    if (lcp < event.delta.length) {
-                                                        // delta 前半段重叠已显示内容、后半段为改写/续写的新内容 → 仅累积后半段;
-                                                        // 重叠区分段消费,剩余已显示内容保留给后续 delta 继续比对
-                                                        effectiveDelta = event.delta.substring(lcp)
+                                                    if (drop < event.delta.length) {
+                                                        // 整个旧前缀在本 delta 开头被重放，后半段才是新内容。
+                                                        effectiveDelta = event.delta.substring(drop)
                                                     } else {
                                                         // 整个 delta 都落在已显示内容内 → 本次忽略,等待后续 delta
                                                         return@collect
@@ -5323,31 +5393,9 @@ class ChatViewModel(
                                             if (_state.value.isWaitingFirstToken) {
                                                 _state.update { it.copy(isWaitingFirstToken = false) }
                                             }
-                                            // v1.0.30: 某些模型把所有输出塞进 reasoningContent
-                                            // content 字段为空 → params.builder 零长度 → UI 只显示思考无正文。
-                                            // 兜底：reasoningBuilder 有内容但 builder 为空时，把思考复制为正文。
-                                            // v1.0.54: 工具轮(content 空 + 有 toolCalls)不复制 — 那是正常的工具调用轮,
-                                            //   复制后思考文本会作为正文显示(send_sticker 选贴纸的推理被展示,极其出戏)。
-                                            // v1.0.73: 复制后清空 reasoningBuilder — 思考已作为正文兜底显示,
-                                            //   不清空会导致思考块与正文重复(用户反馈"思考贴进正文"的双显示)。
-                                            if (params.builder.isEmpty() && params.reasoningBuilder.isNotEmpty() &&
-                                                toolCallAccumulator.isEmpty()
-                                            ) {
-                                                params.builder.append(params.reasoningBuilder.toString())
-                                                params.reasoningBuilder.setLength(0)
-                                            }
-                                            // E-AUDIT: finishReason=length/max_tokens 表示被长度限制截断,
-                                            // 追加提示让用户知道回复不完整(而非误以为模型自然结束)。
-                                            if (ChatStopReason.isLengthLimited(event.finishReason)) {
-                                                params.builder.append("\n\n").append(appContext.getString(R.string.err_reply_truncated))
-                                            }
-                                            if (experiments.debugMode) {
-                                                val elapsedMs = System.currentTimeMillis() - streamStartedAt
-                                                Logger.d(
-                                                    "ChatVM-Debug",
-                                                    "stream Done | sessionId=$sessionId | round=$round | chars=${params.builder.length} | elapsed=${elapsedMs}ms",
-                                                )
-                                            }
+                                            // The flush coroutine may still own pendingBuilder until collect returns.
+                                            // Defer all content mutations until it is cancelled/joined and drained below.
+                                            doneFinishReason = event.finishReason
                                         }
                                         is ChatStreamEvent.Error -> {
                                             streamError = event.message
@@ -5415,6 +5463,28 @@ class ChatViewModel(
                                 )
                             }
                         }
+                    }
+
+                    // Final content mutations happen only after pending deltas are fully drained.
+                    // Reasoning-only fallback must observe the complete body, not just the pre-flush builder.
+                    if (streamError == null &&
+                        params.builder.isEmpty() &&
+                        params.reasoningBuilder.isNotEmpty() &&
+                        toolCallAccumulator.isEmpty()
+                    ) {
+                        params.builder.append(params.reasoningBuilder.toString())
+                        params.reasoningBuilder.setLength(0)
+                    }
+                    if (streamError == null && ChatStopReason.isLengthLimited(doneFinishReason)) {
+                        params.builder.append("\n\n").append(appContext.getString(R.string.err_reply_truncated))
+                    }
+                    if (experiments.debugMode && doneFinishReason != null) {
+                        val elapsedMs = System.currentTimeMillis() - streamStartedAt
+                        Logger.d(
+                            "ChatVM-Debug",
+                            "stream Done | sessionId=$sessionId | round=$round | chars=${params.builder.length} | " +
+                                "reasoningChars=${params.reasoningBuilder.length} | elapsed=${elapsedMs}ms",
+                        )
                     }
 
                     if (streamError != null) {
@@ -5786,6 +5856,7 @@ class ChatViewModel(
                     turnId = state.turnId,
                     generationIdentity = state.generationIdentity,
                     toolExecutionContext = toolExecutionContext,
+                    allowToolExecution = !_state.value.chatPreferences.pauseToolExecution,
                 ),
                 conversationHistory = conversationHistory,
                 host = toolLoopHost,
@@ -6010,7 +6081,7 @@ class ChatViewModel(
      * 执行流程:
      *  1. 从 [PendingToolCallStore] 取该会话的全部 pending(按 createdAt 升序)
      *  2. 依次执行(skill 走 SkillExecutor,本地工具走 ToolRegistry)
-     *     - 复用 [TOOL_TIMEOUT_MS] 超时 + [MAX_TOOL_RESULT_CHARS] 体积限制
+     *     - 复用 [TOOL_TIMEOUT_MS] 超时;完整工具结果会持久化,长结果按上下文预算处理
      *  3. 每个工具结果构造为 TOOL 消息(保留原始 [PendingToolCallStore.PendingToolCall.toolCallId],
      *     让 LLM 能对应上),持久化到 DB 并追加到 [_messages.value]
      *  4. 全部执行完成后,从 PendingToolCallStore 清理本会话的 pending 记录
@@ -6199,14 +6270,12 @@ class ChatViewModel(
                             }
                         }
                     }.getOrNull() ?: appContext.getString(R.string.err_chat_tool_timeout, pending.toolName, (TOOL_TIMEOUT_MS / 1000).toInt())
-                // 体积限制(与 launchStream 内的 C1-1 一致)
                 val finalResult =
-                    if (toolResult.length > MAX_TOOL_RESULT_CHARS) {
-                        toolResult.take(MAX_TOOL_RESULT_CHARS) +
-                            "\n\n" + appContext.getString(R.string.err_chat_tool_result_truncated)
-                    } else {
-                        toolResult
-                    }
+                    captureLargeToolOutput(
+                        context = appContext,
+                        filePrefix = "resumed_${pending.toolCallId}",
+                        output = toolResult,
+                    )
                 // 构造 TOOL 消息:保留原始 toolCallId,让 LLM 能对应上之前发出的 tool_calls
                 val toolMsg =
                     UIMessage(
@@ -6590,6 +6659,14 @@ class ChatViewModel(
 
     /** 切换任务卡展开 / 折叠状态(转发到 taskCardCoordinator)。 */
     fun toggleTaskCardExpand(taskCardId: String) = taskCardCoordinator.toggleTaskCardExpand(taskCardId)
+
+    /** 切换任务卡中单个尚未开始工具步骤的暂停意图。 */
+    fun toggleTaskStepPause(taskCardId: String, stepId: String) =
+        taskCardCoordinator.toggleTaskStepPause(taskCardId, stepId)
+
+    /** 切换任务卡中所有尚未开始工具步骤的暂停意图。 */
+    fun toggleTaskCardPause(taskCardId: String) =
+        taskCardCoordinator.toggleTaskCardPause(taskCardId)
 
     /**
      * 重试任务卡中失败的步骤(转发到 taskCardCoordinator)。

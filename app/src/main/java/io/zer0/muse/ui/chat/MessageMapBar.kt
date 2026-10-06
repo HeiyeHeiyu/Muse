@@ -1,8 +1,11 @@
+@file:Suppress("FunctionNaming")
+
 package io.zer0.muse.ui.chat
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.offset
@@ -32,6 +35,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
+import io.zer0.muse.ui.common.form.railTargetFor
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
@@ -46,20 +50,42 @@ import kotlinx.coroutines.launch
  * 长会话(消息数 ≥ [MESSAGE_MAP_MIN_MESSAGES])时保留右缘透明热区:
  * - 平时完全不可见,不因普通聊天滚动自动出现
  * - 手指在最右侧上下拖动时浮出半透明胶囊轨道
- * - 拖动过程中按纵向位置跳转到对应消息
+ * - 拖动按**纵向位置比例连续定位**,不是"逐条消息跳格"(fix: 旧实现只能落在消息边界)
  * - 松手后短暂停留,随后自动淡出
  * - 桌面端也使用同一拖动热区,不改变消息数据和分页逻辑
+ *
+ * 遮挡修复(fix): 热区收窄为贴右缘的细条,且不覆盖消息底部操作行;操作行(复制/重试等)
+ * 自身也向内让位,避免最右侧按钮落在热区之下收不到点击。
  *
  * 跨会话滚动位置保留由 ChatViewModel v1.45 的 listState 缓存负责,本组件只管导航。
  */
 internal const val MESSAGE_MAP_MIN_MESSAGES = 25
 
+/** 轨道可视宽度。 */
+private val TRACK_WIDTH = 22.dp
+
+/**
+ * 触摸热区宽度（= 导航条占用的右侧空间）。
+ *
+ * fix: 从 36.dp 收窄到 24.dp —— 旧热区宽到盖住消息底部动作行最右按钮（MuseTactileButton 48dp
+ * 触摸目标）。Compose 命中测试是“最高层节点独占”，热区盖住哪里，那一片的按钮就完全收不到事件。
+ * 收窄只是一半，另一半是让消息列表在 [MESSAGE_MAP_RESERVED_WIDTH] 上避让（见 ChatScreen）。
+ */
+internal val MESSAGE_MAP_TOUCH_WIDTH = 24.dp
+
+/** 消息列表右侧为导航条预留的总宽度（热区 + 呼吸间隙），保证按钮永不与热区重叠。 */
+internal val MESSAGE_MAP_RESERVED_WIDTH = MESSAGE_MAP_TOUCH_WIDTH + 4.dp
+
 @Suppress("CyclomaticComplexMethod")
 @Composable
-internal fun MessageMapBar(messages: List<UIMessage>, listState: LazyListState, messageStartIndex: Int, modifier: Modifier = Modifier) {
+internal fun MessageMapBar(
+    messages: List<UIMessage>,
+    listState: LazyListState,
+    messageStartIndex: Int,
+    modifier: Modifier = Modifier,
+) {
     val total = messages.size
     if (total == 0) return
-
     val scope = rememberCoroutineScope()
     var isDragging by remember { mutableStateOf(false) }
     var showBar by remember { mutableStateOf(false) }
@@ -81,90 +107,130 @@ internal fun MessageMapBar(messages: List<UIMessage>, listState: LazyListState, 
         label = "mapbar-alpha",
     )
 
-    fun jumpTo(index: Int) {
+    /**
+     * fix: 连续定位。
+     *
+     * 旧实现 `scrollToItem(messageStartIndex + index)` 只能把某条消息顶到视口顶部,
+     * 表现为“必须按上一条/下一条跳一格”。现在改为两段式:
+     *  1. 按拖动比例算出目标条目(粗定位): target = fraction × (total - 1);
+     *  2. 再用平均条目高度做**亚条条目**微调(细定位),让拖动与内容位置连续对应。
+     * 平均高度取当前可见条目的均值,拿不到时回退为视口高/可见数,保证无测量时也能工作。
+     */
+    fun jumpToFraction(fraction: Float, viewportHeightPx: Float) {
+        val target = railTargetFor(fraction, total)
+        val targetIndex = target.index
+        val subFraction = target.subFraction
+        val visible = listState.layoutInfo.visibleItemsInfo
+        val avgItemPx =
+            if (visible.isNotEmpty()) {
+                visible.sumOf { it.size }.toFloat() / visible.size
+            } else if (viewportHeightPx > 0f) {
+                viewportHeightPx / total.coerceAtLeast(1)
+            } else {
+                0f
+            }
         scrollJob.value?.cancel()
         scrollJob.value = scope.launch {
-            listState.scrollToItem(messageStartIndex + index)
+            listState.scrollToItem(messageStartIndex + targetIndex)
+            if (subFraction > 0f && avgItemPx > 0f) {
+                listState.scrollBy(subFraction * avgItemPx)
+            }
         }
     }
 
-    // 热区比视觉轨道更宽,让用户无需精确摸到细条就能唤出导航。
+    val messages = messages
+    // 热区收窄到贴右缘,不再盖住消息底部动作行。
     Box(
-        modifier = modifier
-            .width(36.dp)
+        modifier =
+        modifier
+            .width(MESSAGE_MAP_TOUCH_WIDTH)
             .fillMaxHeight()
             .pointerInput(total, messageStartIndex) {
                 detectDragGestures(
                     onDragStart = { offset ->
                         isDragging = true
                         showBar = true
-                        val index = messageIndexForY(offset.y, size.height, total)
-                        activeIndex = index
-                        jumpTo(index)
+                        val fraction = (offset.y / size.height).coerceIn(0f, 1f)
+                        activeIndex = railTargetFor(fraction, total).index
+                        jumpToFraction(fraction, size.height.toFloat())
                     },
                     onDrag = { change, _ ->
                         change.consume()
                         isDragging = true
                         showBar = true
-                        val index = messageIndexForY(change.position.y, size.height, total)
-                        if (index != activeIndex) {
-                            activeIndex = index
-                            jumpTo(index)
-                        }
+                        val fraction = (change.position.y / size.height).coerceIn(0f, 1f)
+                        val index = railTargetFor(fraction, total).index
+                        if (index != activeIndex) activeIndex = index
+                        jumpToFraction(fraction, size.height.toFloat())
                     },
-                    onDragEnd = {
-                        isDragging = false
-                    },
-                    onDragCancel = {
-                        isDragging = false
-                    },
+                    onDragEnd = { isDragging = false },
+                    onDragCancel = { isDragging = false },
                 )
             },
     ) {
-        val visibleInfo = listState.layoutInfo.visibleItemsInfo
-        val first = (visibleInfo.firstOrNull()?.index ?: listState.firstVisibleItemIndex)
-            .let { (it - messageStartIndex).coerceIn(0, total - 1) }
-        val last = (visibleInfo.lastOrNull()?.index ?: listState.firstVisibleItemIndex)
-            .let { (it - messageStartIndex).coerceIn(0, total - 1) }
-
-        val userColor = MaterialTheme.colorScheme.primaryContainer
-        val assistantColor = MaterialTheme.colorScheme.secondary
-        val otherColor = MaterialTheme.colorScheme.outlineVariant
-        val trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.84f)
-        val windowColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
-
-        // 轨道只在拖动后显示;透明热区本身没有背景和阴影。
-        Canvas(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .width(26.dp)
-                .fillMaxHeight()
-                .alpha(barAlpha),
-        ) {
-            drawMessageMap(
-                messages = messages,
-                firstVisible = first,
-                lastVisible = last,
-                total = total,
-                barWidth = size.width,
-                barHeight = size.height,
-                userColor = userColor,
-                assistantColor = assistantColor,
-                otherColor = otherColor,
-                trackColor = trackColor,
-                windowColor = windowColor,
-            )
-        }
+        MessageMapTrack(
+            messages = messages,
+            listState = listState,
+            messageStartIndex = messageStartIndex,
+            alpha = barAlpha,
+            modifier = Modifier.align(Alignment.CenterEnd),
+        )
 
         val previewMessage = activeIndex?.let { messages.getOrNull(it) }
         if (showBar && previewMessage != null) {
             MessageMapTooltip(
                 msg = previewMessage,
-                modifier = Modifier
+                modifier =
+                Modifier
                     .align(Alignment.CenterEnd)
-                    .offset(x = (-28).dp),
+                    .offset(x = (-(TRACK_WIDTH + 4.dp))),
             )
         }
+    }
+}
+
+/** 轨道 Canvas：只负责绘制，与拖动/状态解耦，避免主函数过长。 */
+@Composable
+private fun MessageMapTrack(
+    messages: List<UIMessage>,
+    listState: LazyListState,
+    messageStartIndex: Int,
+    alpha: Float,
+    modifier: Modifier = Modifier,
+) {
+    val total = messages.size
+    val visibleInfo = listState.layoutInfo.visibleItemsInfo
+    val first = (visibleInfo.firstOrNull()?.index ?: listState.firstVisibleItemIndex)
+        .let { (it - messageStartIndex).coerceIn(0, total - 1) }
+    val last = (visibleInfo.lastOrNull()?.index ?: listState.firstVisibleItemIndex)
+        .let { (it - messageStartIndex).coerceIn(0, total - 1) }
+
+    val userColor = MaterialTheme.colorScheme.primaryContainer
+    val assistantColor = MaterialTheme.colorScheme.secondary
+    val otherColor = MaterialTheme.colorScheme.outlineVariant
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.84f)
+    val windowColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
+
+    Canvas(
+        modifier =
+        modifier
+            .width(TRACK_WIDTH)
+            .fillMaxHeight()
+            .alpha(alpha),
+    ) {
+        drawMessageMap(
+            messages = messages,
+            firstVisible = first,
+            lastVisible = last,
+            total = total,
+            barWidth = size.width,
+            barHeight = size.height,
+            userColor = userColor,
+            assistantColor = assistantColor,
+            otherColor = otherColor,
+            trackColor = trackColor,
+            windowColor = windowColor,
+        )
     }
 }
 
@@ -228,11 +294,6 @@ private fun DrawScope.drawMessageMap(
         ),
         cornerRadius = CornerRadius((barWidth - 2.dp.toPx()) / 2f),
     )
-}
-
-private fun messageIndexForY(y: Float, height: Int, total: Int): Int {
-    if (height <= 0 || total <= 1) return 0
-    return ((y / height) * total).toInt().coerceIn(0, total - 1)
 }
 
 /** A6: 消息地图拖动预览浮层 — 显示该位置消息前 40 字符。 */

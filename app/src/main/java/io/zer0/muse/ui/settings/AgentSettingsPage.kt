@@ -37,6 +37,7 @@ import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantRepository
 import io.zer0.muse.data.proactive.ProactivePace
+import io.zer0.muse.schedule.DailySummaryWorker
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.form.MuseChip
 import io.zer0.muse.ui.common.form.MuseSlider
@@ -487,7 +488,12 @@ fun AgentSettingsPage(
             confirmText = stringResource(R.string.action_save),
             onConfirm = {
                 // 保存排序后的逗号分隔小时,兼容 SettingsRepository.saveDailySummarySlots
-                scope.launch { settings.saveDailySummarySlots(selectedSlots.sorted()) }
+                scope.launch {
+                    settings.saveDailySummarySlots(selectedSlots.sorted())
+                    // 设置变更后立即同步 WorkManager；否则仅在下次进程启动时重排，
+                    // 旧小时会继续执行而新小时要等到下一次冷启动。
+                    DailySummaryWorker.scheduleNext(context)
+                }
                 showSlotsDialog = false
             },
             dismissText = stringResource(R.string.action_cancel),

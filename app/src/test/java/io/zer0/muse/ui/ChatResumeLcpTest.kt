@@ -68,6 +68,34 @@ class ChatResumeLcpTest {
         assertEquals(4, longestCommonPrefix("abcdefgh", "abcdXefgh"))
     }
 
+    @Test
+    fun `mixed replay and new text never drops the new prefix`() {
+        // 旧内容剩余 "abcdef", provider 返回 "abcXYZ"。
+        // "abc" 只是巧合重合，XYZ 可能就是本轮真正的新内容，不能按 LCP 吞掉 abc。
+        assertEquals(0, resumeOverlapToDrop("abcdef", "abcXYZ"))
+    }
+
+    @Test
+    fun `partial matching chunk is retained because it may be a new continuation`() {
+        assertEquals(0, resumeOverlapToDrop("abcdef", "abc"))
+    }
+
+    @Test
+    fun `complete replayed partial answer can be dropped`() {
+        assertEquals(6, resumeOverlapToDrop("abcdef", "abcdef"))
+    }
+
+    @Test
+    fun `replayed old prefix followed by new suffix drops only old prefix`() {
+        assertEquals(6, resumeOverlapToDrop("abcdef", "abcdefXYZ"))
+    }
+
+    @Test
+    fun `short ambiguous replay prefix is kept to avoid swallowing a new first character`() {
+        assertEquals(0, resumeOverlapToDrop("hello", "h"))
+        assertEquals(0, resumeOverlapToDrop("hello", "he"))
+    }
+
     // ── 续传重写判定(v2.0 重复回复修复)──────────────────────────────────
 
     @Test

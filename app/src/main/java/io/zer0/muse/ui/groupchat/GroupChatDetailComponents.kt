@@ -891,8 +891,11 @@ internal fun GroupChatInputBar(
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
             // 系统导航栏与键盘由外层底部操作栏统一处理。
-            // v1.0.72: 两侧留白(缩小到 8dp) + 悬浮间距
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            // v2.4.5: 与单聊输入岛统一紧凑外边距,略抬高且不压缩触控热区。
+            .padding(
+                horizontal = MusePaddings.inputIslandHorizontal,
+                vertical = MusePaddings.inputIslandVertical,
+            ),
     ) {
         Box {
             // @mention 自动补全下拉(锚定在输入框上方)
@@ -923,7 +926,10 @@ internal fun GroupChatInputBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = MusePaddings.contentGap, vertical = MusePaddings.compactChipVertical),
+                    .padding(
+                        horizontal = MusePaddings.contentGap,
+                        vertical = MusePaddings.inputIslandRowVertical,
+                    ),
                 // v1.0.72 fix: Bottom 对齐导致加号/发送按钮视觉"歪"(多行输入时),
                 // 改为 CenterVertically 与单聊输入栏一致
                 verticalAlignment = Alignment.CenterVertically,
@@ -953,7 +959,8 @@ internal fun GroupChatInputBar(
                     value = text,
                     onValueChange = onTextChange,
                     caretAtEndTick = caretTick,
-                    placeholder = { Text(stringResource(R.string.groupchat_input_placeholder)) },
+                    // v2.4.5: 去掉长占位文字（低 DPI 手机上会占掉大量横向空间）。
+                    placeholder = null,
                     enabled = enabled,
                     // v1.0.72: 输入框背景透明(岛背景即容器)
                     containerColor = androidx.compose.ui.graphics.Color.Transparent,
@@ -987,7 +994,8 @@ internal fun GroupChatInputBar(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            imageVector = MuseIcons.send,
+                            // v2.4.5: 发送键与单聊统一为上箭头实心圆。
+                            imageVector = MuseIcons.arrowUp,
                             contentDescription = stringResource(R.string.groupchat_send),
                             tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(MuseIconSizes.iconSmall),

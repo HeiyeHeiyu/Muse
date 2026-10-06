@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -22,6 +23,7 @@ import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import io.zer0.muse.R
 import io.zer0.muse.data.assistant.AssistantEntity
+import kotlin.math.roundToInt
 
 /**
  * v0.25: 助手头像统一渲染组件。
@@ -30,6 +32,22 @@ import io.zer0.muse.data.assistant.AssistantEntity
  *
  * 用法:`AssistantAvatar(assistant = entity, avatarSize = 40.dp)`
  */
+internal fun assistantAvatarImageRequest(
+    context: android.content.Context,
+    imageUrl: String,
+    sizePx: Int,
+): ImageRequest {
+    val boundedSize = sizePx.coerceAtLeast(1)
+    return ImageRequest.Builder(context)
+        .data(imageUrl)
+        // Role-card avatars can be multi-megapixel originals. Decode only what
+        // the chat/list surface can display, otherwise one avatar can exhaust
+        // the small Android heap before Compose reports the allocation failure.
+        .size(boundedSize, boundedSize)
+        .crossfade(true)
+        .build()
+}
+
 @Composable
 fun AssistantAvatar(
     assistant: AssistantEntity,
@@ -38,17 +56,16 @@ fun AssistantAvatar(
     avatarSize: androidx.compose.ui.unit.Dp = 40.dp,
 ) {
     val ctx = LocalContext.current
+    val density = LocalDensity.current
+    val avatarSizePx = (avatarSize.value * density.density).roundToInt().coerceAtLeast(1)
     // stringResource 需在 @Composable 直接调用位置提取,不能在 semantics{} 内使用。
     val avatarCd = stringResource(R.string.common_avatar_cd, assistant.name)
     when {
         // ① 图片头像(可能是 content:// URI 或文件路径)
         assistant.hasImageAvatar() -> {
             // v0.36 性能优化:缓存 ImageRequest,避免每次重组都重建 Coil 请求对象。
-            val model = remember(assistant.avatarImageUrl) {
-                ImageRequest.Builder(ctx)
-                    .data(assistant.avatarImageUrl)
-                    .crossfade(true)
-                    .build()
+            val model = remember(assistant.avatarImageUrl, avatarSizePx) {
+                assistantAvatarImageRequest(ctx, assistant.avatarImageUrl, avatarSizePx)
             }
             // M-AA1: 用 SubcomposeAsyncImage 替代 AsyncImage,通过 error slot 处理加载失败。
             // 旧实现加载失败时显示空白 surfaceVariant 背景;现在 fallback 到首字母,

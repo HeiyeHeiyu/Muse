@@ -2,6 +2,7 @@ package io.zer0.muse.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -140,14 +141,14 @@ internal fun ToolRunCard(msgs: List<UIMessage>, modifier: Modifier = Modifier) {
                                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text(
-                                    text = reasoningText,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 6,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(MusePaddings.iconPadding),
-                                )
+                                SelectionContainer {
+                                    Text(
+                                        text = reasoningText,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(MusePaddings.iconPadding),
+                                    )
+                                }
                             }
                         }
                     }

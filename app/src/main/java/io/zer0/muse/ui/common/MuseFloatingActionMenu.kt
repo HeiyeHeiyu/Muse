@@ -102,9 +102,9 @@ internal fun MuseFloatingActionMenu(
                 modifier = Modifier.padding(end = 2.dp, top = 4.dp),
             ) {
                 Column(
-                    // v1.0.90: 整体再收一档 —— 宽度上限 232 -> 208dp，上下与行内边距同时压小
+                    // v1.0.90: 顶栏更多菜单保持紧凑 —— 统一收窄宽度,避免长标签被过早挤成省略号
                     modifier = Modifier
-                        .widthIn(min = 168.dp, max = 208.dp)
+                        .widthIn(min = 160.dp, max = 192.dp)
                         .padding(vertical = 4.dp),
                 ) {
                     items.forEach { item ->
@@ -140,13 +140,13 @@ private fun MenuRow(item: MuseFloatingActionItem) {
             .fillMaxWidth()
             .heightIn(min = 40.dp)
             .clickable(enabled = item.enabled, onClick = item.onClick)
-            .padding(horizontal = 6.dp, vertical = 3.dp),
+            .padding(horizontal = 4.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(28.dp)
+                .size(26.dp)
                 .clip(CircleShape)
                 .background(chipColor),
             contentAlignment = Alignment.Center,

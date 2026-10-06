@@ -18,6 +18,14 @@ class MessageBubbleModelMetaWiringTest {
         assertTrue(block.contains("textAlign = TextAlign.End"))
     }
 
+    @Test
+    fun `assistant actions remain available for reasoning-only or empty replies`() {
+        val source = locateMessageBubbleSource()
+        assertTrue(source.contains("isLastAssistant || msg.content.isNotEmpty() || !msg.reasoning.isNullOrBlank()"))
+        assertTrue(source.contains("msg_info_reasoning"))
+        assertTrue(source.contains("msg.reasoning.orEmpty()"))
+    }
+
     private fun locateMessageBubbleSource(): String {
         val candidates =
             listOf(

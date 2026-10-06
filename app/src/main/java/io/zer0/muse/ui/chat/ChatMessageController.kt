@@ -114,6 +114,7 @@ class ChatMessageController(
         val updated = tree.selectUserVariant(node.userId, variantIndex)
         treeState.value = updated
         accessor.updateMessages { updated.displayMessages }
+        persistTreeSelection(updated)
     }
 
     /**
@@ -123,6 +124,16 @@ class ChatMessageController(
         val updated = treeState.value.selectAssistantVariant(userGroupId, assistantGroupId, index)
         treeState.value = updated
         accessor.updateMessages { updated.displayMessages }
+        persistTreeSelection(updated)
+    }
+
+    private fun persistTreeSelection(tree: ConversationTree) {
+        val state = accessor.snapshot
+        val sessionId = if (state.isAgentMode) state.agentSessionId else state.currentSessionId
+        if (sessionId == null) return
+        accessor.coroutineScope.launch(Dispatchers.IO) {
+            treeSnapshotStore?.save(sessionId, tree)
+        }
     }
 
     /** v1.0.63: 把归一化后的分支索引/计数回写数据库,修复历史坏数据。 */

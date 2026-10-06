@@ -89,6 +89,7 @@ import io.zer0.muse.transformer.InternalMarkupSanitizer
 import io.zer0.muse.ui.chat.BrowserStatusCapsule
 import io.zer0.muse.ui.chat.ChatContextDivider
 import io.zer0.muse.ui.chat.MESSAGE_MAP_MIN_MESSAGES
+import io.zer0.muse.ui.chat.MESSAGE_MAP_RESERVED_WIDTH
 import io.zer0.muse.ui.chat.MessageMapBar
 import io.zer0.muse.ui.chat.PendingApprovalsSummary
 import io.zer0.muse.ui.chat.PendingQueueBar
@@ -471,16 +472,15 @@ fun ChatScreen(
 
     // 操作组聚合(渲染层):把连续的工具调用消息合成一组。
     // 组首条渲染 ToolRunCard,组内其余条不渲染 —— 消息索引不变,滚动定位/搜索高亮无需调整。
-    val groupedRuns by remember(visibleMessages, state.taskCards) {
+    val showToolCallDetails = state.chatPreferences.showToolCallDetails
+    val groupedRuns by remember(visibleMessages, state.taskCards, showToolCallDetails) {
         derivedStateOf {
+            if (!showToolCallDetails) return@derivedStateOf emptyMap()
             io.zer0.muse.ui.chat.ChatDisplayGrouper.group(visibleMessages) { msg ->
                 // v2.0.1: 纯思考消息并入过程组 — 思考 / 工具统一收成一枚"过程"卡
                 // （顺带消除"思考隔开两次同类工具调用 → 两张重复卡"的现象）。
                 msg.content.isBlank() && state.taskCards[msg.id.toString()] == null &&
-                    (
-                        msg.toolCallInfo != null ||
-                            msg.reasoning?.isNotBlank() == true
-                        )
+                    msg.toolCallInfo != null
             }.filterIsInstance<io.zer0.muse.ui.chat.ChatDisplayItem.Grouped>()
                 .flatMap { run -> run.msgs.map { it.id.toString() to run } }
                 .toMap()
@@ -1526,6 +1526,9 @@ fun ChatScreen(
             }
             // v1.0.72: 顶部悬浮岛高度 — 提示/横幅 overlay 让位,避免被三岛遮挡
             val topInset = innerPadding.calculateTopPadding()
+            // fix(消息地图遮挡): 长会话时右侧为导航条预留空间。列表与导航条共用同一判据,
+            // 避免"列表不让位但导航条已出现"(按钮被挡)或反之(右侧莫名留白)。
+            val showMessageMap = messages.size >= MESSAGE_MAP_MIN_MESSAGES && visibleMessages.isNotEmpty()
             Box(
                 modifier =
                 Modifier
@@ -1737,10 +1740,14 @@ fun ChatScreen(
                                     // messageGap 的空隙,属可接受差异)。
                                     // v1.0.72: 顶部让位给悬浮三岛;底部避让输入栏。
                                     // 外层 Box 保持全高,让右侧消息地图延伸到输入栏上缘。
+                                    // fix(消息地图遮挡): 长会话时右侧为导航条预留 [MESSAGE_MAP_RESERVED_WIDTH];
+                                    // 消息内容与底部动作行都在预留区内终止,与导航条热区不再重叠,
+                                    // 最右侧的复制/重新生成按钮可以正常点击。
                                     contentPadding =
                                     PaddingValues(
                                         top = innerPadding.calculateTopPadding(),
                                         bottom = innerPadding.calculateBottomPadding(),
+                                        end = if (showMessageMap) MESSAGE_MAP_RESERVED_WIDTH else 0.dp,
                                     ),
                                 ) {
                                     // v1.0.47 P6: Agent Mode 提示卡片 — 会话锁定/弱工具降级/Agent Mode 提示。
@@ -1791,7 +1798,7 @@ fun ChatScreen(
                                         contentType = { _, it -> it.role.name },
                                     ) { index, msg ->
                                         // 操作组聚合:组首条渲染组卡,组内其余条不渲染(视觉上被前一条吸收)。
-                                        val groupedRun = groupedRuns[msg.id.toString()]
+                                        val groupedRun = if (showToolCallDetails) groupedRuns[msg.id.toString()] else null
                                         if (groupedRun != null) {
                                             if (groupedRun.msgs.first().id == msg.id) {
                                                 ToolRunCard(
@@ -1828,7 +1835,8 @@ fun ChatScreen(
                                         // 不能用 remember(msg.id) 捕获初始 state,否则新建的任务卡/展开状态
                                         // 不会传进已存在的 LazyColumn item,页面看起来像“工具没有调用”。
                                         val expandedState = state.messageExpandedStates[msg.id.toString()]
-                                        val taskCard = state.taskCards[msg.id.toString()]
+                                        val taskCard =
+                                            if (showToolCallDetails) state.taskCards[msg.id.toString()] else null
                                         // v1.100: isTranslating/isSpeaking 精确到 msg.id,用 derivedStateOf 收窄
                                         val isTranslating = state.isTranslating && state.translatingMessageId == msg.id
                                         val isSpeaking = state.isSpeaking && state.speakingMessageId == msg.id
@@ -1862,6 +1870,15 @@ fun ChatScreen(
                                         val onToggleTts = remember(msg.id) { { viewModel.toggleTts(msg.id, msg.content) } }
                                         val onToggleTaskCardExpand =
                                             remember(msg.id) { { viewModel.toggleTaskCardExpand(msg.id.toString()) } }
+                                        val onToggleTaskCardPause =
+                                            remember(msg.id) { { viewModel.toggleTaskCardPause(msg.id.toString()) } }
+                                        val onToggleTaskStepPause =
+                                            remember(msg.id) {
+                                                {
+                                                        stepId: String ->
+                                                    viewModel.toggleTaskStepPause(msg.id.toString(), stepId)
+                                                }
+                                            }
                                         val onCancelTask = remember(msg.id) { { viewModel.stop() } }
                                         val onRetryTaskCardStep =
                                             remember(msg.id) {
@@ -1923,7 +1940,8 @@ fun ChatScreen(
                                                 // H11: 译文消息携带源消息内容(原文对照折叠),源消息缺失时不传
                                                 translationSourceContent =
                                                 msg.translationSourceId?.let { srcId ->
-                                                    messages.find { it.id.toString() == srcId }?.content
+                                                    messages.find { it.id.toString() == srcId }
+                                                        ?.let(::buildTranslationSourceText)
                                                 },
                                                 // v2.3: debug 模式性能摘要(仅最后一条 assistant 消息)
                                                 debugInfo = if (isLast && msg.role == MessageRole.ASSISTANT) state.debugInfo else null,
@@ -1935,8 +1953,6 @@ fun ChatScreen(
                                                 selected = msg.id.toString() in state.selectedMessageIds,
                                                 onToggleSelection = { viewModel.toggleMessageSelection(msg.id) },
                                                 onEnterMultiSelect = { viewModel.setSelectionMode(true) },
-                                                // E4 (H8): 表情回应(长按菜单「表情回应」→ 选择面板)
-                                                onSetReaction = { reaction -> viewModel.setReaction(msg.id, reaction) },
                                                 onTranslate = onTranslate,
                                                 onToggleFavorite = onToggleFavorite,
                                                 // 阶段 J: 复制消息内容到剪贴板(长按 → 复制)
@@ -1959,11 +1975,20 @@ fun ChatScreen(
                                                 onToggleTts = onToggleTts,
                                                 // Phase 8.8: 任务卡
                                                 taskCard = taskCard,
+                                                // v2.4.5 fix: 工具调用过程显示开关(设置 → 聊天)
+                                                showToolCallDetails = showToolCallDetails,
                                                 // v1.201: 委派链路(仅最后一条 AI 消息传入,避免历史消息重复显示)
-                                                delegationChain = if (isLast && msg.role == MessageRole.ASSISTANT) state.delegationChain else null,
+                                                delegationChain =
+                                                if (showToolCallDetails && isLast && msg.role == MessageRole.ASSISTANT) {
+                                                    state.delegationChain
+                                                } else {
+                                                    null
+                                                },
                                                 // Phase 10.1: 任务卡交互回调
                                                 onToggleTaskCardExpand = onToggleTaskCardExpand,
                                                 onRetryTaskCardStep = onRetryTaskCardStep,
+                                                onToggleTaskCardPause = onToggleTaskCardPause,
+                                                onToggleTaskStepPause = onToggleTaskStepPause,
                                                 // R-UI-09: 任务卡取消按钮 -> 停止当前生成
                                                 onCancelTask = onCancelTask,
                                                 // v1.25: 长按菜单「委托给助手」
@@ -2167,7 +2192,9 @@ fun ChatScreen(
                                     // v1.202: 只有真的有后台子 Agent 任务时才插入任务卡。
                                     // 空卡片虽然自身 return，但外层 LazyColumn item 仍会参与间距测量，
                                     // 会在工具调用区域下方留下无意义的大白区。
-                                    if (state.activeSubagentThreads.isNotEmpty() || state.pendingSubagentTasks.isNotEmpty()) {
+                                    if (showToolCallDetails &&
+                                        (state.activeSubagentThreads.isNotEmpty() || state.pendingSubagentTasks.isNotEmpty())
+                                    ) {
                                         item(key = "subagent_task_list") {
                                             Box(Modifier.padding(bottom = MusePaddings.messageGap)) {
                                                 io.zer0.muse.ui.taskcard.SubagentTaskListCard(
@@ -2389,11 +2416,13 @@ fun ChatScreen(
 
                 // v1.0.92: 子代理悬浮小窗 — 有活跃子任务时右侧贴边浮现,点击展开任务面板。
                 // 只读订阅 state 快照;唯一操作是取消任务,不影响消息流与输入。
-                SubagentFloatingWindow(
-                    activeThreads = state.activeSubagentThreads,
-                    pendingTasks = state.pendingSubagentTasks,
-                    onCancelTask = { taskId -> viewModel.cancelSubagentTask(taskId) },
-                )
+                if (showToolCallDetails) {
+                    SubagentFloatingWindow(
+                        activeThreads = state.activeSubagentThreads,
+                        pendingTasks = state.pendingSubagentTasks,
+                        onCancelTask = { taskId -> viewModel.cancelSubagentTask(taskId) },
+                    )
+                }
                 // v1.0.4 (P2): 委派链路顶部 Banner — 当前有 RUNNING 子任务时显示进度,
                 // 避免用户必须滚到末尾才能在 TaskCard 内看到委派链路信息
                 AnimatedVisibility(
@@ -2637,7 +2666,9 @@ fun ChatScreen(
             // A6: 消息地图 — CHAT-07: 与转发弹窗同属 Scaffold 内容层,
             // 但必须独立于 forwardText,否则正常聊天时 forwardText=null 会把入口一并移除。
             // 热区止于输入栏上方,不压住输入岛右缘/发送键。
-            if (messages.size >= MESSAGE_MAP_MIN_MESSAGES && visibleMessages.isNotEmpty()) {
+            // fix(遮挡): 消息列表已按 MESSAGE_MAP_RESERVED_WIDTH 在右侧整体避让,
+            // 所以热区只会覆盖列表的右侧留白,不再吃掉消息底部动作行的按钮点击。
+            if (showMessageMap) {
                 MessageMapBar(
                     messages = visibleMessages,
                     listState = listState,

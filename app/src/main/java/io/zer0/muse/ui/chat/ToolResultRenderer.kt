@@ -233,8 +233,6 @@ private fun JsonLeafRow(key: String?, value: Any) {
                 is String -> MaterialTheme.colorScheme.onSurfaceVariant
                 else -> MaterialTheme.colorScheme.onSurfaceVariant
             },
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -246,11 +244,23 @@ private fun formatJsonLeaf(value: Any): String = when (value) {
 
 // ── diff 视图 ────────────────────────────────────────────────────────────
 
-private const val MAX_RENDER_LINES = 300
+private const val STRUCTURED_RENDER_LINE_THRESHOLD = 300
 
 @Composable
 private fun DiffView(diffText: String, modifier: Modifier) {
-    val lines = remember(diffText) { diffText.lines().take(MAX_RENDER_LINES) }
+    val lines = remember(diffText) { diffText.lines() }
+    // Very large diffs stay complete but use one text node instead of composing one
+    // row per line. This avoids silently dropping the tail while keeping the chat
+    // list responsive for command output with thousands of lines.
+    if (lines.size > STRUCTURED_RENDER_LINE_THRESHOLD) {
+        Text(
+            text = diffText,
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = modifier,
+        )
+        return
+    }
     val addColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
     val delColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
     val hunkColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)
@@ -274,17 +284,8 @@ private fun DiffView(diffText: String, modifier: Modifier) {
                     text = line,
                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
-        }
-        if (diffText.lines().size > MAX_RENDER_LINES) {
-            Text(
-                text = "…",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
@@ -306,8 +307,6 @@ private fun TableView(tableText: String, modifier: Modifier) {
                             MaterialTheme.typography.bodySmall
                         },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .weight(1f)
                             .padding(end = MusePaddings.contentGap)
@@ -323,12 +322,11 @@ private fun TableView(tableText: String, modifier: Modifier) {
 private val TABLE_SEPARATOR_REGEX = Regex("^[|:\\-\\s]+$")
 
 /** 解析 | 分隔表格:去空行/纯分隔行,单元格 trim,行数与列数均设上限。 */
-private fun parseTableRows(tableText: String): List<List<String>> {
+internal fun parseTableRows(tableText: String): List<List<String>> {
     val rows = tableText.lines()
         .asSequence()
         .map { it.trim() }
         .filter { it.isNotEmpty() && !it.matches(TABLE_SEPARATOR_REGEX) }
-        .take(MAX_RENDER_LINES)
         .map { line ->
             line.split("|")
                 .map { it.trim() }

@@ -54,6 +54,7 @@ fun SettingsItemRow(
     subtitle: String? = null,
     onClick: (() -> Unit)? = null,
     enabled: Boolean = true,
+    titleMaxLines: Int = 1,
     trailing: @Composable (() -> Unit)? = null,
 ) {
     val rowInteractionSource = remember { MutableInteractionSource() }
@@ -108,7 +109,7 @@ fun SettingsItemRow(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
+                maxLines = titleMaxLines.coerceAtLeast(1),
                 overflow = TextOverflow.Ellipsis,
             )
             if (subtitle != null) {

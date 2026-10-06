@@ -68,4 +68,26 @@ class ChatViewModelStateMachineTest {
         assertFalse(canRegenerate(isStreaming = false, hasSession = false, hasSelectedUserVariant = true))
         assertFalse(canRegenerate(isStreaming = false, hasSession = true, hasSelectedUserVariant = false))
     }
+
+    @Test
+    fun `translation source includes reasoning when body is empty`() {
+        val message = UIMessage(
+            role = MessageRole.ASSISTANT,
+            content = "",
+            reasoning = "step one\nstep two",
+        )
+
+        assertEquals("step one\nstep two", buildTranslationSourceText(message))
+    }
+
+    @Test
+    fun `translation source labels body and reasoning when both exist`() {
+        val message = UIMessage(
+            role = MessageRole.ASSISTANT,
+            content = "answer",
+            reasoning = "thinking",
+        )
+
+        assertEquals("正文:\nanswer\n\n思考过程:\nthinking", buildTranslationSourceText(message))
+    }
 }

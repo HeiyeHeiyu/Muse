@@ -53,6 +53,7 @@ import io.zer0.memory.summary.MemoryDbArchiveRecovery
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
+import io.zer0.muse.ui.common.form.MuseActionSheetRow
 import io.zer0.muse.ui.common.form.IosCapsuleButtonVariant
 import io.zer0.muse.ui.common.form.MuseAnchoredMenu
 import io.zer0.muse.ui.common.form.MuseBottomSheet
@@ -66,7 +67,6 @@ import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.common.settings.ConfirmDeleteDialog
 import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.common.state.MuseErrorStateBox
-import io.zer0.muse.ui.common.surface.MuseListItem
 import io.zer0.muse.ui.memory.MemoryGraphView
 import io.zer0.muse.ui.memory.MemoryGraphViewModel
 import io.zer0.muse.ui.memory.MemoryTimelineFilterRow
@@ -1193,59 +1193,61 @@ internal fun MemoryFactRow(
                     MuseAnchoredMenu(
                         expanded = showMore,
                         onDismissRequest = { showMore = false },
+                        alignEnd = true,
+                        minWidth = 196.dp,
+                        maxWidth = 240.dp,
                     ) {
                         onImportance?.let {
-                            MuseListItem(
+                            MuseActionSheetRow(
+                                icon = MuseIcons.star,
                                 onClick = {
                                     showMore = false
                                     it()
                                 },
-                                headlineContent = { Text(stringResource(R.string.memory_menu_importance)) },
+                                text = stringResource(R.string.memory_menu_importance),
                             )
                         }
                         onPin?.let {
-                            MuseListItem(
+                            MuseActionSheetRow(
+                                icon = MuseIcons.pin,
                                 onClick = {
                                     showMore = false
                                     it()
                                 },
-                                headlineContent = {
-                                    Text(
-                                        stringResource(if (item.pinnedAt != null) R.string.memory_menu_unpin else R.string.memory_menu_pin),
-                                    )
-                                },
+                                text = stringResource(
+                                    if (item.pinnedAt != null) R.string.memory_menu_unpin else R.string.memory_menu_pin,
+                                ),
                             )
                         }
                         onEdit?.let {
-                            MuseListItem(
+                            MuseActionSheetRow(
+                                icon = MuseIcons.edit,
                                 onClick = {
                                     showMore = false
                                     it()
                                 },
-                                headlineContent = { Text(stringResource(R.string.memory_menu_edit)) },
+                                text = stringResource(R.string.memory_menu_edit),
                             )
                         }
                         onHistory?.let {
-                            MuseListItem(
+                            MuseActionSheetRow(
+                                icon = MuseIcons.history,
                                 onClick = {
                                     showMore = false
                                     it()
                                 },
-                                headlineContent = { Text(stringResource(R.string.memory_menu_history)) },
+                                text = stringResource(R.string.memory_menu_history),
                             )
                         }
                         onDelete?.let {
-                            MuseListItem(
+                            MuseActionSheetRow(
+                                icon = MuseIcons.trash,
+                                contentColor = MaterialTheme.colorScheme.error,
                                 onClick = {
                                     showMore = false
                                     it()
                                 },
-                                headlineContent = {
-                                    Text(
-                                        stringResource(R.string.memory_menu_delete),
-                                        color = MaterialTheme.colorScheme.error,
-                                    )
-                                },
+                                text = stringResource(R.string.memory_menu_delete),
                             )
                         }
                     }

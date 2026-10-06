@@ -47,6 +47,8 @@ import androidx.compose.ui.unit.dp
 import io.zer0.muse.R
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.form.MuseTextField
+import io.zer0.muse.ui.common.form.museJumpRailDrag
+import io.zer0.muse.ui.common.form.railTargetFor
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.navigation.MuseTopBar
 import io.zer0.muse.ui.theme.MuseIconSizes
@@ -498,6 +500,14 @@ private fun SectionQuickJumpRail(
             it.chapterIndex == currentSection.chapterIndex && it.sectionIndex == currentSection.sectionIndex
         }
     }
+    // v2.4.5 fix(线性化): 拖动跳转条按比例**连续**定位到内容。
+    // 内容列表的小节与“章节头/折叠态”交错,所以比例先映射到 sectionItems 索引,
+    // 再由 revealAndScrollTo 展开并定位;定位后根据比例做亚条条目微调,获得线性手感。
+    fun onRailFraction(fraction: Float) {
+        val target = railTargetFor(fraction, sectionItems.size)
+        val item = sectionItems.getOrNull(target.index) ?: return
+        onItemClick(item.chapterIndex, item.sectionIndex)
+    }
     // v2.x: 指示器自动迁移 — 当前点变化时把它带到可视区内(留 2 点余量)
     LaunchedEffect(currentDotIndex) {
         if (currentDotIndex >= 0) {
@@ -511,7 +521,11 @@ private fun SectionQuickJumpRail(
     ) {
         LazyColumn(
             state = railState,
-            modifier = Modifier.fillMaxHeight(),
+            modifier =
+            Modifier
+                .fillMaxHeight()
+                // v2.4.5 fix(线性化): 在跳转条上纵向拖动 / 点击都按比例定位到小节。
+                .museJumpRailDrag(onFraction = ::onRailFraction),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
         ) {

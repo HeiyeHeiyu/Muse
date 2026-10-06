@@ -874,6 +874,14 @@ fun ChatSettingsPage(
                 )
                 SettingsGroupDivider()
                 SettingsSwitchRow(
+                    icon = MuseIcons.pause,
+                    title = stringResource(R.string.settings_chat_pause_tool_execution),
+                    subtitle = stringResource(R.string.settings_chat_pause_tool_execution_subtitle),
+                    checked = prefs.pauseToolExecution,
+                    onCheckedChange = { v -> update { it.copy(pauseToolExecution = v) } },
+                )
+                SettingsGroupDivider()
+                SettingsSwitchRow(
                     icon = MuseIcons.calendarTime,
                     title = stringResource(R.string.settings_chat_24h),
                     subtitle = stringResource(R.string.settings_chat_24h_subtitle),

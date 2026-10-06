@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -302,7 +303,7 @@ internal fun BackupSection(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
-                    Column {
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         MuseTextField(
                             value = sessionExportQuery,
                             onValueChange = { sessionExportQuery = it },
@@ -311,13 +312,18 @@ internal fun BackupSection(
                             },
                             singleLine = true,
                         )
-                        LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 420.dp),
+                        ) {
                             items(filteredExportSessions, key = { it.id }) { session ->
                                 SettingsItemRow(
                                     icon = MuseIcons.chat,
                                     title = session.title.ifBlank {
                                         stringResource(R.string.session_repo_default_title)
                                     },
+                                    titleMaxLines = 2,
                                     subtitle = stringResource(
                                         R.string.settings_backup_export_session_count,
                                         session.messageCount,

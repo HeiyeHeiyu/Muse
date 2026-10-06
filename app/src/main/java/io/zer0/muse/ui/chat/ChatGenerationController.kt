@@ -4,8 +4,10 @@ import io.zer0.ai.core.MessageRole
 import io.zer0.ai.core.UIMessage
 import io.zer0.common.Logger
 import io.zer0.common.Perf
+import io.zer0.common.ProcessWriteGate
 import io.zer0.common.resultOf
 import io.zer0.muse.R
+import io.zer0.muse.chat.InternalPromptMarkers
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.assistant.AssistantMemoryAccessPolicy
@@ -87,6 +89,13 @@ internal class ChatGenerationController(
     // 跳过,防止删除后"复活"。新流式 launchStream 启动时清除,允许删除后重新生成。
     private val sessionWritesSuppressed: MutableSet<String> =
         java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
+
+    /** 备份恢复替换数据库文件期间，聊天生成不得继续制造新写入。 */
+    private fun restoreBlocksChatWrites(operation: String): Boolean {
+        if (!ProcessWriteGate.restoring) return false
+        Logger.w("ChatVM", "备份恢复进行中，跳过聊天写入: $operation")
+        return true
+    }
 
     /** B-1: 标记该会话本次删除已发生 — 后续在途流式落盘据此跳过。 */
     fun suppressSessionWrites(sessionId: String?) {
@@ -234,8 +243,17 @@ internal class ChatGenerationController(
     /** 重生成当前用户变体下的最后一条 assistant 回复:保留旧回复为变体,新建变体并重新请求。 */
     @Suppress("ReturnCount")
     fun regenerateLastAssistant() {
+        if (restoreBlocksChatWrites("regenerate")) {
+            reportRegenerateUnavailable("backup restore in progress")
+            return
+        }
         val st = accessor.snapshot
-        val sessionId = if (st.isAgentMode) st.agentSessionId ?: return else st.currentSessionId ?: return
+        val sessionId =
+            if (st.isAgentMode) {
+                st.agentSessionId ?: return reportRegenerateUnavailable("agent session missing")
+            } else {
+                st.currentSessionId ?: return reportRegenerateUnavailable("session missing")
+            }
         val tree = deps.stateStore.conversationTree.value
         if (!canRegenerate(
                 isStreaming = st.isStreaming,
@@ -243,10 +261,17 @@ internal class ChatGenerationController(
                 hasSelectedUserVariant = tree.selectedUserNode != null && tree.selectedUserVariant != null,
             )
         ) {
-            return
+            return reportRegenerateUnavailable(
+                when {
+                    st.isStreaming -> "generation already running"
+                    tree.selectedUserNode == null -> "selected user branch missing"
+                    tree.selectedUserVariant == null -> "selected user message missing"
+                    else -> "regeneration not available"
+                },
+            )
         }
         val update = tree.retryLastAssistant()
-        val newMsg = update.newMessage ?: return
+        val newMsg = update.newMessage ?: return reportRegenerateUnavailable("reply branch missing")
         deps.stateStore.conversationTree.value = update.tree
         deps.stateStore.messages.value = update.tree.displayMessages
         accessor.update {
@@ -268,13 +293,31 @@ internal class ChatGenerationController(
                 launchStream(newMsg.id, sessionId, true, null)
             } else {
                 accessor.update { it.copy(isStreaming = false, isWaitingFirstToken = false) }
+                reportRegenerateUnavailable("new reply could not be saved")
             }
         }
+    }
+
+    private fun reportRegenerateUnavailable(reason: String) {
+        Logger.w("ChatVM", "regenerate ignored: $reason")
+        deps.addError(
+            ChatErrorType.UNKNOWN,
+            deps.appContext.getString(R.string.err_chat_stream_broken),
+            false,
+        )
     }
 
     /** v5: 乐观更新 — 用户消息立即显示,不等待 DB 写入;随后入队由消费循环串行处理。 */
     @Suppress("LongMethod")
     fun enqueueSend(text: String, images: List<String>, sessionId: String) {
+        if (restoreBlocksChatWrites("enqueueSend")) {
+            deps.addError(
+                ChatErrorType.UNKNOWN,
+                deps.appContext.getString(R.string.err_chat_stream_broken),
+                false,
+            )
+            return
+        }
         // v2.1: 记录用户活动到活跃度画像,并更新对话结束类型(驱动自适应主动消息调度)
         deps.activityProfile.recordActivity()
         deps.activityProfile.setConversationEndType(
@@ -418,6 +461,11 @@ internal class ChatGenerationController(
             )
             return
         }
+        if (restoreBlocksChatWrites("consumeSendRequest")) {
+            rollbackOptimisticSend(req)
+            accessor.update { it.copy(isStreaming = false, isWaitingFirstToken = false) }
+            return
+        }
         val state = accessor.snapshot
         val currentSid =
             if (state.isAgentMode) {
@@ -442,6 +490,11 @@ internal class ChatGenerationController(
             return
         }
         try {
+            if (restoreBlocksChatWrites("appendUserMessage")) {
+                rollbackOptimisticSend(req)
+                accessor.update { it.copy(isStreaming = false, isWaitingFirstToken = false) }
+                return
+            }
             // P0 修复: 直接复用 enqueueSend 创建的 userMessage,保证 createdAt 顺序与 id 一致。
             deps.sessionRepository.appendMessage(currentSid, req.userMessage)
         } catch (e: Exception) {
@@ -489,7 +542,9 @@ internal class ChatGenerationController(
         if (delegated) {
             restoreSelectionForSession(currentSid)
             // delegated 路径由委派执行器接管，不会经过本地 generation checkpoint。
-            resultOf { deps.sessionRepository.deleteOutbox(req.outboxId) }
+            if (!restoreBlocksChatWrites("clearDelegatedOutbox")) {
+                resultOf { deps.sessionRepository.deleteOutbox(req.outboxId) }
+            }
         } else {
             launchStream(
                 assistantId = req.assistantMessageId,
@@ -719,6 +774,7 @@ internal class ChatGenerationController(
                 }
             val dynamicSection = if (timeReminderEnabled) deps.systemPromptAssembler.buildDynamicSection() else ""
             val userMessageTimeContext = UserMessageTimeContext.build(rawHistory)
+            val lastUserInputForPrompt = rawHistory.lastOrNull { it.role == MessageRole.USER }?.content
             // v2.x: 表情包使用指南(动态读取;库为空/开关关闭时为空串)
             val stickerGuide = resultOf { deps.systemPromptAssembler.buildStickerGuideSection() }.getOrNull().orEmpty()
             val combinedSystemPrompt =
@@ -740,7 +796,7 @@ internal class ChatGenerationController(
                     if (relevantMemoryAssistantId != null) {
                         // buildSystemPrompt 在 applyTransformers 之前执行,此时 transformedMessages
                         // 仍为空;使用本轮已准备好的 rawHistory,否则相关记忆永远不会注入。
-                        val lastUserInput = rawHistory.lastOrNull { it.role == MessageRole.USER }?.content
+                        val lastUserInput = lastUserInputForPrompt
                         if (!lastUserInput.isNullOrBlank()) {
                             val relevant =
                                 resultOf {
@@ -760,6 +816,41 @@ internal class ChatGenerationController(
                             }
                         }
                     }
+                    // 会话原文回溯:复用 messages_fts 的当前会话范围检索,不复制消息到知识库,
+                    // 也不把 SYSTEM/TOOL 内部内容注入模型。用户可在记忆设置中关闭此能力。
+                    if (
+                        effectiveMemoryEnabled &&
+                        !sessionIgnoreMem &&
+                        deps.settings.memoryConfigCache.conversationRecallEnabled &&
+                        !lastUserInputForPrompt.isNullOrBlank() &&
+                        effSid != null
+                    ) {
+                        val recalled =
+                            resultOf {
+                                deps.sessionRepository.searchMessagesInSession(
+                                    sessionId = effSid,
+                                    query = lastUserInputForPrompt,
+                                    limit = 8,
+                                )
+                            }.onError { msg, throwable ->
+                                Logger.w("ChatVM", "会话原文回溯失败: $msg", throwable)
+                            }.getOrNull().orEmpty()
+                        val recallSection =
+                            ConversationRecallFormatter.build(
+                                query = lastUserInputForPrompt,
+                                results = recalled,
+                                maxTokens = deps.settings.memoryConfigCache.tokenBudget.coerceAtMost(1600),
+                            )
+                        if (recallSection.isNotBlank()) {
+                            if (isNotEmpty()) append("\n\n---\n\n")
+                            append(recallSection)
+                        }
+                        Logger.d(
+                            "ChatVM",
+                            "conversation recall | enabled=true | sessionId=$effSid | " +
+                                "matches=${recalled.size} | injected=${recallSection.isNotBlank()}",
+                        )
+                    }
                 }
             val dynamicSystemPrompt =
                 if (staticSnapshot.isNotBlank() && combinedSystemPrompt.startsWith(staticSnapshot)) {
@@ -770,6 +861,13 @@ internal class ChatGenerationController(
                     combinedSystemPrompt
                 }
             systemMessages = composeSystemPromptMessages(staticSnapshot, dynamicSystemPrompt)
+            Logger.d(
+                "ChatVM",
+                "system prompt dynamic sections | timeReminder=$timeReminderEnabled" +
+                    " | currentTimeIncluded=${dynamicSection.contains(InternalPromptMarkers.TIME_SECTION_PREFIX)}" +
+                    " | userMessageTimeIncluded=${userMessageTimeContext.isNotBlank()}" +
+                    " | systemMessages=${systemMessages.size}",
+            )
             deps.systemPromptCache.cachedSystemPrompt = combinedSystemPrompt
             updateContextTokenCount()
 
@@ -908,6 +1006,7 @@ internal class ChatGenerationController(
 
     /** 切回会话时重新投递仍未启动生成的 outbox 请求。 */
     suspend fun requeueOutboxForSession(sessionId: String) {
+        if (restoreBlocksChatWrites("requeueOutbox")) return
         val pending = resultOf { deps.sessionRepository.getPendingOutbox(sessionId) }.getOrNull().orEmpty()
         for (req in pending) {
             if (!deps.generationState.outboxRecoveryQueuedIds.add(req.id)) continue
@@ -961,6 +1060,47 @@ internal class ChatGenerationController(
         accessor.update { it.copy(selectedModelId = modelId, activeProviderId = providerId) }
     }
 
+    /** Keep one diagnostic summary on every debug-mode terminal path. */
+    suspend fun recordDebugSummary(state: StreamRunState, outcome: String) {
+        if (!state.experiments.debugMode) return
+        val elapsedMs = System.currentTimeMillis() - state.streamStartedAt
+        val ttftMs = if (state.firstTokenTime > 0L) state.firstTokenTime - state.streamStartedAt else -1L
+        val elapsedSec = (elapsedMs / 1000f).coerceAtLeast(0.001f)
+        val tokenRate = state.totalCharCount / elapsedSec
+        val selectedModel = resultOf { deps.settings.getSelectedModel() }.getOrNull()
+        val modelName = selectedModel?.name ?: selectedModel?.id
+            ?: deps.appContext.getString(R.string.msg_info_unknown)
+        val debugInfo =
+            buildString {
+                append(deps.appContext.getString(R.string.chat_debug_model_label))
+                append(": $modelName")
+                append(" | ")
+                append(deps.appContext.getString(R.string.chat_debug_duration_label))
+                append(": ${elapsedMs}ms")
+                if (ttftMs >= 0) {
+                    append(" | ")
+                    append(deps.appContext.getString(R.string.chat_debug_ttft_label))
+                    append(": ${ttftMs}ms")
+                }
+                append(" | ")
+                append(deps.appContext.getString(R.string.chat_debug_rate_label))
+                append(": ${"%.1f".format(tokenRate)} tok/s")
+                append(" | ")
+                append(deps.appContext.getString(R.string.chat_debug_chars_label))
+                append(": ${state.totalCharCount}")
+                append(" | ")
+                append(deps.appContext.getString(R.string.chat_debug_tool_calls_label))
+                append(": ${state.totalToolCallCount}")
+                append(" | ")
+                append(deps.appContext.getString(R.string.chat_debug_round_label))
+                append(": ${state.round}")
+                append(" | status=$outcome")
+                append(" | uiFlush=${state.uiFlushCount}")
+            }
+        accessor.update { it.copy(debugInfo = debugInfo) }
+        Logger.d("ChatVM-Debug", "launchStream terminal | outcome=$outcome | $debugInfo")
+    }
+
     /** 仅当自己仍是最新生成时才清零流式状态(快速连发时 gen-1 收尾不得清掉 gen-2)。 */
     fun clearStreamingStateIfLatest(state: StreamRunState, finalPhase: ChatStreamPhase = ChatStreamPhase.IDLE): Boolean {
         if (state.generationSerial != deps.generationState.streamGenerationSerial) return false
@@ -986,6 +1126,10 @@ internal class ChatGenerationController(
         taskRouteSelection: io.zer0.muse.data.SettingsRepository.TaskRouteSelection? = null,
         outboxId: String? = null,
     ) {
+        if (restoreBlocksChatWrites("launchStream")) {
+            accessor.update { it.copy(isStreaming = false, isWaitingFirstToken = false) }
+            return
+        }
         // v1.94: 每次启动流式生成前清空工具调用历史(InputBar 动态胶囊计数归零)
         accessor.update { it.copy(toolCallHistory = emptyList()) }
         // B-1: 新流式启动时清除该会话的"删除写抑制",允许删除后重新生成落盘。
@@ -1008,6 +1152,10 @@ internal class ChatGenerationController(
                 ?: deps.appContext.getString(R.string.chat_new_session),
             generationId = state.generationIdentity.generationId,
         ) {
+            if (restoreBlocksChatWrites("launchStream")) {
+                accessor.update { it.copy(isStreaming = false, isWaitingFirstToken = false) }
+                return@launchGeneration
+            }
             val generationJob = kotlin.coroutines.coroutineContext[kotlinx.coroutines.Job]
             val generationExecutionId =
                 executionRegistry?.register(
@@ -1064,6 +1212,7 @@ internal class ChatGenerationController(
                         deps.appContext.getString(R.string.error_api_context_length),
                         true,
                     )
+                    recordDebugSummary(state, "context_overflow")
                     deps.stateStore.messages.value =
                         deps.stateStore.messages.value.filterNot { msg ->
                             msg.id == state.currentAssistantId && msg.content.isBlank()
@@ -1085,6 +1234,7 @@ internal class ChatGenerationController(
                     stageTimer.split("finalize")
                     sessionManager.runtime(sessionId)?.markFinished(TurnPhase.COMPLETED, state.turnId)
                 } else {
+                    recordDebugSummary(state, "failed")
                     sessionManager.runtime(sessionId)?.markFinished(TurnPhase.FAILED, state.turnId)
                 }
             } catch (ce: kotlinx.coroutines.CancellationException) {
@@ -1137,6 +1287,9 @@ internal class ChatGenerationController(
                         deps.conversationService.finishTurn(state.turnId, "INTERRUPTED")
                     }
                 }
+                withContext(NonCancellable) {
+                    recordDebugSummary(state, "cancelled")
+                }
                 deps.generationState.nextToolGenerationToken()
                 deps.generationState.toolAssistantId = null
                 deps.generationState.activeToolSessionId = null
@@ -1181,6 +1334,7 @@ internal class ChatGenerationController(
                 val type = deps.classifyErrorType(t.message ?: "", t)
                 val msg = ErrorMessages.classifyNetworkError(deps.appContext, t)
                 deps.addError(type, msg, type != ChatErrorType.API_KEY)
+                recordDebugSummary(state, "failed")
                 clearStreamingStateIfLatest(state, ChatStreamPhase.FAILED)
                 sessionManager.runtime(sessionId)?.markFinished(TurnPhase.FAILED, state.turnId)
                 runCatching {
@@ -1207,9 +1361,13 @@ internal class ChatGenerationController(
         val sessionTitle = state.sessionTitle
         val streamStartedAt = state.streamStartedAt
         // v2.x 导入预热:首轮成功完成响应后清除标记(全量历史只补一次;幂等)
-        resultOf { deps.sessionRepository.clearWarmupPending(sessionId) }
-            .onError { msg, _ -> Logger.w("ChatVM", "clearWarmupPending failed: $msg") }
-        if (ConversationRebuildFlagStore.current.shadowEventsEnabled) {
+        if (!restoreBlocksChatWrites("finalizeClearWarmup")) {
+            resultOf { deps.sessionRepository.clearWarmupPending(sessionId) }
+                .onError { msg, _ -> Logger.w("ChatVM", "clearWarmupPending failed: $msg") }
+        }
+        if (ConversationRebuildFlagStore.current.shadowEventsEnabled &&
+            !restoreBlocksChatWrites("finalizeShadowEvents")
+        ) {
             val finalMessage = deps.stateStore.messages.value.firstOrNull { it.id == state.currentAssistantId }
             val shadowContent = finalMessage?.content ?: state.builder.toString()
             val shadowLength = finalMessage?.content?.length ?: state.builder.length
@@ -1255,7 +1413,9 @@ internal class ChatGenerationController(
                         if (it.id == currentAssistantId) preservedAssistant else it
                     }
                 resultOf {
-                    if (!isSessionWritesSuppressed(sessionId)) {
+                    if (!restoreBlocksChatWrites("finalizeWriteAssistantMessage") &&
+                        !isSessionWritesSuppressed(sessionId)
+                    ) {
                         deps.sessionRepository.upsertMessage(sessionId, preservedAssistant)
                     }
                 }
@@ -1265,6 +1425,7 @@ internal class ChatGenerationController(
 
         // A5: 生成元数据持久化(provider 实测 token 用量 + 总耗时),失败不阻塞。
         resultOf {
+            if (restoreBlocksChatWrites("finalizeWriteAssistantMeta")) return@resultOf
             val entity = deps.sessionRepository.getMessageById(state.currentAssistantId.toString()) ?: return@resultOf
             val usage = state.usageTokens
             val durationMs = System.currentTimeMillis() - streamStartedAt
@@ -1297,48 +1458,11 @@ internal class ChatGenerationController(
         deps.refreshContextInfo()
 
         // 上下文溢出保护:token 占用超过 80% 时后台自动压缩。
-        resultOf { deps.triggerAutoCompress(sessionId) }
-
-        // v2.3: debugMode 下填充 debugInfo。
-        if (experiments.debugMode) {
-            val elapsedMs = System.currentTimeMillis() - streamStartedAt
-            val ttftMs = if (state.firstTokenTime > 0L) state.firstTokenTime - streamStartedAt else -1L
-            val elapsedSec = (elapsedMs / 1000f).coerceAtLeast(0.001f)
-            val tokenRate = state.totalCharCount / elapsedSec
-            val selectedModel = resultOf { deps.settings.getSelectedModel() }.getOrNull()
-            val modelName =
-                selectedModel?.name ?: selectedModel?.id
-                    ?: deps.appContext.getString(R.string.msg_info_unknown)
-            val debugInfo =
-                buildString {
-                    append(deps.appContext.getString(R.string.chat_debug_model_label))
-                    append(": $modelName")
-                    append(" | ")
-                    append(deps.appContext.getString(R.string.chat_debug_duration_label))
-                    append(": ${elapsedMs}ms")
-                    if (ttftMs >= 0) {
-                        append(" | ")
-                        append(deps.appContext.getString(R.string.chat_debug_ttft_label))
-                        append(": ${ttftMs}ms")
-                    }
-                    append(" | ")
-                    append(deps.appContext.getString(R.string.chat_debug_rate_label))
-                    append(": ${"%.1f".format(tokenRate)} tok/s")
-                    append(" | ")
-                    append(deps.appContext.getString(R.string.chat_debug_chars_label))
-                    append(": ${state.totalCharCount}")
-                    append(" | ")
-                    append(deps.appContext.getString(R.string.chat_debug_tool_calls_label))
-                    append(": ${state.totalToolCallCount}")
-                    append(" | ")
-                    append(deps.appContext.getString(R.string.chat_debug_round_label))
-                    append(": ${state.round}")
-                    // v2.0: 推给 UI 的刷新次数 — 卡顿时可与字符数对照判断节拍是否过密/稀疏
-                    append(" | uiFlush=${state.uiFlushCount}")
-                }
-            accessor.update { it.copy(debugInfo = debugInfo) }
-            Logger.d("ChatVM-Debug", "launchStream done | sessionId=$sessionId | $debugInfo")
+        if (!restoreBlocksChatWrites("finalizeAutoCompress")) {
+            resultOf { deps.triggerAutoCompress(sessionId) }
         }
+
+        recordDebugSummary(state, "completed")
 
         // 通知:流式完成 — 发"回复完成"通知。
         resultOf {
@@ -1382,21 +1506,27 @@ internal class ChatGenerationController(
             (state.transformContext?.extra("current_space") as? String)
                 ?.takeIf { it.isNotBlank() }
                 ?: deps.settings.currentSpaceIdFlow.firstOrNull().orEmpty().ifBlank { "default" }
-        runCatching {
-            deps.memoryTicker.notifyTurn(
-                sessionId,
-                conversationMessages,
-                selectedModel,
-                assistantId = generationAssistantId,
-                spaceId = generationSpaceId,
-            )
-        }.onFailure { Logger.w("ChatVM", "notifyTurn failed: ${it.message}") }
+        if (!restoreBlocksChatWrites("finalizeNotifyMemory")) {
+            runCatching {
+                deps.memoryTicker.notifyTurn(
+                    sessionId,
+                    conversationMessages,
+                    selectedModel,
+                    assistantId = generationAssistantId,
+                    spaceId = generationSpaceId,
+                )
+            }.onFailure { Logger.w("ChatVM", "notifyTurn failed: ${it.message}") }
+        }
 
         // B5-01/B-23: 生成正常结束,按 (sessionId, streamStartedAt) 精确清理本代检查点。
-        resultOf { deps.sessionRepository.deleteGenerationCheckpoints(sessionId, streamStartedAt) }
-            .onError { msg, _ -> Logger.w("ChatVM", "generation checkpoints 清理失败: $msg") }
+        if (!restoreBlocksChatWrites("finalizeClearCheckpoints")) {
+            resultOf { deps.sessionRepository.deleteGenerationCheckpoints(sessionId, streamStartedAt) }
+                .onError { msg, _ -> Logger.w("ChatVM", "generation checkpoints 清理失败: $msg") }
+        }
         // R-UI-02: 本轮生成结束后清除生成焦点。
-        if (resultOf { deps.settings.getGeneratingSessionId() }.getOrNull() == sessionId) {
+        if (!restoreBlocksChatWrites("finalizeClearGenerationFocus") &&
+            resultOf { deps.settings.getGeneratingSessionId() }.getOrNull() == sessionId
+        ) {
             resultOf { deps.settings.saveGeneratingSessionId(null) }
                 .onError { msg, _ -> Logger.w("ChatVM", "saveGeneratingSessionId 清理失败: $msg") }
         }

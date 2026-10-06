@@ -1,3 +1,5 @@
+@file:Suppress("FunctionNaming")
+
 package io.zer0.muse.ui
 
 import android.content.Intent
@@ -80,14 +82,11 @@ import io.zer0.muse.transformer.MoodSkinParser
 import io.zer0.muse.ui.artifact.ArtifactCardList
 import io.zer0.muse.ui.chat.BranchSelector
 import io.zer0.muse.ui.chat.MessageInfoSheet
-import io.zer0.muse.ui.chat.MuseReactionSheet
 import io.zer0.muse.ui.chat.StickerAwareMarkdownBody
 import io.zer0.muse.ui.chat.VideoAttachment
 import io.zer0.muse.ui.chat.buildHighlightedText
 import io.zer0.muse.ui.chat.buildMoodSkinAnnotated
 import io.zer0.muse.ui.chat.parseQuotedContent
-import io.zer0.muse.ui.chat.reactionIcon
-import io.zer0.muse.ui.chat.reactionLabelRes
 import io.zer0.muse.ui.common.MusePopover
 import io.zer0.muse.ui.common.feedback.MuseDialog
 import io.zer0.muse.ui.common.feedback.MuseToast
@@ -112,6 +111,7 @@ import io.zer0.muse.ui.theme.MuseBubbleStyles
 import io.zer0.muse.ui.theme.MuseElevation
 import io.zer0.muse.ui.theme.MuseHaptics
 import io.zer0.muse.ui.theme.MuseIconSizes
+import io.zer0.muse.chat.InternalPromptMarkers
 import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
@@ -119,6 +119,16 @@ import io.zer0.muse.ui.theme.tiny
 import io.zer0.muse.util.ShareIntentHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+internal fun messageCopyText(content: String, reasoning: String?): String {
+    val body = MoodSkinParser.cleanForExport(content).trim()
+    val thought = MoodSkinParser.cleanForExport(reasoning.orEmpty()).trim()
+    return when {
+        body.isNotBlank() && thought.isNotBlank() -> "$body\n\n${InternalPromptMarkers.THINKING_TAG}\n$thought"
+        body.isNotBlank() -> body
+        else -> thought
+    }
+}
 
 /**
  * 消息单元。
@@ -152,6 +162,9 @@ internal fun messageBubbleLayout(role: MessageBubbleRole): MessageBubbleLayout =
 }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+// 消息气泡是屏幕级组装点:60+ 参数、1697 行、高圈复杂度均为“单条消息全量载荷”的固有形态,
+// 与项目其他大函数(如 ChatScreenComponents / MemoryDialogsDashboard)同口径按点豁免。
+@Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun MessageBubble(
     msg: UIMessage,
@@ -183,8 +196,6 @@ internal fun MessageBubble(
     selected: Boolean = false,
     onToggleSelection: (() -> Unit)? = null,
     onEnterMultiSelect: (() -> Unit)? = null,
-    /** E4 (H8): 表情回应 — 传 null 时隐藏回应入口与渲染。 */
-    onSetReaction: ((String?) -> Unit)? = null,
     onTranslate: (String) -> Unit,
     onToggleFavorite: () -> Unit = {},
     // 阶段 J: 复制消息内容到剪贴板
@@ -198,6 +209,8 @@ internal fun MessageBubble(
     onToggleTaskCardExpand: () -> Unit = {},
     onRetryTaskCardStep: (String) -> Unit = {},
     onCancelTask: () -> Unit = {},
+    onToggleTaskCardPause: () -> Unit = {},
+    onToggleTaskStepPause: (String) -> Unit = {},
     // v1.25: 长按菜单触发「委托给助手」
     onDelegate: () -> Unit = {},
     // v0.29 P0-3: 分享整段对话(导出为 Markdown 通过系统 share sheet)
@@ -261,6 +274,14 @@ internal fun MessageBubble(
     bubbleSkin: BubbleSkin? = null,
     showUserAvatar: Boolean = false,
     userAvatarText: String = "U",
+    /**
+     * v2.4.5 fix: 是否展示工具调用过程(设置 → 聊天 → 显示工具调用过程)。
+     *
+     * 此前只有 ChatScreen 侧的 ToolRunCard / TaskCard / 子代理列表受该开关控制,
+     * MessageBubble 内部的孤立 ToolCallCard 未受控:开关关闭时 ChatScreen 把 taskCard
+     * 置 null,反而使渲染落到 `toolInfo != null` 分支,卡片照旧弹出。现在由此参数统一门控。
+     */
+    showToolCallDetails: Boolean = true,
 ) {
     val isUser = msg.role == MessageRole.USER
     val outerLayout = messageBubbleLayout(
@@ -303,8 +324,6 @@ internal fun MessageBubble(
     var showAnnotateDialog by remember { mutableStateOf(false) }
     // A5: 消息信息弹层(长按扩展菜单/桌面右键菜单「消息信息」触发)
     var showInfoSheet by remember { mutableStateOf(false) }
-    // E4 (H8): 表情回应选择面板(扩展菜单「表情回应」触发)
-    var showReactionSheet by remember { mutableStateOf(false) }
     // 末尾 AI 流式时光标显示
     val showStreamingCursor = !isUser && isLastAssistant && isStreaming
     // v1.42: 流式中的最后一条 AI 消息禁用动画,避免每帧测量导致卡顿。
@@ -348,12 +367,16 @@ internal fun MessageBubble(
     }
     // 失败/恢复后的空 assistant 不能渲染成没有内容的白色长条。
     // 流式等待反馈由 ChatScreen 的独立 ShimmerBubble 负责。
+    // v2.4.5 fix: toolCallInfo 不能无条件充当“可见载重”——关闭「显示工具调用过程」时
+    //   该载荷不渲染,只剩空白正文会变成一条“空消息栏”。此时只有正文/图/视频/产物/
+    //   思考/心情/反思/引用/任务卡 才能让消息可渲染。
+    val toolPayloadVisible = showToolCallDetails && msg.toolCallInfo != null
     val hasAssistantPayload = body.isNotBlank() ||
         msg.imageUrls.isNotEmpty() ||
         msg.imageBase64List.isNotEmpty() ||
         msg.videoFileUri != null ||
         msg.artifactIds.isNotEmpty() ||
-        msg.toolCallInfo != null ||
+        toolPayloadVisible ||
         msg.reasoning?.isNotBlank() == true ||
         msg.mood?.isNotBlank() == true ||
         msg.reflection?.isNotBlank() == true ||
@@ -540,10 +563,8 @@ internal fun MessageBubble(
             // v0.31: 受 chatPrefs.showReasoning 开关控制,默认展开状态由 chatPrefs.reasoningExpandedByDefault 决定
             // v1.45: 改为外部受控,切页/后台后保持折叠状态
             // v1.118: 折叠时标题显示思考内容摘要(而非静态"思考过程"四字),让用户快速了解思考了什么
-            // v1.0.54: 工具轮消息(带 toolCalls/toolCallInfo)不显示思考块 — 工具调用的推理过程
-            //   对用户无价值且出戏(send_sticker 选贴纸的思考会被完整展示),兜底过滤。
-            val isToolRoundMessage = !msg.toolCalls.isNullOrEmpty() || msg.toolCallInfo != null
-            if (chatPrefs.showReasoning && !isToolRoundMessage) {
+            // v2.x: 工具轮也保留思考块；用户开启思考后需要能查看和复制工具调用前的推理。
+            if (chatPrefs.showReasoning) {
                 msg.reasoning?.takeIf { it.isNotBlank() }?.let { reasoning ->
                     val reasoningExpanded = isReasoningExpanded ?: chatPrefs.reasoningExpandedByDefault
                     // v1.0.92: 移除"流式最后一条强制展开"(用户反馈:没开默认展开但思考仍自动展开);
@@ -623,11 +644,13 @@ internal fun MessageBubble(
                             }
                             if (showExpanded) {
                                 Spacer(Modifier.height(MusePaddings.tinyGap))
-                                Text(
-                                    text = reasoning,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                                SelectionContainer {
+                                    Text(
+                                        text = reasoning,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                             }
                         }
                     }
@@ -1205,9 +1228,11 @@ internal fun MessageBubble(
                                     onToggleExpand = onToggleTaskCardExpand,
                                     onRetryStep = onRetryTaskCardStep,
                                     onCancel = onCancelTask,
+                                    onTogglePause = onToggleTaskCardPause,
+                                    onToggleStepPause = onToggleTaskStepPause,
                                     delegationChain = delegationChain,
                                 )
-                            } else if (toolInfo != null && !isSilentTool) {
+                            } else if (toolInfo != null && !isSilentTool && showToolCallDetails) {
                                 // 孤立工具调用(不在任何任务里)——保持单卡展示
                                 ToolCallCard(
                                     toolName = toolInfo.toolName,
@@ -1430,7 +1455,12 @@ internal fun MessageBubble(
                                 }
                             } // closes inner else (no taskCard/toolInfo)
                             // v1.55: Agent 工作流计划卡随消息一起滚动,而不是固定在消息列表底部
-                            if (agentPlan != null) {
+                            if (
+                                agentPlan != null &&
+                                taskCard == null &&
+                                msg.toolCallInfo == null &&
+                                msg.toolCalls.isNullOrEmpty()
+                            ) {
                                 PlanCard(plan = agentPlan)
                             }
                         } // closes AI bubble Surface Column
@@ -1449,7 +1479,7 @@ internal fun MessageBubble(
                         icon = MuseIcons.copy,
                         onClick = {
                             MuseHaptics.light(hapticFeedback)
-                            onCopyMessage(MoodSkinParser.cleanForExport(msg.content))
+                            onCopyMessage(messageCopyText(msg.content, msg.reasoning))
                         },
                         contentDescription = stringResource(R.string.action_copy),
                         tint = MaterialTheme.colorScheme.outline,
@@ -1475,60 +1505,83 @@ internal fun MessageBubble(
             // v1.138 / v1.0.53: 助手消息底部快捷按钮 — 复制/翻译/分享/重新生成 + 分支切换器
             // 翻译按钮复用长按菜单的语言子菜单(showActionMenu + showLanguageSubmenu)
             // 分享按钮用系统 share sheet 分享单条消息内容
-            if (!isUser && msg.content.isNotEmpty() && !isStreaming && !isTranslating) {
+            if (
+                !isUser &&
+                (isLastAssistant || msg.content.isNotEmpty() || !msg.reasoning.isNullOrBlank()) &&
+                !isStreaming &&
+                !isTranslating
+            ) {
                 Row(
                     modifier = Modifier.padding(top = 2.dp),
                     horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // 复制
-                    MuseTactileButton(
-                        icon = MuseIcons.copy,
-                        onClick = {
-                            onCopyMessage(MoodSkinParser.cleanForExport(msg.content))
-                            MuseHaptics.light(hapticFeedback)
-                        },
-                        contentDescription = stringResource(R.string.action_copy),
-                        tint = MaterialTheme.colorScheme.outline,
-                        size = MuseIconSizes.touchTarget,
-                        iconSize = MuseIconSizes.iconSmall,
-                    )
-                    // 翻译(直接弹语言子菜单)
-                    MuseTactileButton(
-                        icon = MuseIcons.languages,
-                        onClick = {
-                            MuseHaptics.light(hapticFeedback)
-                            // v1.0.88 (R-1): 直接进入语言子菜单 — 此前只设 showActionMenu=true,
-                            // 会先弹精简长按面板,用户得再点"更多"才看到语言列表,
-                            // 表现为"点快捷翻译出现长按菜单"。补 showExtendedMenu=true 跳过精简面板,
-                            // 直达完整菜单的语言子菜单。
-                            actionSurface = MessageActionSurface.Compact
-                            actionSurface = MessageActionSurface.Extended
-                            actionSurface = MessageActionSurface.TranslationLanguages
-                        },
-                        contentDescription = stringResource(R.string.action_translate),
-                        tint = MaterialTheme.colorScheme.outline,
-                        size = MuseIconSizes.touchTarget,
-                        iconSize = MuseIconSizes.iconSmall,
-                    )
-                    // 分享(系统 share sheet 分享单条消息)
-                    MuseTactileButton(
-                        icon = MuseIcons.share,
-                        onClick = {
-                            MuseHaptics.light(hapticFeedback)
-                            scope.launch {
-                                val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, msg.content)
+                    if (msg.content.isNotEmpty()) {
+                        // 复制正文
+                        MuseTactileButton(
+                            icon = MuseIcons.copy,
+                            onClick = {
+                                onCopyMessage(messageCopyText(msg.content, msg.reasoning))
+                                MuseHaptics.light(hapticFeedback)
+                            },
+                            contentDescription = stringResource(R.string.action_copy),
+                            tint = MaterialTheme.colorScheme.outline,
+                            size = MuseIconSizes.touchTarget,
+                            iconSize = MuseIconSizes.iconSmall,
+                        )
+                        // 翻译(直接弹语言子菜单)
+                        MuseTactileButton(
+                            icon = MuseIcons.languages,
+                            onClick = {
+                                MuseHaptics.light(hapticFeedback)
+                                // v1.0.88 (R-1): 直接进入语言子菜单 — 此前只设 showActionMenu=true,
+                                // 会先弹精简长按面板,用户得再点"更多"才看到语言列表,
+                                // 表现为"点快捷翻译出现长按菜单"。补 showExtendedMenu=true 跳过精简面板,
+                                // 直达完整菜单的语言子菜单。
+                                actionSurface = MessageActionSurface.Compact
+                                actionSurface = MessageActionSurface.Extended
+                                actionSurface = MessageActionSurface.TranslationLanguages
+                            },
+                            contentDescription = stringResource(R.string.action_translate),
+                            tint = MaterialTheme.colorScheme.outline,
+                            size = MuseIconSizes.touchTarget,
+                            iconSize = MuseIconSizes.iconSmall,
+                        )
+                        // 分享(系统 share sheet 分享单条消息)
+                        MuseTactileButton(
+                            icon = MuseIcons.share,
+                            onClick = {
+                                MuseHaptics.light(hapticFeedback)
+                                scope.launch {
+                                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, msg.content)
+                                    }
+                                    ShareIntentHelper.startChooserSafely(context, sendIntent)
                                 }
-                                ShareIntentHelper.startChooserSafely(context, sendIntent)
-                            }
-                        },
-                        contentDescription = stringResource(R.string.action_share),
-                        tint = MaterialTheme.colorScheme.outline,
-                        size = MuseIconSizes.touchTarget,
-                        iconSize = MuseIconSizes.iconSmall,
-                    )
+                            },
+                            contentDescription = stringResource(R.string.action_share),
+                            tint = MaterialTheme.colorScheme.outline,
+                            size = MuseIconSizes.touchTarget,
+                            iconSize = MuseIconSizes.iconSmall,
+                        )
+                    }
+                    if (!msg.reasoning.isNullOrBlank()) {
+                        // 思考过程单独复制，避免正文为空时整行快捷操作一起消失。
+                        MuseTactileButton(
+                            icon = MuseIcons.copy,
+                            onClick = {
+                                onCopyMessage(MoodSkinParser.cleanForExport(msg.reasoning.orEmpty()))
+                                MuseHaptics.light(hapticFeedback)
+                            },
+                            contentDescription =
+                                stringResource(R.string.action_copy) + " " +
+                                    stringResource(R.string.msg_info_reasoning),
+                            tint = MaterialTheme.colorScheme.outline,
+                            size = MuseIconSizes.touchTarget,
+                            iconSize = MuseIconSizes.iconSmall,
+                        )
+                    }
                     // 重新生成(仅最后一条助手消息)
                     if (isLastAssistant) {
                         MuseTactileButton(
@@ -1696,7 +1749,7 @@ internal fun MessageBubble(
                                 actionSurface = MessageActionSurface.Hidden
                                 actionSurface = MessageActionSurface.Hidden
                                 MuseHaptics.light(hapticFeedback)
-                                onCopyMessage(MoodSkinParser.cleanForExport(msg.content))
+                                onCopyMessage(messageCopyText(msg.content, msg.reasoning))
                             },
                             onSelectText = {
                                 // v1.0.72: "选择文本"= 进入文本选择模式(长按文字激活系统选择手柄)
@@ -1821,19 +1874,6 @@ internal fun MessageBubble(
                                             showInfoSheet = true
                                         },
                                     )
-                                    // E4 (H8): 表情回应(仅 onSetReaction 提供时显示)
-                                    if (onSetReaction != null) {
-                                        ActionMenuItem(
-                                            icon = MuseIcons.moodSmile,
-                                            text = stringResource(R.string.chat_reaction_title),
-                                            contentDescription = stringResource(R.string.chat_reaction_title),
-                                            onClick = {
-                                                actionSurface = MessageActionSurface.Hidden
-                                                actionSurface = MessageActionSurface.Hidden
-                                                showReactionSheet = true
-                                            },
-                                        )
-                                    }
                                     if (msg.content.isNotBlank()) {
                                         ActionMenuItem(
                                             icon = MuseIcons.copy,
@@ -1842,7 +1882,7 @@ internal fun MessageBubble(
                                             onClick = {
                                                 actionSurface = MessageActionSurface.Hidden
                                                 MuseHaptics.light(hapticFeedback)
-                                                onCopyMessage(MoodSkinParser.cleanForExport(msg.content))
+                                                onCopyMessage(messageCopyText(msg.content, msg.reasoning))
                                             },
                                         )
                                     }
@@ -1887,23 +1927,9 @@ internal fun MessageBubble(
                                             },
                                         )
                                     }
-                                    // U-16: AI 消息长按菜单补"删除"(单条删除 + 确认框,复用删除对话框;
-                                    // ViewModel 删除按消息 id 执行,对 AI 消息同样生效)
-                                    if (!isUser && msg.content.isNotBlank()) {
-                                        ActionMenuItem(
-                                            icon = MuseIcons.trash,
-                                            text = stringResource(R.string.chat_delete_message),
-                                            contentDescription = stringResource(R.string.chat_delete_message),
-                                            tint = MaterialTheme.colorScheme.error,
-                                            onClick = {
-                                                actionSurface = MessageActionSurface.Hidden
-                                                showDeleteConfirm = true
-                                            },
-                                        )
-                                    }
                                     if (isUser) {
-                                        // C-14: 用户消息只补用户专属项(编辑/翻译/分享/删除);
-                                        // 选择消息/收藏/复制已在公共菜单(上方)渲染,不再重复。
+                                        // C-14: 用户消息只补用户专属项(编辑/翻译/分享);
+                                        // 选择消息/收藏/复制已在公共菜单(上方)渲染。
                                         ActionMenuItem(
                                             icon = MuseIcons.edit,
                                             text = stringResource(R.string.action_edit),
@@ -1940,6 +1966,21 @@ internal fun MessageBubble(
                                                 onForward()
                                             },
                                         )
+                                    } else if (msg.content.isNotBlank() || msg.reasoning?.isNotBlank() == true) {
+                                        // 助手消息也支持从长按“更多”进入编辑；后端已有
+                                        // editAssistantMessage，避免生成内容只能删掉重来。
+                                        ActionMenuItem(
+                                            icon = MuseIcons.edit,
+                                            text = stringResource(R.string.action_edit),
+                                            contentDescription = stringResource(R.string.action_edit),
+                                            onClick = {
+                                                actionSurface = MessageActionSurface.Hidden
+                                                onEdit()
+                                            },
+                                        )
+                                    }
+                                    // U-16: 删除始终放在扩展菜单最后,避免误触且保持菜单顺序稳定。
+                                    if (isUser || msg.content.isNotBlank() || msg.reasoning?.isNotBlank() == true) {
                                         ActionMenuItem(
                                             icon = MuseIcons.trash,
                                             text = stringResource(R.string.chat_delete_message),
@@ -2079,46 +2120,11 @@ internal fun MessageBubble(
                     destructive = true,
                 )
             }
-            // E4 (H8): 表情回应 — 已有回应时气泡尾部显示图标 chip(仅图标,语义见 cd)
-            val reaction = msg.reaction
-            val reactionLabel = reaction?.let { reactionLabelRes(it) }?.let { stringResource(it) }
-            val reactionIconVec = reaction?.let { reactionIcon(it) }
-            if (reaction != null && reactionIconVec != null && reactionLabel != null) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(top = MusePaddings.tinyGap),
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                    ) {
-                        Icon(
-                            imageVector = reactionIconVec,
-                            contentDescription = reactionLabel,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .padding(MusePaddings.tightGap)
-                                .size(MuseIconSizes.iconSmall),
-                        )
-                    }
-                }
-            }
             // A5: 消息信息弹层(模型/时间/耗时/Token 用量)
             if (showInfoSheet) {
                 MessageInfoSheet(
                     msg = msg,
                     onDismiss = { showInfoSheet = false },
-                )
-            }
-            // E4 (H8): 表情回应选择面板
-            if (showReactionSheet && onSetReaction != null) {
-                MuseReactionSheet(
-                    current = msg.reaction,
-                    onSelect = { reactionValue ->
-                        showReactionSheet = false
-                        onSetReaction(reactionValue)
-                    },
-                    onDismiss = { showReactionSheet = false },
                 )
             }
             // P2-13: 桌面端右键上下文菜单(仅物理键盘 + Expanded 窗口下弹出)
@@ -2148,7 +2154,7 @@ internal fun MessageBubble(
                                 ContextMenuItem(
                                     label = copyLabel,
                                     icon = MuseIcons.copy,
-                                    onClick = { onCopyMessage(MoodSkinParser.cleanForExport(msg.content)) },
+                                    onClick = { onCopyMessage(messageCopyText(msg.content, msg.reasoning)) },
                                 ),
                             )
                         }

@@ -8,6 +8,7 @@ import io.zer0.ai.core.ToolDefinition
 import io.zer0.ai.core.UIMessage
 import io.zer0.ai.registry.ModelRegistry
 import io.zer0.common.Logger
+import io.zer0.common.ProcessWriteGate
 import io.zer0.common.resultOf
 import io.zer0.memory.ticker.MemoryTicker
 import io.zer0.muse.R
@@ -369,6 +370,10 @@ class ChatStreamCoordinator(
         ) {
             return
         }
+        if (ProcessWriteGate.restoring) {
+            Logger.w(tag, "备份恢复进行中，跳过流式助手快照写入")
+            return
+        }
         // v1.80 (L-CVM4): 用 NonCancellable 包裹持久化,确保 ViewModel 销毁/协程取消时仍能落盘
         // 直接挂起等待写入结束，保证最终 upsert 不会被更早的异步快照覆盖。
         withContext(NonCancellable) {
@@ -413,6 +418,10 @@ class ChatStreamCoordinator(
         if (partial.content.isBlank() && partial.reasoning.isNullOrBlank() &&
             partial.imageUrls.isEmpty() && partial.imageBase64List.isEmpty() && partial.videoFileUri == null
         ) {
+            return
+        }
+        if (ProcessWriteGate.restoring) {
+            Logger.w(tag, "备份恢复进行中，跳过中断助手快照写入")
             return
         }
         val interruptedMsg = partial.copy(content = partial.content + "\n\n[已中断]", durationMs = durationMs)
@@ -644,12 +653,58 @@ class ChatStreamCoordinator(
         if (history.isEmpty()) return history
         return try {
             val knownIds = history.mapTo(HashSet()) { it.id.toString() }
-            val checkpoint = checkpointReader.getValid(sessionId, knownIds)
+            val persisted = checkpointReader.get(sessionId)
+            if (persisted == null) return history
+            val boundaryInPage =
+                persisted.lastCoveredMessageId.isBlank() ||
+                    persisted.lastCoveredMessageId in knownIds
+            // The chat UI normally holds only a recent page. Validate a missing boundary
+            // against the full persisted session before deciding that the checkpoint is stale;
+            // otherwise pagination alone would delete a valid compression checkpoint.
+            val fullHistoryForValidation =
+                if (boundaryInPage) {
+                    null
+                } else {
+                    resultOf { sessionRepository.getAllMessagesForWarmup(sessionId) }
+                        .onError { msg, error -> Logger.w(tag, "checkpoint full-history validation failed: $msg", error) }
+                        .getOrNull()
+                }
+            val validationIds =
+                fullHistoryForValidation?.mapTo(HashSet()) { it.id.toString() } ?: knownIds
+            if (!boundaryInPage && fullHistoryForValidation != null) {
+                val coveredIds =
+                    io.zer0.muse.transformer.ContextCheckpointMerge.coveredMessageIds(
+                        fullHistoryForValidation,
+                        persisted,
+                    )
+                if (coveredIds.isNotEmpty() && persisted.summary.isNotBlank()) {
+                    io.zer0.muse.transformer.CompressionSummaryStore.remember(
+                        sessionId = sessionId,
+                        coveredIds = coveredIds,
+                        summary = persisted.summary,
+                    )
+                }
+            }
+            val checkpoint =
+                if (!boundaryInPage && validationIds.isEmpty()) {
+                    persisted
+                } else {
+                    checkpointReader.getValid(sessionId, validationIds)
+                }
             if (checkpoint == null) {
                 history
             } else {
                 val merged = io.zer0.muse.transformer.ContextCheckpointMerge.apply(history, checkpoint)
                 if (merged.applied) {
+                    val coveredIds =
+                        io.zer0.muse.transformer.ContextCheckpointMerge.coveredMessageIds(history, checkpoint)
+                    if (coveredIds.isNotEmpty() && checkpoint.summary.isNotBlank()) {
+                        io.zer0.muse.transformer.CompressionSummaryStore.remember(
+                            sessionId = sessionId,
+                            coveredIds = coveredIds,
+                            summary = checkpoint.summary,
+                        )
+                    }
                     Logger.i(
                         tag,
                         "${history.size} -> ${merged.messages.size} checkpoint applied " +
@@ -1011,7 +1066,7 @@ class ChatStreamCoordinator(
                         definition.name.startsWith("mcp_") &&
                             definition.name.contains("__")
                     val selectedByMcp =
-                        !isMcpTool || configuredMcpServerIds.isEmpty() ||
+                        !isMcpTool ||
                             configuredMcpServerIds.any { serverId ->
                                 definition.name.startsWith("mcp_${serverId}__")
                             }

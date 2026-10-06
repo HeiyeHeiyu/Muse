@@ -92,6 +92,16 @@ data class TaskCardData(
     val hasFailedSteps: Boolean
         get() = steps.any { it.status.isRetryable }
 
+    /** 是否存在仍可被用户暂停的待执行步骤。 */
+    val hasPausableSteps: Boolean
+        get() = steps.any { it.status == TaskStepStatus.PENDING }
+
+    /** 待执行步骤是否已全部设置暂停意图。 */
+    val allPausableStepsPaused: Boolean
+        get() = steps.filter { it.status == TaskStepStatus.PENDING }.let { pending ->
+            pending.isNotEmpty() && pending.all { it.pauseRequested }
+        }
+
     /** 超时步骤数(折叠态摘要用)。 */
     val timedOutSteps: Int
         get() = steps.count { it.status == TaskStepStatus.TIMED_OUT }
@@ -112,7 +122,12 @@ data class TaskCardData(
          *
          * @param context 用于取字符串资源(标题)
          */
-        fun fromToolCalls(context: Context, assistantId: Uuid, toolCalls: List<Pair<String, String>>): TaskCardData {
+        fun fromToolCalls(
+            context: Context,
+            assistantId: Uuid,
+            toolCalls: List<Pair<String, String>>,
+            toolCallIds: List<String> = emptyList(),
+        ): TaskCardData {
             val steps = toolCalls.mapIndexed { idx, (name, args) ->
                 val delegateArgs = if (name == "delegate_agent") {
                     parseDelegateAgentArgs(args)
@@ -133,6 +148,7 @@ data class TaskCardData(
                     source = delegateArgs.assistantId,
                     // 审计修复 (2.6): 存完整参数供重试,detail 可能被截断
                     rawArgs = args,
+                    toolCallId = toolCallIds.getOrNull(idx).orEmpty(),
                 )
             }
             return TaskCardData(
@@ -184,6 +200,14 @@ data class TaskStep(
     val subSteps: List<TaskStep> = emptyList(),
     /** 审计修复 (2.6): 完整原始 tool 参数(JSON),用于重试。detail 是截断展示用。 */
     val rawArgs: String = "",
+    /** 当前回合内稳定的 tool_call id,用于单工具暂停与执行状态关联。 */
+    val toolCallId: String = "",
+    /**
+     * 用户已请求暂停该步骤,但尚未执行真实工具。
+     *
+     * 仅 PENDING 步骤可被切换;正在执行的工具不做强杀,避免未知副作用。
+     */
+    val pauseRequested: Boolean = false,
 ) {
     /** 单步耗时(毫秒),null 表示未完成。 */
     val durationMs: Long? get() = if (startedAt != null && finishedAt != null) finishedAt - startedAt else null
@@ -239,6 +263,8 @@ fun TaskCard(
     onToggleExpand: () -> Unit = {},
     onRetryStep: (String) -> Unit = {},
     onCancel: (() -> Unit)? = null,
+    onTogglePause: () -> Unit = {},
+    onToggleStepPause: (String) -> Unit = {},
     // M-TC2 修复: 增加 modifier 参数,允许调用方自定义布局修饰
     modifier: Modifier = Modifier,
     // v1.201: 委派链路(可选,非空时在步骤列表下方渲染)
@@ -343,6 +369,18 @@ fun TaskCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium,
                 )
+                if (data.hasPausableSteps) {
+                    MuseTactileButton(
+                        icon = if (data.allPausableStepsPaused) MuseIcons.play else MuseIcons.pause,
+                        onClick = onTogglePause,
+                        contentDescription = stringResource(
+                            if (data.allPausableStepsPaused) R.string.task_card_resume else R.string.task_card_pause,
+                        ),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        size = 32.dp,
+                        iconSize = 16.dp,
+                    )
+                }
                 Icon(
                     imageVector = if (data.isExpanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
                     contentDescription = stringResource(
@@ -439,6 +477,7 @@ fun TaskCard(
                             TaskStepRow(
                                 step = step,
                                 onRetry = { onRetryStep(step.id) },
+                                onTogglePause = { onToggleStepPause(step.id) },
                             )
                         }
                     }
@@ -511,7 +550,11 @@ private fun PhaseBadge(phase: TaskCardPhase, progress: Float) {
 
 /** 单步步骤行(含状态图标 + 标题 + 详情 + 结果 + 耗时 + 重试按钮)。 */
 @Composable
-private fun TaskStepRow(step: TaskStep, onRetry: () -> Unit) {
+private fun TaskStepRow(
+    step: TaskStep,
+    onRetry: () -> Unit,
+    onTogglePause: () -> Unit = {},
+) {
     var isResultExpanded by remember { mutableStateOf(false) }
     val resultPreviewLength = 120
 
@@ -695,6 +738,23 @@ private fun TaskStepRow(step: TaskStep, onRetry: () -> Unit) {
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }
+        }
+        // 仅允许暂停尚未开始的工具;运行中的副作用不强杀。
+        if (step.status == TaskStepStatus.PENDING) {
+            MuseTactileButton(
+                icon = if (step.pauseRequested) MuseIcons.play else MuseIcons.pause,
+                onClick = onTogglePause,
+                contentDescription = stringResource(
+                    if (step.pauseRequested) R.string.task_card_resume_step else R.string.task_card_pause_step,
+                ),
+                tint = if (step.pauseRequested) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                size = 32.dp,
+                iconSize = 16.dp,
+            )
         }
     }
 }

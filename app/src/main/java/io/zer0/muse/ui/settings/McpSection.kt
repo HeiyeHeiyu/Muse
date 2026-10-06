@@ -11,6 +11,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -457,7 +459,7 @@ private fun McpServerRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun McpServerAddDialog(onDismiss: () -> Unit, onAdd: suspend (McpServerConfig) -> Unit) {
     var name by remember { mutableStateOf("") }
@@ -587,7 +589,14 @@ private fun McpServerAddDialog(onDismiss: () -> Unit, onAdd: suspend (McpServerC
                     )
                 }
                 Text(stringResource(R.string.settings_mcp_transport_type), style = MaterialTheme.typography.labelMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Transport labels must keep their intrinsic width. A fixed Row lets
+                // MuseCapsuleButton measure StreamableHTTP/STDIO too narrowly, so the
+                // button's single-line ellipsis hides the actual transport option.
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     MuseCapsuleButton(
                         text = "SSE",
                         onClick = { transportType = McpTransportType.SSE },

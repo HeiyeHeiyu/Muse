@@ -98,6 +98,13 @@ object MusePaddings {
     /** B7-07: 紧凑 chip 垂直内边距。 */
     val compactChipVertical = 1.dp
 
+    /** v2.4.5: 聊天输入岛外边距,让胶囊更轻量且略抬高。 */
+    val inputIslandHorizontal = 12.dp
+    val inputIslandVertical = 2.dp
+
+    /** v2.4.5: 输入岛内部行垂直间距;触控目标仍由 IconSizes.touchTarget 保证。 */
+    val inputIslandRowVertical = 0.dp
+
     /** B7-07: 消息输入框最大高度。 */
     val maxMessageFieldHeight = 160.dp
 

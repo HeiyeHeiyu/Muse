@@ -1,3 +1,5 @@
+@file:Suppress("FunctionNaming")
+
 package io.zer0.muse.ui
 
 import android.view.KeyEvent
@@ -201,6 +203,18 @@ internal fun InputBar(state: MuseInputState = MuseInputState(), callbacks: Input
     var expanded by remember { mutableStateOf(false) }
     // 长按输入栏弹出的动作菜单(全屏输入模式入口)
     var showActionMenu by remember { mutableStateOf(false) }
+    // v2.4.5 fix: 斜杠命令内联补全 — 输入 "/xxx"(尚未含空格)时在输入岛上方给出候选。
+    // 此前 SlashCommand.allCommandNames() 只定义、从未被调用,用户输入 / 看不到任何提示。
+    val slashQuery = text.takeIf { it.startsWith("/") && !it.contains(' ') && !it.contains('\n') }?.removePrefix("/")
+    val slashMatches = remember(slashQuery) {
+        if (slashQuery == null) {
+            emptyList()
+        } else {
+            io.zer0.muse.ui.chat.SlashCommand.entries.filter {
+                it.command.startsWith(slashQuery, ignoreCase = true)
+            }
+        }
+    }
     // F-3: 长按加号展开/收起的快捷工具栏状态(rememberSaveable,旋转/后台保持)。
     // 无现成持久化开关,按任务要求用 rememberSaveable 即可。
     var quickBarExpanded by rememberSaveable { mutableStateOf(false) }
@@ -222,7 +236,11 @@ internal fun InputBar(state: MuseInputState = MuseInputState(), callbacks: Input
             .fillMaxWidth()
             // v1.99: 大R角/曲面屏设备横向安全区避让(displayCutout 在非 cutout 设备上返回 0,安全)
             .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
-            .padding(horizontal = MusePaddings.contentGap),
+            // v2.4.5: 输入岛收窄并略抬高,保留内部 48dp 触控热区。
+            .padding(
+                horizontal = MusePaddings.inputIslandHorizontal,
+                vertical = MusePaddings.inputIslandVertical,
+            ),
         verticalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
     ) {
         // QuickMessages 气泡
@@ -669,9 +687,11 @@ internal fun InputBar(state: MuseInputState = MuseInputState(), callbacks: Input
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // v1.131: 内部 Row vertical padding 6dp → 3dp,缩小输入栏高度
-                    // v1.137 B5: vertical padding 3dp → 1dp,进一步降低高度
-                    .padding(horizontal = MusePaddings.contentGap, vertical = MusePaddings.compactChipVertical)
+                    // v2.4.5: 内部行不再额外撑高胶囊,按钮触控尺寸仍为 48dp。
+                    .padding(
+                        horizontal = MusePaddings.contentGap,
+                        vertical = MusePaddings.inputIslandRowVertical,
+                    )
                     // 长按输入栏弹出动作菜单(全屏输入模式入口)
                     .combinedClickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -888,11 +908,18 @@ internal fun InputBar(state: MuseInputState = MuseInputState(), callbacks: Input
                     }
                 }
 
+                // v2.4.5 fix: 斜杠命令候选(输入 / 开头且未含空格时显示在输入岛上方)
+                if (slashMatches.isNotEmpty() && !isStreaming) {
+                    SlashCommandSuggestions(
+                        commands = slashMatches,
+                        onPick = { cmd -> onTextChanged("/${cmd.command} ") },
+                    )
+                }
+
                 // v1.0.47 P5-4: 抽取 MessageInputField 子组件,隔离输入框高频重组,
                 // 避免 onValueChange 触发整个 InputBar(含工具 Sheet/图片预览等)重组。
                 MessageInputField(
                     text = text,
-                    assistantName = assistantName,
                     isStreaming = isStreaming,
                     isDrawMode = isDrawMode,
                     enterToSend = enterToSend,
@@ -1214,7 +1241,8 @@ internal fun InputBar(state: MuseInputState = MuseInputState(), callbacks: Input
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
-                                imageVector = MuseIcons.send,
+                                // v2.4.5: 发送键换为底部的上箭头实心圆(更干净的 IM 形态;原 send 描边纸飞机偏细)。
+                                imageVector = MuseIcons.arrowUp,
                                 contentDescription = stringResource(R.string.action_send),
                                 tint = if (canSend) MuseActionColors.content else MuseActionColors.mutedContent,
                                 modifier = Modifier.size(MuseIconSizes.iconSmall),
@@ -1340,7 +1368,6 @@ private fun formatVideoDuration(durationMs: Long): String {
 @Composable
 private fun RowScope.MessageInputField(
     text: String,
-    assistantName: String,
     isStreaming: Boolean,
     isDrawMode: Boolean,
     enterToSend: Boolean,
@@ -1452,15 +1479,15 @@ private fun RowScope.MessageInputField(
                 }
             },
         placeholder = {
-            Text(
-                if (isDrawMode) {
-                    stringResource(R.string.chat_placeholder_draw)
-                } else {
-                    stringResource(R.string.chat_placeholder_send, assistantName.ifBlank { "Muse" })
-                },
-                color = MaterialTheme.colorScheme.outline,
-                style = MaterialTheme.typography.bodyLarge,
-            )
+            // v2.4.5: 去掉长占位文字 — 它在低 DPI 手机上会占掉大段横向空间，
+            // 且与输入岛极简风不符。仅绘画模式保留必要指引。
+            if (isDrawMode) {
+                Text(
+                    stringResource(R.string.chat_placeholder_draw),
+                    color = MaterialTheme.colorScheme.outline,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
         },
         keyboardOptions = KeyboardOptions(
             imeAction = if (enterToSend) ImeAction.Send else ImeAction.Default,
@@ -1580,5 +1607,51 @@ private fun QuickBarAction(
             tint = fgColor,
             modifier = Modifier.size(MuseIconSizes.iconMedium),
         )
+    }
+}
+
+
+/**
+ * v2.4.5: 斜杠命令内联补全 — 输入 `/` 开头(未含空格)时在输入岛上方浮出候选。
+ *
+ * 此前 [io.zer0.muse.ui.chat.SlashCommand.allCommandNames] 只定义、从未被任何 UI 调用,
+ * 用户输入 `/` 看不到任何提示;这里把命令表接回输入栏。
+ * 命令描述复用既有 `slash_command_*` 资源(零新增翻译)。
+ */
+@Composable
+private fun SlashCommandSuggestions(
+    commands: List<io.zer0.muse.ui.chat.SlashCommand>,
+    onPick: (io.zer0.muse.ui.chat.SlashCommand) -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MuseShapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.96f),
+        tonalElevation = 2.dp,
+    ) {
+        Column(modifier = Modifier.padding(vertical = MusePaddings.tightGap)) {
+            commands.take(6).forEach { cmd ->
+                Row(
+                    modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { onPick(cmd) },
+                        )
+                        .padding(horizontal = MusePaddings.screen, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(cmd.descriptionResId),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
     }
 }

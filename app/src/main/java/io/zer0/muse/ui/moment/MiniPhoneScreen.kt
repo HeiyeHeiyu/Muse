@@ -56,6 +56,8 @@ import io.zer0.muse.data.moment.MomentEntity
 import io.zer0.muse.data.moment.MomentMessage
 import io.zer0.muse.data.session.SessionEntity
 import io.zer0.muse.ui.common.form.MuseTactileButton
+import io.zer0.muse.ui.common.form.museJumpRailDrag
+import io.zer0.muse.ui.common.form.railTargetFor
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.state.MuseEmptyState
 import io.zer0.muse.ui.theme.MuseIconSizes
@@ -489,10 +491,18 @@ private fun ContactsTab(
                 }
             }
             // 右侧字母索引（通讯录的标志性元素）
+            // v2.4.5 fix(线性化): 保留点击定位,另支持在索引上纵向拖动 —— 按比例连续定位。
             Column(
-                modifier = Modifier
+                modifier =
+                Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(end = 4.dp),
+                    .padding(end = 4.dp)
+                    .museJumpRailDrag(
+                        onFraction = { fraction ->
+                            val letter = letters.getOrNull(railTargetFor(fraction, letters.size).index) ?: return@museJumpRailDrag
+                            scope.launch { listState.scrollToItem(headerIndices[letter] ?: 0) }
+                        },
+                    ),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 letters.forEach { letter ->
