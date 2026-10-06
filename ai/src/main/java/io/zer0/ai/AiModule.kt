@@ -92,11 +92,11 @@ private const val TEMPERATURE_EPSILON = 0.0001f
  * 由 [ProviderCompat.maxTemperatureExclusive] 声明。原值透传会被上游以
  * 400 "field Temperature invalid" 拒绝,这里统一收紧。
  */
-internal fun normalizeTemperature(temperature: Float?, compat: ProviderCompat): Float? =
-    temperature?.let { raw ->
-        val upper = compat.maxTemperatureExclusive?.let { it - TEMPERATURE_EPSILON } ?: MAX_TEMPERATURE
-        raw.coerceIn(MIN_TEMPERATURE, upper)
-    }
+internal fun normalizeTemperature(temperature: Float?, compat: ProviderCompat): Float? {
+    val raw = temperature ?: return null
+    val upper = compat.maxTemperatureExclusive?.let { it - TEMPERATURE_EPSILON } ?: MAX_TEMPERATURE
+    return raw.coerceIn(MIN_TEMPERATURE, upper)
+}
 
 /**
  * Decide whether the request should carry tool definitions.
