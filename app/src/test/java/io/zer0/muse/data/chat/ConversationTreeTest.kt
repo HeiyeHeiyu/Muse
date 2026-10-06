@@ -282,6 +282,22 @@ class ConversationTreeTest {
     }
 
     @Test
+    fun branchInfoIndex_uses_each_user_variant_as_assistant_parent() {
+        val u1 = user("提问A", group = "ug-index", index = 0, count = 2, at = 100)
+        val u2 = user("提问A改", group = "ug-index", index = 1, count = 2, at = 102)
+        val a1 = assistant("回答A", group = "ag-index", index = 0, count = 1, parentGroup = u1.id.toString(), at = 101)
+        val b1 = assistant("回答B", group = "bg-index", index = 0, count = 1, parentGroup = u2.id.toString(), at = 103)
+        val tree = ConversationTree
+            .build(listOf(u1, a1, u2, b1))
+            .selectUserVariant("ug-index", 0)
+
+        val index = tree.buildBranchInfoIndex()
+
+        assertEquals(u1.id.toString(), index[a1.id.toString()]?.parentGroupId)
+        assertEquals(u2.id.toString(), index[b1.id.toString()]?.parentGroupId)
+    }
+
+    @Test
     fun build_normalizesDuplicateVariantIndexes() {
         val u = user("提问", group = "ug1")
         val a1 = assistant("回答1", group = "ag1", index = 1, count = 2, parentGroup = u.id.toString(), at = 101)

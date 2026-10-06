@@ -98,6 +98,36 @@ class WorkspaceManager(private val context: Context) {
         }
     }
 
+    /** Read a workspace file in full when small, or return a character page for large files. */
+    suspend fun readFilePage(
+        relativePath: String,
+        offsetChars: Int? = null,
+        lengthChars: Int? = null,
+    ): ReadResult = withContext(Dispatchers.IO) {
+        val file = resolveSafe(relativePath, allowRoot = false, mustExist = true, mustBeDirectory = false)
+            ?: return@withContext ReadResult.Error("非法路径或文件不存在: $relativePath")
+        if (!file.isFile) return@withContext ReadResult.Error("不是文件: $relativePath")
+        try {
+            val content =
+                if (offsetChars == null && lengthChars == null && file.length() <= MAX_READ_BYTES) {
+                    file.readText(Charsets.UTF_8)
+                } else {
+                    io.zer0.muse.tools.ToolTextFilePager.readPage(
+                        file = file,
+                        path = relativePath,
+                        charset = Charsets.UTF_8,
+                        requestedOffset = offsetChars ?: 0,
+                        requestedLength = lengthChars ?: io.zer0.muse.tools.TOOL_OUTPUT_READ_PAGE_CHARS,
+                        continuationTool = "workspace_read",
+                    )
+                }
+            ReadResult.Success(content)
+        } catch (e: Exception) {
+            Logger.w(TAG, "readFilePage 失败: ${e.message}")
+            ReadResult.Error("读取失败: ${e.message}")
+        }
+    }
+
     /**
      * 写入文本文件(UTF-8,覆盖写入)。
      *

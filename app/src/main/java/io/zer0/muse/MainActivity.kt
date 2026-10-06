@@ -17,6 +17,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -28,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
@@ -231,10 +233,21 @@ class MainActivity : ComponentActivity() {
         // 不再在 onCreate 里调用 applyLanguage(setApplicationLocales 在 ComponentActivity 上
         // Android 12 及以下 backport 不生效)。
         setContent {
-            // I4: 语言热切换 — 收集语言流,经 RuntimeLocaleProvider 覆盖 Compose 资源,
-            // 切换语言仅重组 UI,不重建 Activity(冷启动初始语言仍由 attachBaseContext 保证)。
-            val language by settings.languageFlow.collectAsStateWithLifecycle(initialValue = "system")
-            RuntimeLocaleProvider(lang = language) {
+            val startupReady by (application as MuseApp).startupReady.collectAsStateWithLifecycle()
+            if (!startupReady) {
+                MuseTheme(darkTheme = isSystemInDarkTheme()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            } else {
+                // I4: 语言热切换 — 收集语言流,经 RuntimeLocaleProvider 覆盖 Compose 资源,
+                // 切换语言仅重组 UI,不重建 Activity(冷启动初始语言仍由 attachBaseContext 保证)。
+                val language by settings.languageFlow.collectAsStateWithLifecycle(initialValue = "system")
+                RuntimeLocaleProvider(lang = language) {
                 // P6-C: 主题模式跟随用户设置(System / Light / Dark)
                 val themeMode by settings.themeModeFlow.collectAsStateWithLifecycle(initialValue = "system")
                 val darkTheme = when (themeMode) {
@@ -282,7 +295,8 @@ class MainActivity : ComponentActivity() {
                         MuseToastHost()
                     }
                 }
-            } // RuntimeLocaleProvider
+                } // RuntimeLocaleProvider
+            }
         }
     }
 

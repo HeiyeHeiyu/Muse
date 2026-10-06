@@ -59,6 +59,10 @@ interface KnowledgeDocDao {
     @Query("SELECT * FROM knowledge_docs WHERE kb_id IN (:kbIds) AND is_internal = 0")
     suspend fun getByKbIds(kbIds: List<String>): List<KnowledgeDocEntity>
 
+    /** v2.4.x: 列出全部内部文档(devdoc)，供 seeder 增量建索引。 */
+    @Query("SELECT * FROM knowledge_docs WHERE is_internal = 1")
+    suspend fun getInternalDocs(): List<KnowledgeDocEntity>
+
     /** v1.133: 按 content_hash 查询(增量更新判断)。 */
     @Query("SELECT * FROM knowledge_docs WHERE content_hash = :hash LIMIT 1")
     suspend fun findByContentHash(hash: String): KnowledgeDocEntity?

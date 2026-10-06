@@ -147,6 +147,8 @@ data class ChatPreferences(
     val longMessageThreshold: Int = 200,
     /** 是否显示工具调用的中间过程消息。 */
     val showToolCallDetails: Boolean = true,
+    /** 是否暂停本轮及后续回合的真实工具执行(思考与最终回复仍可继续)。 */
+    val pauseToolExecution: Boolean = false,
     /** 时间戳是否使用 24 小时制。 */
     val use24Hour: Boolean = true,
     /**

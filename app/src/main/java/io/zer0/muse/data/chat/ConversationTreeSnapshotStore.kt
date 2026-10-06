@@ -24,10 +24,18 @@ class ConversationTreeSnapshotStore(private val context: Context) {
     )
 
     @Serializable
+    data class SnapshotVariant(
+        val messageId: String,
+        val variantIndex: Int,
+        val assistants: List<SnapshotAssistant> = emptyList(),
+    )
+
+    @Serializable
     data class SnapshotUser(
         val groupId: String,
         val selectIndex: Int,
         val assistants: List<SnapshotAssistant> = emptyList(),
+        val variants: List<SnapshotVariant> = emptyList(),
     )
 
     @Serializable
@@ -46,11 +54,20 @@ class ConversationTreeSnapshotStore(private val context: Context) {
                 selectedUserIndex = tree.selectedUserIndex,
                 users = tree.userNodes.map { user ->
                     SnapshotUser(
-                        groupId = user.currentVariant?.message?.variantGroupId ?: user.groupId,
+                        groupId = user.groupId,
                         selectIndex = user.selectIndex,
                         assistants = user.currentVariant?.assistantNodes?.map { assistant ->
                             SnapshotAssistant(assistant.groupId, assistant.selectIndex)
                         } ?: emptyList(),
+                        variants = user.variants.map { variant ->
+                            SnapshotVariant(
+                                messageId = variant.message.id.toString(),
+                                variantIndex = variant.message.variantIndex,
+                                assistants = variant.assistantNodes.map { assistant ->
+                                    SnapshotAssistant(assistant.groupId, assistant.selectIndex)
+                                },
+                            )
+                        },
                     )
                 },
             )
@@ -81,30 +98,57 @@ class ConversationTreeSnapshotStore(private val context: Context) {
 
     private fun TreeSnapshot.toTree(): ConversationTree {
         val userNodes = users.mapIndexed { index, user ->
+            val savedVariants = user.variants
+            val variants =
+                if (savedVariants.isNotEmpty()) {
+                    savedVariants.map { variant ->
+                        ConversationTree.UserVariant(
+                            message = io.zer0.ai.core.UIMessage(
+                                id = runCatching { kotlin.uuid.Uuid.parse(variant.messageId) }
+                                    .getOrElse { kotlin.uuid.Uuid.random() },
+                                role = io.zer0.ai.core.MessageRole.USER,
+                                content = "",
+                                createdAt = 0,
+                                variantGroupId = user.groupId,
+                                variantIndex = variant.variantIndex,
+                                variantCount = savedVariants.size,
+                            ),
+                            assistantNodes = variant.assistants.map { assistant ->
+                                ConversationTree.AssistantNode(
+                                    groupId = assistant.groupId,
+                                    variants = emptyList(),
+                                    selectIndex = assistant.selectIndex,
+                                )
+                            },
+                        )
+                    }
+                } else {
+                    listOf(
+                        ConversationTree.UserVariant(
+                            message = io.zer0.ai.core.UIMessage(
+                                id = kotlin.uuid.Uuid.random(),
+                                role = io.zer0.ai.core.MessageRole.USER,
+                                content = "",
+                                createdAt = 0,
+                                variantGroupId = user.groupId,
+                                variantIndex = 0,
+                                variantCount = 1,
+                            ),
+                            assistantNodes = user.assistants.map { assistant ->
+                                ConversationTree.AssistantNode(
+                                    groupId = assistant.groupId,
+                                    variants = emptyList(),
+                                    selectIndex = assistant.selectIndex,
+                                )
+                            },
+                        ),
+                    )
+                }
             ConversationTree.UserNode(
                 userId = "snapshot-$index",
                 groupId = user.groupId,
-                variants = listOf(
-                    ConversationTree.UserVariant(
-                        message = io.zer0.ai.core.UIMessage(
-                            id = kotlin.uuid.Uuid.random(),
-                            role = io.zer0.ai.core.MessageRole.USER,
-                            content = "",
-                            createdAt = 0,
-                            variantGroupId = user.groupId,
-                            variantIndex = 0,
-                            variantCount = 1,
-                        ),
-                        assistantNodes = user.assistants.map { assistant ->
-                            ConversationTree.AssistantNode(
-                                groupId = assistant.groupId,
-                                variants = emptyList(),
-                                selectIndex = assistant.selectIndex,
-                            )
-                        },
-                    ),
-                ),
-                selectIndex = user.selectIndex.coerceIn(0, 0),
+                variants = variants,
+                selectIndex = user.selectIndex.coerceIn(0, (variants.size - 1).coerceAtLeast(0)),
             )
         }
         return ConversationTree(

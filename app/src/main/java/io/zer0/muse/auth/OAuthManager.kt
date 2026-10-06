@@ -6,6 +6,7 @@ import android.net.Uri
 import android.util.Base64
 import io.zer0.ai.core.OAuthConfig
 import io.zer0.common.Logger
+import io.zer0.common.resultOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Deferred
@@ -190,14 +191,14 @@ object OAuthManager {
         }
 
         // 1. 请求 device_code
-        val deviceResp = withContext(Dispatchers.IO) {
-            runCatching {
+        val deviceResp: Result<DeviceCodeResponse> = withContext(Dispatchers.IO) {
+            try {
                 val form = FormBody.Builder()
                     .add("client_id", config.clientId)
                     .apply { if (config.scope.isNotBlank()) add("scope", config.scope) }
                     .build()
                 val request = Request.Builder().url(deviceCodeUrl).post(form).build()
-                httpClient.newCall(request).execute().use { resp ->
+                val response = httpClient.newCall(request).execute().use { resp ->
                     if (!resp.isSuccessful) {
                         val body = resp.body?.string().orEmpty()
                         error("device_code 请求失败: HTTP ${resp.code}${oauthErrorField(body)}")
@@ -207,6 +208,11 @@ object OAuthManager {
                         resp.body?.string().orEmpty(),
                     )
                 }
+                Result.success(response)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Result.failure<DeviceCodeResponse>(error)
             }
         }
         if (deviceResp.isFailure) {
@@ -540,7 +546,7 @@ object OAuthManager {
     /** P2-11: 用 refresh_token 换新 access_token(refresh_token grant)。 */
     private suspend fun refreshAccessToken(config: OAuthConfig, refreshToken: String): TokenResponse? {
         return withContext(Dispatchers.IO) {
-            runCatching {
+            resultOf {
                 val form = FormBody.Builder()
                     .add("grant_type", "refresh_token")
                     .add("refresh_token", refreshToken)
@@ -560,7 +566,7 @@ object OAuthManager {
                         body,
                     )
                 }
-            }.onFailure { Logger.w(TAG, "refresh_token 请求异常: ${it.message}", it) }.getOrNull()
+            }.onError { msg, t -> Logger.w(TAG, "refresh_token 请求异常: $msg", t) }.getOrNull()
         }
     }
 
@@ -585,7 +591,7 @@ object OAuthManager {
     /** 轮询 token 端点(Device Flow)。 */
     private suspend fun pollToken(config: OAuthConfig, deviceCode: String): TokenResponse {
         return withContext(Dispatchers.IO) {
-            runCatching {
+            resultOf {
                 val form = FormBody.Builder()
                     .add("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
                     .add("device_code", deviceCode)
@@ -601,7 +607,9 @@ object OAuthManager {
                         body,
                     )
                 }
-            }.getOrNull() ?: TokenResponse(error = "network_error", error_description = "网络请求失败")
+            }.onError { msg, t -> Logger.w(TAG, "OAuth token 轮询请求异常: $msg", t) }
+                .getOrNull()
+                ?: TokenResponse(error = "network_error", error_description = "网络请求失败")
         }
     }
 
@@ -613,7 +621,7 @@ object OAuthManager {
      */
     private suspend fun exchangeCodeForToken(config: OAuthConfig, code: String, codeVerifier: String): TokenResponse? {
         return withContext(Dispatchers.IO) {
-            runCatching {
+            resultOf {
                 val form = FormBody.Builder()
                     .add("grant_type", "authorization_code")
                     .add("code", code)
@@ -640,7 +648,7 @@ object OAuthManager {
                     }
                     token
                 }
-            }.onFailure { Logger.w(TAG, "token 交换请求异常: ${it.message}", it) }.getOrNull()
+            }.onError { msg, t -> Logger.w(TAG, "token 交换请求异常: $msg", t) }.getOrNull()
         }
     }
 

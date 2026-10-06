@@ -114,10 +114,8 @@ data class ConversationTree(
         val map = HashMap<String, BranchInfo>(sizeEstimate)
         userNodes.forEach { user ->
             val userGroupId = user.currentVariant?.message?.variantGroupId ?: user.groupId
-            val userParentId = user.currentVariant?.message?.id?.toString()
-                ?: user.currentVariant?.message?.variantGroupId
-                ?: user.groupId
             user.variants.forEach { variant ->
+                val userParentId = variant.message.id.toString()
                 map.putIfAbsent(
                     variant.message.id.toString(),
                     BranchInfo(

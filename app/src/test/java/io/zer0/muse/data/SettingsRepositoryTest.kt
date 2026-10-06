@@ -1,5 +1,6 @@
 package io.zer0.muse.data
 
+import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import io.mockk.mockk
@@ -16,7 +17,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [33])
+@Config(sdk = [33], application = SettingsRepositoryTestApplication::class)
 class SettingsRepositoryTest {
 
     private val context: Context get() = ApplicationProvider.getApplicationContext()
@@ -107,3 +108,5 @@ class SettingsRepositoryTest {
         assertFalse("显式清除密码后 backupPasswordSet 必须为 false", readBack.backupPasswordSet)
     }
 }
+
+class SettingsRepositoryTestApplication : Application()

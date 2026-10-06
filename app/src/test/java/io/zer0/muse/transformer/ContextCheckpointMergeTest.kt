@@ -77,6 +77,28 @@ class ContextCheckpointMergeTest {
     }
 
     @Test
+    fun `partial paged history can apply checkpoint by covered sequence`() {
+        val system = msg(MessageRole.SYSTEM, "系统")
+        val user = msg(MessageRole.USER, "当前问题")
+        val assistantAfter =
+            msg(MessageRole.ASSISTANT, "边界之后的回复").copy(seq = 50, commitSeq = 2)
+        val toolAfter =
+            msg(MessageRole.TOOL, "边界之后的工具结果").copy(seq = 51, commitSeq = 1)
+
+        val result =
+            ContextCheckpointMerge.apply(
+                listOf(system, user, assistantAfter, toolAfter),
+                checkpoint(boundaryId = "older-message", coveredSeq = 42L),
+            )
+
+        assertTrue("分页窗口不含边界时仍应使用持久检查点摘要", result.applied)
+        assertTrue(result.messages.first().content.startsWith(ContextCheckpointMerge.MARKER))
+        assertTrue(result.messages.any { it.content == "当前问题" })
+        assertTrue(result.messages.any { it.content == "边界之后的回复" })
+        assertTrue(result.messages.any { it.content == "边界之后的工具结果" })
+    }
+
+    @Test
     fun `blank boundary id means no merge`() {
         val history = listOf(msg(MessageRole.USER, "a"), msg(MessageRole.ASSISTANT, "b"))
         assertFalse(ContextCheckpointMerge.apply(history, checkpoint("")).applied)

@@ -94,6 +94,11 @@ class AutoBackupHelper(
         staging.mkdirs()
         val snapshotFiles = mutableListOf<Pair<String, File>>()
         for (name in dbNames) {
+            if (io.zer0.common.ProcessWriteGate.restoring ||
+                backupBlocksRestore("数据库快照")
+            ) {
+                return@withContext false
+            }
             val dbFile = context.getDatabasePath(name)
             if (!dbFile.exists()) continue
             val snap = File(staging, name)
@@ -106,6 +111,11 @@ class AutoBackupHelper(
         }
 
         // 2. 打包
+        if (io.zer0.common.ProcessWriteGate.restoring ||
+            backupBlocksRestore("备份压缩包")
+        ) {
+            return@withContext false
+        }
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date(now))
         val target = File(backupDir, "$BACKUP_FILE_PREFIX$timestamp$BACKUP_FILE_SUFFIX")
         val zipped = zipSnapshots(snapshotFiles, target)
@@ -114,6 +124,11 @@ class AutoBackupHelper(
         staging.deleteRecursively()
 
         if (zipped) {
+            if (io.zer0.common.ProcessWriteGate.restoring ||
+                backupBlocksRestore("备份结果")
+            ) {
+                return@withContext false
+            }
             val messageCount = try {
                 messageDao.countMessages().toLong()
             } catch (e: Exception) {
@@ -165,6 +180,12 @@ class AutoBackupHelper(
             target.delete()
             false
         }
+    }
+
+    private fun backupBlocksRestore(operation: String): Boolean {
+        if (!io.zer0.common.ProcessWriteGate.restoring) return false
+        Logger.w(TAG, "备份恢复进行中，跳过自动备份${operation}写入")
+        return true
     }
 
     /**

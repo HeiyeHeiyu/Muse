@@ -1234,7 +1234,8 @@ class SettingsRepository(
      * 全局默认会话权限模式 — 控制工具调用是否需要用户审批。
      *
      * 三档:
-     *  - [SessionPermissionMode.TRUSTED]:完全放权,所有工具直接调用,不需批准
+     *  - [SessionPermissionMode.TRUSTED]:完全放权,所有工具直接调用,不需逐次批准
+     *    (显式禁用/参数硬拒绝与工具自身沙箱仍生效)
      *  - [SessionPermissionMode.ASK](默认):SAFE 工具自动放行,NORMAL/HIGH 需批准
      *  - [SessionPermissionMode.STRICT]:严格模式,仅白名单工具可用,其余全部禁止
      *

@@ -29,6 +29,36 @@ import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
+/** Stable labels used to constrain visible reasoning language to the app interface locale. */
+internal fun thinkingLanguageName(locale: String): String = when (locale.lowercase()) {
+    "zh", "zh-cn", "zh-hans" -> "中文"
+    "en", "en-us", "en-gb" -> "English"
+    "ja", "ja-jp" -> "日本語"
+    "ko", "ko-kr" -> "한국어"
+    "es", "es-es", "es-419" -> "Español"
+    "pt", "pt-br", "pt-pt" -> "Português"
+    "ru", "ru-ru" -> "Русский"
+    else -> "the configured system language"
+}
+
+/** Prompt contract for reasoning-capable providers and tool continuation rounds. */
+internal fun thinkingInstruction(locale: String): String {
+    val thinkingLang = thinkingLanguageName(locale)
+    return if (thinkingLang == "中文") {
+        "思考语言\n" +
+            "- 内部推理(reasoning_content)和思考过程必须使用中文\n" +
+            "- 开启思考且模型支持 reasoning 时，每一轮回复和每一轮工具调用前都先输出思考内容\n" +
+            "- 模型不支持 reasoning 或未返回思考内容时，不要伪造思考\n" +
+            "- 回复正文使用与用户提问一致的语言"
+    } else {
+        "Thinking language\n" +
+            "- All internal reasoning, thinking process, and analysis must use $thinkingLang\n" +
+            "- When thinking is enabled and the model supports reasoning, emit reasoning before every response and before each tool call round\n" +
+            "- Never fabricate reasoning when the model does not support it or does not return it\n" +
+            "- Keep the final answer in the user's language when it differs"
+    }
+}
+
 /**
  * v0.30-a: 系统提示组装器(6 步工作流 第 1 步)。
  *
@@ -334,15 +364,8 @@ class SystemPromptAssembler(
             if (styleSection.isNotBlank()) sections.add(styleSection)
 
             // v1.0.51: 思考指令跟随 locale(zh 用中文思考,en 用英文思考)
-            // v1.0.52: 根据语言设置决定思考语言,不强制覆盖用户用其他语言的提问
-            val thinkingLang = if (locale == "zh") "中文" else "the user's language"
-            sections.add(
-                if (locale == "zh") {
-                    "思考语言\n- 内部推理(reasoning_content)和思考过程优先使用中文\n- 回复正文使用与用户提问一致的语言"
-                } else {
-                    "Thinking language\n- All internal reasoning, thinking process, and analysis must use $thinkingLang"
-                },
-            )
+            // v2.x: 思考语言固定跟随应用界面语言，并明确工具轮次的思考契约。
+            sections.add(thinkingInstruction(locale))
 
             // ── 2. 用户画像 ──
             // v1.0.72: ignoreMemory=true 时跳过全部记忆类注入(用户画像/近期会话/置顶/长期/群聊/经验),

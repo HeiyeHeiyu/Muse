@@ -84,6 +84,14 @@ val appModule = module {
     single { get<MuseDb>().folderDao() } // Phase 9.1 (M13)
     single { get<MuseDb>().scheduledTaskDao() } // 定时任务
     single { get<MuseDb>().knowledgeDocDao() } // 知识�?
+    single {
+        io.zer0.muse.data.knowledge.BuiltInKnowledgeDocSeeder(
+            androidContext(),
+            get(),
+            ragService = get(),
+            ragConfigProvider = { get<io.zer0.muse.data.SettingsRepository>().getRagConfig() },
+        )
+    }
     single { get<MuseDb>().knowledgeChunkDao() } // v1.54: 知识库分�?RAG)
     single { get<MuseDb>().scheduledTaskExecutionDao() } // P1-7: 定时任务执行历史
     single { get<MuseDb>().groupChatDao() } // v1.30: 群聊
@@ -296,6 +304,14 @@ val appModule = module {
             cardDataStore = get(),
         )
     }
+    // v2.x: current-session original conversation recall, scoped by host context.
+    single {
+        io.zer0.muse.tools.ConversationSearchToolsRegistrar(
+            toolRegistry = get(),
+            sessionRepository = get(),
+            settings = get(),
+        )
+    }
     // v1.0.52 P2-1: Passive Subagent 运行器(同步阻塞式独立子 agent,完整工具循环)
     // B2-04: 子代理审批路由(主会话注册 delegate,子代理复用同一审批链路)
     single { io.zer0.muse.tools.ToolApprovalRouter() }
@@ -426,6 +442,7 @@ val appModule = module {
             translateToolsRegistrar = get(),
             ttsToolsRegistrar = get(),
             agentToolsRegistrar = get(),
+            conversationSearchToolsRegistrar = get(),
             workspaceToolsRegistrar = get(),
             fileToolsRegistrar = get(),
             pdfVisionToolsRegistrar = get(),
@@ -496,6 +513,7 @@ val appModule = module {
                     )
                 }
             },
+            builtInKnowledgeDocSeeder = get(),
         )
     }
     // P1-3e 拆域: Skill Agent 工作流/群聊工具实现(被 SkillExecutor 委托调用)

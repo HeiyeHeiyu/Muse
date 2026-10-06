@@ -2,11 +2,15 @@ package io.zer0.muse.runtime
 
 import android.content.Context
 import io.zer0.common.Logger
+import io.zer0.muse.tools.TOOL_OUTPUTS_DIR
+import io.zer0.muse.tools.ToolOutputCapture
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
+import java.io.InputStreamReader
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipInputStream
 
@@ -31,9 +35,7 @@ import java.util.zip.ZipInputStream
 @Suppress("TooManyFunctions") // 运行时门面：路径访问器 + 执行入口集合，属设计如此
 object MuseRuntime {
     private const val TAG = "MuseRuntime"
-
-    /** 子进程 stdout/stderr 各自的最大采集字节数。 */
-    private const val MAX_OUTPUT_BYTES = 256 * 1024
+    private const val OUTPUT_DRAIN_TIMEOUT_MS = 30_000L
 
     /** 内置 node 二进制（jniLibs 内，命名需符合 lib*.so 规范）。 */
     const val NODE_LIB_NAME = "libmuse_node.so"
@@ -184,6 +186,9 @@ object MuseRuntime {
         val stdout: String,
         val stderr: String,
         val timedOut: Boolean = false,
+        val stdoutFile: File? = null,
+        val stderrFile: File? = null,
+        val captureError: String? = null,
     )
 
     /** 执行内置 node（args 追加在 node 路径之后）。 */
@@ -218,10 +223,12 @@ object MuseRuntime {
         pb.environment().putAll(buildEnv(ctx, env))
 
         val process = pb.start()
-        val outBuf = ByteArrayOutputStream()
-        val errBuf = ByteArrayOutputStream()
-        val tOut = Thread { runCatching { process.inputStream.copyToLimited(outBuf, MAX_OUTPUT_BYTES) } }
-        val tErr = Thread { runCatching { process.errorStream.copyToLimited(errBuf, MAX_OUTPUT_BYTES) } }
+        val outputDirectory = File(ctx.filesDir, TOOL_OUTPUTS_DIR)
+        val outCapture = ToolOutputCapture(outputDirectory, "node_stdout")
+        val errCapture = ToolOutputCapture(outputDirectory, "node_stderr")
+        val captureFailure = AtomicReference<Throwable?>(null)
+        val tOut = outputReaderThread("muse-node-stdout", process.inputStream, outCapture, captureFailure)
+        val tErr = outputReaderThread("muse-node-stderr", process.errorStream, errCapture, captureFailure)
         tOut.start()
         tErr.start()
 
@@ -230,28 +237,83 @@ object MuseRuntime {
             process.destroyForcibly()
             process.waitFor(3, TimeUnit.SECONDS)
         }
-        tOut.join(2_000)
-        tErr.join(2_000)
+        tOut.join(OUTPUT_DRAIN_TIMEOUT_MS)
+        tErr.join(OUTPUT_DRAIN_TIMEOUT_MS)
+        if (tOut.isAlive) {
+            runCatching { process.inputStream.close() }
+            tOut.join(1_000)
+            captureFailure.compareAndSet(null, IOException("stdout 输出流未能完整排空"))
+        }
+        if (tErr.isAlive) {
+            runCatching { process.errorStream.close() }
+            tErr.join(1_000)
+            captureFailure.compareAndSet(null, IOException("stderr 输出流未能完整排空"))
+        }
+
+        val outputFailure = captureFailure.get()
+        if (outputFailure != null) {
+            val partialStdout =
+                runCatching {
+                    outCapture.finish(
+                        header = "[stdout 输出未能完整接收]",
+                        emptyMessage = "",
+                    )
+                }.getOrElse {
+                    outCapture.close()
+                    outCapture.savedFile?.let { "[stdout 部分输出文件: ${it.absolutePath}]" }.orEmpty()
+                }
+            val partialStderr =
+                runCatching {
+                    errCapture.finish(
+                        header = "[stderr 输出未能完整接收]",
+                        emptyMessage = "",
+                    )
+                }.getOrElse {
+                    errCapture.close()
+                    errCapture.savedFile?.let { "[stderr 部分输出文件: ${it.absolutePath}]" }.orEmpty()
+                }
+            return@withContext ExecResult(
+                exitCode = if (finished) runCatching { process.exitValue() }.getOrDefault(-1) else -1,
+                stdout = partialStdout,
+                stderr = partialStderr,
+                timedOut = !finished,
+                stdoutFile = outCapture.savedFile,
+                stderrFile = errCapture.savedFile,
+                captureError = outputFailure.message ?: outputFailure.javaClass.simpleName,
+            )
+        }
+
+        val stdout = outCapture.finish(header = "", emptyMessage = "")
+        val stderr = errCapture.finish(header = "", emptyMessage = "")
 
         ExecResult(
             exitCode = if (finished) runCatching { process.exitValue() }.getOrDefault(-1) else -1,
-            stdout = outBuf.toByteArray().toString(Charsets.UTF_8).trim(),
-            stderr = errBuf.toByteArray().toString(Charsets.UTF_8).trim(),
+            stdout = stdout,
+            stderr = stderr,
             timedOut = !finished,
+            stdoutFile = outCapture.savedFile,
+            stderrFile = errCapture.savedFile,
         )
     }
 
-    private fun InputStream.copyToLimited(out: ByteArrayOutputStream, limit: Int) {
-        val buf = ByteArray(64 * 1024)
-        var total = 0
-        while (true) {
-            val n = read(buf)
-            if (n < 0) break
-            if (total < limit) {
-                val w = minOf(n, limit - total)
-                out.write(buf, 0, w)
-                total += w
+    private fun outputReaderThread(
+        threadName: String,
+        input: InputStream,
+        capture: ToolOutputCapture,
+        failure: AtomicReference<Throwable?>,
+    ): Thread =
+        Thread({
+            try {
+                InputStreamReader(input, Charsets.UTF_8).buffered().use { reader ->
+                    val buffer = CharArray(8_192)
+                    while (true) {
+                        val count = reader.read(buffer)
+                        if (count < 0) break
+                        capture.append(String(buffer, 0, count))
+                    }
+                }
+            } catch (error: Throwable) {
+                failure.compareAndSet(null, error)
             }
-        }
-    }
+        }, threadName)
 }

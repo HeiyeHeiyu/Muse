@@ -27,8 +27,6 @@ import io.zer0.muse.boot.BootReceiver
 import io.zer0.muse.crash.MuseCrashHandler
 import io.zer0.muse.data.SettingsRepository
 import io.zer0.muse.data.assistant.AssistantRepository
-import io.zer0.muse.data.knowledge.KnowledgeDocDao
-import io.zer0.muse.data.knowledge.KnowledgeDocEntity
 import io.zer0.muse.data.quicknote.QuickNoteDao
 import io.zer0.muse.data.skill.SkillRepository
 import io.zer0.muse.notification.MuseNotificationManager
@@ -44,6 +42,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
@@ -75,7 +76,7 @@ class MuseApp : Application(), ImageLoaderFactory {
     private val diaryGenerator: io.zer0.muse.data.diary.DiaryGenerator by inject()
     private val assistantRepository: AssistantRepository by inject()
     private val skillRepository: SkillRepository by inject()
-    private val knowledgeDocDao: KnowledgeDocDao by inject()
+    private val builtInKnowledgeDocSeeder: io.zer0.muse.data.knowledge.BuiltInKnowledgeDocSeeder by inject()
     private val notificationManager: MuseNotificationManager by inject()
     private val webServer: WebServer by inject()
     private val settings: SettingsRepository by inject()
@@ -150,6 +151,10 @@ class MuseApp : Application(), ImageLoaderFactory {
     // v0.53: 加 GlobalCoroutineExceptionHandler,防止协程内未捕获异常导致应用崩溃(企业级容错)
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO + GlobalCoroutineExceptionHandler)
 
+    /** MainActivity waits for an interrupted restore rollback before creating DB-backed screens. */
+    private val _startupReady = MutableStateFlow(false)
+    val startupReady: StateFlow<Boolean> = _startupReady.asStateFlow()
+
     /** 同一进程只触发一次 app_resume 巡检，避免 HomeScreen 重组重复调用决策 LLM。 */
     private val resumePatrolTriggered = AtomicBoolean(false)
 
@@ -211,16 +216,8 @@ class MuseApp : Application(), ImageLoaderFactory {
             MuseCrashHandler.markSafeMode(this)
             return
         }
-        restoreJournal.incompleteEntry()?.let { entry ->
-            Logger.w(
-                "MuseApp",
-                "检测到未完成的备份恢复: restoreId=${entry.restoreId}, phase=${entry.phase}, " +
-                    "completedStores=${entry.completedStores}",
-            )
-            appScope.launch {
-                backupService.recoverIncompleteRestore()
-            }
-        }
+        val incompleteRestore = restoreJournal.incompleteEntry()
+        val initializeRuntime: MuseApp.() -> Unit = {
         // 强制实例化全部工具注册器，让 100+ 工具在启动后即可用
         toolRegistrarBootstrapper
         // v1.0.80: 初始化 UI 自动化模块(三层权限: 无障碍/Shell/Root)
@@ -446,9 +443,12 @@ class MuseApp : Application(), ImageLoaderFactory {
             }.onError { msg, t -> Logger.w("MuseApp", "内置 Skills 初始化失败", t) }
         }
         // v0.43: seed 内置开发文档到知识库(用稳定 id,升级时内容更新但不重复;fileType="devdoc" 用于 UI 过滤)
+        // v2.4.x: seed 后追加内部文档向量索引(增量、后台;embedding 不可用时保留关键词兜底)
         appScope.launch {
             resultOf { seedDevDocs() }
                 .onError { msg, t -> Logger.w("MuseApp", "seedDevDocs 失败", t) }
+            resultOf { indexDevDocs() }
+                .onError { msg, t -> Logger.w("MuseApp", "indexDevDocs 失败", t) }
         }
         // v1.0.17: 快速记录 JSON → Room 一次性迁移
         // 通过 SharedPreferences 标志 quick_notes_migrated 保证仅执行一次:
@@ -552,7 +552,7 @@ class MuseApp : Application(), ImageLoaderFactory {
             scheduler.start()
         }.onError { msg, t -> Logger.w("MuseApp", "MomentScheduler 启动失败: ${t?.message ?: msg}", t) }
         // B-40: 朋友圈 WorkManager 兜底 — App 被杀后由系统每 15 分钟拉起一次检查生成动态
-        // KEEP 策略:已存在则保留旧 schedule(避免重复注册);进程内 Runner 存活时 Worker 会自动跳过
+        // KEEP 策略:已存在则保留旧 schedule(避免重复注册);Worker 与进程内 Runner 共享互斥检查门
         resultOf {
             val request =
                 androidx.work.PeriodicWorkRequestBuilder<io.zer0.muse.schedule.MomentWorker>(
@@ -667,8 +667,8 @@ class MuseApp : Application(), ImageLoaderFactory {
             resultOf { auditLogger.cleanupOldLogs() }
                 .onError { msg, t -> Logger.w("MuseApp", "审计日志清理失败: ${t?.message ?: msg}", t) }
         }
-        // v1.x: 启动时清理超过 24 小时的工具输出文件(fire-and-forget,失败不影响应用启动)
-        // 工具输出超长截断时完整内容会落盘到 filesDir/tool_outputs/,App 启动时清理过期文件避免累积。
+        // v1.x: 启动时清理超过 24 小时的工具输出文件(fire-and-forget,失败不影响应用启动)。
+        // 超出上下文窗口的完整结果保存在 filesDir/tool_outputs/ 并由 read_file 分页读取。
         appScope.launch {
             resultOf { io.zer0.muse.tools.cleanupOldToolOutputs(this@MuseApp) }
                 .onError { msg, t -> Logger.w("MuseApp", "工具输出文件清理失败: ${t?.message ?: msg}", t) }
@@ -697,6 +697,39 @@ class MuseApp : Application(), ImageLoaderFactory {
             // P1-1: AppLifecycleHook.onAppCreate(延迟执行,避免阻塞启动)
             resultOf { hookRegistry.executeNoResult(io.zer0.muse.hook.AppLifecycleHook::class) { it.onAppCreate() } }
                 .onError { msg, t -> Logger.w("MuseApp", "AppLifecycleHook.onAppCreate 失败: $msg", t) }
+        }
+        } // initializeRuntime
+
+        if (incompleteRestore == null) {
+            initializeRuntime()
+            _startupReady.value = true
+        } else {
+            Logger.w(
+                "MuseApp",
+                "检测到未完成的备份恢复: restoreId=${incompleteRestore.restoreId}, " +
+                    "phase=${incompleteRestore.phase}, completedStores=${incompleteRestore.completedStores}",
+            )
+            appScope.launch {
+                var claimed = false
+                val acquired = kotlinx.coroutines.withTimeoutOrNull(30_000L) {
+                    while (!claimed) {
+                        claimed = io.zer0.common.ProcessWriteGate.begin()
+                        if (!claimed) kotlinx.coroutines.delay(100)
+                    }
+                    true
+                } == true
+                if (!acquired) {
+                    Logger.e("MuseApp", "启动恢复等待写入闸门超时，保持运行时未就绪")
+                    return@launch
+                }
+                try {
+                    backupService.recoverIncompleteRestore(gateAlreadyHeld = true)
+                    this@MuseApp.initializeRuntime()
+                    _startupReady.value = true
+                } finally {
+                    io.zer0.common.ProcessWriteGate.end()
+                }
+            }
         }
     }
 
@@ -843,47 +876,12 @@ class MuseApp : Application(), ImageLoaderFactory {
      * 失败容忍: 目录不存在或读取异常时静默跳过(记一条 Logger.w),不阻塞启动。
      */
     private suspend fun seedDevDocs() {
-        // M1: 统一用 resultOf{} 替代 runCatching{}(项目 Result 约定)
-        val names = resultOf { assets.list("devdocs") }.getOrNull()
-        if (names.isNullOrEmpty()) {
-            Logger.w("MuseApp", "seedDevDocs: assets/devdocs/ 不存在或为空,跳过")
-            return
-        }
-        val now = System.currentTimeMillis()
-        var seeded = 0
-        names.filter { it.endsWith(".md", ignoreCase = true) }.forEach { name ->
-            resultOf {
-                // H7: assets.open() 返回的 InputStream 必须用 use{} 包裹,及时释放资源
-                val content = assets.open("devdocs/$name").use { it.bufferedReader().readText() }
-                // title 取首个 "# 标题" 行,去掉 "# " 前缀;找不到则用文件名(第一行是 devdoc 注释,跳过)
-                val title =
-                    content.lineSequence().firstOrNull { it.startsWith("#") }
-                        ?.removePrefix("#")
-                        ?.trim()
-                        ?.ifBlank { name.substringBeforeLast(".") }
-                        ?: name.substringBeforeLast(".")
-                val id = "devdoc-" + name.substringBeforeLast(".")
-                knowledgeDocDao.upsert(
-                    KnowledgeDocEntity(
-                        id = id,
-                        title = title,
-                        content = content,
-                        filePath = "assets/devdocs/$name",
-                        fileType = "devdoc",
-                        // v1.133: 标记为内部文档,用户在「引用知识库」选择器与知识库管理页均不可见,
-                        // 仅 LLM 通过 knowledge_search(include_internal=true) 查询时可见。
-                        // 与 MIGRATION_38_39 对旧数据的 backfill 保持一致。
-                        isInternal = true,
-                        createdAt = now,
-                        updatedAt = now,
-                    ),
-                )
-                seeded++
-            }.onError { msg, t ->
-                Logger.w("MuseApp", "seedDevDocs: 读取 $name 失败: ${t?.message ?: msg}")
-            }
-        }
-        Logger.i("MuseApp", "seedDevDocs: 已 seed $seeded 份开发文档")
+        builtInKnowledgeDocSeeder.ensureSeeded()
+    }
+
+    /** v2.4.x: 内部文档向量索引(增量;embedding 不可用时静默跳过,检索仍有 LIKE 兜底)。 */
+    private suspend fun indexDevDocs() {
+        builtInKnowledgeDocSeeder.ensureIndexed()
     }
 
     /**

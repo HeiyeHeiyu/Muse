@@ -2,6 +2,7 @@ package io.zer0.muse.workspace
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import io.zer0.muse.tools.TOOL_OUTPUT_READ_PAGE_CHARS
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -38,6 +39,34 @@ class WorkspaceBoundaryTest {
 
         val list = manager.listDir("docs")
         assertTrue(list is WorkspaceManager.ListResult.Success)
+    }
+
+    @Test
+    fun `workspace read pages oversized files without dropping later content`() = runTest {
+        val content = "workspace output line\n".repeat(90_000)
+        val path = java.io.File(manager.rootDir, "large-output.txt")
+        try {
+            assertTrue(manager.writeFile("large-output.txt", content) is WorkspaceManager.OpResult.Success)
+
+            val first = manager.readFilePage("large-output.txt")
+            val second = manager.readFilePage(
+                "large-output.txt",
+                offsetChars = TOOL_OUTPUT_READ_PAGE_CHARS,
+                lengthChars = TOOL_OUTPUT_READ_PAGE_CHARS,
+            )
+
+            assertTrue(first is WorkspaceManager.ReadResult.Success)
+            assertTrue(second is WorkspaceManager.ReadResult.Success)
+            assertTrue((first as WorkspaceManager.ReadResult.Success).content.startsWith(content.take(TOOL_OUTPUT_READ_PAGE_CHARS)))
+            assertTrue(first.content.contains("workspace_read"))
+            assertTrue(
+                (second as WorkspaceManager.ReadResult.Success).content.startsWith(
+                    content.substring(TOOL_OUTPUT_READ_PAGE_CHARS, TOOL_OUTPUT_READ_PAGE_CHARS * 2),
+                ),
+            )
+        } finally {
+            path.delete()
+        }
     }
 
     @Test

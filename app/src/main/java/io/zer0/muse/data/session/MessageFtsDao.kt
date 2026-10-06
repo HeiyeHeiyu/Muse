@@ -35,6 +35,29 @@ interface MessageFtsDao {
     )
     suspend fun searchFts(matchQuery: String): List<MessageSearchJoin>
 
+    /** FTS4 ngram search restricted to one session and user-visible conversation roles. */
+    @SkipQueryVerification
+    @Query(
+        """
+        SELECT
+            m.id as messageId,
+            m.sessionId as sessionId,
+            m.content as content,
+            m.role as role,
+            m.createdAt as createdAt,
+            s.title as sessionTitle
+        FROM messages_fts
+        JOIN messages m ON messages_fts.message_id = m.id
+        JOIN sessions s ON m.sessionId = s.id
+        WHERE content_ngram MATCH :matchQuery
+          AND m.sessionId = :sessionId
+          AND m.role IN ('USER', 'ASSISTANT')
+        ORDER BY m.createdAt DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun searchFtsInSession(matchQuery: String, sessionId: String, limit: Int): List<MessageSearchJoin>
+
     /** FTS5 原文全文搜索(JOIN messages rowid + sessions)。 */
     @SkipQueryVerification
     @Query(
@@ -55,6 +78,29 @@ interface MessageFtsDao {
     """,
     )
     suspend fun searchFts5(matchQuery: String): List<MessageSearchJoin>
+
+    /** FTS5 search restricted to one session and user-visible conversation roles. */
+    @SkipQueryVerification
+    @Query(
+        """
+        SELECT
+            m.id as messageId,
+            m.sessionId as sessionId,
+            m.content as content,
+            m.role as role,
+            m.createdAt as createdAt,
+            s.title as sessionTitle
+        FROM messages_fts
+        JOIN messages m ON messages_fts.rowid = m.rowid
+        JOIN sessions s ON m.sessionId = s.id
+        WHERE messages_fts MATCH :matchQuery
+          AND m.sessionId = :sessionId
+          AND m.role IN ('USER', 'ASSISTANT')
+        ORDER BY m.createdAt DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun searchFts5InSession(matchQuery: String, sessionId: String, limit: Int): List<MessageSearchJoin>
 
     /** 插入 FTS4 ngram 索引。 */
     @SkipQueryVerification

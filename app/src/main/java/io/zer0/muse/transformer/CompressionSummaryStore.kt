@@ -12,8 +12,8 @@ import io.zer0.ai.core.UIMessage
  *  - **D 阻断还原**:对话树重建(`mergeRebuildMessages`)会把旧树里的原文合并回来,
  *    与摘要共存导致 token 双计;按这里的 coveredIds 过滤即可
  *
- * 仅进程内有效(跨进程复用需要把摘要落库,属 DB 迁移范畴,单独排期);
- * 容量按写入时序淘汰,避免长跑进程无界增长。
+ * 摘要正文与边界由 MemoryDb 的 ContextCheckpointEntity 持久化；本表是进程内快速索引，
+ * 会在读取持久检查点后回灌。容量按写入时序淘汰,避免长跑进程无界增长。
  */
 object CompressionSummaryStore {
     /** 一次压缩的结果:摘要文本 + 被它覆盖(已从上下文移除)的消息 id。 */

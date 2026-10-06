@@ -245,6 +245,31 @@ interface MessageDao {
     )
     suspend fun searchMessageContentLike(pattern: String, limit: Int = 50): List<MessageSearchJoin>
 
+    /** LIKE fallback restricted to one session and user-visible conversation roles. */
+    @Query(
+        """
+        SELECT
+            m.id as messageId,
+            m.sessionId as sessionId,
+            m.content as content,
+            m.role as role,
+            m.createdAt as createdAt,
+            s.title as sessionTitle
+        FROM messages m
+        JOIN sessions s ON m.sessionId = s.id
+        WHERE m.sessionId = :sessionId
+          AND m.role IN ('USER', 'ASSISTANT')
+          AND m.content LIKE :pattern ESCAPE '\'
+        ORDER BY m.createdAt DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun searchMessageContentLikeInSession(
+        sessionId: String,
+        pattern: String,
+        limit: Int = 50,
+    ): List<MessageSearchJoin>
+
     /** 消息总数流(统计面板用)。 */
     @Query("SELECT COUNT(*) FROM messages")
     fun observeCount(): Flow<Int>
