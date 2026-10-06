@@ -1,6 +1,8 @@
 // IShellService.aidl
 package io.zer0.muse.tools.system;
 
+import android.os.ParcelFileDescriptor;
+
 /**
  * P3-3: Shizuku UserService 的 Shell 执行接口。
  *
@@ -12,9 +14,12 @@ package io.zer0.muse.tools.system;
  *  - exitCode: 命令退出码(0=成功,非0=失败,-1=执行异常)
  *  - stdout: 命令标准输出
  *  - stderr: 命令标准错误
+ *
+ * Large interactive tool results use executeToPipe so payload bytes do not cross Binder as a String.
  */
 interface IShellService {
     String execute(String command) = 2;
+    int executeToPipe(String command, in ParcelFileDescriptor output) = 3;
 
     // Shizuku UserService reserved transaction. The implementation must
     // terminate the privileged process when Shizuku removes the service.

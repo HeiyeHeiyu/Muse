@@ -21,9 +21,9 @@ import java.net.URL
  *
  * 安全设计:
  *  - read_file 路径白名单:仅允许应用 filesDir / cacheDir / 外部 Download / 工作区 / tool_outputs
- *  - read_file 禁止 ".." 越权,大小上限 2MB
+ *  - read_file 禁止 ".." 越权,大文件通过字符游标分页读取
  *  - create_download 仅写入公共 Download 目录(MediaStore.Downloads),文件名 sanitize
- *  - parse_link 仅 HTTP/HTTPS,超时 15s,响应体上限 1MB
+ *  - parse_link 仅 HTTP/HTTPS,超时 15s;大响应完整保存并可分段读取
  */
 object FileTools {
 
@@ -31,8 +31,8 @@ object FileTools {
     const val NAME_CREATE_DOWNLOAD = "create_download"
     const val NAME_PARSE_LINK = "parse_link"
 
-    /** read_file 文件大小上限 2MB。 */
-    private const val READ_FILE_MAX_BYTES = 2 * 1024 * 1024
+    /** 超过该体积时 read_file 默认返回首个字符页,避免一次读入大文件。 */
+    private const val READ_FILE_AUTO_PAGE_BYTES = 2 * 1024 * 1024
 
     /** create_download 内容大小上限 10MB。 */
     private const val CREATE_DOWNLOAD_MAX_BYTES = 10 * 1024 * 1024
@@ -40,8 +40,8 @@ object FileTools {
     /** parse_link 抓取超时 ms。 */
     private const val PARSE_LINK_TIMEOUT_MS = 15_000
 
-    /** parse_link 响应体上限 1MB。 */
-    private const val PARSE_LINK_MAX_BYTES = 1024 * 1024
+    /** HTML 主体解析预览上限;完整响应正文仍会保存到可分页文件。 */
+    private const val PARSE_LINK_PARSE_PREVIEW_CHARS = 1_000_000
 
     /** B-30: parse_link 手动跟跳转上限(每跳都过 SSRF 主机校验)。 */
     private const val MAX_REDIRECTS = 5
@@ -51,7 +51,7 @@ object FileTools {
             name = NAME_READ_FILE,
             // v1.0.75 fix (工具审查 01): description 与实现对齐 — 实现拒绝绝对路径,
             // 原描述声称"支持绝对路径"导致模型首次调用必失败(用户反馈"反复试错"根因)。
-            description = "读取应用可访问目录下的文本文件(UTF-8,上限 2MB)。" +
+            description = "读取应用可访问目录下的文本文件(UTF-8)。大文件自动分段,可用 offset_chars/length_chars 续读。" +
                 "仅支持相对路径,支持三种: 工作区相对路径(如 'notes.txt')、" +
                 "工具输出引用(如 'tool_outputs/xxx.json')、应用私有目录相对路径。" +
                 "绝对路径会被拒绝,请勿传 '/storage/emulated/0/...' 形式。",
@@ -59,6 +59,8 @@ object FileTools {
                 "path" to "必填,文件相对路径。支持:工作区相对路径(如 'notes.txt')、" +
                     "工具输出引用(如 'tool_outputs/xxx.json')、应用私有目录相对路径。" +
                     "绝对路径会被拒绝。",
+                "offset_chars" to "可选,字符起始游标;大文件继续读取时使用上次返回的 offset_chars。",
+                "length_chars" to "可选,单页字符数,最大 ${TOOL_OUTPUT_READ_PAGE_CHARS}。",
             ),
             required = setOf("path"),
             category = "built-in",
@@ -84,7 +86,7 @@ object FileTools {
             // v1.0.75 fix (工具审查 01): 与 web_fetch/http_get 互斥声明
             description = "抓取 URL 页面,提取标题和正文,返回 Markdown 格式(含标题)。" +
                 "自动脱壳广告/导航/侧边栏,适合阅读新闻/博客/文档。" +
-                "超时 15 秒,响应体上限 1MB。" +
+                "超时 15 秒,大页面会保存完整源码并提供分段读取入口。" +
                 "想要纯文本用 web_fetch;想要原始响应用 http_get。",
             parameters = mapOf(
                 "url" to "必填,HTTP/HTTPS URL",
@@ -106,7 +108,7 @@ object FileTools {
             when (name) {
                 NAME_READ_FILE -> execReadFile(args, context, workspaceRoot)
                 NAME_CREATE_DOWNLOAD -> execCreateDownload(args, context)
-                NAME_PARSE_LINK -> execParseLink(args)
+                NAME_PARSE_LINK -> execParseLink(args, context)
                 else -> "[错误] 未知工具: $name"
             }
         }
@@ -144,9 +146,16 @@ object FileTools {
         if (!target.canRead()) return "[错误] 文件不可读: ${target.absolutePath}"
 
         val size = target.length()
-        if (size > READ_FILE_MAX_BYTES) {
-            return "[错误] 文件过大($size 字节),上限 ${READ_FILE_MAX_BYTES} 字节(2MB)。" +
-                "大文件请用 workspace_read 配合分块读取。"
+        val requestedOffset = args["offset_chars"]?.toIntOrNull()?.coerceAtLeast(0)
+        val requestedLength = args["length_chars"]?.toIntOrNull()?.coerceAtLeast(0)
+        if (requestedOffset != null || requestedLength != null || size > READ_FILE_AUTO_PAGE_BYTES) {
+            return ToolTextFilePager.readPage(
+                file = target,
+                path = trimmedPath,
+                charset = Charsets.UTF_8,
+                requestedOffset = requestedOffset ?: 0,
+                requestedLength = requestedLength ?: TOOL_OUTPUT_READ_PAGE_CHARS,
+            )
         }
 
         return runCatching { target.readText() }
@@ -229,7 +238,7 @@ object FileTools {
 
     // ============================ parse_link ============================
 
-    private fun execParseLink(args: Map<String, String>): String {
+    private fun execParseLink(args: Map<String, String>, context: Context): String {
         val urlStr = args["url"]?.takeIf { it.isNotBlank() }
             ?: return "[错误] 缺少必填参数 url"
 
@@ -285,32 +294,47 @@ object FileTools {
 
                 val contentType = finalConn.contentType ?: ""
                 if (!contentType.contains("html", ignoreCase = true)) {
-                    // 非 HTML,直接读文本
-                    val raw = finalConn.inputStream.buffered().use { it.readBytes() }
-                    val text = String(raw.copyOfLength(PARSE_LINK_MAX_BYTES.coerceAtMost(raw.size)), Charsets.UTF_8)
-                    return "[非 HTML 内容: $contentType]\n\n$text"
+                    val captured = finalConn.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
+                        captureTextStream(
+                            reader = reader,
+                            outputDirectory = File(context.filesDir, TOOL_OUTPUTS_DIR),
+                            filePrefix = "parse_link",
+                            previewLimitChars = 0,
+                        )
+                    }
+                    return "[非 HTML 内容: $contentType]\n\n${captured.reference}"
                 }
 
-                // HTML:用 Jsoup 解析,提取标题+正文(先读字符串再解析,避免 InputStream 重载歧义)
-                val htmlText = finalConn.inputStream.buffered().use { stream ->
-                    stream.readBytes().copyOfLength(PARSE_LINK_MAX_BYTES).toString(Charsets.UTF_8)
+                // Retain the complete response while only building a bounded DOM parse preview.
+                val captured = finalConn.inputStream.bufferedReader(Charsets.UTF_8).use { reader ->
+                    captureTextStream(
+                        reader = reader,
+                        outputDirectory = File(context.filesDir, TOOL_OUTPUTS_DIR),
+                        filePrefix = "parse_link_html",
+                        previewLimitChars = PARSE_LINK_PARSE_PREVIEW_CHARS,
+                    )
                 }
                 finalConn.disconnect()
 
-                val doc = Jsoup.parse(htmlText, currentUrl)
+                val doc = Jsoup.parse(captured.preview, currentUrl)
                 val title = doc.title().trim().ifBlank { "(无标题)" }
                 // Jsoup 自动移除 script/style,再选 article 或 body
                 val article = doc.selectFirst("article") ?: doc.body()
                 val text = article.text().replace(Regex("\\s{2,}"), "\n").trim()
 
-                val truncated = if (text.length > 8000) {
-                    text.substring(0, 8000) + "\n\n...(正文超过 8000 字符,已截断)"
-                } else {
-                    text
-                }
-
                 Logger.i("FileTools", "parse_link 成功: $currentUrl (${text.length} chars)")
-                "# $title\n\n来源: $currentUrl\n\n$truncated"
+                buildString {
+                    append("# ").append(title).append("\n\n来源: ").append(currentUrl).append("\n\n")
+                    append(text)
+                    if (captured.savedFile != null) {
+                        if (captured.totalChars > PARSE_LINK_PARSE_PREVIEW_CHARS) {
+                            append("\n\n[解析仅覆盖前 $PARSE_LINK_PARSE_PREVIEW_CHARS 个字符;完整网页源码可分段读取]\n")
+                        } else {
+                            append("\n\n[完整网页源码可分段读取]\n")
+                        }
+                        append(captured.reference)
+                    }
+                }
             } finally {
                 finalConn.disconnect()
             }
@@ -320,7 +344,6 @@ object FileTools {
         }
     }
 
-    private fun ByteArray.copyOfLength(length: Int): ByteArray = if (size <= length) this else copyOf(length)
 }
 
 /**

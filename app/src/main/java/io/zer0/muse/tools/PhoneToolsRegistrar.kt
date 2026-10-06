@@ -179,11 +179,8 @@ class PhoneToolsRegistrar(
                 parameters = mapOf("phone" to "必填,目标手机号"),
                 required = setOf("phone"),
                 category = "built-in",
-                // A-09 修复:与 B-27 TRUSTED 例外对齐 — 本工具在
-                // ToolPermissionResolver.TRUSTED_REQUIRE_APPROVAL_TOOLS 名单内,
-                // 但 TRUSTED 分支要求 effectiveRisk==HIGH 才弹审批;注册成 NORMAL 会让
-                // resolver 拿到显式 NORMAL(不走 fallbackRiskFor 的 HIGH 映射),导致
-                // TRUSTED 模式被 Auto 放行。对齐 HIGH 才能让 B-27 例外真正生效。
+                // 电话副作用标记为 HIGH,让 ASK / STRICT 模式要求审批；
+                // TRUSTED 模式依用户明确选择的全工具免确认设置执行。
                 riskLevel = ToolRiskLevel.HIGH,
             ),
         ) { args -> impl.execMakePhoneCall(args) }

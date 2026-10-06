@@ -33,6 +33,7 @@ class ToolRegistrarBootstrapper(
     translateToolsRegistrar: TranslateToolsRegistrar,
     ttsToolsRegistrar: TtsToolsRegistrar,
     agentToolsRegistrar: AgentToolsRegistrar,
+    conversationSearchToolsRegistrar: ConversationSearchToolsRegistrar,
     workspaceToolsRegistrar: WorkspaceToolsRegistrar,
     fileToolsRegistrar: FileToolsRegistrar,
     pdfVisionToolsRegistrar: PdfVisionToolsRegistrar,

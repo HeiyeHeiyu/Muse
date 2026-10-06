@@ -409,7 +409,7 @@ class SkillExecutor(
                 SkillEntity(
                     id = "read_file",
                     name = "读取文件",
-                    description = "读取应用沙盒内的文本文件(上限 1MB)。路径相对于 filesDir。",
+                    description = "读取应用沙盒内的文本文件。路径相对于 filesDir；大于 1MB 的文件自动分段返回，使用 offset_chars/length_chars 继续读取，不丢弃后续内容。",
                     parametersJson =
                     buildJsonObject {
                         put("type", "object")
@@ -435,6 +435,20 @@ class SkillExecutor(
                                     buildJsonObject {
                                         put("type", "integer")
                                         put("description", "可选,读取行数,默认 0=全部")
+                                    },
+                                )
+                                put(
+                                    "offset_chars",
+                                    buildJsonObject {
+                                        put("type", "integer")
+                                        put("description", "可选,字符分页起点；读取超大文件的下一段时使用上次返回的游标")
+                                    },
+                                )
+                                put(
+                                    "length_chars",
+                                    buildJsonObject {
+                                        put("type", "integer")
+                                        put("description", "可选,字符分页长度；每次最多返回 65536 字符")
                                     },
                                 )
                                 put(
@@ -509,7 +523,7 @@ class SkillExecutor(
                 SkillEntity(
                     id = "http_get",
                     name = "HTTP GET",
-                    description = "发起 HTTP GET 请求并返回响应(响应体上限 1MB)。",
+                    description = "发起 HTTP GET 请求并返回完整响应;长响应会保存到可分段读取的应用文件。",
                     parametersJson =
                     buildJsonObject {
                         put("type", "object")
@@ -537,13 +551,6 @@ class SkillExecutor(
                                         put("description", "可选,超时秒数,默认 30")
                                     },
                                 )
-                                put(
-                                    "max_size",
-                                    buildJsonObject {
-                                        put("type", "integer")
-                                        put("description", "可选,响应体大小上限(字节),默认 1048576(1MB)")
-                                    },
-                                )
                             },
                         )
                         put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("url"))))
@@ -555,7 +562,7 @@ class SkillExecutor(
                 SkillEntity(
                     id = "http_post",
                     name = "HTTP POST",
-                    description = "发起 HTTP POST 请求并返回响应(响应体上限 1MB)。",
+                    description = "发起 HTTP POST 请求并返回完整响应;长响应会保存到可分段读取的应用文件。",
                     parametersJson =
                     buildJsonObject {
                         put("type", "object")
@@ -682,20 +689,6 @@ class SkillExecutor(
                                     buildJsonObject {
                                         put("type", "string")
                                         put("description", "可选,请求头 JSON")
-                                    },
-                                )
-                                put(
-                                    "max_length",
-                                    buildJsonObject {
-                                        put("type", "integer")
-                                        put("description", "可选,返回字符数上限,默认 50000")
-                                    },
-                                )
-                                put(
-                                    "truncate",
-                                    buildJsonObject {
-                                        put("type", "boolean")
-                                        put("description", "可选,超出 max_length 是否截断,默认 true")
                                     },
                                 )
                             },

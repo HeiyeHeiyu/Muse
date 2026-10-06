@@ -59,9 +59,6 @@ class BrowserManager(private val context: Context) {
         /** 所有 WebView 异步操作的默认超时(毫秒)。 */
         private const val DEFAULT_TIMEOUT_MS = 10_000L
 
-        /** currentHtml 截断阈值(50KB,防止过长导致 LLM 上下文爆炸)。 */
-        private const val MAX_HTML_LENGTH = 50 * 1024
-
         /** 提取页面 HTML 的 JS 片段。 */
         private const val GET_OUTER_HTML_JS =
             "(function(){ try { return document.documentElement.outerHTML; } catch(e){ return ''; } })();"
@@ -81,7 +78,7 @@ class BrowserManager(private val context: Context) {
 
     private val _currentHtml = MutableStateFlow("")
 
-    /** 当前页 HTML(截断到 50KB 防止过长)。 */
+    /** 当前页完整 HTML;超长内容由工具回填路径保存并提供分页读取。 */
     val currentHtml: StateFlow<String> = _currentHtml.asStateFlow()
 
     private val _currentScreenshot = MutableStateFlow<String?>(null)
@@ -195,7 +192,7 @@ class BrowserManager(private val context: Context) {
                                 _currentTitle.value = view?.title ?: ""
                                 // 异步拉取 HTML,即便失败也认为导航完成
                                 view?.evaluateJavascript(GET_OUTER_HTML_JS) { raw ->
-                                    _currentHtml.value = parseJsValue(raw).take(MAX_HTML_LENGTH)
+                                    updateCurrentHtmlFromEvaluation(raw)
                                 }
                                 // 恢复原有 client,避免后续 navigate 拦截器累积
                                 view?.webViewClient = previousClient
@@ -605,7 +602,7 @@ class BrowserManager(private val context: Context) {
                     _currentTitle.value = view?.title ?: ""
                     syncNavState(view)
                     view?.evaluateJavascript(GET_OUTER_HTML_JS) { raw ->
-                        _currentHtml.value = parseJsValue(raw).take(MAX_HTML_LENGTH)
+                        updateCurrentHtmlFromEvaluation(raw)
                     }
                 }
 
@@ -715,6 +712,10 @@ class BrowserManager(private val context: Context) {
             // 非 JSON 字面量(理论上不会出现,evaluateJavascript 总返回 JSON-encoded 值)
             raw
         }
+    }
+
+    internal fun updateCurrentHtmlFromEvaluation(raw: String?) {
+        _currentHtml.value = parseJsValue(raw)
     }
 
     /**

@@ -92,7 +92,11 @@ class AgentToolsRegistrar(
 
         // v2.x 终端一期:应用沙盒终端命令(工作目录 = 应用工作区)
         toolRegistry.register(TerminalExecTool.toolDef()) { args ->
-            TerminalExecTool.execute(args, java.io.File(context.filesDir, "workspace").apply { mkdirs() })
+            TerminalExecTool.execute(
+                args,
+                java.io.File(context.filesDir, "workspace").apply { mkdirs() },
+                java.io.File(context.filesDir, TOOL_OUTPUTS_DIR),
+            )
         }
         // v2.2.1 Termux 通道:完整 Linux 环境命令执行(需用户安装 Termux 并授权;未就绪时返回配置引导)
         toolRegistry.register(TermuxExecTool.toolDef()) { args ->

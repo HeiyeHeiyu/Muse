@@ -69,6 +69,9 @@ class ToolOrchestratorReadOnlyParallelTest {
             val result = firstArg<String>()
             !result.contains("error") && !result.startsWith("[超时]")
         }
+        every {
+            coordinator.markTaskStepRunningIfNotPaused(any(), any(), any(), any())
+        } returns true
     }
 
     private fun orchestrator(parallelReadOnlyTools: Boolean) = ToolOrchestrator(

@@ -1,5 +1,6 @@
 package io.zer0.muse.tools.script
 
+import io.zer0.muse.tools.TOOL_OUTPUT_READ_PAGE_CHARS
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -61,5 +62,31 @@ class SkillBridgeFsTest {
             overRejected = true
         }
         assertTrue(overRejected)
+    }
+
+    @Test
+    fun `oversized sandbox read is paged instead of rejected`() {
+        val root = newRoot()
+        val content = "large sandbox file\n".repeat(80_000)
+        try {
+            File(root, "large.txt").writeText(content)
+            val first = SkillBridgeFs.read(root, "large.txt")
+            val second = SkillBridgeFs.read(
+                root,
+                "large.txt",
+                offsetChars = TOOL_OUTPUT_READ_PAGE_CHARS,
+                lengthChars = TOOL_OUTPUT_READ_PAGE_CHARS,
+            )
+
+            assertTrue(first.startsWith(content.take(TOOL_OUTPUT_READ_PAGE_CHARS)))
+            assertTrue(first.contains("fs_read"))
+            assertTrue(
+                second.startsWith(
+                    content.substring(TOOL_OUTPUT_READ_PAGE_CHARS, TOOL_OUTPUT_READ_PAGE_CHARS * 2),
+                ),
+            )
+        } finally {
+            root.deleteRecursively()
+        }
     }
 }

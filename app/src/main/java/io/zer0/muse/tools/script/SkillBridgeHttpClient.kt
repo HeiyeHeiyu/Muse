@@ -8,6 +8,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import io.zer0.muse.tools.captureTextStream
+import java.io.File
 import java.io.IOException
 import java.net.Inet6Address
 import java.net.InetAddress
@@ -77,6 +79,39 @@ internal class SkillBridgeHttpClient(
         throw IOException("重定向超过 $maxRedirects 跳上限")
     }
 
+    /** Execute a GET and preserve large UTF-8 response bodies in a paginated app file. */
+    fun getComplete(startUrl: String, outputDirectory: File, maxRedirects: Int = MAX_REDIRECTS): Result {
+        var current = startUrl
+        repeat(maxRedirects + 1) {
+            val request = try {
+                Request.Builder().url(current).get().build()
+            } catch (e: IllegalArgumentException) {
+                throw IOException("URL 无法解析: $current", e)
+            }
+            executePinned(request).use { response ->
+                if (response.code in 300..399) {
+                    val location = response.header("Location")?.trim()?.takeIf { it.isNotBlank() }
+                        ?: throw IOException("重定向(${response.code})缺少 Location 头")
+                    val resolved = try {
+                        URI(current).resolve(location).toString()
+                    } catch (e: Exception) {
+                        throw IOException("重定向 Location 无法解析: $location", e)
+                    }
+                    if (!resolved.startsWith("http://") && !resolved.startsWith("https://")) {
+                        throw IOException("重定向目标协议非法: $resolved")
+                    }
+                    current = resolved
+                } else {
+                    val body = response.body.byteStream().bufferedReader(Charsets.UTF_8).use { reader ->
+                        captureTextStream(reader, outputDirectory, "skill_bridge_http_get", previewLimitChars = 0)
+                    }
+                    return Result(status = response.code, body = body.reference)
+                }
+            }
+        }
+        throw IOException("重定向超过 $maxRedirects 跳上限")
+    }
+
     /**
      * Execute a GET while manually validating every redirect hop and returning raw bytes.
      *
@@ -137,6 +172,29 @@ internal class SkillBridgeHttpClient(
                 throw IOException("http_post 不支持重定向(${response.code}$hint);请直接使用最终地址")
             }
             return Result(status = response.code, body = readLimitedBody(response, maxSize))
+        }
+    }
+
+    /** Execute a POST without following redirects; large response bodies are saved for paging. */
+    fun postComplete(startUrl: String, body: String, contentType: String, outputDirectory: File): Result {
+        val request = try {
+            Request.Builder()
+                .url(startUrl)
+                .post(body.toByteArray(Charsets.UTF_8).toRequestBody(contentType.toMediaType()))
+                .build()
+        } catch (e: IllegalArgumentException) {
+            throw IOException("URL 无法解析: $startUrl", e)
+        }
+        executePinned(request).use { response ->
+            if (response.code in 300..399) {
+                val location = response.header("Location")?.trim().orEmpty()
+                val hint = if (location.isNotEmpty()) ", Location: $location" else ""
+                throw IOException("http_post 不支持重定向(${response.code}$hint);请直接使用最终地址")
+            }
+            val captured = response.body.byteStream().bufferedReader(Charsets.UTF_8).use { reader ->
+                captureTextStream(reader, outputDirectory, "skill_bridge_http_post", previewLimitChars = 0)
+            }
+            return Result(status = response.code, body = captured.reference)
         }
     }
 

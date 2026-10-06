@@ -5,8 +5,11 @@ import android.content.Context
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.IBinder
+import android.os.ParcelFileDescriptor
 import io.zer0.common.Logger
 import io.zer0.muse.BuildConfig
+import io.zer0.muse.tools.TOOL_OUTPUTS_DIR
+import io.zer0.muse.tools.ToolOutputCapture
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
@@ -17,6 +20,9 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
+import java.io.InputStreamReader
+import java.util.concurrent.atomic.AtomicReference
 import rikka.shizuku.Shizuku
 import kotlin.coroutines.resume
 
@@ -72,7 +78,7 @@ class ShizukuAuthorizer(
         private const val SHELL_SERVICE_TAG = "muse_shell"
 
         /** UserService 协议版本；AIDL/服务实现变化时强制替换旧进程。 */
-        private const val SHELL_SERVICE_VERSION = 3
+        private const val SHELL_SERVICE_VERSION = 4
 
         /** R-SVC-03: 授权弹窗等待超时(毫秒)。 */
         private const val PERMISSION_TIMEOUT_MS = 60_000L
@@ -250,6 +256,94 @@ class ShizukuAuthorizer(
                 ShizukuExecResult(-1, "", e.message ?: "执行异常")
             }
         }
+    }
+
+    /** Stream device-tool output through a pipe into app-private storage, avoiding Binder String caps. */
+    suspend fun executeForTool(command: String): ShizukuExecResult = withContext(Dispatchers.IO) {
+        if (!checkPermission()) return@withContext ShizukuExecResult(-1, "", "Shizuku 未授权")
+        if (!ensureServiceBound()) {
+            return@withContext ShizukuExecResult(-1, "", "Shizuku shell service 绑定失败")
+        }
+        val service = shellService ?: return@withContext ShizukuExecResult(-1, "", "Shizuku shell service 不可用")
+        val pipe = try {
+            ParcelFileDescriptor.createPipe()
+        } catch (error: Exception) {
+            return@withContext ShizukuExecResult(-1, "", "创建 Shell 输出管道失败: ${error.message}")
+        }
+        val readEnd = pipe[0]
+        val writeEnd = pipe[1]
+        val capture = ToolOutputCapture(File(context.filesDir, TOOL_OUTPUTS_DIR), "shizuku_command")
+        val readerFailure = AtomicReference<Throwable?>(null)
+        val reader =
+            Thread(
+                {
+                    try {
+                        ParcelFileDescriptor.AutoCloseInputStream(readEnd).use { input ->
+                            InputStreamReader(input, Charsets.UTF_8).buffered().use { stream ->
+                                val buffer = CharArray(8_192)
+                                while (true) {
+                                    val count = stream.read(buffer)
+                                    if (count < 0) break
+                                    capture.append(String(buffer, 0, count))
+                                }
+                            }
+                        }
+                    } catch (error: Throwable) {
+                        readerFailure.set(error)
+                    }
+                },
+                "muse-shizuku-output",
+            )
+        reader.start()
+
+        var exitCode = -1
+        var remoteFailure: Throwable? = null
+        try {
+            exitCode = service.executeToPipe(command, writeEnd)
+        } catch (error: android.os.RemoteException) {
+            Logger.e(TAG, "Shizuku 流式远程调用失败: ${error.message}", error)
+            remoteFailure = error
+            release()
+        } catch (error: Throwable) {
+            Logger.e(TAG, "Shizuku 流式执行异常: ${error.message}", error)
+            remoteFailure = error
+        } finally {
+            runCatching { writeEnd.close() }
+        }
+
+        reader.join()
+        val failure = readerFailure.get()
+        if (failure != null) {
+            remoteFailure = remoteFailure ?: failure
+        }
+        if (exitCode < 0 && remoteFailure == null) {
+            remoteFailure = IllegalStateException("Shizuku 命令超时或执行失败")
+        }
+        val output = if (reader.isAlive) {
+            capture.close()
+            ""
+        } else {
+            runCatching {
+                capture.finish(
+                    header = if (remoteFailure != null) {
+                        "Shizuku 输出未能完整接收，以下内容可能不完整"
+                    } else {
+                        ""
+                    },
+                    emptyMessage = "(无输出)",
+                )
+            }
+                .getOrElse {
+                    capture.close()
+                    ""
+                }
+        }
+        val error = remoteFailure?.message
+        ShizukuExecResult(
+            exitCode = if (remoteFailure == null) exitCode else -1,
+            stdout = output,
+            stderr = error.orEmpty(),
+        )
     }
 
     // ── 内部工具 ──────────────────────────────────────────────────────────────

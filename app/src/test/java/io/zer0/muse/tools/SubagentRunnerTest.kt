@@ -69,7 +69,7 @@ class SubagentRunnerTest {
     }
 
     @Test
-    fun `renderProgress truncates long args and result`() {
+    fun `renderProgress keeps full result while bounding arguments`() {
         val longArgs = "x".repeat(600)
         val longResult = "y".repeat(500)
         val xml = SubagentXmlRenderer.renderProgress(
@@ -81,6 +81,7 @@ class SubagentRunnerTest {
             success = true,
         )
         assertTrue(xml.contains("truncated"))
+        assertTrue(xml.contains(longResult))
     }
 
     @Test
@@ -122,7 +123,7 @@ class SubagentRunnerTest {
     }
 
     @Test
-    fun `renderResult truncates long summary`() {
+    fun `renderResult preserves long summary`() {
         val longSummary = "z".repeat(5000)
         val xml = SubagentXmlRenderer.renderResult(
             success = true,
@@ -130,7 +131,8 @@ class SubagentRunnerTest {
             toolCalls = 0,
             summary = longSummary,
         )
-        assertTrue(xml.contains("truncated"))
+        assertTrue(xml.contains(longSummary))
+        assertFalse(xml.contains("truncated"))
     }
 
     // ── SubagentRunner 参数校验测试 ─────────────────────────────────────────

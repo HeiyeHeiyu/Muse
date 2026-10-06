@@ -16,8 +16,7 @@ import kotlinx.serialization.json.put
  * 在内置 Node 运行时中执行 JavaScript 脚本：完整能力（文件读写 / 网络 / 子进程），
  * 可 require 运行时 node_modules 区（filesDir/muse-runtime/node_modules）中的 npm 包。
  *
- * 高风险工具：与 execute_javascript 同等待遇（TRUSTED 模式也保留审批，
- * 见 ToolPermissionResolver.TRUSTED_REQUIRE_APPROVAL_TOOLS）。
+ * 高风险工具：ASK / STRICT 模式要求审批；TRUSTED 模式依用户明确选择免确认。
  *
  * 返回结构（JSON，与 execute_javascript 对齐）：
  *  - result: string — 执行返回值（JSON 字符串形式）
@@ -71,26 +70,10 @@ object NodeScriptTool {
         }
     }
 
-    fun formatResultJson(result: SkillEngineResult, maxChars: Int = Int.MAX_VALUE): String {
-        val complete = when (result) {
+    fun formatResultJson(result: SkillEngineResult): String = when (result) {
             is SkillEngineResult.Success -> resultJson(result.valueJson, result.consoleLogs, null)
             is SkillEngineResult.Error -> errorJson(result.message, result.consoleLogs)
         }
-        if (complete.length <= maxChars) return complete
-
-        // Keep a valid outer JSON envelope and explicitly mark that the result field is only a preview.
-        val previewLimit = ((maxChars - 1_024).coerceAtLeast(0)) / 6
-        val preview = when (result) {
-            is SkillEngineResult.Success -> result.valueJson.take(previewLimit)
-            is SkillEngineResult.Error -> result.message.take(previewLimit)
-        }
-        val note = "Output truncated from ${complete.length} characters; result/error is a preview."
-        return buildJsonObject {
-            put("result", preview)
-            put("logs", buildJsonArray { add(JsonPrimitive(note)) })
-            put("error", if (result is SkillEngineResult.Error) JsonPrimitive(note) else JsonNull)
-        }.toString()
-    }
 
     /** 同步桥接（适配 ToolRegistry 的 `(Map<String,String>) -> String` 签名）。 */
     fun executeFromArgs(args: Map<String, String>, context: Context): String = runBlocking {

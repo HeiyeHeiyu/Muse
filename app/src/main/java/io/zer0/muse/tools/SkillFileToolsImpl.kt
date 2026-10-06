@@ -26,14 +26,11 @@ class SkillFileToolsImpl(private val context: Context, private val client: OkHtt
         val path = args["path"] ?: return context.getString(R.string.skill_missing_param_path)
         val file = resolveSandboxFile(path) ?: return context.getString(R.string.skill_path_violation, path)
         if (!file.exists()) return context.getString(R.string.skill_file_not_found, path)
-        if (file.length() > 1_000_000) return context.getString(R.string.skill_file_too_large, file.length())
         // v1.52: 二进制文件检测 — 读取前 1024 字节,若含 NUL 字节或 UTF-8 替换字符占比过高则判定为二进制
         // v1.52 修订: 空文件直接返回空串;使用实际读入字节数判断,避免 read 未读满导致尾部 NUL 误判
-        // L-SE12: 设计权衡 — 这里探测后又调 readText/readLines 重新读全文,存在重复 IO。
-        // 复用 headBytes 需处理 offset/length/charset 三种读取模式的拼接,复杂度收益不划算
-        // (1MB 上限下二次读取成本可接受)。保持当前实现,后续若支持大文件再改为流式探测+读取。
+        // 探测只读文件头;后续按需走全文读取或有界字符分页。
         if (file.length() == 0L) return ""
-        val readLen = minOf(1024, file.length().toInt())
+        val readLen = minOf(1024L, file.length()).toInt()
         val headBytes = ByteArray(readLen)
         val actualRead = file.inputStream().use { it.read(headBytes) }
         if (actualRead > 0) {
@@ -50,12 +47,23 @@ class SkillFileToolsImpl(private val context: Context, private val client: OkHtt
         // offset/length: 分段读取(起始行号 + 读取行数,默认 0=全部)
         val offset = args["offset"]?.toIntOrNull()?.coerceAtLeast(0) ?: 0
         val length = args["length"]?.toIntOrNull()?.coerceAtLeast(0) ?: 0
+        val offsetChars = args["offset_chars"]?.toIntOrNull()?.coerceAtLeast(0)
+        val requestedLengthChars = args["length_chars"]?.toIntOrNull()?.coerceAtLeast(0)
         // encoding: 默认 utf-8(当前仅支持 utf-8/utf-16,其它回退 utf-8)
         val encoding = args["encoding"]?.takeIf { it.isNotBlank() } ?: "utf-8"
         val charset = when (encoding.lowercase()) {
             "utf-16", "utf-16le" -> Charsets.UTF_16
             "utf-16be" -> Charsets.UTF_16BE
             else -> Charsets.UTF_8
+        }
+        if (offsetChars != null || requestedLengthChars != null || file.length() > MAX_READ_FILE_CHARS) {
+            return readFileCharacterPage(
+                file = file,
+                path = path,
+                charset = charset,
+                requestedOffset = offsetChars ?: 0,
+                requestedLength = requestedLengthChars ?: TOOL_OUTPUT_READ_PAGE_CHARS,
+            )
         }
         if (offset > 0 || length > 0) {
             val lines = file.readLines(charset)
@@ -65,6 +73,21 @@ class SkillFileToolsImpl(private val context: Context, private val client: OkHtt
         }
         return file.readText(charset)
     }
+
+    private fun readFileCharacterPage(
+        file: File,
+        path: String,
+        charset: java.nio.charset.Charset,
+        requestedOffset: Int,
+        requestedLength: Int,
+    ): String =
+        ToolTextFilePager.readPage(
+            file = file,
+            path = path,
+            charset = charset,
+            requestedOffset = requestedOffset,
+            requestedLength = requestedLength,
+        )
 
     /** 写入应用沙盒内文件。 */
     fun execWriteFile(args: Map<String, String>): String {
@@ -322,6 +345,8 @@ class SkillFileToolsImpl(private val context: Context, private val client: OkHtt
     }
 
     companion object {
+        private const val MAX_READ_FILE_CHARS = 1_000_000L
+
         /** 手动跟随下载重定向的最大跳数(防无限重定向环)。 */
         private const val MAX_DOWNLOAD_REDIRECTS = 10
     }
@@ -351,27 +376,18 @@ class SkillFileToolsImpl(private val context: Context, private val client: OkHtt
             val input = context.contentResolver.openInputStream(uri)
                 ?: return "error: cannot open uri"
 
-            // M-SE6: 流式读取到 1MB 即停止,避免大文件 readText() 导致 OOM
-            val limit = 1_000_000
+            val capture = ToolOutputCapture(File(context.filesDir, TOOL_OUTPUTS_DIR), "read_public_file")
             input.use { stream ->
-                val reader = stream.bufferedReader(cs)
-                val sb = StringBuilder()
-                val buf = CharArray(8192)
-                var total = 0
-                var truncated = false
-                while (total < limit) {
-                    val n = reader.read(buf, 0, minOf(buf.size, limit - total))
-                    if (n < 0) break
-                    sb.append(buf, 0, n)
-                    total += n
+                stream.bufferedReader(cs).use { reader ->
+                    val buffer = CharArray(8_192)
+                    while (true) {
+                        val count = reader.read(buffer)
+                        if (count < 0) break
+                        capture.append(String(buffer, 0, count))
+                    }
                 }
-                // 若还能继续读,说明文件超过 1MB
-                if (reader.read() >= 0) truncated = true
-                if (truncated) {
-                    sb.append("\n... (已截断到 $limit 字符)")
-                }
-                sb.toString()
             }
+            capture.finish(header = "", emptyMessage = "")
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Exception) {

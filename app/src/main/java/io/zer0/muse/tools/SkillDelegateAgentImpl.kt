@@ -417,7 +417,7 @@ class SkillDelegateAgentImpl(
                     targetType = "assistant",
                     targetName = assistant.name,
                     reason = "中间结果产出后等待用户确认",
-                    intermediateResult = result.take(500),
+                    intermediateResult = result,
                     options = listOf(
                         DelegationPauseManager.PauseOption.APPROVE,
                         DelegationPauseManager.PauseOption.REJECT,

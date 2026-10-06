@@ -5,6 +5,8 @@ import io.zer0.muse.tools.system.sanitizeShellCommandForLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.concurrent.thread
 
 /**
  * v1.0.47 P2-6: 本地 Shell 沙箱工具(仅 Agent Mode 可用)。
@@ -17,7 +19,7 @@ import java.io.File
  *  - 禁止管道到危险命令(如 | sh、| bash)、禁止重定向到系统目录(> /system/...)
  *  - 禁止 &、&&、||、; 命令分隔符(防止注入第二条命令)
  *  - 工作目录锁定到应用 filesDir(禁止 cd 到外部)
- *  - 超时 10s,输出上限 8KB
+ *  - 超时 10s,长输出完整落盘并提供分页读取
  *  - 仅注册为 HIGH 风险等级,Agent Mode + 用户审批才能执行
  *
  * 注意:Android 上部分命令可能不可用(toybox 实现),执行失败时返回明确错误。
@@ -49,9 +51,6 @@ object ShellSandboxTool {
     /** 命令超时 ms。 */
     private const val TIMEOUT_MS = 10_000L
 
-    /** 输出上限 8KB。 */
-    private const val MAX_OUTPUT_BYTES = 8 * 1024
-
     fun toolDef(): ToolRegistry.ToolDef = ToolRegistry.ToolDef(
         name = NAME,
         // v1.0.75 fix (工具审查 02): 补触发场景与返回格式
@@ -59,6 +58,7 @@ object ShellSandboxTool {
         description = "在应用沙箱内执行白名单 Shell 命令,用于查询设备状态(文件/磁盘/进程)后做决策(仅 Agent Mode)。" +
             "允许的命令:ls/cat/grep/echo/wc/head/tail/find/file/stat/df/du/uname/whoami/date/pwd/tree。" +
             "工作目录为应用数据目录,路径参数仅允许应用数据目录内;禁止命令分隔符(&;|)和重定向(<>),超时 10 秒。" +
+            "长输出会保存到可分段读取的应用文件。" +
             "返回: 成功=命令输出,失败=[错误]原因。",
         parameters = mapOf(
             "command" to "必填,要执行的命令(如 'ls -la' 或 'cat notes.txt')",
@@ -131,39 +131,51 @@ object ShellSandboxTool {
                 .redirectErrorStream(true)
 
             val process = builder.start()
-            // 审计修复 (4.2): 先 waitFor 带超时、后读输出 — 原实现先 stream.readBytes()
-            // 全量读输出再 waitFor,命令不退出时 readBytes 阻塞到 EOF,10s 超时形同虚设;
-            // 且 waitFor() 无超时参数可能无限挂起。现在先等超时,超时则销毁进程返回超时错误,
-            // 进程已退出后再读流不会阻塞(redirectErrorStream 已合并 stderr)。
+            val capture = ToolOutputCapture(File(workDir, TOOL_OUTPUTS_DIR), "execute_shell")
+            val readFailure = AtomicReference<Throwable?>(null)
+            val reader = thread(name = "muse-shell-output") {
+                try {
+                    process.inputStream.bufferedReader().use { stream ->
+                        val buffer = CharArray(4_096)
+                        while (true) {
+                            val count = stream.read(buffer)
+                            if (count < 0) break
+                            capture.append(String(buffer, 0, count))
+                        }
+                    }
+                } catch (error: Throwable) {
+                    readFailure.set(error)
+                }
+            }
             val finished = process.waitFor(TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
             if (!finished) {
                 process.destroyForcibly()
-                return@withContext "[超时] 命令 ${TIMEOUT_MS / 1000}s 未完成,已终止"
+                reader.join()
+                readFailure.get()?.let { throw it }
+                return@withContext capture.finish(
+                    header = "[超时] 命令 ${TIMEOUT_MS / 1000}s 未完成,已终止",
+                    emptyMessage = "(无输出)",
+                )
             }
-
-            val output = process.inputStream.buffered().use { stream ->
-                stream.readBytes().copyOf(MAX_OUTPUT_BYTES).toString(Charsets.UTF_8).trim()
-            }
-
+            reader.join()
+            readFailure.get()?.let { throw it }
             val exitCode = process.exitValue()
-            val truncated = if (output.length > 8000) output.substring(0, 8000) + "\n...(输出超 8000 字符,已截断)" else output
+            val result = capture.finish(
+                header = if (exitCode == 0) "" else "[退出码 $exitCode]",
+                emptyMessage = if (exitCode == 0) "[成功] 命令执行完成,无输出" else "(无输出)",
+            )
 
             Logger.i(
                 "ShellSandbox",
-                "execute verb=${sanitizeShellCommandForLog(command)} → exit=$exitCode (${output.length} chars)",
+                "execute verb=${sanitizeShellCommandForLog(command)} → exit=$exitCode",
             )
-            if (exitCode == 0) {
-                truncated.ifBlank { "[成功] 命令执行完成,无输出" }
-            } else {
-                "[退出码 $exitCode]\n$truncated"
-            }
+            result
         }.getOrElse {
             Logger.w("ShellSandbox", "execute 失败: ${it.message}", it)
             "[错误] 执行失败: ${it.message}"
         }
     }
 
-    private fun ByteArray.copyOf(maxLength: Int): ByteArray = if (size <= maxLength) this else copyOf(maxLength)
 }
 
 /**

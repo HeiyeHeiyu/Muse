@@ -1,6 +1,7 @@
 package io.zer0.muse.tools.script
 
 import android.content.Context
+import android.util.JsonReader
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.muse.runtime.MuseRuntime
@@ -36,6 +37,19 @@ class ProcessSkillEngine(private val context: Context) : SkillEngine {
                 args = listOf(tmp.absolutePath),
                 timeoutMs = timeoutMs,
             )
+            if (r.captureError != null) {
+                val savedOutput = listOf(r.stdout, r.stderr).filter { it.isNotBlank() }.joinToString("\n")
+                return SkillEngineResult.Error(
+                    message = "Node 完整输出保存失败: ${r.captureError}" +
+                        if (savedOutput.isNotBlank()) "\n$savedOutput" else "",
+                )
+            }
+            if (r.timedOut) {
+                return SkillEngineResult.Error(
+                    message = "执行超时" + listOf(r.stdout, r.stderr).filter { it.isNotBlank() }.joinToString("\n"),
+                )
+            }
+            r.stdoutFile?.let { return parseLargeNodePayload(it, r.stdout) }
             parseResult(r.stdout, r.stderr, r.exitCode, r.timedOut)
         } catch (e: Exception) {
             Logger.w(TAG, "Node 脚本执行失败: ${e.message}", e)
@@ -141,5 +155,39 @@ class ProcessSkillEngine(private val context: Context) : SkillEngine {
 
     companion object {
         private const val TAG = "ProcessSkillEngine"
+    }
+}
+
+internal fun parseLargeNodePayload(file: File, outputReference: String): SkillEngineResult {
+    val succeeded =
+        runCatching {
+            var success: Boolean? = null
+            JsonReader(file.reader(Charsets.UTF_8)).use { reader ->
+                reader.beginObject()
+                while (reader.hasNext()) {
+                    when (reader.nextName()) {
+                        "ok" -> success = reader.nextBoolean()
+                        else -> reader.skipValue()
+                    }
+                }
+                reader.endObject()
+            }
+            success ?: error("Node 输出缺少 ok 状态")
+        }.getOrNull()
+
+    return when (succeeded) {
+        true ->
+            SkillEngineResult.Success(
+                valueJson = JsonPrimitive(outputReference).toString(),
+                consoleLogs = emptyList(),
+            )
+        false ->
+            SkillEngineResult.Error(
+                message = "Node 脚本执行失败；完整输出可通过 read_file 分段读取:\n$outputReference",
+            )
+        null ->
+            SkillEngineResult.Error(
+                message = "Node 输出解析失败；原始输出仍已完整保存:\n$outputReference",
+            )
     }
 }

@@ -1,6 +1,8 @@
 package io.zer0.muse.tools
 
+import io.zer0.common.Logger
 import io.zer0.memory.fact.FactStore
+import kotlinx.coroutines.CancellationException
 
 /**
  * v2.x: save_memory 工具 — 助手显式写入一条长期记忆(事实)。
@@ -41,18 +43,26 @@ object SaveMemoryTool {
             .orEmpty()
         val importance = (args["importance"]?.trim()?.toIntOrNull() ?: 0).coerceIn(0, 2)
         val category = args["category"]?.trim()?.takeIf { it.isNotEmpty() } ?: "general"
-        val id = factStore.add(
-            FactStore.Fact(
-                fact = content,
-                tags = tags,
-                importance = importance,
-                category = category,
-                source = "user_explicit",
-                confidence = 1.0f,
-            ),
-            scope = executionContext.scope,
-            spaceId = executionContext.spaceId,
-        )
+        val id =
+            try {
+                factStore.add(
+                    FactStore.Fact(
+                        fact = content,
+                        tags = tags,
+                        importance = importance,
+                        category = category,
+                        source = "user_explicit",
+                        confidence = 1.0f,
+                    ),
+                    scope = executionContext.scope,
+                    spaceId = executionContext.spaceId,
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Logger.e("SaveMemoryTool", "save_memory 写入失败: ${error.message}", error)
+                return "Error: failed to save memory: ${error.message ?: "storage error"}"
+            }
         return if (id > 0) {
             "Saved to long-term memory (id: $id)."
         } else {

@@ -22,11 +22,10 @@ class ToolPermissionResolverTest {
         ParamPolicies.registerBuiltIn()
     }
 
-    // ── TRUSTED 模式:不可逆 HIGH 工具必须保留审批(含本批次补强项) ──
+    // ── TRUSTED 模式:所有未显式禁用的工具不需逐次审批 ──
 
     @Test
-    fun `trusted mode still requires approval for irreversible high tools`() {
-        // 原有通信/资金类 + 本批次补强的文件系统不可逆操作与 MCP 连接增删。
+    fun `trusted mode auto approves all high tools including command tools`() {
         listOf(
             "send_sms",
             "make_phone_call",
@@ -50,6 +49,8 @@ class ToolPermissionResolverTest {
             "ui_get_current_app",
             "ui_agent",
             "automation_workflow",
+            "execute_shell",
+            "execute_node_script",
             "virtual_screen",
             "virtual_screen_input",
             "screen_tap",
@@ -69,6 +70,9 @@ class ToolPermissionResolverTest {
             "list_packages",
             "logcat_tail",
             "input_inject",
+            "device_shell",
+            "terminal_exec",
+            "termux_exec",
         ).forEach { tool ->
             val result = ToolPermissionResolver.resolve(
                 toolName = tool,
@@ -76,7 +80,7 @@ class ToolPermissionResolverTest {
                 mode = SessionPermissionMode.TRUSTED,
                 perToolPolicy = null,
             )
-            assertEquals("TRUSTED 下 $tool 应仍要求审批", ToolApprovalState.Pending, result)
+            assertEquals("TRUSTED 下 $tool 不应逐次要求审批", ToolApprovalState.Auto, result)
         }
     }
 
@@ -98,7 +102,7 @@ class ToolPermissionResolverTest {
                 mode = SessionPermissionMode.TRUSTED,
                 perToolPolicy = null,
             )
-            assertEquals("TRUSTED 下 $tool 应仍要求审批", ToolApprovalState.Pending, result)
+            assertEquals("TRUSTED 下 $tool 不应逐次要求审批", ToolApprovalState.Auto, result)
         }
     }
 
@@ -175,7 +179,7 @@ class ToolPermissionResolverTest {
     }
 
     @Test
-    fun `trusted recovery still requires approval for irreversible high tools via single source`() {
+    fun `trusted recovery auto approves high tools via single source`() {
         // 恢复重审用 riskLevelFor 而非注册台账:即使注册值被降级为 NORMAL,
         // TRUSTED 模式下不可逆工具仍必须 Pending(避免 TRUSTED 恢复时绕过审批)。
         listOf(
@@ -192,7 +196,7 @@ class ToolPermissionResolverTest {
                 mode = SessionPermissionMode.TRUSTED,
                 perToolPolicy = null,
             )
-            assertEquals("TRUSTED 恢复时 $tool 仍须审批", ToolApprovalState.Pending, result)
+            assertEquals("TRUSTED 恢复时 $tool 不应逐次要求审批", ToolApprovalState.Auto, result)
         }
     }
 
@@ -247,6 +251,22 @@ class ToolPermissionResolverTest {
         )
     }
 
+    @Test
+    fun `session allow is only a fallback and does not override explicit deny`() {
+        assertEquals(
+            ToolApprovalPolicy.ALWAYS_ALLOW,
+            effectivePerToolPolicy(null, allowedThisSession = true),
+        )
+        assertEquals(
+            ToolApprovalPolicy.ALWAYS_DENY,
+            effectivePerToolPolicy(ToolApprovalPolicy.ALWAYS_DENY, allowedThisSession = true),
+        )
+        assertEquals(
+            null,
+            effectivePerToolPolicy(null, allowedThisSession = false),
+        )
+    }
+
     // ── 参数化策略(ParamPolicies) ──
 
     @Test
@@ -276,7 +296,7 @@ class ToolPermissionResolverTest {
             null,
             mapOf("url" to "custom-scheme://x"),
         )
-        assertEquals(ToolApprovalState.Pending, unknown)
+        assertEquals("TRUSTED 下未知 scheme 不走审批卡,交由工具自身处理", ToolApprovalState.Auto, unknown)
     }
 
     // ── P0-8: STRICT 模式优先于参数化 Auto ──

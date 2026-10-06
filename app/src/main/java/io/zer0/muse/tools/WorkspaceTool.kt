@@ -8,7 +8,7 @@ import kotlinx.coroutines.runBlocking
  *
  * 注册 6 个工具到 [ToolRegistry],让 AI 能在工作区内进行文件管理操作:
  *  1. workspace_list   — 列出指定目录下的子项
- *  2. workspace_read   — 读取文本文件(限制 1MB)
+ *  2. workspace_read   — 读取文本文件,大文件支持字符游标分页
  *  3. workspace_write  — 写入文本文件(限制 10MB,覆盖写入)
  *  4. workspace_delete — 删除文件或目录(目录递归)
  *  5. workspace_mkdir  — 创建目录(支持多级)
@@ -71,9 +71,11 @@ object WorkspaceTool {
         ),
         ToolRegistry.ToolDef(
             name = NAME_READ,
-            description = "读取工作区内指定文本文件内容(UTF-8)。文件大小上限 1MB,超出返回错误。",
+            description = "读取工作区内指定文本文件内容(UTF-8)。大文件自动分段,使用 offset_chars/length_chars 继续读取。",
             parameters = mapOf(
                 "path" to "必填,相对工作区根目录的文件路径",
+                "offset_chars" to "可选,字符起始游标;继续读取时使用上次返回的 offset_chars。",
+                "length_chars" to "可选,单页字符数,最大 ${io.zer0.muse.tools.TOOL_OUTPUT_READ_PAGE_CHARS}。",
             ),
             required = setOf("path"),
             category = "built-in",
@@ -159,7 +161,9 @@ object WorkspaceTool {
                 NAME_READ -> {
                     val path = args["path"]?.trim()?.takeIf { it.isNotEmpty() }
                         ?: return@runBlocking "Error: 参数 path 必填"
-                    when (val r = manager.readFile(path)) {
+                    val offsetChars = args["offset_chars"]?.toIntOrNull()
+                    val lengthChars = args["length_chars"]?.toIntOrNull()
+                    when (val r = manager.readFilePage(path, offsetChars, lengthChars)) {
                         is WorkspaceManager.ReadResult.Success -> r.content
                         is WorkspaceManager.ReadResult.Error -> "Error: ${r.message}"
                     }

@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.Build
 import io.zer0.common.AppJson
 import io.zer0.common.Logger
+import io.zer0.muse.tools.TOOL_OUTPUTS_DIR
 import io.zer0.muse.tools.ToolFailureText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -44,9 +45,6 @@ import java.io.File
 object SkillBridge {
 
     private const val TAG = "SkillBridge"
-
-    /** http_get 响应体读取硬上限(1MB),防脚本拉取超大内容撑爆内存(OOM 防护)。 */
-    private const val MAX_BODY_BYTES = 1024 * 1024
 
     /** v2.2.1: http_post 请求体上限(256KB)。 */
     private const val MAX_REQUEST_BYTES = 256 * 1024
@@ -107,8 +105,8 @@ object SkillBridge {
         val params = obj["params"] as? JsonObject ?: buildJsonObject { }
         return when (action) {
             "echo" -> HandleResult.Output(params.toString())
-            "http_get" -> withContext(Dispatchers.IO) { execHttpGet(params) }
-            "http_post" -> withContext(Dispatchers.IO) { execHttpPost(params) }
+            "http_get" -> withContext(Dispatchers.IO) { execHttpGet(params, host) }
+            "http_post" -> withContext(Dispatchers.IO) { execHttpPost(params, host) }
             "fs_list" -> withContext(Dispatchers.IO) { execFsList(host, params) }
             "fs_read" -> withContext(Dispatchers.IO) { execFsRead(host, params) }
             "fs_write" -> withContext(Dispatchers.IO) { execFsWrite(host, params) }
@@ -123,37 +121,35 @@ object SkillBridge {
 
     // ── HTTP ─────────────────────────────────────────────────────────────
 
-    /** 执行 http_get：SSRF 防护(含重定向逐跳校验) + 响应体上限。 */
-    private fun execHttpGet(params: JsonObject): HandleResult {
+    /** 执行 http_get：SSRF 防护(含重定向逐跳校验) + 完整输出落盘。 */
+    private fun execHttpGet(params: JsonObject, host: Host?): HandleResult {
         val url = (params["url"] as? JsonPrimitive)?.contentOrNull
             ?: return HandleResult.Failure("http_get 缺少 url 参数")
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
             return HandleResult.Failure("http_get url 仅支持 http/https 协议")
         }
-        // 响应体读取上限,默认 1MB;用户请求值收敛到 [1, MAX_BODY_BYTES],
-        // 防脚本拉取超大内容整读后撑爆上下文/内存(B-3)
-        val maxSize = (params["max_size"] as? JsonPrimitive)?.contentOrNull
-            ?.toIntOrNull()?.coerceIn(1, MAX_BODY_BYTES) ?: MAX_BODY_BYTES
-        return execHttpGetWithRedirects(url, maxSize)
+        val outputDirectory = host?.context?.let { File(it.filesDir, TOOL_OUTPUTS_DIR) }
+            ?: return HandleResult.Failure("http_get 缺少完整响应存储上下文")
+        return execHttpGetWithRedirects(url, outputDirectory)
     }
 
     /** v2.2.1: 执行 http_post（不跟随重定向，fail-closed）。 */
-    private fun execHttpPost(params: JsonObject): HandleResult {
+    private fun execHttpPost(params: JsonObject, host: Host?): HandleResult {
         val url = (params["url"] as? JsonPrimitive)?.contentOrNull
             ?: return HandleResult.Failure("http_post 缺少 url 参数")
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
             return HandleResult.Failure("http_post url 仅支持 http/https 协议")
         }
+        val outputDirectory = host?.context?.let { File(it.filesDir, TOOL_OUTPUTS_DIR) }
+            ?: return HandleResult.Failure("http_post 缺少完整响应存储上下文")
         val body = (params["body"] as? JsonPrimitive)?.contentOrNull.orEmpty()
         if (body.toByteArray(Charsets.UTF_8).size > MAX_REQUEST_BYTES) {
             return HandleResult.Failure("http_post 请求体超过上限(${MAX_REQUEST_BYTES / 1024}KB)")
         }
         val contentType = (params["content_type"] as? JsonPrimitive)?.contentOrNull
             ?.takeIf { it.isNotBlank() } ?: "text/plain; charset=utf-8"
-        val maxSize = (params["max_size"] as? JsonPrimitive)?.contentOrNull
-            ?.toIntOrNull()?.coerceIn(1, MAX_BODY_BYTES) ?: MAX_BODY_BYTES
         return try {
-            val result = bridgeHttpClient.post(url, body, contentType, maxSize)
+            val result = bridgeHttpClient.postComplete(url, body, contentType, outputDirectory)
             HandleResult.Output(
                 buildJsonObject {
                     put("status", JsonPrimitive(result.status))
@@ -180,9 +176,9 @@ object SkillBridge {
      * 禁用自动跟随并逐跳校验，任一跳失败即 fail-closed。
      */
     @Suppress("TooGenericExceptionCaught") // 底层网络异常统一转为用户可见失败信息
-    private fun execHttpGetWithRedirects(startUrl: String, maxSize: Int): HandleResult {
+    private fun execHttpGetWithRedirects(startUrl: String, outputDirectory: File): HandleResult {
         return try {
-            val result = bridgeHttpClient.get(startUrl, maxSize, MAX_REDIRECTS)
+            val result = bridgeHttpClient.getComplete(startUrl, outputDirectory, MAX_REDIRECTS)
             HandleResult.Output(
                 buildJsonObject {
                     put("status", JsonPrimitive(result.status))
@@ -239,7 +235,12 @@ object SkillBridge {
             val root = fsRootOf(host)
             val path = paramString(params, "path")
             if (path.isEmpty()) return HandleResult.Failure("fs_read 缺少 path 参数")
-            val content = SkillBridgeFs.read(root, path)
+            val content = SkillBridgeFs.read(
+                root = root,
+                path = path,
+                offsetChars = paramString(params, "offset_chars").toIntOrNull(),
+                lengthChars = paramString(params, "length_chars").toIntOrNull(),
+            )
             HandleResult.Output(
                 buildJsonObject {
                     put("path", JsonPrimitive(path))

@@ -17,10 +17,10 @@ object RenderDataTool {
 
     const val NAME = "render_data"
 
-    private const val MAX_COLUMNS = 12
-    private const val MAX_ROWS = 50
-    private const val MAX_TEXT_LENGTH = 200
-    private const val MAX_OUTPUT_LENGTH = 16_000
+    // Keep only structural guardrails; the orchestrator can spill large results to a complete
+    // file reference, so this renderer must not reject or truncate otherwise valid user data.
+    private const val MAX_COLUMNS = 64
+    private const val MAX_ROWS = 2_000
 
     private val CHART_TYPES = setOf("bar", "line", "donut")
 
@@ -56,7 +56,7 @@ object RenderDataTool {
                 type == "table" -> renderTable(title, data)
                 else -> error("type 只支持 bar、line、donut 或 table")
             }
-        return if (rendered.length <= MAX_OUTPUT_LENGTH) rendered else error("输出超过最大长度")
+        return rendered
     }
 
     private fun renderChart(type: String, title: String, data: JsonObject): String {
@@ -149,7 +149,7 @@ object RenderDataTool {
     }
 
     private fun cleanText(value: String): String =
-        value.replace('|', ' ').replace('\r', ' ').replace('\n', ' ').trim().take(MAX_TEXT_LENGTH)
+        value.replace('|', ' ').replace('\r', ' ').replace('\n', ' ').trim()
 
     private fun error(message: String): String = "Error: $message"
 

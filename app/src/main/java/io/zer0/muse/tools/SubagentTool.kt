@@ -122,7 +122,7 @@ object SubagentTool {
                 buildString {
                     append("Task ${state.taskId}: status=${state.status}, progress=${state.progress}")
                     if (state.threadId != null) append(", threadId=${state.threadId}")
-                    if (state.result != null) append("\nResult: ${state.result.take(200)}")
+                    if (state.result != null) append("\nResult: ${state.result}")
                 }
             }
 

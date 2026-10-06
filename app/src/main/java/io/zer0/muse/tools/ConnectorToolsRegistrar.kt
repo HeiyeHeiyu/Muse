@@ -118,7 +118,7 @@ class ConnectorToolsRegistrar(
             }
             HTTP.newCall(builder.build()).execute().use { resp ->
                 val text = resp.body.string()
-                "HTTP ${resp.code}\n${text.take(MAX_RESPONSE_LENGTH)}"
+                formatConnectorResponse(resp.code, text)
             }
         }.getOrElse { e -> "请求失败: ${e.message}" }
     }
@@ -146,8 +146,6 @@ class ConnectorToolsRegistrar(
         /** 以连接器凭据调用外部服务 API(审批后执行)。 */
         const val TOOL_CALL_CONNECTOR = "call_connector"
 
-        private const val MAX_RESPONSE_LENGTH = 4_000
-
         private val ALLOWED_METHODS = setOf("GET", "POST", "PUT", "PATCH", "DELETE")
 
         private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
@@ -160,3 +158,6 @@ class ConnectorToolsRegistrar(
         }
     }
 }
+
+internal fun formatConnectorResponse(statusCode: Int, body: String): String =
+    "HTTP $statusCode\n$body"

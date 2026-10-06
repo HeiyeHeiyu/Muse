@@ -8,10 +8,11 @@ package io.zer0.muse.tools
  *  2. 工具自身的 [ToolRiskLevel]
  *  3. 用户针对该工具单独设置的 [ToolApprovalPolicy]
  *
- * 优先级:单工具 ALWAYS_DENY > 会话 STRICT > 单工具 ALWAYS_ALLOW > 会话 TRUSTED/ASK。
+ * 优先级:单工具 ALWAYS_DENY / 参数硬拒绝 > 会话 TRUSTED > 会话 STRICT >
+ * 单工具 ALWAYS_ALLOW > 会话 ASK 默认风险策略。
  *
- * v1.0.52: 新增规则型硬边界防线([isUnsafeCommand]),作为 shell 类工具的第一道防线。
- * 即使会话处于 TRUSTED 模式(全部放权),黑名单内的命令也永远不会执行。
+ * v1.0.52: ShellSandboxTool 保留独立规则型硬边界([isUnsafeCommand])。
+ * 会话 TRUSTED 模式只跳过逐次审批,不绕过工具自身的沙箱、参数校验或执行器权限。
  */
 object ToolPermissionResolver {
 
@@ -23,8 +24,8 @@ object ToolPermissionResolver {
     /**
      * v1.0.52: 危险可执行文件黑名单(规则型硬边界防线)。
      *
-     * 无论会话权限模式如何(TRUSTED/ASK/STRICT),只要命令中出现这些可执行文件名,
-     * [isUnsafeCommand] 立即返回 true,调用方必须拒绝执行。
+     * execute_shell 调用中只要出现这些可执行文件名,[isUnsafeCommand] 即拒绝执行。
+     * 该只读 Shell 沙箱限制独立于用户选择的审批模式。
      *
      * 收录依据(按 既有实现 行动纪律 + 安全最佳实践):
      *  - 文件删除/破坏:rm, rmdir, shred, mkfs
@@ -91,7 +92,7 @@ object ToolPermissionResolver {
      *
      * 设计原则(按 既有实现 行动纪律):
      *  - 黑名单优先于白名单:先确认不是已知危险命令,再检查是否在白名单
-     *  - 即使会话处于 TRUSTED 模式(全部放权),黑名单仍然生效——这是"硬边界"
+     *  - TRUSTED 模式允许工具直接执行,但 execute_shell 仍受本硬边界保护
      *  - 与 [ShellSandboxTool] 的白名单 + [FORBIDDEN_CHARS] 互补,形成多层防御
      *
      * @param command 待检查的命令字符串
@@ -134,12 +135,24 @@ object ToolPermissionResolver {
             return ToolApprovalState.Denied("工具 $toolName 已被用户禁用")
         }
 
+        // 参数级硬拒绝始终生效(例如 file:// URL / 危险 JS);TRUSTED 只绕过确认,
+        // 不绕过明确非法或危险参数的拒绝。
+        val paramState = ParamPolicies.evaluate(toolName, args)
+        if (paramState is ToolApprovalState.Denied) {
+            return paramState
+        }
+
+        // v1.x: TRUSTED = 用户明确选择所有工具免逐次确认。
+        // 保留上方显式禁用与参数硬拒绝；执行器自己的沙箱和权限检查不受影响。
+        if (mode == SessionPermissionMode.TRUSTED) {
+            return ToolApprovalState.Auto
+        }
+
         // v1.0.53: 参数化策略(返回非 null 时采用,覆盖静态风险判定)
         // P0-8: 优先级修正 — 会话模式(STRICT)优先于"参数化 Auto":STRICT 下参数策略
         // 只能收紧(Denied),不能放宽(Auto)。否则 open_url 的 http/https → Auto 会先于
         // 模式判定返回,旁路 STRICT 的"外链一律审批"。参数化 Denied 仍最优先(收紧)。
         // 优先级总序:ALWAYS_DENY > 参数化 Denied > STRICT 模式 > 参数化 Auto > 其他。
-        val paramState = ParamPolicies.evaluate(toolName, args)
         if (paramState != null && !(mode == SessionPermissionMode.STRICT && paramState is ToolApprovalState.Auto)) {
             return paramState
         }
@@ -164,16 +177,7 @@ object ToolPermissionResolver {
 
         // 4. 默认策略(按会话模式 + risk)
         return when (mode) {
-            // v1.0.48: TRUSTED = 完全放权,所有风险等级都自动执行,不再对 HIGH 工具弹审批
-            //   与 SettingsRepository 中"完全放权,所有工具直接调用,不需批准"的注释语义对齐
-            // B-27: 通信/资金类不可逆副作用工具除外 — TRUSTED 下仍保留审批,
-            //   防止 prompt injection 或模型误判直接发短信/打电话/改通讯录。
-            SessionPermissionMode.TRUSTED ->
-                if (effectiveRisk == ToolRiskLevel.HIGH && toolName in TRUSTED_REQUIRE_APPROVAL_TOOLS) {
-                    ToolApprovalState.Pending
-                } else {
-                    ToolApprovalState.Auto
-                }
+            SessionPermissionMode.TRUSTED -> ToolApprovalState.Auto
             SessionPermissionMode.ASK -> when (effectiveRisk) {
                 ToolRiskLevel.SAFE -> ToolApprovalState.Auto
                 ToolRiskLevel.NORMAL -> ToolApprovalState.Pending
@@ -307,8 +311,7 @@ object ToolPermissionResolver {
         "channel_reply" to ToolRiskLevel.NORMAL,
         "channel_pass" to ToolRiskLevel.NORMAL,
         "channel_read_context" to ToolRiskLevel.NORMAL,
-        // v1.x: enable_skill 只改本地 enabled 位、可随时用 disable_skill 回滚,与 disable_skill 同级(NORMAL);
-        // 不放入 TRUSTED_REQUIRE_APPROVAL_TOOLS — 该集合只收不可逆外部副作用工具,启用技能不属于此类
+        // enable_skill 只改变本地启用位、可用 disable_skill 回滚,因此标记为 NORMAL。
         "enable_skill" to ToolRiskLevel.NORMAL,
 
         // HIGH 族显式(不可逆/跨设备/隐私)
@@ -494,91 +497,13 @@ object ToolPermissionResolver {
         "workspace_list",
     )
 
-    /**
-     * B-27: 即使 TRUSTED(完全放权)模式也保留审批的 HIGH 风险工具 —
-     * 不可逆外部副作用,受 prompt injection 影响后果最严重。
-     * 原 B-27 覆盖通信/资金类(短信/电话/通讯录/日历/JS);
-     * 补强覆盖文件系统不可逆操作(删除/覆写/移动)与 MCP 连接增删
-     * (注入外部 MCP server 可引入任意工具,随后增大攻击面)。
-     */
-    private val TRUSTED_REQUIRE_APPROVAL_TOOLS: Set<String> = setOf(
-        "send_sms",
-        "make_phone_call",
-        "add_contact",
-        "add_calendar_event",
-        "execute_javascript",
-        "execute_node_script",
-        "workspace_delete",
-        "workspace_write",
-        "workspace_move",
-        "mcp_mgmt_remove",
-        "mcp_mgmt_configure",
-        // v2.0.1: 安装外部插件会引入可执行代码,完全放权模式也必须保留审批
-        "plugin_market_install",
-        // v2.x: 卸载/启停同属插件生命周期变更,保留审批
-        "plugin_market_uninstall",
-        "plugin_market_set_enabled",
-        // v2.x Agent 手机工具和虚拟屏可连续操作其他应用,保持逐次审批。
-        "automation_workflow",
-        "virtual_screen",
-        "virtual_screen_input",
-        "screen_read",
-        "screen_current_app",
-        "screen_tap",
-        "screen_tap_text",
-        "screen_swipe",
-        "screen_pinch",
-        "screen_swipe_path",
-        "screen_input",
-        "screen_launch_app",
-        "app_force_stop",
-        "app_clear_data",
-        "app_uninstall",
-        "settings_get",
-        "settings_put",
-        "network_toggle",
-        "am_start",
-        "list_packages",
-        "logcat_tail",
-        "input_inject",
-        // v2.x 自动化一期:设备命令可操纵任意 App/系统设置,完全放权模式也保留审批
-        "device_shell",
-        "automation_workflow",
-        "virtual_screen_input",
-        "screen_tap",
-        "screen_tap_text",
-        "screen_swipe",
-        "screen_pinch",
-        "screen_swipe_path",
-        "screen_input",
-        "screen_launch_app",
-        "app_force_stop",
-        "app_clear_data",
-        "app_uninstall",
-        // Root/Shizuku 设备操作与隐私读取在 TRUSTED 模式仍需显式审批。
-        "settings_get",
-        "settings_put",
-        "network_toggle",
-        "am_start",
-        "list_packages",
-        "logcat_tail",
-        "input_inject",
-        // v2.x 终端一期:沙盒终端可写/删应用数据,保留审批
-        "terminal_exec",
-        // v2.2.1: Termux 通道能力全开,保留审批
-        "termux_exec",
-        // A2: UI 读取会暴露其他 App 内容,坐标/输入操作可触发任意前台行为,全部保留审批。
-        "ui_get_page_info",
-        "ui_click",
-        "ui_long_press",
-        "ui_swipe",
-        "ui_set_text",
-        "ui_screenshot",
-        "ui_back",
-        "ui_home",
-        "ui_global_action",
-        "ui_get_current_app",
-        // v2.2.1: GUI Agent 环可连续操作任意 App,保留审批
-        "ui_agent",
-    )
 }
+
+/**
+ * Merge the per-session "allow this tool" cache with the persisted policy without allowing
+ * a temporary allow to override an explicit deny.
+ */
+internal fun effectivePerToolPolicy(
+    configuredPolicy: ToolApprovalPolicy?,
+    allowedThisSession: Boolean,
+): ToolApprovalPolicy? = configuredPolicy ?: if (allowedThisSession) ToolApprovalPolicy.ALWAYS_ALLOW else null

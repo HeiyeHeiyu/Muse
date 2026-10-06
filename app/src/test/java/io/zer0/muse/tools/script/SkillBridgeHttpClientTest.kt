@@ -4,6 +4,7 @@ import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import org.junit.Rule
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -11,6 +12,8 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.File
 import java.net.InetAddress
 import java.net.Proxy
 import java.net.UnknownHostException
@@ -23,6 +26,9 @@ import java.util.concurrent.TimeUnit
  * MockWebServer socket, rather than only testing a standalone getAllByName policy function.
  */
 class SkillBridgeHttpClientTest {
+
+    @get:Rule
+    val tempFolder = TemporaryFolder()
 
     private lateinit var origin: MockWebServer
     private val loopback = InetAddress.getByName("127.0.0.1")
@@ -66,6 +72,32 @@ class SkillBridgeHttpClientTest {
         assertEquals(listOf(host), dnsLookups)
         assertTrue(validatedConnections.isNotEmpty())
         assertTrue(validatedConnections.all { it.address.contentEquals(loopback.address) })
+    }
+
+    @Test
+    fun getCompleteSpoolsAndPreservesTheWholeLargeResponse() {
+        val host = "large-response.test"
+        val responseBody = "large response line\n".repeat(150_000)
+        origin.enqueue(MockResponse().setResponseCode(200).setBody(responseBody))
+        val outputDirectory = File(tempFolder.root, "tool_outputs")
+        val client = SkillBridgeHttpClient(
+            baseClient = testBaseClient(),
+            dns = Dns { requestedHost ->
+                if (requestedHost != host) throw UnknownHostException(requestedHost)
+                listOf(loopback)
+            },
+            addressAllowed = { it.address.contentEquals(loopback.address) },
+        )
+
+        val result = client.getComplete(origin.url("/").withHost(host), outputDirectory)
+        val savedPath = Regex("""\[完整输出已保存到: ([^\]]+)]""")
+            .find(result.body)
+            ?.groupValues
+            ?.get(1)
+
+        assertEquals(200, result.status)
+        assertTrue("大响应应返回分页文件引用: ${result.body.take(200)}", savedPath != null)
+        assertEquals(responseBody, File(savedPath!!).readText())
     }
 
     @Test

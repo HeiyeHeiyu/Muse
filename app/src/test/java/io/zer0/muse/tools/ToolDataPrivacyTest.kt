@@ -1,5 +1,6 @@
 package io.zer0.muse.tools
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -34,6 +35,13 @@ class ToolDataPrivacyTest {
         assertFalse(password.contains("P@ssw0rd"))
         assertTrue(clipboard.contains("omitted"))
         assertTrue(password.contains("omitted"))
+    }
+
+    @Test
+    fun persistenceKeepsTheCompleteNonSensitiveToolResult() {
+        val result = "ordinary tool output ".repeat(1_000)
+
+        assertEquals(result, ToolDataPrivacy.safeResultForPersistence("read_file", result))
     }
 
     @Test

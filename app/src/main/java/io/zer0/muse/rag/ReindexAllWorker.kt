@@ -265,10 +265,11 @@ class ReindexAllWorker(
         const val KEY_KB_IDS = "kb_ids"
         const val KEY_PROGRESS = "progress"
         const val KEY_TOTAL = "total"
-        private const val NOTIF_ID_REINDEX = 1005
+        // Keep RAG progress/results outside MuseNotificationManager's fixed chat/backup IDs.
+        private const val NOTIF_ID_REINDEX = 1105
 
         /** 终态结果通知用独立 id:前台进度通知会被 WorkManager 在任务结束时撤掉,复用会一起消失。 */
-        private const val NOTIF_ID_REINDEX_RESULT = 1006
+        private const val NOTIF_ID_REINDEX_RESULT = 1106
 
         /**
          * 入队一次性重索引任务。

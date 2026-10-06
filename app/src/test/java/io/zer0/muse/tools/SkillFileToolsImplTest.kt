@@ -11,6 +11,7 @@ import android.provider.MediaStore
 import androidx.test.core.app.ApplicationProvider
 import io.mockk.every
 import io.mockk.mockk
+import java.io.ByteArrayInputStream
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertFalse
@@ -36,6 +37,59 @@ class SkillFileToolsImplTest {
 
         val read = impl.execReadFile(mapOf("path" to "notes/test.txt"))
         assertTrue(read.contains("hello file tools"))
+    }
+
+    @Test
+    fun readFilePagesLargeToolOutputsByCharacterRange() {
+        val impl = SkillFileToolsImpl(context, OkHttpClient())
+        val outputDir = java.io.File(context.filesDir, TOOL_OUTPUTS_DIR).apply { mkdirs() }
+        val file = java.io.File(outputDir, "large-output-test.txt")
+        val source = "甲😀乙\n".repeat(250_000)
+        file.writeText(source)
+        try {
+            val offset = 1_000_000
+            val length = 16_000
+            val result = impl.execReadFile(
+                mapOf(
+                    "path" to "$TOOL_OUTPUTS_DIR/${file.name}",
+                    "offset_chars" to offset.toString(),
+                    "length_chars" to length.toString(),
+                ),
+            )
+
+            assertTrue("应该返回请求区间的完整文本", result.startsWith(source.substring(offset, offset + length)))
+            assertTrue("应给出下一段的字符游标", result.contains("offset_chars=${offset + length}"))
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
+    fun readPublicFileKeepsCompleteInputBeyondOneMegabyte() = runBlocking {
+        val uri = Uri.parse("content://test.provider/large")
+        val content = "public file line\n".repeat(80_000)
+        val resolver = mockk<ContentResolver>()
+        every { resolver.openInputStream(uri) } returns ByteArrayInputStream(content.toByteArray())
+        val fakeContext = object : ContextWrapper(context) {
+            override fun getContentResolver(): ContentResolver = resolver
+        }
+
+        val result = SkillFileToolsImpl(fakeContext, OkHttpClient()).execReadPublicFile(
+            mapOf("uri" to uri.toString()),
+        )
+
+        val savedPath = Regex("""\[完整输出已保存到: ([^\]]+)]""")
+            .find(result)
+            ?.groupValues
+            ?.get(1)
+        assertTrue("大文件应有完整输出文件引用: $result", savedPath != null)
+        val savedFile = java.io.File(savedPath!!)
+        try {
+            assertTrue(savedFile.readText() == content)
+            assertTrue(result.contains("offset_chars=0"))
+        } finally {
+            savedFile.delete()
+        }
     }
 
     @Test

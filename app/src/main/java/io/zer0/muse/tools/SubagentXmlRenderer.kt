@@ -10,7 +10,7 @@ package io.zer0.muse.tools
  *
  * 设计原则(按 既有实现 examples/subagent):
  *  - XML 标签结构化,便于主 agent 解析和理解子 agent 进度
- *  - 结果预览限制长度,避免撑爆主 agent 上下文
+ *  - 最终结果与工具结果完整返回;大 XML 由外层工具输出文件分页处理
  *  - 失败时仍返回可用信息(已完成的轮次 + 错误原因),让主 agent 决策重试或换路径
  *  - 所有用户可控文本(task/args/result)均做 XML 转义,防止注入
  *
@@ -21,12 +21,6 @@ package io.zer0.muse.tools
  *    一次性收到完整 XML(含所有进度),协议化便于主 agent 后续解析
  */
 object SubagentXmlRenderer {
-
-    /** 单个进度条目的结果预览最大字符数。 */
-    private const val PROGRESS_PREVIEW_CHARS = 400
-
-    /** 最终总结的最大字符数(超出截断并标注)。 */
-    private const val RESULT_SUMMARY_CHARS = 4000
 
     /** 工具调用参数的最大字符数(超出截断)。 */
     private const val ARGS_PREVIEW_CHARS = 500
@@ -54,7 +48,7 @@ object SubagentXmlRenderer {
      */
     fun renderProgress(round: Int, maxToolCalls: Int, toolName: String, argsJson: String, result: String, success: Boolean): String {
         val escapedArgs = escapeXml(truncate(argsJson, ARGS_PREVIEW_CHARS))
-        val escapedResult = escapeXml(truncate(result, PROGRESS_PREVIEW_CHARS))
+        val escapedResult = escapeXml(result)
         val successAttr = if (success) "true" else "false"
         return "<subagent_progress round=\"$round\" max_tool_calls=\"$maxToolCalls\" " +
             "tool=\"$toolName\" success=\"$successAttr\" " +
@@ -81,11 +75,11 @@ object SubagentXmlRenderer {
     ): String {
         val successAttr = if (success) "true" else "false"
         val body = if (success) {
-            escapeXml(truncate(summary, RESULT_SUMMARY_CHARS))
+            escapeXml(summary)
         } else {
             val errText = error?.takeIf { it.isNotBlank() } ?: "未知错误"
             "[FAILED] ${escapeXml(errText)}" +
-                if (summary.isNotBlank()) "\n[PARTIAL] ${escapeXml(truncate(summary, RESULT_SUMMARY_CHARS))}" else ""
+                if (summary.isNotBlank()) "\n[PARTIAL] ${escapeXml(summary)}" else ""
         }
         return buildString {
             append("<subagent_result success=\"$successAttr\" ")

@@ -52,7 +52,7 @@ class ToolOrchestratorOutputWriteTest {
     private lateinit var accessor: ChatStateAccessor
     private lateinit var coordinator: ChatTaskCardCoordinator
 
-    private val bigOutput = "x".repeat(MAX_TOOL_RESULT_CHARS + 8_000)
+    private val bigOutput = "x".repeat(TOOL_OUTPUT_INLINE_FALLBACK_CHARS + 8_000)
 
     @Before
     fun setUp() {
@@ -77,6 +77,9 @@ class ToolOrchestratorOutputWriteTest {
             val result = firstArg<String>()
             !result.contains("error") && !result.startsWith("[超时]")
         }
+        every {
+            coordinator.markTaskStepRunningIfNotPaused(any(), any(), any(), any())
+        } returns true
     }
 
     private fun orchestrator(
@@ -135,6 +138,7 @@ class ToolOrchestratorOutputWriteTest {
 
     private class FakeToolLoopHost(
         private val results: ArrayDeque<StreamRoundResult>,
+        private val availableContextTokens: Int = 0,
     ) : ToolLoopHost {
         override suspend fun streamRound(params: StreamRoundParams): StreamRoundResult = results.removeFirst()
 
@@ -146,11 +150,19 @@ class ToolOrchestratorOutputWriteTest {
         ): ToolApprovalState = ToolApprovalState.Approved()
 
         override fun onToolLoopError(type: ChatErrorType, message: String, recoverable: Boolean) = Unit
+
+        override fun contextBudgetTokens(): Int = availableContextTokens
     }
 
-    private suspend fun runWithOutput(toolName: String, output: String, orchestrator: ToolOrchestrator): String {
+    private suspend fun runWithOutput(
+        toolName: String,
+        output: String,
+        orchestrator: ToolOrchestrator,
+        availableContextTokens: Int = 0,
+    ): String {
         val host = FakeToolLoopHost(
             ArrayDeque(listOf(toolRound(ToolCall("o1", toolName, "{}")), finalRound())),
+            availableContextTokens,
         )
         coEvery { registry.executeFromJson(toolName, any()) } coAnswers { output }
         val history = mutableListOf<UIMessage>()
@@ -163,16 +175,30 @@ class ToolOrchestratorOutputWriteTest {
     fun `oversized output is written to disk and referenced in result`() = runBlocking {
         val content = runWithOutput("read_file", bigOutput, orchestrator())
 
-        assertTrue(content.contains("[工具输出已截断"))
+        assertTrue(content.contains("[完整结果已保存"))
         assertTrue(content.contains("[完整输出已保存到:"))
-        assertTrue(content.contains("read_file 工具读取"))
+        assertTrue(content.contains("offset_chars"))
         val files = File(tempFolder.root, TOOL_OUTPUTS_DIR).listFiles()
         assertEquals(1, files?.size)
         assertEquals(bigOutput, files!!.single().readText())
     }
 
     @Test
-    fun `disk write timeout degrades to in-memory truncation`() = runBlocking {
+    fun `large result is passed whole when current context has room`() = runBlocking {
+        val output = "用户 API 返回".repeat(8_000)
+        val content = runWithOutput(
+            toolName = "read_file",
+            output = output,
+            orchestrator = orchestrator(),
+            availableContextTokens = 100_000,
+        )
+
+        assertEquals(output, content)
+        assertFalse(File(tempFolder.root, TOOL_OUTPUTS_DIR).exists())
+    }
+
+    @Test
+    fun `disk write timeout preserves the complete tool result in the conversation`() = runBlocking {
         val orchestrator = orchestrator(
             toolOutputWriteTimeoutMs = 20L,
             writer = { _, _ -> delay(60_000) },
@@ -181,9 +207,10 @@ class ToolOrchestratorOutputWriteTest {
 
         val content = runWithOutput("read_file", bigOutput, orchestrator)
 
-        assertTrue("超时应降级并给出提示,实际=${content.take(80)}", content.contains("落盘超时"))
+        assertTrue("应保留工具原始输出", content.startsWith(bigOutput))
+        assertTrue("应明确说明未能建立文件副本", content.contains("落盘超时"))
         assertFalse(content.contains("[完整输出已保存到:"))
-        // 工具循环不被 60s 慢写阻塞(超时 20ms 后立即降级)
+        // 工具循环不被 60s 慢写阻塞(超时 20ms 后回传完整内存结果)
         assertTrue(
             "落盘超时应快速降级,实际耗时=${System.currentTimeMillis() - startedAt}ms",
             System.currentTimeMillis() - startedAt < 5_000,
@@ -191,15 +218,15 @@ class ToolOrchestratorOutputWriteTest {
     }
 
     @Test
-    fun `disk write failure degrades to in-memory truncation`() = runBlocking {
+    fun `disk write failure preserves the complete tool result in the conversation`() = runBlocking {
         val orchestrator = orchestrator(
             writer = { _, _ -> throw java.io.IOException("disk full") },
         )
 
         val content = runWithOutput("read_file", bigOutput, orchestrator)
 
+        assertTrue("应保留工具原始输出", content.startsWith(bigOutput))
         assertTrue(content.contains("落盘失败"))
-        assertTrue(content.contains("disk full"))
         assertFalse(content.contains("[完整输出已保存到:"))
     }
 

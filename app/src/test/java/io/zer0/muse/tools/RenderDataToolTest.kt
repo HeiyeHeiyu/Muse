@@ -2,6 +2,7 @@ package io.zer0.muse.tools
 
 import io.zer0.muse.ui.markdown.DataCardParser
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -63,8 +64,8 @@ class RenderDataToolTest {
     }
 
     @Test
-    fun tableWithTooManyColumnsIsRejected() {
-        val columns = (1..13).joinToString(prefix = "[", postfix = "]") { "\"c$it\"" }
+    fun tableWithTooManyColumnsIsRejectedByTheStructuralGuard() {
+        val columns = (1..65).joinToString(prefix = "[", postfix = "]") { "\"c$it\"" }
         val result = RenderDataTool.execute(
             mapOf(
                 "type" to "table",
@@ -74,5 +75,38 @@ class RenderDataToolTest {
         )
 
         assertTrue(result.startsWith("Error:"))
+    }
+
+    @Test
+    fun `table keeps large datasets instead of truncating or rejecting output`() {
+        val rows = (1..500).joinToString(",") { index ->
+            """["row-$index","${"x".repeat(64)}"]"""
+        }
+
+        val result = RenderDataTool.execute(
+            mapOf(
+                "type" to "table",
+                "title" to "Large table",
+                "data" to """{"columns":["id","payload"],"rows":[$rows]}""",
+            ),
+        )
+
+        assertFalse(result.startsWith("Error:"))
+        assertTrue(result.contains("row-500"))
+    }
+
+    @Test
+    fun `table keeps long cell text intact`() {
+        val cell = "detail-".repeat(256)
+        val result = RenderDataTool.execute(
+            mapOf(
+                "type" to "table",
+                "title" to "Long cell",
+                "data" to """{"columns":["content"],"rows":[["$cell"]]}""",
+            ),
+        )
+
+        assertFalse(result.startsWith("Error:"))
+        assertTrue(result.contains(cell))
     }
 }

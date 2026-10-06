@@ -66,7 +66,7 @@ class RootToolsRegistrar(
             if (detail.exitCode == 0) {
                 "[$tier] $name = ${detail.output.trim()}"
             } else {
-                "[$tier] 读取失败: ${detail.output.ifBlank { "exit=${detail.exitCode}" }.take(500)}"
+                formatRootFailureOutput(tier, "读取失败", detail.output, detail.exitCode)
             }
         }
 
@@ -94,7 +94,7 @@ class RootToolsRegistrar(
             if (detail.exitCode == 0) {
                 "[$tier] $service ${if (enabled) "enabled" else "disabled"}"
             } else {
-                "[$tier] 切换失败: ${detail.output.ifBlank { "exit=${detail.exitCode}" }.take(500)}"
+                formatRootFailureOutput(tier, "切换失败", detail.output, detail.exitCode)
             }
         }
 
@@ -123,7 +123,7 @@ class RootToolsRegistrar(
             if (detail.exitCode == 0) {
                 formatSettingsPutResult(tier, namespace, name)
             } else {
-                "[$tier] 写入失败: ${detail.output.ifBlank { "exit=${detail.exitCode}" }.take(500)}"
+                formatRootFailureOutput(tier, "写入失败", detail.output, detail.exitCode)
             }
         }
 
@@ -152,7 +152,7 @@ class RootToolsRegistrar(
             if (detail.exitCode == 0) {
                 "[$tier] Activity started: $pkg${cls?.let { "/$it" }.orEmpty()}"
             } else {
-                "[$tier] 启动失败: ${detail.output.ifBlank { "exit=${detail.exitCode}" }.take(500)}"
+                formatRootFailureOutput(tier, "启动失败", detail.output, detail.exitCode)
             }
         }
 
@@ -174,7 +174,7 @@ class RootToolsRegistrar(
             val result = runCommand(cmd) ?: return@register tierUnavailable()
             val (tier, detail) = result
             if (detail.exitCode != 0) {
-                "[$tier] 列表失败: ${detail.output.ifBlank { "exit=${detail.exitCode}" }.take(500)}"
+                    formatRootFailureOutput(tier, "列表失败", detail.output, detail.exitCode)
             } else {
                 val packages = detail.output.lineSequence()
                     .mapNotNull { line -> Regex("package:(.+)").find(line)?.groupValues?.get(1) }
@@ -184,9 +184,7 @@ class RootToolsRegistrar(
                 if (packages.isEmpty()) {
                     "No packages found"
                 } else {
-                    "[$tier] Found ${packages.size} packages:\n${packages.take(
-                        50,
-                    ).joinToString("\n")}"
+                    formatRootPackageListOutput(tier, packages)
                 }
             }
         }
@@ -199,7 +197,6 @@ class RootToolsRegistrar(
                     "Requires Shizuku or root authorization.",
                 parameters = mapOf(
                     "lines" to "Optional. Number of lines to read, default 100",
-                    "max_chars" to "Optional. Max output characters, default 10000",
                 ),
                 required = emptySet(),
                 category = "built-in",
@@ -207,11 +204,9 @@ class RootToolsRegistrar(
             ),
         ) { args ->
             val lines = (args["lines"]?.toIntOrNull() ?: 100).coerceIn(1, 2_000)
-            val maxChars = (args["max_chars"]?.toIntOrNull() ?: 10_000).coerceIn(500, 100_000)
             val result = runCommand(builder.buildLogcatTail(lines)) ?: return@register tierUnavailable()
             val (tier, detail) = result
-            val output = detail.output.take(maxChars)
-            "[$tier] Logcat output (${output.length} chars):\n$output"
+            formatRootLogcatOutput(tier, detail.output)
         }
 
         toolRegistry.register(
@@ -244,9 +239,18 @@ class RootToolsRegistrar(
                 if (pasteResult != null && pasteResult.second.exitCode == 0) {
                     formatInputInjectResult(tier, text.length, viaClipboard = true)
                 } else {
-                    "[$tier] 注入失败: ${detail.output.ifBlank { "exit=${detail.exitCode}" }.take(500)}"
+                    formatRootFailureOutput(tier, "注入失败", detail.output, detail.exitCode)
                 }
             }
         }
     }
 }
+
+internal fun formatRootLogcatOutput(tier: String, output: String): String =
+    "[$tier] Logcat output (${output.length} chars):\n$output"
+
+internal fun formatRootPackageListOutput(tier: String, packages: List<String>): String =
+    "[$tier] Found ${packages.size} packages:\n${packages.joinToString("\n")}"
+
+internal fun formatRootFailureOutput(tier: String, action: String, output: String, exitCode: Int): String =
+    "[$tier] $action: ${output.ifBlank { "exit=$exitCode" }}"

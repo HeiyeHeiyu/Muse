@@ -118,8 +118,8 @@ object BrowserAutomationTool {
         ),
         ToolRegistry.ToolDef(
             name = TOOL_GET_HTML,
-            description = "浏览器自动化:获取当前页面的 HTML 源码(截断到 50KB 防止上下文爆炸)。" +
-                "可用于分析页面结构、提取表单字段等。",
+            description = "浏览器自动化:获取当前页面的完整 HTML 源码。" +
+                "可用于分析页面结构、提取表单字段等;长结果会提供分段读取入口。",
             parameters = emptyMap(),
             required = emptySet(),
             category = "built-in",

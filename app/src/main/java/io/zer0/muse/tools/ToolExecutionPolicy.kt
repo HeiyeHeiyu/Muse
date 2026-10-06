@@ -73,16 +73,22 @@ class ToolExecutionPolicy(
     /** 当前累计调用次数(观测用)。 */
     val executedCalls: Int get() = totalCalls
 
-    // P2-7: turn 级工具输出累计字符(结果回填预算) — 单次输出由 [clampOutput] 截断,
-    // 这里累计整个 turn 的实际回填字符,轮次开头校验是否撑爆预算。
-    private var outputCharsAccum = 0
+    // Optional turn-level output guard; the default limit is effectively unlimited.
+    private var outputCharsAccum = 0L
 
     /** 当前 turn 累计工具输出字符数(预算/观测用)。 */
-    val totalOutputChars: Int get() = outputCharsAccum
+    val totalOutputChars: Long get() = outputCharsAccum
 
-    /** 累加一条工具结果实际回填到上下文的字符数(调用方传入截断后的长度)。 */
+    /** Accumulate the number of characters actually returned to the conversation. */
     fun recordOutputChars(chars: Int) {
-        if (chars > 0) outputCharsAccum += chars
+        if (chars > 0) {
+            outputCharsAccum =
+                if (Long.MAX_VALUE - outputCharsAccum < chars) {
+                    Long.MAX_VALUE
+                } else {
+                    outputCharsAccum + chars
+                }
+        }
     }
 
     // M3.3: turn 级结果统计(非预算,供 ToolLoopResult 快照取值)。由 ToolOrchestrator 记录,
@@ -229,10 +235,10 @@ class ToolExecutionPolicy(
     }
 
     /**
-     * M3.2: 输出大小上限。超限截断并附注说明,防止单个工具结果
-     * 撑爆下一轮 LLM 上下文(读大文件/网页抓取场景)。
+     * Optional output guard for callers that explicitly configure [ToolExecutionLimits.maxOutputChars].
+     * The default limit is Int.MAX_VALUE; large results are normally file-backed before this point.
      *
-     * @return Pair(截断后文本, 是否被截断)
+     * @return Pair(delivered text, whether an explicitly configured limit truncated it)
      */
     fun clampOutput(output: String): Pair<String, Boolean> {
         if (output.length <= limits.maxOutputChars) return output to false
@@ -257,9 +263,9 @@ class ToolExecutionPolicy(
 }
 
 /**
- * M3.2: 预算上限配置。默认值以"不改变既有行为"为原则:
+ * M3.2: 执行保护配置。默认值保留调用/重试/时间保护，并不限制结果字符数:
  * 轮次上限仍由 ToolOrchestrator 的 computeMaxRounds 管理(本类不重复限制轮数),
- * 总调用数/重复指纹/输出截断取宽松默认,时间预算默认关闭。
+ * 总调用数/重复指纹受限,时间预算默认关闭。
  */
 data class ToolExecutionLimits(
     /**
@@ -276,13 +282,11 @@ data class ToolExecutionLimits(
     val maxNoProgressRounds: Int = 2,
     /** turn 总耗时预算(毫秒);null 关闭。 */
     val totalBudgetMs: Long? = null,
-    /** 单条工具结果输出上限(字符);超出截断。 */
-    val maxOutputChars: Int = 200_000,
     /**
-     * P2-7: 单 turn 工具输出累计字符上限(结果回填风暴兜底)。
-     *
-     * 默认取宽松值(约 60 次调用 × 16K 均长),正常多轮工具任务不会命中,
-     * 仅拦住"反复读大文件/抓长网页"把上下文推向必然超限的极端场景。
+     * 单条结果的最终防御上限。主聊天路径先按上下文预算完整直传或保存完整副本，
+     * 默认不再因为固定字符数裁掉工具结果。
      */
-    val maxTotalOutputChars: Int = 1_000_000,
+    val maxOutputChars: Int = Int.MAX_VALUE,
+    /** Optional output circuit breaker. Unlimited by default; other loop guards remain active. */
+    val maxTotalOutputChars: Long = Long.MAX_VALUE,
 )

@@ -1,9 +1,12 @@
 package io.zer0.muse.tools.system
 
 import androidx.annotation.Keep
+import android.os.ParcelFileDescriptor
 import io.zer0.common.Logger
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
@@ -33,7 +36,7 @@ internal fun sanitizeShellCommandForLog(command: String): String {
  *  - Shizuku 服务停止时,该进程也会被终止
  *
  * 安全:
- *  - 仅响应 [IShellService.execute] 调用,不处理 Intent
+ *  - 仅响应 AIDL Shell 命令调用,不处理 Intent
  *  - 命令执行无白名单过滤(由调用方 [ToolPermissionResolver] 负责硬边界校验)
  *  - 服务运行在 Shizuku 进程中,即使被恶意调用也仅能执行 shell 级操作(非 root)
  */
@@ -48,8 +51,9 @@ class ShellService : IShellService.Stub() {
 
         /** 命令执行超时 ms。 */
         private const val TIMEOUT_MS = 10_000L
+        private const val OUTPUT_DRAIN_TIMEOUT_MS = 30_000L
 
-        /** 防止异常命令把 UserService 内存和 Binder 回包撑爆。 */
+        /** Legacy String transaction cap; interactive device-tool output uses executeToPipe. */
         private const val MAX_OUTPUT_BYTES = 2 * 1024 * 1024
     }
 
@@ -96,6 +100,56 @@ class ShellService : IShellService.Stub() {
         }
     }
 
+    /**
+     * Streams merged command output through a file descriptor so large results do not cross Binder
+     * as a String transaction. The app process drains the pipe directly into its private output file.
+     */
+    override fun executeToPipe(command: String, output: ParcelFileDescriptor): Int {
+        ParcelFileDescriptor.AutoCloseOutputStream(output).use { sink ->
+            var process: Process? = null
+            var outputCopy: Future<*>? = null
+            return try {
+                Logger.d(TAG, "流式执行命令 verb=${sanitizeShellCommandForLog(command)}")
+                val running = ProcessBuilder("sh", "-c", command)
+                    .redirectErrorStream(true)
+                    .start()
+                process = running
+                val copy = streamExecutor.submit(
+                    Callable {
+                        running.inputStream.use { input -> copyShellOutput(input, sink) }
+                    },
+                )
+                outputCopy = copy
+                val finished = running.waitFor(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                if (!finished) {
+                    running.destroyForcibly()
+                    running.waitFor(3, TimeUnit.SECONDS)
+                }
+                val drained = runCatching { copy.get(OUTPUT_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS) }.isSuccess
+                if (!drained) {
+                    copy.cancel(true)
+                    sink.write("\n[输出流未能关闭，已终止读取；当前输出可能不完整]".toByteArray(Charsets.UTF_8))
+                    -1
+                } else if (!finished) {
+                    sink.write("\n[超时] 命令执行超时(${TIMEOUT_MS / 1000}s),已终止".toByteArray(Charsets.UTF_8))
+                    -1
+                } else {
+                    running.exitValue()
+                }
+            } catch (error: InterruptedException) {
+                Thread.currentThread().interrupt()
+                process?.destroyForcibly()
+                outputCopy?.cancel(true)
+                -1
+            } catch (error: Exception) {
+                process?.destroyForcibly()
+                outputCopy?.cancel(true)
+                Logger.w(TAG, "Shell pipe 执行失败: ${error.javaClass.simpleName}")
+                -1
+            }
+        }
+    }
+
     private fun readStream(input: java.io.InputStream): String {
         val output = ByteArrayOutputStream()
         val buffer = ByteArray(8 * 1024)
@@ -122,4 +176,13 @@ class ShellService : IShellService.Stub() {
 
     /** 应用侧可选的主动退出事务。 */
     override fun exit() = destroy()
+}
+
+internal fun copyShellOutput(input: InputStream, output: OutputStream) {
+    val buffer = ByteArray(8 * 1024)
+    while (true) {
+        val count = input.read(buffer)
+        if (count < 0) return
+        output.write(buffer, 0, count)
+    }
 }

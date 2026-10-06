@@ -115,6 +115,24 @@ class ToolExecutionPolicyTest {
     }
 
     @Test
+    fun `default output policy does not truncate a large result`() {
+        val output = "tool response ".repeat(20_000)
+
+        val (forwarded, wasTruncated) = ToolExecutionPolicy().clampOutput(output)
+
+        assertFalse(wasTruncated)
+        assertEquals(output, forwarded)
+    }
+
+    @Test
+    fun `default round budget does not stop after one million output characters`() {
+        val policy = ToolExecutionPolicy()
+        policy.recordOutputChars(1_000_001)
+
+        assertTrue(policy.checkRoundBudget().allowed)
+    }
+
+    @Test
     fun `fingerprint is stable for identical calls and differs otherwise`() {
         val policy = ToolExecutionPolicy()
         val a1 = policy.fingerprint("read_file", "{\"p\":1}")
@@ -221,7 +239,7 @@ class ToolExecutionPolicyTest {
         val chars = ToolExecutionPolicy(ToolExecutionLimits(maxTotalOutputChars = 100))
         chars.recordOutputChars(60)
         chars.recordOutputChars(50)
-        assertEquals(110, chars.totalOutputChars)
+        assertEquals(110L, chars.totalOutputChars)
         val charBlocked = chars.checkRoundBudget()
         assertFalse(charBlocked.allowed)
         assertEquals(ToolExecutionPolicy.StopReason.MAX_TOTAL_OUTPUT_CHARS, charBlocked.reason)
@@ -237,9 +255,9 @@ class ToolExecutionPolicyTest {
         val policy = ToolExecutionPolicy()
         policy.recordOutputChars(0)
         policy.recordOutputChars(-5)
-        assertEquals(0, policy.totalOutputChars)
+        assertEquals(0L, policy.totalOutputChars)
         policy.recordOutputChars(10)
         policy.recordOutputChars(15)
-        assertEquals(25, policy.totalOutputChars)
+        assertEquals(25L, policy.totalOutputChars)
     }
 }

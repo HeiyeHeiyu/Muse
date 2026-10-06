@@ -5,12 +5,16 @@ import io.zer0.muse.data.knowledge.KnowledgeDocDao
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineStart
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -45,6 +49,12 @@ class SessionAttachmentService(
 
     /** 内存状态:sessionId → 附件列表(并发安全)。 */
     private val sessionAttachments = ConcurrentHashMap<String, MutableList<SessionAttachment>>()
+
+    /** 每个附件的后台索引任务，删除会话时先取消并等待它结束。 */
+    private val activeJobs = ConcurrentHashMap<String, kotlinx.coroutines.Job>()
+
+    /** 处理删除与后台索引之间的竞态，防止取消窗口后再次写入文档元数据。 */
+    private val droppedAttachmentIds = ConcurrentHashMap.newKeySet<String>()
 
     /** 可观察的状态流:所有会话附件(扁平列表)。 */
     private val _attachmentsFlow = MutableStateFlow<List<SessionAttachment>>(emptyList())
@@ -84,18 +94,21 @@ class SessionAttachmentService(
         emitState()
 
         // 异步执行索引
-        scope.launch {
+        val job = scope.launch(start = CoroutineStart.LAZY) {
             try {
+                currentCoroutineContext().ensureActive()
                 updateAttachment(attachmentId, sessionId) {
                     it.copy(status = SessionAttachmentStatus.CHUNKING)
                 }
                 val config = settingsRepository.ragConfigFlow.first()
+                currentCoroutineContext().ensureActive()
                 updateAttachment(attachmentId, sessionId) {
                     it.copy(status = SessionAttachmentStatus.EMBEDDING)
                 }
                 // RAG 检索的安全回填以 knowledge_docs 为元数据真源;
                 // 只写 chunk 会在 applyIsInternal 阶段被 fail-closed 丢弃。
                 docDao.upsert(attachment.toKnowledgeDoc(content))
+                currentCoroutineContext().ensureActive()
                 val chunkCount = ragService.indexDocument(
                     docId = docId,
                     content = content,
@@ -106,6 +119,8 @@ class SessionAttachmentService(
                         }
                     },
                 )
+                currentCoroutineContext().ensureActive()
+                if (attachmentId in droppedAttachmentIds) return@launch
                 if (chunkCount == 0) {
                     updateAttachment(attachmentId, sessionId) {
                         it.copy(status = SessionAttachmentStatus.FAILED, errorMessage = "内容为空或分块失败")
@@ -129,13 +144,20 @@ class SessionAttachmentService(
                     )
                     Logger.i(TAG, "会话附件索引完成 | sessionId=$sessionId | name=$name | chunks=$chunkCount")
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // 删除会话/附件是正常取消，不应把已删除任务改写为 FAILED。
+                throw e
             } catch (e: Throwable) {
                 updateAttachment(attachmentId, sessionId) {
                     it.copy(status = SessionAttachmentStatus.FAILED, errorMessage = e.message)
                 }
                 Logger.e(TAG, "会话附件索引异常 | sessionId=$sessionId | name=$name", e)
+            } finally {
+                activeJobs.remove(attachmentId)
             }
         }
+        activeJobs[attachmentId] = job
+        job.start()
         return attachmentId
     }
 
@@ -150,20 +172,22 @@ class SessionAttachmentService(
      */
     suspend fun dropSessionAttachments(sessionId: String, keepIndex: Boolean = false) {
         val attachments = sessionAttachments[sessionId] ?: return
+        attachments.forEach { droppedAttachmentIds += it.id }
+        attachments.mapNotNull { activeJobs[it.id] }.forEach { job ->
+            job.cancelAndJoin()
+        }
+        attachments.forEach { activeJobs.remove(it.id) }
         if (!keepIndex) {
             for (attachment in attachments) {
-                if (attachment.status == SessionAttachmentStatus.READY ||
-                    attachment.status == SessionAttachmentStatus.EMBEDDING
-                ) {
-                    runCatching {
-                        ragService.deleteDocIndex(attachment.docId)
-                        docDao.delete(attachment.docId)
-                    }
-                        .onFailure { Logger.w(TAG, "删除附件索引失败 | docId=${attachment.docId}", it) }
-                }
+                runCatching {
+                    // QUEUED/CHUNKING 也要清理：任务可能已写入部分 chunk 或文档元数据。
+                    ragService.deleteDocIndex(attachment.docId)
+                    docDao.delete(attachment.docId)
+                }.onFailure { Logger.w(TAG, "删除附件索引失败 | docId=${attachment.docId}", it) }
             }
         }
         sessionAttachments.remove(sessionId)
+        attachments.forEach { droppedAttachmentIds.remove(it.id) }
         emitState()
         Logger.i(TAG, "会话附件已清理 | sessionId=$sessionId | keepIndex=$keepIndex | count=${attachments.size}")
     }

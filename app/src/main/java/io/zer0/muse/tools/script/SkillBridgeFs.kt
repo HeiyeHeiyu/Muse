@@ -1,5 +1,7 @@
 package io.zer0.muse.tools.script
 
+import io.zer0.muse.tools.TOOL_OUTPUT_READ_PAGE_CHARS
+import io.zer0.muse.tools.ToolTextFilePager
 import java.io.File
 import java.io.IOException
 
@@ -14,7 +16,7 @@ import java.io.IOException
  */
 internal object SkillBridgeFs {
 
-    /** 单文件读取上限 1MB。 */
+    /** 大文件读取自动进入分页模式的阈值。 */
     const val MAX_READ_BYTES = 1 shl 20
 
     /** 单次写入上限 1MB。 */
@@ -57,12 +59,19 @@ internal object SkillBridgeFs {
             .map { Entry(it.name, it.isDirectory, if (it.isFile) it.length() else 0L) }
     }
 
-    /** 读文本文件(UTF-8,上限 [MAX_READ_BYTES])。 */
-    fun read(root: File, path: String): String {
+    /** 读文本文件(UTF-8);大文件按字符游标分页。 */
+    fun read(root: File, path: String, offsetChars: Int? = null, lengthChars: Int? = null): String {
         val file = resolve(root, path)
         if (!file.isFile) throw BridgeFsException("不是文件: $path")
-        if (file.length() > MAX_READ_BYTES) {
-            throw BridgeFsException("文件超过读取上限(${MAX_READ_BYTES / 1024}KB): $path")
+        if (offsetChars != null || lengthChars != null || file.length() > MAX_READ_BYTES) {
+            return ToolTextFilePager.readPage(
+                file = file,
+                path = path,
+                charset = Charsets.UTF_8,
+                requestedOffset = offsetChars ?: 0,
+                requestedLength = lengthChars ?: TOOL_OUTPUT_READ_PAGE_CHARS,
+                continuationTool = "fs_read",
+            )
         }
         return file.readText(Charsets.UTF_8)
     }

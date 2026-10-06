@@ -5,6 +5,7 @@ import io.zer0.common.AppJson
 import io.zer0.common.Logger
 import io.zer0.common.resultOf
 import io.zer0.muse.R
+import io.zer0.muse.data.knowledge.BuiltInKnowledgeDocSeeder
 import io.zer0.muse.data.knowledge.KnowledgeDocDao
 import io.zer0.muse.rag.RagConfig
 import io.zer0.muse.rag.RagService
@@ -12,6 +13,7 @@ import io.zer0.muse.web.SearchRateLimitException
 import io.zer0.muse.web.WebSearchPolicy
 import io.zer0.muse.web.WebSearchRequest
 import io.zer0.muse.web.WebSearchService
+import java.io.File
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -26,6 +28,7 @@ import java.util.concurrent.TimeUnit
  * P1-3b 拆域：Skill 搜索/HTTP 工具实现（从 SkillExecutor.kt 迁移）。
  * 由 SkillExecutor 委托调用。
  */
+@Suppress("LongParameterList") // 依赖注入聚合点：可选依赖（DAOs / 服务 / 策略提供器）集中注入，与 RagService / SkillExecutor 同口径
 class SkillSearchToolsImpl(
     private val context: Context,
     private val client: OkHttpClient,
@@ -35,6 +38,7 @@ class SkillSearchToolsImpl(
     private val ragConfigProvider: suspend () -> RagConfig = { RagConfig() },
     private val webSearchCoordinator: io.zer0.muse.web.WebSearchCoordinator? = null,
     private val webSearchPolicyProvider: suspend () -> WebSearchPolicy = { WebSearchPolicy() },
+    private val builtInKnowledgeDocSeeder: BuiltInKnowledgeDocSeeder? = null,
 ) {
     fun validatePublicUrl(url: String): Boolean {
         val uri =
@@ -121,6 +125,8 @@ class SkillSearchToolsImpl(
     }
 
     private companion object {
+        const val WEB_FETCH_PARSE_PREVIEW_CHARS = 1_000_000
+
         /** 手动跟随重定向的最大跳数(防无限重定向环)。 */
         const val MAX_REDIRECTS = 10
     }
@@ -132,9 +138,7 @@ class SkillSearchToolsImpl(
             return context.getString(R.string.skill_url_invalid_scheme)
         }
         // SSRF 防护:初始 URL 校验由 executeWithHopGuard 的逐跳校验覆盖(首跳即校验)
-        // timeout: 默认 30 秒;max_size: 默认 1MB,限制响应体大小
         val timeoutSec = args["timeout"]?.toLongOrNull()?.coerceIn(1L, 300L) ?: 30L
-        val maxSize = args["max_size"]?.toIntOrNull()?.coerceAtLeast(1) ?: 1_048_576
         val req = Request.Builder().url(url).get()
         args["headers"]?.let { applyHeaders(req, it) }
         // 复用连接池,仅覆盖 callTimeout 与 followRedirects=false(逐跳 SSRF 校验,见 A-07)
@@ -143,18 +147,20 @@ class SkillSearchToolsImpl(
                 .callTimeout(timeoutSec, TimeUnit.SECONDS)
         return try {
             executeWithHopGuard(req, timeoutClient).use { resp ->
-                val body = resp.body.string()
-                if (resp.isSuccessful) {
-                    "HTTP ${resp.code}\n${body.take(maxSize)}"
-                } else {
-                    // 降级条件:仅 404(资源不存在,搜索可能有相关摘要);401/403 等业务错误不降级
-                    if (resp.code == 404) {
-                        val degraded = degradeToSearchSummary(url, resp.code)
-                        if (degraded != null) return@use degraded
-                    }
-                    // HTTP 错误响应:返回状态码 + body 前 200 字
-                    "HTTP ${resp.code}: ${body.take(200)}"
+                // 降级条件:仅 404(资源不存在,搜索可能有相关摘要);401/403 等业务错误不降级
+                if (resp.code == 404) {
+                    val degraded = degradeToSearchSummary(url, resp.code)
+                    if (degraded != null) return@use degraded
                 }
+                val body = resp.body.byteStream().bufferedReader(Charsets.UTF_8).use { reader ->
+                    captureTextStream(
+                        reader = reader,
+                        outputDirectory = File(context.filesDir, TOOL_OUTPUTS_DIR),
+                        filePrefix = "http_get",
+                        previewLimitChars = 0,
+                    )
+                }
+                formatSkillHttpResponse(resp.code, body.reference)
             }
         } catch (e: java.io.IOException) {
             // 超时/连接失败/逐跳 SSRF 拒绝均降级到搜索摘要;若降级不可用则返回原错误
@@ -193,8 +199,15 @@ class SkillSearchToolsImpl(
                 .callTimeout(timeoutSec, TimeUnit.SECONDS)
         return try {
             executeWithHopGuard(req, timeoutClient).use { resp ->
-                val respBody = resp.body.string().take(1_000_000)
-                return "HTTP ${resp.code}\n$respBody"
+                val responseBody = resp.body.byteStream().bufferedReader(Charsets.UTF_8).use { reader ->
+                    captureTextStream(
+                        reader = reader,
+                        outputDirectory = File(context.filesDir, TOOL_OUTPUTS_DIR),
+                        filePrefix = "http_post",
+                        previewLimitChars = 0,
+                    )
+                }
+                formatSkillHttpResponse(resp.code, responseBody.reference)
             }
         } catch (e: java.io.IOException) {
             // 连接失败或逐跳 SSRF 拒绝(v2.2.1: 带地址与失败阶段)
@@ -311,9 +324,6 @@ class SkillSearchToolsImpl(
             return context.getString(R.string.skill_url_invalid_scheme)
         }
         // SSRF 防护:初始 URL 校验由 executeWithHopGuard 的逐跳校验覆盖(首跳即校验)
-        // max_length: 字符数上限,默认 50000;truncate: 默认 true,超出截断
-        val maxLength = args["max_length"]?.toIntOrNull()?.coerceAtLeast(1) ?: 50_000
-        val truncate = args["truncate"]?.toBoolean() ?: true
         val req =
             Request.Builder().url(url).get()
                 .header("User-Agent", "Mozilla/5.0 (Android LLM client)")
@@ -330,16 +340,33 @@ class SkillSearchToolsImpl(
                     if (degraded != null) return@use degraded
                     return@use "HTTP ${resp.code}"
                 }
-                val html = resp.body.string().take(200_000) // 上限 20 万字符
+                val captured = resp.body.byteStream().bufferedReader(Charsets.UTF_8).use { reader ->
+                    captureTextStream(
+                        reader = reader,
+                        outputDirectory = File(context.filesDir, TOOL_OUTPUTS_DIR),
+                        filePrefix = "web_fetch",
+                        previewLimitChars = WEB_FETCH_PARSE_PREVIEW_CHARS,
+                    )
+                }
                 // 用 Jsoup 解析,移除噪声元素后取 body 纯文本
-                val doc = Jsoup.parse(html)
+                val doc = Jsoup.parse(captured.preview, url)
                 doc.select("script, style, noscript, nav, footer, header, aside").remove()
                 val bodyEl = doc.body()
                 val text = bodyEl.text()
                 // 折叠连续空白
                 val cleaned = text.replace(Regex("\\s{3,}"), "\n\n").trim()
-                val finalText = if (truncate) cleaned.take(maxLength) else cleaned
-                "HTTP ${resp.code}\n$finalText"
+                buildString {
+                    append(formatWebFetchResult(resp.code, cleaned))
+                    if (captured.savedFile != null) {
+                        if (captured.totalChars > WEB_FETCH_PARSE_PREVIEW_CHARS) {
+                            append("\n\n[网页正文解析仅覆盖前 $WEB_FETCH_PARSE_PREVIEW_CHARS 个字符;")
+                        } else {
+                            append("\n\n[完整网页源码已保存;")
+                        }
+                        append("完整源码可通过 read_file 分段读取]\n")
+                        append(captured.reference)
+                    }
+                }
             }
         } catch (e: java.io.IOException) {
             // 网络异常(超时/连接失败/逐跳 SSRF 拒绝)降级到搜索摘要
@@ -405,6 +432,10 @@ class SkillSearchToolsImpl(
         val threshold = args["threshold"]?.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0.3f
         // v1.97: include_internal — 是否包含内部开发文档(devdoc),默认 false
         val includeInternal = args["include_internal"]?.toBoolean() ?: false
+        if (includeInternal) {
+            resultOf { builtInKnowledgeDocSeeder?.ensureSeeded() }
+                .onError { msg, error -> Logger.w("SkillExecutor", "内置功能文档 seed 失败: $msg", error) }
+        }
 
         // v2.x: 诊断回显 — 记录各检索阶段结果,未命中时输出附一行诊断,
         // 让"threshold 等参数是否生效"可验证(此前反馈该参数"像摆设")。
@@ -439,9 +470,13 @@ class SkillSearchToolsImpl(
                     val sb =
                         StringBuilder(
                             context.getString(R.string.skill_knowledge_vector_header, query, filtered.size, threshold.toString(), topK),
-                        )
+                    )
                     filtered.forEachIndexed { idx, r ->
-                        sb.appendLine("[${idx + 1}] 来源: ${r.docTitle} (相似度 ${"%.2f".format(r.score)})")
+                        sb.appendLine(
+                            "[${idx + 1}] 来源: ${r.docTitle} " +
+                                "(docId=${r.docId}, chunkId=${r.chunkId.ifBlank { "-" }}, " +
+                                "相似度 ${"%.2f".format(r.score)})",
+                        )
                         sb.appendLine("    片段: ${r.chunkContent.take(300)}")
                     }
                     return sb.toString().trimEnd()
@@ -603,3 +638,9 @@ class SkillSearchToolsImpl(
      * 安全约束:implementationKotlin 必须是 4 个内置实现之一,不支持任意代码执行。
      */
 }
+
+internal fun formatWebFetchResult(statusCode: Int, body: String): String =
+    "HTTP $statusCode\n$body"
+
+internal fun formatSkillHttpResponse(statusCode: Int, body: String): String =
+    "HTTP $statusCode\n$body"

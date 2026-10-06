@@ -56,7 +56,7 @@ internal object ToolDataPrivacy {
         if (toolName in sensitiveResultTools) {
             return "[tool result omitted from persisted history: ${result.length} chars]"
         }
-        return redactText(result).take(8_192)
+        return redactText(result)
     }
 
     private fun redactJson(toolName: String, element: JsonElement, parentKey: String?): JsonElement =

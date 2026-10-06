@@ -1052,8 +1052,8 @@ class RagService(
      * 从 [KnowledgeDocDao.getByIds] 查询各 docId 对应的 isInternal 标记,然后 copy 到每条
      * SearchResult 上。统一替代原 `docId.startsWith("devdoc-")` 硬编码判断。
      *
-     * 查询失败时返回原列表(保持默认 false,行为安全 — 调用方按"非内部"处理,仅可能在
-     * DB 故障时漏放内部文档,但 vectorResults 之前已被其他过滤层覆盖,影响可控)。
+     * 查询失败或文档实体缺失时返回空列表，fail-closed，避免内部文档或孤儿 chunk
+     * 在元数据不可用时进入用户上下文。
      */
     private suspend fun applyIsInternal(results: List<VectorSearchService.SearchResult>): List<VectorSearchService.SearchResult> {
         if (results.isEmpty()) return results

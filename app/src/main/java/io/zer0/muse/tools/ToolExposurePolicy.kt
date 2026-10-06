@@ -164,6 +164,7 @@ object ToolExposurePolicy {
                     "recall_experience",
                     "record_experience",
                     "search_memory",
+                    "search_conversation",
                     "save_memory",
                     "delete_memory",
                 ),

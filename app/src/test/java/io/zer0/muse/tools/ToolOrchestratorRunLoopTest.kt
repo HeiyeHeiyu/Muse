@@ -69,6 +69,9 @@ class ToolOrchestratorRunLoopTest {
         every { coordinator.isToolResultSuccess(any()) } answers {
             ToolResultJudge.isSuccess(firstArg())
         }
+        every {
+            coordinator.markTaskStepRunningIfNotPaused(any(), any(), any(), any())
+        } returns true
     }
 
     private fun orchestrator(timeoutMs: Long = 120_000L, parallelReadOnlyToolsEnabled: Boolean = true) = ToolOrchestrator(
@@ -82,7 +85,7 @@ class ToolOrchestratorRunLoopTest {
         parallelReadOnlyToolsEnabled = parallelReadOnlyToolsEnabled,
     )
 
-    private fun params(maxRounds: Int = 5) = ToolLoopParams(
+    private fun params(maxRounds: Int = 5, allowToolExecution: Boolean = true) = ToolLoopParams(
         sessionId = "session-1",
         initialAssistantId = Uuid.random(),
         baseHistorySize = 0,
@@ -94,6 +97,7 @@ class ToolOrchestratorRunLoopTest {
         temperature = null,
         maxTokens = null,
         reasoningLevel = ReasoningLevel.OFF,
+        allowToolExecution = allowToolExecution,
     )
 
     private fun toolRound(toolCalls: List<ToolCall>): StreamRoundResult.Success = StreamRoundResult.Success(
@@ -116,15 +120,24 @@ class ToolOrchestratorRunLoopTest {
 
     private class FakeToolLoopHost(
         private val results: ArrayDeque<StreamRoundResult>,
+        private val onApproval: (String) -> Unit = {},
     ) : ToolLoopHost {
-        override suspend fun streamRound(params: StreamRoundParams): StreamRoundResult = results.removeFirst()
+        val calls = mutableListOf<StreamRoundParams>()
+
+        override suspend fun streamRound(params: StreamRoundParams): StreamRoundResult {
+            calls += params
+            return results.removeFirst()
+        }
 
         override suspend fun requestToolApproval(
             toolName: String,
             toolCallId: String,
             argsPreview: String,
             args: Map<String, Any?>,
-        ): ToolApprovalState = ToolApprovalState.Approved()
+        ): ToolApprovalState {
+            onApproval(toolCallId)
+            return ToolApprovalState.Approved()
+        }
 
         override fun onToolLoopError(type: ChatErrorType, message: String, recoverable: Boolean) = Unit
     }
@@ -149,6 +162,79 @@ class ToolOrchestratorRunLoopTest {
         assertEquals(1, result.totalToolCallCount)
         assertEquals(1, history.count { it.role == MessageRole.TOOL })
         assertTrue(history.any { it.role == MessageRole.TOOL && it.content == "3" })
+    }
+
+    @Test
+    fun `paused tool execution skips side effects and still requests final response`() = runBlocking {
+        val executions = AtomicInteger(0)
+        val host = FakeToolLoopHost(
+            ArrayDeque(
+                listOf(
+                    toolRound(listOf(ToolCall("paused-1", "calculator", """{"expression":"1+2"}"""))),
+                    finalRound(),
+                ),
+            ),
+        )
+        coEvery { registry.executeFromJson("calculator", any()) } coAnswers {
+            executions.incrementAndGet()
+            "must not run"
+        }
+
+        val history = mutableListOf<UIMessage>()
+        val result = orchestrator().runLoop(
+            params(allowToolExecution = false),
+            history,
+            host,
+            accessor,
+            coordinator,
+        )
+
+        assertTrue(result.success)
+        assertEquals(0, executions.get())
+        assertTrue(host.calls.last().forceFinalResponse)
+        assertTrue(history.any { it.role == MessageRole.TOOL && it.content.contains("tool_execution_paused") })
+    }
+
+    @Test
+    fun `single paused pending tool skips side effects after approval`() = runBlocking {
+        val executions = AtomicInteger(0)
+        val assistantId = Uuid.random()
+        val uiAccessor = InMemoryChatStateAccessor()
+        val realCoordinator = ChatTaskCardCoordinator(uiAccessor, registry)
+        val host =
+            FakeToolLoopHost(
+                ArrayDeque(
+                    listOf(
+                        toolRound(listOf(ToolCall("paused-single", "calculator", """{"expression":"1+2"}"""))),
+                        finalRound(),
+                    ),
+                ),
+            ) { toolCallId ->
+                assertEquals("paused-single", toolCallId)
+                realCoordinator.toggleTaskStepPause(assistantId.toString(), "${assistantId}_0")
+            }
+        coEvery { registry.executeFromJson("calculator", any()) } coAnswers {
+            executions.incrementAndGet()
+            "must not run"
+        }
+
+        val history = mutableListOf<UIMessage>()
+        val result =
+            orchestrator().runLoop(
+                params().copy(initialAssistantId = assistantId),
+                history,
+                host,
+                uiAccessor,
+                realCoordinator,
+            )
+
+        assertTrue(result.success)
+        assertEquals(0, executions.get())
+        assertTrue(history.any { it.role == MessageRole.TOOL && it.content.contains("tool_execution_paused") })
+        assertEquals(TaskStepStatus.CANCELLED, uiAccessor.snapshot.taskCards.getValue(assistantId.toString()).steps.single().status)
+        assertTrue(
+            uiAccessor.snapshot.taskCards.getValue(assistantId.toString()).steps.single().result.contains("已暂停"),
+        )
     }
 
     @Test
@@ -196,13 +282,14 @@ class ToolOrchestratorRunLoopTest {
     }
 
     @Test
-    fun `three consecutive tool failures abort the loop`() = runBlocking {
+    fun `three consecutive tool failures request a final response`() = runBlocking {
         val host = FakeToolLoopHost(
             ArrayDeque(
                 listOf(
                     toolRound(listOf(ToolCall("f1", "calculator", """{"expression":"1"}"""))),
                     toolRound(listOf(ToolCall("f2", "calculator", """{"expression":"2"}"""))),
                     toolRound(listOf(ToolCall("f3", "calculator", """{"expression":"3"}"""))),
+                    finalRound(),
                 ),
             ),
         )
@@ -211,11 +298,13 @@ class ToolOrchestratorRunLoopTest {
         val history = mutableListOf<UIMessage>()
         val result = orchestrator().runLoop(params(), history, host, accessor, coordinator)
 
-        // Phase 3: 熔断退出不再被标成成功 — success 只表示正常完成最终答复。
-        assertFalse(result.success)
-        assertEquals(ToolLoopTerminationReason.CONSECUTIVE_FAILURES, result.terminationReason)
-        assertNotNull(result.error)
-        assertEquals(3, result.round)
+        // 工具熔断后仍应把已有结果交给模型生成一轮无工具最终答复。
+        assertTrue(result.success)
+        assertEquals(ToolLoopTerminationReason.COMPLETED_AFTER_TOOL_FAILURES, result.terminationReason)
+        assertEquals(4, host.calls.size)
+        assertTrue(host.calls.last().history.count { it.role == MessageRole.TOOL } >= 3)
+        assertTrue(host.calls.last().forceFinalResponse)
+        assertEquals(4, result.round)
         assertEquals(3, result.totalToolCallCount)
         assertEquals(3, history.count { it.role == MessageRole.TOOL })
         assertTrue(history.filter { it.role == MessageRole.TOOL }.all { it.content.contains("error") })
