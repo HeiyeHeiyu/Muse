@@ -19,6 +19,7 @@ public final class VdContract {
 
     /** IBinder extra(IVirtualDisplayService 的 Stub.asBinder())。 */
     public static final String EXTRA_BINDER = "binder";
+    public static final String EXTRA_HANDOFF_TOKEN = "handoff_token";
 
     /** 服务端 jar 在 /data/local/tmp 下的固定路径(启动器与 pkill 共用)。 */
     public static final String SERVER_JAR_PATH = "/data/local/tmp/muse-vd-server.jar";

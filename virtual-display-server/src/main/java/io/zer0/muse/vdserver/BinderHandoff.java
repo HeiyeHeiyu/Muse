@@ -19,14 +19,16 @@ public final class BinderHandoff {
     private BinderHandoff() {
     }
 
-    public static void publish(IBinder binder, String hostPackage) {
-        if (hostPackage == null || hostPackage.isEmpty()) {
-            Main.log("host package missing; binder not published");
+    public static void publish(IBinder binder, String hostPackage, String handoffToken) {
+        if (hostPackage == null || hostPackage.isEmpty()
+                || handoffToken == null || handoffToken.isEmpty()) {
+            Main.log("host package or handoff token missing; binder not published");
             return;
         }
         Intent intent = new Intent(VdContract.ACTION_BINDER);
         intent.setPackage(hostPackage);
         intent.putExtra(VdContract.EXTRA_HOST_PACKAGE, hostPackage);
+        intent.putExtra(VdContract.EXTRA_HANDOFF_TOKEN, handoffToken);
         android.os.Bundle extras = new android.os.Bundle();
         extras.putBinder(VdContract.EXTRA_BINDER, binder);
         intent.putExtras(extras);

@@ -229,12 +229,12 @@ public final class ServerService extends IVirtualDisplayService.Stub {
      * 目的:宿主进程可能晚于服务端启动/重启(instrument/崩溃),单次广播会丢;
      * 重发让注册表在任何启动顺序下都能收敛。注意:广播不刷新 lastActiveAt。
      */
-    public void startPublishLoop(String hostPackage) {
+    public void startPublishLoop(String hostPackage, String handoffToken) {
         Handler handler = new Handler(Looper.getMainLooper());
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                BinderHandoff.publish(ServerService.this, hostPackage);
+                BinderHandoff.publish(ServerService.this, hostPackage, handoffToken);
                 handler.postDelayed(this, PUBLISH_INTERVAL_MS);
             }
         }, 0L);

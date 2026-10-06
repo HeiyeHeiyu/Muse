@@ -8,7 +8,7 @@ import android.util.Log;
  *
  * 运行方式(shell uid):
  * <pre>
- * CLASSPATH=/data/local/tmp/muse-vd-server.jar app_process / io.zer0.muse.vdserver.Main &lt;hostPkg&gt;
+ * CLASSPATH=/data/local/tmp/muse-vd-server.jar app_process / io.zer0.muse.vdserver.Main &lt;hostPkg&gt; &lt;handoffToken&gt;
  * </pre>
  *
  * 启动序列:
@@ -27,7 +27,8 @@ public final class Main {
 
     public static void main(String[] args) {
         String hostPackage = (args != null && args.length > 0) ? args[0] : null;
-        log("main start, hostPackage=" + hostPackage);
+        String handoffToken = (args != null && args.length > 1) ? args[1] : null;
+        log("main start, hostPackage=" + hostPackage + ", tokenPresent=" + (handoffToken != null));
 
         try {
             prepareMainLooper();
@@ -47,7 +48,7 @@ public final class Main {
         }
 
         try {
-            service.startPublishLoop(hostPackage);
+            service.startPublishLoop(hostPackage, handoffToken);
         } catch (Throwable t) {
             log("binder handoff failed: " + t);
         }
