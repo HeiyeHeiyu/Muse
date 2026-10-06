@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
+import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -69,6 +70,29 @@ class FirstEventWatchdogTest {
             },
         )
         assertTrue(events.last() is ChatStreamEvent.Done)
+    }
+
+    @Test
+    fun `empty upstream completion racing timeout starts only one fallback`() = runTest {
+        val fallbackCalls = AtomicInteger()
+        val events: List<ChatStreamEvent> =
+            withTimeout<List<ChatStreamEvent>>(2_000) {
+                flow<ChatStreamEvent> {
+                    delay(100)
+                }.withFirstEventWatchdog(
+                    timeoutMs = 100,
+                    fallback = {
+                        fallbackCalls.incrementAndGet()
+                        delay(25)
+                        ChatCompletion(text = "single fallback", finishReason = "stop")
+                    },
+                ).toList()
+            }
+
+        assertEquals(1, fallbackCalls.get())
+        assertEquals(1, events.count { it is ChatStreamEvent.FallbackNotice })
+        assertEquals(1, events.count { it is ChatStreamEvent.ContentDelta && it.delta == "single fallback" })
+        assertEquals(1, events.count { it is ChatStreamEvent.Done })
     }
 
     @Test

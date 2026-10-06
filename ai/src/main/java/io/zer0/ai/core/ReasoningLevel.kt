@@ -8,7 +8,8 @@ import kotlinx.serialization.Serializable
  * Phase 8.1 扩展: 从 5 级(AUTO/NONE/LOW/MEDIUM/HIGH)扩展到 6 级 + budgetTokens。
  * 独立编写(OFF/AUTO/LOW/MEDIUM/HIGH/XHIGH + budgetTokens)。
  *
- * - [OFF]: 关闭推理(对应 Anthropic thinking=disabled / OpenAI reasoning.effort=minimal)
+ * - [OFF]: 关闭推理(对应 Anthropic thinking=disabled;OpenAI Chat Completions 官方端点
+ *   可用 minimal 表达最低推理强度;Responses API 没有通用关闭值,由 Provider 省略配置交给上游决定)
  * - [AUTO]: 自动(让服务端决定,不加 budgetTokens)
  * - [LOW]: 轻量推理(~1000 tokens)
  * - [MEDIUM]: 中等推理(~2000 tokens)

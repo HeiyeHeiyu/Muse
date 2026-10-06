@@ -4,6 +4,8 @@ import io.zer0.common.ErrorCode
 import io.zer0.common.Logger
 import io.zer0.common.toMessage
 import java.io.IOException
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -178,18 +180,30 @@ sealed class ProviderError {
         }
 
         /**
-         * 解析 Retry-After 头(秒数)。
+         * 解析 Retry-After 头。
          *
-         * 支持两种格式:
+         * RFC 7231 允许两种格式:
          *  - 纯数字(秒):"120" → 120
-         *  - HTTP-date:"Wed, 21 Oct 2026 07:28:00 GMT" → null(暂不解析,用指数退避兜底)
+         *  - HTTP-date:"Wed, 21 Oct 2026 07:28:00 GMT" → 距该时间的秒数
+         *
+         * 日期形式按向上取整计算，避免把仍不足一秒的等待误判成已到期；过去的日期返回
+         * 0，表示服务端允许立即重试。解析失败仍返回 null，让调用方使用指数退避兜底。
          */
         fun parseRetryAfter(headerValue: String?): Int? {
             if (headerValue.isNullOrBlank()) return null
-            val seconds = headerValue.trim().toLongOrNull() ?: return null
-            return seconds
-                .takeIf { it >= 0L && it <= Int.MAX_VALUE.toLong() }
-                ?.toInt()
+            val value = headerValue.trim()
+            value.toLongOrNull()?.let { seconds ->
+                return seconds
+                    .takeIf { it >= 0L && it <= Int.MAX_VALUE.toLong() }
+                    ?.toInt()
+            }
+            val target = runCatching {
+                ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant()
+            }.getOrNull() ?: return null
+            val delayMs = target.toEpochMilli() - System.currentTimeMillis()
+            if (delayMs <= 0L) return 0
+            val seconds = (delayMs + 999L) / 1000L
+            return seconds.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
         }
 
         private fun buildDisplayMessage(code: Int, body: String, category: String?): String {

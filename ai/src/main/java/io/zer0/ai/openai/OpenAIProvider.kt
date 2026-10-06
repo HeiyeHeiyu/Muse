@@ -68,6 +68,30 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.random.Random
 
+/** Extract final Responses API message text when delta events were omitted. */
+internal fun responsesOutputText(response: ResponsesResult): String {
+    response.outputText?.takeIf { it.isNotBlank() }?.let { return it }
+    return response.output
+        .asSequence()
+        .filter { it.type == "message" }
+        .flatMap { it.content.orEmpty().asSequence() }
+        .filter { it.type == "output_text" || it.type == "text" }
+        .mapNotNull { it.text }
+        .joinToString("")
+}
+
+internal fun shouldRetryResponsesFailure(
+    code: Int?,
+    anyDeltaSent: Boolean,
+    retryCount: Int,
+    maxRetries: Int,
+    aborted: Boolean,
+): Boolean {
+    val retryableHttp = code == 408 || code == 429 || code in 500..599
+    val networkFailure = code == null || code <= 0
+    return !aborted && !anyDeltaSent && retryCount < maxRetries && (retryableHttp || networkFailure)
+}
+
 /**
  * 审计修复 (用户反馈): DeepSeek 官方 API 模型名归一化。
  * listModels 返回带日期/大小写变体的 id(如 "DeepSeek-V4-Flash-0731"),
@@ -238,6 +262,9 @@ class OpenAIProvider(
         val toolCallAccMap = mutableMapOf<Int, ToolCallAccState>()
         // v2.x: "已命名但参数仍为空"的待补调用 localIndex —— 供无名参数续片归位（见下方 tool_calls 解析）
         var pendingArgsLocalIndex: Int? = null
+        // v2.x: 中转站会把同一逻辑调用的参数片段改写成连续的新 index。
+        // 记录最近一个仍未闭合的已命名调用，作为无 id/无名续片的顺序归属。
+        var activeContinuationLocalIndex: Int? = null
         // v1.0.21: 防止 emitDoneWithStreamGuard 被双重执行(finishReason + [DONE] 各触发一次),
         //   导致空 name tool call 恢复的文本被发送两遍,产生重复内容。
         val streamGuardDone = AtomicBoolean(false)
@@ -366,6 +393,7 @@ class OpenAIProvider(
                         url,
                     )}",
                 )
+                var fallbackFailure: Throwable? = null
                 scope.launch {
                     try {
                         // v1.0.48: 缩短退避到 500ms+jitter — 原 1.5s 导致结束后卡顿明显,
@@ -414,6 +442,8 @@ class OpenAIProvider(
                             try {
                                 completion = completeText(request)
                                 break
+                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                throw e
                             } catch (e: Exception) {
                                 lastError = e
                                 Logger.w("OpenAIProvider", "stream-guard: 非流式回退第 $attempt 次失败: ${e.message}")
@@ -472,12 +502,30 @@ class OpenAIProvider(
                             )
                         } else {
                             Logger.w("OpenAIProvider", "stream-guard: 非流式回退最终失败: ${lastError?.message}")
+                            fallbackFailure = lastError ?: IllegalStateException("非流式回退未返回结果")
                         }
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         Logger.w("OpenAIProvider", "stream-guard: 非流式回退异常: ${e.message}")
+                        fallbackFailure = e
                     }
                     pendingFallback.set(false)
-                    trySend(ChatStreamEvent.Done(finishReason))
+                    when {
+                        request.abortSignal.aborted -> {
+                            scope.trySend(ChatStreamEvent.StreamInterrupted("用户已停止生成", fallbackFailure))
+                        }
+                        fallbackFailure != null -> {
+                            val failure = checkNotNull(fallbackFailure)
+                            trySend(
+                                ChatStreamEvent.Error(
+                                    "非流式回退失败: ${failure.message}",
+                                    failure,
+                                ),
+                            )
+                        }
+                        else -> trySend(ChatStreamEvent.Done(finishReason))
+                    }
                     close()
                 }
                 return
@@ -494,7 +542,9 @@ class OpenAIProvider(
         }
 
         val currentEventSource = AtomicReference<EventSource?>(null)
+        val connectionGeneration = AtomicInteger(0)
         fun cancelCurrentEventSource() {
+            connectionGeneration.incrementAndGet()
             currentEventSource.getAndSet(null)?.cancel()
         }
         fun installEventSource(eventSource: EventSource) {
@@ -521,11 +571,13 @@ class OpenAIProvider(
                 if (request.abortSignal.aborted) close()
                 return
             }
+            val myGeneration = connectionGeneration.incrementAndGet()
             streamSourceClosed.set(false)
             val eventSource = sseFactory.newEventSource(
                 httpRequest,
                 object : EventSourceListener() {
                     override fun onOpen(eventSource: EventSource, response: Response) {
+                        if (myGeneration != connectionGeneration.get()) return
                         firstByteAt = System.currentTimeMillis()
                         Logger.i("OpenAIProvider", "streamChat TTFB: ${firstByteAt - requestStartAt}ms | url=${sanitizeUrl(url)}")
                         if (!response.isSuccessful) {
@@ -537,6 +589,7 @@ class OpenAIProvider(
                                 Logger.i("OpenAIProvider", "streamChat onOpen 429 限流,已切换到下一个 key,立即重试")
                                 httpRequest = buildHttpRequest()
                                 retryCount.incrementAndGet()
+                                connectionGeneration.incrementAndGet()
                                 eventSource.cancel()
                                 scope.launch {
                                     if (!request.abortSignal.aborted && !scope.isClosedForSend) {
@@ -580,6 +633,7 @@ class OpenAIProvider(
                     }
 
                     override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+                        if (myGeneration != connectionGeneration.get()) return
                         if (data == "[DONE]") {
                             // v1.0.47: 回退进行中时直接丢弃后续 [DONE] 事件,不进 emitDoneWithStreamGuard,
                             //   从源头减少冗余日志(原商汤会连发 8-10 个空事件触发 diagnose 日志刷屏)
@@ -674,13 +728,17 @@ class OpenAIProvider(
                                 // M-OAI4: 用累积 Map 按 index 分配,避免默认 0 合并多个调用。
                                 // 新工具调用(首片携带 id 或 name)触发新 index 分配。
                                 val apiIndex = tc.index
-                                val isNewCall = tc.id != null || tc.function?.name != null
-                                if (isNewCall) {
-                                    toolCallIndexMap[apiIndex] = nextToolCallIndex++
-                                }
+                                val assignment = assignToolCallLocalIndex(
+                                    apiIndex = apiIndex,
+                                    id = tc.id,
+                                    name = tc.function?.name,
+                                    indexMap = toolCallIndexMap,
+                                    nextLocalIndex = nextToolCallIndex,
+                                )
+                                nextToolCallIndex = assignment.nextLocalIndex
                                 // L-OAI13: toolCallIndexMap 缺失时(首片丢了/乱序)不 fallback 到 0,
                                 //   否则会把该片误并入 index=0 的工具调用。
-                                var localIndex = toolCallIndexMap[apiIndex]
+                                var localIndex = assignment.localIndex
                                 if (localIndex == null) {
                                     // v2.x 修复: 续片归位。
                                     //   实测(商汤/中转站流式)会出现"一个逻辑调用被拆成多片"：
@@ -689,27 +747,28 @@ class OpenAIProvider(
                                     //   Done 时无名调用被恢复成正文，而**真正有名字的调用参数长度为 0**，
                                     //   下游校验直接报"缺少必填参数: query"，用户看到参数 JSON 混进正文。
                                     //   这里把纯参数续片并回"当前唯一待补参数"的已命名调用。
-                                    //   条件收紧到三个同时成立，避免把并行的真实调用错并：
-                                    //     ① 该片无 id 且无 name（纯参数续片）
-                                    //     ② 存在且仅存在一个"已命名、参数仍为空"的待补调用（见 pendingArgsCandidate）
-                                    //     ③ 该调用尚未发出过 ToolCallDelta（发出后参数已定型，不能再追加）
-                                    val pending = pendingArgsLocalIndex
-                                    val canAdopt = pending != null &&
-                                        tc.id == null && tc.function?.name == null &&
-                                        !tc.function?.arguments.isNullOrBlank()
-                                    if (canAdopt) {
+                                    //   优先沿用"最近一个尚未闭合的已命名调用"；若最近调用
+                                    //   不可用，再回退到唯一的未发出候选。这样既覆盖参数已经
+                                    //   发出首片后的续片，也保留首片/参数乱序时的保守判定。
+                                    val pending = continuationTarget(
+                                        accMap = toolCallAccMap,
+                                        activeLocalIndex = activeContinuationLocalIndex,
+                                        incomingName = tc.function?.name,
+                                    )
+                                    if (pending != null) {
                                         val target = toolCallAccMap[pending]
-                                        if (target != null && !target.hasEmitted) {
-                                            target.args.append(tc.function?.arguments)
+                                        if (target != null) {
+                                            localIndex = pending
                                             toolCallIndexMap[apiIndex] = pending
                                             Logger.d(
                                                 "OpenAIProvider",
                                                 "tool_calls 续片归位: apiIndex=$apiIndex → localIndex=$pending" +
-                                                    "(累积 args=${target.args.length} chars)",
+                                                    " (累积 args=${target.args.length} chars)",
                                             )
-                                            return@forEach
                                         }
                                     }
+                                }
+                                if (localIndex == null) {
                                     Logger.w(
                                         "OpenAIProvider",
                                         "tool_calls 片段 apiIndex=$apiIndex 未在 map 中找到(首片丢失?),跳过该片",
@@ -722,6 +781,12 @@ class OpenAIProvider(
                                 if (tc.id != null) acc.id = tc.id
                                 tc.function?.name?.takeIf { it.isNotBlank() }?.let { acc.name = it }
                                 tc.function?.arguments?.let { acc.args.append(it) }
+                                if (!tc.function?.name.isNullOrBlank()) {
+                                    activeContinuationLocalIndex = localIndex
+                                }
+                                if (activeContinuationLocalIndex == localIndex && acc.args.isValidJson()) {
+                                    activeContinuationLocalIndex = null
+                                }
                                 // v2.x: 记录"已命名但参数仍为空"的待补调用（供无名续片归位使用）。
                                 //   只有唯一一个候选时才允许归位，多个候选说明是并行调用，不能猜。
                                 pendingArgsLocalIndex = pendingArgsCandidate(toolCallAccMap)
@@ -820,6 +885,15 @@ class OpenAIProvider(
                     }
 
                     override fun onClosed(eventSource: EventSource) {
+                        if (myGeneration != connectionGeneration.get()) {
+                            if (request.abortSignal.aborted) {
+                                scope.trySend(ChatStreamEvent.StreamInterrupted("用户已停止生成"))
+                                close()
+                            } else if (consumerClosed.get() || scope.isClosedForSend) {
+                                close()
+                            }
+                            return
+                        }
                         streamSourceClosed.set(true)
                         if (request.abortSignal.aborted) {
                             close()
@@ -841,6 +915,15 @@ class OpenAIProvider(
                     }
 
                     override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+                        if (myGeneration != connectionGeneration.get()) {
+                            if (request.abortSignal.aborted) {
+                                scope.trySend(ChatStreamEvent.StreamInterrupted("用户已停止生成", t))
+                                close()
+                            } else if (consumerClosed.get() || scope.isClosedForSend) {
+                                close()
+                            }
+                            return
+                        }
                         streamSourceClosed.set(true)
                         // v1.0.24: 回退进行中时不 close,等回退协程完成
                         if (pendingFallback.get()) {
@@ -899,6 +982,7 @@ class OpenAIProvider(
                             }
                             // v1.0.1: key 切换后重新构造 httpRequest(更新 Authorization header)
                             httpRequest = buildHttpRequest()
+                            connectionGeneration.incrementAndGet()
                             // R-AI-03: 重试前清掉连接池中的半开/空闲连接,避免复用已 reset 连接
                             ProviderHttpSupport.evictIdleConnections()
                             Logger.w(
@@ -1978,6 +2062,7 @@ class OpenAIProvider(
 
         val retryCount = AtomicInteger(0)
         val anyDeltaSent = AtomicBoolean(false)
+        val responseTextSent = AtomicBoolean(false)
         // Responses API 工具调用累积:output_index → 本地 index 映射
         val toolCallIndexMap = mutableMapOf<String, Int>()
         var nextToolCallIndex = 0
@@ -2022,7 +2107,9 @@ class OpenAIProvider(
         }
 
         val currentEventSource = AtomicReference<EventSource?>(null)
+        val connectionGeneration = AtomicInteger(0)
         fun cancelCurrentEventSource() {
+            connectionGeneration.incrementAndGet()
             currentEventSource.getAndSet(null)?.cancel()
         }
         fun installEventSource(eventSource: EventSource) {
@@ -2049,10 +2136,12 @@ class OpenAIProvider(
                 if (request.abortSignal.aborted) close()
                 return
             }
+            val myGeneration = connectionGeneration.incrementAndGet()
             val eventSource = sseFactory.newEventSource(
                 httpRequest,
                 object : EventSourceListener() {
                     override fun onOpen(eventSource: EventSource, response: Response) {
+                        if (myGeneration != connectionGeneration.get()) return
                         firstByteAt = System.currentTimeMillis()
                         Logger.i("OpenAIProvider", "streamChatResponses TTFB: ${firstByteAt - requestStartAt}ms | url=${sanitizeUrl(url)}")
                         if (!response.isSuccessful) {
@@ -2063,6 +2152,7 @@ class OpenAIProvider(
                                 Logger.i("OpenAIProvider", "streamChatResponses onOpen 429 限流,已切换 key,立即重试")
                                 httpRequest = buildHttpRequest()
                                 retryCount.incrementAndGet()
+                                connectionGeneration.incrementAndGet()
                                 eventSource.cancel()
                                 scope.launch {
                                     if (!request.abortSignal.aborted && !scope.isClosedForSend) {
@@ -2093,6 +2183,7 @@ class OpenAIProvider(
                     }
 
                     override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+                        if (myGeneration != connectionGeneration.get()) return
                         // Responses API 同时用 [DONE] 和 response.completed 作结束标记
                         if (data == "[DONE]") {
                             // v1.0.20: stream-guard — Done 事件时检查累积 toolCallAccMap,
@@ -2126,12 +2217,19 @@ class OpenAIProvider(
                             "response.output_text.delta" -> {
                                 event.delta?.takeIf { it.isNotEmpty() }?.let {
                                     anyDeltaSent.set(true)
+                                    responseTextSent.set(true)
                                     trySend(ChatStreamEvent.ContentDelta(it))
                                 }
                             }
                             "response.output_text.done" -> {
-                                // 兜底完整文本(若 delta 累积为空才用)
-                                // 此处不直接发送,留给 response.completed 处理
+                                // Some gateways omit delta events and only send the final text.
+                                if (!responseTextSent.get()) {
+                                    event.text?.takeIf { it.isNotBlank() }?.let {
+                                        responseTextSent.set(true)
+                                        anyDeltaSent.set(true)
+                                        trySend(ChatStreamEvent.ContentDelta(it))
+                                    }
+                                }
                             }
                             "response.reasoning_summary_text.delta" -> {
                                 event.delta?.takeIf { it.isNotEmpty() }?.let {
@@ -2254,6 +2352,15 @@ class OpenAIProvider(
                                         ),
                                     )
                                 }
+                                if (!responseTextSent.get()) {
+                                    responsesOutputText(event.response ?: ResponsesResult())
+                                        .takeIf { it.isNotBlank() }
+                                        ?.let {
+                                            responseTextSent.set(true)
+                                            anyDeltaSent.set(true)
+                                            trySend(ChatStreamEvent.ContentDelta(it))
+                                        }
+                                }
                                 if (request.nativeWebSearch) {
                                     val urls = event.response?.output.orEmpty()
                                         .flatMap { it.content.orEmpty() }
@@ -2271,6 +2378,15 @@ class OpenAIProvider(
                     }
 
                     override fun onClosed(eventSource: EventSource) {
+                        if (myGeneration != connectionGeneration.get()) {
+                            if (request.abortSignal.aborted) {
+                                scope.trySend(ChatStreamEvent.StreamInterrupted("用户已停止生成"))
+                                close()
+                            } else if (consumerClosed.get() || scope.isClosedForSend) {
+                                close()
+                            }
+                            return
+                        }
                         // v1.0.23: 同 ChatCompletions 路径,未收到 Done 事件时触发 stream-guard
                         if (!streamGuardDone.get()) {
                             Logger.d("OpenAIProvider", "streamChatResponses onClosed: 未收到 Done 事件, 触发 stream-guard")
@@ -2281,6 +2397,15 @@ class OpenAIProvider(
                     }
 
                     override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+                        if (myGeneration != connectionGeneration.get()) {
+                            if (request.abortSignal.aborted) {
+                                scope.trySend(ChatStreamEvent.StreamInterrupted("用户已停止生成", t))
+                                close()
+                            } else if (consumerClosed.get() || scope.isClosedForSend) {
+                                close()
+                            }
+                            return
+                        }
                         if (streamGuardDone.get() || consumerClosed.get() || scope.isClosedForSend) {
                             Logger.d("OpenAIProvider", "streamChatResponses onFailure: 流已完成或消费者已关闭,忽略收尾回调")
                             close()
@@ -2293,17 +2418,31 @@ class OpenAIProvider(
                             return
                         }
                         val code = response?.code ?: -1
-                        // 有限次指数退避重连(仅网络层错误,且未发出任何 delta)
-                        if (code <= 0 && !anyDeltaSent.get() && retryCount.get() < MAX_RETRIES) {
+                        // Responses API 对齐 Chat Completions: 408/429/5xx/网络错误在尚未输出
+                        // 增量时可重试，并尊重 Retry-After。
+                        if (shouldRetryResponsesFailure(
+                                code = response?.code,
+                                anyDeltaSent = anyDeltaSent.get(),
+                                retryCount = retryCount.get(),
+                                maxRetries = MAX_RETRIES,
+                                aborted = request.abortSignal.aborted,
+                            )
+                        ) {
                             val attempt = retryCount.incrementAndGet()
-                            val backoffMs = (RETRY_BASE_DELAY_MS * (1 shl (attempt - 1))) +
+                            var backoffMs = (RETRY_BASE_DELAY_MS * (1 shl (attempt - 1))) +
                                 Random.nextLong(0, 200)
+                            if (response?.code == 429) {
+                                backoffMs = ProviderError.parseRetryAfter(response.header("Retry-After"))
+                                    ?.let { it * 1000L } ?: backoffMs
+                                if (switchToNextKey()) backoffMs = 0L
+                            }
                             // R-AI-03: 重试前清掉连接池中的半开/空闲连接
                             ProviderHttpSupport.evictIdleConnections()
                             Logger.w(
                                 "OpenAIProvider",
                                 "streamChatResponses onFailure, retry $attempt/$MAX_RETRIES after ${backoffMs}ms: ${t?.message ?: code}",
                             )
+                            connectionGeneration.incrementAndGet()
                             scope.launch {
                                 delay(backoffMs)
                                 if (!request.abortSignal.aborted && !scope.isClosedForSend) {
@@ -2453,6 +2592,8 @@ class OpenAIProvider(
      *
      * 推理配置:
      *  - reasoningLevel != OFF/AUTO 时,构造 reasoning: {effort} 字段
+     *  - Responses API 没有通用的“关闭推理” effort 值;OFF 时省略 reasoning,
+     *    让上游按其协议默认行为处理,避免把 OFF 错映射成仍会触发推理的 minimal
      *  - Codex 协议(responsesPath=/codex/responses)强制 store=false
      *
      * B5-03: REASONING_ITEMS 回放(encrypted_content 载体)。
@@ -2538,10 +2679,13 @@ class OpenAIProvider(
 
         val instructions = instructionsBuilder.toString().takeIf { it.isNotBlank() }
 
-        // 推理配置(effort 映射,UTILITY 模式下 effectiveReasoningLevel=OFF → "minimal")
+        // 推理配置:
+        // Responses API 没有跨 Provider 通用的 OFF/disabled effort 值。
+        // OFF 时省略 reasoning 配置,避免把“关闭深度思考”错误映射成 minimal
+        // (minimal 仍可能启用推理);具体上游是否支持显式关闭由上游协议决定。
         val effort = when (effectiveReasoningLevel) {
             io.zer0.ai.core.ReasoningLevel.AUTO -> null
-            io.zer0.ai.core.ReasoningLevel.OFF -> "minimal"
+            io.zer0.ai.core.ReasoningLevel.OFF -> null
             else -> effectiveReasoningLevel.effort
         }
         val reasoning = effort?.let { ResponsesReasoningConfig(effort = it) }
@@ -2778,6 +2922,72 @@ internal fun pendingArgsCandidate(accMap: Map<Int, ToolCallAccState>): Int? =
     accMap.filterValues { acc -> !acc.name.isNullOrBlank() && acc.args.length == 0 && !acc.hasEmitted }
         .keys
         .singleOrNull()
+
+/** 空白函数名只是中转站续片；只有非空 id 或函数名才开启新的逻辑调用。 */
+internal fun isNewToolCall(id: String?, name: String?): Boolean =
+    !id.isNullOrBlank() || !name.isNullOrBlank()
+
+internal data class ToolCallIndexAssignment(
+    val localIndex: Int?,
+    val nextLocalIndex: Int,
+)
+
+/**
+ * Resolve a stable local index for one streamed provider index.
+ *
+ * A provider may repeat the function name on later fragments. Reusing the
+ * existing API-index mapping prevents those fragments from becoming new
+ * pseudo-calls with empty or incomplete arguments.
+ */
+internal fun assignToolCallLocalIndex(
+    apiIndex: Int,
+    id: String?,
+    name: String?,
+    indexMap: MutableMap<Int, Int>,
+    nextLocalIndex: Int,
+): ToolCallIndexAssignment {
+    indexMap[apiIndex]?.let { existing ->
+        return ToolCallIndexAssignment(existing, nextLocalIndex)
+    }
+    if (!isNewToolCall(id, name)) {
+        return ToolCallIndexAssignment(null, nextLocalIndex)
+    }
+    indexMap[apiIndex] = nextLocalIndex
+    return ToolCallIndexAssignment(nextLocalIndex, nextLocalIndex + 1)
+}
+
+/**
+ * 选择无 id/无名参数续片的归属。
+ *
+ * 中转站可能把同一调用的参数拆成连续的新 index。优先沿用最近一个仍未闭合
+ * 的已命名调用；没有顺序上下文时才接受唯一的"尚未发出首个 ToolCallDelta"候选。
+ */
+internal fun continuationTarget(
+    accMap: Map<Int, ToolCallAccState>,
+    activeLocalIndex: Int?,
+    incomingName: String? = null,
+): Int? {
+    val active = activeLocalIndex?.let { index ->
+        accMap[index]?.takeIf { acc ->
+            !acc.name.isNullOrBlank() &&
+                !acc.recoveredAsContent &&
+                !acc.args.isValidJson() &&
+                (incomingName.isNullOrBlank() || acc.name == incomingName)
+        }?.let { index }
+    }
+    if (active != null) return active
+    if (!incomingName.isNullOrBlank()) {
+        return accMap
+            .filterValues { acc ->
+                acc.name == incomingName &&
+                    !acc.recoveredAsContent &&
+                    !acc.args.isValidJson()
+            }
+            .keys
+            .singleOrNull()
+    }
+    return pendingArgsCandidate(accMap)
+}
 
 /**
  * v1.0.20: stream-guard 累积器 — 累积单个 tool_call 的 name / arguments / 是否已发送。

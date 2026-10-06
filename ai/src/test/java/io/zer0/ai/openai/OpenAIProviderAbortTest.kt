@@ -67,6 +67,51 @@ class OpenAIProviderAbortTest {
         assertAbortClosesLongSse(useResponsesApi = false, cancelCollector = true)
     }
 
+    @Test
+    fun `aborting during retry backoff prevents stale EventSource reconnect`() = runBlocking {
+        val firstRequest = CountDownLatch(1)
+        server.delegate.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: mockwebserver3.RecordedRequest): MockResponse {
+                firstRequest.countDown()
+                return MockResponse.Builder()
+                    .code(503)
+                    .clearHeaders()
+                    .addHeader("Content-Type", "text/event-stream")
+                    .body("data: {\"error\":{\"message\":\"temporary\"}}\n\n")
+                    .build()
+            }
+        }
+
+        val signal = AbortSignal()
+        val request = ChatRequest(
+            messages = listOf(UIMessage(role = MessageRole.USER, content = "retry then cancel")),
+            model = Model(id = "test-model", providerId = "openai-test"),
+            abortSignal = signal,
+        )
+        val provider = OpenAIProvider(
+            ProviderConfig(
+                id = "openai-test",
+                displayName = "OpenAI Test",
+                type = ProviderType.OPENAI,
+                baseUrl = server.url("/v1").toString(),
+                apiKey = "sk-test",
+            ),
+        )
+
+        val collector = launch(Dispatchers.IO) {
+            provider.streamChat(request).collect()
+        }
+        assertTrue("first retryable response should arrive", firstRequest.await(5, TimeUnit.SECONDS))
+        signal.abort()
+
+        withTimeout(5_000) { collector.join() }
+        // The stale onFailure/onClosed callback from the cancelled EventSource must not
+        // schedule the retry that was pending after the 503 response.
+        Thread.sleep(1_500)
+        assertEquals("cancelled retry must not reconnect", 1, server.requestCount)
+        assertEquals("abort listener must be removed", 0, signal.listenerCount)
+    }
+
     private suspend fun assertAbortClosesLongSse(useResponsesApi: Boolean, cancelCollector: Boolean = false) =
         kotlinx.coroutines.coroutineScope {
             val firstEventWritten = CountDownLatch(1)

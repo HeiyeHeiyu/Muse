@@ -5,6 +5,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 class ProviderErrorTest {
     @Test
@@ -22,6 +26,17 @@ class ProviderErrorTest {
         assertNull(ProviderError.parseRetryAfter("-1"))
         assertNull(ProviderError.parseRetryAfter("not-a-duration"))
         assertNull(ProviderError.parseRetryAfter(null))
+    }
+
+    @Test
+    fun retryAfterParserAcceptsHttpDate() {
+        val target = Instant.now().plus(90, ChronoUnit.SECONDS)
+            .atZone(ZoneOffset.UTC)
+            .format(DateTimeFormatter.RFC_1123_DATE_TIME)
+
+        val parsed = ProviderError.parseRetryAfter(target)
+
+        assertTrue("HTTP-date should resolve to a non-negative delay", parsed != null && parsed in 0..91)
     }
 
     @Test

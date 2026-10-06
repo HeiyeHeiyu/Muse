@@ -159,4 +159,37 @@ class StreamGuardTest {
         )
         assertTrue("回退完成后 Flow 必须发出 Done", events.last() is ChatStreamEvent.Done)
     }
+
+    @Test
+    fun `非流式回退连续失败时必须发出错误而不能 Done-only 收口`() = runBlocking {
+        server.enqueue(
+            sse(
+                """{"choices":[{"index":0,"delta":{"content":"a"},"finish_reason":"stop"}]}""",
+                """[DONE]""",
+            ),
+        )
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(503)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"error":{"message":"upstream unavailable"}}"""),
+        )
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(503)
+                .setHeader("Content-Type", "application/json")
+                .setBody("""{"error":{"message":"upstream unavailable"}}"""),
+        )
+
+        val events = withTimeout(10_000) { provider().streamChat(request()).toList() }
+
+        assertTrue(
+            "回退连续失败必须把明确错误传给上层",
+            events.any { it is ChatStreamEvent.Error },
+        )
+        assertFalse(
+            "回退失败不能伪装成正常 Done-only 完成",
+            events.last() is ChatStreamEvent.Done,
+        )
+    }
 }

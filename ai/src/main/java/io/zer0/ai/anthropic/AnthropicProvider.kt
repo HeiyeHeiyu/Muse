@@ -48,6 +48,7 @@ import okhttp3.sse.EventSource
 import okhttp3.sse.EventSourceListener
 import okhttp3.sse.EventSources
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 /** Returns the last system block that is stable when the final block is dynamic. */
@@ -140,8 +141,15 @@ class AnthropicProvider(
         // M-ANT3: AtomicReference 替代普通 var,保证 listener 回调与 awaitClose 间的可见性
         val currentEventSource = AtomicReference<EventSource?>(null)
         val currentCall = AtomicReference<okhttp3.Call?>(null)
+        val connectionGeneration = AtomicInteger(0)
+        val abortListener = request.abortSignal.addAbortListener {
+            connectionGeneration.incrementAndGet()
+            currentEventSource.get()?.cancel()
+            currentCall.get()?.cancel()
+        }
 
         fun connect() {
+            val myGeneration = connectionGeneration.incrementAndGet()
             // L-ANT3: 重连前清空累积,避免上一轮残留内容混入新一轮
             accumulatedContent.setLength(0)
             signatureAccumulator.setLength(0)
@@ -163,6 +171,7 @@ class AnthropicProvider(
             currentCall.set(call)
             val listener = object : EventSourceListener() {
                 override fun onOpen(eventSource: EventSource, response: Response) {
+                    if (myGeneration != connectionGeneration.get()) return
                     if (!response.isSuccessful) {
                         // M-ANT10 / M-ANT11: readBodyCapped + 先 cancel 再 close
                         val errText = readBodyCapped(response)
@@ -181,6 +190,7 @@ class AnthropicProvider(
                                 "streamChat onOpen 429 限流,已切换到下一个 key,立即重试 " +
                                     "($retryCount/$maxRetries)",
                             )
+                            connectionGeneration.incrementAndGet()
                             eventSource.cancel()
                             call.cancel()
                             producerScope.launch {
@@ -208,6 +218,7 @@ class AnthropicProvider(
                                 "streamChat onOpen retryable HTTP $code, " +
                                     "retry $retryCount/$maxRetries after ${finalDelay}ms",
                             )
+                            connectionGeneration.incrementAndGet()
                             eventSource.cancel()
                             call.cancel()
                             producerScope.launch {
@@ -231,6 +242,7 @@ class AnthropicProvider(
                 }
 
                 override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+                    if (myGeneration != connectionGeneration.get()) return
                     if (data.isBlank()) return
                     // L-ANT1: 用 resultOf 替代 runCatching,正确传播 CancellationException
                     var parseError: Throwable? = null
@@ -353,6 +365,10 @@ class AnthropicProvider(
                 }
 
                 override fun onClosed(eventSource: EventSource) {
+                    if (myGeneration != connectionGeneration.get()) {
+                        if (request.abortSignal.aborted || producerScope.isClosedForSend) producerScope.close()
+                        return
+                    }
                     // H-ANT3: 未正常结束(未收到 message_stop/error)即关闭,发 Error 终止事件,
                     // 避免消费者(UI loading)无限等待
                     if (!finished.get()) {
@@ -368,6 +384,10 @@ class AnthropicProvider(
                 }
 
                 override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+                    if (myGeneration != connectionGeneration.get()) {
+                        if (request.abortSignal.aborted || producerScope.isClosedForSend) producerScope.close()
+                        return
+                    }
                     if (request.abortSignal.aborted) {
                         Logger.d("AnthropicProvider", "streamChat aborted by user")
                         finished.set(true)
@@ -390,6 +410,7 @@ class AnthropicProvider(
                             "streamChat onFailure 429 限流,已切换到下一个 key,立即重试 " +
                                 "($retryCount/$maxRetries)",
                         )
+                        connectionGeneration.incrementAndGet()
                         eventSource.cancel()
                         producerScope.launch {
                             if (request.abortSignal.aborted || producerScope.isClosedForSend) return@launch
@@ -416,6 +437,7 @@ class AnthropicProvider(
                                 "retry $retryCount/$maxRetries after ${delayMs}ms, " +
                                 "accumulated=${accumulatedContent.length} chars, anyDeltaSent=${anyDeltaSent.get()}",
                         )
+                        connectionGeneration.incrementAndGet()
                         eventSource.cancel()
                         producerScope.launch {
                             delay(delayMs)
@@ -453,6 +475,8 @@ class AnthropicProvider(
 
         awaitClose {
             // M-ANT2: 不调 request.abortSignal.abort()(修改调用方对象),只 cancel HTTP 资源
+            connectionGeneration.incrementAndGet()
+            abortListener.close()
             currentEventSource.get()?.cancel()
             currentCall.get()?.cancel()
         }

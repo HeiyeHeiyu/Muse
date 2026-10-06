@@ -52,6 +52,13 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.random.Random
 
+/** A final usage-only Gemini frame is terminal only after visible content was emitted. */
+internal fun shouldCompleteUsageOnlyFrame(
+    hasEmittedContent: Boolean,
+    candidateCount: Int,
+    finished: Boolean,
+): Boolean = !finished && candidateCount == 0 && hasEmittedContent
+
 /**
  * Google Gemini Provider(同时支持 generativelanguage API + Vertex AI)。
  *
@@ -173,6 +180,10 @@ class GeminiProvider(
         val attempt = AtomicInteger(0)
         val currentEventSource = AtomicReference<EventSource?>(null)
         val currentCall = AtomicReference<Call?>(null)
+        val abortListener = request.abortSignal.addAbortListener {
+            currentEventSource.get()?.cancel()
+            currentCall.get()?.cancel()
+        }
         // M-GEM3: 为每个 functionCall 分配递增 index(原固定 0 导致多工具调用合并为一个)
         val toolCallIndex = AtomicInteger(0)
         // v1.0.1 (P1): 任何 ContentDelta/ImageDelta/ToolCallDelta 发出后置 true,
@@ -315,7 +326,15 @@ class GeminiProvider(
                     chunk.usageMetadata?.let { usage ->
                         trySend(ChatStreamEvent.UsageDelta(usage.toUsageTokens()))
                     }
-                    val candidate = chunk.candidates.firstOrNull() ?: return
+                    val candidate = chunk.candidates.firstOrNull()
+                    if (candidate == null) {
+                        if (shouldCompleteUsageOnlyFrame(hasEmittedContent.get(), chunk.candidates.size, finished.get())) {
+                            finished.set(true)
+                            trySend(ChatStreamEvent.Done("STOP"))
+                            close()
+                        }
+                        return
+                    }
                     if (request.nativeWebSearch) {
                         val urls = candidate.groundingMetadata?.groundingChunks.orEmpty()
                             .mapNotNull { it.web?.uri }
@@ -462,6 +481,7 @@ class GeminiProvider(
 
         awaitClose {
             // L-GEM11: 不调 request.abortSignal.abort(),只 cancel eventSource + call
+            abortListener.close()
             currentEventSource.get()?.cancel()
             currentCall.get()?.cancel()
         }

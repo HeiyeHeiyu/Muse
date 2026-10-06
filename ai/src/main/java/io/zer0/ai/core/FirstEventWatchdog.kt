@@ -6,6 +6,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * R-AI-04: 深度推理/超长上下文模型放宽首事件超时,普通模型保持默认。
@@ -35,16 +36,15 @@ fun Flow<ChatStreamEvent>.withFirstEventWatchdog(
     // fallback 触发前检查,避免用户停止后仍发一次计费请求。
     abortCheck: () -> Boolean = { false },
 ): Flow<ChatStreamEvent> = channelFlow {
-    var firstEventReceived = false
-    var finished = false
-    var fallbackStarted = false
-    var meaningfulEventReceived = false
+    val firstEventReceived = AtomicBoolean(false)
+    val finished = AtomicBoolean(false)
+    val fallbackStarted = AtomicBoolean(false)
+    val meaningfulEventReceived = AtomicBoolean(false)
     lateinit var upstreamJob: Job
 
     suspend fun emitFallback(notice: String, cancelUpstream: Boolean) {
-        if (fallbackStarted || abortCheck()) return
-        fallbackStarted = true
-        finished = true
+        if (abortCheck() || !fallbackStarted.compareAndSet(false, true)) return
+        finished.set(true)
         if (cancelUpstream) upstreamJob.cancel()
         trySend(ChatStreamEvent.FallbackNotice(notice))
         try {
@@ -57,7 +57,7 @@ fun Flow<ChatStreamEvent>.withFirstEventWatchdog(
             // (如 GLM-4-9B 等模型流式行为异常,先输出片段),完整文本与之拼接,
             // 消息变成"片段 + 完整回复"(用户反馈的严重重叠)。
             // 此时只保留已显示内容,发 FallbackNotice 提示(UI 可提示用户重试)。
-            if (completion.text.isNotBlank() && !meaningfulEventReceived) {
+            if (completion.text.isNotBlank() && !meaningfulEventReceived.get()) {
                 trySend(ChatStreamEvent.ContentDelta(completion.text))
             } else if (completion.text.isNotBlank()) {
                 trySend(
@@ -94,37 +94,37 @@ fun Flow<ChatStreamEvent>.withFirstEventWatchdog(
     upstreamJob = launch {
         try {
             collect { event ->
-                if (finished) return@collect
-                if (!firstEventReceived &&
+                if (finished.get()) return@collect
+                if (!firstEventReceived.get() &&
                     event !is ChatStreamEvent.Error &&
                     event !is ChatStreamEvent.StreamInterrupted
                 ) {
-                    firstEventReceived = true
+                    firstEventReceived.set(true)
                 }
                 when (event) {
                     is ChatStreamEvent.ContentDelta -> {
-                        if (event.delta.isNotEmpty()) meaningfulEventReceived = true
+                        if (event.delta.isNotEmpty()) meaningfulEventReceived.set(true)
                         trySend(event)
                     }
                     is ChatStreamEvent.ReasoningDelta -> {
-                        if (event.delta.isNotEmpty()) meaningfulEventReceived = true
+                        if (event.delta.isNotEmpty()) meaningfulEventReceived.set(true)
                         trySend(event)
                     }
                     is ChatStreamEvent.ImageDelta,
                     is ChatStreamEvent.ToolCallDelta,
                     is ChatStreamEvent.CitationDelta,
                     -> {
-                        meaningfulEventReceived = true
+                        meaningfulEventReceived.set(true)
                         trySend(event)
                     }
                     is ChatStreamEvent.Done -> {
                         // 部分 OpenAI 兼容中转会建立 SSE 后只返回一个空 Done。
                         // 这不是可展示的正常回复,立即走一次非流式请求,避免用户看到空消息并长时间等待。
-                        if (!meaningfulEventReceived) {
+                        if (!meaningfulEventReceived.get()) {
                             emitFallback("流式响应为空，正在切换请求方式", cancelUpstream = false)
                         } else {
                             trySend(event)
-                            finished = true
+                            finished.set(true)
                             close()
                         }
                     }
@@ -137,7 +137,7 @@ fun Flow<ChatStreamEvent>.withFirstEventWatchdog(
                         if (event is ChatStreamEvent.Error ||
                             event is ChatStreamEvent.StreamInterrupted
                         ) {
-                            finished = true
+                            finished.set(true)
                             close()
                         }
                     }
@@ -146,18 +146,18 @@ fun Flow<ChatStreamEvent>.withFirstEventWatchdog(
             // 上游流“无任何事件即结束”（如空流 / SSE 立即断开）已经确认不会再产生内容，
             // 不应继续等待 45s/90s 的首事件看门狗。立即复用非流式回退，避免用户看到长时间
             // loading；仍保持打开的 SSE 不会进入这里，而用户停止/显式错误路径会先把 finished 置 true。
-            if (!meaningfulEventReceived && !finished) {
+            if (!meaningfulEventReceived.get() && !finished.get()) {
                 emitFallback("流式响应为空，正在切换请求方式", cancelUpstream = false)
             }
         } catch (t: Throwable) {
             if (t is kotlinx.coroutines.CancellationException) {
                 // 取消 / abort：标记结束并向上传播，不把取消当成 stream failed，
                 // 也阻止 watchdog 在取消后继续触发回退。
-                finished = true
+                finished.set(true)
                 throw t
             }
-            if (!finished) {
-                finished = true
+            if (!finished.get()) {
+                finished.set(true)
                 trySend(ChatStreamEvent.Error(t.message ?: "stream failed", t))
                 close()
             }
@@ -166,7 +166,7 @@ fun Flow<ChatStreamEvent>.withFirstEventWatchdog(
 
     val watchdogJob = launch {
         delay(timeoutMs)
-        if (!firstEventReceived && !finished) {
+        if (!firstEventReceived.get() && !finished.get()) {
             // 审计修复 (7.8): 用户已停止时不再发 fallback,省一次计费请求。
             emitFallback("网络较慢，已切换请求方式", cancelUpstream = true)
         }
