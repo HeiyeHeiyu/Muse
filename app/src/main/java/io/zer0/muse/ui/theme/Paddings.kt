@@ -102,6 +102,12 @@ object MusePaddings {
     val inputIslandHorizontal = 12.dp
     val inputIslandVertical = 2.dp
 
+    /** v2.4.5 (参考图对齐): 输入岛底部悬浮间距(抬高输入岛,不贴底边)。 */
+    val inputIslandBottomGap = 10.dp
+
+    /** v2.4.5 (参考图对齐): 输入岛行内左右内边距(比 contentGap 更紧)。 */
+    val inputIslandInnerHorizontal = 6.dp
+
     /** v2.4.5: 输入岛内部行垂直间距;触控目标仍由 IconSizes.touchTarget 保证。 */
     val inputIslandRowVertical = 0.dp
 

@@ -78,7 +78,6 @@ import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.ui.theme.huge
 import io.zer0.muse.ui.theme.pill
 import kotlinx.coroutines.delay
 
@@ -236,11 +235,13 @@ internal fun InputBar(state: MuseInputState = MuseInputState(), callbacks: Input
             .fillMaxWidth()
             // v1.99: 大R角/曲面屏设备横向安全区避让(displayCutout 在非 cutout 设备上返回 0,安全)
             .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
-            // v2.4.5: 输入岛收窄并略抬高,保留内部 48dp 触控热区。
+            // v2.4.5: 输入岛收窄并抬高(参考图对齐)。
             .padding(
                 horizontal = MusePaddings.inputIslandHorizontal,
                 vertical = MusePaddings.inputIslandVertical,
-            ),
+            )
+            // v2.4.5: 底部悬浮间距 — 让输入岛离开底边/导航栏一点,不再贴着底。
+            .padding(bottom = MusePaddings.inputIslandBottomGap),
         verticalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
     ) {
         // QuickMessages 气泡
@@ -671,14 +672,16 @@ internal fun InputBar(state: MuseInputState = MuseInputState(), callbacks: Input
         // v2.0 修复(用户反馈: 浅色主题下输入岛与背景对比过弱):
         //   填充色向 onSurface 混色加深一档,浅色自动加深/深色自动提亮,与 MuseTextField 同口径。
         Surface(
-            color = androidx.compose.ui.graphics.lerp(
+            color =
+            androidx.compose.ui.graphics.lerp(
                 MaterialTheme.colorScheme.surfaceVariant,
                 MaterialTheme.colorScheme.onSurface,
                 0.06f,
             ),
-            shape = MuseShapes.huge,
+            // v2.4.5 (参考图对齐): 输入岛改为真胶囊(圆角 = 半高) + 去掉投影,
+            // 视觉更轻、更紧凑;高度由行内 48dp 触控区决定。
+            shape = MuseShapes.pill,
             tonalElevation = MuseElevation.low,
-            shadowElevation = MuseElevation.medium,
             modifier = Modifier.fillMaxWidth(),
         ) {
             // v0.52: @mention 高亮转换(把 @文档名 染为 primary 色,提示引用了知识库)
@@ -687,9 +690,10 @@ internal fun InputBar(state: MuseInputState = MuseInputState(), callbacks: Input
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // v2.4.5: 内部行不再额外撑高胶囊,按钮触控尺寸仍为 48dp。
+                    // v2.4.5 (参考图对齐): 内边距收紧到 6dp;行高不再额外加垂直 padding,
+                    // 胶囊高度由内部按钮的 48dp 触控区决定,视觉上更紧凑。
                     .padding(
-                        horizontal = MusePaddings.contentGap,
+                        horizontal = MusePaddings.inputIslandInnerHorizontal,
                         vertical = MusePaddings.inputIslandRowVertical,
                     )
                     // 长按输入栏弹出动作菜单(全屏输入模式入口)
@@ -1190,12 +1194,22 @@ internal fun InputBar(state: MuseInputState = MuseInputState(), callbacks: Input
                                     .size(MuseIconSizes.iconMedium)
                                     .scale(pulseScale),
                             )
-                            else -> Icon(
-                                imageVector = MuseIcons.microphone,
-                                contentDescription = holdToRecordCd,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(MuseIconSizes.iconMedium),
-                            )
+                            else -> Box(
+                                // v2.4.5 (参考图对齐): 麦克风改为浅色圆底 + 图标。
+                                modifier =
+                                Modifier
+                                    .size(MuseIconSizes.stopButton)
+                                    .clip(CircleShape)
+                                    .background(MuseActionColors.neutralContainer),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = MuseIcons.microphone,
+                                    contentDescription = holdToRecordCd,
+                                    tint = MuseActionColors.mutedContent,
+                                    modifier = Modifier.size(MuseIconSizes.iconSmall),
+                                )
+                            }
                         }
                     }
                 } else {
@@ -1223,7 +1237,9 @@ internal fun InputBar(state: MuseInputState = MuseInputState(), callbacks: Input
                         contentAlignment = Alignment.Center,
                     ) {
                         Box(
-                            modifier = Modifier
+                            modifier =
+                            Modifier
+                                // v2.4.5 (参考图对齐): 发送键视觉圆收小到与右侧键一致。
                                 .size(MuseIconSizes.stopButton)
                                 .graphicsLayer {
                                     scaleX = sendScale
@@ -1549,9 +1565,6 @@ private fun RowScope.MessageInputField(
         )
     }
 }
-
-/** v1.0.72: 输入岛底部悬浮间距(dp)。 */
-private val InputIslandBottomGap = 10.dp
 
 /**
  * F-3: 快捷工具栏单项按钮(圆角小方块,激活态用 primary 色高亮)。

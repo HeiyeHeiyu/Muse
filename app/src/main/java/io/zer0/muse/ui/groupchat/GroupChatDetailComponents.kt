@@ -127,7 +127,7 @@ import io.zer0.muse.ui.theme.MuseIconSizes
 import io.zer0.muse.ui.theme.MuseMotion
 import io.zer0.muse.ui.theme.MusePaddings
 import io.zer0.muse.ui.theme.MuseShapes
-import io.zer0.muse.ui.theme.huge
+import io.zer0.muse.ui.theme.pill
 import io.zer0.muse.ui.theme.semiLarge
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -883,19 +883,19 @@ internal fun GroupChatInputBar(
     // v1.0.72: 做回岛样式(实色背景 + 圆角 + 阴影)
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
-        // CHAT-12: 输入岛圆角统一走令牌(MuseShapes.huge=24dp,与单聊输入栏一致)
-        shape = MuseShapes.huge,
+        // v2.4.5 (参考图对齐): 与单聊输入岛一致——真胶囊 + 去投影。
+        shape = MuseShapes.pill,
         tonalElevation = io.zer0.muse.ui.theme.MuseElevation.low,
-        shadowElevation = io.zer0.muse.ui.theme.MuseElevation.medium,
         modifier = Modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
             // 系统导航栏与键盘由外层底部操作栏统一处理。
-            // v2.4.5: 与单聊输入岛统一紧凑外边距,略抬高且不压缩触控热区。
+            // v2.4.5: 与单聊输入岛统一紧凑外边距,并抬高离开底边。
             .padding(
                 horizontal = MusePaddings.inputIslandHorizontal,
                 vertical = MusePaddings.inputIslandVertical,
-            ),
+            )
+            .padding(bottom = MusePaddings.inputIslandBottomGap),
     ) {
         Box {
             // @mention 自动补全下拉(锚定在输入框上方)
@@ -924,10 +924,12 @@ internal fun GroupChatInputBar(
                 }
             }
             Row(
-                modifier = Modifier
+                modifier =
+                Modifier
                     .fillMaxWidth()
+                    // v2.4.5 (参考图对齐): 内边距与单聊统一收紧到 6dp。
                     .padding(
-                        horizontal = MusePaddings.contentGap,
+                        horizontal = MusePaddings.inputIslandInnerHorizontal,
                         vertical = MusePaddings.inputIslandRowVertical,
                     ),
                 // v1.0.72 fix: Bottom 对齐导致加号/发送按钮视觉"歪"(多行输入时),
