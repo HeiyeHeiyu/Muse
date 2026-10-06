@@ -498,13 +498,17 @@ fun ChatScreen(
     ) {
         derivedStateOf {
             if (visibleMessages.isEmpty()) return@derivedStateOf true
+            // v2.4.5 fix: 不能再前滚即视为已在底部。消息区尾部会插入 shimmer(思考/工具
+            // 执行)/图片视频占位/子代理任务卡等尾随项,旧判定要求"最后可见项恰好是最后
+            // 一条消息",这些项一出现就恒为 false —— 明明已在底部却判定没到底,进而把
+            // userScrolledUp 锁死、停止自动跟随(用户反馈:每次回复都要手动滑到底)。
+            if (!listState.canScrollForward) return@derivedStateOf true
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull() ?: return@derivedStateOf false
             val viewportEnd = listState.layoutInfo.viewportEndOffset
-            // 最后一项必须是消息区最后一条(全局索引 = messageStartIndex + 局部 lastIndex),
-            // 且其底部在视口底部附近。
+            // 最后可见项到达/越过消息区末条(容纳尾随项),且其底部在视口底部附近。
             // v1.0.74 fix (前端审计 1.1): 原实现 lastVisible.index == visibleMessages.lastIndex
             // 用全局索引比局部索引,agent_hint/load_more 等额外 item 存在时恒 false。
-            lastVisible.index == messageStartIndex + visibleMessages.lastIndex &&
+            lastVisible.index >= messageStartIndex + visibleMessages.lastIndex &&
                 (lastVisible.offset + lastVisible.size) <= viewportEnd + 150
         }
     }
@@ -817,12 +821,20 @@ fun ChatScreen(
                         try {
                             // v2.x: 只向“距列表末端还差多少”做正向动画滚动 — 精确、永不回滚到
                             // 消息顶部;末条不在视口内时跳过(下一采样周期继续)。
+                            // v2.4.5 fix: 用 >= 而非 == —— 消息区尾部会插入 shimmer(思考/工具
+                            // 执行)/图片视频占位/子代理任务卡等尾随项,旧判定要求"最后可见项
+                            // 恰好是最后一条消息",这些项一出现就恒 false,整段回复期间一次都
+                            // 不跟随,用户必须手动滑到底才能看到全文(用户反馈)。
                             val info = listState.layoutInfo
                             val lastVisible = info.visibleItemsInfo.lastOrNull()
-                            if (lastVisible != null && lastVisible.index == targetGlobalIndex) {
+                            if (lastVisible != null && lastVisible.index >= targetGlobalIndex) {
                                 val missing = (lastVisible.offset + lastVisible.size) - info.viewportEndOffset
                                 if (missing > 0) {
                                     listState.animateScrollBy(missing.toFloat())
+                                } else if (listState.canScrollForward) {
+                                    // 尾随项已贴底但列表仍可前滚:前滚一屏,把更下方的尾随项带入视口。
+                                    val viewport = (info.viewportEndOffset - info.viewportStartOffset).toFloat()
+                                    if (viewport > 0f) listState.animateScrollBy(viewport)
                                 }
                             }
                         } finally {
