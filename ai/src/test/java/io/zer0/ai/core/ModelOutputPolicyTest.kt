@@ -79,6 +79,26 @@ class ModelOutputPolicyTest {
     }
 
     @Test
+    fun `no declared limit and no request budget never inflates to the whole context window`() {
+        // 回归:agnes-2.5-flash 类模型只声明 contextWindow 不声明 maxOutputTokens。
+        // 旧实现会把 available(≈512000)当成输出预算发出,max_tokens 超上游上限被 400 拒。
+        val target = model().copy(contextWindow = 512_000)
+
+        assertEquals(null, ModelOutputPolicy.resolveForContext(null, target, inputTokens = 143))
+    }
+
+    @Test
+    fun `explicit budget with unknown model limit is still capped by remaining context`() {
+        val target = model().copy(contextWindow = 512_000)
+
+        assertEquals(100_000, ModelOutputPolicy.resolveForContext(100_000, target, inputTokens = 143))
+        assertEquals(
+            4_360,
+            ModelOutputPolicy.resolveForContext(100_000, target, inputTokens = 506_616),
+        )
+    }
+
+    @Test
     fun `non-positive request budget is treated as omitted`() {
         assertEquals(8_192, ModelOutputPolicy.resolve(0, model(maxOutputTokens = 8_192)))
         assertEquals(8_192, ModelOutputPolicy.resolve(-1, model(maxOutputTokens = 8_192)))

@@ -10,6 +10,7 @@ import io.zer0.ai.core.Model
 import io.zer0.ai.core.ModelAbility
 import io.zer0.ai.core.ModelOutputPolicy
 import io.zer0.ai.core.Provider
+import io.zer0.ai.core.ProviderCompat
 import io.zer0.ai.core.ProviderCompatRules
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ProviderType
@@ -71,6 +72,31 @@ object ProviderRegistry {
         cache.clear()
     }
 }
+
+/**
+ * v2.4.5: 采样温度出口归一常量。
+ *
+ * 应用内允许的温度范围是 [0, 2],但部分供应商走开区间(如商汤 [0.0, 2.0))。
+ * 这里给出通用下界/上界,[ProviderCompat.maxTemperatureExclusive] 可进一步收紧上界。
+ */
+private const val MIN_TEMPERATURE = 0f
+private const val MAX_TEMPERATURE = 2f
+
+/** 排他上界收紧时留出的余量,保证落在开区间内。 */
+private const val TEMPERATURE_EPSILON = 0.0001f
+
+/**
+ * v2.4.5: 采样温度出口归一。
+ *
+ * 应用内允许的范围是 [0, 2],但部分供应商走开区间(如商汤 [0.0, 2.0)),
+ * 由 [ProviderCompat.maxTemperatureExclusive] 声明。原值透传会被上游以
+ * 400 "field Temperature invalid" 拒绝,这里统一收紧。
+ */
+internal fun normalizeTemperature(temperature: Float?, compat: ProviderCompat): Float? =
+    temperature?.let { raw ->
+        val upper = compat.maxTemperatureExclusive?.let { it - TEMPERATURE_EPSILON } ?: MAX_TEMPERATURE
+        raw.coerceIn(MIN_TEMPERATURE, upper)
+    }
 
 /**
  * Decide whether the request should carry tool definitions.
@@ -264,6 +290,8 @@ class ChatService(
             )
         }
         val provider = ProviderRegistry.create(config)
+        // v2.4.5: 取一次能力矩阵,供温度归一使用(与 Provider 内部 resolvedCompat 同一口径)。
+        val compat = config.resolvedCompat(enhancedModel.id)
         // v1.0.7: UTILITY 模式强制关思考(对齐 既有实现 buildProviderCompatOptions)
         //  在 ChatService 层统一覆盖 reasoningLevel=OFF,所有 Provider(OpenAI/Anthropic/Gemini)
         //  自动生效,无需各 Provider 内部重复判断 mode。
@@ -272,10 +300,14 @@ class ChatService(
         } else {
             reasoningLevel
         }
+        // v2.4.5: 温度出口归一 — 与 topP 同位置收口。
+        //  应用内温度滑块上限为 2.0、第三方角色卡导入值可任意,而部分供应商对
+        //  temperature 走开区间(如商汤 [0.0, 2.0),2.0 非法)。
+        val effectiveTemperature = normalizeTemperature(temperature, compat)
         val request = ChatRequest(
             messages = messages,
             model = enhancedModel,
-            temperature = temperature,
+            temperature = effectiveTemperature,
             maxTokens = effectiveMaxTokens,
             tools = effectiveTools,
             toolChoice = toolChoice

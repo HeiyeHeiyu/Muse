@@ -45,16 +45,30 @@ object ModelOutputPolicy {
      *
      * 这是请求预算的第二道边界：模型 maxOutputTokens 是能力上限，
      * contextWindow - inputTokens - reserveTokens 是本次请求的可用上限。
+     *
+     * 注意：上下文窗口是输入+输出共享的，不能把整段剩余上下文都当成本次输出预算。
+     * 模型未声明 maxOutputTokens 且调用方也未给预算时返回 null（交回 Provider 默认值），
+     * 避免把 max_tokens 放大到接近上下文窗口而被上游以 400 拒绝。
      */
     fun resolveForContext(requestedMaxTokens: Int?, model: Model, inputTokens: Int, reserveTokens: Int = 1_024): Int? {
         require(inputTokens >= 0) { "inputTokens must not be negative" }
         require(reserveTokens >= 0) { "reserveTokens must not be negative" }
-        val contextWindow = model.contextWindow?.takeIf { it > 0 } ?: return resolve(requestedMaxTokens, model)
+        val contextWindow = model.contextWindow?.takeIf { it > 0 }
+        if (contextWindow == null) return resolve(requestedMaxTokens, model)
         val available = (contextWindow - inputTokens - reserveTokens).coerceAtLeast(1)
         val modelBound = model.maxOutputTokens?.takeIf { it > 0 }
-        val contextBound = minOf(available, modelBound ?: available)
         val requested = requestedMaxTokens?.takeIf { it > 0 }
-        return minOf(requested ?: contextBound, contextBound)
+        // 模型未声明输出上限时，不能把 available（整段剩余上下文）直接当成本次输出预算：
+        //  - 上下文窗口由输入+输出共享，全给输出本就不成立；
+        //  - 供应商普遍对单次输出另设上限（例如 65536），放大后必然被上游 400 拒绝。
+        // 因此：无模型上限且调用方未给预算 → 返回 null，交回 Provider 自身默认值；
+        //      调用方给了预算 → 仅按剩余上下文收紧，不外扩。
+        val contextBound = if (modelBound == null && requested == null) {
+            null
+        } else {
+            minOf(available, modelBound ?: available)
+        }
+        return contextBound?.let { minOf(requested ?: it, it) }
     }
 
     /**

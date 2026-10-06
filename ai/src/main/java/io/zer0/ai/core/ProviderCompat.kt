@@ -91,6 +91,14 @@ data class ProviderCompat(
      *   OpenRouter(始终保留 reasoning_details)
      */
     val reasoningReplayContract: ReasoningReplayContract? = null,
+    /**
+     * v2.4.5: 采样温度上限(排他),null 表示仅受通用 [MIN_TEMPERATURE, MAX_TEMPERATURE] 约束。
+     *
+     * 部分供应商对 temperature 走开区间(如商汤 sensecore `[0.0, 2.0)`,2.0 非法),
+     * 而应用内的温度滑块上限恰为 2.0、导入的第三方角色卡温度可任意。
+     * 该值由 [ProviderCompatRules] 按 host 声明,由 ChatService 在发请求前统一收紧。
+     */
+    val maxTemperatureExclusive: Float? = null,
 )
 
 /**
@@ -129,6 +137,8 @@ object ProviderCompatRules {
         "api-inference.modelscope.cn", "cloud.infini-ai.com",
         "api.xiaomimimo.com", "token-plan-cn.xiaomimimo.com",
         "apihub.agnes-ai.com", "api.longcat.chat",
+        // v2.4.5: 商汤 SenseNova / SenseCore,temperature 为开区间 [0.0, 2.0)
+        "token.sensenova.cn", "api.sensenova.cn",
         // 海外直连
         "api.x.ai", "cli-chat-proxy.grok.com", "api.perplexity.ai",
         "api.groq.com", "api.together.xyz", "api.mistral.ai",
@@ -307,6 +317,12 @@ object ProviderCompatRules {
                 ),
             )
             "apihub.agnes-ai.com" -> this // 思必驰 Agnes
+            // v2.4.5: 商汤 SenseNova/SenseCore 的 temperature 为开区间 [0.0, 2.0),
+            //   2.0 会被上游以 400 "field Temperature invalid" 拒绝。
+            //   应用内温度滑块上限恰为 2.0,第三方角色卡导入值可任意,需在出口收紧。
+            "token.sensenova.cn", "api.sensenova.cn" -> copy(
+                maxTemperatureExclusive = 2.0f,
+            )
             // v1.0.7: 美团 LongCat 用 thinking.type 协议
             "api.longcat.chat" -> copy(
                 thinkingFormat = ThinkingFormat.LONGCAT,

@@ -41,4 +41,23 @@ class ProviderCompatModelPrefixTest {
 
         assertEquals(ThinkingFormat.ZHIPU, compat.thinkingFormat)
     }
+
+    @Test
+    fun `sensenova declares an exclusive temperature upper bound`() {
+        // 回归:商汤 SenseNova 的 temperature 为开区间 [0.0, 2.0),2.0 会被 400 拒绝。
+        val compat = ProviderCompatRules.resolve(
+            ProviderType.OPENAI,
+            "https://token.sensenova.cn/v1",
+            "deepseek-v4-flash",
+        )
+
+        assertEquals(2.0f, compat.maxTemperatureExclusive!!, 0f)
+    }
+
+    @Test
+    fun `ordinary providers keep the generic temperature range`() {
+        val compat = ProviderCompatRules.resolve(ProviderType.OPENAI, siliconFlow, "Qwen/Qwen3.5-4B")
+
+        assertEquals(null, compat.maxTemperatureExclusive)
+    }
 }
