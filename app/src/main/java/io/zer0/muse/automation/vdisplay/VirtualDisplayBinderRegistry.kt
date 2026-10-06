@@ -12,10 +12,28 @@ import android.os.IBinder
 object VirtualDisplayBinderRegistry {
     @Volatile
     private var binder: IBinder? = null
+    @Volatile
+    private var expectedHandoffToken: String? = null
 
     /** 收到新的手递手 binder(或失效时清空)。 */
     fun update(value: IBinder?) {
         binder = value
+    }
+
+    fun setExpectedHandoffToken(token: String) {
+        expectedHandoffToken = token.takeIf { it.isNotBlank() }
+    }
+
+    fun clearHandoffToken() {
+        expectedHandoffToken = null
+    }
+
+    /** Accept only a binder that proves knowledge of the current launch token. */
+    fun accept(value: IBinder, handoffToken: String?): Boolean {
+        val expected = expectedHandoffToken ?: return false
+        if (handoffToken.isNullOrBlank() || handoffToken != expected) return false
+        binder = value
+        return true
     }
 
     /** 当前 binder(binder 已死时返回 null 并顺手清空)。 */

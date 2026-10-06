@@ -21,7 +21,11 @@ class VirtualDisplayBinderReceiver : BroadcastReceiver() {
             return
         }
         val binder = intent.extras?.getBinder(VdContract.EXTRA_BINDER) ?: return
-        VirtualDisplayBinderRegistry.update(binder)
+        val handoffToken = intent.getStringExtra(VdContract.EXTRA_HANDOFF_TOKEN)
+        if (!VirtualDisplayBinderRegistry.accept(binder, handoffToken)) {
+            Logger.w(TAG, "忽略 token 不匹配的虚拟屏 binder 广播")
+            return
+        }
         Logger.i(TAG, "虚拟屏服务端 binder 已就位")
     }
 

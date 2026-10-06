@@ -233,13 +233,13 @@ class AutomationWorkflow(
                 index,
                 action,
                 true,
-                NodeScriptTool.formatResultJson(outcome, maxChars = MAX_NODE_SCRIPT_RESULT_CHARS),
+                NodeScriptTool.formatResultJson(outcome),
             )
             is SkillEngineResult.Error -> failure(
                 index,
                 action,
                 "Node 脚本执行失败，副作用可能已发生；不会自动重放。" +
-                    NodeScriptTool.formatResultJson(outcome, maxChars = MAX_NODE_SCRIPT_RESULT_CHARS),
+                    NodeScriptTool.formatResultJson(outcome),
                 outcomeUnknown = true,
             )
         }
@@ -351,8 +351,18 @@ class AutomationWorkflow(
                     result(index, action, true, "已释放 run_id 对虚拟屏 $displayId 的 lease，屏幕仍被其他 workflow 使用")
                 } else {
                     val destroyed = client.destroy(displayId)
-                    if (!destroyed) displayLeases.acquire(runId, displayId)
-                    result(index, action, destroyed, "销毁虚拟屏 $displayId")
+                    // A service restart can make the old display disappear before close.
+                    // VirtualDisplayClient clears the stale compatibility id in that case;
+                    // treat the already-gone display as an idempotent successful close and
+                    // never re-acquire a lease for a dead display.
+                    val staleDisplayGone = !destroyed && displayManager.lastDisplayId != displayId
+                    if (!destroyed && !staleDisplayGone) displayLeases.acquire(runId, displayId)
+                    result(
+                        index,
+                        action,
+                        destroyed || staleDisplayGone,
+                        if (staleDisplayGone) "虚拟屏 $displayId 已不存在，按幂等关闭处理" else "销毁虚拟屏 $displayId",
+                    )
                 }
             }
             else -> executeVirtualInput(index, action, step, displayManager, displayId)
@@ -542,4 +552,3 @@ private const val STATUS_FAILED = "failed"
 private const val STATUS_FAILED_KNOWN = "failed_known"
 private const val DEFAULT_NODE_SCRIPT_TIMEOUT_MS = 30_000L
 private const val MAX_NODE_SCRIPT_TIMEOUT_MS = 300_000L
-private const val MAX_NODE_SCRIPT_RESULT_CHARS = 32_768

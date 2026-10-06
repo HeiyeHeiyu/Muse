@@ -19,6 +19,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -101,11 +102,51 @@ class VirtualDisplayClientTest {
         val service = mockk<IVirtualDisplayService>()
         every { manager.lastDisplayId } returns 42
         coEvery { manager.existingLiveProxy() } returns service
+        coEvery { manager.ensureStarted() } returns Result.failure(IllegalStateException("service unavailable"))
         every { service.launchApp("com.example.target", 42) } throws RemoteException("stale display")
         val client = VirtualDisplayClient(context, manager)
 
         assertFalse(client.openApp("com.example.target", 42))
 
         verify(exactly = 1) { manager.lastDisplayId = -1 }
+    }
+
+    @Test
+    fun `screenshot recreates compatibility display after service restart`() = runBlocking {
+        val manager = mockk<VirtualDisplayServerManager>(relaxed = true)
+        val service = mockk<IVirtualDisplayService>()
+        every { manager.lastDisplayId } returns 42
+        coEvery { manager.ensureStarted() } returns Result.success(service)
+        every { service.requestScreenshot(42) } throws RemoteException("display not found: 42")
+        every { service.ensureDisplay(720, 1280, 320) } returns 43
+        every { service.requestScreenshot(43) } returns byteArrayOf(1, 2, 3)
+        val client = VirtualDisplayClient(context, manager)
+
+        assertEquals(byteArrayOf(1, 2, 3).toList(), client.screenshot()?.toList())
+
+        verify(exactly = 1) { service.ensureDisplay(720, 1280, 320) }
+        verify(exactly = 1) { service.requestScreenshot(42) }
+        verify(exactly = 1) { service.requestScreenshot(43) }
+        verify(exactly = 1) { manager.lastDisplayId = 43 }
+    }
+
+    @Test
+    fun `openApp recreates compatibility display after service restart`() = runBlocking {
+        val manager = mockk<VirtualDisplayServerManager>(relaxed = true)
+        val service = mockk<IVirtualDisplayService>()
+        every { manager.lastDisplayId } returns 42
+        coEvery { manager.existingLiveProxy() } returns service
+        coEvery { manager.ensureStarted() } returns Result.success(service)
+        every { service.launchApp("com.example.target", 42) } throws RemoteException("display not found: 42")
+        every { service.ensureDisplay(720, 1280, 320) } returns 43
+        every { service.launchApp("com.example.target", 43) } returns true
+        val client = VirtualDisplayClient(context, manager)
+
+        assertTrue(client.openApp("com.example.target"))
+
+        verify(exactly = 1) { service.ensureDisplay(720, 1280, 320) }
+        verify(exactly = 1) { service.launchApp("com.example.target", 42) }
+        verify(exactly = 1) { service.launchApp("com.example.target", 43) }
+        verify(exactly = 1) { manager.lastDisplayId = 43 }
     }
 }

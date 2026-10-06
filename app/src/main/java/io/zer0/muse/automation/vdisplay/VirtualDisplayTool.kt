@@ -102,14 +102,16 @@ class VirtualDisplayTool(
     private suspend fun handleOpen(args: Map<String, String>): String {
         val pkg = args["package"]?.trim().orEmpty()
         if (pkg.isBlank()) return "错误:open 需要 package 参数"
-        val displayId = args["display"]?.toIntOrNull() ?: manager.lastDisplayId
+        val explicitDisplayId = args["display"]?.toIntOrNull()
+        val displayId = explicitDisplayId ?: manager.lastDisplayId
         if (displayId < 0) {
             val ensured = handleEnsure(args)
             if (!ensured.startsWith("虚拟屏已就绪")) return ensured
         }
         val id = if (displayId >= 0) displayId else manager.lastDisplayId
         return if (client.openApp(pkg, id)) {
-            "已在虚拟屏 $id 打开 $pkg(等待 1-2 秒渲染后可用 shot 截图)"
+            val actualId = explicitDisplayId ?: manager.lastDisplayId
+            "已在虚拟屏 $actualId 打开 $pkg(等待 1-2 秒渲染后可用 shot 截图)"
         } else {
             "打开失败:无法解析 $pkg 的启动活动(应用未安装或被系统限制)"
         }
@@ -160,7 +162,11 @@ class VirtualDisplayTool(
     }
 
     private suspend fun handleInput(args: Map<String, String>): String {
-        val displayId = args["display"]?.toIntOrNull() ?: manager.lastDisplayId
+        val displayId = args["display"]?.toIntOrNull() ?: run {
+            client.ensureCompatibilityDisplay().getOrElse {
+                return "错误:虚拟屏刷新失败:${it.message ?: "服务端未就绪"}"
+            }.displayId
+        }
         if (displayId < 0) {
             return "错误:虚拟屏未创建，请先执行 virtual_screen action=ensure"
         }

@@ -32,11 +32,17 @@ class AutomationManager(
      * 注入点供单测模拟「无 su / 授权超时」等无法在测试环境真实复现的路径。
      */
     private val rootExecutor: RootExecutor = RootExecutor(context),
+    /**
+     * 可注入的 Shell 执行器，供运行时 Shizuku 断连时验证 Root 兜底。
+     * 生产默认仍使用与授权器共享的 ShellExecutor。
+     */
+    private val shellExecutor: io.zer0.muse.automation.executors.ShellExecutor =
+        io.zer0.muse.automation.executors.ShellExecutor(context, shizukuAuthorizer),
 ) {
     val accessibility = AccessibilityExecutor(context)
 
     // UI 自动化 Shell 与状态检查共用同一个 Shizuku 授权器，避免“显示已授权、执行却走普通 sh”。
-    val shell = io.zer0.muse.automation.executors.ShellExecutor(context, shizukuAuthorizer)
+    val shell = shellExecutor
     val root: RootExecutor = rootExecutor
 
     private val mutex = Mutex()
@@ -120,7 +126,15 @@ class AutomationManager(
             state = refreshPermissions()
         }
         return when {
-            state.shellEnabled -> "Shizuku" to shell.execDetailed(command)
+            state.shellEnabled -> {
+                val shizukuResult = shell.execDetailed(command)
+                if (shizukuResult.exitCode == 0 || !state.rootEnabled) {
+                    "Shizuku" to shizukuResult
+                } else {
+                    Logger.w(TAG, "Shizuku command failed at runtime, falling back to Root")
+                    "Root" to root.execDetailed(command)
+                }
+            }
             state.rootEnabled -> "Root" to root.execDetailed(command)
             else -> null
         }

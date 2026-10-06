@@ -11,6 +11,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.util.UUID
 
 /**
  * v2.2.1 虚拟屏:服务端生命周期管理(部署 / 启动 / 等待 binder / 复用)。
@@ -32,6 +33,8 @@ class VirtualDisplayServerManager(
     /** 最近一次 ensure 成功的 displayId(工具跨调用复用)。 */
     @Volatile
     var lastDisplayId: Int = -1
+    @Volatile
+    private var handoffToken: String? = null
 
     /** 权限通道状态:返回 "ready(Shizuku)" / "ready(Root)" / 不可用原因。 */
     suspend fun channelState(): String {
@@ -67,21 +70,27 @@ class VirtualDisplayServerManager(
                 return@withLock Result.failure(IllegalStateException("虚拟屏服务端部署失败(assets 缺失或写入被拒)"))
             }
 
+            val token = UUID.randomUUID().toString()
+            handoffToken = token
+            VirtualDisplayBinderRegistry.setExpectedHandoffToken(token)
             VirtualDisplayBinderRegistry.update(null)
             exec("pkill -f ${VdContract.SERVER_KILL_PATTERN}")
-            val launch = exec(launchCommand())
+            val launch = exec(launchCommand(token))
             if (launch.exitCode != 0) {
                 Logger.w(TAG, "服务端启动命令退出码 ${launch.exitCode}: ${launch.output.take(200)}")
             }
 
-            val proxy =
-                awaitBinder()
-                    ?: return@withLock Result.failure(
+            val proxy = awaitBinder()
+                ?: run {
+                    handoffToken = null
+                    VirtualDisplayBinderRegistry.clearHandoffToken()
+                    return@withLock Result.failure(
                         IllegalStateException(
                             "虚拟屏服务端未在 ${AWAIT_TIMEOUT_MS / 1000}s 内就绪" +
                                 "(详见 /data/local/tmp/muse-vd-server.log)",
                         ),
                     )
+                }
             Logger.i(TAG, "虚拟屏服务端已就绪")
             Result.success(proxy)
         }
@@ -116,6 +125,8 @@ class VirtualDisplayServerManager(
         if (lastDisplayId >= 0) {
             lastDisplayId = -1
         }
+        handoffToken = null
+        VirtualDisplayBinderRegistry.clearHandoffToken()
     }
 
     /** 以当前可用档位(Shizuku 优先、Root 兜底)执行一条命令(部署/启动共用)。 */
@@ -161,10 +172,10 @@ class VirtualDisplayServerManager(
         return ok
     }
 
-    private fun launchCommand(): String {
+    private fun launchCommand(token: String): String {
         val host = context.packageName
         return "CLASSPATH=${VdContract.SERVER_JAR_PATH} app_process / ${VdContract.SERVER_MAIN_CLASS} " +
-            "$host > /data/local/tmp/muse-vd-server.log 2>&1 &"
+            "$host $token > /data/local/tmp/muse-vd-server.log 2>&1 &"
     }
 
     private suspend fun awaitBinder(): IVirtualDisplayService? {

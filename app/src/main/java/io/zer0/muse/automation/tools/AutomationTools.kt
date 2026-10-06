@@ -382,8 +382,7 @@ class AutomationTools(
                     buildString {
                         append("[").append(tier).append("] exit=").append(detail.exitCode).append('\n')
                         if (detail.output.isNotBlank()) {
-                            append(detail.output.take(20_000))
-                            if (detail.output.length > 20_000) append("\n… (输出已截断)")
+                            append(detail.output)
                         } else {
                             append("(无输出)")
                         }

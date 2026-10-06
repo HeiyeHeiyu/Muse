@@ -224,7 +224,7 @@ class AutomationWorkflowResumeTest {
     fun nodeScriptStepReturnsCachedOutputButEncryptsItAtRest() = runBlocking {
         val directory = Files.createTempDirectory("automation-workflow-node-script").toFile()
         try {
-            val outputSecret = "private-script-output-42"
+            val outputSecret = "private-script-output-42".repeat(4_000)
             val codeSecret = "console.log('private-script-code')"
             val cipher = TestWorkflowResultCipher()
             val journal = WorkflowJournal(directory, cipher)
@@ -261,16 +261,14 @@ class AutomationWorkflowResumeTest {
     }
 
     @Test
-    fun nodeScriptWorkflowResultPreviewIsValidJsonAndBounded() {
-        val maxChars = 32_768
-
+    fun nodeScriptWorkflowResultKeepsTheCompleteValidJson() {
+        val output = "x".repeat(100_000)
         val formatted = NodeScriptTool.formatResultJson(
-            SkillEngineResult.Success(valueJson = "\"" + "x".repeat(100_000) + "\"", consoleLogs = listOf("large output")),
-            maxChars = maxChars,
+            SkillEngineResult.Success(valueJson = "\"$output\"", consoleLogs = listOf("large output")),
         )
 
-        assertTrue(formatted.length <= maxChars)
-        assertTrue(AppJson.parseToJsonElement(formatted).toString().contains("truncated"))
+        assertTrue(AppJson.parseToJsonElement(formatted).toString().contains(output))
+        assertFalse(formatted.contains("truncated"))
     }
 
     @Test

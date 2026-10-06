@@ -243,6 +243,57 @@ class UiAgentRunnerTest {
     }
 
     @Test
+    fun `virtual agent refreshes its dedicated display after service restart`() = runBlocking {
+        val automation = mockk<AutomationManager>(relaxed = true)
+        val vision = mockk<VisionBridge>()
+        val client = mockk<VirtualDisplayClient>()
+        val displayManager = mockk<VirtualDisplayServerManager>()
+        coEvery { client.createDisplay() } returnsMany listOf(
+            Result.success(VirtualDisplayClient.DisplayHandle(7, 720, 1280)),
+            Result.success(VirtualDisplayClient.DisplayHandle(8, 720, 1280)),
+        )
+        coEvery { client.openApp("com.example.target", 7) } returns true
+        coEvery { client.openApp("com.example.target", 8) } returns true
+        coEvery { client.screenshot(7) } returns null
+        coEvery { client.screenshot(8) } returns png
+        coEvery { client.destroy(7) } returns false
+        coEvery { automation.readScreenOnDisplay(8) } returns ScreenInfo(
+            nodes = listOf(UiNode(text = "Ready")),
+            screenWidth = 10,
+            screenHeight = 10,
+        )
+        coEvery { client.destroy(8) } returns true
+        coEvery { vision.askWithImage(any(), any(), any(), any()) } returns "finish(success=true, result=\"recovered\")"
+        mockkObject(VisionImagePreprocessor)
+        coEvery { VisionImagePreprocessor.prepareSingle(any(), any()) } returns VisionImagePreprocessor.PreparedImage(
+            base64 = "AA==",
+            mimeType = "image/png",
+            originalWidth = 1,
+            originalHeight = 1,
+            resizedWidth = 1,
+            resizedHeight = 1,
+        )
+        try {
+            val result = UiAgentRunner(automation, vision, client, displayManager).run(
+                task = "Recover the target app",
+                displayMode = UiAgentRunner.DisplayMode.VIRTUAL,
+                packageName = "com.example.target",
+            )
+
+            assertTrue(result.finished)
+            assertTrue("summary=${result.summary}", result.summary.contains("displayId=8"))
+            coVerify(exactly = 2) { client.createDisplay() }
+            coVerify(exactly = 1) { client.openApp("com.example.target", 8) }
+            coVerify(exactly = 1) { client.screenshot(7) }
+            coVerify(exactly = 1) { client.screenshot(8) }
+            coVerify(exactly = 1) { client.destroy(7) }
+            coVerify(exactly = 1) { client.destroy(8) }
+        } finally {
+            unmockkObject(VisionImagePreprocessor)
+        }
+    }
+
+    @Test
     fun `foreground labeled tap prefers semantic control over coordinate fallback`() = runBlocking {
         val automation = mockk<AutomationManager>(relaxed = true)
         val vision = mockk<VisionBridge>()

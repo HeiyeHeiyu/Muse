@@ -243,7 +243,7 @@ open class ShellExecutor(
             if (!shizukuAuthorizer.checkPermission()) {
                 return@withContext ExecDetail(-1, "Shizuku 未授权")
             }
-            val result = shizukuAuthorizer.execute(command)
+            val result = shizukuAuthorizer.executeForTool(command)
             val merged = buildString {
                 append(result.stdout)
                 if (result.stderr.isNotBlank()) {

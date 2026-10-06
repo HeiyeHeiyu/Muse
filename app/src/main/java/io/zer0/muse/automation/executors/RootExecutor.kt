@@ -307,19 +307,15 @@ class RootExecutor(
             .toList()
     }
 
-    /**
-     * Tail the device logcat (last [lines] lines).
-     * Output is capped at [maxChars] to prevent context explosion.
-     */
-    suspend fun logcatTail(lines: Int = 100, maxChars: Int = 10_000): String {
+    /** Tail the device logcat (last [lines] lines); the caller owns context-aware delivery. */
+    suspend fun logcatTail(lines: Int = 100): String {
         val cmd = "logcat -d -t $lines"
         val result = exec(cmd)
         if (!result.isSuccess) {
             val detail = result.getOrDefault("")
             return "logcat failed: $detail"
         }
-        val output = result.getOrDefault("")
-        return if (output.length > maxChars) output.take(maxChars) + "\n... (truncated)" else output
+        return result.getOrDefault("")
     }
 
     /**
