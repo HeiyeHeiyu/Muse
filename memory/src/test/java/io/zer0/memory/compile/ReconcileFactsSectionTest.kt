@@ -14,12 +14,14 @@ import io.zer0.memory.summary.ScopedCompiledSectionEntity
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.nio.file.Files
 
 /**
  * v12 (T2-1): 编译产物与 facts 表对账测试。
@@ -130,6 +132,38 @@ class ReconcileFactsSectionTest {
 
         assertEquals("work-only", scopedCompiler.readSection(MemoryCompiler.Section.FACTS))
         assertEquals("", scopedCompiler.readSection(MemoryCompiler.Section.TODAY))
+    }
+
+    @Test
+    fun `reading scoped compiled memory writes its file to the scoped directory`() = runTest {
+        val root = Files.createTempDirectory("muse-scoped-memory").toFile()
+        try {
+            val target = MemoryCompileTarget(assistantId = "assistant-b", scope = "assistant-b", spaceId = "work")
+            memoryDb.scopedCompiledSectionDao().upsert(
+                ScopedCompiledSectionEntity(
+                    sectionKey = MemoryCompiler.Section.FACTS.key,
+                    scope = target.normalizedScope,
+                    spaceId = target.normalizedSpaceId,
+                    content = "assistant-b private fact",
+                    updatedAt = java.time.Instant.now().toString(),
+                ),
+            )
+            val writer = MemoryFileWriter(root)
+            val isolatedCompiler = MemoryCompiler(
+                sectionDao = sectionDao,
+                llmClient = NoopLlm(),
+                fileWriter = writer,
+                scopedSectionDao = memoryDb.scopedCompiledSectionDao(),
+            )
+
+            val rendered = isolatedCompiler.readCompiledMemoryMarkdown(target = target)
+
+            assertTrue(rendered.contains("assistant-b private fact"))
+            assertNull("scoped render must not overwrite shared root memory.md", writer.readMemoryMd())
+            assertEquals(rendered, writer.readMemoryMd(target))
+        } finally {
+            root.deleteRecursively()
+        }
     }
 
     @Test

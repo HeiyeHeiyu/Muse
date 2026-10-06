@@ -424,6 +424,10 @@ class MemoryTicker(
     }.getOrNull()
 
     private suspend fun writeDailyState(context: DailyContext, completedSteps: Map<String, String>, dailyCompletedAt: String?) {
+        if (io.zer0.common.ProcessWriteGate.restoring) {
+            Logger.d(TAG, "daily state: 备份恢复进行中，跳过 checkpoint 写入")
+            return
+        }
         val entity = DailyStateEntity(
             schemaVersion = DAILY_STATE_SCHEMA_VERSION,
             logicalDate = context.logicalDate,
@@ -587,6 +591,10 @@ class MemoryTicker(
     // ──────────────────────────────────────────────
 
     private suspend fun doDaily(model: Model?, locale: String, timeZone: String) {
+        if (io.zer0.common.ProcessWriteGate.restoring) {
+            Logger.d(TAG, "daily: 备份恢复进行中，跳过本次记忆流水线")
+            return
+        }
         // v1.78 (H7): 用 compareAndSet 原子化 check-then-act,消除竞态
         if (!_dailyRunning.compareAndSet(false, true)) return
         try {
@@ -671,6 +679,7 @@ class MemoryTicker(
             }
 
             // Step 2: 从 daily/ 目录零 LLM 装配 week.md(无 checkpoint,纯文件操作)
+            if (io.zer0.common.ProcessWriteGate.restoring) return
             try {
                 compiler.assembleWeekFromDaily(target = target)
             } catch (e: CancellationException) {
@@ -682,6 +691,7 @@ class MemoryTicker(
 
             // Step 3: rollDailyWindow——把滚出 N 日窗口的 daily 条目 fold 进 longterm 并删除源文件。
             // 依赖 compileDaily 已经把昨天落盘,否则窗口判断会漏看最新一天。
+            if (io.zer0.common.ProcessWriteGate.restoring) return
             if (canRunStep("rollDailyWindow", completed) && "compileDaily" in completed) {
                 try {
                     markStepStart("rollDailyWindow", "daily")
@@ -703,6 +713,7 @@ class MemoryTicker(
             // 审查修复 (B-6): FACTS 段编译纳入 _compileFactsLock,与 forceCompileNow 里的
             // compileFacts 互斥 — 两条链都直写 FACTS(读 prevFacts + LLM 合并 + 写),不加锁
             // 会 last-writer-wins 覆盖彼此产物。对账亦写 FACTS 段,故随同一临界区持锁。
+            if (io.zer0.common.ProcessWriteGate.restoring) return
             if (canRunStep("compileFacts", completed)) {
                 _compileFactsLock.withLock {
                     try {
@@ -736,6 +747,7 @@ class MemoryTicker(
             }
 
             // Step 5: deepMemory(独立,更新 FactStore)
+            if (io.zer0.common.ProcessWriteGate.restoring) return
             if (canRunStep("deepMemory", completed)) {
                 try {
                     markStepStart("deepMemory", "daily")
@@ -1148,6 +1160,10 @@ class MemoryTicker(
     suspend fun forceCompileNow(model: Model? = null, locale: String = "zh-CN", timeZone: String = TimeContext.DEFAULT_TIMEZONE) {
         if (_stopped) return
         if (!isMemoryEnabled()) return
+        if (io.zer0.common.ProcessWriteGate.restoring) {
+            Logger.d(TAG, "forceCompileNow: 备份恢复进行中，跳过本次记忆编译")
+            return
+        }
         // 1. 强制重跑 compileFacts(从 30 天摘要提取 fact,忽略指纹缓存外的 checkpoint)
         // 审查修复 (B-6): 纳入 _compileFactsLock,与 doDaily step4 的 compileFacts 互斥,
         // 避免两链并发写 FACTS 段 last-writer-wins 丢产物。
@@ -1170,6 +1186,7 @@ class MemoryTicker(
             }
         }
         // 2. 强制重跑 deepMemory(处理 dirty sessions,提取深层事实)
+        if (io.zer0.common.ProcessWriteGate.restoring) return
         markStepStart("deepMemory", "force")
         resultOf {
             val result = deepProcessor.processDirtySessions(summaryManager, model, locale, runtimeContext.getConfig())
@@ -1187,6 +1204,7 @@ class MemoryTicker(
             }
         }
         // 3. 刷新 today 编译记忆(让 system prompt 下次注入用最新内容)
+        if (io.zer0.common.ProcessWriteGate.restoring) return
         doCompileTodayAndAssemble(model, locale, timeZone)
     }
 

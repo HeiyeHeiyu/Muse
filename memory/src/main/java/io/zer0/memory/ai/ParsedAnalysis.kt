@@ -56,8 +56,12 @@ data class ParsedEntity(
     // MemoryAutoSaveScheduler 的 coerceInputValues 让单条坏字段不拖垮整次提取。
     val title: String = "",
     val content: String = "",
-    /** 事实说话者: USER 才能进入用户事实库;ASSISTANT/OTHER 保留为非用户信息。 */
-    val speaker: String = "USER",
+    /**
+     * 事实说话者: USER 才能进入用户事实库; ASSISTANT/OTHER 保留为非用户信息。
+     *
+     * 缺省必须 fail-closed：模型漏输出 speaker 时不能把助手自述误记成用户事实。
+     */
+    val speaker: String = "OTHER",
     val credibility: Float = 0.5f,
     val importance: Float = 0.5f,
     val folderPath: String? = null,

@@ -123,9 +123,11 @@
     <ID>ReturnCount:MemoryTicker.kt$MemoryTicker$fun notifySessionEnd( sessionId: String, messages: List&lt;UIMessage&gt;, model: Model?, locale: String = "zh-CN", timeZone: String = TimeContext.DEFAULT_TIMEZONE, assistantId: String = "", spaceId: String? = null, ): Job</ID>
     <ID>ReturnCount:MemoryTicker.kt$MemoryTicker$fun notifySessionEndFromProvider( sessionId: String, messagesProvider: suspend () -&gt; List&lt;UIMessage&gt;, model: Model?, locale: String = "zh-CN", timeZone: String = TimeContext.DEFAULT_TIMEZONE, assistantId: String = "", spaceId: String? = null, ): Job</ID>
     <ID>ReturnCount:MemoryTicker.kt$MemoryTicker$private fun canRunStep(stepKey: String, completed: Map&lt;String, String&gt;): Boolean</ID>
+    <ID>ReturnCount:MemoryTicker.kt$MemoryTicker$private suspend fun doDaily(model: Model?, locale: String, timeZone: String)</ID>
     <ID>ReturnCount:MemoryTicker.kt$MemoryTicker$private suspend fun doRollingSummary( sessionId: String, messages: List&lt;UIMessage&gt;, model: Model?, locale: String, timeZone: String, trigger: String, assistantId: String = "", spaceId: String? = null, ): Boolean</ID>
     <ID>ReturnCount:MemoryTicker.kt$MemoryTicker$private suspend fun restoreDailyProgress(context: DailyContext): Map&lt;String, String&gt;</ID>
     <ID>ReturnCount:MemoryTicker.kt$MemoryTicker$suspend fun backfillSession( sessionId: String, messages: List&lt;UIMessage&gt;, model: Model?, locale: String = "zh-CN", timeZone: String = TimeContext.DEFAULT_TIMEZONE, assistantId: String = "", ): Boolean</ID>
+    <ID>ReturnCount:MemoryTicker.kt$MemoryTicker$suspend fun forceCompileNow(model: Model? = null, locale: String = "zh-CN", timeZone: String = TimeContext.DEFAULT_TIMEZONE)</ID>
     <ID>ReturnCount:MemoryTicker.kt$MemoryTicker$suspend fun tick(model: Model? = null, locale: String = "zh-CN", timeZone: String = TimeContext.DEFAULT_TIMEZONE)</ID>
     <ID>ReturnCount:PinnedMemoryStore.kt$PinnedMemoryStore$private fun readMarkdown(): List&lt;PinnedEntry&gt;</ID>
     <ID>ReturnCount:RollingSummaryFormat.kt$RollingSummaryFormat$fun extractMarkdownSection(markdown: String, titles: List&lt;String&gt;): String</ID>

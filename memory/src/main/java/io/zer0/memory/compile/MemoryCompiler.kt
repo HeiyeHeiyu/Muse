@@ -317,7 +317,7 @@ class MemoryCompiler(
         )
         val md = assembleCompiledMarkdown(facts, today, week, longterm, locale)
         // v6: 同时输出到文件系统,便于调试和备份
-        fileWriter?.writeMemoryMd(md, locale)
+        fileWriter?.writeMemoryMd(md, locale, resolvedTarget)
         md
     }
 

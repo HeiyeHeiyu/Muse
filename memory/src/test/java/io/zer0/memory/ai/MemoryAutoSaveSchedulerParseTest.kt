@@ -8,8 +8,11 @@ import io.zer0.memory.fact.FactDbProvider
 import io.zer0.memory.llm.MemoryLlmClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -126,5 +129,46 @@ class MemoryAutoSaveSchedulerParseTest {
 
         assertEquals("ASSISTANT", result?.extractedEntities?.single()?.speaker)
         assertEquals(emptyList<ParsedEntity>(), result?.userFactsOnly())
+    }
+
+    @Test
+    fun `memory extraction keeps system and tool messages out of assistant speaker bucket`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        var capturedHistory = ""
+        val scheduler = MemoryAutoSaveScheduler(
+            factDbProvider = FactDbProvider(context),
+            llmClient = object : MemoryLlmClient {
+                override suspend fun callText(
+                    systemPrompt: String,
+                    userContent: String,
+                    model: Model?,
+                    temperature: Float,
+                    maxTokens: Int,
+                    timeoutMs: Long,
+                ): String {
+                    capturedHistory = userContent
+                    return "{}"
+                }
+            },
+            scope = CoroutineScope(Dispatchers.Unconfined),
+        )
+
+        scheduler.extractEntities(
+            history = listOf(
+                UIMessage(role = MessageRole.SYSTEM, content = "system instruction"),
+                UIMessage(role = MessageRole.USER, content = "user statement"),
+                UIMessage(role = MessageRole.ASSISTANT, content = "assistant statement"),
+                UIMessage(role = MessageRole.TOOL, content = "tool result"),
+            ),
+            existingFactsPreview = null,
+            model = null,
+        )
+
+        assertTrue(capturedHistory.contains("**系统**: system instruction"))
+        assertTrue(capturedHistory.contains("**用户**: user statement"))
+        assertTrue(capturedHistory.contains("**助手**: assistant statement"))
+        assertTrue(capturedHistory.contains("**工具**: tool result"))
+        assertFalse(capturedHistory.contains("**助手**: system instruction"))
+        assertFalse(capturedHistory.contains("**助手**: tool result"))
     }
 }

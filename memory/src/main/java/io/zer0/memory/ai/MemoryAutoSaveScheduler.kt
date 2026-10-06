@@ -536,7 +536,12 @@ class MemoryAutoSaveScheduler(
         val recent = history.takeLast(MAX_HISTORY_MESSAGES)
         val sb = StringBuilder(titleLabel).append("\n\n")
         for (msg in recent) {
-            val role = if (msg.role == io.zer0.ai.core.MessageRole.USER) userLabel else assistantLabel
+            val role = when (msg.role) {
+                io.zer0.ai.core.MessageRole.USER -> userLabel
+                io.zer0.ai.core.MessageRole.ASSISTANT -> assistantLabel
+                io.zer0.ai.core.MessageRole.TOOL -> if (isZh) "工具" else "Tool"
+                io.zer0.ai.core.MessageRole.SYSTEM -> if (isZh) "系统" else "System"
+            }
             val content = msg.content.take(MAX_MESSAGE_CHARS)
             sb.append("**$role**: ").append(content).append("\n\n")
         }
