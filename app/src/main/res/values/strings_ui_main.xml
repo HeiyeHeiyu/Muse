@@ -699,7 +699,7 @@
     <string name="skill_use_case_http_get">当你需要请求外部 API(如查天气、汇率)时,LLM 会自动调用。</string>
     <string name="skill_use_case_http_post">当你需要向外部服务提交数据(如发送 webhook)时,LLM 会自动调用。</string>
     <string name="skill_use_case_web_search">当你询问实时信息(新闻、行情、最新资讯)时,LLM 会自动联网搜索。</string>
-    <string name="skill_use_case_web_fetch">当你提供网页链接并希望提取内容时,LLM 会自动抓取页面正文(上限 5 万字)。</string>
+    <string name="skill_use_case_web_fetch">当你提供网页链接并希望提取内容时,LLM 会自动抓取页面正文;长结果保留完整内容并可分段读取。</string>
     <string name="skill_use_case_knowledge_search">当你提问涉及知识库文档内容时,LLM 会主动检索知识库而非凭空回答。</string>
     <string name="skill_use_case_arxiv_search">当你询问学术论文、研究方向时,LLM 会检索 arXiv 学术预印本库。</string>
     <string name="skill_use_case_install_skill">当你描述一个新的能力需求(如「创建一个查汇率的技能」),LLM 会自动生成并安装新技能。</string>

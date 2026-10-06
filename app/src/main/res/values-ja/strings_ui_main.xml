@@ -492,7 +492,7 @@
     <string name="skill_use_case_http_get">外部 API (天気、為替レートなど) をリクエストする必要がある場合、LLM はこれを自動的に呼び出します。</string>
     <string name="skill_use_case_http_post">外部サービスにデータを送信する必要がある場合 (Webhook の送信など)、LLM はこれを自動的に呼び出します。</string>
     <string name="skill_use_case_web_search">リアルタイムの情報 (ニュース、市場データ、最新の更新) について尋ねると、LLM は自動的に Web を検索します。</string>
-    <string name="skill_use_case_web_fetch">Web リンクを提供し、コンテンツを抽出する場合、LLM はページ テキスト (最大 50,000 文字) を自動的に取得します。</string>
+    <string name="skill_use_case_web_fetch">Web リンクを指定すると、LLM がページ本文を取得します。長い結果も完全に保持され、分割して読み取れます。</string>
     <string name="skill_use_case_knowledge_search">質問にナレッジ ベースのドキュメントが含まれている場合、LLM は推測ではなくナレッジ ベースを検索します。</string>
     <string name="skill_use_case_arxiv_search">学術論文や研究の方向性について質問すると、LLM は arXiv プレプリント リポジトリを検索します。</string>
     <string name="skill_use_case_install_skill">新しい機能のニーズを記述すると (例: 「為替レートをチェックするスキルの作成」)、LLM は新しいスキルを自動的に生成してインストールします。</string>
@@ -928,4 +928,3 @@
     <string name="channel_weclaw_status_unstable">ネットワークエラー、再試行中…</string>
     <string name="channel_weclaw_status_refreshed">QRコードが期限切れのため自動更新しました。もう一度スキャンしてください</string>
 </resources>
-

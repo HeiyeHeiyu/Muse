@@ -492,7 +492,7 @@
     <string name="skill_use_case_http_get">Когда нужно запросить внешние API (например, погода, курсы валют), LLM вызывает это автоматически.</string>
     <string name="skill_use_case_http_post">Когда нужно отправить данные во внешние сервисы (например, отправить webhook), LLM вызывает это автоматически.</string>
     <string name="skill_use_case_web_search">Когда вы спрашиваете о реальном времени (новости, рыночные данные, последние обновления), LLM автоматически ищет в Интернете.</string>
-    <string name="skill_use_case_web_fetch">Когда вы даёте веб-ссылку и хотите извлечь содержимое, LLM автоматически получает текст страницы (до 50 000 символов).</string>
+    <string name="skill_use_case_web_fetch">Если вы укажете веб-ссылку, LLM получит текст страницы; длинный результат сохраняется полностью и доступен по частям.</string>
     <string name="skill_use_case_knowledge_search">Когда ваш вопрос касается документов базы знаний, LLM ищет в базе знаний, а не угадывает.</string>
     <string name="skill_use_case_arxiv_search">Когда вы спрашиваете об академических статьях или направлениях исследований, LLM ищет в репозитории препринтов arXiv.</string>
     <string name="skill_use_case_install_skill">Когда вы описываете новую потребность в возможности (например, «создай навык для проверки курсов валют»), LLM автоматически создаёт и устанавливает новый навык.</string>
@@ -882,4 +882,3 @@
     <string name="channel_weclaw_status_unstable">Ошибка сети, повторная попытка…</string>
     <string name="channel_weclaw_status_refreshed">QR-код истёк и был обновлён — отсканируйте заново</string>
 </resources>
-

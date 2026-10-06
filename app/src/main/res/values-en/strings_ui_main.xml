@@ -596,7 +596,7 @@
     <string name="skill_use_case_http_get">When you need to request external APIs (e.g. weather, exchange rates), the LLM will call this automatically.</string>
     <string name="skill_use_case_http_post">When you need to submit data to external services (e.g. send a webhook), the LLM will call this automatically.</string>
     <string name="skill_use_case_web_search">When you ask about real-time information (news, market data, latest updates), the LLM will search the web automatically.</string>
-    <string name="skill_use_case_web_fetch">When you provide a web link and want to extract content, the LLM will fetch the page text automatically (up to 50,000 characters).</string>
+    <string name="skill_use_case_web_fetch">When you provide a web link, the LLM fetches the page text; long results remain complete and can be read in pages.</string>
     <string name="skill_use_case_knowledge_search">When your question involves knowledge base documents, the LLM will search the knowledge base instead of guessing.</string>
     <string name="skill_use_case_arxiv_search">When you ask about academic papers or research directions, the LLM will search the arXiv preprint repository.</string>
     <string name="skill_use_case_install_skill">When you describe a new capability need (e.g. \"create a skill to check exchange rates\"), the LLM will generate and install a new skill automatically.</string>
@@ -1034,4 +1034,3 @@
     <string name="channel_weclaw_status_unstable">Network error, retrying…</string>
     <string name="channel_weclaw_status_refreshed">QR code expired and was refreshed — please scan again</string>
 </resources>
-

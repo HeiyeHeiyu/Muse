@@ -492,7 +492,7 @@
     <string name="skill_use_case_http_get">Cuando necesite solicitar API externas (por ejemplo, clima, tipos de cambio), el LLM lo llamará automáticamente.</string>
     <string name="skill_use_case_http_post">Cuando necesite enviar datos a servicios externos (por ejemplo, enviar un webhook), el LLM lo llamará automáticamente.</string>
     <string name="skill_use_case_web_search">Cuando pregunte sobre información en tiempo real (noticias, datos de mercado, últimas actualizaciones), el LLM buscará en la web automáticamente.</string>
-    <string name="skill_use_case_web_fetch">Cuando proporciona un enlace web y desea extraer contenido, el LLM buscará el texto de la página automáticamente (hasta 50.000 caracteres).</string>
+    <string name="skill_use_case_web_fetch">Al proporcionar un enlace web, el LLM obtiene el texto de la página; los resultados largos se conservan completos y pueden leerse por páginas.</string>
     <string name="skill_use_case_knowledge_search">Cuando su pregunta involucra documentos de la base de conocimientos, el LLM buscará en la base de conocimientos en lugar de adivinar.</string>
     <string name="skill_use_case_arxiv_search">Cuando pregunte sobre artículos académicos o direcciones de investigación, el LLM buscará en el repositorio de preimpresiones de arXiv.</string>
     <string name="skill_use_case_install_skill">Cuando describe una nueva necesidad de capacidad (por ejemplo, \"crear una habilidad para verificar los tipos de cambio\"), el LLM generará e instalará una nueva habilidad automáticamente.</string>
@@ -928,4 +928,3 @@
     <string name="channel_weclaw_status_unstable">Error de red, reintentando…</string>
     <string name="channel_weclaw_status_refreshed">El código QR caducó y se renovó; vuelve a escanearlo</string>
 </resources>
-

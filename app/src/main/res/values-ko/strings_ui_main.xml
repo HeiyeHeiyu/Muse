@@ -492,7 +492,7 @@
     <string name="skill_use_case_http_get">외부 API(날씨, 환율 등)에 요청해야 할 때 LLM이 자동으로 호출합니다.</string>
     <string name="skill_use_case_http_post">외부 서비스에 데이터를 전송(webhook 발송 등)해야 할 때 LLM이 자동으로 호출합니다.</string>
     <string name="skill_use_case_web_search">실시간 정보(뉴스, 시세, 최신 소식)를 물으면 LLM이 자동으로 웹 검색합니다.</string>
-    <string name="skill_use_case_web_fetch">웹 링크를 제시하고 내용을 추출하고 싶을 때 LLM이 자동으로 페이지 본문을 가져옵니다(상한 5만 자).</string>
+    <string name="skill_use_case_web_fetch">웹 링크를 제공하면 LLM이 페이지 본문을 가져옵니다. 긴 결과도 전체 보존되며 나누어 읽을 수 있습니다.</string>
     <string name="skill_use_case_knowledge_search">지식 베이스 문서 내용과 관련된 질문일 때 LLM이 추측 대신 지식 베이스를 검색합니다.</string>
     <string name="skill_use_case_arxiv_search">학술 논문이나 연구 방향을 물으면 LLM이 arXiv 학술 프리프린트 저장소를 검색합니다.</string>
     <string name="skill_use_case_install_skill">새로운 능력 요구(예: 「환율 조회 스킬 만들기」)를 설명하면 LLM이 자동으로 새 스킬을 생성하고 설치합니다.</string>
