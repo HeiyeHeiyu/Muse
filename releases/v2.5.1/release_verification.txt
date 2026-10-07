@@ -1,7 +1,7 @@
 Muse v2.5.1 (versionCode 251) 发布校验记录
 ------------------------------------------------
 
-sourceCommit: 4b17d387
+sourceCommit: 59e012a3
 versionName/versionCode: 2.5.1 / 251（显式注入）
 数据库版本: 109（与 2.5.0 相同,无迁移）
 
@@ -15,8 +15,8 @@ versionName/versionCode: 2.5.1 / 251（显式注入）
 分发 (E:\1Project\Muse\releases\v2.5.1\)
 -----------------------
 Muse_v2.5.1_arm64-v8a.apk
-  size=85640162
-  sha256=f32e3ed138638cc285c6272eaa8ba6360ae43408c338f1cc2f83a29d6fe2abf6
+  size=85640122
+  sha256=f07a835423f825567d4ea5697c6eea20f189d3a79104dc215194d2b8d000fbfa
 Muse_v2.5.1_armeabi-v7a.apk
   size=50021392
   sha256=168a319775ad1656ecf6c29b26c890794a4d1f86f338f6ac7f75c5bd423c94d7

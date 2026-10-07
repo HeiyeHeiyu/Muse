@@ -13,6 +13,7 @@ import io.zer0.ai.core.ProviderCompat
 import io.zer0.ai.core.ProviderConfig
 import io.zer0.ai.core.ProviderError
 import io.zer0.ai.core.ProviderException
+import io.zer0.ai.core.ProviderHttpDefaults
 import io.zer0.ai.core.ProviderHttpSupport
 import io.zer0.ai.core.ProviderPayloadNormalizer
 import io.zer0.ai.core.ProviderPromptPatches
@@ -61,6 +62,7 @@ import okhttp3.Response
 import okhttp3.sse.EventSource
 import okhttp3.sse.EventSourceListener
 import okhttp3.sse.EventSources
+import java.util.concurrent.TimeUnit
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -162,7 +164,16 @@ class OpenAIProvider(
      */
     private val useResponsesApi: Boolean by lazy { openAIConfig.useResponseApi }
 
-    private val sseFactory by lazy { EventSources.createFactory(httpClient) }
+    private val sseFactory by lazy {
+        EventSources.createFactory(
+            // v2.5.1 fix: 流式不设总超时 —— glm-5.3 等深度思考模型思考期(10min+)零 delta,
+            // 共享 client 的 600s callTimeout 会硬杀整个流(用户实测第 2 轮整回复被截断)。
+            // 静默挂起仍由 readTimeout(300s) 抓住,取消由 abortSignal 兑底。
+            httpClient.newBuilder()
+                .callTimeout(ProviderHttpDefaults.STREAM_CALL_TIMEOUT_SEC, TimeUnit.SECONDS)
+                .build(),
+        )
+    }
 
     /**
      * 获取实际发送给 API 的 model id。

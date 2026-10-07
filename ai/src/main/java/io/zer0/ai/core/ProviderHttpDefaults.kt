@@ -21,4 +21,14 @@ object ProviderHttpDefaults {
     /** OkHttp 总调用超时(秒)— 0 表示不设总超时,流式靠取消信号。 */
     /** OkHttp 总调用超时(秒)— R-AI-03: 10 分钟兜底,极端挂起不再无限等待。 */
     const val CALL_TIMEOUT_SEC = 600L
+
+    /**
+     * v2.5.1: 流式专用总超时(秒)。
+     *
+     * 用户实测: glm-5.3 等深度思考模型在中转站上思考期(10min+)不吐任何 delta,
+     * 共享 client 的 600s callTimeout 把整个流硬杀,回复被截断。
+     * 流式改为不设总超时(0):静默挂起仍由 readTimeout(300s) 抓住,
+     * 用户取消由 abortSignal 兑底 —— 两者已覆盖全部异常路径。
+     */
+    const val STREAM_CALL_TIMEOUT_SEC = 0L
 }
