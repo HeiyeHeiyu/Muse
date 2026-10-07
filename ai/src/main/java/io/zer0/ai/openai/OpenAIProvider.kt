@@ -867,7 +867,11 @@ class OpenAIProvider(
                                         ChatStreamEvent.ToolCallDelta(
                                             index = localIndex,
                                             id = tc.id,
-                                            name = tc.function?.name,
+                                            // v2.5.0 fix: 后续片 name 可能是空串(中转站每个 delta 都带 name 字段,
+                                            // 空串非 null 会穿透到下游覆盖已累积的工具名,导致 Sanitizer
+                                            // 以 "name 为空" 丢弃全部工具调用)。空白一律发 null,
+                                            // 下游用 null 语义保留已累积的名称。
+                                            name = tc.function?.name?.takeIf { it.isNotBlank() },
                                             argumentsDelta = deltaArgs,
                                             isSnapshot = acc.args.hasMergedObjects(),
                                         ),

@@ -5371,7 +5371,8 @@ class ChatViewModel(
                                                     Triple(null, null, StringBuilder())
                                                 }
                                             val newId = event.id ?: acc.first
-                                            val newName = event.name ?: acc.second
+                                            // v2.5.0 fix: 空白 name 不能覆盖已累积的工具名(与上游修复双保险)
+                                            val newName = event.name?.takeIf { it.isNotBlank() } ?: acc.second
                                             // v1.0.81: isSnapshot=true 时参数是完整快照(源头已合并多 JSON 分片),替换而非追加
                                             if (event.isSnapshot) {
                                                 acc.third.setLength(0)
