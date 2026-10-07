@@ -850,4 +850,13 @@
     <string name="home_date_pattern">M월 d일 EEEE</string>
     <string name="groupchat_summary_doc_title">토론 요약 · %1$s</string>
     <string name="groupchat_continue_summary_prefix">[요약 실행] </string>
+    <string name="knowledge_folder_new">새 폴더</string>
+    <string name="knowledge_folder_rename">폴더 이름 변경</string>
+    <string name="knowledge_folder_delete">폴더 삭제</string>
+    <string name="knowledge_folder_delete_confirm">폴더 \"%1$s\"을(를) 삭제할까요? 하위 폴더도 모두 삭제됩니다(문서는 유지됩니다).</string>
+    <string name="knowledge_folder_name_label">폴더 이름</string>
+    <string name="knowledge_folder_name_empty">폴더 이름을 입력하세요</string>
+    <string name="knowledge_folder_created">폴더 \"%1$s\"을(를) 만들었습니다</string>
+    <string name="knowledge_folder_renamed">\"%1$s\"(으)로 이름을 변경했습니다</string>
+    <string name="knowledge_folder_deleted">폴더를 삭제했습니다</string>
 </resources>

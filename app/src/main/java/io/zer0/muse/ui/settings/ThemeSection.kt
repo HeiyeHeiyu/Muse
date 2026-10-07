@@ -114,6 +114,11 @@ internal fun ThemeSection(themeMode: String, fontSizeScale: String, settings: Se
     val customFontPath by settings.customFontPathFlow.collectAsStateWithLifecycle(initialValue = null)
     // H5: 高对比主题开关(增强前景/背景对比,面向弱视用户)
     val highContrast by settings.highContrastFlow.collectAsStateWithLifecycle(initialValue = false)
+    // v2.5.0: 液态玻璃模式(off/water/frost)与强度(0..100) — 设置项已隐藏,保留收集供后续放出
+    @Suppress("UnusedPrivateProperty")
+    val liquidGlassMode by settings.liquidGlassModeFlow.collectAsStateWithLifecycle(initialValue = "off")
+    @Suppress("UnusedPrivateProperty")
+    val liquidGlassStrength by settings.liquidGlassStrengthFlow.collectAsStateWithLifecycle(initialValue = 50)
     // E2: SAF 打开字体文件(TTF/OTF) → 复制到应用私有目录 → 保存路径
     val fontImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -196,6 +201,15 @@ internal fun ThemeSection(themeMode: String, fontSizeScale: String, settings: Se
             enabled = highContrast,
             onToggle = { v -> scope.launch { settings.saveHighContrast(v) } },
         )
+        // v2.5.0: 液态玻璃设置项暂时隐藏 —— 效果待打磨(用户反馈强度不可感知),
+        // 底层管线与数据存储保留,后续调优后重新放出。
+        // SettingsGroupDivider()
+        // LiquidGlassSection(
+        //     mode = liquidGlassMode,
+        //     strength = liquidGlassStrength,
+        //     onModeChange = { m -> scope.launch { settings.saveLiquidGlassMode(m) } },
+        //     onStrengthChange = { s -> scope.launch { settings.saveLiquidGlassStrength(s) } },
+        // )
     }
 
     // ── v0.22: 主题切换(预设主题网格选择器) ──
@@ -580,6 +594,80 @@ private fun HighContrastRow(enabled: Boolean, onToggle: (Boolean) -> Unit) {
             onCheckedChange = onToggle,
             contentDescription = highContrastLabel,
         )
+    }
+}
+
+/** v2.5.0: 液态玻璃设置区 — 模式(关/水玻璃/磨砂) + 强度滑杆(0..100)。暂时隐藏,待效果调优后重新放出。 */
+@Suppress("FunctionNaming", "UnusedPrivateMember")
+@Composable
+private fun LiquidGlassSection(
+    mode: String,
+    strength: Int,
+    onModeChange: (String) -> Unit,
+    onStrengthChange: (Int) -> Unit,
+) {
+    val glassOff = stringResource(R.string.settings_glass_off)
+    val glassWater = stringResource(R.string.settings_glass_water)
+    val glassFrost = stringResource(R.string.settings_glass_frost)
+    val modeOptions = listOf(glassOff, glassWater, glassFrost)
+    val modeValues = listOf(
+        io.zer0.muse.ui.theme.LiquidGlassConfig.MODE_OFF,
+        io.zer0.muse.ui.theme.LiquidGlassConfig.MODE_WATER,
+        io.zer0.muse.ui.theme.LiquidGlassConfig.MODE_FROST,
+    )
+    val selectedMode = modeValues.indexOf(mode).coerceAtLeast(0)
+
+    Column(modifier = Modifier.fillMaxWidth().padding(MusePaddings.cardInner)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(
+                imageVector = MuseIcons.sparkle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.size(MuseIconSizes.icon),
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.settings_theme_liquid_glass),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = stringResource(R.string.settings_theme_liquid_glass_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        // 模式: 关 / 水玻璃 / 磨砂玻璃
+        MuseCapsuleTab(
+            tabs = modeOptions,
+            selectedIndex = selectedMode,
+            onSelect = { idx -> onModeChange(modeValues[idx]) },
+        )
+        // 强度滑杆仅在开启时可用
+        if (mode != io.zer0.muse.ui.theme.LiquidGlassConfig.MODE_OFF) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.settings_glass_level),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            MuseSlider(
+                value = strength.toFloat(),
+                onValueChange = { v -> onStrengthChange(v.toInt()) },
+                valueRange = 0f..100f,
+                valueFormatter = { v -> "${v.toInt()}%" },
+            )
+            Text(
+                text = stringResource(R.string.settings_glass_level_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
+        }
     }
 }
 

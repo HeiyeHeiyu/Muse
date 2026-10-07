@@ -3,6 +3,7 @@
 package io.zer0.muse.ui
 
 import android.content.Intent
+import dev.chrisbanes.haze.hazeChild
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -177,6 +178,15 @@ internal fun MessageBubble(
      */
     translationSourceContent: String? = null,
     /**
+     * v2.4.6: 该消息的译文映射(语言名 → 译文)。非空时在消息下方以可展开块展示,
+     * 样式与 MOOD/思考块一致。空串值表示"翻译中"。
+     */
+    translations: Map<String, String> = emptyMap(),
+    /** v2.4.6: 译文块展开状态(外部受控,切页不丢)。 */
+    isTranslationExpanded: Boolean? = null,
+    /** v2.4.6: 切换译文块展开。 */
+    onToggleTranslationExpanded: () -> Unit = {},
+    /**
      * 是否为最后一条用户提问。AI 报错生成失败/空 assistant 消息后，最后一条消息可能是 assistant，
      * 但这条 user 仍是最后提问，重roll按钮必须继续显示，用户不用删掉重发。
      */
@@ -282,6 +292,10 @@ internal fun MessageBubble(
      * 置 null,反而使渲染落到 `toolInfo != null` 分支,卡片照旧弹出。现在由此参数统一门控。
      */
     showToolCallDetails: Boolean = true,
+    /** v2.5.0: 液态玻璃 — 非空时用户消息气泡启用背景模糊。 */
+    glassHazeState: dev.chrisbanes.haze.HazeState? = null,
+    /** v2.5.0: 玻璃风格与档位配置。 */
+    glassConfig: io.zer0.muse.ui.theme.LiquidGlassConfig = io.zer0.muse.ui.theme.LiquidGlassConfig(),
 ) {
     val isUser = msg.role == MessageRole.USER
     val outerLayout = messageBubbleLayout(
@@ -767,12 +781,27 @@ internal fun MessageBubble(
                 val userPadding = resolvedSkin?.style?.let {
                     PaddingValues(horizontal = it.paddingHorizontalDp.dp, vertical = it.paddingVerticalDp.dp)
                 } ?: MusePaddings.bubbleInner
+                // v2.5.0: 液态玻璃气泡 — 玻璃激活时用户气泡改用背景模糊;zIndex 抬高避免自遮挡。
+                // 性能考量: 每屏气泡数量有限,且 Haze 用 GraphicsLayer 复用,高blur仅在高档位生效。
+                val userGlassActive = glassHazeState != null && resolvedSkin == null
+                val userGlassModifier = if (userGlassActive) {
+                    Modifier.hazeChild(
+                        state = glassHazeState ?: dev.chrisbanes.haze.HazeState(),
+                        style = io.zer0.muse.ui.theme.liquidGlassStyle(
+                            MuseBubbleStyles.userSurfaceColor(),
+                            glassConfig,
+                        ),
+                    )
+                } else {
+                    Modifier
+                }
                 Surface(
-                    color = userSurfaceColor,
+                    color = if (userGlassActive) Color.Transparent else userSurfaceColor,
                     shape = userShape,
                     border = userBorder,
                     // v1.0.29: 移除阴影,避免浅色气泡在深色/浅色背景下出现奇怪阴影边缘。
-                    modifier = bubbleClickModifier
+                    modifier = userGlassModifier
+                        .then(bubbleClickModifier)
                         .padding(horizontal = MusePaddings.tinyGap, vertical = 3.dp),
                 ) {
                     Column(
@@ -1499,6 +1528,18 @@ internal fun MessageBubble(
                             iconSize = MuseIconSizes.iconSmall,
                         )
                     }
+                    // v2.4.6: 编辑快捷按钮 — 不进入长按菜单即可直接编辑本条用户消息
+                    MuseTactileButton(
+                        icon = MuseIcons.edit,
+                        onClick = {
+                            MuseHaptics.light(hapticFeedback)
+                            onEdit()
+                        },
+                        contentDescription = stringResource(R.string.action_edit),
+                        tint = MaterialTheme.colorScheme.outline,
+                        size = MuseIconSizes.touchTarget,
+                        iconSize = MuseIconSizes.iconSmall,
+                    )
                 }
             }
 
@@ -1999,8 +2040,81 @@ internal fun MessageBubble(
                 }
             }
 
-            // P5-F: 翻译中指示
-            if (isTranslating) {
+            // v2.4.6: 译文可展开块 — 与 MOOD/思考同款样式,挂在消息下方。
+            // 语言名 → 译文;空串值表示该语言正在翻译中。
+            if (translations.isNotEmpty()) {
+                val expanded = isTranslationExpanded ?: true
+                Surface(
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f),
+                    shape = MuseShapes.medium,
+                    tonalElevation = MuseElevation.none,
+                    modifier = Modifier
+                        .padding(horizontal = MusePaddings.screen)
+                        .widthIn(max = 360.dp)
+                        .padding(top = 6.dp),
+                ) {
+                    Column(modifier = Modifier.padding(MusePaddings.bubbleInner)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onToggleTranslationExpanded() }
+                                .padding(vertical = MusePaddings.tinyGap),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.chat_translation_block_title),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.secondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Icon(
+                                imageVector = if (expanded) MuseIcons.chevronUp else MuseIcons.chevronDown,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(MuseIconSizes.iconTiny),
+                            )
+                        }
+                        if (expanded) {
+                            translations.forEach { (lang, text) ->
+                                Spacer(Modifier.height(MusePaddings.tinyGap))
+                                Text(
+                                    text = lang,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                if (text.isBlank()) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier.padding(top = 2.dp),
+                                    ) {
+                                        MuseSpinner(size = MusePaddings.itemGap, color = MaterialTheme.colorScheme.secondary)
+                                        Text(
+                                            stringResource(R.string.chat_translate_in_progress),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.outline,
+                                        )
+                                    }
+                                } else {
+                                    SelectionContainer {
+                                        Text(
+                                            text = text,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(top = 2.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // P5-F: 翻译中指示(未命中 translations 的兼容路径;新逻辑在译文块内表现)
+            if (isTranslating && translations.isEmpty()) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),

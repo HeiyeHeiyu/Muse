@@ -160,29 +160,38 @@ private const val MESSAGE_GROUP_INTERVAL_MS = 5 * 60 * 1000L
  * 流式等待阶段由独立的 ShimmerBubble 表示，空 assistant 占位不能继续作为
  * 普通气泡渲染；否则全局 isStreaming=true 时，历史空壳也会被画成细长白框。
  */
-private fun isRenderableChatMessage(message: UIMessage): Boolean {
-    if (message.role == MessageRole.SYSTEM) return false
-    if (message.content.isNotBlank() &&
-        (message.role == MessageRole.USER || InternalMarkupSanitizer.stripForDisplay(message.content).isNotBlank())
-    ) {
-        return true
-    }
-    return message.reasoning?.isNotBlank() == true ||
-        message.imageUrls.isNotEmpty() ||
-        message.imageBase64List.isNotEmpty() ||
-        !message.videoFileUri.isNullOrBlank() ||
-        // toolCalls 是发给模型的内部协议，不代表用户可见内容；真正的工具 UI
-        // 由 toolCallInfo / taskCard 承载。
-        message.toolCallInfo != null ||
-        message.artifactIds.isNotEmpty() ||
-        message.citationUrls.isNotEmpty() ||
-        message.ragCitations.isNotEmpty() ||
-        message.attachments.isNotEmpty() ||
-        !message.mood.isNullOrBlank() ||
-        !message.reflection.isNullOrBlank()
+/** v2.5.0: 非正文载荷是否足以渲染（工具/思考/图片/产物/引用等）。 */
+private fun UIMessage.hasRenderablePayload(showToolCallDetails: Boolean): Boolean {
+    // toolCalls 是发给模型的内部协议，不代表用户可见内容；真正的工具 UI
+    // 由 toolCallInfo / taskCard 承载。
+    // v2.5.0 fix: toolCallInfo 受「显示工具调用过程」开关门控 —— 此前过滤层
+    // 无条件把含 toolCallInfo 的消息算作可渲染，而 MessageBubble 内部却在
+    // 开关关闭时提前 return，产生零尺寸 item；连续工具轮每条叠一份
+    // messageGap，在思考块之间叠出大段幽灵空白（用户实测截图）。
+    // 开关关闭时“仅工具载荷”的消息直接不进渲染列表。
+    val toolPayloadVisible = showToolCallDetails && toolCallInfo != null
+    return toolPayloadVisible ||
+        reasoning?.isNotBlank() == true ||
+        imageUrls.isNotEmpty() ||
+        imageBase64List.isNotEmpty() ||
+        !videoFileUri.isNullOrBlank() ||
+        artifactIds.isNotEmpty() ||
+        citationUrls.isNotEmpty() ||
+        ragCitations.isNotEmpty() ||
+        attachments.isNotEmpty() ||
+        !mood.isNullOrBlank() ||
+        !reflection.isNullOrBlank()
 }
 
-private fun List<UIMessage>.filterRenderableChatMessages(): List<UIMessage> = filter(::isRenderableChatMessage)
+private fun isRenderableChatMessage(message: UIMessage, showToolCallDetails: Boolean = true): Boolean {
+    if (message.role == MessageRole.SYSTEM) return false
+    val hasVisibleContent = message.content.isNotBlank() &&
+        (message.role == MessageRole.USER || InternalMarkupSanitizer.stripForDisplay(message.content).isNotBlank())
+    return hasVisibleContent || message.hasRenderablePayload(showToolCallDetails)
+}
+
+private fun List<UIMessage>.filterRenderableChatMessages(showToolCallDetails: Boolean = true): List<UIMessage> =
+    filter { isRenderableChatMessage(it, showToolCallDetails) }
 
 /**
  * Phase 8.10: 拦截音量键上/下键事件,转为滚动操作。
@@ -394,7 +403,7 @@ fun ChatScreen(
         if (isAgentMode && !state.isAgentMode && !state.isSwitchingSession) {
             emptyList()
         } else {
-            messages.filterRenderableChatMessages()
+            messages.filterRenderableChatMessages(state.chatPreferences.showToolCallDetails)
         },
         messages,
         paginatorPageCount,
@@ -405,6 +414,8 @@ fun ChatScreen(
         // v2.x: 检查点边界或展开状态变化都要重算可见列表
         state.contextCheckpointBoundaryId,
         contextDividerExpanded,
+        // v2.5.0 fix: 工具调用显示开关影响“仅工具载荷”消息的渲染资格，需重算
+        state.chatPreferences.showToolCallDetails,
     ) {
         // 门禁:Agent Tab 模式下但 ViewModel 还没切换到 Agent 模式时,显示空白。
         // 避免 HorizontalPager 动画期间目标页已 compose 但 setAgentMode 尚未执行时闪现旧对话内容。
@@ -413,7 +424,7 @@ fun ChatScreen(
             value = emptyList()
             return@produceState
         }
-        val renderableMessages = messages.filterRenderableChatMessages()
+        val renderableMessages = messages.filterRenderableChatMessages(state.chatPreferences.showToolCallDetails)
         val hiddenShells = messages.size - renderableMessages.size
         if (hiddenShells > 0) {
             Logger.d(
@@ -945,6 +956,11 @@ fun ChatScreen(
         .chatGradientFlow
         .collectAsState(initial = null)
 
+    // v2.5.0: 液态玻璃 — 全应用统一配置与 HazeState(LocalGlassHazeState),本页不再自建。
+    val glassConfig = io.zer0.muse.ui.theme.LocalLiquidGlass.current
+    val glassActive = io.zer0.muse.ui.theme.LocalGlassHazeState.current != null && glassConfig.enabled
+    val chatHazeState = if (glassActive) io.zer0.muse.ui.theme.LocalGlassHazeState.current else null
+
     Box(modifier = modifier.fillMaxSize()) {
         // 背景图(自定义聊天背景)
         if (!chatBackground.isNullOrBlank()) {
@@ -1003,7 +1019,11 @@ fun ChatScreen(
                     Box(modifier = Modifier.fillMaxWidth()) {
                         // 裸图标顶栏需要一层极浅渐变:消息会从顶栏下面滚过,没有它图标会压在正文上。
                         // (旧版用三颗灰岛解决对比度,但与全局顶栏语言冲突,已改为裸图标 + 渐变。)
-                        ChatTopBarScrim(modifier = Modifier.matchParentSize())
+                        ChatTopBarScrim(
+                            modifier = Modifier.matchParentSize(),
+                            glassHazeState = chatHazeState,
+                            glassConfig = glassConfig,
+                        )
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Row(
                                 modifier =
@@ -1190,6 +1210,7 @@ fun ChatScreen(
                                                 ),
                                             ),
                                             onDismiss = { showTopMenu = false },
+                                            glassHazeState = chatHazeState,
                                         )
                                     }
                                 }
@@ -1308,6 +1329,8 @@ fun ChatScreen(
                                 onImageGenParamsChange = viewModel::updateImageGenParams,
                                 // v1.0.75 fix: 格式工具条已移除,不再传 formatEnabled
                                 showExpandButton = state.chatPreferences.showExpandButton,
+                                glassHazeState = chatHazeState,
+                                glassConfig = glassConfig,
                                 onTextChanged = viewModel::updateInput,
                                 // v1.0.47 P5: 硬件键盘上/下箭头遍历输入历史
                                 onNavigateInputHistory = viewModel::navigateInputHistory,
@@ -1725,6 +1748,7 @@ fun ChatScreen(
                                     modifier =
                                     Modifier
                                         .fillMaxSize()
+                                        // v2.5.0: 全局玻璃源已移至 MainActivity(NavGraph 外层),本页不再重复标记
                                         .then(
                                             if (widthClass == WindowWidthClass.Expanded) {
                                                 Modifier.widthIn(max = 720.dp)
@@ -1955,6 +1979,12 @@ fun ChatScreen(
                                                     messages.find { it.id.toString() == srcId }
                                                         ?.let(::buildTranslationSourceText)
                                                 },
+                                                // v2.4.6: 消息自带译文(语言→译文)— 可展开块
+                                                translations = msg.translations,
+                                                isTranslationExpanded = expandedState?.isTranslationExpanded,
+                                                onToggleTranslationExpanded = {
+                                                    viewModel.toggleMessageTranslationExpanded(msg.id.toString())
+                                                },
                                                 // v2.3: debug 模式性能摘要(仅最后一条 assistant 消息)
                                                 debugInfo = if (isLast && msg.role == MessageRole.ASSISTANT) state.debugInfo else null,
                                                 onEdit = onEdit,
@@ -1989,6 +2019,8 @@ fun ChatScreen(
                                                 taskCard = taskCard,
                                                 // v2.4.5 fix: 工具调用过程显示开关(设置 → 聊天)
                                                 showToolCallDetails = showToolCallDetails,
+                                                glassHazeState = chatHazeState,
+                                                glassConfig = glassConfig,
                                                 // v1.201: 委派链路(仅最后一条 AI 消息传入,避免历史消息重复显示)
                                                 delegationChain =
                                                 if (showToolCallDetails && isLast && msg.role == MessageRole.ASSISTANT) {
@@ -2690,7 +2722,9 @@ fun ChatScreen(
                         .align(Alignment.CenterEnd)
                         .statusBarsPadding()
                         .navigationBarsPadding()
-                        .padding(end = MusePaddings.tightGap),
+                        // v2.5.0 fix: 右缘内缩 6dp，避开 Android 10+ 系统返回手势带，
+                        // 否则 40dp 热区最右 20dp 仍会被系统抢先吃掉竖向拖动。
+                        .padding(end = MusePaddings.tightGap + 6.dp),
                 )
             }
 

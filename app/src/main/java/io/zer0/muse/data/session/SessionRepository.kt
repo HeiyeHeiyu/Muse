@@ -1734,6 +1734,8 @@ class SessionRepository(
             cachedTokens = cachedTokens,
             // H11: 译文消息的源消息 id(原文对照折叠)
             translationSourceId = translationSourceId,
+            // v2.4.6: 译文映射往返(语言名 → 译文)
+            translations = parseTranslations(translationsJson),
         )
     }
 
@@ -1789,6 +1791,8 @@ class SessionRepository(
         cachedTokens = cachedTokens,
         // H11: 译文消息的源消息 id(原文对照折叠)
         translationSourceId = translationSourceId,
+        // v2.4.6: 译文映射持久化
+        translationsJson = encodeTranslations(translations),
     )
 
     /** v1.0.30: 按 id 获取消息（变体查询用）。 */
@@ -1876,4 +1880,18 @@ class SessionRepository(
 
     private fun parseRagCitations(s: String): List<RagCitation> =
         runCatching { json.decodeFromString(ragCitationListSerializer, s) }.getOrDefault(emptyList())
+
+    /** v2.4.6: 译文映射序列化(语言名 → 译文)。空映射存 "{}"。 */
+    private val translationMapSerializer: kotlinx.serialization.KSerializer<Map<String, String>> =
+        kotlinx.serialization.builtins.MapSerializer(
+            kotlin.String.serializer(),
+            kotlin.String.serializer(),
+        )
+    private fun encodeTranslations(translations: Map<String, String>): String {
+        if (translations.isEmpty()) return "{}"
+        return runCatching { json.encodeToString(translationMapSerializer, translations) }.getOrDefault("{}")
+    }
+
+    private fun parseTranslations(s: String): Map<String, String> =
+        runCatching { json.decodeFromString(translationMapSerializer, s) }.getOrDefault(emptyMap())
 }

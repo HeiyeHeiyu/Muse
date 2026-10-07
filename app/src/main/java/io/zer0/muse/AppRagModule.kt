@@ -146,6 +146,8 @@ val appRagModule = module {
     }
     // v1.133: KnowledgeBaseDao 单独注册(多知识库管理页用)
     single { get<io.zer0.muse.data.session.MuseDb>().knowledgeBaseDao() }
+    // v2.4.6: 知识库文件夹 DAO(含空文件夹,文件夹=检索隔离单位)
+    single { get<io.zer0.muse.data.session.MuseDb>().knowledgeFolderDao() }
     // v1.0.47 P7-2: 会话级附件索引服务
     single { io.zer0.muse.rag.SessionAttachmentService(get(), get(), get()) }
 }

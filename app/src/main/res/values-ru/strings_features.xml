@@ -900,4 +900,13 @@
     <string name="home_date_pattern">MMM d, EEEE</string>
     <string name="groupchat_summary_doc_title">Итоги обсуждения · %1$s</string>
     <string name="groupchat_continue_summary_prefix">[Продолжить по итогам] </string>
+    <string name="knowledge_folder_new">Новая папка</string>
+    <string name="knowledge_folder_rename">Переименовать папку</string>
+    <string name="knowledge_folder_delete">Удалить папку</string>
+    <string name="knowledge_folder_delete_confirm">Удалить папку «%1$s»? Все вложенные папки также будут удалены (документы сохранятся).</string>
+    <string name="knowledge_folder_name_label">Имя папки</string>
+    <string name="knowledge_folder_name_empty">Имя папки не может быть пустым</string>
+    <string name="knowledge_folder_created">Папка «%1$s» создана</string>
+    <string name="knowledge_folder_renamed">Переименовано в «%1$s»</string>
+    <string name="knowledge_folder_deleted">Папка удалена</string>
 </resources>

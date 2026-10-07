@@ -799,4 +799,19 @@
     <!-- 补齐 strict=en 门禁缺口 -->
     <string name="settings_memory_conversation_recall">Allow recalling original conversation text</string>
     <string name="settings_memory_conversation_recall_subtitle">When enabled, summaries and fact extraction read the full conversation on demand instead of only the currently loaded messages</string>
+    <string name="assistant_kb_scope_whole"> (all)</string>
+    <string name="settings_preview_user_bubble">Preview of your message</string>
+    <string name="settings_preview_assistant_bubble">Preview of an AI reply; font size, spacing and radius update live.</string>
+    <string name="settings_preview_timestamp">14:30</string>
+    <string name="settings_preview_model_name">Muse · Sample model</string>
+    <string name="settings_theme_liquid_glass">Liquid glass effect</string>
+    <string name="settings_theme_liquid_glass_desc">Glassy look for the top bar, input bar and message bubbles.</string>
+    <string name="settings_glass_off">Off</string>
+    <string name="settings_glass_water">Water glass</string>
+    <string name="settings_glass_frost">Frosted glass</string>
+    <string name="settings_glass_level">Intensity</string>
+    <string name="settings_glass_level_low">Low</string>
+    <string name="settings_glass_level_medium">Medium</string>
+    <string name="settings_glass_level_high">High</string>
+    <string name="settings_glass_level_hint">On low-end devices, choose Low or Off for the best smoothness.</string>
 </resources>

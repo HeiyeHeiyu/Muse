@@ -13,7 +13,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * 把 LLM 传来的 tool_call.arguments JSON 字符串解析成 `Map<String, String>`，
  * 供 SkillExecutor / ToolRegistry 等执行层使用。
  *
- * 设计原则（对齐 Hana web-search 的 schema 直取思路）：
+ * 设计原则（schema 直取思路）：
  *  - 只接受**单个完整 JSON 对象**。历史上有一层按 `}{` 拆段合并的容错，用来容忍
  *    DeepSeek V4 流式把 arguments 拼成 `{"a":1}{"b":2}` 的问题；但拆段在参数被截断
  *    （未闭合）时会静默丢字段，是 web_search "缺少参数: query" 的直接原因。

@@ -1069,6 +1069,14 @@ private enum class ExtensionType {
     KNOWLEDGE_BASE,
 }
 
+/** v2.4.6: 助手可绑定的知识库作用域条目(KB 整库或其中的文件夹)。 */
+private data class KbScopeItem(
+    val id: String,
+    val label: String,
+    val kbId: String,
+    val path: String,
+)
+
 @Composable
 private fun ExtensionType.titleText(): String = stringResource(
     when (this) {
@@ -1205,6 +1213,9 @@ fun AssistantExtensionsPage(assistantId: String, onBack: () -> Unit) {
     // v1.133: 知识库列表(KB 多选用)
     val kbDao: io.zer0.muse.data.knowledge.KnowledgeBaseDao = koinInject()
     val knowledgeBases = rememberFlowList(kbDao.observeAll())
+    // v2.4.6: 文件夹列表 — 让助手可绑定到某个文件夹(独立检索域)
+    val knowledgeFolderDao: io.zer0.muse.data.knowledge.KnowledgeFolderDao = koinInject()
+    val knowledgeFolders = rememberFlowList(knowledgeFolderDao.observeAll())
 
     var activeType by remember { mutableStateOf<ExtensionType?>(null) }
 
@@ -1246,10 +1257,12 @@ fun AssistantExtensionsPage(assistantId: String, onBack: () -> Unit) {
                     count = repo.parseToolIds(a).size,
                     onClick = { activeType = ExtensionType.TOOL },
                 )
-                // v1.133: 知识库绑定
+                // v1.133/v2.4.6: 知识库/文件夹绑定(作用域条目数)
                 ExtensionRow(
                     type = ExtensionType.KNOWLEDGE_BASE,
-                    count = repo.parseKnowledgeBaseIds(a).size,
+                    count = repo.parseKnowledgeFolderScopes(a).size
+                        .takeIf { it > 0 }
+                        ?: repo.parseKnowledgeBaseIds(a).size,
                     onClick = { activeType = ExtensionType.KNOWLEDGE_BASE },
                 )
             }
@@ -1354,23 +1367,64 @@ fun AssistantExtensionsPage(assistantId: String, onBack: () -> Unit) {
                 },
                 onDismiss = { activeType = null },
             )
-            // v1.133: 知识库绑定 — 多选 KB,写入 AssistantEntity.knowledgeBaseIdsJson
-            ExtensionType.KNOWLEDGE_BASE -> MultiSelectChipsDialog(
-                title = type.titleText(),
-                items = knowledgeBases,
-                selectedIds = repo.parseKnowledgeBaseIds(a).toSet(),
-                itemId = { it.id },
-                itemLabel = { it.name },
-                onToggle = { id ->
-                    val current = repo.parseKnowledgeBaseIds(a)
-                    val updated = if (id in current) current - id else current + id
-                    update { it.copy(knowledgeBaseIdsJson = repo.serializeStringList(updated)) }
-                },
-                onSelectionChange = { newIds ->
-                    update { it.copy(knowledgeBaseIdsJson = repo.serializeStringList(newIds)) }
-                },
-                onDismiss = { activeType = null },
-            )
+            // v2.4.6: 知识库绑定 — 多选「知识库 / 知识库内文件夹」,写入
+            // AssistantEntity.knowledgeFolderScopesJson(形如 kbId::path)。
+            // 一个文件夹 = 一个独立检索域,互不串。未选任何文件夹时退化为整库绑定。
+            ExtensionType.KNOWLEDGE_BASE -> {
+                // 展开:每个 KB 一行(整库) + 其下每个文件夹一行(独立域)
+                val scopeItems: List<KbScopeItem> = run {
+                    val foldersByKb = knowledgeFolders.groupBy { it.kbId }
+                    knowledgeBases.flatMap { kb ->
+                        val wholeKbLabel = stringResource(R.string.assistant_kb_scope_whole)
+                        val folderRows = foldersByKb[kb.id].orEmpty().map { f ->
+                            KbScopeItem(
+                                id = "${kb.id}::${f.path}",
+                                label = "${kb.name} / ${f.path}",
+                                kbId = kb.id,
+                                path = f.path,
+                            )
+                        }
+                        listOf(
+                            KbScopeItem(
+                                id = "${kb.id}::",
+                                label = "${kb.name}$wholeKbLabel",
+                                kbId = kb.id,
+                                path = "",
+                            ),
+                        ) + folderRows
+                    }
+                }
+                val currentScopes = repo.parseKnowledgeFolderScopes(a)
+                val currentIds = currentScopes.map { "${it.first}::${it.second}" }.toSet()
+                MultiSelectChipsDialog(
+                    title = type.titleText(),
+                    items = scopeItems,
+                    selectedIds = currentIds,
+                    itemId = { it.id },
+                    itemLabel = { it.label },
+                    onToggle = { id ->
+                        val updated = if (id in currentIds) currentIds - id else currentIds + id
+                        val scopes = scopeItems.filter { it.id in updated }.map { it.kbId to it.path }
+                        update {
+                            it.copy(
+                                knowledgeFolderScopesJson = repo.serializeStringList(repo.encodeKnowledgeFolderScopes(scopes)),
+                                // 同步 KB id 列表(兼容旧路径与旧数据读取)
+                                knowledgeBaseIdsJson = repo.serializeStringList(scopes.map { s -> s.first }.distinct()),
+                            )
+                        }
+                    },
+                    onSelectionChange = { newIds ->
+                        val scopes = scopeItems.filter { it.id in newIds }.map { it.kbId to it.path }
+                        update {
+                            it.copy(
+                                knowledgeFolderScopesJson = repo.serializeStringList(repo.encodeKnowledgeFolderScopes(scopes)),
+                                knowledgeBaseIdsJson = repo.serializeStringList(scopes.map { s -> s.first }.distinct()),
+                            )
+                        }
+                    },
+                    onDismiss = { activeType = null },
+                )
+            }
             null -> {}
         }
     }

@@ -786,4 +786,19 @@
     <string name="settings_chat_message_font_size_subtitle">Ajusta el tamaño del texto, 100% por defecto</string>
     <string name="settings_chat_letter_spacing">Espaciado entre letras</string>
     <string name="settings_chat_letter_spacing_subtitle">Ajusta el espacio entre caracteres</string>
+    <string name="assistant_kb_scope_whole"> (todo)</string>
+    <string name="settings_preview_user_bubble">Vista previa de tu mensaje</string>
+    <string name="settings_preview_assistant_bubble">Vista previa de una respuesta de IA; el tamaño de fuente, el espaciado y el radio cambian en vivo.</string>
+    <string name="settings_preview_timestamp">14:30</string>
+    <string name="settings_preview_model_name">Muse · Modelo de ejemplo</string>
+    <string name="settings_theme_liquid_glass">Efecto de cristal líquido</string>
+    <string name="settings_theme_liquid_glass_desc">Aspecto de cristal para la barra superior, de entrada y las burbujas.</string>
+    <string name="settings_glass_off">Apagado</string>
+    <string name="settings_glass_water">Cristal de agua</string>
+    <string name="settings_glass_frost">Cristal esmerilado</string>
+    <string name="settings_glass_level">Intensidad</string>
+    <string name="settings_glass_level_low">Baja</string>
+    <string name="settings_glass_level_medium">Media</string>
+    <string name="settings_glass_level_high">Alta</string>
+    <string name="settings_glass_level_hint">En dispositivos básicos, elija Baja o Apagado.</string>
 </resources>

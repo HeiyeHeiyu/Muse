@@ -2,7 +2,8 @@
 
 package io.zer0.muse.ui.translate
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,11 +19,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.zer0.muse.R
+import io.zer0.muse.ui.common.feedback.MuseToast
 import io.zer0.muse.ui.common.form.MuseTactileButton
 import io.zer0.muse.ui.common.icons.MuseIcons
 import io.zer0.muse.ui.common.state.MuseEmptyState
@@ -41,6 +44,7 @@ internal fun TranslateHistorySection(
     onClearClick: () -> Unit,
     onToggleFavorite: (TranslateViewModel.TranslateHistoryItem) -> Unit,
 ) {
+    val context = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -89,6 +93,19 @@ internal fun TranslateHistorySection(
                     item = item,
                     onClick = { onItemClick(item) },
                     onToggleFavorite = { onToggleFavorite(item) },
+                    onLongPressCopy = {
+                        // v2.4.6: 长按复制"原文 + 译文"(两者都带上,便于直接黏贴使用)
+                        val ctx = context
+                        copyToClipboard(
+                            ctx,
+                            ctx.getString(
+                                R.string.translate_history_copy_format,
+                                item.sourceText,
+                                item.translatedText,
+                            ),
+                        )
+                        MuseToast.show(ctx.getString(R.string.translate_history_copied))
+                    },
                 )
             }
         }
@@ -102,8 +119,14 @@ internal fun TranslateHistorySection(
  * 中部:原 + 原文(单行省略)
  * 底部:译 + 译文(单行省略)
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun TranslateHistoryItemCard(item: TranslateViewModel.TranslateHistoryItem, onClick: () -> Unit, onToggleFavorite: () -> Unit) {
+private fun TranslateHistoryItemCard(
+    item: TranslateViewModel.TranslateHistoryItem,
+    onClick: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    onLongPressCopy: () -> Unit,
+) {
     val timeText = remember(item.timestamp) { formatHistoryTime(item.timestamp) }
 
     Surface(
@@ -111,10 +134,11 @@ private fun TranslateHistoryItemCard(item: TranslateViewModel.TranslateHistoryIt
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(
+            .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
+                onLongClick = onLongPressCopy,
             ),
     ) {
         Column(

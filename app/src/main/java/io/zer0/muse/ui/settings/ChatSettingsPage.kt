@@ -516,6 +516,12 @@ fun ChatSettingsPage(
 
         // ── 正文排版(消息字号 / 字间距, v2.0)──
         item { SectionLabel(stringResource(R.string.settings_chat_typography_section)) }
+        // v2.5.0: 排版预览面板 —— 当前聊天外观设置的合成效果,所见即所得
+        item {
+            SettingsGroup {
+                BubblePreviewPanel(prefs = prefs)
+            }
+        }
         item {
             SettingsGroup {
                 // 消息字号:0.85~1.25 倍,默认 100%

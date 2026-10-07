@@ -375,6 +375,18 @@ class MuseNotificationManager(private val context: Context) {
     }
 
     /**
+     * v2.5.0: 立即取消进度通知(同步,不走节流队列)。
+     * 供前台服务 stopForeground 前调用 —— startForeground 的通知无法被异步节流
+     * 的 cancel 可靠移除,必须与 stopForeground 同步配合。
+     */
+    fun clearLiveProgress() {
+        liveProgressRequests.value = null
+        lastLiveProgressSentAt = 0L
+        resultOf { nm.cancel(NOTIF_ID_LIVE_UPDATE) }
+            .onError { msg, _ -> Logger.w(TAG, "clearLiveProgress failed: $msg") }
+    }
+
+    /**
      * v1.43: 构建前台服务使用的流式生成通知。
      *
      * 与 [updateLiveProgress] 共用同一渠道和 ID,保证服务启动与后续更新一致。

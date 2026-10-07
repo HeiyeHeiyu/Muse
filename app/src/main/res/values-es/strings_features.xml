@@ -850,4 +850,13 @@
     <string name="home_date_pattern">MMM d, EEEE</string>
     <string name="groupchat_summary_doc_title">Resumen de la discusión · %1$s</string>
     <string name="groupchat_continue_summary_prefix">[Continuar con el resumen] </string>
+    <string name="knowledge_folder_new">Nueva carpeta</string>
+    <string name="knowledge_folder_rename">Cambiar nombre de carpeta</string>
+    <string name="knowledge_folder_delete">Eliminar carpeta</string>
+    <string name="knowledge_folder_delete_confirm">¿Eliminar la carpeta «%1$s»? También se eliminarán todas las subcarpetas (los documentos se conservan).</string>
+    <string name="knowledge_folder_name_label">Nombre de la carpeta</string>
+    <string name="knowledge_folder_name_empty">El nombre de la carpeta no puede estar vacío</string>
+    <string name="knowledge_folder_created">Carpeta «%1$s» creada</string>
+    <string name="knowledge_folder_renamed">Renombrada a «%1$s»</string>
+    <string name="knowledge_folder_deleted">Carpeta eliminada</string>
 </resources>

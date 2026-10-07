@@ -17,7 +17,7 @@ package io.zer0.memory.ai
  */
 object MemoryExtractPrompt {
 
-    // D3: 强调与边界准则补充(参考 HANA 记忆系统"什么值得记"原则) → v3
+    // D3: 强调与边界准则补充(明确"什么值得记"的判据) → v3
     const val TEMPLATE_VERSION = "memory-extract.v3"
     const val CACHE_GROUP = "memory.extract_analysis"
 

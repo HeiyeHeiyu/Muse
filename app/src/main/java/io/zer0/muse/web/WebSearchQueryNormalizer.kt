@@ -15,6 +15,34 @@ object WebSearchQueryNormalizer {
     private val WHITESPACE = Regex("\\s+")
     private val INVISIBLE = Regex("[\\u200B-\\u200D\\uFEFF]")
 
+    /**
+     * 口语化/客套前缀与提问套话 — 搜索引擎对它们零收益,反而稀释关键词。
+     * 仅当 query 较长(像一句话而非关键词串)时才剔除,短 keyword 不动。
+     */
+    private val LEADING_FILLERS = listOf(
+        "请问", "请帮我", "帮我", "帮我查", "帮我搜索", "帮我搜", "麻烦", "麻烦你",
+        "能不能", "可不可以", "可以帮我", "我想知道", "我想了解", "你知道", "我问问",
+        "查一下", "查查", "搜索一下", "搜一下", "有没有", "有哪些", "什么是", "怎么",
+        "please", "can you", "could you", "i want to know", "i wonder", "tell me",
+    )
+
+    private val TRAILING_FILLERS = listOf(
+        "吗",
+        "呢",
+        "吧",
+        "啊",
+        "呀",
+        "谢谢",
+        "谢谢你",
+        "多谢",
+    )
+
+    /** 超过该长度才做"口语提炼",避免把正常短 query 误删。 */
+    private const val REFINE_MIN_LENGTH = 12
+
+    /** 提炼后的 query 长度上限(超出按词边界截断)。 */
+    private const val REFINE_MAX_LENGTH = 64
+
     fun normalize(raw: String): String {
         var query = Normalizer.normalize(raw, Normalizer.Form.NFKC)
             .replace('\u2018', ' ')
@@ -35,5 +63,51 @@ object WebSearchQueryNormalizer {
         }
 
         return query.replace(WHITESPACE, " ").trim()
+    }
+
+    /**
+     * 查询提炼 — 把"像一句话"的 query 收敛为关键词串,改善搜索精准度。
+     *
+     * 设计原则:
+     *  1. 保守 — 只在 query 明显偏长(≥ [REFINE_MIN_LENGTH] 字符)时启用;
+     *     短 keyword(如 "DeepSeek V4 Flash 模型")原样保留;
+     *  2. 只剔口语噪声 — 去句首客套/提问套话、句末语气词,不做分词/去停用词
+     *     (中文停用词误删风险高,宁可保守);
+     *  3. 超长截断 — 超过 [REFINE_MAX_LENGTH] 时按词边界截断,防整段被当 query。
+     *
+     * 注意:本函数幂等 — refine(refine(x)) == refine(x)。
+     */
+    fun refine(raw: String): String {
+        var query = normalize(raw)
+        if (query.length < REFINE_MIN_LENGTH) return query
+
+        // 1. 去句首填充词(循环,处理叠加,如"请问帮我查一下")
+        var changed = true
+        while (changed) {
+            changed = false
+            for (filler in LEADING_FILLERS) {
+                if (query.startsWith(filler, ignoreCase = true) && query.length > filler.length) {
+                    query = query.substring(filler.length).trimStart(' ', ',', '，', '。', '?', '？', ':', '：')
+                    changed = true
+                }
+            }
+        }
+
+        // 2. 去句末语气词(单个字符,去一层即可)
+        for (filler in TRAILING_FILLERS) {
+            if (query.endsWith(filler) && query.length > filler.length) {
+                query = query.dropLast(filler.length).trimEnd(' ', ',', '，', '。', '?', '？')
+                break
+            }
+        }
+
+        // 3. 超长按词边界截断
+        if (query.length > REFINE_MAX_LENGTH) {
+            val cut = query.take(REFINE_MAX_LENGTH)
+            val boundary = cut.lastIndexOf(' ')
+            query = if (boundary > REFINE_MAX_LENGTH / 2) cut.substring(0, boundary).trim() else cut.trim()
+        }
+
+        return query.ifBlank { normalize(raw) }
     }
 }

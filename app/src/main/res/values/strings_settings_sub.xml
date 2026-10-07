@@ -487,6 +487,24 @@
     <string name="kb_reindex_nothing">没有需要重新索引的文档</string>
     <string name="kb_reindex_enqueued">已在后台开始重新索引全部文档</string>
     <string name="assistant_detail_ext_knowledge_base">知识库</string>
+    <!-- v2.4.6: 助手绑定作用域 — 整个知识库(与文件夹区分) -->
+    <string name="assistant_kb_scope_whole">（全部）</string>
+    <!-- v2.5.0: 聊天设置排版预览面板演示文案 -->
+    <string name="settings_preview_user_bubble">这是你的消息预览</string>
+    <string name="settings_preview_assistant_bubble">这是 AI 的回复预览,字号、间距与圆角会实时变化。</string>
+    <string name="settings_preview_timestamp">14:30</string>
+    <string name="settings_preview_model_name">Muse · 示例模型</string>
+    <!-- v2.5.0: 液态玻璃效果(模式 + 档位) -->
+    <string name="settings_theme_liquid_glass">液态玻璃效果</string>
+    <string name="settings_theme_liquid_glass_desc">顶栏、输入栏与消息气泡的玻璃质感</string>
+    <string name="settings_glass_off">关闭</string>
+    <string name="settings_glass_water">水玻璃</string>
+    <string name="settings_glass_frost">磨砂玻璃</string>
+    <string name="settings_glass_level">强度档位</string>
+    <string name="settings_glass_level_low">低</string>
+    <string name="settings_glass_level_medium">中</string>
+    <string name="settings_glass_level_high">高</string>
+    <string name="settings_glass_level_hint">低端设备建议选「低」或关闭,以获得最佳流畅度</string>
 
     <!-- 安全与分享 -->
     <string name="settings_security_app_lock_section">应用锁</string>

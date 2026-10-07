@@ -631,4 +631,5 @@
     <string name="chat_context_divider_title_count">Contexto compactado · %1$d mensagens resumidas</string>
     <string name="chat_context_divider_hint_collapsed">Toque para ver as mensagens originais</string>
     <string name="chat_context_divider_hint_expanded">Toque para ocultar as mensagens originais</string>
+    <string name="chat_translation_block_title">Tradução</string>
 </resources>

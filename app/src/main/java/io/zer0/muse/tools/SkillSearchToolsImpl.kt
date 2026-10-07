@@ -239,16 +239,18 @@ class SkillSearchToolsImpl(
         val service =
             webSearchService
                 ?: return context.getString(R.string.skill_web_search_not_configured)
-        // v1.0.81: 对齐 Hana web-search，先清理 LLM 偶发生成的畸形引号/不可见字符。
+        // 先清理 LLM 偶发生成的畸形引号/不可见字符。
         val rawQuery =
             args["query"]?.trim()?.takeIf { it.isNotEmpty() }
                 ?: return context.getString(R.string.skill_missing_param_query)
+        // v2.4.6: 先规范化(清畸形引号/不可见字符),再提炼(把"一句话"收敛为关键词串),
+        // 改善"搜索项太宽泛"的问题。短 keyword 不会被动。
         val query =
-            io.zer0.muse.web.WebSearchQueryNormalizer.normalize(rawQuery)
+            io.zer0.muse.web.WebSearchQueryNormalizer.refine(rawQuery)
                 .takeIf { it.isNotEmpty() }
                 ?: return context.getString(R.string.skill_missing_param_query)
         if (rawQuery != query) {
-            Logger.i("SkillExecutor", "web_search query normalized: '$rawQuery' -> '$query'")
+            Logger.i("SkillExecutor", "web_search query refined: '$rawQuery' -> '$query'")
         }
         val maxResults = args["max_results"]?.toIntOrNull()?.coerceIn(1, 10) ?: 5
         val searchPolicy = webSearchPolicyProvider()
@@ -432,9 +434,27 @@ class SkillSearchToolsImpl(
         val threshold = args["threshold"]?.toFloatOrNull()?.coerceIn(0f, 1f) ?: 0.3f
         // v1.97: include_internal — 是否包含内部开发文档(devdoc),默认 false
         val includeInternal = args["include_internal"]?.toBoolean() ?: false
+        // v2.4.6: folder — 限定检索的文件夹(知识库内路径)。一个文件夹 = 一个独立检索域,
+        //   传入后只在该文件夹及其子文件夹内检索,不串到其它文件夹。
+        val folderArg = args["folder"]?.trim()?.takeIf { it.isNotBlank() }
         if (includeInternal) {
             resultOf { builtInKnowledgeDocSeeder?.ensureSeeded() }
                 .onError { msg, error -> Logger.w("SkillExecutor", "内置功能文档 seed 失败: $msg", error) }
+        }
+
+        // v2.4.6: 文件夹作用域 → docId 集合(路径前缀匹配,含子目录)
+        var folderScopeDocIds: List<String>? = null
+        if (folderArg != null) {
+            val path = io.zer0.muse.rag.KnowledgeFolderBrowser.normalize(folderArg)
+            val allDocs = resultOf { dao.observeAllUser().first() }.getOrNull().orEmpty()
+            val hit = allDocs.filter { doc ->
+                val p = io.zer0.muse.rag.KnowledgeFolderBrowser.folderPath(doc)
+                p == path || p.startsWith("$path/")
+            }
+            folderScopeDocIds = hit.map { it.id }
+            if (folderScopeDocIds.isEmpty()) {
+                return context.getString(R.string.skill_knowledge_no_match, folderArg, threshold.toString())
+            }
         }
 
         // v2.x: 诊断回显 — 记录各检索阶段结果,未命中时输出附一行诊断,
@@ -451,7 +471,7 @@ class SkillSearchToolsImpl(
                     .getOrNull() ?: io.zer0.muse.rag.RagConfig()
             val vectorResults =
                 resultOf {
-                    rs.retrieve(query, topK, threshold, ragConfig)
+                    rs.retrieve(query, topK, threshold, ragConfig, scopeDocIds = folderScopeDocIds)
                 }.onError { msg, _ ->
                     Logger.w("SkillExecutor", "向量检索失败,降级到 LIKE: $msg")
                 }.getOrNull()
@@ -507,6 +527,11 @@ class SkillSearchToolsImpl(
                 allResults
             } else {
                 allResults.filterNot { it.isInternal }
+            }
+            // v2.4.6: 文件夹作用域隔离 — LIKE 降级路径也必须限域,否则会串到其它文件夹
+            .let { list ->
+                val scope = folderScopeDocIds
+                if (scope == null) list else list.filter { it.id in scope }
             }
         val scored =
             visibleResults.map { doc ->

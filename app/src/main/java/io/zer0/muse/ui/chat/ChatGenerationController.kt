@@ -925,10 +925,20 @@ internal class ChatGenerationController(
                                 assistant
                                     ?.let { deps.assistantRepository.parseKnowledgeBaseIds(it) }
                                     .orEmpty()
+                            // v2.4.6: 优先用「KB+文件夹」作用域(文件夹 = 独立检索域);
+                            // 未设文件夹作用域时回退到旧的整库绑定。
+                            val boundFolderScopes =
+                                assistant
+                                    ?.let { deps.assistantRepository.parseKnowledgeFolderScopes(it) }
+                                    .orEmpty()
                             val boundDocIds =
                                 if (mentionDocIds.isNullOrEmpty()) {
                                     resultOf {
-                                        deps.ragService.resolveKnowledgeBaseDocIds(boundKnowledgeBaseIds)
+                                        if (boundFolderScopes.isNotEmpty()) {
+                                            deps.ragService.resolveKbFolderScopes(boundFolderScopes)
+                                        } else {
+                                            deps.ragService.resolveKnowledgeBaseDocIds(boundKnowledgeBaseIds)
+                                        }
                                     }.onError { msg, t ->
                                         Logger.w("ChatViewModel", "助手绑定知识库展开失败: $msg", t)
                                     }.getOrNull()

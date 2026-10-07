@@ -21,13 +21,13 @@ import kotlin.coroutines.resume
  * v1.0.81: 基于 headless Android WebView 的必应搜索兜底。
  *
  * 为什么需要它:
- *  对齐 Hana(桌面用 Electron 无头 Chromium)的思路——用真实浏览器加载必应结果页,
+ *  用真实浏览器加载必应结果页,
  *  等待 JS 渲染后注入提取脚本,而不是用 OkHttp 抓静态 HTML。后者在国内网络/反爬/
  *  地区重定向下表现不稳定(时好时坏的"抽卡"现象)。
  *
  *  本类是 [BingProvider] 的 HTTP 抓取失败/被拦截时的兜底,不替代 HTTP(HTTP 快)。
  *  它用 applicationContext 创建一个无界面 WebView,离屏加载 cn.bing.com,
- *  注入与 Hana browser-search-extractors.cjs 等价的提取 JS,拿到结构化结果。
+ *  注入页面内提取 JS,拿到结构化结果。
  *
  * 设计要点:
  *  - 独立 WebView 实例,不与 [io.zer0.muse.tools.BrowserManager](浏览器自动化工具)共享,
@@ -48,7 +48,7 @@ class BingWebViewSearcher(private val appContext: Context) {
         /** 单次搜索超时(含页面加载 + JS 渲染 + 提取)。 */
         private const val SEARCH_TIMEOUT_MS = 20_000L
 
-        /** 桌面 Chrome UA(与 Hana extractors 对齐),拿到桌面版 li.b_algo 结构。 */
+        /** 桌面 Chrome UA,拿到桌面版 li.b_algo 结构。 */
         private const val DESKTOP_UA =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
@@ -221,7 +221,7 @@ class BingWebViewSearcher(private val appContext: Context) {
     }
 
     /**
-     * 构造页面内提取 JS。逻辑对齐 Hana browser-search-extractors.cjs 的 bingResults():
+     * 构造页面内提取 JS,解析桌面版必应结果结构:
      *  - 选择 li.b_algo,取 h2 a 的标题/链接,.b_caption p 等的摘要
      *  - 清理 bing /ck/a 跟踪跳转
      *  - 检测验证码/同意页

@@ -12,7 +12,7 @@ import io.zer0.muse.ui.SettingsScreen
 import io.zer0.muse.ui.WorkspaceScreen
 import io.zer0.muse.ui.account.AccountScreen
 import io.zer0.muse.ui.dev.ComponentGalleryScreen
-import io.zer0.muse.ui.knowledge.KnowledgeBaseManagePage
+import io.zer0.muse.ui.knowledge.KnowledgeScreen
 import io.zer0.muse.ui.settings.AgentSettingsPage
 import io.zer0.muse.ui.settings.AuditLogPage
 import io.zer0.muse.ui.settings.ChatSettingsPage
@@ -325,12 +325,14 @@ fun NavGraphBuilder.settingsNavGraph(navController: NavHostController, sharedVie
             onManageKbs = { navController.navigate(KnowledgeBaseManageRoute) },
         )
     }
-    // v1.133: 三级页 — 多知识库管理
+    // v2.4.6: 三级页 — 知识库管理
+    // 与首页知识库入口合并为同一页(KnowledgeScreen):知识库=根、文件夹=子目录,
+    // 两个入口进的是同一个页面,返回栈自然回各自来源。
     composable<KnowledgeBaseManageRoute>(
         enterTransition = { MuseTransitions.horizontalPushEnter() },
         popExitTransition = { MuseTransitions.horizontalPushPopExit() },
     ) {
-        KnowledgeBaseManagePage(
+        io.zer0.muse.ui.knowledge.KnowledgeScreen(
             onBack = { navController.popBackStack() },
         )
     }

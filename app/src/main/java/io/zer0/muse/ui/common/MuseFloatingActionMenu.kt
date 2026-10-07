@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import dev.chrisbanes.haze.hazeEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
@@ -71,6 +72,7 @@ internal fun MuseFloatingActionMenu(
     onDismiss: () -> Unit,
     offset: IntOffset? = null,
     belowAnchorDp: Dp = 56.dp,
+    glassHazeState: dev.chrisbanes.haze.HazeState? = null,
 ) {
     val density = LocalDensity.current
     val reducedMotion = MuseMotion.isReducedMotion()
@@ -94,12 +96,25 @@ internal fun MuseFloatingActionMenu(
         ) {
             Surface(
                 shape = MuseShapes.extraLarge,
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                color = if (glassHazeState != null) Color.Transparent else MaterialTheme.colorScheme.surfaceContainerLowest,
                 shadowElevation = MuseElevation.high,
                 tonalElevation = 0.dp,
-                // 与屏幕边缘留出间距,避免卡片贴边；
-                // v1.0.90: 再往右贴一点(8dp -> 2dp)，让面板右缘与触发按钮视觉对齐
-                modifier = Modifier.padding(end = 2.dp, top = 4.dp),
+                // v2.5.0: 液态玻璃 —— 更多菜单也用玻璃质感(全局开关联动)
+                modifier = Modifier
+                    .then(
+                        if (glassHazeState != null) {
+                            Modifier.clip(MuseShapes.extraLarge).hazeEffect(
+                                state = glassHazeState,
+                                style = io.zer0.muse.ui.theme.liquidGlassStyle(
+                                    MaterialTheme.colorScheme.surfaceContainerLowest,
+                                    io.zer0.muse.ui.theme.LocalLiquidGlass.current,
+                                ),
+                            )
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .padding(end = 2.dp, top = 4.dp),
             ) {
                 Column(
                     // v1.0.90: 顶栏更多菜单保持紧凑 —— 统一收窄宽度,避免长标签被过早挤成省略号

@@ -8,6 +8,7 @@ import io.zer0.muse.asr.ASRStatus
 import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.quickmsg.QuickMessageEntity
 import io.zer0.muse.ui.chat.VideoAttachment
+import dev.chrisbanes.haze.HazeState
 
 /**
  * v1.0.75 fix (用户反馈): 输入栏上方 Markdown 格式工具条整条移除。
@@ -21,6 +22,7 @@ import io.zer0.muse.ui.chat.VideoAttachment
  * MarkdownFormat / formatEnabled 参数 / 设置开关(richInputEnabled)。
  */
 @Composable
+@Suppress("FunctionNaming", "LongParameterList")
 internal fun RichInputBar(
     text: String,
     assistantName: String = "Muse",
@@ -86,6 +88,10 @@ internal fun RichInputBar(
     pasteAsFileEnabled: Boolean = true,
     pasteAsFileThreshold: Int = 2000,
     onAddPastedTextAsDocument: (String) -> Unit = {},
+    /** v2.5.0: 液态玻璃 — 非空时输入岛启用背景模糊。 */
+    glassHazeState: HazeState? = null,
+    /** v2.5.0: 玻璃风格与档位配置。 */
+    glassConfig: io.zer0.muse.ui.theme.LiquidGlassConfig = io.zer0.muse.ui.theme.LiquidGlassConfig(),
 ) {
     // v1.0.75 fix: 格式工具条已移除,直接透传原 InputBar。
     // 注:InputBar 自身已含 imePadding/navigationBarsPadding,此处不再重复施加。
@@ -124,6 +130,8 @@ internal fun RichInputBar(
             contextWindow = contextWindow,
             pasteAsFileEnabled = pasteAsFileEnabled,
             pasteAsFileThreshold = pasteAsFileThreshold,
+            glassHazeState = glassHazeState,
+            glassConfig = glassConfig,
         ),
         callbacks = InputBarCallbacks(
             onCycleDeepThinkingLevel = onCycleDeepThinkingLevel,

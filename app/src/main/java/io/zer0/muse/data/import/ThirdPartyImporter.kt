@@ -69,6 +69,12 @@ object ThirdPartyImporter {
     private const val MAX_JSON_IMPORT_BYTES = 200L * 1024 * 1024
 
     /**
+     * v2.4.6: ChatGPT 新版导出将会话分片为 conversations-000.json / conversations-001.json ...
+     * 匹配该命名(用于 zip 解包白名单与分片合并)。
+     */
+    private val CONVERSATIONS_SHARD_REGEX = Regex("conversations-\\d+\\.json", RegexOption.IGNORE_CASE)
+
+    /**
      * 自动检测备份格式并导入。
      * @param backupUri SAF URI(backup_*.zip / 既有实现_backup_*.zip / ChatGPT conversations.json)
      */
@@ -145,8 +151,11 @@ object ThirdPartyImporter {
                             continue
                         }
                         val name = entry.name.substringAfterLast('/')
+                        // v2.4.6: 支持 ChatGPT 新版分层导出 — 会话被拆成
+                        // conversations.json 或 conversations-000.json / conversations-001.json 分片。
                         val keep = name == "settings.json" || name == "chats.json" ||
-                            name.endsWith("conversations.json") || name == "conversations.json"
+                            name.endsWith("conversations.json") || name == "conversations.json" ||
+                            CONVERSATIONS_SHARD_REGEX.matches(name)
                         // 单文件兜底限制:流式落盘,避免把大条目整体读入 Android 堆。
                         if (keep) {
                             val tmp = java.io.File.createTempFile("zip_${name}_", ".tmp", context.cacheDir)
@@ -184,19 +193,30 @@ object ThirdPartyImporter {
         }
 
         // 判断格式:
-        //  - ChatGPT 导出: conversations.json(顶层数组或 {conversations: [...]})
+        //  - ChatGPT 导出: conversations.json(顶层数组或 {conversations: [...]})或新版分片 conversations-000.json ...
         //  - 既有实现: chats.json + settings.json
         //  - 既有实现: settings.json(且无 chats.json)
         val settingsFile = extracted["settings.json"]
         val chatsFile = extracted["chats.json"]
         val hasChats = chatsFile != null
-        val conversationsFile = extracted.keys.firstOrNull { it.endsWith("conversations.json") || it == "conversations.json" }
-            ?.let { extracted[it] }
+        // v2.4.6: 收集所有 conversations 文件(含分片),按名称排序(conversations.json 优先,分片次之)合并
+        val conversationFiles = extracted.entries
+            .filter { it.key == "conversations.json" || it.key.endsWith("conversations.json") || CONVERSATIONS_SHARD_REGEX.matches(it.key) }
+            .sortedBy { it.key }
+            .map { it.value }
 
         try {
             val settingsJson = settingsFile?.let { it.readText() }
             val chatsJson = chatsFile?.let { it.readText() }
-            val conversationsJson = conversationsFile?.let { it.readText() }
+            // v2.4.6: 多分片合并为单个 JSON 数组字符串(分片内容均为顶层数组)。
+            // 单分片时直接用原文本,避免额外拼接开销。
+            val conversationsJson = if (conversationFiles.isEmpty()) {
+                null
+            } else if (conversationFiles.size == 1) {
+                conversationFiles.first().readText()
+            } else {
+                mergeConversationShards(conversationFiles)
+            }
 
             when {
                 hasChats -> importKelivo(
@@ -227,6 +247,32 @@ object ThirdPartyImporter {
             // 清理解压的临时文件
             extracted.values.forEach { it.delete() }
         }
+    }
+
+    /**
+     * v2.4.6: 合并 ChatGPT 新版导出的多个 conversations 分片。
+     *
+     * 每个分片是顶层 JSON 数组,元素为单个会话对象;这里把它们拼成一个数组。
+     * 采用流式文本拼接:去掉每个分片首尾的方括号后以逗号相连,避免把整个大数组
+     * 解析成 JsonElement 再重组(2026-10 实测导出可达数十 MB,解析会指数级放大内存)。
+     */
+    internal fun mergeConversationShards(files: List<java.io.File>): String = buildString {
+        append('[')
+        var first = true
+        files.forEach { f ->
+            val raw = f.readText().removePrefix("\uFEFF").trim()
+            if (raw.isEmpty()) return@forEach
+            // 去掉最外层方括号
+            val inner = when {
+                raw.startsWith("[") && raw.endsWith("]") -> raw.substring(1, raw.length - 1).trim()
+                else -> raw
+            }
+            if (inner.isEmpty()) return@forEach
+            if (!first) append(',')
+            append(inner)
+            first = false
+        }
+        append(']')
     }
 
     /** v1.0.74: 判断文件是否为 ZIP(PK 魔数)。 */

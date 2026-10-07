@@ -850,4 +850,13 @@
     <string name="home_date_pattern">MMM d, EEEE</string>
     <string name="groupchat_summary_doc_title">Resumo da discussão · %1$s</string>
     <string name="groupchat_continue_summary_prefix">[Continuar com o resumo] </string>
+    <string name="knowledge_folder_new">Nova pasta</string>
+    <string name="knowledge_folder_rename">Renomear pasta</string>
+    <string name="knowledge_folder_delete">Excluir pasta</string>
+    <string name="knowledge_folder_delete_confirm">Excluir a pasta \"%1$s\"? Todas as subpastas também serão removidas (os documentos são mantidos).</string>
+    <string name="knowledge_folder_name_label">Nome da pasta</string>
+    <string name="knowledge_folder_name_empty">O nome da pasta não pode ficar vazio</string>
+    <string name="knowledge_folder_created">Pasta \"%1$s\" criada</string>
+    <string name="knowledge_folder_renamed">Renomeada para \"%1$s\"</string>
+    <string name="knowledge_folder_deleted">Pasta excluída</string>
 </resources>

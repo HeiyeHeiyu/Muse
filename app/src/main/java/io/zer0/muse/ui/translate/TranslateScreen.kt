@@ -634,7 +634,11 @@ private fun SourceInputCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap)) {
+                Row(
+                    modifier = Modifier.weight(1f, fill = false),
+                    horizontalArrangement = Arrangement.spacedBy(MusePaddings.tightGap),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     ActionIconButton(
                         icon = MuseIcons.clipboard,
                         contentDescription = stringResource(R.string.translate_page_paste),
@@ -921,8 +925,8 @@ private fun readClipboardText(context: Context): String? {
     return clip.getItemAt(0).coerceToText(context)?.toString()
 }
 
-/** 将文本写入系统剪贴板。 */
-private fun copyToClipboard(context: Context, text: String) {
+/** 将文本写入系统剪贴板。v2.4.6: 改为 internal 供翻译历史项复用。 */
+internal fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
     clipboard.setPrimaryClip(ClipData.newPlainText("translation", text))
 }

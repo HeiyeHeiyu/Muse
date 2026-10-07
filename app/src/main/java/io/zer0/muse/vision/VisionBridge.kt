@@ -643,7 +643,7 @@ class VisionBridge(
      * 改进:把原始响应作为 `image_overview`(让文本模型读到主要信息),
      * 而非原版的 `evidence`(7 字段全填"无")。
      */
-    /** 解析输出格式，兼容旧值 "hanako" 并映射到 "muse-box"。 */
+    /** 解析输出格式，兼容旧值并映射到 "muse-box"。 */
     private fun resolveOutputFormat(raw: String?): String = when (raw) {
         "hanako" -> "muse-box"
         else -> raw ?: "muse-box"

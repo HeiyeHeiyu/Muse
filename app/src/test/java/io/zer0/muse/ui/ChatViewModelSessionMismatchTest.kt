@@ -425,9 +425,9 @@ class ChatViewModelSessionMismatchTest {
         }
 
         assertTrue("an interrupted SSE translation must surface a failure", completedState.errors.isNotEmpty())
-        val partialTranslation = viewModel.messages.value.last()
-        assertEquals(source.id.toString(), partialTranslation.translationSourceId)
-        assertTrue(partialTranslation.content.endsWith("partial translation"))
+        // v2.4.6: 译文挂在源消息的 translations 上(不再另开助手消息)
+        val partialSource = viewModel.messages.value.first { it.id == source.id }
+        assertTrue(partialSource.translations.values.firstOrNull()?.endsWith("partial translation") == true)
         coVerify(exactly = 0) { sessionRepository.appendMessage("session-A", any()) }
     }
 
@@ -467,9 +467,9 @@ class ChatViewModelSessionMismatchTest {
         withTimeout(5_000) {
             viewModel.state.first { !it.isTranslating && it.translatingMessageId == null }
         }
-        val partialTranslation = viewModel.messages.value.last()
-        assertEquals(source.id.toString(), partialTranslation.translationSourceId)
-        assertTrue(partialTranslation.content.endsWith("partial translation"))
+        // v2.4.6: 译文挂在源消息的 translations 上(不再另开助手消息)
+        val partialSource = viewModel.messages.value.first { it.id == source.id }
+        assertTrue(partialSource.translations.values.firstOrNull()?.endsWith("partial translation") == true)
         coVerify(exactly = 0) { sessionRepository.appendMessage("session-A", any()) }
     }
 }

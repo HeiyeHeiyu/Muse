@@ -212,6 +212,8 @@ class BackupService(
         // P0-10: 其余此前缺失的用户数据实体(换机恢复丢数据)
         val translateHistories: List<TranslateHistoryEntity> = emptyList(),
         val knowledgeBases: List<KnowledgeBaseEntity> = emptyList(),
+        // v2.4.6: 知识库文件夹(含空文件夹) — 用户数据,随备份迁移
+        val knowledgeFolders: List<io.zer0.muse.data.knowledge.KnowledgeFolderEntity> = emptyList(),
         val subagentThreads: List<SubagentThreadEntity> = emptyList(),
         val toolRounds: List<ToolRoundEntity> = emptyList(),
         val sessionBranchHeads: List<SessionBranchHeadEntity> = emptyList(),
@@ -236,7 +238,8 @@ class BackupService(
         momentLikes.isNotEmpty() || quickNotes.isNotEmpty() || worldBookEntries.isNotEmpty() ||
         conversationEvents.isNotEmpty() || conversationTurns.isNotEmpty() || messageParts.isNotEmpty() ||
         messageOutboxes.isNotEmpty() || diaries.isNotEmpty() || scopedFacts.isNotEmpty() ||
-        translateHistories.isNotEmpty() || knowledgeBases.isNotEmpty() || subagentThreads.isNotEmpty() ||
+        translateHistories.isNotEmpty() || knowledgeBases.isNotEmpty() || knowledgeFolders.isNotEmpty() ||
+        subagentThreads.isNotEmpty() ||
         toolRounds.isNotEmpty() || sessionBranchHeads.isNotEmpty() || groupChatMemories.isNotEmpty() ||
         settingsSnapshot.isNotEmpty() || fileStores.isNotEmpty()
 
@@ -485,6 +488,7 @@ class BackupService(
                 diaries = db.diaryDao().getAll(),
                 translateHistories = db.translateHistoryDao().getAll(),
                 knowledgeBases = db.knowledgeBaseDao().getAll(),
+                knowledgeFolders = db.knowledgeFolderDao().getAll(),
                 subagentThreads = db.subagentThreadDao().getAll(),
                 toolRounds = db.toolRoundDao().getAll(),
                 sessionBranchHeads = db.sessionBranchHeadDao().getAll(),
@@ -528,6 +532,7 @@ class BackupService(
         val diaries = muse.diaries
         val translateHistories = muse.translateHistories
         val knowledgeBases = muse.knowledgeBases
+        val knowledgeFolders = muse.knowledgeFolders
         val subagentThreads = muse.subagentThreads
         val toolRounds = muse.toolRounds
         val sessionBranchHeads = muse.sessionBranchHeads
@@ -580,6 +585,7 @@ class BackupService(
             put("scopedFacts", scopedFactIds.size)
             put("translateHistories", translateHistories.size)
             put("knowledgeBases", knowledgeBases.size)
+            put("knowledgeFolders", knowledgeFolders.size)
             put("subagentThreads", subagentThreads.size)
             put("toolRounds", toolRounds.size)
             put("sessionBranchHeads", sessionBranchHeads.size)
@@ -710,6 +716,12 @@ class BackupService(
         // P0-10: 其余此前缺失的用户数据实体
         writeTypedLines(writer, "translateHistory", translateHistories, TranslateHistoryEntity.serializer())
         writeTypedLines(writer, "knowledgeBase", knowledgeBases, KnowledgeBaseEntity.serializer())
+        writeTypedLines(
+            writer,
+            "knowledgeFolder",
+            knowledgeFolders,
+            io.zer0.muse.data.knowledge.KnowledgeFolderEntity.serializer(),
+        )
         writeTypedLines(writer, "subagentThread", subagentThreads, SubagentThreadEntity.serializer())
         writeTypedLines(writer, "toolRound", toolRounds, ToolRoundEntity.serializer())
         writeTypedLines(writer, "sessionBranchHead", sessionBranchHeads, SessionBranchHeadEntity.serializer())
@@ -826,6 +838,7 @@ class BackupService(
         // P0-10: 其余此前缺失的用户数据实体(换机恢复丢数据)
         val translateHistories: List<TranslateHistoryEntity>,
         val knowledgeBases: List<KnowledgeBaseEntity>,
+        val knowledgeFolders: List<io.zer0.muse.data.knowledge.KnowledgeFolderEntity>,
         val subagentThreads: List<SubagentThreadEntity>,
         val toolRounds: List<ToolRoundEntity>,
         val sessionBranchHeads: List<SessionBranchHeadEntity>,
@@ -972,6 +985,7 @@ class BackupService(
                 db.diaryDao().deleteAll()
                 db.translateHistoryDao().deleteAll()
                 db.knowledgeBaseDao().deleteAll()
+                db.knowledgeFolderDao().deleteAll()
                 db.subagentThreadDao().deleteAll()
                 db.toolRoundDao().deleteAll()
                 db.sessionBranchHeadDao().deleteAll()
@@ -2186,6 +2200,7 @@ class BackupService(
         // P0-10: 其余此前缺失的用户数据实体(换机恢复丢数据)
         val translateHistories: List<TranslateHistoryEntity>,
         val knowledgeBases: List<KnowledgeBaseEntity>,
+        val knowledgeFolders: List<io.zer0.muse.data.knowledge.KnowledgeFolderEntity>,
         val subagentThreads: List<SubagentThreadEntity>,
         val toolRounds: List<ToolRoundEntity>,
         val sessionBranchHeads: List<SessionBranchHeadEntity>,
@@ -2250,6 +2265,7 @@ class BackupService(
                 diaries = db.diaryDao().getAll(),
                 translateHistories = db.translateHistoryDao().getAll(),
                 knowledgeBases = db.knowledgeBaseDao().getAll(),
+                knowledgeFolders = db.knowledgeFolderDao().getAll(),
                 subagentThreads = db.subagentThreadDao().getAll(),
                 toolRounds = db.toolRoundDao().getAll(),
                 sessionBranchHeads = db.sessionBranchHeadDao().getAll(),
@@ -2603,6 +2619,7 @@ class BackupService(
             db.diaryDao().deleteAll()
             db.translateHistoryDao().deleteAll()
             db.knowledgeBaseDao().deleteAll()
+            db.knowledgeFolderDao().deleteAll()
             db.subagentThreadDao().deleteAll()
             db.toolRoundDao().deleteAll()
             db.sessionBranchHeadDao().deleteAll()
@@ -2643,6 +2660,7 @@ class BackupService(
             backup.diaries.forEach { db.diaryDao().upsert(it) }
             backup.translateHistories.forEach { db.translateHistoryDao().insert(it) }
             backup.knowledgeBases.forEach { db.knowledgeBaseDao().upsert(it) }
+        backup.knowledgeFolders.forEach { db.knowledgeFolderDao().upsert(it) }
             backup.subagentThreads.forEach { db.subagentThreadDao().upsert(it) }
             backup.toolRounds.forEach { db.toolRoundDao().upsertAll(listOf(it)) }
             backup.sessionBranchHeads.forEach { db.sessionBranchHeadDao().upsert(it) }
@@ -2761,6 +2779,7 @@ private val ndjsonTypeToMetaKey: Map<String, String> = mapOf(
     "scopedFact" to "scopedFacts",
     "translateHistory" to "translateHistories",
     "knowledgeBase" to "knowledgeBases",
+    "knowledgeFolder" to "knowledgeFolders",
     "subagentThread" to "subagentThreads",
     "toolRound" to "toolRounds",
     "sessionBranchHead" to "sessionBranchHeads",

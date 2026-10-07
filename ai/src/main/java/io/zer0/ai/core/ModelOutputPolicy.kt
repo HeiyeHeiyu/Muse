@@ -3,7 +3,7 @@ package io.zer0.ai.core
 /**
  * 模型输出预算解析策略。
  *
- * 参考 Hana 的模型能力目录：模型元数据中的 [Model.maxOutputTokens] 是模型能力上限，
+ * 模型元数据中的 [Model.maxOutputTokens] 是模型能力上限，
  * 调用方传入的 maxTokens 只是本次请求预算。最终预算不能超过任一已知上限。
  *
  * 规则：

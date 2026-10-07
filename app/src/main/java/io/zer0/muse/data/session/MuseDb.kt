@@ -148,6 +148,8 @@ import java.io.File
         // 注:KnowledgeChunkFtsEntity 不在此列表 — FTS4 vtable 由 MIGRATION_38_39 raw SQL 创建,
         // DAO 全部 @SkipQueryVerification,Room 不感知该虚拟表存在(避免 KSP schema 验证报 vtable constructor failed)
         KnowledgeBaseEntity::class,
+        // v2.4.6: 知识库文件夹(含空文件夹) — 文件夹成为可独立存在的一等公民,同时是检索隔离单位
+        io.zer0.muse.data.knowledge.KnowledgeFolderEntity::class,
         // v1.0.15: 消息发送 outbox(持久化发送队列,进程被杀后恢复未发送消息)
         MessageOutboxEntity::class,
         // v1.0.17: 翻译历史持久化
@@ -169,7 +171,7 @@ import java.io.File
         MessagePartEntity::class,
         SessionBranchHeadEntity::class,
     ],
-    version = 107,
+    version = 109,
     exportSchema = true,
 )
 @TypeConverters(QuickNoteConverters::class)
@@ -190,6 +192,8 @@ abstract class MuseDb : RoomDatabase() {
 
     // v1.133: 多知识库 + FTS4
     abstract fun knowledgeBaseDao(): KnowledgeBaseDao
+    // v2.4.6: 知识库文件夹
+    abstract fun knowledgeFolderDao(): io.zer0.muse.data.knowledge.KnowledgeFolderDao
     abstract fun knowledgeChunkFtsDao(): KnowledgeChunkFtsDao
     abstract fun scheduledTaskExecutionDao(): ScheduledTaskExecutionDao
     abstract fun groupChatDao(): GroupChatDao
@@ -1004,6 +1008,50 @@ abstract class MuseDb : RoomDatabase() {
         val MIGRATION_106_107 = object : Migration(106, 107) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 rebuildKnowledgeChunkFtsTable(db)
+            }
+        }
+
+        /**
+         * v107→v108: 知识库文件夹表 — 让文件夹(含空文件夹)可独立存在。
+         *
+         * 仅新建表,不动既有数据:既有文档的 folderPath 仍在 metadataJson 里(单一真源),
+         * 文件夹树由「文档 metadata + 本表」合并得出。
+         */
+        val MIGRATION_107_108 = object : Migration(107, 108) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // v2.4.6: 知识库文件夹表 + 助手「KB+文件夹」作用域列
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS knowledge_folders (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        kb_id TEXT NOT NULL,
+                        path TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        created_at INTEGER NOT NULL DEFAULT 0,
+                        updated_at INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_knowledge_folders_kb_id ON knowledge_folders (kb_id)")
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_knowledge_folders_kb_id_path ON knowledge_folders (kb_id, path)",
+                )
+                // v2.4.6: 助手绑定从「KB id」升级为「KB+文件夹路径」作用域(旧数据零迁移,默认空数组)
+                db.execSQL(
+                    "ALTER TABLE assistants ADD COLUMN knowledgeFolderScopesJson TEXT NOT NULL DEFAULT '[]'",
+                )
+            }
+        }
+
+        /**
+         * v108→v109: 消息表加译文映射列。
+         *
+         * v2.4.6: 译文从「另开一条助手消息」改为「挂在源消息上的可展开块」,
+         * 需要在 messages 表存语言名 → 译文的 JSON。仅新增列,不动既有数据。
+         */
+        val MIGRATION_108_109 = object : Migration(108, 109) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN translationsJson TEXT NOT NULL DEFAULT '{}'")
             }
         }
 
@@ -2967,6 +3015,8 @@ abstract class MuseDb : RoomDatabase() {
                         MIGRATION_104_105,
                         MIGRATION_105_106,
                         MIGRATION_106_107,
+                        MIGRATION_107_108,
+                        MIGRATION_108_109,
                     )
                     // 启用外键约束(artifacts 表的 ON DELETE CASCADE 依赖此设置)
                     // onOpen 不在 onCreate 事务内,可以执行此类命令;onCreate 内禁止 PRAGMA

@@ -1621,6 +1621,56 @@ class RagService(
             ?: emptyList()
     }
 
+    /**
+     * v2.4.6: 按「知识库 + 文件夹路径」展开可检索文档 id。
+     *
+     * 世界观:知识库(KB)= 根,文件夹 = 根下的子目录。一个文件夹就是一个独立检索域,
+     * [folderPath] 为 KB 内相对路径,空串表示整库。展开规则 = 路径前缀匹配:
+     *  - 路径空 → 该 KB 全部用户文档;
+     *  - 路径 `合同` → folderPath 为 `合同` 或 `合同/...` 的文档(含子目录)。
+     * 这保证不同文件夹的检索结果互不串。
+     *
+     * @param scopes 形如 (kbId, folderPath) 的绑定列表
+     * @return 命中的文档 id 集合;空集合表示未绑定(调用方回退全局检索)
+     */
+    suspend fun resolveKbFolderScopes(scopes: List<Pair<String, String>>): List<String> {
+        val normalized = scopes
+            .map { it.first.trim() to io.zer0.muse.rag.KnowledgeFolderBrowser.normalize(it.second) }
+            .filter { it.first.isNotBlank() }
+            .distinct()
+        val kbIds = normalized.map { it.first }.distinct()
+        val allDocs = if (kbIds.isEmpty()) {
+            emptyList()
+        } else {
+            resultOf { docDao.getByKbIds(kbIds) }
+                .onError { msg, throwable ->
+                    Logger.w("RagService", "KB+文件夹作用域展开失败: ${throwable?.message ?: msg}", throwable)
+                }
+                .getOrNull()
+                .orEmpty()
+        }
+        return if (normalized.isEmpty() || allDocs.isEmpty()) {
+            emptyList()
+        } else {
+            allDocs.asSequence()
+                .filter { doc ->
+                    normalized.any { (kbId, path) ->
+                        doc.kbId == kbId && pathHitsFolder(doc, path)
+                    }
+                }
+                .map { it.id }
+                .distinct()
+                .toList()
+        }
+    }
+
+    /** 判断文档是否落在某文件夹路径下(空路径 = 整库;否则路径前缀匹配,含子目录)。 */
+    private fun pathHitsFolder(doc: KnowledgeDocEntity, path: String): Boolean {
+        if (path.isEmpty()) return true
+        val p = io.zer0.muse.rag.KnowledgeFolderBrowser.folderPath(doc)
+        return p == path || p.startsWith("$path/")
+    }
+
     /** v1.133: @mention 提取正则(与 ChatViewModel.KNOWLEDGE_MENTION_REGEX 同义,RagService 自用)。 */
     companion object {
         val MENTION_REGEX = Regex("@[^\\s@]+")

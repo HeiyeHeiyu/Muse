@@ -37,7 +37,7 @@ class ChatGenerationServiceTimeoutTest {
     fun setUp() {
         if (GlobalContext.getOrNull() != null) stopKoin()
         val application = ApplicationProvider.getApplicationContext<Application>()
-        notificationManager = mockk()
+        notificationManager = mockk(relaxed = true)
         generationManager = mockk(relaxed = true)
         every {
             notificationManager.buildGenerationNotification(any(), any(), any())

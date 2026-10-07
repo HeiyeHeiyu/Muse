@@ -1,5 +1,8 @@
+@file:Suppress("FunctionNaming", "LongParameterList", "LongMethod", "CyclomaticComplexMethod", "TooManyFunctions", "ThrowsCount")
+
 package io.zer0.muse.ui.knowledge
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.Crossfade
@@ -107,6 +110,8 @@ fun KnowledgeScreen(
     settings: io.zer0.muse.data.SettingsRepository = koinInject(),
     // F-31: 知识库 DAO,用于列出"目标知识库"供导入选择
     kbDao: io.zer0.muse.data.knowledge.KnowledgeBaseDao = koinInject(),
+    // v2.4.6: 文件夹 DAO — 让空文件夹可独立存在,并作为检索隔离单位
+    folderDao: io.zer0.muse.data.knowledge.KnowledgeFolderDao = koinInject(),
     // v1.0.53: 封面库路由回调(文档详情 → 封面管理页)
     onOpenCoverManager: () -> Unit = {},
 ) {
@@ -191,6 +196,30 @@ fun KnowledgeScreen(
     var moveFolderTarget by remember { mutableStateOf<KnowledgeDocEntity?>(null) }
     var showImportTargetDialog by rememberSaveable { mutableStateOf(false) }
     val kbs by kbDao.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
+    // v2.4.6: 显式文件夹(含空文件夹)。当前浏览的 KB 下的文件夹记录。
+    val explicitFolders by produceState<List<io.zer0.muse.data.knowledge.KnowledgeFolderEntity>>(
+        emptyList(),
+        browsingKbId,
+    ) {
+        val kb = browsingKbId
+        if (kb == null) {
+            value = emptyList()
+        } else {
+            folderDao.observeByKb(kb).collect { value = it }
+        }
+    }
+
+    // v2.4.6: 知识库生命周期(KB 新建/重命名/删除/重索引) — 从管理页合并进来
+    var creatingKb by remember { mutableStateOf(false) }
+    var editingKb by remember { mutableStateOf<io.zer0.muse.data.knowledge.KnowledgeBaseEntity?>(null) }
+    var deletingKb by remember { mutableStateOf<io.zer0.muse.data.knowledge.KnowledgeBaseEntity?>(null) }
+    var reindexConfirmKb by remember { mutableStateOf<io.zer0.muse.data.knowledge.KnowledgeBaseEntity?>(null) }
+    var kbReindexDialogVisible by remember { mutableStateOf(false) }
+    var kbReindexProgressPair by remember { mutableStateOf(0 to 0) }
+    // v2.4.6: 文件夹生命周期(新建/重命名/删除)
+    var creatingFolder by remember { mutableStateOf(false) }
+    var renamingFolder by remember { mutableStateOf<String?>(null) }
+    var deletingFolder by remember { mutableStateOf<String?>(null) }
 
     // F-33: embedding 模型切换检测 — 当前配置 key 与"最近一次索引所用 key"不一致时提示重新索引
     val currentRagConfig by settings.ragConfigFlow.collectAsStateWithLifecycle(initialValue = io.zer0.muse.rag.RagConfig())
@@ -687,6 +716,17 @@ fun KnowledgeScreen(
         }
     }
 
+    // v2.5.0 fix: 系统返回手势与顶栏返回键同层退出 —— 搜索 > 文件夹上一级 > KB 列表 > 退出知识库。
+    // 此前文件夹/KB 视图内没有接 BackHandler，系统手势直接退出整个知识库页面。
+    BackHandler(enabled = true) {
+        when {
+            searchQuery.isNotBlank() -> searchQuery = ""
+            currentFolderPath.isNotBlank() -> currentFolderPath = KnowledgeFolderBrowser.parent(currentFolderPath)
+            browsingKbId != null -> browsingKbId = null
+            else -> onBack()
+        }
+    }
+
     io.zer0.muse.ui.common.surface.MusePageScaffold(
         topBar = {
             MuseTopBar(
@@ -701,6 +741,14 @@ fun KnowledgeScreen(
                 },
                 largeTitle = true,
                 actions = {
+                    // v2.4.6: 新建知识库(顶层视图时可用)
+                    if (browsingKbId == null) {
+                        MuseTactileButton(
+                            icon = MuseIcons.plus,
+                            onClick = { creatingKb = true },
+                            contentDescription = stringResource(R.string.kb_manage_create),
+                        )
+                    }
                     // v1.66: 排序切换入口(动作弹窗)
                     MuseTactileButton(
                         icon = MuseIcons.sort,
@@ -900,11 +948,28 @@ fun KnowledgeScreen(
                             val kbDocs = remember(visibleDocs, selectedKb) {
                                 if (selectedKb == null) emptyList() else visibleDocs.filter { it.kbId == selectedKb }
                             }
-                            val childFolders = remember(kbDocs, currentFolderPath, searching) {
+                            val childFolders = remember(kbDocs, currentFolderPath, searching, explicitFolders) {
                                 if (selectedKb == null || searching) {
                                     emptyList()
                                 } else {
-                                    KnowledgeFolderBrowser.childFolders(kbDocs, currentFolderPath)
+                                    // v2.4.6: 合并"从文档推导的子文件夹"与"显式文件夹表里的空文件夹",
+                                    // 使没有文档的文件夹也能显示。
+                                    val fromDocs = KnowledgeFolderBrowser.childFolders(kbDocs, currentFolderPath)
+                                    val parentPrefix =
+                                        if (currentFolderPath.isEmpty()) "" else "$currentFolderPath/"
+                                    val explicitChildren = explicitFolders.mapNotNull { f ->
+                                        val p = KnowledgeFolderBrowser.normalize(f.path)
+                                        if (p.isEmpty() || p == currentFolderPath) return@mapNotNull null
+                                        if (!p.startsWith(parentPrefix)) return@mapNotNull null
+                                        val childName = p.removePrefix(parentPrefix).substringBefore('/')
+                                        if (childName.isBlank()) return@mapNotNull null
+                                        val childPath =
+                                            if (currentFolderPath.isEmpty()) childName else "$currentFolderPath/$childName"
+                                        KnowledgeFolderBrowser.Folder(name = childName, path = childPath, documentCount = 0)
+                                    }
+                                    (fromDocs + explicitChildren)
+                                        .distinctBy { it.path }
+                                        .sortedBy { it.name.lowercase() }
                                 }
                             }
                             val folderFiles = remember(kbDocs, currentFolderPath, visibleDocs, searching) {
@@ -933,15 +998,25 @@ fun KnowledgeScreen(
                                             verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
                                             contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 80.dp),
                                         ) {
+                                            // v2.4.6: 顶层 = 知识库列表(知识库即根、文件夹为子目录)
                                             items(kbs, key = { it.id }) { kb ->
                                                 Box(museAnimateItem()) {
-                                                    KnowledgeFolderCard(
-                                                        title = kb.name,
-                                                        detail = stringResource(R.string.kb_manage_doc_count, kb.docCount),
-                                                        onClick = {
-                                                            browsingKbId = kb.id
-                                                            currentFolderPath = ""
-                                                        },
+                                                    KbRow(
+                                                        kb = kb,
+                                                        actions = KbRowActions(
+                                                            onOpen = {
+                                                                browsingKbId = kb.id
+                                                                currentFolderPath = ""
+                                                            },
+                                                            onEdit = { editingKb = kb },
+                                                            onDelete = { deletingKb = kb },
+                                                            onReindex = { reindexConfirmKb = kb },
+                                                            onAddDocument = {
+                                                                importTargetKbId = kb.id
+                                                                importTargetFolderPath = ""
+                                                                showImportTargetDialog = true
+                                                            },
+                                                        ),
                                                     )
                                                 }
                                             }
@@ -985,8 +1060,15 @@ fun KnowledgeScreen(
                                                         title = folder.name,
                                                         detail = stringResource(R.string.knowledge_folder_item_files, folder.documentCount),
                                                         onClick = { currentFolderPath = folder.path },
+                                                        // v2.4.6: 重命名 = 改路径末段;删除 = 含子路径递归删
+                                                        onRename = { renamingFolder = folder.path },
+                                                        onDelete = { deletingFolder = folder.path },
                                                     )
                                                 }
+                                            }
+                                            // v2.4.6: 新建文件夹入口(放在子文件夹之后)
+                                            item(key = "new-folder") {
+                                                NewFolderRow(onClick = { creatingFolder = true })
                                             }
                                         }
                                         items(folderFiles, key = { it.id }) { doc ->
@@ -1443,10 +1525,293 @@ fun KnowledgeScreen(
             onDismiss = { showSortMenu = false },
         )
     }
+
+    // ── v2.4.6: 知识库生命周期(从管理页并入) ──
+
+    // 新建知识库
+    if (creatingKb) {
+        KbEditDialog(
+            title = stringResource(R.string.kb_manage_create),
+            initialName = "",
+            onConfirm = { name, desc ->
+                if (name.isBlank()) {
+                    MuseToast.show(context.getString(R.string.kb_manage_name_empty))
+                } else {
+                    scope.launch {
+                        val now = System.currentTimeMillis()
+                        kbDao.upsert(
+                            io.zer0.muse.data.knowledge.KnowledgeBaseEntity(
+                                id = "kb-$now",
+                                name = name,
+                                description = desc,
+                                createdAt = now,
+                                updatedAt = now,
+                            ),
+                        )
+                        MuseToast.show(context.getString(R.string.kb_manage_created, name))
+                    }
+                    creatingKb = false
+                }
+            },
+            onDismiss = { creatingKb = false },
+        )
+    }
+
+    // 重命名 / 编辑知识库
+    editingKb?.let { kb ->
+        KbEditDialog(
+            title = stringResource(R.string.kb_manage_edit),
+            initialName = kb.name,
+            options = KbEditOptions(initialDesc = kb.description),
+            onConfirm = { name, desc ->
+                if (name.isBlank()) {
+                    MuseToast.show(context.getString(R.string.kb_manage_name_empty))
+                } else {
+                    scope.launch {
+                        kbDao.upsert(kb.copy(name = name, description = desc, updatedAt = System.currentTimeMillis()))
+                        MuseToast.show(context.getString(R.string.kb_manage_updated, name))
+                    }
+                    editingKb = null
+                }
+            },
+            onDismiss = { editingKb = null },
+        )
+    }
+
+    // 删除知识库
+    deletingKb?.let { kb ->
+        if (kb.id == "default") {
+            MuseToast.show(context.getString(R.string.kb_manage_default_no_delete))
+            deletingKb = null
+        } else {
+            ConfirmDeleteDialog(
+                title = stringResource(R.string.kb_manage_delete),
+                itemName = stringResource(R.string.kb_manage_delete_confirm, kb.name),
+                onConfirm = {
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            dao.getByKbIds(listOf(kb.id)).forEach { doc -> ragService.deleteDocument(doc.id) }
+                            folderDao.deleteByKb(kb.id)
+                            kbDao.delete(kb.id)
+                        }
+                        if (browsingKbId == kb.id) {
+                            browsingKbId = null
+                            currentFolderPath = ""
+                        }
+                        deletingKb = null
+                        MuseToast.show(context.getString(R.string.kb_manage_deleted, kb.name))
+                    }
+                },
+                onDismiss = { deletingKb = null },
+            )
+        }
+    }
+
+    // 重索引单库(二次确认)
+    reindexConfirmKb?.let { kb ->
+        MuseDialog(
+            onDismissRequest = { reindexConfirmKb = null },
+            title = stringResource(R.string.kb_reindex_all),
+            content = {
+                Column(verticalArrangement = Arrangement.spacedBy(MusePaddings.contentGap)) {
+                    Text(
+                        text = stringResource(R.string.kb_reindex_kb_confirm, kb.name, kb.docCount),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = stringResource(R.string.kb_reindex_unavailable_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmText = stringResource(R.string.kb_reindex_all),
+            destructive = true,
+            onConfirm = {
+                reindexConfirmKb = null
+                kbReindexProgressPair = 0 to 0
+                kbReindexDialogVisible = true
+                scope.launch {
+                    val ragConfig = runCatching { settings.getRagConfig() }.getOrElse { io.zer0.muse.rag.RagConfig() }
+                    resultOf {
+                        withContext(Dispatchers.IO) {
+                            ragService.reindexAllInKbs(
+                                kbIds = listOf(kb.id),
+                                ragConfig = ragConfig,
+                                onProgress = { done, total -> kbReindexProgressPair = done to total },
+                            )
+                        }
+                    }.onSuccess { failures ->
+                        kbReindexDialogVisible = false
+                        if (failures.isEmpty()) {
+                            MuseToast.show(context.getString(R.string.kb_reindex_done, kbReindexProgressPair.second))
+                        } else {
+                            MuseToast.show(
+                                context.getString(R.string.kb_reindex_failed, failures.values.joinToString().take(120)),
+                            )
+                        }
+                    }.onError { msg, _ ->
+                        kbReindexDialogVisible = false
+                        MuseToast.show(context.getString(R.string.knowledge_reindex_failed, msg.take(80)))
+                    }
+                }
+            },
+            onDismiss = { reindexConfirmKb = null },
+        )
+    }
+
+    // 重索引进度对话框(KB 级)
+    if (kbReindexDialogVisible) {
+        val (done, total) = kbReindexProgressPair
+        MuseDialog(
+            onDismissRequest = { kbReindexDialogVisible = false },
+            title = stringResource(R.string.kb_reindex_all),
+            content = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    MuseSpinner(size = 28.dp)
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = if (total > 0) "$done / $total" else stringResource(R.string.knowledge_reindexing_default),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            },
+            onConfirm = null,
+            dismissText = null,
+        )
+    }
+
+    // ── v2.4.6: 文件夹生命周期 ──
+
+    // 新建文件夹
+    if (creatingFolder) {
+        val kbNow = browsingKbId
+        KbEditDialog(
+            title = stringResource(R.string.knowledge_folder_new),
+            initialName = "",
+            options = KbEditOptions(
+                showDescription = false,
+                nameLabel = stringResource(R.string.knowledge_folder_name_label),
+            ),
+            onConfirm = { name, _ ->
+                if (kbNow == null || name.isBlank()) {
+                    if (name.isBlank()) MuseToast.show(context.getString(R.string.knowledge_folder_name_empty))
+                } else {
+                    scope.launch {
+                        val path = KnowledgeFolderBrowser.normalize(
+                            if (currentFolderPath.isEmpty()) name else "$currentFolderPath/$name",
+                        )
+                        folderDao.upsert(
+                            io.zer0.muse.data.knowledge.KnowledgeFolderEntity(
+                                id = "kbfolder-$kbNow-$path",
+                                kbId = kbNow,
+                                path = path,
+                                name = path.substringAfterLast('/'),
+                            ),
+                        )
+                        MuseToast.show(context.getString(R.string.knowledge_folder_created, path))
+                    }
+                }
+                creatingFolder = false
+            },
+            onDismiss = { creatingFolder = false },
+        )
+    }
+
+    // 重命名文件夹(改路径末段)
+    renamingFolder?.let { oldPath ->
+        val kbNow = browsingKbId
+        val oldName = oldPath.substringAfterLast('/')
+        KbEditDialog(
+            title = stringResource(R.string.knowledge_folder_rename),
+            initialName = oldName,
+            options = KbEditOptions(
+                showDescription = false,
+                nameLabel = stringResource(R.string.knowledge_folder_name_label),
+            ),
+            onConfirm = { newName, _ ->
+                if (kbNow == null || newName.isBlank()) {
+                    if (newName.isBlank()) MuseToast.show(context.getString(R.string.knowledge_folder_name_empty))
+                } else {
+                    scope.launch {
+                        val parent = KnowledgeFolderBrowser.parent(oldPath)
+                        val newPath = KnowledgeFolderBrowser.normalize(
+                            if (parent.isEmpty()) newName else "$parent/$newName",
+                        )
+                        withContext(Dispatchers.IO) {
+                            // 显式文件夹记录:整棵子树换前缀
+                            folderDao.getByPathRecursive(kbNow, oldPath).forEach { f ->
+                                val suffix = f.path.removePrefix(oldPath)
+                                val nPath = newPath + suffix
+                                folderDao.deleteById(f.id)
+                                folderDao.upsert(
+                                    f.copy(
+                                        id = "kbfolder-$kbNow-$nPath",
+                                        path = nPath,
+                                        name = nPath.substringAfterLast('/'),
+                                        updatedAt = System.currentTimeMillis(),
+                                    ),
+                                )
+                            }
+                            // 文档:同前缀的 folderPath 一起改
+                            dao.getByKbIds(listOf(kbNow)).forEach { doc ->
+                                val p = KnowledgeFolderBrowser.folderPath(doc)
+                                if (p == oldPath || p.startsWith("$oldPath/")) {
+                                    val suffix = p.removePrefix(oldPath)
+                                    val nPath = newPath + suffix
+                                    dao.upsert(
+                                        KnowledgeFolderBrowser.withFolderPath(doc, nPath)
+                                            .copy(updatedAt = System.currentTimeMillis()),
+                                    )
+                                }
+                            }
+                        }
+                        if (currentFolderPath == oldPath || currentFolderPath.startsWith("$oldPath/")) {
+                            currentFolderPath = newPath + currentFolderPath.removePrefix(oldPath)
+                        }
+                        MuseToast.show(context.getString(R.string.knowledge_folder_renamed, newName))
+                    }
+                }
+                renamingFolder = null
+            },
+            onDismiss = { renamingFolder = null },
+        )
+    }
+
+    // 删除文件夹(含子目录;文档不删,目录信息清除后回到根)
+    deletingFolder?.let { path ->
+        val kbNow = browsingKbId
+        ConfirmDeleteDialog(
+            title = stringResource(R.string.knowledge_folder_delete),
+            itemName = stringResource(R.string.knowledge_folder_delete_confirm, path),
+            onConfirm = {
+                if (kbNow != null) {
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            folderDao.deleteByPathRecursive(kbNow, path)
+                        }
+                        if (currentFolderPath == path || currentFolderPath.startsWith("$path/")) {
+                            currentFolderPath = KnowledgeFolderBrowser.parent(path)
+                        }
+                        MuseToast.show(context.getString(R.string.knowledge_folder_deleted))
+                    }
+                }
+                deletingFolder = null
+            },
+            onDismiss = { deletingFolder = null },
+        )
+    }
 }
 
 @Composable
-private fun KnowledgeFolderCard(title: String, detail: String, onClick: () -> Unit) {
+private fun KnowledgeFolderCard(
+    title: String,
+    detail: String,
+    onClick: () -> Unit,
+    // v2.4.6: 文件夹重命名/删除(仅显式文件夹树里的节点挂动作;KB 卡片不传)
+    onRename: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
+) {
     Surface(
         shape = MuseShapes.medium,
         color = MaterialTheme.colorScheme.surface,
@@ -1480,11 +1845,55 @@ private fun KnowledgeFolderCard(title: String, detail: String, onClick: () -> Un
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            if (onRename != null) {
+                KbActionIcon(
+                    icon = MuseIcons.edit,
+                    contentDescription = stringResource(R.string.knowledge_folder_rename),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = onRename,
+                )
+            }
+            if (onDelete != null) {
+                KbActionIcon(
+                    icon = MuseIcons.trash,
+                    contentDescription = stringResource(R.string.knowledge_folder_delete),
+                    tint = MaterialTheme.colorScheme.error,
+                    onClick = onDelete,
+                )
+            }
             Icon(
                 imageVector = MuseIcons.chevronRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(MuseIconSizes.iconSmall),
+            )
+        }
+    }
+}
+
+/** v2.4.6: 「新建文件夹」行 — 虚线感入口(用 surfaceVariant 底色区分)。 */
+@Composable
+private fun NewFolderRow(onClick: () -> Unit) {
+    Surface(
+        shape = MuseShapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(MusePaddings.cardInner),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MusePaddings.contentGap),
+        ) {
+            Icon(
+                imageVector = MuseIcons.plus,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp),
+            )
+            Text(
+                text = stringResource(R.string.knowledge_folder_new),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
     }

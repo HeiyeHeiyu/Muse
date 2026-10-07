@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 
 /**
- * 辅助任务档位 — 对齐 Hana 的三档模型(小工具 / 大工具 / 视觉)。
+ * 辅助任务档位 — 三档模型(小工具 / 大工具 / 视觉)。
  *
  * 与 [SettingsRepository.TaskRoutingConfig](按对话内容为主模型分流)是两个维度:
  * 本枚举只管后台辅助任务(标题、压缩、记忆、路由判断等)的模型选择。
@@ -38,7 +38,7 @@ data class UtilityModelBinding(
 /**
  * 辅助模型路由 — 统一收敛所有后台辅助任务的模型选择。
  *
- * 级联规则(对齐 Hana):
+ * 级联规则:
  *  - [UtilityTier.LARGE] 留空 → 复用 [UtilityTier.SMALL]
  *  - [UtilityTier.SMALL] 留空 → 返回 null,调用方沿用主对话模型
  *  - [UtilityTier.VISION] 沿用现有视觉模型配置,未启用/未选择 → null

@@ -274,4 +274,17 @@ class ChatMessageController(
             )
         }
     }
+
+    /** v2.4.6: 切换指定消息译文块的展开/折叠状态(默认展开)。 */
+    fun toggleMessageTranslationExpanded(messageId: String) {
+        accessor.update { current ->
+            val currentState = current.messageExpandedStates[messageId] ?: MessageExpandedState()
+            val newExpanded = !(currentState.isTranslationExpanded ?: true)
+            current.copy(
+                messageExpandedStates =
+                current.messageExpandedStates +
+                    (messageId to currentState.copy(isTranslationExpanded = newExpanded)),
+            )
+        }
+    }
 }

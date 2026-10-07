@@ -647,4 +647,5 @@
     <string name="chat_context_divider_title_count">Context compressed · %1$d messages summarized</string>
     <string name="chat_context_divider_hint_collapsed">Tap to show original messages</string>
     <string name="chat_context_divider_hint_expanded">Tap to hide original messages</string>
+    <string name="chat_translation_block_title">Translation</string>
 </resources>

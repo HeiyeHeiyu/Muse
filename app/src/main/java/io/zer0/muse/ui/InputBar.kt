@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import dev.chrisbanes.haze.hazeEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.changedToUp
@@ -671,18 +672,27 @@ internal fun InputBar(state: MuseInputState = MuseInputState(), callbacks: Input
         //   输入框本身保持透明,避免实色容器叠成"白块"
         // v2.0 修复(用户反馈: 浅色主题下输入岛与背景对比过弱):
         //   填充色向 onSurface 混色加深一档,浅色自动加深/深色自动提亮,与 MuseTextField 同口径。
+        // v2.5.0: 液态玻璃 — 开关开启且 hazeState 可用时,输入岛用背景模糊替代实色。
+        val islandBaseColor = androidx.compose.ui.graphics.lerp(
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.onSurface,
+            0.06f,
+        )
+        val islandModifier: Modifier = if (state.glassHazeState != null) {
+            Modifier.hazeEffect(
+                state = state.glassHazeState,
+                style = io.zer0.muse.ui.theme.liquidGlassStyle(islandBaseColor, state.glassConfig),
+            )
+        } else {
+            Modifier
+        }
         Surface(
-            color =
-            androidx.compose.ui.graphics.lerp(
-                MaterialTheme.colorScheme.surfaceVariant,
-                MaterialTheme.colorScheme.onSurface,
-                0.06f,
-            ),
+            color = if (state.glassHazeState != null) Color.Transparent else islandBaseColor,
             // v2.4.5 (参考图对齐): 输入岛改为真胶囊(圆角 = 半高) + 去掉投影,
             // 视觉更轻、更紧凑;高度由行内 48dp 触控区决定。
             shape = MuseShapes.pill,
             tonalElevation = MuseElevation.low,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = islandModifier.fillMaxWidth(),
         ) {
             // v0.52: @mention 高亮转换(把 @文档名 染为 primary 色,提示引用了知识库)
             val mentionColor = MaterialTheme.colorScheme.primary

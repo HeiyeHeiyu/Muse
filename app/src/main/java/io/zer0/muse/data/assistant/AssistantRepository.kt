@@ -368,6 +368,27 @@ TA 闹着玩的时候你接梗、吐槽、抬杠都行;TA 真的需要帮忙的�
     fun parseKnowledgeBaseIds(entity: AssistantEntity): List<String> = parseStringList(entity.knowledgeBaseIdsJson)
 
     /**
+     * v2.4.6: 把 [AssistantEntity.knowledgeFolderScopesJson] 解析为 (kbId, folderPath) 列表。
+     *
+     * 元素形如 "kbId::folderPath"(空路径 = 整库)。空数组 = 未设文件夹作用域。
+     */
+    fun parseKnowledgeFolderScopes(entity: AssistantEntity): List<Pair<String, String>> =
+        parseStringList(entity.knowledgeFolderScopesJson).mapNotNull { raw ->
+            val sep = raw.indexOf("::")
+            if (sep < 0) {
+                raw.trim().takeIf { it.isNotBlank() }?.let { it to "" }
+            } else {
+                val kbId = raw.substring(0, sep).trim()
+                val path = raw.substring(sep + 2).trim()
+                kbId.takeIf { it.isNotBlank() }?.let { it to path }
+            }
+        }
+
+    /** v2.4.6: 把 (kbId, folderPath) 列表序列化为存储字符串列表。 */
+    fun encodeKnowledgeFolderScopes(scopes: List<Pair<String, String>>): List<String> =
+        scopes.map { (kbId, path) -> "$kbId::${path.trim()}" }
+
+    /**
      * v1.133: 把 [AssistantEntity.ragConfigOverride] 合并到全局 [baseConfig] 之上。
      *
      * 合并策略:override JSON 中**显式存在**的字段覆盖 baseConfig 同名字段;

@@ -89,4 +89,6 @@
     <string name="translate_page_ocr_empty">인식된 텍스트가 없습니다.</string>
     <string name="translate_page_ocr_failed">OCR 실패</string>
     <string name="translate_page_ocr_applied">입력에 입력된 인식된 텍스트</string>
+    <string name="translate_history_copied">번역을 복사했습니다</string>
+    <string name="translate_history_copy_format">%1$s\n\n%2$s</string>
 </resources>

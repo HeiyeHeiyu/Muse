@@ -153,17 +153,7 @@ object MuseIcons {
                     "M20.2 3.8L3.9 10.9a.6.6 0 0 0 .07 1.13l5.9 1.9 1.9 5.9a.6.6 0 0 0 1.13.07L20.2 3" +
                         ".8z",
                 ),
-                stroke = SolidColor(Color(0xFF000000)),
-                strokeLineWidth = 1.7f,
-                strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round,
-            )
-            addPath(
-                pathData = addPathNodes("M20.2 3.8L9.87 13.93"),
-                stroke = SolidColor(Color(0xFF000000)),
-                strokeLineWidth = 1.7f,
-                strokeLineCap = StrokeCap.Round,
-                strokeLineJoin = StrokeJoin.Round,
+                fill = SolidColor(Color(0xFF000000)),
             )
         }.build()
     }

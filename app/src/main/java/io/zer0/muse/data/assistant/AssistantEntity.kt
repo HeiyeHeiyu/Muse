@@ -98,6 +98,15 @@ data class AssistantEntity(
     /** v1.133: 该助手绑定的知识库 ID 列表(JSON 数组)。空数组 = 不绑定任何 KB(不注入 RAG)。 */
     @ColumnInfo(defaultValue = "[]") val knowledgeBaseIdsJson: String = "[]",
     /**
+     * v2.4.6: 该助手绑定的「知识库+文件夹」检索作用域(JSON 数组),元素形如 "kbId::folderPath"。
+     *
+     * 世界观:知识库 = 根,文件夹 = 子目录,一个文件夹即一个独立检索域,互不串。
+     *  - 空数组 = 沿用 [knowledgeBaseIdsJson] 的整库绑定(旧数据零迁移)。
+     *  - 元素 "kbId::" (空路径) = 绑定整个知识库;
+     *  - 元素 "kbId::合同" = 仅绑定该知识库下的 `合同` 文件夹(含子目录)。
+     */
+    @ColumnInfo(defaultValue = "[]") val knowledgeFolderScopesJson: String = "[]",
+    /**
      * v1.133: RAG 配置覆盖(JSON 序列化的 RagConfigOverride,可为 null)。
      * 非空时合并到全局 RagConfig 之上(同名字段以 override 优先)。
      * 例:{"topK":5,"threshold":0.4,"mmrLambda":0.5}

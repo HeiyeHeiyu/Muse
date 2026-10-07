@@ -788,4 +788,19 @@
     <string name="settings_chat_message_font_size_subtitle">Масштаб текста сообщений, по умолчанию 100%</string>
     <string name="settings_chat_letter_spacing">Межбуквенный интервал</string>
     <string name="settings_chat_letter_spacing_subtitle">Интервал между символами</string>
+    <string name="assistant_kb_scope_whole"> (все)</string>
+    <string name="settings_preview_user_bubble">Предпросмотр вашего сообщения</string>
+    <string name="settings_preview_assistant_bubble">Предпросмотр ответа ИИ; размер шрифта, интервалы и скругления меняются на лету.</string>
+    <string name="settings_preview_timestamp">14:30</string>
+    <string name="settings_preview_model_name">Muse · Пример модели</string>
+    <string name="settings_theme_liquid_glass">Эффект жидкого стекла</string>
+    <string name="settings_theme_liquid_glass_desc">Стеклянный вид верхней панели, панели ввода и пузырей сообщений.</string>
+    <string name="settings_glass_off">Выкл</string>
+    <string name="settings_glass_water">Водяное стекло</string>
+    <string name="settings_glass_frost">Матовое стекло</string>
+    <string name="settings_glass_level">Интенсивность</string>
+    <string name="settings_glass_level_low">Низк.</string>
+    <string name="settings_glass_level_medium">Средн.</string>
+    <string name="settings_glass_level_high">Выс.</string>
+    <string name="settings_glass_level_hint">На слабых устройствах выберите «Низк.» или выключите.</string>
 </resources>

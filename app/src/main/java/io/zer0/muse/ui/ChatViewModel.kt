@@ -1035,6 +1035,8 @@ data class MessageExpandedState(
     val isMoodExpanded: Boolean? = null,
     val isReasoningExpanded: Boolean? = null,
     val isReflectionExpanded: Boolean? = null,
+    /** v2.4.6: 译文块展开状态。 */
+    val isTranslationExpanded: Boolean? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -4084,19 +4086,20 @@ class ChatViewModel(
                     val messages = listOf(UIMessage(role = MessageRole.USER, content = prompt))
                     val sessionId = displayedSessionId() ?: return@launch
 
-                    // v1.0.4 (P2): 流式翻译 — 先插占位 ASSISTANT 消息逐 delta 更新,用户立即可见
-                    // (animateItem() 已提供 fade-in,无需额外动画)
-                    val placeholder =
-                        UIMessage(
-                            role = MessageRole.ASSISTANT,
-                            content = appContext.getString(R.string.err_chat_translate_prefix, targetLanguage),
-                            // H11: 译文消息指向被翻译的源消息,UI 提供"查看原文"折叠对照
-                            translationSourceId = target.id.toString(),
-                        )
-                    _messages.value = _messages.value + placeholder
+                    // v2.4.6: 译文不再另开一条助手消息,而是挂到源消息的 translations 上。
+                    // 用空串占位表示"翻译中",流式增量直接更新源消息(UI 以可展开块展示)。
+                    fun applyTranslation(text: String) {
+                        _messages.value = _messages.value.map { m ->
+                            if (m.id == target.id) {
+                                m.copy(translations = m.translations + (targetLanguage to text))
+                            } else {
+                                m
+                            }
+                        }
+                    }
+                    applyTranslation("")
 
                     val sb = StringBuilder()
-                    val prefix = appContext.getString(R.string.err_chat_translate_prefix, targetLanguage)
                     var streamFailure: Pair<String, ChatErrorType>? = null
                     var streamCompleted = false
                     try {
@@ -4104,12 +4107,7 @@ class ChatViewModel(
                             if (ev is ChatStreamEvent.ContentDelta) {
                                 if (streamFailure != null) return@collect
                                 sb.append(ev.delta)
-                                // 增量更新最后一条消息(占位)的 content,前缀保持 "翻译(X):\n\n"
-                                val updated = placeholder.copy(content = prefix + sb.toString())
-                                _messages.value =
-                                    _messages.value.map { m ->
-                                        if (m.id == placeholder.id) updated else m
-                                    }
+                                applyTranslation(sb.toString())
                             } else if (ev is ChatStreamEvent.Error) {
                                 streamFailure = ev.message to classifyErrorType(ev.message, ev.throwable)
                             } else if (ev is ChatStreamEvent.StreamInterrupted) {
@@ -4130,8 +4128,17 @@ class ChatViewModel(
                             null
                         }
                     if (failure != null) {
-                        if (sb.isEmpty()) {
-                            _messages.value = _messages.value.filterNot { it.id == placeholder.id }
+                        // v2.4.6: 中断/失败时保留已显示的非空部分译文(用户已看到的内容不丢),
+                        // 仅清掉"翻译中"的空占位。
+                        val partial = sb.toString().trim()
+                        _messages.value = _messages.value.map { m ->
+                            if (m.id != target.id) {
+                                m
+                            } else if (partial.isEmpty()) {
+                                m.copy(translations = m.translations - targetLanguage)
+                            } else {
+                                m.copy(translations = m.translations + (targetLanguage to partial))
+                            }
                         }
                         _state.update {
                             it.copy(
@@ -4150,8 +4157,10 @@ class ChatViewModel(
 
                     val translated = io.zer0.muse.transformer.stripThinkTags(sb.toString()).trim()
                     if (translated.isEmpty()) {
-                        // 移除占位消息,改为错误提示
-                        _messages.value = _messages.value.filter { m -> m.id != placeholder.id }
+                        // 清掉空占位,改为错误提示
+                        _messages.value = _messages.value.map { m ->
+                            if (m.id == target.id) m.copy(translations = m.translations - targetLanguage) else m
+                        }
                         _state.update {
                             it.copy(
                                 errors = listOf(ChatError(type = ChatErrorType.UNKNOWN, message = appContext.getString(R.string.err_chat_translate_empty))),
@@ -4161,21 +4170,19 @@ class ChatViewModel(
                         }
                         return@launch
                     }
-                    // 最终化占位消息(确保 content 是清洗后的版本)
-                    val finalMsg = placeholder.copy(content = "$prefix$translated")
-                    _messages.value =
-                        _messages.value.map { m ->
-                            if (m.id == placeholder.id) finalMsg else m
-                        }
+                    // v2.4.6: 落到源消息的 translations(清洗后的最终文本)并持久化源消息
+                    applyTranslation(translated)
                     _state.update {
                         it.copy(
                             isTranslating = false,
                             translatingMessageId = null,
                         )
                     }
-                    sessionRepository.appendMessage(sessionId, finalMsg)
-                    // v1.0.88 (S-4): 译文消息落盘后失效缓存 — 否则切走再切回命中旧快照,
-                    // 译文消息不显示(缓存缺新消息)。
+                    val persistedSource = _messages.value.firstOrNull { it.id == target.id }
+                    if (persistedSource != null) {
+                        sessionRepository.upsertMessage(sessionId, persistedSource)
+                    }
+                    // v1.0.88 (S-4): 译文落盘后失效缓存 — 否则切走再切回命中旧快照
                     sessionMemoryCache.remove(sessionId)
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     // v1.80 (H-CVM1): 协程取消必须重抛,避免破坏 stop()/switchSession() 语义
@@ -5281,6 +5288,8 @@ class ChatViewModel(
                                                 lastNotifChars = params.builder.length
                                                 lastNotifAt = now
                                                 runCatching {
+                                                    // v2.5.0 fix: 同步字数到 manager,前台服务通知才能显示真实进度
+                                                    chatGenerationManager.updateChars(sessionId, params.builder.length)
                                                     notificationManager.updateLiveProgress(
                                                         sessionTitle,
                                                         params.builder.length,
@@ -7051,6 +7060,9 @@ class ChatViewModel(
 
     /** v1.64: 切换指定消息 reflection 块的展开/折叠状态。 */
     fun toggleMessageReflectionExpanded(messageId: String) = messageController.toggleMessageReflectionExpanded(messageId)
+
+    /** v2.4.6: 切换指定消息译文块的展开/折叠状态。 */
+    fun toggleMessageTranslationExpanded(messageId: String) = messageController.toggleMessageTranslationExpanded(messageId)
 
     /**
      * Phase 8.7: 切换消息朗读状态。

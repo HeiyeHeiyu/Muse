@@ -67,16 +67,19 @@ private val TRACK_WIDTH = 22.dp
 /**
  * 触摸热区宽度（= 导航条占用的右侧空间）。
  *
- * fix: 从 36.dp 收窄到 24.dp —— 旧热区宽到盖住消息底部动作行最右按钮（MuseTactileButton 48dp
- * 触摸目标）。Compose 命中测试是“最高层节点独占”，热区盖住哪里，那一片的按钮就完全收不到事件。
- * 收窄只是一半，另一半是让消息列表在 [MESSAGE_MAP_RESERVED_WIDTH] 上避让（见 ChatScreen）。
+ * 历史: 36dp → 24dp（v2.4.5 收窄，避免盖住消息底部动作行）→ 40dp（v2.5.0 修复）。
+ *
+ * v2.5.0 fix: 24dp 热区贴死屏幕右缘，而 Android 10+ 系统返回手势占据左右缘约 20dp，
+ * 实际可触面积不足 4dp —— 用户实测「消息地图完全拖不动、轨道唤不出来」。
+ * 加宽回 40dp 并配合右缘内缩（见 ChatScreen 调用点 padding），
+ * 既避开系统手势带，又不吃消息底部动作行的点击（列表避让区同步加大）。
  */
-internal val MESSAGE_MAP_TOUCH_WIDTH = 24.dp
+internal val MESSAGE_MAP_TOUCH_WIDTH = 40.dp
 
 /** 消息列表右侧为导航条预留的总宽度（热区 + 呼吸间隙），保证按钮永不与热区重叠。 */
 internal val MESSAGE_MAP_RESERVED_WIDTH = MESSAGE_MAP_TOUCH_WIDTH + 4.dp
 
-@Suppress("CyclomaticComplexMethod")
+@Suppress("CyclomaticComplexMethod", "FunctionNaming", "LongParameterList")
 @Composable
 internal fun MessageMapBar(
     messages: List<UIMessage>,

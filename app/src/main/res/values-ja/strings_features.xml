@@ -849,4 +849,13 @@
     <string name="home_date_pattern">M月d日 EEEE</string>
     <string name="groupchat_summary_doc_title">ディスカッション要約 · %1$s</string>
     <string name="groupchat_continue_summary_prefix">【要約の実行】</string>
+    <string name="knowledge_folder_new">新しいフォルダ</string>
+    <string name="knowledge_folder_rename">フォルダ名を変更</string>
+    <string name="knowledge_folder_delete">フォルダを削除</string>
+    <string name="knowledge_folder_delete_confirm">フォルダ「%1$s」を削除しますか?配下のサブフォルダもすべて削除されます(ドキュメントは保持されます)。</string>
+    <string name="knowledge_folder_name_label">フォルダ名</string>
+    <string name="knowledge_folder_name_empty">フォルダ名を入力してください</string>
+    <string name="knowledge_folder_created">フォルダ「%1$s」を作成しました</string>
+    <string name="knowledge_folder_renamed">「%1$s」に名前を変更しました</string>
+    <string name="knowledge_folder_deleted">フォルダを削除しました</string>
 </resources>

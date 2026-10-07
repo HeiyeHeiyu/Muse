@@ -786,4 +786,19 @@
     <string name="settings_chat_message_font_size_subtitle">Ajusta o tamanho do texto, padrão 100%</string>
     <string name="settings_chat_letter_spacing">Espaçamento entre letras</string>
     <string name="settings_chat_letter_spacing_subtitle">Ajusta o espaço entre caracteres</string>
+    <string name="assistant_kb_scope_whole"> (tudo)</string>
+    <string name="settings_preview_user_bubble">Pré-visualização da sua mensagem</string>
+    <string name="settings_preview_assistant_bubble">Pré-visualização de uma resposta de IA; fonte, espaçamento e raio mudam ao vivo.</string>
+    <string name="settings_preview_timestamp">14:30</string>
+    <string name="settings_preview_model_name">Muse · Modelo de exemplo</string>
+    <string name="settings_theme_liquid_glass">Efeito de vidro líquido</string>
+    <string name="settings_theme_liquid_glass_desc">Visual de vidro para a barra superior, de entrada e balões de mensagem.</string>
+    <string name="settings_glass_off">Desligado</string>
+    <string name="settings_glass_water">Vidro de água</string>
+    <string name="settings_glass_frost">Vidro fosco</string>
+    <string name="settings_glass_level">Intensidade</string>
+    <string name="settings_glass_level_low">Baixa</string>
+    <string name="settings_glass_level_medium">Média</string>
+    <string name="settings_glass_level_high">Alta</string>
+    <string name="settings_glass_level_hint">Em dispositivos básicos, escolha Baixa ou Desligado.</string>
 </resources>

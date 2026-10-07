@@ -494,6 +494,16 @@
     <string name="knowledge_move_success">文档已移动到文件夹</string>
     <string name="knowledge_move_failed">移动文档失败：%1$s</string>
     <string name="knowledge_folder_item_files">%1$d 个文件</string>
+    <!-- v2.4.6: 文件夹增删改(文件夹同时是检索隔离单位) -->
+    <string name="knowledge_folder_new">新建文件夹</string>
+    <string name="knowledge_folder_rename">重命名文件夹</string>
+    <string name="knowledge_folder_delete">删除文件夹</string>
+    <string name="knowledge_folder_delete_confirm">确认删除文件夹「%1$s」?其下所有子文件夹也会一并删除(文档不会被删除)。</string>
+    <string name="knowledge_folder_name_label">文件夹名</string>
+    <string name="knowledge_folder_name_empty">文件夹名不能为空</string>
+    <string name="knowledge_folder_created">已创建文件夹「%1$s」</string>
+    <string name="knowledge_folder_renamed">已重命名为「%1$s」</string>
+    <string name="knowledge_folder_deleted">文件夹已删除</string>
     <string name="knowledge_back">返回</string>
     <string name="knowledge_sort">排序</string>
     <string name="knowledge_import">导入</string>

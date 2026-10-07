@@ -631,4 +631,5 @@
     <string name="chat_context_divider_title_count">컨텍스트 압축됨 · %1$d개 요약</string>
     <string name="chat_context_divider_hint_collapsed">탭하여 원본 메시지 보기</string>
     <string name="chat_context_divider_hint_expanded">탭하여 원본 메시지 숨기기</string>
+    <string name="chat_translation_block_title">번역</string>
 </resources>

@@ -166,10 +166,11 @@ class ChatGenerationService : Service() {
                     return@collect
                 }
                 // 多会话并发时通知展示最近更新的任务;保活判定使用完整快照。
+                // v2.5.0 fix: 展示真实字数(此前恒传 0,通知文案字数不变,用户误以为卡死)。
                 val gen = generations.values.maxByOrNull { it.lastUpdatedAt } ?: return@collect
                 notificationManager.updateLiveProgress(
                     gen.sessionTitle,
-                    0,
+                    gen.currentChars,
                     true,
                     io.zer0.muse.notification.MuseNotificationTarget.Session(gen.sessionId),
                 )
@@ -186,6 +187,10 @@ class ChatGenerationService : Service() {
         // v1.0.15: 释放 wakelock
         runCatching { wakeLock?.takeIf { it.isHeld }?.release() }
         wakeLock = null
+        // v2.5.0 fix: 先取消通知再退前台 —— startForeground 的通知无法被 nm.cancel
+        // 单独移除(系统会恢复),必须先 stopForeground;反过来先 cancel 会被前台身份吞掉,
+        // 通知栏残留一条字数不变的"动态进度条"(用户实测)。
+        notificationManager.clearLiveProgress()
         runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
             .onFailure { Logger.w("ChatGenService", "移除前台状态失败", it) }
         if (latestStartId > 0) {
@@ -238,6 +243,9 @@ class ChatGenerationService : Service() {
         wakeLock = null
         // M-009: 取消 serviceScope,避免服务销毁后仍有协程持有引用导致泄漏
         serviceScope.cancel()
+        // v2.5.0 fix: 兼底清理进度通知 —— 服务被系统强杀时 stopService 不会执行,
+        // 通知栏会残留一条字数不变的动态进度条(用户实测"退出应用也一直在")。
+        notificationManager.clearLiveProgress()
     }
 
     companion object {

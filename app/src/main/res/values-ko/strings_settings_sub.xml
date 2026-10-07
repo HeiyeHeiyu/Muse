@@ -785,4 +785,19 @@
     <string name="settings_chat_message_font_size_subtitle">메시지 본문 글자 크기 조정, 기본 100%</string>
     <string name="settings_chat_letter_spacing">자간</string>
     <string name="settings_chat_letter_spacing_subtitle">본문 글자 간격 조정</string>
+    <string name="assistant_kb_scope_whole"> (전체)</string>
+    <string name="settings_preview_user_bubble">내 메시지 미리보기</string>
+    <string name="settings_preview_assistant_bubble">AI 답장 미리보기. 글자 크기, 자간, 모서리가 실시간으로 바뀝니다.</string>
+    <string name="settings_preview_timestamp">14:30</string>
+    <string name="settings_preview_model_name">Muse · 샘플 모델</string>
+    <string name="settings_theme_liquid_glass">리퀴드 글래스 효과</string>
+    <string name="settings_theme_liquid_glass_desc">상단 바, 입력 바, 메시지 버블의 유리 질감.</string>
+    <string name="settings_glass_off">끄기</string>
+    <string name="settings_glass_water">워터 글래스</string>
+    <string name="settings_glass_frost">서리 글래스</string>
+    <string name="settings_glass_level">강도</string>
+    <string name="settings_glass_level_low">낮음</string>
+    <string name="settings_glass_level_medium">중간</string>
+    <string name="settings_glass_level_high">높음</string>
+    <string name="settings_glass_level_hint">저사양 기기에서는 낮음 또는 끄기를 권장합니다.</string>
 </resources>

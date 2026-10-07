@@ -253,7 +253,7 @@ class SettingsRepository(
                         config
                     }
                 val enriched = enrichWithSpecDefaults(internalized)
-                // 与 Hana 的 models.json projection 对齐：用户模型目录先合并进 Provider，
+                // 用户模型目录先合并进 Provider，
                 // 再由统一能力注册表增强，保证设置页、模型选择器和实际请求看到同一份元数据。
                 val catalogProviderId = enriched.specId ?: enriched.id.removePrefix("preset_")
                 val projectedModels =
@@ -379,6 +379,10 @@ class SettingsRepository(
 
     /** H5: 高对比主题开关(增强前景/背景对比,面向弱视用户)。 */
     val highContrastFlow: Flow<Boolean> get() = appearance.highContrastFlow
+
+    /** v2.5.0: 液态玻璃模式(off/water/frost)与强度(0..100)。 */
+    val liquidGlassModeFlow: Flow<String> get() = appearance.liquidGlassModeFlow
+    val liquidGlassStrengthFlow: Flow<Int> get() = appearance.liquidGlassStrengthFlow
 
     /** v1.60-C: 应用界面语言(system=跟随系统 / zh=中文 / en=英文 / ja=日语 / ko=韩语 / ru=俄语)。 */
     val languageFlow: Flow<String> get() = appSettings.languageFlow
@@ -1433,6 +1437,10 @@ class SettingsRepository(
 
     /** H5: 保存高对比主题开关。 */
     suspend fun saveHighContrast(enabled: Boolean) = appearance.saveHighContrast(enabled)
+
+    /** v2.5.0: 保存液态玻璃模式与强度。 */
+    suspend fun saveLiquidGlassMode(mode: String) = appearance.saveLiquidGlassMode(mode)
+    suspend fun saveLiquidGlassStrength(strength: Int) = appearance.saveLiquidGlassStrength(strength)
 
     suspend fun saveThemeId(id: String) = appearance.saveThemeId(id)
 

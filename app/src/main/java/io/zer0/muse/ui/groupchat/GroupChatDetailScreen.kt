@@ -439,7 +439,12 @@ fun GroupChatDetailScreen(
                 Box(modifier = Modifier.fillMaxWidth()) {
                     // 裸图标顶栏的极浅渐变底:消息(或自定义聊天背景)会从顶栏下面滚过,
                     // 没有它图标与群名会压在内容上。
-                    ChatTopBarScrim(modifier = Modifier.matchParentSize())
+                    // v2.5.0: 与单聊同步 — 全局玻璃源 + 独立玻璃大岛。
+                    ChatTopBarScrim(
+                        modifier = Modifier.matchParentSize(),
+                        glassHazeState = io.zer0.muse.ui.theme.LocalGlassHazeState.current,
+                        glassConfig = io.zer0.muse.ui.theme.LocalLiquidGlass.current,
+                    )
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -536,6 +541,7 @@ fun GroupChatDetailScreen(
                                         ),
                                     ),
                                     onDismiss = { showTopMenu = false },
+                                    glassHazeState = io.zer0.muse.ui.theme.LocalGlassHazeState.current,
                                 )
                             }
                         }

@@ -631,4 +631,5 @@
     <string name="chat_context_divider_title_count">Контекст сжат · %1$d сообщений в сводке</string>
     <string name="chat_context_divider_hint_collapsed">Нажмите, чтобы показать исходные сообщения</string>
     <string name="chat_context_divider_hint_expanded">Нажмите, чтобы скрыть исходные сообщения</string>
+    <string name="chat_translation_block_title">Перевод</string>
 </resources>

@@ -260,7 +260,7 @@
     <string name="schedule_action_tool_id">Tool ID</string>
     <string name="schedule_action_tool_id_placeholder">e.g. quick_note_add</string>
     <string name="schedule_action_tool_params">Tool params (JSON)</string>
-    <string name="schedule_action_tool_params_placeholder">e.g. {\"title\":\"daily report\"}</string>
+    <string name="schedule_action_tool_params_placeholder">e.g. {「title」:「daily report」}</string>
     <string name="schedule_action_notify_title">Notification title</string>
     <string name="schedule_action_notify_message">Notification message</string>
     <string name="schedule_chain_title">Chain tasks (trigger after success)</string>
@@ -306,7 +306,7 @@
     <string name="quick_notes_export_folder">Folder: %1$s</string>
     <string name="quick_notes_export_updated_at">Updated: %1$s</string>
     <string name="quick_notes_delete_permanent_title">Delete permanently</string>
-    <string name="quick_notes_delete_permanent_confirm">This cannot be undone. Permanently delete \"%1$s\"?</string>
+    <string name="quick_notes_delete_permanent_confirm">This cannot be undone. Permanently delete 「%1$s」?</string>
     <string name="quick_notes_clear_trash">Clear trash</string>
     <string name="quick_notes_clear_trash_confirm">This will permanently delete all %1$d notes in trash. This cannot be undone.</string>
     <string name="quick_notes_trash_count">Trash: %1$d</string>
@@ -774,4 +774,13 @@
     <string name="home_date_pattern">MMM d, EEEE</string>
     <string name="groupchat_summary_doc_title">Discussion summary · %1$s</string>
     <string name="groupchat_continue_summary_prefix">[Follow up on summary] </string>
+    <string name="knowledge_folder_new">New folder</string>
+    <string name="knowledge_folder_rename">Rename folder</string>
+    <string name="knowledge_folder_delete">Delete folder</string>
+    <string name="knowledge_folder_delete_confirm">Delete folder \"%1$s\"? All subfolders under it will also be removed (documents are kept).</string>
+    <string name="knowledge_folder_name_label">Folder name</string>
+    <string name="knowledge_folder_name_empty">Folder name cannot be empty</string>
+    <string name="knowledge_folder_created">Folder \"%1$s\" created</string>
+    <string name="knowledge_folder_renamed">Renamed to \"%1$s\"</string>
+    <string name="knowledge_folder_deleted">Folder deleted</string>
 </resources>

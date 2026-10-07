@@ -323,6 +323,8 @@
     <string name="chat_tool_attachment">附件</string>
     <string name="chat_tool_knowledge">引用知识库</string>
     <string name="chat_tool_knowledge_subtitle">@mention 文档</string>
+    <!-- v2.4.6: 消息下方译文可展开块 -->
+    <string name="chat_translation_block_title">翻译</string>
     <string name="chat_tool_prompt_template_subtitle">从模板库选择场景提示词</string>
     <string name="chat_tool_skills">技能</string>
     <string name="chat_tool_skills_subtitle">管理和调用已启用的技能</string>

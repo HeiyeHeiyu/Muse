@@ -9,6 +9,7 @@ import io.zer0.muse.data.assistant.AssistantEntity
 import io.zer0.muse.data.quickmsg.QuickMessageEntity
 import io.zer0.muse.ui.chat.PendingDocument
 import io.zer0.muse.ui.chat.VideoAttachment
+import dev.chrisbanes.haze.HazeState
 
 /**
  * B7-07: InputBar 输入状态聚合。
@@ -50,6 +51,10 @@ data class MuseInputState(
     val contextWindow: Int = 0,
     val pasteAsFileEnabled: Boolean = true,
     val pasteAsFileThreshold: Int = 2000,
+    /** v2.5.0: 液态玻璃效果 — 输入岛用背景模糊替代实色(null=不启用,回退实色)。 */
+    val glassHazeState: HazeState? = null,
+    /** v2.5.0: 玻璃风格与档位配置。 */
+    val glassConfig: io.zer0.muse.ui.theme.LiquidGlassConfig = io.zer0.muse.ui.theme.LiquidGlassConfig(),
 )
 
 /** B7-07: InputBar 全部回调收敛。 */

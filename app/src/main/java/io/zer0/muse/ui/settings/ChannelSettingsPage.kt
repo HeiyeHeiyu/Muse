@@ -367,7 +367,7 @@ private fun shortTargetId(raw: String): String {
     return id.take(8) + "…" + id.takeLast(6)
 }
 
-/** 添加/编辑渠道对话框（v2.0.1: 按平台定制接入字段，对齐 Hana Bridge 模型）。 */
+/** 添加/编辑渠道对话框（v2.0.1: 按平台定制接入字段）。 */
 @Composable
 private fun ChannelEditDialog(initial: ChannelConfig?, onDismiss: () -> Unit, onSave: (ChannelConfig) -> Unit) {
     var platform by remember { mutableStateOf(initial?.platform ?: ChannelPlatform.FEISHU) }
@@ -1109,7 +1109,7 @@ private fun PlatformCredentialFooter(hint: String, validating: Boolean, result: 
     }
 }
 
-/** 平台接入教程：沿用 Hana Bridge 的官方配置步骤。 */
+/** 平台接入教程：按平台官方配置步骤。 */
 @Composable
 private fun ChannelTutorialDialog(platform: ChannelPlatform, onDismiss: () -> Unit) {
     val stepsRes =

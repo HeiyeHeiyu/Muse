@@ -49,6 +49,8 @@ class ChatGenerationManager(
         val turnId: String? = null,
         val isStreaming: Boolean = true,
         val lastUpdatedAt: Long = System.currentTimeMillis(),
+        /** v2.5.0: 已生成字数(心跳线程与 UI 线程共用),供前台通知展示真实进度。 */
+        val currentChars: Int = 0,
     )
 
     private val _activeGeneration = MutableStateFlow<ActiveGeneration?>(null)
@@ -201,6 +203,19 @@ class ChatGenerationManager(
             val current = _activeGenerations.value[targetId] ?: return
             val touched = current.copy(lastUpdatedAt = System.currentTimeMillis())
             _activeGenerations.value = _activeGenerations.value + (targetId to touched)
+            _activeGeneration.value = _activeGenerations.value.values.maxByOrNull { it.lastUpdatedAt }
+        }
+    }
+
+    /**
+     * v2.5.0: 更新已生成字数,供前台通知展示真实进度。
+     * 由流式增量回调调用(节流后),服务层读取快照拼通知文案。
+     */
+    fun updateChars(sessionId: String, chars: Int) {
+        synchronized(lock) {
+            val current = _activeGenerations.value[sessionId] ?: return
+            val touched = current.copy(currentChars = chars, lastUpdatedAt = System.currentTimeMillis())
+            _activeGenerations.value = _activeGenerations.value + (sessionId to touched)
             _activeGeneration.value = _activeGenerations.value.values.maxByOrNull { it.lastUpdatedAt }
         }
     }

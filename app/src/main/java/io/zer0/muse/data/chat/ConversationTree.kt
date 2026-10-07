@@ -106,18 +106,23 @@ data class ConversationTree(
      *
      * [branchInfoFor] 单次查询是整树遍历;聊天列表每条消息每帧调用一次时
      * 总开销 O(n²),长会话流式期间每 50ms 重算,是卡顿的主要来源之一。
-     * 本方法一次性构建 messageId → BranchInfo 映射(同一语义:先到先得;
-     * 消息 id 全局唯一,putIfAbsent 保证与原实现“首个命中”一致)。
+     *
+     * v2.4.6 重构:助手的变体切换器改为「挂在整轮回复的最后一条消息上」。
+     * 旧实现把同一个 [BranchInfo] 打到回复组内**每一条**变体消息上,而一条
+     * 助手变体可能包含多条消息(思考/工具/正文),导致每条消息各自渲染一个
+     * 切换器 —— 多步回复时箭头出现在第一条下、且重试后内容叠加错位。
+     * 现在只给"这一轮回复中最后一条被渲染的助手消息"挂助手 [BranchInfo];
+     * 用户版本切换器仍挂在用户消息上(语义不变)。
      */
     fun buildBranchInfoIndex(): Map<String, BranchInfo> {
-        val sizeEstimate = userNodes.sumOf { 1 + it.variants.size * 2 }
-        val map = HashMap<String, BranchInfo>(sizeEstimate)
+        val map = HashMap<String, BranchInfo>()
         userNodes.forEach { user ->
             val userGroupId = user.currentVariant?.message?.variantGroupId ?: user.groupId
             user.variants.forEach { variant ->
                 val userParentId = variant.message.id.toString()
+                // 用户版本切换器:挂在用户消息上(编辑/重试产生的提问版本)
                 map.putIfAbsent(
-                    variant.message.id.toString(),
+                    userParentId,
                     BranchInfo(
                         groupId = userGroupId,
                         parentGroupId = null,
@@ -125,19 +130,26 @@ data class ConversationTree(
                         branchCount = user.variants.size,
                     ),
                 )
-                variant.assistantNodes.forEach { assistant ->
-                    assistant.variants.forEach { av ->
-                        map.putIfAbsent(
-                            av.id.toString(),
-                            BranchInfo(
-                                groupId = assistant.groupId,
-                                parentGroupId = userParentId,
-                                selectIndex = assistant.selectIndex,
-                                branchCount = assistant.variants.size,
-                            ),
-                        )
-                    }
+                // 助手变体切换器:只挂在"本轮回复的最后一条消息"上。
+                // 该轮回复 = 此 user variant 下全部 assistantNodes;
+                // 变体数取"回复节点"(含非工具消息的节点)的变体数 —— 纯工具节点不是可重试的"回复"。
+                // 末条优先取回复节点的当前变体(它一定会被渲染;工具节点可能被聚合为组卡),
+                // 无回复节点时退回最后一个节点的当前变体。
+                val replyNode = variant.assistantNodes.lastOrNull { node ->
+                    node.variants.any { it.toolCallInfo == null }
                 }
+                val lastNode = variant.assistantNodes.lastOrNull()
+                val anchorNode = replyNode ?: lastNode ?: return@forEach
+                val lastMsg = anchorNode.currentVariant ?: return@forEach
+                map.putIfAbsent(
+                    lastMsg.id.toString(),
+                    BranchInfo(
+                        groupId = anchorNode.groupId,
+                        parentGroupId = userParentId,
+                        selectIndex = anchorNode.selectIndex,
+                        branchCount = anchorNode.variants.size,
+                    ),
+                )
             }
         }
         return map

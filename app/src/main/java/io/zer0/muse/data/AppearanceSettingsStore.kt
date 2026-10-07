@@ -43,6 +43,31 @@ class AppearanceSettingsStore(private val context: Context) {
     /** H5: 高对比主题开关 — 增强前景/背景对比,面向弱视用户(a11y 策略)。 */
     val highContrastFlow: Flow<Boolean> = store.data.map { prefs -> prefs[KEY_HIGH_CONTRAST] ?: false }
 
+    /**
+     * v2.5.0: 液态玻璃模式 — off/water(水玻璃)/frost(磨砂玻璃)。
+     * 默认 off(效果待打磨,设置项已隐藏);旧布尔键值兼容: true→frost, false→off。
+     */
+    val liquidGlassModeFlow: Flow<String> = store.data.map { prefs ->
+        when (val legacy = prefs[KEY_LIQUID_GLASS]) {
+            null -> prefs[KEY_LIQUID_GLASS_MODE] ?: "off"
+            else -> if (legacy) "frost" else "off"
+        }
+    }
+
+    /**
+     * v2.5.0: 玻璃强度(0..100 整数百分比,0=关闭)。旧三档迁移: 低→25 中→50 高→85。
+     */
+    val liquidGlassStrengthFlow: Flow<Int> = store.data.map { prefs ->
+        when (val legacy = prefs[KEY_LIQUID_GLASS_LEVEL]) {
+            null -> prefs[KEY_LIQUID_GLASS_STRENGTH] ?: 50
+            else -> when (legacy) {
+                0 -> 25
+                2 -> 85
+                else -> 50
+            }
+        }
+    }
+
     suspend fun saveThemeMode(mode: String) {
         store.edit { it[KEY_THEME_MODE] = mode }
     }
@@ -84,6 +109,19 @@ class AppearanceSettingsStore(private val context: Context) {
         store.edit { it[KEY_HIGH_CONTRAST] = enabled }
     }
 
+    /** v2.5.0: 保存液态玻璃模式(off/water/frost)。 */
+    suspend fun saveLiquidGlassMode(mode: String) {
+        store.edit {
+            it[KEY_LIQUID_GLASS_MODE] = mode
+            it.remove(KEY_LIQUID_GLASS) // 清理旧布尔键
+        }
+    }
+
+    /** v2.5.0: 保存玻璃强度(0..100)。 */
+    suspend fun saveLiquidGlassStrength(strength: Int) {
+        store.edit { it[KEY_LIQUID_GLASS_STRENGTH] = strength.coerceIn(0, 100) }
+    }
+
     suspend fun upsertCustomTheme(theme: CustomTheme) {
         store.edit { prefs ->
             val current = decodePrefsOrNull(prefs[KEY_CUSTOM_THEMES], ListSerializer(CustomTheme.serializer()), "CustomThemes(upsert)") ?: emptyList()
@@ -122,5 +160,9 @@ class AppearanceSettingsStore(private val context: Context) {
         private val KEY_CUSTOM_THEMES = stringPreferencesKey("custom_themes_json")
         private val KEY_CUSTOM_FONT_PATH = stringPreferencesKey("custom_font_path")
         private val KEY_HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
+        private val KEY_LIQUID_GLASS = booleanPreferencesKey("liquid_glass_enabled")
+        private val KEY_LIQUID_GLASS_MODE = stringPreferencesKey("liquid_glass_mode")
+        private val KEY_LIQUID_GLASS_LEVEL = intPreferencesKey("liquid_glass_level")
+        private val KEY_LIQUID_GLASS_STRENGTH = intPreferencesKey("liquid_glass_strength")
     }
 }

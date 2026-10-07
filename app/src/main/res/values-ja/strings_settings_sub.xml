@@ -785,4 +785,19 @@
     <string name="settings_chat_message_font_size_subtitle">メッセージ本文の文字サイズを調整(初期値 100%)</string>
     <string name="settings_chat_letter_spacing">文字間隔</string>
     <string name="settings_chat_letter_spacing_subtitle">本文の文字間隔を調整</string>
+    <string name="assistant_kb_scope_whole">（全体）</string>
+    <string name="settings_preview_user_bubble">あなたのメッセージのプレビュー</string>
+    <string name="settings_preview_assistant_bubble">AIの返信のプレビュー。文字サイズ・字間・角丸がリアルタイムに変わります。</string>
+    <string name="settings_preview_timestamp">14:30</string>
+    <string name="settings_preview_model_name">Muse · サンプルモデル</string>
+    <string name="settings_theme_liquid_glass">リキッドグラス効果</string>
+    <string name="settings_theme_liquid_glass_desc">トップバー・入力バー・メッセージバブルのガラス質感。</string>
+    <string name="settings_glass_off">オフ</string>
+    <string name="settings_glass_water">ウォーターグラス</string>
+    <string name="settings_glass_frost">すりガラス</string>
+    <string name="settings_glass_level">強度</string>
+    <string name="settings_glass_level_low">低</string>
+    <string name="settings_glass_level_medium">中</string>
+    <string name="settings_glass_level_high">高</string>
+    <string name="settings_glass_level_hint">低スペック端末では「低」またはオフをおすすめします。</string>
 </resources>

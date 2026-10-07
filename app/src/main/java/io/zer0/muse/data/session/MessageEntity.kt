@@ -146,4 +146,8 @@ data class MessageEntity(
      * H11: 翻译保留原文 — 译文消息指向被翻译的源消息 id(字符串形式),UI 提供原文对照折叠。
      */
     @ColumnInfo(defaultValue = "NULL") val translationSourceId: String? = null,
+    /**
+     * v2.4.6: 该消息的译文映射(JSON: 语言名 → 译文)。挂在消息本身的可展开块,不另开助手消息。
+     */
+    @ColumnInfo(defaultValue = "{}") val translationsJson: String = "{}",
 )

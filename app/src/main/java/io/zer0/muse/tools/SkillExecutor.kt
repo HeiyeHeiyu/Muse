@@ -742,6 +742,18 @@ class SkillExecutor(
                                         )
                                     },
                                 )
+                                put(
+                                    "folder",
+                                    buildJsonObject {
+                                        put("type", "string")
+                                        put(
+                                            "description",
+                                            "可选,限定检索的文件夹(知识库内路径,如'合同'或'合同/2026')。" +
+                                                "每个文件夹是独立检索域,传入后只在该文件夹及其子文件夹内检索,不会串到其它文件夹。" +
+                                                "用户只想查某个文件夹时传入。",
+                                        )
+                                    },
+                                )
                             },
                         )
                         put("required", kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("query"))))

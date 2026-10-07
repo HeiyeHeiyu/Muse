@@ -43,6 +43,7 @@ class BackupEntityCoverageTest {
         "MilestoneEntity" to "milestones",
         "AgentMessageEntity" to "agentMessages",
         "KnowledgeBaseEntity" to "knowledgeBases",
+        "io.zer0.muse.data.knowledge.KnowledgeFolderEntity" to "knowledgeFolders",
         "MessageOutboxEntity" to "messageOutboxes",
         "TranslateHistoryEntity" to "translateHistories",
         "QuickNoteEntity" to "quickNotes",

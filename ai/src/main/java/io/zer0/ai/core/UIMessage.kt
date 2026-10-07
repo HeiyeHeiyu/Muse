@@ -221,6 +221,13 @@ data class UIMessage(
      * 仅对话内即时对照用,provider 发送请求时忽略。
      */
     val translationSourceId: String? = null,
+    /**
+     * v2.4.6: 该消息的译文映射(语言名 → 译文),挂在消息本身、不再另开一条助手消息。
+     *
+     * UI 在消息下方以与 MOOD/思考同款的可展开块展示,不进对话历史、不参与变体。
+     * provider 发送请求时忽略此字段。
+     */
+    val translations: Map<String, String> = emptyMap(),
 ) {
     /** 拼出用于显示的纯文本(不含推理过程)。 */
     fun toText(): String = content

@@ -3,6 +3,7 @@
 package io.zer0.muse
 
 import android.content.Intent
+import dev.chrisbanes.haze.hazeSource
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
@@ -168,6 +169,19 @@ class MainActivity : ComponentActivity() {
         return newContext
     }
 
+    // v2.5.0 fix: 系统深浅色切换即时生效 —— Manifest 声明了 configChanges 含 uiMode，
+    // Activity 不重建、Compose 不重组，isSystemInDarkTheme() 读到缓存旧配置。
+    // 类字段持有 uiMode 版本号，onConfigurationChanged 递增，setContent 的主题
+    // 计算读它作为重组 key。
+    private val uiModeVersion = androidx.compose.runtime.mutableIntStateOf(0)
+
+    // v2.5.0 fix: uiMode 变化（系统深浅色/夜间模式）时递增版本号触发主题重组。
+    // Manifest 的 configChanges 含 uiMode，Activity 不重建，必须手动通知 Compose。
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        uiModeVersion.intValue++
+    }
+
     // Activity 启动初始化(系统栏/安全模式/通知权限/字体/主题等)为屏幕级固有聚合结构,
     // 行数恰超 detekt LongMethod 阈值 1,拆分反损可读性
     @Suppress("LongMethod")
@@ -232,6 +246,7 @@ class MainActivity : ComponentActivity() {
         // v1.102: locale 应用由 attachBaseContext + wrapWithLanguage 处理(覆盖所有 Android 版本),
         // 不再在 onCreate 里调用 applyLanguage(setApplicationLocales 在 ComponentActivity 上
         // Android 12 及以下 backport 不生效)。
+
         setContent {
             val startupReady by (application as MuseApp).startupReady.collectAsStateWithLifecycle()
             if (!startupReady) {
@@ -249,11 +264,18 @@ class MainActivity : ComponentActivity() {
                 val language by settings.languageFlow.collectAsStateWithLifecycle(initialValue = "system")
                 RuntimeLocaleProvider(lang = language) {
                 // P6-C: 主题模式跟随用户设置(System / Light / Dark)
+                // v2.5.0 fix: 读取 uiModeVersion —— onConfigurationChanged 递增它，
+                // 强制本块在系统深浅色变化后重组，isSystemInDarkTheme() 重新求值。
+                val uiModeKey = uiModeVersion.intValue
                 val themeMode by settings.themeModeFlow.collectAsStateWithLifecycle(initialValue = "system")
                 val darkTheme = when (themeMode) {
                     "light" -> false
                     "dark" -> true
-                    else -> isSystemInDarkTheme()
+                    else -> {
+                        @kotlin.Suppress("UNUSED_EXPRESSION")
+                        uiModeKey
+                        isSystemInDarkTheme()
+                    }
                 }
                 // 修复:initialValue 改为 "mono" 与 SettingsRepository.themeIdFlow 默认值一致,
                 // 避免冷启动时首帧渲染 warm_paper 主题、随后切换到 mono 造成主题闪烁。
@@ -272,6 +294,20 @@ class MainActivity : ComponentActivity() {
                 val bodyFontFamily by remember(customFontPath) { mutableStateOf(loadCustomFontFamily(customFontPath)) }
                 // I4: 语言热切换后 Compose 资源已由 RuntimeLocaleProvider 覆盖,
                 // 不再需要 recreate;冷启动初始语言仍由 attachBaseContext 保证。
+                // v2.5.0: 液态玻璃配置全局快照 —— 全应用悬浮表面(顶栏岛/输入岛/按钮/气泡)消费。
+                val glassModeRaw by settings.liquidGlassModeFlow.collectAsStateWithLifecycle(initialValue = "off")
+                val glassStrength by settings.liquidGlassStrengthFlow.collectAsStateWithLifecycle(initialValue = 50)
+                val glassEnabled = glassModeRaw != io.zer0.muse.ui.theme.LiquidGlassConfig.MODE_OFF && glassStrength > 0
+                val glassConfig = io.zer0.muse.ui.theme.LiquidGlassConfig(
+                    style = io.zer0.muse.ui.theme.LiquidGlassConfig.styleFrom(glassModeRaw),
+                    strength = glassStrength / 100f,
+                )
+                // 全局唯一玻璃背景源:NavGraph 内容层。任何页面/表面挂 hazeEffect 即可获得玻璃。
+                val globalGlassState = if (glassEnabled) remember { dev.chrisbanes.haze.HazeState() } else null
+                androidx.compose.runtime.CompositionLocalProvider(
+                    io.zer0.muse.ui.theme.LocalLiquidGlass provides glassConfig,
+                    io.zer0.muse.ui.theme.LocalGlassHazeState provides globalGlassState,
+                ) {
                 MuseTheme(
                     darkTheme = darkTheme,
                     themeId = themeId,
@@ -285,16 +321,31 @@ class MainActivity : ComponentActivity() {
                     // v1.56: Compose 渲染异常由 MuseCrashHandler(Thread.UncaughtExceptionHandler)兜底,
                     // logComposeException 方法已就绪,待未来 Compose 版本提供 RuntimeExceptionHandler API 后接入。
                     Box(modifier = Modifier.fillMaxSize()) {
-                        MuseNavGraph(
-                            pendingShareResult = pendingShareResult,
-                            onPendingIntentConsumed = {
-                                pendingShareResult = ShareIntentHandler.ShareResult.None
-                            },
-                            onSplashReady = { splashReady = true },
-                        )
+                        // v2.5.0: NavGraph 内容作为全局玻璃背景源 —— 所有悬浮表面(顶栏岛/输入岛/按钮/气泡)
+                        // 从这里取背景模糊。挂在最外层,任何页面自动生效。
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .then(
+                                    if (globalGlassState != null) {
+                                        Modifier.hazeSource(state = globalGlassState)
+                                    } else {
+                                        Modifier
+                                    },
+                                ),
+                        ) {
+                            MuseNavGraph(
+                                pendingShareResult = pendingShareResult,
+                                onPendingIntentConsumed = {
+                                    pendingShareResult = ShareIntentHandler.ShareResult.None
+                                },
+                                onSplashReady = { splashReady = true },
+                            )
+                        }
                         MuseToastHost()
                     }
                 }
+                } // CompositionLocalProvider(液态玻璃开关)
                 } // RuntimeLocaleProvider
             }
         }
