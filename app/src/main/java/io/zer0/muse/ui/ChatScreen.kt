@@ -1017,13 +1017,16 @@ fun ChatScreen(
                     val sessionCd = stringResource(R.string.chat_session_cd, "$assistantTitle · $sessionTitle")
 
                     Box(modifier = Modifier.fillMaxWidth()) {
-                        // 裸图标顶栏需要一层极浅渐变:消息会从顶栏下面滚过,没有它图标会压在正文上。
-                        // (旧版用三颗灰岛解决对比度,但与全局顶栏语言冲突,已改为裸图标 + 渐变。)
-                        ChatTopBarScrim(
-                            modifier = Modifier.matchParentSize(),
-                            glassHazeState = chatHazeState,
-                            glassConfig = glassConfig,
-                        )
+                        // v2.5.2: 顶栏改「独立岛」——玻璃开启时不再铺满宽 scrim，
+                        // 而是三颗各自的胶囊岛(左返回/中标题/右更多)，岛自带模糊底+高光边；
+                        // 玻璃关闭时回退旧的全宽渐变 scrim。
+                        if (chatHazeState == null) {
+                            ChatTopBarScrim(
+                                modifier = Modifier.matchParentSize(),
+                                glassHazeState = null,
+                                glassConfig = glassConfig,
+                            )
+                        }
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Row(
                                 modifier =
@@ -1041,6 +1044,8 @@ fun ChatScreen(
                                         icon = MuseIcons.arrowLeft,
                                         contentDescription = stringResource(R.string.action_back),
                                         onClick = onBack,
+                                        glassHazeState = chatHazeState,
+                                        glassConfig = glassConfig,
                                     )
                                 } else {
                                     Spacer(Modifier.width(MuseIconSizes.touchTarget))
@@ -1120,6 +1125,8 @@ fun ChatScreen(
                                         onClick = { showTopMenu = true },
                                         enabled = !isStreaming,
                                         tint = if (showTopMenu) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                        glassHazeState = chatHazeState,
+                                        glassConfig = glassConfig,
                                     )
                                     // 无遮罩浮动菜单:每个操作独立右对齐弹出。
                                     if (showTopMenu) {

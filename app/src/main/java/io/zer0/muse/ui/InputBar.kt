@@ -41,6 +41,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import dev.chrisbanes.haze.hazeEffect
+import io.zer0.muse.ui.theme.glassBorder
+import io.zer0.muse.ui.theme.glassEdgeHighlight
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.changedToUp
@@ -679,10 +681,15 @@ internal fun InputBar(state: MuseInputState = MuseInputState(), callbacks: Input
             0.06f,
         )
         val islandModifier: Modifier = if (state.glassHazeState != null) {
-            Modifier.hazeEffect(
-                state = state.glassHazeState,
-                style = io.zer0.muse.ui.theme.liquidGlassStyle(islandBaseColor, state.glassConfig),
-            )
+            // v2.5.2: 输入岛补齐玻璃三要素(模糊底 + 高光边 + 描边)
+            Modifier
+                .clip(MuseShapes.pill)
+                .hazeEffect(
+                    state = state.glassHazeState,
+                    style = io.zer0.muse.ui.theme.liquidGlassStyle(islandBaseColor, state.glassConfig),
+                )
+                .glassEdgeHighlight(MuseShapes.pill, state.glassConfig)
+                .glassBorder(MuseShapes.pill, state.glassConfig)
         } else {
             Modifier
         }

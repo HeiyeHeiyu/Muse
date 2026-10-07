@@ -42,6 +42,7 @@ import io.zer0.muse.ui.theme.MuseIconSizes
  * 裸图标压在滚动内容上时的可读性由调用方的顶栏渐变底保证（见 `ChatTopBarScrim`），
  * 不要在按钮自己身上加阴影或毛玻璃。
  */
+@Suppress("FunctionNaming", "LongParameterList")
 @Composable
 internal fun MuseTopBarIconButton(
     icon: ImageVector,
@@ -59,7 +60,33 @@ internal fun MuseTopBarIconButton(
      * 一屏里可能同时出现返回/菜单/更多三颗圆标，高饱和会盖过页面内容。
      */
     solid: Boolean = true,
+    /** v2.5.2: 玻璃岛模式 —— 非空时按钮壳改用玻璃(模糊底+高光边),实色容器退居基调色。 */
+    glassHazeState: dev.chrisbanes.haze.HazeState? = null,
+    glassConfig: io.zer0.muse.ui.theme.LiquidGlassConfig = io.zer0.muse.ui.theme.LiquidGlassConfig(),
 ) {
+    val useGlass = glassHazeState != null && glassConfig.enabled && solid
+    if (useGlass) {
+        // 玻璃模式:外壳交给 GlassIsland(圆形岛),图标居中,不画实色容器。
+        io.zer0.muse.ui.theme.GlassIsland(
+            hazeState = glassHazeState,
+            config = glassConfig,
+            shape = androidx.compose.foundation.shape.CircleShape,
+            solidColor = MuseActionColors.tonalContainer,
+            modifier = modifier.size(MuseIconSizes.touchTarget),
+        ) {
+            MuseTactileButton(
+                icon = icon,
+                onClick = onClick,
+                contentDescription = contentDescription,
+                enabled = enabled,
+                container = MuseIconContainer.None,
+                tint = tint,
+                iconSize = MuseIconSizes.iconMedium,
+                visualSize = MuseIconSizes.topBarSolid,
+            )
+        }
+        return
+    }
     MuseTactileButton(
         icon = icon,
         onClick = onClick,

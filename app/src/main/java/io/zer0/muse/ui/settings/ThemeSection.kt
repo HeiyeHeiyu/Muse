@@ -201,15 +201,14 @@ internal fun ThemeSection(themeMode: String, fontSizeScale: String, settings: Se
             enabled = highContrast,
             onToggle = { v -> scope.launch { settings.saveHighContrast(v) } },
         )
-        // v2.5.0: 液态玻璃设置项暂时隐藏 —— 效果待打磨(用户反馈强度不可感知),
-        // 底层管线与数据存储保留,后续调优后重新放出。
-        // SettingsGroupDivider()
-        // LiquidGlassSection(
-        //     mode = liquidGlassMode,
-        //     strength = liquidGlassStrength,
-        //     onModeChange = { m -> scope.launch { settings.saveLiquidGlassMode(m) } },
-        //     onStrengthChange = { s -> scope.launch { settings.saveLiquidGlassStrength(s) } },
-        // )
+        SettingsGroupDivider()
+        // v2.5.2: 液态玻璃 — 重设计版(模糊底+高光边+描边),恢复设置项
+        LiquidGlassSection(
+            mode = liquidGlassMode,
+            strength = liquidGlassStrength,
+            onModeChange = { m -> scope.launch { settings.saveLiquidGlassMode(m) } },
+            onStrengthChange = { s -> scope.launch { settings.saveLiquidGlassStrength(s) } },
+        )
     }
 
     // ── v0.22: 主题切换(预设主题网格选择器) ──

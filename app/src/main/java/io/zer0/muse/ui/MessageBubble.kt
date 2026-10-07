@@ -3,7 +3,6 @@
 package io.zer0.muse.ui
 
 import android.content.Intent
-import dev.chrisbanes.haze.hazeChild
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -109,6 +108,9 @@ import io.zer0.muse.ui.theme.BubbleSkinResolver
 import io.zer0.muse.ui.theme.MuseAnimation
 import io.zer0.muse.ui.theme.MuseAvatarSize
 import io.zer0.muse.ui.theme.MuseBubbleStyles
+import io.zer0.muse.ui.theme.glassBorder
+import io.zer0.muse.ui.theme.glassEdgeHighlight
+import io.zer0.muse.ui.theme.glassFakeSurfaceColor
 import io.zer0.muse.ui.theme.MuseElevation
 import io.zer0.muse.ui.theme.MuseHaptics
 import io.zer0.muse.ui.theme.MuseIconSizes
@@ -120,6 +122,7 @@ import io.zer0.muse.ui.theme.tiny
 import io.zer0.muse.util.ShareIntentHelper
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import dev.chrisbanes.haze.HazeState
 
 internal fun messageCopyText(content: String, reasoning: String?): String {
     val body = MoodSkinParser.cleanForExport(content).trim()
@@ -781,17 +784,16 @@ internal fun MessageBubble(
                 val userPadding = resolvedSkin?.style?.let {
                     PaddingValues(horizontal = it.paddingHorizontalDp.dp, vertical = it.paddingVerticalDp.dp)
                 } ?: MusePaddings.bubbleInner
-                // v2.5.0: 液态玻璃气泡 — 玻璃激活时用户气泡改用背景模糊;zIndex 抬高避免自遮挡。
-                // 性能考量: 每屏气泡数量有限,且 Haze 用 GraphicsLayer 复用,高blur仅在高档位生效。
-                val userGlassActive = glassHazeState != null && resolvedSkin == null
+                // v2.5.2: 液态玻璃气泡 —— 改用「假玻璃」(无模糊):
+                // 一屏几十个气泡如果每个都跑真模糊会拖垮滚动(性能黑洞),
+                // 改为渐变底 + 顶部高光边 + 描边,视觉近似但成本低。
+                val userGlassActive = glassHazeState != null && resolvedSkin == null && glassConfig.enabled
                 val userGlassModifier = if (userGlassActive) {
-                    Modifier.hazeChild(
-                        state = glassHazeState ?: dev.chrisbanes.haze.HazeState(),
-                        style = io.zer0.muse.ui.theme.liquidGlassStyle(
-                            MuseBubbleStyles.userSurfaceColor(),
-                            glassConfig,
-                        ),
-                    )
+                    Modifier
+                        .clip(userShape)
+                        .background(glassFakeSurfaceColor(MuseBubbleStyles.userSurfaceColor(), glassConfig))
+                        .glassEdgeHighlight(userShape, glassConfig)
+                        .glassBorder(userShape, glassConfig)
                 } else {
                     Modifier
                 }
