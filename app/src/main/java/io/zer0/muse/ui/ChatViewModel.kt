@@ -2972,7 +2972,11 @@ class ChatViewModel(
         val state = _state.value
         val title = state.sessions.firstOrNull { it.id == sessionId }?.title ?: return
         val defaultTitle = appContext.getString(R.string.session_repo_default_title)
-        if (title.isNotBlank() && title != defaultTitle) return
+        // v2.5.2 fix: 历史遗留的无意义标题（"..." 等字面量）也算未命名，
+        // 允许下次退出时重新自动命名，否则旧会话永远顶着省略号。
+        val titleIsMeaningless = title.isNotBlank() &&
+            title.all { it == '.' || it == '。' || it == '·' || it == '…' || it.isWhitespace() }
+        if (title.isNotBlank() && title != defaultTitle && !titleIsMeaningless) return
         val messages = _messages.value.filter { it.role == MessageRole.USER || it.role == MessageRole.ASSISTANT }
         if (messages.size < 2) return
         val preview =
@@ -3013,7 +3017,12 @@ class ChatViewModel(
                 val cleaned = io.zer0.muse.transformer.stripThinkTags(completion.text)
                 cleaned.removeSurrounding("\"").removeSurrounding("'").take(20)
             }.onSuccess { newTitle ->
-                if (newTitle.isNotBlank()) {
+                // v2.5.2 fix: 拦截无意义标题 —— 中转站/小模型偶尔偷懒输出 "..." / "." /
+                // "。。。" 等字面量（用户实测多个会话标题全变成省略号，导出列表无法辨认），
+                // 此类标题不写入，会话保持默认名，下次退出时重新自动命名。
+                val meaningless = newTitle.isBlank() ||
+                    newTitle.all { it == '.' || it == '。' || it == '·' || it == '…' || it.isWhitespace() }
+                if (!meaningless) {
                     sessionRepository.renameSession(sessionId, newTitle)
                 }
             }.onError { _, _ -> }
