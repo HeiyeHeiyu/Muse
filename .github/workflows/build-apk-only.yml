@@ -87,7 +87,7 @@ jobs:
           Set-Content -Path 'keystore.properties' -Value $props -Encoding utf8
           Write-Host 'keystore.properties written for release signing'
       - name: Build release APKs (minified + optimized)
-        run: ./gradlew assembleRelease -PversionName=2.5.1 -PversionCode=251
+        run: ./gradlew assembleRelease -PversionName="2.5.1" -PversionCode="251"
       - name: Upload release APK
         uses: actions/upload-artifact@v7
         with:
