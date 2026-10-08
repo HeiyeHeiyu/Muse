@@ -33,7 +33,7 @@
     <string name="settings_tutorial_ch8_s2_title">OAuth connectors: authorize external services</string>
     <string name="settings_tutorial_ch8_s2_content">Settings → Connectors connects any OAuth2 service (GitHub, Notion, calendar apps...).
 
-- Prepare: register an OAuth app in the provider console; set the redirect URI to io.zer0.muse://oauth/callback.
+- Prepare: register an OAuth app in the provider console; set the redirect URI to io.zer0.muse.canary://oauth/callback.
 
 - Configure: fill authorize URL, token URL, scope, Client ID / Secret on the connector page and save.
 

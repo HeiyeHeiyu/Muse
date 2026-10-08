@@ -113,7 +113,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "io.zer0.muse"
+        // 共存版(Canary):与原版应用 id 不同,可与已装的原版 Muse 并存
+        applicationId = "io.zer0.muse.canary"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 26
         targetSdk = 35

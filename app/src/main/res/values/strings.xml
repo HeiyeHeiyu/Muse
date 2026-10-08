@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
     <!-- App -->
-    <string name="app_name">Muse</string>
+    <string name="app_name">Muse Canary</string>
     <!-- 启动页 -->
     <string name="splash_subtitle">Your AI Companion</string>
 

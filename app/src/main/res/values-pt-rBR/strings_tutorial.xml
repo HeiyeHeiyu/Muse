@@ -33,7 +33,7 @@
     <string name="settings_tutorial_ch8_s2_title">Conectores OAuth: autorize servicos externos</string>
     <string name="settings_tutorial_ch8_s2_content">Ajustes → Conectores aceita qualquer servico OAuth2 (GitHub, Notion, agendas...).
 
-- Prepare: registre um app OAuth no console do provedor; use io.zer0.muse://oauth/callback como redirect URI.
+- Prepare: registre um app OAuth no console do provedor; use io.zer0.muse.canary://oauth/callback como redirect URI.
 
 - Configure: preencha authorize URL, token URL, scope e Client ID / Secret e salve.
 

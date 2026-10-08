@@ -36,7 +36,7 @@ class MuseNotificationListenerService : NotificationListenerService() {
 
     companion object {
         // L1-1: 过滤的系统包名,避免每次调用分配新 List
-        private val IGNORED_PACKAGES: Set<String> = setOf("android", "com.android.systemui", "io.zer0.muse")
+        private val IGNORED_PACKAGES: Set<String> = setOf("android", "com.android.systemui", "io.zer0.muse", "io.zer0.muse.canary")
 
         // 审计修复 (1.5): 高敏通知包名 — 银行/支付/验证码类,正文直接不采集
         // (仅保留来源包名与时间,text 置占位),防止验证码/余额/流水经 LLM 外泄。

@@ -16,9 +16,9 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 签名级护栏:仅同签名的 Muse 主应用可绑定桥接服务 -->
+    <!-- 签名级护栏:仅同签名的 Muse Canary 主应用可绑定桥接服务 -->
     <permission
-        android:name="io.zer0.muse.permission.A11Y_BRIDGE"
+        android:name="io.zer0.muse.canary.permission.A11Y_BRIDGE"
         android:protectionLevel="signature" />
 
     <application
@@ -28,7 +28,7 @@
 
         <!-- 无障碍服务:由系统绑定(exported=true + BIND_ACCESSIBILITY_SERVICE) -->
         <service
-            android:name=".A11yProviderAccessibilityService"
+            android:name="io.zer0.muse.a11y.A11yProviderAccessibilityService"
             android:exported="true"
             android:label="@string/a11y_provider_service_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
@@ -42,9 +42,9 @@
 
         <!-- AIDL 桥接服务:同签名主应用绑定 -->
         <service
-            android:name=".A11yBridgeService"
+            android:name="io.zer0.muse.a11y.A11yBridgeService"
             android:exported="true"
-            android:permission="io.zer0.muse.permission.A11Y_BRIDGE" />
+            android:permission="io.zer0.muse.canary.permission.A11Y_BRIDGE" />
     </application>
 
 </manifest>

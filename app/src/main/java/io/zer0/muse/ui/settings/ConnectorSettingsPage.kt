@@ -121,7 +121,7 @@ fun ConnectorSettingsPage(onBack: () -> Unit) {
                                             clientSecret = cfg.clientSecret.takeIf { it.isNotBlank() },
                                             authorizeUrl = cfg.authorizeUrl,
                                             tokenUrl = cfg.tokenUrl,
-                                            redirectUri = "io.zer0.muse://oauth/callback",
+                                            redirectUri = "io.zer0.muse.canary://oauth/callback",
                                             scope = cfg.scope,
                                         )
                                         OAuthManager.launchAuthorizationCodeFlow(

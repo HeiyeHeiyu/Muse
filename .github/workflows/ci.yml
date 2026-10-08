@@ -131,6 +131,17 @@ jobs:
         run: python3 ci/script/check_font_scale_clipping.py
       - name: Horizontal inset guard (UI-LAYOUT)
         run: python3 ci/script/check_horizontal_inset.py
+      - name: Restore stable debug keystore
+        if: steps.lanes.outputs.run_full == 'true'
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if (-not $env:DEBUG_KEYSTORE_BASE64) { Write-Host 'no DEBUG_KEYSTORE_BASE64 secret set'; exit 0 }
+          $dir = Join-Path $HOME '.android'
+          New-Item -ItemType Directory -Path $dir -Force | Out-Null
+          $path = Join-Path $dir 'debug.keystore'
+          [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:DEBUG_KEYSTORE_BASE64))
+          Write-Host "stable debug keystore restored ($((Get-Item $path).Length) bytes)"
       - name: Build debug APK
         if: steps.lanes.outputs.run_full == 'true'
         run: ./ci/run_ci_checks.ps1 -Lane debug

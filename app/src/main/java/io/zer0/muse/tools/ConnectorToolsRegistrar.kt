@@ -98,7 +98,7 @@ class ConnectorToolsRegistrar(
             clientSecret = connector.clientSecret.takeIf { it.isNotBlank() },
             authorizeUrl = connector.authorizeUrl,
             tokenUrl = connector.tokenUrl,
-            redirectUri = "io.zer0.muse://oauth/callback",
+            redirectUri = "io.zer0.muse.canary://oauth/callback",
             scope = connector.scope,
         )
         val token = OAuthManager.refreshTokenIfNeeded("connector_${connector.id}", oauthConfig)

@@ -33,7 +33,7 @@
     <string name="settings_tutorial_ch8_s2_title">OAuth コネクタ：外部サービスを認可</string>
     <string name="settings_tutorial_ch8_s2_content">設定 → コネクタで任意の OAuth2 サービス（GitHub、Notion、カレンダー系など）を接続できます。
 
-- 準備：プロバイダの管理画面で OAuth アプリを作成し、リダイレクト URI に io.zer0.muse://oauth/callback を設定。
+- 準備：プロバイダの管理画面で OAuth アプリを作成し、リダイレクト URI に io.zer0.muse.canary://oauth/callback を設定。
 
 - 設定：認可 URL、トークン URL、スコープ、Client ID / Secret を入力して保存。
 

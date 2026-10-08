@@ -14,7 +14,7 @@ import java.io.File
  * v1.0.92: OAuth 连接器配置 — 通用 OAuth2 服务接入。
  *
  * 连接流程复用 [io.zer0.muse.auth.OAuthManager](授权码 + PKCE),
- * 回调统一走 `io.zer0.muse://oauth/callback`;token 由 OAuthManager 的
+ * 回调统一走 `io.zer0.muse.canary://oauth/callback`;token 由 OAuthManager 的
  * 加密凭证存储按 `connector_{id}` 隔离保存。
  */
 @Serializable

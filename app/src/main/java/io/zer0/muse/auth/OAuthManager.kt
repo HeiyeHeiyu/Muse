@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit
  *     然后轮询 tokenUrl 直到拿到 access_token。
  *  2. **Authorization Code Flow + PKCE**:[OAuthConfig.deviceCodeUrl] 为空时走此流程。
  *     用 Intent.ACTION_VIEW 打开系统浏览器到 [OAuthConfig.authorizeUrl],
- *     通过 Deep Link(`io.zer0.muse://oauth/callback`)接收 code,
+ *     通过 Deep Link(`io.zer0.muse.canary://oauth/callback`)接收 code,
  *     由 [OAuthCallbackActivity] 调用 [completeAuthorizationCodeFlow] 完成回调,
  *     最后用 code + code_verifier 换 access_token。
  *

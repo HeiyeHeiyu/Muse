@@ -11,7 +11,7 @@ import kotlinx.serialization.Serializable
  * - [deviceCodeUrl] 非空时优先走 Device Flow:POST 拿 device_code + user_code,
  *   弹窗显示 user_code,轮询 [tokenUrl] 直到拿到 access_token。
  * - [deviceCodeUrl] 为空时走 Authorization Code Flow:用系统浏览器打开
- *   [authorizeUrl],通过 Deep Link(`io.zer0.muse://oauth/callback`)接收 code,
+ *   [authorizeUrl],通过 Deep Link(`io.zer0.muse.canary://oauth/callback`)接收 code,
  *   再用 code 换 access_token。
  *
  * @param authorizeUrl Authorization Code Flow 的授权页 URL
@@ -20,7 +20,7 @@ import kotlinx.serialization.Serializable
  * @param clientSecret OAuth 应用客户端密钥(Confidential Client 才需要,
  *   移动端 Public Client 应留空,改用 PKCE)
  * @param redirectUri Authorization Code Flow 的回调 URI,
- *   默认 `io.zer0.muse://oauth/callback`(已在 AndroidManifest 注册)
+ *   默认 `io.zer0.muse.canary://oauth/callback`(已在 AndroidManifest 注册)
  * @param scope 申请的权限范围(如 `chat.read chat.write`),空表示用供应商默认
  * @param deviceCodeUrl Device Flow 的 device_code 端点;为 null 表示不支持 Device Flow
  */
@@ -30,7 +30,7 @@ data class OAuthConfig(
     val tokenUrl: String,
     val clientId: String,
     val clientSecret: String? = null,
-    val redirectUri: String = "io.zer0.muse://oauth/callback",
+    val redirectUri: String = "io.zer0.muse.canary://oauth/callback",
     val scope: String = "",
     val deviceCodeUrl: String? = null,
 ) {

@@ -59,7 +59,7 @@ enum class McpConnectionState {
  *  6. 后续请求带 Bearer access_token;过期用 refresh_token 续期
  *
  * @param clientId OAuth client id(需在 server 预注册或 dynamic registration)
- * @param redirectUri 回调 URI(app deep link,如 io.zer0.muse://oauth/callback)
+ * @param redirectUri 回调 URI(app deep link,如 io.zer0.muse.canary://oauth/callback)
  * @param authorizationEndpoint 授权页 URL(如 https://server/oauth/authorize)
  * @param tokenEndpoint token 交换 URL(如 https://server/oauth/token)
  * @param scopes 空格分隔的 scope 列表(如 "tools:read tools:call")
@@ -68,7 +68,7 @@ enum class McpConnectionState {
 @Serializable
 data class McpOAuthConfig(
     val clientId: String = "",
-    val redirectUri: String = "io.zer0.muse://oauth/callback",
+    val redirectUri: String = "io.zer0.muse.canary://oauth/callback",
     val authorizationEndpoint: String = "",
     val tokenEndpoint: String = "",
     val scopes: String = "",

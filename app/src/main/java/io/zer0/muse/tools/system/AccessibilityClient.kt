@@ -43,7 +43,8 @@ class AccessibilityClient(private val context: Context) {
         val SERVICE_CLASS_NAME: String = MuseAccessibilityService::class.java.name
 
         /** v2.2.1: 无障碍独立 Provider 的包名(发布/安装检测与包可见性共用)。 */
-        const val PROVIDER_PACKAGE = "io.zer0.muse.a11y"
+        // 共存版(Canary):Provider 包名跟随主应用改名,与原版隔离
+        const val PROVIDER_PACKAGE = "io.zer0.muse.canary.a11y"
 
         /** v2.2.1: 独立 Provider 的 AIDL 桥接服务组件(签名级权限护栏)。 */
         const val PROVIDER_BRIDGE_CLASS = "io.zer0.muse.a11y.A11yBridgeService"

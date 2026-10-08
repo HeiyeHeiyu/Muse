@@ -61,7 +61,7 @@
     <!-- v2.2.1 Termux 通道:经由 Termux RUN_COMMAND 协议执行命令(用户在 Termux 附加权限中授予) -->
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
     <!-- v2.2.1 无障碍独立 Provider:绑定其 AIDL 桥接服务(签名级权限,仅同签名应用可绑定) -->
-    <uses-permission android:name="io.zer0.muse.permission.A11Y_BRIDGE" />
+    <uses-permission android:name="io.zer0.muse.canary.permission.A11Y_BRIDGE" />
     <!-- v2.2.1 无障碍独立 Provider:应用内拉起 APK 安装器(安装引导,由系统安装器完成确认) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Phase 5-I: 备份导出/导入(SAF 不需要权限,但读取外部文档需要) -->
@@ -69,7 +69,7 @@
         <!-- v2.2.1 Termux 通道:包可见性(Android 11+ 否则看不到 Termux) -->
         <package android:name="com.termux" />
         <!-- v2.2.1 无障碍独立 Provider:包可见性(安装检测与桥接绑定) -->
-        <package android:name="io.zer0.muse.a11y" />
+        <package android:name="io.zer0.muse.canary.a11y" />
         <intent>
             <action android:name="android.intent.action.RECOGNIZE_SPEECH" />
         </intent>
@@ -93,7 +93,7 @@
     </queries>
 
     <application
-        android:name=".MuseApp"
+        android:name="io.zer0.muse.MuseApp"
         android:allowBackup="false"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
@@ -104,7 +104,7 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:localeConfig="@xml/locales_config">
         <activity
-            android:name=".MainActivity"
+            android:name="io.zer0.muse.MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|density|smallestScreenSize|uiMode"
             android:windowSoftInputMode="adjustResize"
@@ -139,7 +139,7 @@
                  <data android:scheme="muse" android:host="knowledge" />
                  <data android:scheme="muse" android:host="knowledge-bases" />
             </intent-filter>
-            <!-- P1-6: OAuth 回调 io.zer0.muse://oauth/callback 已迁移到 OAuthCallbackActivity -->
+            <!-- P1-6: OAuth 回调 io.zer0.muse.canary://oauth/callback 已迁移到 OAuthCallbackActivity -->
             <!-- (原 Phase 10.4 的 pathPrefix="/callback" filter 已移除,避免与 OAuthCallbackActivity 冲突) -->
             <!-- Phase 8.10: 接收系统分享(纯文本) -->
             <intent-filter>
@@ -165,11 +165,11 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
-        <!-- P1-6: OAuth 回调空 Activity — 接收 io.zer0.muse://oauth/callback Deep Link -->
+        <!-- P1-6: OAuth 回调空 Activity — 接收 io.zer0.muse.canary://oauth/callback Deep Link -->
         <!-- exported=true 是 Deep Link 必需(浏览器/系统调起) -->
         <!-- 透明主题避免无 UI Activity 启动时闪屏 -->
         <activity
-            android:name=".auth.OAuthCallbackActivity"
+            android:name="io.zer0.muse.auth.OAuthCallbackActivity"
             android:exported="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true"
@@ -179,7 +179,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="io.zer0.muse"
+                    android:scheme="io.zer0.muse.canary"
                     android:host="oauth"
                     android:path="/callback" />
             </intent-filter>
@@ -187,7 +187,7 @@
 
         <!-- Phase 12: Glance Compose 桌面小部件(快捷启动到最近会话) -->
         <receiver
-            android:name=".widget.MuseQuickWidgetReceiver"
+            android:name="io.zer0.muse.widget.MuseQuickWidgetReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -197,7 +197,7 @@
                 android:resource="@xml/muse_quick_widget_info" />
         </receiver>
         <activity
-            android:name=".widget.MuseQuickWidgetConfigureActivity"
+            android:name="io.zer0.muse.widget.MuseQuickWidgetConfigureActivity"
             android:exported="false"
             android:theme="@style/Theme.Muse.Starting">
             <intent-filter>
@@ -207,7 +207,7 @@
 
         <!-- P3-16: Glance Compose 桌面 4x2 对话小部件(显示最近 AI 回复) -->
         <receiver
-            android:name=".widget.MuseChatWidgetReceiver"
+            android:name="io.zer0.muse.widget.MuseChatWidgetReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -217,7 +217,7 @@
                 android:resource="@xml/muse_chat_widget_info" />
         </receiver>
         <activity
-            android:name=".widget.MuseChatWidgetConfigureActivity"
+            android:name="io.zer0.muse.widget.MuseChatWidgetConfigureActivity"
             android:exported="false"
             android:theme="@style/Theme.Muse.Starting">
             <intent-filter>
@@ -227,7 +227,7 @@
 
         <!-- F-25: 桌面启动小部件(RemoteViews 最小实现,直达 muse://chat) -->
         <receiver
-            android:name=".widget.MuseLauncherWidget"
+            android:name="io.zer0.muse.widget.MuseLauncherWidget"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -239,7 +239,7 @@
 
         <!-- v2.2.1 虚拟屏:shell 服务端 Binder 手递手(服务端经 AMS 定向广播到本包) -->
         <receiver
-            android:name=".automation.vdisplay.VirtualDisplayBinderReceiver"
+            android:name="io.zer0.muse.automation.vdisplay.VirtualDisplayBinderReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="io.zer0.muse.vdproto.BINDER" />
@@ -248,7 +248,7 @@
 
         <!-- v0.32: 开机自启动 receiver(autoLaunch 设置开关控制 enabled 状态) -->
         <receiver
-            android:name=".boot.BootReceiver"
+            android:name="io.zer0.muse.boot.BootReceiver"
             android:enabled="false"
             android:exported="true"
             android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
@@ -259,14 +259,14 @@
 
         <!-- v1.43: 聊天生成前台服务(切后台时保持 AI 生成不中断) -->
         <service
-            android:name=".schedule.ChatGenerationService"
+            android:name="io.zer0.muse.schedule.ChatGenerationService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
         <!-- 快速记录悬浮窗:折叠胶囊 + 紧凑输入卡 -->
         <service
-            android:name=".ui.quicknotes.QuickCaptureOverlayService"
+            android:name="io.zer0.muse.ui.quicknotes.QuickCaptureOverlayService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse">
@@ -277,7 +277,7 @@
 
         <!-- P2: 通知监听服务(用户需在系统设置→通知使用权中授权) -->
         <service
-            android:name=".notification.MuseNotificationListenerService"
+            android:name="io.zer0.muse.notification.MuseNotificationListenerService"
             android:label="Muse 通知监听"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
             android:exported="true">
@@ -288,7 +288,7 @@
 
         <!-- v1.136: 定时提醒闹钟接收器 -->
         <receiver
-            android:name=".tools.reminder.ReminderAlarmReceiver"
+            android:name="io.zer0.muse.tools.reminder.ReminderAlarmReceiver"
             android:exported="false" />
 
         <!-- 文件附件:用于把沙盒内文件通过 ACTION_VIEW 分享给其它应用打开 -->
@@ -316,7 +316,7 @@
              exported=true 是 AccessibilityManager 由系统绑定该服务的必要条件;
              BIND_ACCESSIBILITY_SERVICE 仍限制普通应用直接绑定。 -->
         <service
-            android:name=".automation.executors.MuseAccessibilityService"
+            android:name="io.zer0.muse.automation.executors.MuseAccessibilityService"
             android:exported="true"
             android:label="@string/automation_permission_a11y"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">

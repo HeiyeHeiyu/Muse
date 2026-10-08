@@ -16,7 +16,8 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "io.zer0.muse.a11y"
+        // 共存版(Canary)的 Provider:与主应用成对改名,保持同签名绑定
+        applicationId = "io.zer0.muse.canary.a11y"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

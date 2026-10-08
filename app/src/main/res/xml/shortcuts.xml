@@ -13,7 +13,7 @@
         android:shortcutLongLabel="@string/shortcut_new_chat_long">
         <intent
             android:action="io.zer0.muse.ACTION_NEW_CHAT"
-            android:targetPackage="io.zer0.muse"
+            android:targetPackage="io.zer0.muse.canary"
             android:targetClass="io.zer0.muse.MainActivity" />
     </shortcut>
 
@@ -26,7 +26,7 @@
         android:shortcutLongLabel="@string/shortcut_translate_long">
         <intent
             android:action="io.zer0.muse.ACTION_TRANSLATE"
-            android:targetPackage="io.zer0.muse"
+            android:targetPackage="io.zer0.muse.canary"
             android:targetClass="io.zer0.muse.MainActivity" />
     </shortcut>
 
@@ -39,7 +39,7 @@
         android:shortcutLongLabel="@string/shortcut_voice_input_long">
         <intent
             android:action="io.zer0.muse.ACTION_VOICE_INPUT"
-            android:targetPackage="io.zer0.muse"
+            android:targetPackage="io.zer0.muse.canary"
             android:targetClass="io.zer0.muse.MainActivity" />
     </shortcut>
 
@@ -52,7 +52,7 @@
         android:shortcutLongLabel="@string/shortcut_settings_long">
         <intent
             android:action="io.zer0.muse.ACTION_SETTINGS"
-            android:targetPackage="io.zer0.muse"
+            android:targetPackage="io.zer0.muse.canary"
             android:targetClass="io.zer0.muse.MainActivity" />
     </shortcut>
 
@@ -65,7 +65,7 @@
         android:shortcutLongLabel="@string/shortcut_quick_notes_long">
         <intent
             android:action="io.zer0.muse.ACTION_QUICK_NOTES"
-            android:targetPackage="io.zer0.muse"
+            android:targetPackage="io.zer0.muse.canary"
             android:targetClass="io.zer0.muse.MainActivity" />
     </shortcut>
 

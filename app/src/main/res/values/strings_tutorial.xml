@@ -33,7 +33,7 @@
     <string name="settings_tutorial_ch8_s2_title">OAuth 连接器：授权外部服务</string>
     <string name="settings_tutorial_ch8_s2_content">设置 → 连接器，可接入任意支持 OAuth2 的服务（GitHub、Notion、日历类等）。
 
-- 准备：在目标服务开发者后台创建 OAuth 应用，回调地址填 io.zer0.muse://oauth/callback。
+- 准备：在目标服务开发者后台创建 OAuth 应用，回调地址填 io.zer0.muse.canary://oauth/callback。
 
 - 配置：把授权端点、Token 端点、Scope、Client ID / Secret 填入连接器页并保存。
 

@@ -7,11 +7,11 @@ import android.os.Bundle
 import io.zer0.common.Logger
 
 /**
- * P1-6: OAuth 回调空 Activity — 仅用于接收 `io.zer0.muse://oauth/callback` Deep Link。
+ * P1-6: OAuth 回调空 Activity — 仅用于接收 `io.zer0.muse.canary://oauth/callback` Deep Link。
  *
  * 工作流程:
  *  1. 浏览器完成 Authorization Code Flow 授权后,跳转到 redirectUri
- *     (`io.zer0.muse://oauth/callback?code=xxx&state=yyy`)
+ *     (`io.zer0.muse.canary://oauth/callback?code=xxx&state=yyy`)
  *  2. 系统匹配到本 Activity 的 intent-filter,启动本 Activity
  *  3. [onCreate] / [onNewIntent] 解析 query 中的 code + state,
  *     调用 [OAuthManager.completeAuthorizationCodeFlow] 完成 Flow

@@ -227,7 +227,7 @@ object McpOAuthFlow {
     /**
      * 解析 redirect_uri 回调的 query 参数,提取 code 和 state。
      *
-     * 回调形如:io.zer0.muse://oauth/callback?code=xxx&state=yyy
+     * 回调形如:io.zer0.muse.canary://oauth/callback?code=xxx&state=yyy
      * 失败时(如 error=access_denied)返回 null。
      */
     fun parseRedirectCallback(redirectUri: String, expectedPrefix: String? = null): Pair<String, String>? {

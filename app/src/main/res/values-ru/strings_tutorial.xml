@@ -33,7 +33,7 @@
     <string name="settings_tutorial_ch8_s2_title">OAuth-коннекторы: авторизация сервисов</string>
     <string name="settings_tutorial_ch8_s2_content">Настройки → Коннекторы подключают любой OAuth2-сервис (GitHub, Notion, календари...).
 
-- Подготовка: создайте OAuth-приложение в консоли провайдера; redirect URI = io.zer0.muse://oauth/callback.
+- Подготовка: создайте OAuth-приложение в консоли провайдера; redirect URI = io.zer0.muse.canary://oauth/callback.
 
 - Настройка: заполните authorize URL, token URL, scope, Client ID / Secret и сохраните.
 

@@ -147,7 +147,7 @@ object McpDynamicRegistration {
      * Step 2: 动态客户端注册(RFC 7591)。
      *
      * @param registrationEndpoint 注册端点(从 [discoverMetadata] 拿到)
-     * @param redirectUri 回调 URI(必须与 MCP server 预期一致,如 io.zer0.muse://oauth/callback)
+     * @param redirectUri 回调 URI(必须与 MCP server 预期一致,如 io.zer0.muse.canary://oauth/callback)
      * @param clientName 客户端名(默认 "muse")
      * @param scopes 空格分隔的 scope 列表(如 "tools:read tools:call")
      * @return 注册结果;失败返回 null
@@ -212,7 +212,7 @@ object McpDynamicRegistration {
      */
     suspend fun discoverAndRegister(
         serverUrl: String,
-        redirectUri: String = "io.zer0.muse://oauth/callback",
+        redirectUri: String = "io.zer0.muse.canary://oauth/callback",
         scopes: String = "",
     ): McpOAuthConfig? = withContext(Dispatchers.IO) {
         val meta = discoverMetadata(serverUrl) ?: return@withContext null
