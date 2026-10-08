@@ -67,17 +67,30 @@ jobs:
         env:
           DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
         run: |
-          if (-not $env:DEBUG_KEYSTORE_BASE64) { Write-Host 'no DEBUG_KEYSTORE_BASE64 secret set'; exit 0 }
+          if (-not $env:DEBUG_KEYSTORE_BASE64) { Write-Host 'no DEBUG_KEYSTORE_BASE64 secret set'; exit 1 }
           $dir = Join-Path $HOME '.android'
           New-Item -ItemType Directory -Path $dir -Force | Out-Null
           $path = Join-Path $dir 'debug.keystore'
           [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:DEBUG_KEYSTORE_BASE64))
           Write-Host "stable debug keystore restored ($((Get-Item $path).Length) bytes)"
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
-      - name: Upload debug APK
+      - name: Generate canary signing config
+        run: |
+          $dir = Join-Path $HOME '.android'
+          $path = Join-Path $dir 'debug.keystore'
+          Copy-Item $path 'canary.keystore' -Force
+          $props = @(
+            'storeFile=../canary.keystore',
+            'storePassword=android',
+            'keyAlias=androiddebugkey',
+            'keyPassword=android'
+          )
+          Set-Content -Path 'keystore.properties' -Value $props -Encoding utf8
+          Write-Host 'keystore.properties written for release signing'
+      - name: Build release APKs (minified + optimized)
+        run: ./gradlew assembleRelease -PversionName=2.5.1 -PversionCode=251
+      - name: Upload release APK
         uses: actions/upload-artifact@v7
         with:
-          name: debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: release-apk
+          path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
