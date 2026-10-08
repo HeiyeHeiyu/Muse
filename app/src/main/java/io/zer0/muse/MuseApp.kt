@@ -1,9 +1,11 @@
 package io.zer0.muse
 
 import android.app.Application
+import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.os.Build
+import android.os.Bundle
 import android.os.PowerManager
 import android.os.StrictMode
 import androidx.lifecycle.Lifecycle
@@ -192,6 +194,8 @@ class MuseApp : Application(), ImageLoaderFactory {
             return
         }
         super.onCreate()
+        // Canary 共存版增强:请求设备最高刷新率(120Hz 屏解锁满帧)
+        registerActivityLifecycleCallbacks(HighRefreshRateCallbacks())
         // StrictMode:仅 debug 构建,检测主线程磁盘读写/网络访问违规并 penaltyLog。
         // 必须在服务初始化前启用,以便捕获 Koin/Runner 初始化期间的违规;release 不启用避免性能开销。
         if (BuildConfig.DEBUG) {
@@ -946,6 +950,45 @@ class MuseApp : Application(), ImageLoaderFactory {
         }
         .crossfade(true)
         .build()
+
+    /**
+     * Canary 共存版增强:每个 Activity 创建时请求设备最高刷新率。
+     *
+     * 背景:Android 的刷新率是系统级策略,App 不主动声明时部分设备(尤其是高刷屏)
+     * 会按默认档(如 90Hz)运行。通过 WindowManager.LayoutParams.preferredDisplayModeId
+     * (API 30+)或已废弃的 preferredRefreshRate(旧版)告知系统切到高刷档。
+     */
+    private inner class HighRefreshRateCallbacks : ActivityLifecycleCallbacks {
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+            runCatching {
+                val layoutParams = activity.window?.attributes ?: return
+                val display = activity.display ?: return
+                val modes = display.supportedModes
+                // 挑刷新率最高的模式(120Hz 优先;没有就取设备最高)
+                val bestMode = modes.maxByOrNull { it.refreshRate } ?: return
+                if (bestMode.refreshRate <= 60f) return // 设备本身不支持高刷,不用折腾
+                val newParams = layoutParams.apply {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        preferredDisplayModeId = bestMode.modeId
+                    } else {
+                        @Suppress("DEPRECATION")
+                        preferredRefreshRate = bestMode.refreshRate
+                    }
+                }
+                activity.window?.attributes = newParams
+                Logger.i("MuseApp", "high refresh rate requested: ${bestMode.refreshRate}Hz")
+            }.onFailure {
+                Logger.w("MuseApp", "set high refresh rate failed: ${it.message}")
+            }
+        }
+
+        override fun onActivityStarted(activity: Activity) {}
+        override fun onActivityResumed(activity: Activity) {}
+        override fun onActivityPaused(activity: Activity) {}
+        override fun onActivityStopped(activity: Activity) {}
+        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+        override fun onActivityDestroyed(activity: Activity) {}
+    }
 
     companion object {
         /** v1.0.17: 快速记录迁移标志的 SharedPreferences key(文件 muse_migration)。 */
