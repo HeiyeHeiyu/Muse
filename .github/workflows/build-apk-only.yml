@@ -5,6 +5,11 @@ name: Build APK Only
 on:
   workflow_dispatch:
 
+# 与原 CI 一致:所有 run 步骤使用 PowerShell 7,避免 bash 解析 Windows 风格脚本报错
+defaults:
+  run:
+    shell: pwsh
+
 concurrency:
   group: muse-apk-only-${{ github.ref }}
   cancel-in-progress: true
