@@ -87,32 +87,47 @@ class ChatStreamCoordinator(
         text.contains("[mod]", ignoreCase = true)
 
     /**
-     * 流式中间态：提取“已开未闭”的 mood/mod 块内容。
+     * 流式逐字 MOOD 提取（还原 1.0.30 节奏）。
      *
-     * 模型流式输出时标签分片到达：先 `<mood>`，再逐字内容，最后 `</mood>`。
-     * extractMood 要求闭合标签才提取，因此开标签已到、闭标签未到的区间内
-     * mood 会“消失/闪烁”。本函数只要求开标签存在，从开标签后提取到当前
-     * 文本末尾的全部内容（逐字生长），保证 mood 块从出现起就稳定展示；
-     * 闭标签到达后由 extractMood 正常定格。兼容尖括号/方括号两种写法。
+     * 返回 (剥离 mood 块后的正文, mood 内容)。与 v1.0.30 的 extractTagContent 同语义：
+     *  - 标签已闭合:提取完整 mood 块并整体从正文剥离 → mood 定格、正文逐字流式
+     *  - 标签未闭合(开标签已到、闭标签未到):提取“当前已到达”的内容作为进行中的 mood,
+     *    同时把开标签之前的部分留作正文 → mood 逐字生长、正文连贯不闪断
+     *  - 无 mood 标签:原样返回正文与 null
+     * 兼容 <mood>/[mood]/<mod>/[mod] 四种写法。
      */
-    private fun extractPartialMood(text: String): String? {
-        val openPatterns =
-            listOf("<mood>", "<mod>", "[mood]", "[mod]").firstOrNull { tag ->
-                text.contains(tag, ignoreCase = true) &&
-                    !text.contains(closeTagFor(tag), ignoreCase = true)
-            } ?: return null
-        val idx = text.indexOf(openPatterns, ignoreCase = true)
-        if (idx < 0) return null
-        val body = text.substring(idx + openPatterns.length).trim()
-        return body.ifBlank { null }
-    }
-
-    /** 与 [openPatterns] 对应的闭合标签（大小写不敏感匹配用）。 */
-    private fun closeTagFor(open: String): String = when {
-        open.equals("<mood>", ignoreCase = true) -> "</mood>"
-        open.equals("<mod>", ignoreCase = true) -> "</mod>"
-        open.equals("[mood]", ignoreCase = true) -> "[/mood]"
-        else -> "[/mod]"
+    private fun extractMoodStreaming(text: String): Pair<String, String?> {
+        // 按四种写法逐一尝试;mood 与 mod 只取最先出现的
+        val variants =
+            listOf(
+                "<mood>" to "</mood>",
+                "[mood]" to "[/mood]",
+                "<mod>" to "</mod>",
+                "[mod]" to "[/mod]",
+            )
+        // 找最先出现的开标签
+        var earliestIdx = Int.MAX_VALUE
+        var earliest: Pair<String, String>? = null
+        for ((open, close) in variants) {
+            val idx = text.indexOf(open, ignoreCase = true)
+            if (idx >= 0 && idx < earliestIdx) {
+                earliestIdx = idx
+                earliest = open to close
+            }
+        }
+        val (open, close) = earliest ?: return text.trim() to null
+        // 定位对应的闭标签(取开标签之后最近的一个)
+        val closeIdx = text.indexOf(close, startIndex = earliestIdx, ignoreCase = true)
+        if (closeIdx >= 0) {
+            // 已闭合:完整提取,整体剥离
+            val moodBody = text.substring(earliestIdx + open.length, closeIdx).trim()
+            val contentAfter = text.removeRange(earliestIdx, closeIdx + close.length).trim()
+            return contentAfter to moodBody.ifBlank { null }
+        }
+        // 未闭合:开标签后的全部内容作为进行中的 mood,开标签前留作正文
+        val moodBody = text.substring(earliestIdx + open.length).trim()
+        val contentAfter = text.substring(0, earliestIdx).trim()
+        return contentAfter to moodBody.ifBlank { null }
     }
 
     private val tag = "ChatVM"
@@ -261,20 +276,10 @@ class ChatStreamCoordinator(
         }
 
         // 完整路径:流式结束或 content 含特殊标签时,执行 mood/reflection/think 提取。
-        val contentAfterMood = content
-        // 无论模型使用 mood 还是 mod、尖括号还是方括号，都先收集到同一个可折叠字段。
-        // 正文稍后由 InternalMarkupSanitizer 统一剥离，避免“标签消失但 mood 也没保存”。
-        val moodContent = InternalMarkupSanitizer.extractMood(content)
-        // 流式中间态修复:模型先吐 <mood> 开标签、内容还在逐字流式、</mood> 尚未到达时,
-        // extractMood(要求闭合)提取不到 → mood 块会先“消失/闪烁”，闭合后才整块跳出。
-        // 这里在流式过程中用“未闭合提取”兑底:开标签已到但未闭合时,也把已有内容提取出来,
-        // 让 mood 从开标签到达的那一帧起就稳定存在、随流式逐字生长,闭合后由 extractMood 定格。
-        val partialMoodContent =
-            if (isStreaming && moodContent == null && containsMoodMarker(content)) {
-                extractPartialMood(content)
-            } else {
-                null
-            }
+        // v2.5.1-canary: 还原 1.0.30 的逐字流式节奏 — 不再等标签闭合才提取。
+        // 流式过程中只要检测到 mood 开标签,就立即提取“当前已到达的内容”(逐字生长),
+        // 正文同步剥离 mood 块后逐字显示,两者互不遮挡、全程连贯。
+        val (contentAfterMood, moodContent) = extractMoodStreaming(content)
         // B6-02: moodfx 独立解析,不与应用自带 <mood> 串台
         val (moodSkinContent, contentAfterMoodSkin) =
             if (contentAfterMood.contains("<moodfx>", ignoreCase = true)) {
@@ -293,7 +298,7 @@ class ChatStreamCoordinator(
         // v1.0.73: mood 兜底 — 模型(尤其深度思考)可能把 <mood> 腹稿写进思考通道
         // (reasoning_content),而正文 content 里没有。此时从 reasoning 里提取 mood,
         // 让 mood 块照常显示;提取后从 reasoning 中剥掉该块(思考里不再重复展示)。
-        var effectiveMood = moodContent ?: partialMoodContent
+        var effectiveMood = moodContent
         var effectiveReasoningInput = reasoning
         if (effectiveMood == null && !reasoning.isNullOrBlank() && containsMoodMarker(reasoning)
         ) {
