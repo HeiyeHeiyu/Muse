@@ -923,6 +923,13 @@ class SkillExecutor(
                                             "description",
                                             "可选能力数组,取自白名单:resource.read / ui / ui.mood 与受控桥接能力(network / storage.read / storage.write / clipboard.read / clipboard.write / notify / device.info)，默认不声明",
                                         )
+                                        // Gemini 严格校验:数组必须带 items(type) 才能通过 schema 检查
+                                        put(
+                                            "items",
+                                            buildJsonObject {
+                                                put("type", "string")
+                                            },
+                                        )
                                     },
                                 )
                             },
