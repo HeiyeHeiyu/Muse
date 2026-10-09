@@ -6,9 +6,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -106,9 +109,11 @@ internal fun ModelSwitchSheet(
     val isGroupCollapsed: (String) -> Boolean = { name -> collapsedMap[name] ?: true }
 
     // MuseDialog 替代原 ModalBottomSheet,避免真机 scrim 卡死
+    // contentScrollable=false:模型列表改用 LazyColumn 虚拟化,外层不再包 verticalScroll
     MuseDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.model_switch_title),
+        contentScrollable = false,
         content = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -422,9 +427,10 @@ internal fun ModelSwitchSheet(
                 }
 
                 // === 分组折叠列表 ===
-                // 注:MuseDialog 内容区为 Box + verticalScroll,内部不能用 LazyColumn
-                // (会触发"Vertically scrollable component was measured with an infinity maximum
-                //  height constraints"错误),故用 Column + forEach 等效实现,功能与 LazyColumn 等价。
+                // v2.5.1-canary: Column+forEach 全量渲染 → LazyColumn 虚拟化。
+                // 原实现把全部模型一次渲染进 Column 再靠外层 verticalScroll 硬滚,
+                // 模型多时每帧滚动都要重排全部行 → 掉帧卡顿。现改为 LazyColumn
+                // 按需渲染可见行,滚动流畅;分组折叠状态仍由 collapsedMap 控制。
                 if (filteredModels.isEmpty()) {
                     Text(
                         text = stringResource(R.string.model_switch_no_models),
@@ -435,27 +441,48 @@ internal fun ModelSwitchSheet(
                             .padding(vertical = MusePaddings.largeGap),
                     )
                 } else {
-                    groups.forEach { (groupName, ids) ->
-                        GroupHeader(
-                            groupName = groupName,
-                            modelCount = ids.size,
-                            isCollapsed = isGroupCollapsed(groupName),
-                            onToggle = {
-                                collapsedMap[groupName] = !isGroupCollapsed(groupName)
-                            },
-                        )
-                        if (!isGroupCollapsed(groupName)) {
-                            ids.forEach { modelId ->
-                                val model = modelById[modelId] ?: return@forEach
-                                ModelRow(
-                                    model = model,
-                                    isSelected = model.id == effectiveModelId,
-                                    onClick = {
-                                        onPickModel(model.id)
-                                        onDismiss()
+                    // 展开的组(组名 → 模型 id 列表),用于 LazyColumn 扁平化
+                    val expandedGroups =
+                        groups.mapNotNull { (groupName, ids) ->
+                            if (isGroupCollapsed(groupName)) null else groupName to ids
+                        }
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 320.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        // 折叠组只渲染头部(点击可展开)
+                        groups.forEach { (groupName, ids) ->
+                            val collapsed = isGroupCollapsed(groupName)
+                            item(key = "header_$groupName") {
+                                GroupHeader(
+                                    groupName = groupName,
+                                    modelCount = ids.size,
+                                    isCollapsed = collapsed,
+                                    onToggle = {
+                                        collapsedMap[groupName] = !collapsed
                                     },
-                                    hasNativeWebSearch = providerSupportsNativeWebSearch(activeProvider.type),
                                 )
+                            }
+                            if (!collapsed) {
+                                items(
+                                    items = ids,
+                                    key = { it },
+                                ) { modelId ->
+                                    val model = modelById[modelId]
+                                    if (model != null) {
+                                        ModelRow(
+                                            model = model,
+                                            isSelected = model.id == effectiveModelId,
+                                            onClick = {
+                                                onPickModel(model.id)
+                                                onDismiss()
+                                            },
+                                            hasNativeWebSearch = providerSupportsNativeWebSearch(activeProvider.type),
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

@@ -96,6 +96,13 @@ fun MuseDialog(
     onDismiss: (() -> Unit)? = null,
     /** 主按钮是否为危险操作(删除/清除) — true 时背景改用 error 红色。 */
     destructive: Boolean = false,
+    /**
+     * 内容区自身是否可滚动。默认 true(外层 verticalScroll)。
+     * 当内容区包含 LazyColumn 等自带滚动的组件时传 false,避免
+     * “Vertically scrollable component was measured with an infinity maximum
+     *  height constraints”冲突;此时由内容组件自己处理滚动与高度。
+     */
+    contentScrollable: Boolean = true,
     properties: DialogProperties = DialogProperties(
         // v0.28: 关闭弹窗时整体淡出,提升精致感
         dismissOnClickOutside = true,
@@ -163,12 +170,19 @@ fun MuseDialog(
                         Spacer(Modifier.height(MusePaddings.auxGap))
                     }
                     // 内容区(居中 + 可滚动,防长内容溢出)
+                    // contentScrollable=false 时不包 verticalScroll,由内容组件(如 LazyColumn)
+                    // 自持滚动,避免无限高度约束冲突。
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            // 内容区最大高度令牌:超出内部滚动,标题与按钮保持可见。
                             .heightIn(max = MuseDialogSizes.contentMaxHeight)
-                            .verticalScroll(rememberScrollState()),
+                            .then(
+                                if (contentScrollable) {
+                                    Modifier.verticalScroll(rememberScrollState())
+                                } else {
+                                    Modifier
+                                },
+                            ),
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
